@@ -29,7 +29,8 @@
       "@main/*": ["src/main/*"],
       "@renderer/*": ["src/renderer/*"],
       "@preload/*": ["src/preload/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@ui/*": ["src/renderer/components/ui/*"]
     }
   },
   "include": ["src/**/*", "scripts/**/*", "tests/**/*"],

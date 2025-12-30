@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { Button } from '@ui/button';
 
 /**
  * Main App component.
@@ -18,17 +19,20 @@ export function App(): React.ReactElement {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Titlebar drag region for macOS hiddenInset */}
       <div className="h-8 w-full" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
 
       {/* Main content */}
       <main className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-neutral-900">mdxpad</h1>
-          <p className="mt-2 text-sm text-neutral-500">
+          <h1 className="text-4xl font-bold">mdxpad</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Version {version} • {window.mdxpad.platform.os} {window.mdxpad.platform.arch}
           </p>
+          <Button className="mt-4" variant="default">
+            Get Started
+          </Button>
         </div>
       </main>
     </div>

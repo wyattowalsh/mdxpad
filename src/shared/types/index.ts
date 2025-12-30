@@ -14,7 +14,12 @@ export type {
   IpcResponse,
 } from '../lib/ipc';
 
-// Additional shared types can be defined here
+// Re-export types from type modules (Spec 001)
+export * from './editor';
+export * from './file';
+export * from './preview';
+export * from './ipc';
+export * from './ui';
 
 /**
  * Platform information exposed to renderer.
