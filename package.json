@@ -1,0 +1,66 @@
+{
+  "name": "mdxpad",
+  "version": "0.1.0",
+  "description": "A macOS-first MDX editor",
+  "type": "module",
+  "main": "dist/main/index.js",
+  "packageManager": "pnpm@10.11.1",
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "esbuild"]
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build && electron-builder",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "bench": "tsx scripts/bench.ts",
+    "verify-security": "tsx scripts/verify-security.ts",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "zod": "^3.24.0",
+    "zustand": "^5.0.0",
+    "immer": "^10.0.0"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-vite": "^3.0.0",
+    "electron-builder": "^25.0.0",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "typescript": "^5.7.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/node": "^22.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "eslint-plugin-react": "^7.0.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "prettier": "^3.4.0",
+    "vitest": "^2.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "happy-dom": "^15.0.0",
+    "@testing-library/react": "^16.0.0",
+    "playwright": "^1.49.0",
+    "@playwright/test": "^1.49.0",
+    "tsx": "^4.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

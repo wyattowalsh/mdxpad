@@ -1,0 +1,184 @@
+# mdxpad CI Pipeline
+# Per spec 000-foundational-setup: typecheck, lint, test, build, bench
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: macos-14  # M1 runner for arm64
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: TypeScript check
+        run: pnpm typecheck
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+  build:
+    name: Build
+    runs-on: macos-14
+    needs: quality
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build app
+        run: pnpm build
+        env:
+          # Skip code signing in CI
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdxpad-macos
+          path: |
+            release/*.dmg
+            release/*.blockmap
+          retention-days: 7
+
+  security:
+    name: Security Verification
+    runs-on: macos-14
+    needs: quality
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build for verification
+        run: pnpm exec electron-vite build
+
+      - name: Verify security settings
+        run: pnpm verify-security
+
+  benchmark:
+    name: Performance Benchmark
+    runs-on: macos-14
+    needs: quality
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build for benchmark
+        run: pnpm exec electron-vite build
+
+      - name: Run benchmark
+        run: pnpm bench
+
+      - name: Check performance budget
+        run: |
+          # Parse benchmark output and verify against constitution budgets
+          pnpm bench 2>/dev/null | jq -e '.passed == true' || {
+            echo "Performance budget exceeded!"
+            exit 1
+          }
+
+  e2e:
+    name: E2E Tests
+    runs-on: macos-14
+    needs: quality
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build app
+        run: pnpm exec electron-vite build
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
