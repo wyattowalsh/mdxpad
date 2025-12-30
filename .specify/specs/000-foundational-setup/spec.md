@@ -1,6 +1,6 @@
 # Feature Specification: Foundational Setup
 
-**Feature Branch**: `feat/000-foundational-setup`
+**Feature Branch**: `000-foundational-setup`
 **Created**: 2025-12-30
 **Status**: Draft
 **Spec ID**: 000
@@ -78,7 +78,7 @@ I can track performance against constitution budgets.
 
 1. **Given** a built app, **When** I run `pnpm bench`, **Then** I see JSON output with `coldStartMs` metric
 2. **Given** bench output, **When** I check `memoryMb`, **Then** it shows memory usage in MB
-3. **Given** bench results, **When** I compare to budgets, **Then** cold start is < 2000ms and memory < 150MB
+3. **Given** bench results, **When** I compare to budgets, **Then** cold start is < 2000ms and memory < 200MB
 
 ---
 
@@ -103,9 +103,22 @@ app is secure by default.
 
 ### Edge Cases
 
+**Environment Errors**:
 - What happens when Node.js version is too old? → Build should fail with clear error message
 - What happens when pnpm is not installed? → Package.json engines field should warn
 - How does system handle missing Xcode tools? → electron-builder should provide clear error
+
+**Recovery Scenarios**:
+- What if `pnpm install` fails mid-download? → User should run `pnpm install` again; lockfile ensures reproducibility
+- What if node_modules is corrupted? → User should delete node_modules and pnpm-lock.yaml, then run `pnpm install`
+
+**Security Edge Cases**:
+- What if preload script fails to load? → App should display error in main process console and prevent renderer from accessing undefined API
+- What if file operations hit permission denial (macOS sandbox)? → Return `Result.err()` with descriptive error; file dialog handles permissions automatically
+
+**Performance Edge Cases**:
+- What if benchmark times out (app doesn't reach ready state)? → Benchmark should timeout after 30 seconds with error exit code
+- What measurement environment is used? → Benchmarks MUST run against production build (not dev mode)
 
 ## Requirements
 
@@ -120,6 +133,8 @@ app is secure by default.
 - **FR-007**: System MUST provide benchmark harness measuring cold start and memory per R7
 - **FR-008**: System MUST provide security verification script per R8
 - **FR-009**: System MUST configure CI pipeline per R9
+- **FR-010**: System MUST configure ESLint with critical rules per R10
+- **FR-011**: System MUST define design tokens per R11
 
 ### Key Entities
 
@@ -132,7 +147,7 @@ app is secure by default.
 
 | Layer | Technology | Version | Notes |
 |-------|------------|---------|-------|
-| Runtime | Electron | **39.x** | Latest stable (39.2.7) |
+| Runtime | Electron | **39.x** | Latest stable (39.2.7), requires macOS 11.0+ |
 | Bundler | electron-vite | **5.x** | Latest (5.0.0), requires Node 20.19+ |
 | UI Framework | React | **19.x** | Latest (19.2.3) |
 | Language | TypeScript | **5.9.x** | Latest stable |
@@ -154,7 +169,7 @@ mdxpad/
 ├── pnpm-workspace.yaml       # Workspace config
 ├── tsconfig.json             # Base TypeScript config
 ├── tsconfig.node.json        # Node.js (main process) config
-├── eslint.config.js          # Flat config ESLint
+├── eslint.config.js          # Flat config ESLint (see R10 for rules)
 ├── prettier.config.js        # Prettier config
 ├── tailwind.config.ts        # Tailwind v4 config
 ├── electron.vite.config.ts   # electron-vite 5.x config
@@ -175,7 +190,7 @@ mdxpad/
 │   │   ├── App.tsx           # Root component (shell only)
 │   │   ├── styles/           # Tailwind + global styles
 │   │   │   ├── globals.css   # Tailwind directives + CSS vars
-│   │   │   └── tokens.css    # Design tokens (colors, spacing)
+│   │   │   └── tokens.css    # Design tokens (see R11 for values)
 │   │   ├── components/       # React components (empty, for 001+)
 │   │   │   └── .gitkeep
 │   │   ├── hooks/            # React hooks (empty, for 003+)
@@ -220,7 +235,9 @@ BrowserWindow MUST be created with these security settings:
 const window = new BrowserWindow({
   width: 1200,
   height: 800,
-  titleBarStyle: 'hiddenInset',  // macOS native
+  // macOS HIG: hiddenInset provides native look with content extending under titlebar
+  // Traffic lights positioned at (16,16) per Apple HIG standard spacing guidelines
+  titleBarStyle: 'hiddenInset',
   trafficLightPosition: { x: 16, y: 16 },
   webPreferences: {
     preload: join(__dirname, '../preload/index.js'),
@@ -232,6 +249,14 @@ const window = new BrowserWindow({
   },
 });
 ```
+
+**Content Security Policy (CSP)**: The renderer's index.html MUST include:
+
+```html
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+```
+
+This CSP restricts content to same-origin only, preventing XSS attacks while allowing Tailwind's inline styles.
 
 ### R3: IPC Bridge via contextBridge
 
@@ -306,7 +331,14 @@ export function unwrapOr<T, E>(result: Result<T, E>, defaultValue: T): T;
 ```typescript
 import { z } from 'zod';
 
+// Spec 000 channels (implemented in this spec)
 export const IPC_CHANNELS = {
+  APP_GET_VERSION: 'mdxpad:app:get-version',
+  APP_GET_SECURITY_INFO: 'mdxpad:app:get-security-info',
+} as const;
+
+// Spec 003 channels (stubs only in this spec, implemented in Spec 003)
+export const IPC_CHANNELS_DEFERRED = {
   FILE_OPEN: 'mdxpad:file:open',
   FILE_SAVE: 'mdxpad:file:save',
   FILE_SAVE_AS: 'mdxpad:file:save-as',
@@ -314,6 +346,8 @@ export const IPC_CHANNELS = {
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
 ```
+
+**Note**: File operation channels are exposed in the preload API but return stubs in Spec 000. Full implementation deferred to Spec 003.
 
 #### R4.3: Typed Event Emitter (src/shared/lib/events.ts)
 
@@ -351,11 +385,22 @@ export function App() {
 ```json
 {
   "compilerOptions": {
+    // strict: true enables all of these flags:
+    // - noImplicitAny: Raise error on expressions/declarations with implied 'any'
+    // - strictNullChecks: null/undefined only assignable to themselves and 'unknown'
+    // - strictFunctionTypes: Enable strict checking of function types
+    // - strictBindCallApply: Enable strict 'bind', 'call', 'apply' on functions
+    // - strictPropertyInitialization: Class properties must be initialized
+    // - noImplicitThis: Raise error on 'this' with implied 'any' type
+    // - alwaysStrict: Parse in strict mode and emit "use strict"
     "strict": true,
+
+    // Additional strictness beyond "strict: true"
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": true,
+
     "moduleResolution": "bundler",
     "module": "ESNext",
     "target": "ESNext",
@@ -378,7 +423,9 @@ Create `scripts/bench.ts` that:
 
 Target budgets (from constitution Article V):
 - Cold start: < 2000ms
-- Memory baseline: < 150MB (idle target, constitution says <200MB)
+- Memory baseline: < 200MB (constitution maximum; internal stretch goal: < 150MB)
+- Benchmark timeout: 30 seconds (fail if app doesn't reach ready state)
+- Measurement environment: Production build only (not dev mode)
 
 ### R8: Security Verification Script
 
@@ -415,6 +462,57 @@ jobs:
       - run: pnpm bench
 ```
 
+### R10: ESLint Rules (eslint.config.js)
+
+ESLint flat config MUST include these critical rules:
+
+```javascript
+export default [
+  // ... base configs
+  {
+    rules: {
+      // TypeScript strict rules
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/explicit-function-return-type': 'off', // inferred is fine
+
+      // Code quality per constitution §6.2
+      'max-lines-per-function': ['error', { max: 50, skipBlankLines: true, skipComments: true }],
+
+      // React rules
+      'react/react-in-jsx-scope': 'off', // React 19 doesn't need import
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    }
+  }
+];
+```
+
+### R11: Design Tokens (tokens.css)
+
+Design tokens for consistent styling:
+
+```css
+/* src/renderer/styles/tokens.css */
+:root {
+  /* Colors - Neutral palette */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-900: #171717;
+
+  /* Spacing scale (4px base) */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-4: 1rem;     /* 16px */
+  --space-8: 2rem;     /* 32px */
+
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+}
+```
+
 ## Success Criteria
 
 ### Functional
@@ -438,7 +536,7 @@ jobs:
 ### Performance (per Constitution §5)
 
 - [ ] Cold start < 2000ms
-- [ ] Memory baseline < 150MB
+- [ ] Memory baseline < 200MB (stretch goal: < 150MB)
 
 ### Code Quality (per Constitution §6)
 
@@ -500,7 +598,7 @@ Per constitution and spec boundaries:
 | III §3.3 | IPC channels in shared/ | ✅ PASS | R4.2 defines |
 | III §3.3 | zod validation | ⏳ TBD | Stub in R4.2, full impl in 003 |
 | V | Cold start < 2s | ⏳ TBD | R7 benchmark will verify |
-| V | Memory < 200MB | ⏳ TBD | R7 benchmark will verify |
+| V | Memory < 200MB | ⏳ TBD | R7 benchmark will verify (stretch: 150MB) |
 | V | Benchmark harness | ✅ PASS | R7 requires |
 | VI §6.1 | strict: true | ✅ PASS | R6 enforces |
 | VI §6.3 | ESLint flat config | ✅ PASS | R1 includes |
