@@ -30,7 +30,7 @@ Follow-up TODOs: None
 -->
 
 ---
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2025-12-30"
 status: ratified
 ---
@@ -76,17 +76,18 @@ All technologies are pinned. Upgrades require constitution amendment.
 
 | Layer | Technology | Version | Negotiable |
 |-------|------------|---------|------------|
-| Shell | Electron | 28.x (pinned) | NO |
-| Build | electron-vite + Vite | latest stable | NO |
-| Language | TypeScript | 5.x, strict: true | NO |
+| Shell | Electron | 39.x | NO |
+| Build | electron-vite + Vite | 5.x / 7.x | NO |
+| Language | TypeScript | 5.9.x, strict: true | NO |
 | UI | React | 19.x | NO |
 | Editor | CodeMirror 6 | 6.x | NO |
 | MDX | @mdx-js/mdx + unified | 3.x | NO |
-| State | Zustand + Immer | latest stable | NO |
+| State | Zustand + Immer | 5.x / 11.x | NO |
 | Styling | Tailwind CSS | 4.x | NO |
-| Package Manager | pnpm | latest | NO |
-| Unit Tests | Vitest | latest | SHOULD |
-| E2E Tests | Playwright | latest | SHOULD |
+| Validation | zod | 4.x | NO |
+| Package Manager | pnpm | 10.x | NO |
+| Unit Tests | Vitest | 4.x | SHOULD |
+| E2E Tests | Playwright | 1.57.x | SHOULD |
 
 **VERIFICATION REQUIREMENT**: Before any `/speckit.plan`, agent MUST verify current stable
 versions via npm registry. Do not assume—confirm.
@@ -415,7 +416,7 @@ The constitution MAY be amended when:
 - Agents MUST cite constitutional articles when making architectural decisions
 - Deviations MUST be documented with rationale and user approval
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-30 | **Last Amended**: 2025-12-30
+**Version**: 1.1.0 | **Ratified**: 2025-12-30 | **Last Amended**: 2025-12-30
 
 ## Glossary {#glossary}
 
