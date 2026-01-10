@@ -85,3 +85,27 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/**
+ * Accessibility: Reduced motion support.
+ * Disables animations and transitions for users who prefer reduced motion.
+ * This respects the prefers-reduced-motion media query system setting.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* CodeMirror editor specific overrides */
+  .cm-editor,
+  .cm-editor * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
