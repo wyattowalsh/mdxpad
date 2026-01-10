@@ -185,7 +185,9 @@ export interface PreviewFrameProps {
 // ============================================================================
 
 const READY_TIMEOUT_MS = 5000;
-const PREVIEW_FRAME_SRC = new URL('../../preview-frame/index.html', import.meta.url).href;
+// Preview frame is under renderer directory (dist/renderer/preview-frame/)
+// In dev, electron-vite serves it at /preview-frame/index.html
+const PREVIEW_FRAME_SRC = './preview-frame/index.html';
 
 // ============================================================================
 // Hooks

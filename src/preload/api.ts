@@ -13,6 +13,12 @@ export interface FileChangeEvent {
   type: 'change' | 'unlink';
 }
 
+/** Menu file open event data */
+export interface MenuFileOpenEvent {
+  handle: import('@shared/types/file').FileHandle;
+  content: string;
+}
+
 /**
  * API surface exposed to renderer process via contextBridge.
  *
@@ -101,6 +107,49 @@ export interface MdxpadAPI {
    * @returns Unsubscribe function
    */
   onFileChange(callback: (event: FileChangeEvent) => void): () => void;
+
+  // === Menu Events ===
+  /**
+   * Subscribe to command palette toggle from menu.
+   * @param callback - Called when command palette should toggle
+   * @returns Unsubscribe function
+   */
+  onMenuCommandPalette(callback: () => void): () => void;
+
+  /**
+   * Subscribe to new file menu event.
+   * @param callback - Called when new file is requested from menu
+   * @returns Unsubscribe function
+   */
+  onMenuNewFile(callback: () => void): () => void;
+
+  /**
+   * Subscribe to open file dialog menu event.
+   * @param callback - Called when open dialog is requested from menu
+   * @returns Unsubscribe function
+   */
+  onMenuOpenFileDialog(callback: () => void): () => void;
+
+  /**
+   * Subscribe to open file menu event (file already selected).
+   * @param callback - Called with file data when opening from recent files
+   * @returns Unsubscribe function
+   */
+  onMenuOpenFile(callback: (event: MenuFileOpenEvent) => void): () => void;
+
+  /**
+   * Subscribe to save file menu event.
+   * @param callback - Called when save is requested from menu
+   * @returns Unsubscribe function
+   */
+  onMenuSaveFile(callback: () => void): () => void;
+
+  /**
+   * Subscribe to save file as menu event.
+   * @param callback - Called when save as is requested from menu
+   * @returns Unsubscribe function
+   */
+  onMenuSaveFileAs(callback: () => void): () => void;
 
   /**
    * Platform information.

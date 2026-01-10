@@ -42,6 +42,7 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react(), tailwindcss()],
+    base: './',
     resolve: {
       alias: {
         '@renderer': resolve(__dirname, 'src/renderer'),
@@ -54,7 +55,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'src/renderer/index.html'),
-          'preview-frame': resolve(__dirname, 'src/preview-frame/index.html'),
+          'preview-frame': resolve(__dirname, 'src/renderer/preview-frame/index.html'),
         },
       },
     },

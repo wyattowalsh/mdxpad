@@ -17,6 +17,63 @@ export * from './preview-iframe';
 export * from './ipc';
 export * from './ui';
 
+// Re-export command types (excluding Command to avoid conflict with editor.ts)
+// Use explicit imports from './commands' for the Command interface
+export type {
+  CommandId,
+  NormalizedShortcut,
+  CommandCategory,
+  ModifierKey,
+  ShortcutBinding,
+  CommandResult,
+  NotificationType,
+  NotificationPriority,
+  NotificationInput,
+  NotificationAction,
+  RecentCommandEntry,
+  RecentCommandsList,
+  HighlightSegment,
+  UILayoutPersisted,
+  ShortcutConflict,
+  DocumentContext,
+  UIContext,
+  PlatformContext,
+  CommandContext,
+  Command as PaletteCommand,
+  CommandRuntimeState,
+  FuzzyMatchResult,
+  CommandPaletteState,
+  CommandInput,
+  CommandRegistrationResult,
+  ExecuteCommandOptions,
+  CommandExecutedEvent,
+} from './commands';
+
+// Re-export validation helpers and constants from commands
+export {
+  parseCommandId,
+  parseNormalizedShortcut,
+  parseRecentCommands,
+  parseUILayout,
+  STORAGE_KEYS,
+  // Schemas for runtime validation
+  CommandIdSchema,
+  NormalizedShortcutSchema,
+  CommandCategorySchema,
+  ModifierKeySchema,
+  ShortcutBindingSchema,
+  CommandResultSchema,
+  NotificationTypeSchema,
+  NotificationPrioritySchema,
+  NotificationInputSchema,
+  NotificationActionSchema,
+  RecentCommandEntrySchema,
+  RecentCommandsListSchema,
+  HighlightSegmentSchema,
+  UILayoutPersistedSchema,
+  ShortcutConflictSchema,
+} from './commands';
+
 /**
  * Platform information exposed to renderer.
  */

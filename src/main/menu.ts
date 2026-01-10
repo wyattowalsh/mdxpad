@@ -224,9 +224,10 @@ function buildFileMenu(window: BrowserWindow): MenuItemConstructorOptions {
 
 /**
  * Builds the Edit menu with standard editing operations.
+ * @param window - The main BrowserWindow for IPC communication
  * @returns The Edit menu configuration
  */
-function buildEditMenu(): MenuItemConstructorOptions {
+function buildEditMenu(window: BrowserWindow): MenuItemConstructorOptions {
   const isMac = process.platform === 'darwin';
   return {
     label: 'Edit',
@@ -256,6 +257,12 @@ function buildEditMenu(): MenuItemConstructorOptions {
             { type: 'separator' as const },
             { role: 'selectAll' as const },
           ]),
+      { type: 'separator' },
+      {
+        label: 'Command Palette...',
+        accelerator: 'CmdOrCtrl+Shift+P',
+        click: () => window.webContents.send('mdxpad:menu:command-palette'),
+      },
     ],
   };
 }
@@ -345,7 +352,7 @@ function buildMenuTemplate(window: BrowserWindow): MenuItemConstructorOptions[] 
 
   template.push(
     buildFileMenu(window),
-    buildEditMenu(),
+    buildEditMenu(window),
     buildViewMenu(),
     buildWindowMenu(),
     buildHelpMenu()

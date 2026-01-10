@@ -9,7 +9,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { z } from 'zod';
-import { IPC_CHANNELS } from '@shared/lib/ipc';
+import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
 import {
   // Request schemas (sender-side validation)
   FileSaveRequestSchema,
@@ -121,6 +121,59 @@ ipcRenderer.on(IPC_CHANNELS.file.change, (_event, data: unknown) => {
   const validData = data as { fileId: string; path: string; type: 'change' | 'unlink' };
   for (const listener of fileChangeListeners) {
     listener(validData);
+  }
+});
+
+// ============================================================================
+// Menu Event Handling
+// ============================================================================
+
+/**
+ * Menu event listeners registries.
+ * Each menu event has its own listener set.
+ */
+const menuCommandPaletteListeners = new Set<() => void>();
+const menuNewFileListeners = new Set<() => void>();
+const menuOpenFileDialogListeners = new Set<() => void>();
+const menuOpenFileListeners = new Set<(event: { handle: unknown; content: string }) => void>();
+const menuSaveFileListeners = new Set<() => void>();
+const menuSaveFileAsListeners = new Set<() => void>();
+
+// Set up IPC listeners for menu events
+ipcRenderer.on(IPC_EVENTS.menuCommandPalette, () => {
+  for (const listener of menuCommandPaletteListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuNewFile, () => {
+  for (const listener of menuNewFileListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuOpenFileDialog, () => {
+  for (const listener of menuOpenFileDialogListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuOpenFile, (_event, data: unknown) => {
+  const validData = data as { handle: unknown; content: string };
+  for (const listener of menuOpenFileListeners) {
+    listener(validData);
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuSaveFile, () => {
+  for (const listener of menuSaveFileListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuSaveFileAs, () => {
+  for (const listener of menuSaveFileAsListeners) {
+    listener();
   }
 });
 
@@ -242,6 +295,49 @@ const api: MdxpadAPI = {
     fileChangeListeners.add(callback);
     return () => {
       fileChangeListeners.delete(callback);
+    };
+  },
+
+  // === Menu Events ===
+  onMenuCommandPalette: (callback) => {
+    menuCommandPaletteListeners.add(callback);
+    return () => {
+      menuCommandPaletteListeners.delete(callback);
+    };
+  },
+
+  onMenuNewFile: (callback) => {
+    menuNewFileListeners.add(callback);
+    return () => {
+      menuNewFileListeners.delete(callback);
+    };
+  },
+
+  onMenuOpenFileDialog: (callback) => {
+    menuOpenFileDialogListeners.add(callback);
+    return () => {
+      menuOpenFileDialogListeners.delete(callback);
+    };
+  },
+
+  onMenuOpenFile: (callback) => {
+    menuOpenFileListeners.add(callback as (event: { handle: unknown; content: string }) => void);
+    return () => {
+      menuOpenFileListeners.delete(callback as (event: { handle: unknown; content: string }) => void);
+    };
+  },
+
+  onMenuSaveFile: (callback) => {
+    menuSaveFileListeners.add(callback);
+    return () => {
+      menuSaveFileListeners.delete(callback);
+    };
+  },
+
+  onMenuSaveFileAs: (callback) => {
+    menuSaveFileAsListeners.add(callback);
+    return () => {
+      menuSaveFileAsListeners.delete(callback);
     };
   },
 
