@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none';">
+  <title>MDX Preview</title>
+  <style>
+    /* Base styles for preview content */
+    :root {
+      --preview-bg: #ffffff;
+      --preview-text: #1a1a1a;
+      --preview-code-bg: #f5f5f5;
+      --preview-border: #e5e5e5;
+      --preview-link: #0066cc;
+    }
+
+    [data-theme="dark"] {
+      --preview-bg: #1a1a1a;
+      --preview-text: #e5e5e5;
+      --preview-code-bg: #2d2d2d;
+      --preview-border: #404040;
+      --preview-link: #66b3ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      background: var(--preview-bg);
+      color: var(--preview-text);
+    }
+
+    #root {
+      padding: 1rem;
+      max-width: 100%;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      line-height: 1.3;
+    }
+
+    h1 { font-size: 2em; }
+    h2 { font-size: 1.5em; }
+    h3 { font-size: 1.25em; }
+    h4 { font-size: 1em; }
+    h5 { font-size: 0.875em; }
+    h6 { font-size: 0.75em; }
+
+    p {
+      margin: 1em 0;
+    }
+
+    a {
+      color: var(--preview-link);
+      text-decoration: underline;
+    }
+
+    code {
+      background: var(--preview-code-bg);
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background: var(--preview-code-bg);
+      padding: 1em;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    blockquote {
+      border-left: 4px solid var(--preview-border);
+      margin: 1em 0;
+      padding-left: 1em;
+      color: var(--preview-text);
+      opacity: 0.8;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--preview-border);
+      margin: 2em 0;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+
+    th, td {
+      border: 1px solid var(--preview-border);
+      padding: 0.5em 1em;
+      text-align: left;
+    }
+
+    th {
+      background: var(--preview-code-bg);
+    }
+
+    ul, ol {
+      margin: 1em 0;
+      padding-left: 2em;
+    }
+
+    /* Error display */
+    .preview-error {
+      background: #fee2e2;
+      border: 1px solid #ef4444;
+      border-radius: 6px;
+      padding: 1em;
+      margin: 1em 0;
+      color: #991b1b;
+    }
+
+    [data-theme="dark"] .preview-error {
+      background: #450a0a;
+      border-color: #dc2626;
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./renderer.tsx"></script>
+</body>
+</html>

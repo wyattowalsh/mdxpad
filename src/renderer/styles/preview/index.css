@@ -1,0 +1,15 @@
+/* Preview Pane Styles
+ * Barrel file importing all preview-related CSS
+ */
+
+/* Base theme variables first */
+@import './theme.css';
+
+/* Component styles */
+@import './components.css';
+
+/* Code block styles (syntax highlighting) */
+@import './code.css';
+
+/* Error display styles */
+@import './error.css';

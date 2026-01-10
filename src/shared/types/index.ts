@@ -16,8 +16,10 @@ export type {
 
 // Re-export types from type modules (Spec 001)
 export * from './editor';
+export * from './errors';
 export * from './file';
 export * from './preview';
+export * from './preview-iframe';
 export * from './ipc';
 export * from './ui';
 

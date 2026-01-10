@@ -60,3 +60,10 @@ YOU MUST FOLLOW ALL OF THE RULES BELOW (7/7 total rules) AT ALL TIMES!!!
 - for any and all non-trivial requests, intelligently evaluate the available MCP tool thinking/reasoning methods and choose the best one(s) to use for the given request, then apply them appropriately.
 
 ---
+
+## Active Technologies
+- TypeScript 5.9.x with `strict: true` + @mdx-js/mdx 3.x, @mdx-js/react 3.x, React 19.x, Zustand 5.x, Immer 11.x, remark-gfm 4.x, remark-frontmatter 5.x, rehype-highlight 7.x, zod 4.x (003-preview-pane)
+- N/A (in-memory state only; file I/O deferred to other specs) (003-preview-pane)
+
+## Recent Changes
+- 003-preview-pane: Added TypeScript 5.9.x with `strict: true` + @mdx-js/mdx 3.x, @mdx-js/react 3.x, React 19.x, Zustand 5.x, Immer 11.x, remark-gfm 4.x, remark-frontmatter 5.x, rehype-highlight 7.x, zod 4.x
