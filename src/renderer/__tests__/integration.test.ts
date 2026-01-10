@@ -92,10 +92,13 @@ describe('Integration - Full Compilation Flow', () => {
     mockWorkerInstances.length = 0;
     uuidCounter = 0;
     usePreviewStore.getState().reset();
-    compiler = createMDXCompiler();
+    // Disable heartbeat monitoring to prevent infinite loops with fake timers
+    compiler = createMDXCompiler({ disableHeartbeat: true });
   });
 
   afterEach(() => {
+    // Terminate compiler before cleaning up timers
+    compiler.terminate();
     vi.useRealTimers();
     vi.clearAllMocks();
   });

@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import type {
+  CompileRequest,
   CompileResponse,
   CompileResponseSuccess,
   CompileResponseFailure,
@@ -83,13 +84,28 @@ describe('createMDXCompiler', () => {
     mockWorkerInstance = null;
     mockWorkerInstances.length = 0;
     uuidCounter = 0; // Reset UUID counter for deterministic test IDs
-    compiler = createMDXCompiler();
+    // Disable heartbeat monitoring to prevent infinite loops with fake timers
+    compiler = createMDXCompiler({ disableHeartbeat: true });
   });
 
   afterEach(() => {
+    // Stop heartbeat monitoring before cleaning up timers
+    compiler.terminate();
     vi.useRealTimers();
     vi.clearAllMocks();
   });
+
+  /**
+   * Helper to flush async operations without triggering infinite timer loops.
+   * Uses advanceTimersByTimeAsync with a small value (less than heartbeat interval)
+   * to flush pending callbacks without triggering heartbeat cycles.
+   */
+  async function flushAsyncOperations(): Promise<void> {
+    // Flush microtasks first
+    await Promise.resolve();
+    // Advance timers by a small amount (100ms, well under 5s heartbeat interval)
+    await vi.advanceTimersByTimeAsync(100);
+  }
 
   describe('createMDXCompiler() returns valid compiler interface', () => {
     it('should return an object with compile, cancel, and terminate methods', () => {
@@ -119,7 +135,8 @@ describe('createMDXCompiler', () => {
 
     it('should post message to worker with correct request structure', () => {
       const requestId = compiler.compile('# Hello MDX');
-      expect(mockWorkerInstance?.postMessage).toHaveBeenCalledWith({
+      // Worker pool uses round-robin starting from index 0
+      expect(mockWorkerInstances[0]?.postMessage).toHaveBeenCalledWith({
         id: requestId,
         source: '# Hello MDX',
       });
@@ -134,7 +151,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateSuccess(requestId, 'compiled code', { title: 'Test' });
 
       // Flush async operations (compileWithRetry uses promises internally)
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onSuccess).toHaveBeenCalledTimes(1);
       expect(onSuccess).toHaveBeenCalledWith({
@@ -153,7 +170,7 @@ describe('createMDXCompiler', () => {
       expect(mockWorkerInstance?.postMessage).not.toHaveBeenCalled();
 
       // Callback is scheduled via queueMicrotask, so we need to flush it
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onSuccess).toHaveBeenCalledTimes(1);
       expect(onSuccess).toHaveBeenCalledWith({
@@ -189,7 +206,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateError(requestId, errors);
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onError).toHaveBeenCalledTimes(1);
       expect(onError).toHaveBeenCalledWith(errors);
@@ -207,7 +224,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateError(requestId, errors);
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onError).toHaveBeenCalledWith(errors);
     });
@@ -278,7 +295,7 @@ describe('createMDXCompiler', () => {
       compiler.terminate();
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onError1).toHaveBeenCalledWith([{ message: 'Worker terminated' }]);
       expect(onError2).toHaveBeenCalledWith([{ message: 'Worker terminated' }]);
@@ -340,7 +357,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateSuccess(requestId, 'code');
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onSuccess).toHaveBeenCalled();
 
@@ -377,22 +394,19 @@ describe('createMDXCompiler', () => {
   describe('Worker recovery after crash (onerror)', () => {
     it('should fail all pending requests when worker crashes', async () => {
       const onError1 = vi.fn();
-      const onError2 = vi.fn();
 
       // Disable retries to test immediate crash behavior
       const noRetry = { retryConfig: { maxRetries: 0 } };
+      // Request goes to worker 0 (first in round-robin)
       compiler.compile('# Request 1', { onError: onError1, ...noRetry });
-      compiler.compile('# Request 2', { onError: onError2, ...noRetry });
 
-      mockWorkerInstance?.simulateCrash('Worker died unexpectedly');
+      // Crash worker 0 (which has the pending request)
+      mockWorkerInstances[0]?.simulateCrash('Worker died unexpectedly');
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onError1).toHaveBeenCalledWith([
-        { message: 'Worker crashed: Worker died unexpectedly' },
-      ]);
-      expect(onError2).toHaveBeenCalledWith([
         { message: 'Worker crashed: Worker died unexpectedly' },
       ]);
     });
@@ -400,42 +414,46 @@ describe('createMDXCompiler', () => {
     it('should create a new worker after crash', () => {
       const initialWorkerCount = mockWorkerInstances.length;
 
-      mockWorkerInstance?.simulateCrash('Worker died');
+      // Crash worker 0
+      mockWorkerInstances[0]?.simulateCrash('Worker died');
 
       // A new worker should have been created
       expect(mockWorkerInstances.length).toBe(initialWorkerCount + 1);
     });
 
     it('should be able to compile after worker recovery', async () => {
-      const onError = vi.fn();
       const onSuccess = vi.fn();
 
-      // Crash the worker
-      mockWorkerInstance?.simulateCrash('Worker died');
+      // Crash worker 0
+      const workerCountBefore = mockWorkerInstances.length;
+      mockWorkerInstances[0]?.simulateCrash('Worker died');
 
-      // Submit new request after crash
-      const requestId = compiler.compile('# New request', { onSuccess, onError });
+      // A new worker was created to replace crashed worker 0
+      expect(mockWorkerInstances.length).toBe(workerCountBefore + 1);
 
-      // New worker should receive the request
-      const newWorker = mockWorkerInstances[mockWorkerInstances.length - 1];
-      expect(newWorker).toBeDefined();
-      expect(newWorker!.postMessage).toHaveBeenCalledWith({
-        id: requestId,
-        source: '# New request',
-      });
+      // Submit new request - should go to the healthy worker (worker 1 or the new replacement)
+      const requestId = compiler.compile('# New request', { onSuccess });
 
-      // Simulate success from new worker
-      newWorker!.simulateSuccess(requestId, 'new code');
+      // Find which worker received the request
+      const workerWithRequest = mockWorkerInstances.find(
+        w => w.postMessage.mock.calls.some(
+          (call: unknown[]) => (call[0] as CompileRequest)?.source === '# New request'
+        )
+      );
+      expect(workerWithRequest).toBeDefined();
+
+      // Simulate success from that worker
+      workerWithRequest!.simulateSuccess(requestId, 'new code');
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onSuccess).toHaveBeenCalled();
     });
 
     it('should terminate old worker during recovery', () => {
-      const oldWorker = mockWorkerInstance;
-      mockWorkerInstance?.simulateCrash('Worker died');
+      const oldWorker = mockWorkerInstances[0];
+      mockWorkerInstances[0]?.simulateCrash('Worker died');
 
       expect(oldWorker?.terminate).toHaveBeenCalled();
     });
@@ -453,7 +471,8 @@ describe('createMDXCompiler', () => {
       const customId = 'custom-id-xyz' as RequestId;
       compiler.compile('# Hello', { requestId: customId });
 
-      expect(mockWorkerInstance?.postMessage).toHaveBeenCalledWith({
+      // Worker pool uses round-robin starting from index 0
+      expect(mockWorkerInstances[0]?.postMessage).toHaveBeenCalledWith({
         id: customId,
         source: '# Hello',
       });
@@ -479,7 +498,7 @@ describe('createMDXCompiler', () => {
 
       expect(requestId).toBe(customId);
 
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onSuccess).toHaveBeenCalledWith(
         expect.objectContaining({ id: customId })
@@ -510,7 +529,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateSuccess(id1, 'one');
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(results).toEqual([id2, id3, id1]);
     });
@@ -530,7 +549,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateSuccess(requestId, 'code');
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onSuccess).toHaveBeenCalled();
     });
@@ -542,7 +561,7 @@ describe('createMDXCompiler', () => {
       mockWorkerInstance?.simulateError(requestId, [{ message: 'Error' }]);
 
       // Flush async operations
-      await vi.runAllTimersAsync();
+      await flushAsyncOperations();
 
       expect(onError).toHaveBeenCalled();
     });

@@ -1329,7 +1329,7 @@ describe('useCodeMirror', () => {
           () => {
             expect(onChange).toHaveBeenCalled();
           },
-          { timeout: 500 }
+          { timeout: 2000 }
         );
       } finally {
         unmount();

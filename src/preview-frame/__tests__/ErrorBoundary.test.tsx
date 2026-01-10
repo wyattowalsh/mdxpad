@@ -78,14 +78,14 @@ describe('ErrorBoundary', () => {
   });
 
   describe('fallback UI', () => {
-    it('default fallback UI has role="alert"', () => {
+    it('default fallback UI has role="alertdialog"', () => {
       render(
         <ErrorBoundary>
           <ThrowingComponent shouldThrow={true} />
         </ErrorBoundary>
       );
 
-      const alertElement = screen.getByRole('alert');
+      const alertElement = screen.getByRole('alertdialog');
       expect(alertElement).toBeDefined();
     });
 

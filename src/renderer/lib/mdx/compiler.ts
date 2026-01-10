@@ -888,12 +888,19 @@ function setupGracefulShutdown(state: CompilerState): () => void {
   };
 }
 
+/** Options for creating a compiler instance */
+export interface CreateCompilerOptions {
+  /** Disable heartbeat monitoring (useful for tests with fake timers) */
+  disableHeartbeat?: boolean;
+}
+
 /**
  * Create a new MDX compiler instance with worker pool.
  *
+ * @param options - Optional configuration for the compiler
  * @returns MDXCompiler instance with full resilience features
  */
-export function createMDXCompiler(): MDXCompiler {
+export function createMDXCompiler(options?: CreateCompilerOptions): MDXCompiler {
   const state: CompilerState = {
     workers: [],
     pendingRequests: new Map(),
@@ -928,8 +935,10 @@ export function createMDXCompiler(): MDXCompiler {
     );
   }
 
-  // Start heartbeat monitoring
-  startHeartbeatMonitoring(state, doRestart);
+  // Start heartbeat monitoring (unless disabled for testing)
+  if (!options?.disableHeartbeat) {
+    startHeartbeatMonitoring(state, doRestart);
+  }
 
   // Set up graceful shutdown
   const cleanupShutdown = setupGracefulShutdown(state);
