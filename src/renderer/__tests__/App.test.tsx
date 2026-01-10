@@ -16,6 +16,18 @@ describe('App', () => {
         os: 'darwin',
         arch: 'arm64',
       },
+      // File operations
+      openFile: vi.fn().mockResolvedValue({ ok: true, value: { id: 'test', path: '/test.mdx', name: 'test.mdx' } }),
+      saveFile: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+      saveFileAs: vi.fn().mockResolvedValue({ ok: true, value: { id: 'test', path: '/test.mdx', name: 'test.mdx' } }),
+      closeWindow: vi.fn().mockResolvedValue(undefined),
+      // Menu event subscriptions
+      onMenuCommandPalette: vi.fn().mockReturnValue(() => {}),
+      onMenuNewFile: vi.fn().mockReturnValue(() => {}),
+      onMenuOpenFile: vi.fn().mockReturnValue(() => {}),
+      onMenuOpenFileDialog: vi.fn().mockReturnValue(() => {}),
+      onMenuSaveFile: vi.fn().mockReturnValue(() => {}),
+      onMenuSaveFileAs: vi.fn().mockReturnValue(() => {}),
     });
   });
 

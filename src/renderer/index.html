@@ -3,10 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
-    />
+    <!-- CSP is enforced by Electron's session.webRequest in production -->
+    <!-- Dev mode requires relaxed CSP for Vite HMR - electron-vite handles this -->
     <title>mdxpad</title>
   </head>
   <body class="bg-neutral-50 text-neutral-900 antialiased">

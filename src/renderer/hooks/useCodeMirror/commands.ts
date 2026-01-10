@@ -49,6 +49,8 @@ export type EditorCommandName =
   | 'italic'
   | 'code'
   | 'link'
+  | 'codeBlock'
+  | 'toggleComment'
   | 'heading1'
   | 'heading2'
   | 'heading3'
@@ -92,6 +94,8 @@ export const EDITOR_COMMANDS: readonly EditorCommandDefinition[] = [
   { name: 'italic', key: 'Mod-i', description: 'Toggle italic' },
   { name: 'code', key: 'Mod-e', description: 'Toggle inline code' },
   { name: 'link', key: 'Mod-k', description: 'Insert link' },
+  { name: 'codeBlock', key: 'Mod-Shift-k', description: 'Insert code block' },
+  { name: 'toggleComment', key: 'Mod-/', description: 'Toggle comment' },
   { name: 'heading1', key: 'Mod-1', description: 'Heading level 1' },
   { name: 'heading2', key: 'Mod-2', description: 'Heading level 2' },
   { name: 'heading3', key: 'Mod-3', description: 'Heading level 3' },
@@ -363,6 +367,97 @@ const insertLink: Command = (view: EditorView): boolean => {
   return true;
 };
 
+/**
+ * Insert a fenced code block at the cursor position.
+ * If text is selected, wraps it in a code block.
+ * If no text is selected, inserts a placeholder code block.
+ *
+ * @param view - The CodeMirror EditorView instance
+ * @returns true if command was handled
+ *
+ * @example
+ * // Empty selection becomes:
+ * // ```
+ * // code
+ * // ```
+ * // Selected text "const x = 1" becomes:
+ * // ```
+ * // const x = 1
+ * // ```
+ */
+const insertCodeBlock: Command = (view: EditorView): boolean => {
+  const { from, to } = view.state.selection.main;
+  const selected = view.state.sliceDoc(from, to);
+
+  if (selected.length > 0) {
+    // Wrap selection in code block
+    const codeBlock = `\`\`\`\n${selected}\n\`\`\``;
+    view.dispatch({
+      changes: { from, to, insert: codeBlock },
+      // Position cursor after opening fence for language input
+      selection: { anchor: from + 3 },
+    });
+  } else {
+    // Insert placeholder code block
+    const placeholder = '```\ncode\n```';
+    view.dispatch({
+      changes: { from, to, insert: placeholder },
+      // Select "code" for immediate replacement
+      selection: { anchor: from + 4, head: from + 8 },
+    });
+  }
+  return true;
+};
+
+/**
+ * Toggle comment on the current line or selection.
+ * For MDX, uses HTML-style comments {/* ... *\/} for JSX context awareness.
+ * For plain markdown lines, uses HTML comments <!-- ... -->.
+ *
+ * @param view - The CodeMirror EditorView instance
+ * @returns true if command was handled
+ *
+ * @example
+ * // "Hello world" becomes "{/* Hello world *\/}"
+ * // "{/* Hello world *\/}" becomes "Hello world"
+ */
+const toggleComment: Command = (view: EditorView): boolean => {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const lineText = line.text;
+  const trimmed = lineText.trim();
+  const leadingWhitespace = lineText.slice(0, lineText.length - lineText.trimStart().length);
+
+  // Check for JSX comment: {/* ... */}
+  const jsxCommentMatch = /^\{\/\*\s?(.*?)\s?\*\/\}$/.exec(trimmed);
+  if (jsxCommentMatch) {
+    // Remove JSX comment
+    const content = jsxCommentMatch[1] ?? '';
+    view.dispatch({
+      changes: { from: line.from, to: line.to, insert: leadingWhitespace + content },
+    });
+    return true;
+  }
+
+  // Check for HTML comment: <!-- ... -->
+  const htmlCommentMatch = /^<!--\s?(.*?)\s?-->$/.exec(trimmed);
+  if (htmlCommentMatch) {
+    // Remove HTML comment
+    const content = htmlCommentMatch[1] ?? '';
+    view.dispatch({
+      changes: { from: line.from, to: line.to, insert: leadingWhitespace + content },
+    });
+    return true;
+  }
+
+  // Add JSX comment (preferred for MDX)
+  const commented = `${leadingWhitespace}{/* ${trimmed} */}`;
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: commented },
+  });
+  return true;
+};
+
 // =============================================================================
 // Heading Commands
 // =============================================================================
@@ -520,6 +615,8 @@ const commandMap: Record<EditorCommandName, Command> = {
   italic: toggleItalic,
   code: toggleCode,
   link: insertLink,
+  codeBlock: insertCodeBlock,
+  toggleComment: toggleComment,
   heading1: setHeading1,
   heading2: setHeading2,
   heading3: setHeading3,
@@ -561,6 +658,8 @@ export const markdownKeymap = Prec.high(
     { key: 'Mod-i', run: toggleItalic },
     { key: 'Mod-e', run: toggleCode },
     { key: 'Mod-k', run: insertLink },
+    { key: 'Mod-Shift-k', run: insertCodeBlock },
+    { key: 'Mod-/', run: toggleComment },
     // Headings
     { key: 'Mod-1', run: setHeading1 },
     { key: 'Mod-2', run: setHeading2 },
