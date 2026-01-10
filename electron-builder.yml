@@ -3,7 +3,7 @@
 
 appId: com.mdxpad.app
 productName: mdxpad
-copyright: "Copyright (c) 2024"
+copyright: 'Copyright (c) 2024'
 
 # Output directories
 directories:
@@ -44,16 +44,16 @@ dmg:
 # Files to include
 files:
   - dist/**/*
-  - "!dist/main/*.map"
-  - "!dist/preload/*.map"
+  - '!dist/main/*.map'
+  - '!dist/preload/*.map'
 
 # ASAR packaging
 asar: true
 asarUnpack:
-  - "**/*.node"
+  - '**/*.node'
 
 # Compression
 compression: normal
 
 # Notarization (requires APPLE_ID and APPLE_APP_SPECIFIC_PASSWORD env vars)
-afterSign: null  # Add notarization hook when ready
+afterSign: null # Add notarization hook when ready

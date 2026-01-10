@@ -40,7 +40,14 @@ export default tseslint.config(
   },
   // Relaxed rules for test files
   {
-    files: ['**/__tests__/**/*.ts', '**/__tests__/**/*.tsx', '**/*.test.ts', '**/*.test.tsx', 'tests/**/*.ts', 'tests/**/*.spec.ts'],
+    files: [
+      '**/__tests__/**/*.ts',
+      '**/__tests__/**/*.tsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      'tests/**/*.ts',
+      'tests/**/*.spec.ts',
+    ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',

@@ -27,6 +27,7 @@ export default defineConfig({
       '@renderer': resolve(__dirname, 'src/renderer'),
       '@preload': resolve(__dirname, 'src/preload'),
       '@shared': resolve(__dirname, 'src/shared'),
+      '@ui': resolve(__dirname, 'src/renderer/components/ui'),
     },
   },
 });

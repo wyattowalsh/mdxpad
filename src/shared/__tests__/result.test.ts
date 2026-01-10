@@ -45,7 +45,10 @@ describe('Result<T,E> monad', () => {
     it('should handle different error types', () => {
       expect(err('string error')).toEqual({ ok: false, error: 'string error' });
       expect(err(404)).toEqual({ ok: false, error: 404 });
-      expect(err({ code: 'ERR_NOT_FOUND' })).toEqual({ ok: false, error: { code: 'ERR_NOT_FOUND' } });
+      expect(err({ code: 'ERR_NOT_FOUND' })).toEqual({
+        ok: false,
+        error: { code: 'ERR_NOT_FOUND' },
+      });
     });
   });
 
@@ -101,7 +104,10 @@ describe('Result<T,E> monad', () => {
 
     it('should chain multiple map operations', () => {
       const result = ok(10);
-      const mapped = map(map(result, (n) => n * 2), (n) => n + 5);
+      const mapped = map(
+        map(result, (n) => n * 2),
+        (n) => n + 5
+      );
       expect(mapped).toEqual({ ok: true, value: 25 });
     });
 
@@ -127,7 +133,10 @@ describe('Result<T,E> monad', () => {
 
     it('should chain multiple mapErr operations', () => {
       const result = err('error');
-      const mapped = mapErr(mapErr(result, (e) => `${e}!`), (e) => e.toUpperCase());
+      const mapped = mapErr(
+        mapErr(result, (e) => `${e}!`),
+        (e) => e.toUpperCase()
+      );
       expect(mapped).toEqual({ ok: false, error: 'ERROR!' });
     });
   });
@@ -358,8 +367,7 @@ describe('Result<T,E> monad', () => {
       const sqrt = (n: number): Result<number, string> =>
         n < 0 ? err('Cannot take square root of negative') : ok(Math.sqrt(n));
 
-      const compute = (a: number, b: number): Result<number, string> =>
-        andThen(divide(a, b), sqrt);
+      const compute = (a: number, b: number): Result<number, string> => andThen(divide(a, b), sqrt);
 
       expect(compute(16, 4)).toEqual({ ok: true, value: 2 });
       expect(compute(16, 0)).toEqual({ ok: false, error: 'Division by zero' });

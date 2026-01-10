@@ -83,10 +83,7 @@ export interface IpcApi {
    * @param content - Content to write
    * @returns void on success, FileError on failure
    */
-  [IpcChannels.FILE_SAVE]: (
-    handle: FileHandle,
-    content: string
-  ) => Promise<FileResult<void>>;
+  [IpcChannels.FILE_SAVE]: (handle: FileHandle, content: string) => Promise<FileResult<void>>;
 
   /**
    * Save content to a new file via native dialog.
@@ -108,10 +105,7 @@ export interface IpcApi {
    * @param content - Content to write
    * @returns void on success, FileError on failure
    */
-  [IpcChannels.FILE_WRITE]: (
-    path: string,
-    content: string
-  ) => Promise<FileResult<void>>;
+  [IpcChannels.FILE_WRITE]: (path: string, content: string) => Promise<FileResult<void>>;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Window Operations
@@ -158,9 +152,7 @@ export interface IpcApi {
  * };
  * ```
  */
-export type IpcHandler<C extends IpcChannel> = C extends keyof IpcApi
-  ? IpcApi[C]
-  : never;
+export type IpcHandler<C extends IpcChannel> = C extends keyof IpcApi ? IpcApi[C] : never;
 
 /**
  * Extract the return type of a channel handler.

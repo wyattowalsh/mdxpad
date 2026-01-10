@@ -71,17 +71,20 @@ async function verifySecuritySettings(): Promise<VerificationResult> {
 
     // Wait for window.mdxpad to be available (from preload script)
     // Note: The function runs in the browser context where 'window' is the browser window
-    await page.waitForFunction(() => {
-      return typeof (window as any).mdxpad !== 'undefined';
-    }, { timeout: 10000 });
+    await page.waitForFunction(
+      () => {
+        return typeof (window as any).mdxpad !== 'undefined';
+      },
+      { timeout: 10000 }
+    );
 
     console.log('mdxpad API found, querying security info...\n');
 
     // Get security info via IPC
-    const securityInfo = await page.evaluate(async () => {
+    const securityInfo = (await page.evaluate(async () => {
       // Access the mdxpad API exposed via contextBridge
       return (window as any).mdxpad.getSecurityInfo();
-    }) as SecurityInfo;
+    })) as SecurityInfo;
 
     // Verify each setting
     const violations: string[] = [];
@@ -93,9 +96,7 @@ async function verifySecuritySettings(): Promise<VerificationResult> {
     }
 
     if (securityInfo.sandbox !== true) {
-      violations.push(
-        `sandbox: expected true, got ${String(securityInfo.sandbox)}`
-      );
+      violations.push(`sandbox: expected true, got ${String(securityInfo.sandbox)}`);
     }
 
     if (securityInfo.nodeIntegration !== false) {
@@ -105,18 +106,24 @@ async function verifySecuritySettings(): Promise<VerificationResult> {
     }
 
     if (securityInfo.webSecurity !== true) {
-      violations.push(
-        `webSecurity: expected true, got ${String(securityInfo.webSecurity)}`
-      );
+      violations.push(`webSecurity: expected true, got ${String(securityInfo.webSecurity)}`);
     }
 
     // Output results
     console.log('Security Settings:');
     console.log('------------------');
-    console.log(`  contextIsolation: ${securityInfo.contextIsolation ? '✓' : '✗'} (${String(securityInfo.contextIsolation)})`);
-    console.log(`  sandbox:          ${securityInfo.sandbox ? '✓' : '✗'} (${String(securityInfo.sandbox)})`);
-    console.log(`  nodeIntegration:  ${!securityInfo.nodeIntegration ? '✓' : '✗'} (${String(securityInfo.nodeIntegration)})`);
-    console.log(`  webSecurity:      ${securityInfo.webSecurity ? '✓' : '✗'} (${String(securityInfo.webSecurity)})`);
+    console.log(
+      `  contextIsolation: ${securityInfo.contextIsolation ? '✓' : '✗'} (${String(securityInfo.contextIsolation)})`
+    );
+    console.log(
+      `  sandbox:          ${securityInfo.sandbox ? '✓' : '✗'} (${String(securityInfo.sandbox)})`
+    );
+    console.log(
+      `  nodeIntegration:  ${!securityInfo.nodeIntegration ? '✓' : '✗'} (${String(securityInfo.nodeIntegration)})`
+    );
+    console.log(
+      `  webSecurity:      ${securityInfo.webSecurity ? '✓' : '✗'} (${String(securityInfo.webSecurity)})`
+    );
     console.log('');
 
     const passed = violations.length === 0;

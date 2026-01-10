@@ -5,8 +5,8 @@ ALWAYS START BY READING ANY AND ALL PERTINENT `AGENTS.md` INSTRUCTION FILES FIRS
 - N/A (file system access deferred to Spec 003) (000-foundational-setup)
 - TypeScript 5.9.x with `strict: true` (per Constitution Article II) (001-interface-contracts)
 - N/A (type definitions only) (001-interface-contracts)
-- TypeScript 5.9.x with `strict: true` + @mdx-js/mdx 3.x, @mdx-js/react 3.x, React 19.x, Zustand 5.x, Immer 11.x, remark-gfm 4.x, remark-frontmatter 5.x, rehype-highlight 7.x, zod 4.x (003-preview-pane)
-- N/A (in-memory state only; file I/O deferred to other specs) (003-preview-pane)
+- TypeScript 5.9.x, strict: true (per Constitution Article II) + Electron 39.2.7, chokidar 5.0.0 (file watching), zod 4.3.5 (validation) (004-file-system-shell)
+- File system (Node.js fs/promises), electron-store for recent files persistence (004-file-system-shell)
 
 ## Recent Changes
 - 000-foundational-setup: Added TypeScript 5.9.x with `strict: true`

@@ -16,7 +16,7 @@ concurrency:
 jobs:
   quality:
     name: Code Quality
-    runs-on: macos-14  # M1 runner for arm64
+    runs-on: macos-14 # M1 runner for arm64
     timeout-minutes: 15
 
     steps:

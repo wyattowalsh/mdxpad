@@ -61,13 +61,13 @@ async function runBenchmark(): Promise<BenchmarkResult> {
     // Get memory usage
     // Note: Playwright doesn't have direct access to Electron's process memory,
     // so we estimate from the renderer process metrics
-    const metrics = await window.evaluate(() => {
+    const metrics = (await window.evaluate(() => {
       // Access Chrome-specific performance.memory API
       const memory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
       return {
         jsHeapUsed: memory?.usedJSHeapSize ?? 0,
       };
-    }) as { jsHeapUsed: number };
+    })) as { jsHeapUsed: number };
 
     // Convert bytes to MB (rough estimate - actual app memory is higher)
     // For more accurate measurement, we'd need Electron's process.memoryUsage()
@@ -108,8 +108,12 @@ runBenchmark()
 
     // Also output human-readable summary to stderr
     console.error('\n--- Benchmark Results ---');
-    console.error(`Cold Start: ${result.coldStartMs}ms (budget: ${COLD_START_BUDGET_MS}ms) ${result.details.coldStartPassed ? '✓' : '✗'}`);
-    console.error(`Memory:     ${result.memoryMb}MB (budget: ${MEMORY_BUDGET_MB}MB) ${result.details.memoryPassed ? '✓' : '✗'}`);
+    console.error(
+      `Cold Start: ${result.coldStartMs}ms (budget: ${COLD_START_BUDGET_MS}ms) ${result.details.coldStartPassed ? '✓' : '✗'}`
+    );
+    console.error(
+      `Memory:     ${result.memoryMb}MB (budget: ${MEMORY_BUDGET_MB}MB) ${result.details.memoryPassed ? '✓' : '✗'}`
+    );
     console.error(`Overall:    ${result.passed ? 'PASSED' : 'FAILED'}`);
 
     if (!result.passed) {

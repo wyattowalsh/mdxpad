@@ -43,23 +43,14 @@ export {
 
 export { Popover, PopoverContent, PopoverTrigger } from './popover';
 
-export {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from './tooltip';
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 // Layout components
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 export { ScrollArea, ScrollBar } from './scroll-area';
 export { Separator } from './separator';
 
-export {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from './resizable';
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './resizable';
 
 // Command palette
 export {
