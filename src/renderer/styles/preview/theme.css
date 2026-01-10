@@ -1,0 +1,235 @@
+/**
+ * Preview Theme Tokens
+ *
+ * CSS custom properties for light/dark theme support.
+ * These tokens are used by all preview components.
+ */
+
+/* Light theme (default) */
+:root {
+  /* Base colors */
+  --preview-bg: #ffffff;
+  --preview-text: #1a1a1a;
+  --preview-text-muted: #6b7280;
+  --preview-border: #e5e5e5;
+
+  /* Link colors */
+  --preview-link: #2563eb;
+  --preview-link-hover: #1d4ed8;
+
+  /* Code colors */
+  --preview-code-bg: #f5f5f5;
+  --preview-code-text: #1a1a1a;
+  --preview-code-border: #e5e5e5;
+
+  /* Syntax highlighting (light theme) */
+  --hljs-comment: #6a737d;
+  --hljs-keyword: #d73a49;
+  --hljs-string: #032f62;
+  --hljs-number: #005cc5;
+  --hljs-function: #6f42c1;
+  --hljs-class: #22863a;
+  --hljs-variable: #e36209;
+  --hljs-operator: #d73a49;
+
+  /* Interactive states */
+  --preview-focus: #2563eb;
+  --preview-hover-bg: #f5f5f5;
+
+  /* Shadows */
+  --preview-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --preview-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  /* Base colors */
+  --preview-bg: #1a1a1a;
+  --preview-text: #e5e5e5;
+  --preview-text-muted: #9ca3af;
+  --preview-border: #404040;
+
+  /* Link colors */
+  --preview-link: #60a5fa;
+  --preview-link-hover: #93c5fd;
+
+  /* Code colors */
+  --preview-code-bg: #2d2d2d;
+  --preview-code-text: #e5e5e5;
+  --preview-code-border: #404040;
+
+  /* Syntax highlighting (dark theme) */
+  --hljs-comment: #8b949e;
+  --hljs-keyword: #ff7b72;
+  --hljs-string: #a5d6ff;
+  --hljs-number: #79c0ff;
+  --hljs-function: #d2a8ff;
+  --hljs-class: #7ee787;
+  --hljs-variable: #ffa657;
+  --hljs-operator: #ff7b72;
+
+  /* Interactive states */
+  --preview-focus: #60a5fa;
+  --preview-hover-bg: #262626;
+
+  /* Shadows */
+  --preview-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --preview-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Typography scale */
+:root {
+  --preview-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --preview-font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+
+  --preview-text-xs: 0.75rem;
+  --preview-text-sm: 0.875rem;
+  --preview-text-base: 1rem;
+  --preview-text-lg: 1.125rem;
+  --preview-text-xl: 1.25rem;
+  --preview-text-2xl: 1.5rem;
+  --preview-text-3xl: 2rem;
+
+  --preview-line-height: 1.6;
+  --preview-line-height-tight: 1.3;
+}
+
+/* Spacing scale */
+:root {
+  --preview-space-1: 0.25rem;
+  --preview-space-2: 0.5rem;
+  --preview-space-3: 0.75rem;
+  --preview-space-4: 1rem;
+  --preview-space-6: 1.5rem;
+  --preview-space-8: 2rem;
+}
+
+/* Border radius */
+:root {
+  --preview-radius-sm: 4px;
+  --preview-radius-md: 6px;
+  --preview-radius-lg: 8px;
+}
+
+/* Transitions */
+:root {
+  --preview-transition-fast: 0.1s ease;
+  --preview-transition-normal: 0.15s ease;
+  --preview-transition-slow: 0.3s ease;
+}
+
+/* ============================================================================
+   Reduced Motion Support (WCAG 2.3.3)
+   ============================================================================ */
+
+/**
+ * Respects user's prefers-reduced-motion setting.
+ * When enabled, disables all CSS transitions and animations for accessibility.
+ * This does not affect users who have not set this preference.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --preview-transition-fast: 0s;
+    --preview-transition-normal: 0s;
+    --preview-transition-slow: 0s;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================================
+   Accessibility Utilities
+   ============================================================================ */
+
+/**
+ * Screen reader only content.
+ * Visually hidden but accessible to screen readers.
+ */
+.sr-only,
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/**
+ * Skip link for keyboard navigation.
+ * Hidden by default, visible on focus.
+ */
+.preview-skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  font-size: var(--preview-text-sm);
+  font-weight: 500;
+  color: var(--preview-bg);
+  background: var(--preview-text);
+  border-radius: var(--preview-radius-md);
+  text-decoration: none;
+  transition:
+    top var(--preview-transition-fast),
+    opacity var(--preview-transition-fast);
+  opacity: 0;
+}
+
+.preview-skip-link:focus {
+  top: 0.5rem;
+  opacity: 1;
+  outline: 2px solid var(--preview-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   Focus Ring Utilities
+   ============================================================================ */
+
+/**
+ * Custom focus ring for better visibility.
+ * Uses box-shadow for a more consistent look across browsers.
+ */
+.focus-ring:focus,
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--preview-bg),
+    0 0 0 4px var(--preview-focus);
+}
+
+/**
+ * Focus-visible only (for mouse users, hide focus ring).
+ */
+.focus-visible-only:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.focus-visible-only:focus-visible {
+  outline: 2px solid var(--preview-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   Content Spacing Utilities
+   ============================================================================ */
+
+.preview-content {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+}
