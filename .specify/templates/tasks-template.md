@@ -25,15 +25,46 @@ version: "2.0"
 ## Execution Constraints
 
 ```yaml
-max_parallel_subagents: 3
-default_task_timeout: 5m
-gate_timeout: 1m
+# Claude Code MAXIMUM POWER Config (Jan 2026 - Claude Max 20x)
+# ⚡ SINGLE SESSION FULL THROTTLE - Token cost is not a concern ⚡
+
+model: opus-4.5                    # Most capable model (slower but smarter)
+max_parallel_subagents: 10         # Hard cap enforced by Claude Code
+queue_overflow: true               # Tasks beyond 10 auto-queue, refill on complete
+
+# Async/Background Agents (v2.0.60+)
+async_background:
+  enabled: true
+  hotkey: Ctrl+B                   # Background running agents while continuing work
+  wake_on_complete: true           # v2.0.64: agents wake main when done
+  background_research: true        # Auto-background exploration/research tasks
+
+# Timeouts (generous for Opus deep reasoning)
+default_task_timeout: 10m
+gate_timeout: 2m
+subagent_timeout: 15m
+
+# Fault Tolerance (high tolerance for complex tasks)
 circuit_breaker:
-  max_failures_per_batch: 2
+  max_failures_per_batch: 5
   action: pause_and_report
 retry_policy:
-  max_attempts: 2
+  max_attempts: 3
   backoff: exponential
+
+# Subagent Dispatch Strategy
+subagent_dispatch:
+  strategy: greedy_queue           # Launch all 10 immediately, queue remainder
+  refill_on_complete: true         # Start next queued task as soon as slot frees
+  context_per_agent: 200k          # Each subagent gets full 200k context window
+  extended_thinking: true          # Enable deep reasoning per agent
+  ultrathink: complex              # Use ultrathink for architecture/design tasks
+
+# Batch Optimization
+batch_strategy:
+  prefer_wider_batches: true       # More parallel tasks over deeper chains
+  merge_small_batches: true        # Combine batches with <3 tasks when safe
+  max_batch_size: 10               # Match hard cap for maximum throughput
 ```
 
 ---
@@ -47,19 +78,75 @@ Execute tasks in order: T001 → T002 → T003 → ...
 - Run gate validation after each phase completes
 - Safe, predictable, no coordination needed
 
-### Parallel Execution (Fast)
+### Parallel Execution (Recommended) ⚡
 
-1. Identify batch (e.g., all `[P:3.1]` tasks)
-2. Spawn subagents for all tasks in batch simultaneously
-3. Wait for all to complete
-4. Run gate validation
-5. Proceed to next batch (`[P:3.2]`)
+1. **Greedy dispatch**: Spawn subagents for ALL tasks in current batch simultaneously
+2. **Stream completions**: Process results as each subagent finishes (don't wait for slowest)
+3. **Gate on batch complete**: Only run validation after ALL batch tasks finish
+4. **Cascade immediately**: Start next batch's tasks the instant gate passes
+5. **Cross-phase parallelism**: If Phase 3 and 4 are independent, run them concurrently
 
-### Hybrid Execution
+### Massive Parallel Execution (Maximum Speed) 🚀
 
-- Run Setup and Foundational sequentially (low task count)
-- Parallelize within User Story phases (high task count)
-- Each story can be worked independently after Foundational
+**Claude Code Hard Limits (Jan 2026):**
+- Max **10 concurrent subagents** per Claude session
+- Beyond 10 → auto-queued, refilled immediately as slots free
+- Use `Ctrl+B` to background long-running agents (v2.0.60+)
+- v2.0.64: Background agents wake main agent when complete
+
+**Single Session Maximum Throughput:**
+```
+Phase 2 Complete (Foundational)
+            ↓
+    ┌───────┴───────┐
+    ↓               ↓
+[5 subagents]   [5 subagents]   ← 10 total (hard cap)
+  US1 Batch 1    US2 Batch 1
+    │               │
+    └───────┬───────┘
+            ↓
+         Gate (parallel validation)
+            ↓
+    ┌───────┴───────┐
+    ↓               ↓
+[5 subagents]   [5 subagents]   ← Immediate refill
+  US1 Batch 2    US2 Batch 2
+```
+
+**Queue Overflow Pattern (>10 tasks):**
+```
+Batch 3.1 has 15 tasks:
+├─ T010-T019: Launch immediately (10 slots)
+├─ T020-T024: Auto-queued
+│
+│  T010 completes → T020 starts immediately
+│  T013 completes → T021 starts immediately
+│  ... (greedy refill)
+│
+└─ All 15 complete → Gate 3.1 runs
+```
+
+**Background Agent Pattern (Ctrl+B):**
+```
+Main Claude ─────────────────────────────────────►
+     │
+     ├─[Spawn research agent]──► Ctrl+B ──► [Runs in background]
+     │                                           │
+     ├─[Continue other work]                     │
+     │                                           │
+     └─[Agent wakes main with results]◄──────────┘
+```
+
+- Don't specify parallelism level - let Claude optimize
+- Background research/exploration tasks to maximize throughput
+- Keep interactive/approval tasks in foreground
+
+### Subagent Dispatch Rules
+
+1. **Batch-level parallelism**: All `[P:X.Y]` tasks with same X.Y run simultaneously
+2. **Story-level parallelism**: Different `[USn]` phases run concurrently after Foundational
+3. **Context isolation**: Each subagent receives ONLY its scoped context (not full codebase)
+4. **No coordination**: Subagents don't communicate; orchestrator handles sequencing
 
 ---
 
@@ -379,17 +466,46 @@ pytest tests/ -v --tb=short
 
 ## Parallel Execution Summary
 
-| Phase | Name | Batches | Tasks | Max Parallel | Critical Path |
-|-------|------|---------|-------|--------------|---------------|
-| 1 | Setup | 1 | 3 | 3 | T001 |
-| 2 | Foundational | 2 | 6 | 2 | T004 → T007 |
-| 3 | User Story 1 | 4 | 8 | 2 | T010 → T012 → T014 → T016 |
-| 4 | User Story 2 | 3 | 5 | 2 | T018 → T020 → T021 |
-| 5 | User Story 3 | 2 | 3 | 2 | T023 → T024 |
-| N | Polish | 2 | 5 | 2 | TXXX |
-| **Total** | | **14** | **30** | | **Critical: 10 tasks** |
+| Phase | Name | Batches | Tasks | Max Parallel | Critical Path | Independent |
+|-------|------|---------|-------|--------------|---------------|-------------|
+| 1 | Setup | 1 | 3 | 3 | T001 | No |
+| 2 | Foundational | 2 | 6 | 6 | T004 → T007 | No |
+| 3 | User Story 1 | 4 | 8 | **10** | T010 → T012 → T014 → T016 | **Yes** |
+| 4 | User Story 2 | 3 | 5 | **10** | T018 → T020 → T021 | **Yes** |
+| 5 | User Story 3 | 2 | 3 | **10** | T023 → T024 | **Yes** |
+| N | Polish | 2 | 5 | 5 | TXXX | No |
+| **Total** | | **14** | **30** | **10 (hard cap)** | **Critical: 6 tasks** | **Interleaved** |
 
-**Parallelism Factor**: 3.0x (30 tasks / 10 critical path)
+### Parallelism Metrics (Jan 2026 - Claude Max 20x)
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **Total Tasks** | 30 | Sum of all tasks |
+| **Critical Path Length** | 6 | Longest sequential chain |
+| **Parallelism Factor** | 5.0x | 30 tasks / 6 critical |
+| **Max Concurrent Subagents** | **10** | Hard cap per Claude session |
+| **Queue Overflow** | Unlimited | Tasks >10 auto-queue, greedy refill |
+| **Theoretical Speedup** | 5.0x | With unlimited parallelism |
+| **Practical Speedup** | 4.2x | With 10 slots + greedy refill |
+| **Background Agents** | Ctrl+B | Research tasks can run async (v2.0.60+) |
+
+### Parallel Execution Windows (Single Session)
+
+```
+Time →
+├─ Setup (3 tasks, 1 batch) ────────────────────┤
+├─ Foundational (6 tasks, 2 batches) ───────────┤
+├─ [10 slots: 4 US1 + 3 US2 + 3 US3] ───────────┤  ← Interleaved across stories
+├─ [Queue refills as slots free] ───────────────┤  ← Greedy refill
+├─ [Continue until all US batches complete] ────┤
+├─ Polish (5 tasks, 2 batches) ─────────────────┤
+```
+
+**Key Behavior (Claude Code Jan 2026):**
+- Claude decides optimal parallelism - don't specify level manually
+- Tasks >10 auto-queue and start immediately when slots free
+- Use `Ctrl+B` to background long-running research agents
+- Background agents wake main agent when complete (v2.0.64)
 
 ---
 

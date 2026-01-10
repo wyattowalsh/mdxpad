@@ -26,7 +26,12 @@ Parse the following flags from user input:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--orchestration` | false | Emit `tasks.execution.yaml` alongside `tasks.md` |
-| `--max-parallel N` | 3 | Maximum concurrent subagents per batch |
+| `--max-parallel N` | 10 | Maximum concurrent subagents (hard cap enforced by Claude Code) |
+| `--model` | opus-4.5 | Model for subagents (opus-4.5 = most capable, sonnet-4 = faster) |
+| `--ultrathink` | true | Enable extended thinking for complex architecture tasks |
+| `--async-background` | true | Allow research tasks to run as background agents (Ctrl+B) |
+| `--cross-phase` | true | Allow independent user story phases to run concurrently within single session |
+| `--greedy-refill` | true | Immediately start queued tasks when slots free (vs waiting for batch) |
 | `--no-gates` | false | Omit validation gates (not recommended) |
 | `--tdd` | false | Generate test tasks before implementation |
 
@@ -50,47 +55,81 @@ Parse the following flags from user input:
      - Implementation → Test (test validates implementation, unless TDD)
      - Shared entity → All consumers (cross-story dependencies)
 
-4. **Execute batch assignment algorithm**:
+4. **Execute batch assignment algorithm (GREEDY PARALLEL)**:
 
    ```
+   # GOAL: Maximize parallelism by creating widest possible batches
+   # CONSTRAINT: Tasks in same batch must have no dependencies on each other
+
    For each phase (Setup, Foundational, UserStory1, UserStory2, ...):
 
-     # Step 1: Identify task types and their outputs
+     # Step 1: Extract all tasks with their dependency graph
      tasks = get_tasks_for_phase(phase)
      for task in tasks:
        task.output_file = extract_primary_output_file(task)
        task.output_dir = dirname(task.output_file)  # models/, services/, etc.
        task.dependencies = extract_dependencies(task, all_tasks)
 
-     # Step 2: Compute dependency levels (topological sort)
+     # Step 2: Compute dependency levels via topological sort
+     # OPTIMIZATION: Minimize levels to maximize batch width
      levels = {}
-     for task in tasks:
+     for task in topological_order(tasks):
        if not task.dependencies:
          levels[task] = 0
        else:
+         # Use min+1 not max+1 when deps are in different batches
          levels[task] = max(levels[dep] for dep in task.dependencies) + 1
 
-     # Step 3: Group into batches by level
+     # Step 3: GREEDY batch assignment - maximize tasks per level
      batches = defaultdict(list)
      for task, level in levels.items():
        batch_id = f"{phase.number}.{level + 1}"
        batches[batch_id].append(task)
 
-     # Step 4: Validate file isolation within each batch
-     for batch_id, batch_tasks in batches.items():
-       files = [t.output_file for t in batch_tasks]
-       if len(files) != len(set(files)):
-         # Split conflicting tasks into sequential sub-batches
-         resolve_file_conflicts(batch_id, batch_tasks)
+     # Step 4: BATCH WIDTH OPTIMIZATION
+     # If any batch has < 3 tasks, try to merge with adjacent levels
+     for batch_id, batch_tasks in list(batches.items()):
+       if len(batch_tasks) < 3:
+         # Check if tasks can be safely moved to previous batch
+         can_merge = all(
+           not any(dep in batches[prev_batch] for dep in t.dependencies)
+           for t in batch_tasks
+           for prev_batch in [f"{phase.number}.{int(batch_id.split('.')[1])-1}"]
+           if prev_batch in batches
+         )
+         if can_merge and prev_batch in batches:
+           batches[prev_batch].extend(batch_tasks)
+           del batches[batch_id]
 
-     # Step 5: Generate validation gate for each batch
+     # Step 5: Validate file isolation within each batch
+     for batch_id, batch_tasks in batches.items():
+       files = [t.output_file for t in batch_tasks if t.output_file]
+       if len(files) != len(set(files)):
+         # Split ONLY conflicting tasks, keep others parallel
+         resolve_file_conflicts_minimal(batch_id, batch_tasks)
+
+     # Step 6: Generate validation gate for each batch
      for batch_id, batch_tasks in batches.items():
        gate = generate_gate(batch_tasks)
-       # Gate type based on task types in batch:
-       # - Models: type check + import test
-       # - Services: type check + import test + dependency check
-       # - Endpoints: type check + route registration test
-       # - Tests: test discovery (not execution)
+       # Gate validation is PARALLEL-AWARE:
+       # - Run all type checks in single command (batch validation)
+       # - Use && chaining, not sequential gates
+   ```
+
+   **CROSS-PHASE PARALLELISM** (when `--cross-phase` enabled):
+   ```
+   # After Foundational phase completes:
+   # - Identify independent user story phases (no cross-story dependencies)
+   # - Launch ALL independent story phases concurrently
+   # - Each story progresses through its batches independently
+
+   independent_stories = [
+     phase for phase in user_story_phases
+     if not has_cross_story_dependencies(phase)
+   ]
+
+   # Dispatch ALL batch 1 tasks across ALL independent stories simultaneously
+   # Result: Up to (max_parallel × num_stories) concurrent subagents
    ```
 
 5. **Determine context scope for each task**:
@@ -317,16 +356,46 @@ feature: feature-name
 generated: "2025-01-15T10:30:00Z"
 
 execution_constraints:
-  max_parallel_subagents: 3
-  default_task_timeout_seconds: 300
-  gate_timeout_seconds: 60
+  # Claude Code MAXIMUM POWER (Jan 2026 - Claude Max 20x)
+  model: opus-4.5                        # Most capable model
+  max_parallel_subagents: 10             # Hard cap enforced by Claude Code
+  default_task_timeout_seconds: 600      # 10min for Opus deep reasoning
+  gate_timeout_seconds: 120              # 2min for complex validation
+  subagent_timeout_seconds: 900          # 15min for extended tasks
+
+  # Dispatch Strategy
+  dispatch_strategy: greedy_queue        # Launch 10, queue overflow, refill on complete
+  cross_phase_parallelism: true          # Independent stories run concurrently
+  greedy_refill: true                    # Start queued task immediately when slot frees
+
+  # Async/Background (v2.0.60+)
+  async_background:
+    enabled: true
+    background_research_tasks: true      # Auto-background exploration
+    wake_on_complete: true               # v2.0.64: agents wake main
+
+  # Batch Optimization
+  batch_sizing:
+    prefer_wider_batches: true           # More parallel over deeper chains
+    merge_small_batches: true            # Combine <3 task batches when safe
+    max_batch_size: 10                   # Match hard cap
+
+  # Extended Thinking
+  extended_thinking:
+    enabled: true
+    ultrathink_for: [architecture, design, complex_logic]
+
+  # Fault Tolerance
   circuit_breaker:
-    max_failures_per_batch: 2
+    max_failures_per_batch: 5            # High tolerance
     action: pause_and_report
   retry_policy:
-    max_attempts: 2
+    max_attempts: 3
     backoff: exponential
     initial_delay_seconds: 5
+
+  # Context
+  context_per_subagent: 200k             # Full 200k window per agent
 
 phases:
   - id: phase-1
@@ -409,11 +478,19 @@ parallelism_analysis:
   total_tasks: 25
   critical_path_length: 6
   parallelism_factor: 4.17
+  theoretical_speedup: 4.17x              # With unlimited parallelism
+  practical_speedup: 3.8x                 # With max_parallel=10 + greedy refill
+  max_concurrent_subagents: 10            # Hard cap per Claude session
+  queue_overflow_capacity: unlimited      # Tasks beyond 10 auto-queue
   max_parallelism_by_phase:
     phase-1: 3
-    phase-2: 2
-    phase-3: 2
-    phase-4: 2
+    phase-2: 6
+    phase-3: 10                           # Full parallelism (hard cap)
+    phase-4: 10
+    phase-5: 10
+  cross_phase_execution:
+    strategy: interleaved                 # US1 + US2 tasks share 10 slots
+    example: "5 US1 tasks + 5 US2 tasks = 10 concurrent"
 ```
 
 ---
@@ -427,42 +504,67 @@ Developer executes tasks T001 → T002 → ... in order:
 - No coordination needed
 - Batch hints indicate safe parallelization opportunities
 
-### Parallel Execution (With Orchestration)
+### Massive Parallel Execution (Recommended) 🚀
 
-Orchestrator consumes tasks.execution.yaml:
+Orchestrator uses GREEDY PARALLEL dispatch for maximum throughput:
 
 ```python
-async def execute_phase(manifest: dict, phase_id: str):
+async def execute_all_phases(manifest: dict):
+    """Execute with cross-phase parallelism for independent stories."""
+
+    # Phase 1 & 2: Sequential (Setup → Foundational)
+    await execute_phase(manifest, "phase-1")
+    await execute_phase(manifest, "phase-2")
+
+    # Phase 3+: PARALLEL execution of independent user stories
+    independent_stories = [
+        p for p in manifest["phases"]
+        if p["id"].startswith("phase-") and int(p["id"].split("-")[1]) >= 3
+        and not p.get("depends_on_story")
+    ]
+
+    # Launch ALL story phases concurrently
+    await asyncio.gather(*[
+        execute_phase_with_streaming(manifest, phase["id"])
+        for phase in independent_stories
+    ])
+
+    # Final phase: Polish (after all stories complete)
+    await execute_phase(manifest, "phase-n")
+
+
+async def execute_phase_with_streaming(manifest: dict, phase_id: str):
+    """GREEDY execution: launch all eligible, stream results."""
     phase = get_phase(manifest, phase_id)
+    max_parallel = manifest["execution_constraints"]["max_parallel_subagents"]
 
     for batch in phase["batches"]:
-        # Check dependencies
-        if not all_complete(batch.get("depends_on", [])):
-            await wait_for_batches(batch["depends_on"])
-
-        # Spawn parallel subagents
+        # GREEDY DISPATCH: Launch ALL tasks immediately
+        semaphore = asyncio.Semaphore(max_parallel)
         tasks = []
+
         for task_def in batch["tasks"]:
-            context = load_context(task_def["context_scope"])
-            tasks.append(spawn_subagent(
-                task=task_def,
-                context=context,
-                timeout=task_def.get("timeout_seconds", 300)
-            ))
+            async def run_with_limit(t):
+                async with semaphore:
+                    context = load_minimal_context(t["context_scope"])
+                    return await spawn_subagent(t, context)
 
-        # Wait for batch completion
-        results = await gather_with_circuit_breaker(
-            tasks,
-            max_failures=manifest["execution_constraints"]["circuit_breaker"]["max_failures_per_batch"]
-        )
+            tasks.append(run_with_limit(task_def))
 
-        # Run gate validation
+        # STREAMING: Process results as they complete (don't wait for slowest)
+        results = []
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            results.append(result)
+            # Stream progress: "T012 complete (3/8 in batch 3.1)"
+
+        # Gate validation AFTER all batch tasks complete
         gate_result = await run_gate(batch["gate"])
         if not gate_result.success:
             handle_gate_failure(batch, gate_result)
             return
 
-        # Auto-commit on success
+        # Auto-commit on gate success
         git_commit(f"[speckit] Gate {batch['id']} passed")
 ```
 

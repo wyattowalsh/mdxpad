@@ -6,13 +6,7 @@
 // Re-export types from lib
 export type { Result } from '../lib/result';
 export type { EventMap, EventHandler } from '../lib/events';
-export type {
-  IpcChannel,
-  SecurityInfo,
-  IpcPayloads,
-  IpcRequest,
-  IpcResponse,
-} from '../lib/ipc';
+export type { IpcChannel, SecurityInfo, IpcPayloads, IpcRequest, IpcResponse } from '../lib/ipc';
 
 // Re-export types from type modules (Spec 001)
 export * from './editor';

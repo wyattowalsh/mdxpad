@@ -1,17 +1,27 @@
 /**
  * File system type definitions.
  * Defines types for file handles, state, and operations.
+ *
+ * Note: FileId uses Zod's branded type from file-schemas.ts as the single source of truth.
+ * This ensures type compatibility between schema validation and type definitions.
  */
 
-/** Unique identifier for an open file */
-export type FileId = string & { readonly __brand: 'FileId' };
+// Import FileId type and schema from the canonical schema definition
+// This ensures a single source of truth for the branded FileId type
+import { FileIdSchema, type FileId } from '@shared/contracts/file-schemas';
+
+// Re-export for consumers of this module
+export type { FileId };
+export { FileIdSchema };
 
 /**
- * Create a new FileId
- * @returns A unique file identifier
+ * Create a new FileId.
+ * Uses Zod schema's parse to ensure proper branding.
+ * @returns A unique file identifier with proper Zod brand
  */
 export function createFileId(): FileId {
-  return crypto.randomUUID() as FileId;
+  // Use Zod's parse to properly brand the UUID string
+  return FileIdSchema.parse(crypto.randomUUID());
 }
 
 /** Handle to a file (may be untitled) */

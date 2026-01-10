@@ -15,10 +15,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1, // Only one worker for Electron
-  reporter: [
-    ['html', { open: 'never' }],
-    ['list'],
-  ],
+  reporter: [['html', { open: 'never' }], ['list']],
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

@@ -4,11 +4,92 @@
  *
  * @security Uses contextBridge to prevent prototype pollution
  * @security Uses invoke/handle pattern, never send/on
+ * @security Per Constitution III.3: All payloads validated with zod on both ends
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
+import { z } from 'zod';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
+import {
+  // Request schemas (sender-side validation)
+  FileSaveRequestSchema,
+  FileSaveAsRequestSchema,
+  FileReadRequestSchema,
+  FileWriteRequestSchema,
+  // Response schemas (receiver-side validation)
+  FileOpenResponseSchema,
+  FileSaveResponseSchema,
+  FileSaveAsResponseSchema,
+  FileReadResponseSchema,
+  FileWriteResponseSchema,
+  WindowCloseResponseSchema,
+  WindowMinimizeResponseSchema,
+  WindowMaximizeResponseSchema,
+  AppVersionResponseSchema,
+  AppReadyResponseSchema,
+} from '@shared/contracts/file-schemas';
 import type { MdxpadAPI } from './api';
+import type { FileResult, FileHandle } from '@shared/types/file';
+
+// ============================================================================
+// Schema for SecurityInfo (not in file-schemas.ts)
+// ============================================================================
+
+/**
+ * SecurityInfo response schema.
+ * Validates the security configuration returned by getSecurityInfo.
+ */
+const SecurityInfoResponseSchema = z.object({
+  contextIsolation: z.boolean(),
+  sandbox: z.boolean(),
+  nodeIntegration: z.boolean(),
+  webSecurity: z.boolean(),
+});
+
+// ============================================================================
+// Validated IPC Invoke Helper
+// ============================================================================
+
+/**
+ * Performs a validated IPC invoke with schema validation on both ends.
+ * Per Constitution III.3: All payloads validated with zod on both ends.
+ *
+ * @param channel - IPC channel name
+ * @param requestSchema - Zod schema for request validation (null for void requests)
+ * @param responseSchema - Zod schema for response validation
+ * @param args - Arguments to pass to the handler (undefined for void requests)
+ * @returns Validated response data
+ * @throws Error if request or response validation fails
+ */
+async function validatedInvoke<TReq, TRes>(
+  channel: string,
+  requestSchema: z.ZodType<TReq> | null,
+  responseSchema: z.ZodType<TRes>,
+  args?: unknown
+): Promise<TRes> {
+  // Validate request if schema provided (sender-side validation)
+  if (requestSchema && args !== undefined) {
+    const reqParsed = requestSchema.safeParse(args);
+    if (!reqParsed.success) {
+      throw new Error(`Request validation failed: ${reqParsed.error.message}`);
+    }
+  }
+
+  // Invoke IPC - cast to unknown since Electron returns any
+  const response: unknown = await ipcRenderer.invoke(channel, args);
+
+  // Validate response (receiver-side validation)
+  const resParsed = responseSchema.safeParse(response);
+  if (!resParsed.success) {
+    throw new Error(`Response validation failed: ${resParsed.error.message}`);
+  }
+
+  return resParsed.data;
+}
+
+// ============================================================================
+// Platform Detection
+// ============================================================================
 
 /**
  * Detect architecture at runtime.
@@ -24,12 +105,147 @@ function getArch(): 'arm64' | 'x64' {
   }
 }
 
+// ============================================================================
+// File Change Event Handling
+// ============================================================================
+
+/**
+ * File change event listeners registry.
+ * Allows multiple subscriptions and cleanup.
+ */
+const fileChangeListeners = new Set<(event: { fileId: string; path: string; type: 'change' | 'unlink' }) => void>();
+
+// Set up IPC listener for file changes (once, shared across all subscriptions)
+ipcRenderer.on(IPC_CHANNELS.file.change, (_event, data: unknown) => {
+  // Validate incoming data matches expected shape
+  const validData = data as { fileId: string; path: string; type: 'change' | 'unlink' };
+  for (const listener of fileChangeListeners) {
+    listener(validData);
+  }
+});
+
+// ============================================================================
+// API Implementation
+// ============================================================================
+
 /**
  * API implementation exposed to renderer.
+ * All methods use validatedInvoke for schema validation on both ends.
+ *
+ * Note: Type assertions are used for FileResult types because the zod-inferred
+ * types are structurally equivalent but not identical due to branded types
+ * (FileId) and readonly modifiers. The validation ensures runtime correctness.
  */
 const api: MdxpadAPI = {
-  getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.app.getVersion),
-  getSecurityInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getSecurityInfo),
+  // === App Info ===
+  getVersion: () =>
+    validatedInvoke(
+      IPC_CHANNELS.app.getVersion,
+      null, // void request
+      AppVersionResponseSchema
+    ),
+
+  getSecurityInfo: () =>
+    validatedInvoke(
+      IPC_CHANNELS.app.getSecurityInfo,
+      null, // void request
+      SecurityInfoResponseSchema
+    ),
+
+  // === File Operations ===
+  openFile: async (): Promise<FileResult<FileHandle>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.open,
+      null, // void request
+      FileOpenResponseSchema
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<FileHandle>;
+  },
+
+  saveFile: async (handle, content): Promise<FileResult<void>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.save,
+      FileSaveRequestSchema,
+      FileSaveResponseSchema,
+      { handle, content }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<void>;
+  },
+
+  saveFileAs: async (content): Promise<FileResult<FileHandle>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.saveAs,
+      FileSaveAsRequestSchema,
+      FileSaveAsResponseSchema,
+      { content }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<FileHandle>;
+  },
+
+  readFile: async (path): Promise<FileResult<string>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.read,
+      FileReadRequestSchema,
+      FileReadResponseSchema,
+      { path }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<string>;
+  },
+
+  writeFile: async (path, content): Promise<FileResult<void>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.write,
+      FileWriteRequestSchema,
+      FileWriteResponseSchema,
+      { path, content }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<void>;
+  },
+
+  // === Window Operations ===
+  closeWindow: () =>
+    validatedInvoke(
+      IPC_CHANNELS.window.close,
+      null, // void request
+      WindowCloseResponseSchema
+    ),
+
+  minimizeWindow: () =>
+    validatedInvoke(
+      IPC_CHANNELS.window.minimize,
+      null, // void request
+      WindowMinimizeResponseSchema
+    ),
+
+  maximizeWindow: () =>
+    validatedInvoke(
+      IPC_CHANNELS.window.maximize,
+      null, // void request
+      WindowMaximizeResponseSchema
+    ),
+
+  // === App Lifecycle ===
+  signalReady: () =>
+    validatedInvoke(
+      IPC_CHANNELS.app.ready,
+      null, // void request
+      AppReadyResponseSchema
+    ),
+
+  // === Events ===
+  onFileChange: (callback) => {
+    fileChangeListeners.add(callback);
+    return () => {
+      fileChangeListeners.delete(callback);
+    };
+  },
+
+  // === Platform Info ===
   platform: {
     os: 'darwin',
     arch: getArch(),

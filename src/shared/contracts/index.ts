@@ -6,9 +6,7 @@
 
 // Re-export IPC contracts for convenience
 export { IPC_CHANNELS, IPC_CHANNELS_DEFERRED } from '../lib/ipc';
-export type { IpcPayloads, IpcRequest, IpcResponse } from '../lib/ipc';
+export type { IpcPayloads, IpcRequest, IpcResponse, SecurityInfo } from '../lib/ipc';
 
-// Future contracts will be added here:
-// - FileContract (Spec 003)
-// - WorkspaceContract (Spec 003)
-// - PluginContract (Spec 004+)
+// File system contracts (Spec 004)
+export * from './file-schemas';

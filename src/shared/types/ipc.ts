@@ -24,7 +24,7 @@ export const IpcChannels = {
   APP_READY: 'mdxpad:app:ready',
 } as const;
 
-export type IpcChannel = typeof IpcChannels[keyof typeof IpcChannels];
+export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
 
 /** Type-safe IPC invoke/handle signatures */
 export interface IpcApi {
