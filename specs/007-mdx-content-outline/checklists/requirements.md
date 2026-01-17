@@ -32,5 +32,13 @@
 ## Notes
 
 - All items pass validation
-- Ready for `/speckit.clarify` or `/speckit.plan`
-- No clarifications needed - reasonable defaults applied for all decisions
+- Clarification session completed 2026-01-17 (5 questions resolved)
+- Ready for `/speckit.plan`
+
+## Clarifications Recorded
+
+1. **AST Data Access**: Extend preview store with AST field
+2. **Heading Nesting**: Strict nesting (canonical behavior)
+3. **Built-in Components**: MDX ecosystem standard list (10 components)
+4. **Frontmatter Fields**: Title + date/author/tags by default, expandable
+5. **Auto-Hide Behavior**: Preserve preference, auto-restore on widen

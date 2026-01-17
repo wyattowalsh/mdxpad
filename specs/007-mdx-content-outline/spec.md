@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-mdx-content-outline`
 **Created**: 2026-01-17
-**Status**: Draft
+**Status**: Clarified
 **Input**: User description: "MDX Content Outline/Navigator - A live document outline panel showing headings tree (h1-h6), component hierarchy, and frontmatter sections with click-to-navigate functionality. Displays as a collapsible sidebar that updates in real-time as the user edits. Integrates with existing preview AST parsing and useErrorNavigation hook for cursor positioning."
 
 ---
@@ -226,7 +226,7 @@ A writer working on a complex document wants to focus on specific parts of the o
 
 ## Assumptions
 
-1. **Preview AST is available**: The preview pane already compiles MDX and produces an AST. This spec assumes that AST can be accessed for outline generation.
+1. **Preview AST is available via store**: The preview pane already compiles MDX and produces an AST. The preview store will be extended to expose this AST as a subscribable field, allowing the outline component to receive reactive updates.
 2. **Single document model**: The outline reflects the currently active document (no multi-document support yet).
 3. **Standard MDX structure**: Headings use standard markdown syntax (# through ######). Non-standard heading patterns are out of scope.
 4. **Existing navigation pattern**: The useErrorNavigation hook from spec 006 provides a proven pattern for cursor positioning that can be extended.
@@ -260,3 +260,64 @@ A writer working on a complex document wants to focus on specific parts of the o
 - **Outline Item**: A single entry in the outline representing a heading, component, or frontmatter field
 - **Source Position**: The line and column number in the source document where an element appears
 - **Tree View**: A hierarchical UI component showing nested items with expand/collapse capability
+
+---
+
+## Clarifications
+
+### Session 2026-01-17
+
+**Q1: AST Data Access Contract**
+
+*How should the outline component access the preview pane's parsed AST?*
+
+**Decision**: Extend preview store with AST field
+
+The preview store will be extended to expose the parsed AST as a subscribable field. The outline component will subscribe to this field to receive AST updates reactively. This approach:
+- Maintains clear store boundaries
+- Enables reactive updates via Zustand subscriptions
+- Keeps AST ownership in the preview domain
+- Requires minimal changes to existing architecture
+
+---
+
+**Q2: Heading Nesting Algorithm**
+
+*How should the outline handle non-standard heading sequences (e.g., h1 followed directly by h3, skipping h2)?*
+
+**Decision**: Strict nesting (canonical behavior)
+
+A heading becomes a child of the nearest preceding heading with a smaller level number, regardless of skipped levels. This matches VS Code, GitHub, Obsidian, Notion, and other major editors. Example:
+- `# Intro` → `├── Intro`
+- `### Deep point` → `│   └── Deep point`
+- `## Section` → `└── Section`
+
+---
+
+**Q3: Built-in Component Recognition**
+
+*What components should be recognized as "built-in" for visual distinction?*
+
+**Decision**: MDX ecosystem standard components
+
+Recognize components commonly provided by MDX setups: `Callout`, `Note`, `Warning`, `Tip`, `CodeBlock`, `Tabs`, `Tab`, `Card`, `Image`, `Link`. These receive distinct visual styling in the outline. All other components display as custom/unknown. List is extensible via configuration in future iterations.
+
+---
+
+**Q4: Frontmatter Display Fields**
+
+*Which frontmatter fields should display by default vs. require expansion?*
+
+**Decision**: Title + 3 key metadata fields
+
+Show `title`, `date`, `author`, `tags` by default in the Frontmatter section. A "Show all" toggle reveals any additional fields present in the document. This balances quick access to common metadata with the ability to view everything when needed.
+
+---
+
+**Q5: Auto-Hide Behavior**
+
+*When the outline auto-hides due to window constraints, what should happen to user preference and recovery?*
+
+**Decision**: Preserve preference, auto-restore
+
+If the user had the outline visible, auto-hide it when the window becomes too narrow, then auto-restore it when the window widens past the threshold again. The user's visibility preference remains unchanged throughout. This provides seamless responsive behavior without forcing manual intervention after window resizing.
