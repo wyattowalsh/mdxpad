@@ -1,0 +1,766 @@
+# Task Execution Manifest: MDX Content Outline/Navigator
+# Generated: 2026-01-17
+# Feature: 007-mdx-content-outline
+# Version: 1.0.0
+
+metadata:
+  feature_id: "007-mdx-content-outline"
+  spec_version: "1.0.0"
+  total_tasks: 36
+  total_phases: 8
+  total_batches: 17
+  critical_path_length: 8
+  parallelism_factor: 4.5
+  estimated_parallel_time: "8 sequential batches"
+
+phases:
+  - id: 1
+    name: "Setup & Shared Types"
+    description: "Type definitions and shared infrastructure"
+    priority: "P1"
+    batches:
+      - batch_id: "1.1"
+        tasks: ["T001", "T002", "T003"]
+        parallel: true
+        gate: "G1"
+
+  - id: 2
+    name: "Foundational Infrastructure"
+    description: "Core extraction, stores, hooks, and commands"
+    priority: "P1"
+    batches:
+      - batch_id: "2.1"
+        tasks: ["T004", "T005"]
+        parallel: true
+        gate: null
+      - batch_id: "2.2"
+        tasks: ["T006", "T007"]
+        parallel: true
+        gate: null
+      - batch_id: "2.3"
+        tasks: ["T008", "T009"]
+        parallel: true
+        gate: null
+      - batch_id: "2.4"
+        tasks: ["T010", "T011", "T012"]
+        parallel: true
+        gate: "G2"
+
+  - id: 3
+    name: "US1 - Heading Navigation"
+    description: "Core heading tree display and click-to-navigate"
+    priority: "P1"
+    user_story: "US1"
+    batches:
+      - batch_id: "3.1"
+        tasks: ["T013", "T014"]
+        parallel: true
+        gate: null
+      - batch_id: "3.2"
+        tasks: ["T015", "T016"]
+        parallel: true
+        gate: null
+      - batch_id: "3.3"
+        tasks: ["T017", "T018"]
+        parallel: true
+        gate: null
+      - batch_id: "3.4"
+        tasks: ["T019", "T020"]
+        parallel: true
+        gate: "G3"
+
+  - id: 4
+    name: "US2 - Toggle Visibility"
+    description: "Panel visibility toggle with persistence"
+    priority: "P1"
+    user_story: "US2"
+    batches:
+      - batch_id: "4.1"
+        tasks: ["T021", "T022"]
+        parallel: true
+        gate: "G4"
+
+  - id: 5
+    name: "US3 - Components Section"
+    description: "Component hierarchy with grouping"
+    priority: "P2"
+    user_story: "US3"
+    batches:
+      - batch_id: "5.1"
+        tasks: ["T023", "T024", "T025"]
+        parallel: true
+        gate: "G5"
+
+  - id: 6
+    name: "US4 - Frontmatter Section"
+    description: "Frontmatter fields display"
+    priority: "P2"
+    user_story: "US4"
+    batches:
+      - batch_id: "6.1"
+        tasks: ["T026", "T027", "T028"]
+        parallel: true
+        gate: "G6"
+
+  - id: 7
+    name: "US5 - Collapse Functionality"
+    description: "Collapsible sections and nested items"
+    priority: "P3"
+    user_story: "US5"
+    batches:
+      - batch_id: "7.1"
+        tasks: ["T029", "T030"]
+        parallel: true
+        gate: "G7"
+
+  - id: 8
+    name: "Polish & Validation"
+    description: "Accessibility, performance, and final validation"
+    priority: "P3"
+    batches:
+      - batch_id: "8.1"
+        tasks: ["T031", "T032", "T033"]
+        parallel: true
+        gate: null
+      - batch_id: "8.2"
+        tasks: ["T034", "T035", "T036"]
+        parallel: true
+        gate: "G8"
+
+tasks:
+  T001:
+    title: "Create shared outline types"
+    file: "src/shared/types/outline.ts"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-store.ts"
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-navigation.ts"
+      - ".specify/specs/007-mdx-content-outline/data-model.md"
+    dependencies: []
+    acceptance:
+      - "HeadingLevel, OutlineSectionId, OutlineItemType exported"
+      - "SourcePosition, HeadingNode, ComponentNode, FrontmatterData exported"
+      - "OutlineAST interface exported"
+      - "All types satisfy strict: true"
+
+  T002:
+    title: "Create outline store types"
+    file: "src/shared/types/outline.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-store.ts"
+    dependencies: ["T001"]
+    acceptance:
+      - "OutlineItem, OutlineSection interfaces exported"
+      - "OutlineStoreState, OutlineStoreActions exported"
+      - "OutlineStore combined type exported"
+
+  T003:
+    title: "Create outline navigation types"
+    file: "src/shared/types/outline.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-navigation.ts"
+    dependencies: ["T001"]
+    acceptance:
+      - "OutlineLocation interface exported"
+      - "UseOutlineNavigationOptions, UseOutlineNavigationResult exported"
+      - "HighlightEffectValue type exported"
+
+  T004:
+    title: "Create outline-extractor module"
+    file: "src/renderer/lib/mdx/outline-extractor.ts"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/quickstart.md"
+      - ".specify/specs/007-mdx-content-outline/research.md"
+      - "src/shared/types/outline.ts"
+    dependencies: ["T001"]
+    acceptance:
+      - "extractOutline function exported"
+      - "Extracts headings with depth, text, position"
+      - "Extracts components with name, position"
+      - "Returns OutlineAST structure"
+      - "<10ms extraction time for 500-line document"
+
+  T005:
+    title: "Create outline-extractor tests"
+    file: "src/renderer/lib/mdx/outline-extractor.test.ts"
+    action: "CREATE"
+    context_scope:
+      - "src/renderer/lib/mdx/outline-extractor.ts"
+    dependencies: ["T004"]
+    acceptance:
+      - "Tests heading extraction at all levels (h1-h6)"
+      - "Tests component extraction"
+      - "Tests empty document handling"
+      - "Tests mixed content document"
+      - ">80% coverage"
+
+  T006:
+    title: "Create outline-store"
+    file: "src/renderer/stores/outline-store.ts"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-store.ts"
+      - "src/renderer/stores/preview-store.ts"
+      - "src/shared/types/outline.ts"
+    dependencies: ["T001", "T002"]
+    acceptance:
+      - "useOutlineStore hook exported"
+      - "Zustand + Immer pattern followed"
+      - "INITIAL_OUTLINE_STATE constant exported"
+      - "updateFromAST action implemented"
+      - "All selectors exported"
+
+  T007:
+    title: "Create outline-store tests"
+    file: "src/renderer/stores/outline-store.test.ts"
+    action: "CREATE"
+    context_scope:
+      - "src/renderer/stores/outline-store.ts"
+    dependencies: ["T006"]
+    acceptance:
+      - "Tests initial state"
+      - "Tests updateFromAST with headings"
+      - "Tests updateFromAST with components"
+      - "Tests updateFromAST with frontmatter"
+      - "Tests section selectors"
+      - ">80% coverage"
+
+  T008:
+    title: "Extend ui-layout-store with outlineVisible"
+    file: "src/renderer/stores/ui-layout-store.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/quickstart.md"
+      - "src/renderer/stores/ui-layout-store.ts"
+    dependencies: ["T001"]
+    acceptance:
+      - "outlineVisible: boolean state added (default: true)"
+      - "toggleOutline action added"
+      - "setOutlineVisible action added"
+      - "selectOutlineVisible selector added"
+      - "localStorage key 'mdxpad:ui:outline-visible' used"
+
+  T009:
+    title: "Update ui-layout-store tests"
+    file: "src/renderer/stores/ui-layout-store.test.ts"
+    action: "EXTEND"
+    context_scope:
+      - "src/renderer/stores/ui-layout-store.ts"
+    dependencies: ["T008"]
+    acceptance:
+      - "Tests outlineVisible initial state"
+      - "Tests toggleOutline action"
+      - "Tests setOutlineVisible action"
+      - "Tests localStorage persistence"
+
+  T010:
+    title: "Create useOutlineNavigation hook"
+    file: "src/renderer/hooks/useOutlineNavigation.ts"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-navigation.ts"
+      - "src/renderer/hooks/useErrorNavigation.ts"
+    dependencies: ["T001", "T003"]
+    acceptance:
+      - "useOutlineNavigation hook exported"
+      - "navigateToItem function positions cursor"
+      - "Line highlighting with 500ms duration"
+      - "Scroll to center behavior"
+      - "isNavigating state tracked"
+
+  T011:
+    title: "Create useOutlineNavigation tests"
+    file: "src/renderer/hooks/useOutlineNavigation.test.ts"
+    action: "CREATE"
+    context_scope:
+      - "src/renderer/hooks/useOutlineNavigation.ts"
+    dependencies: ["T010"]
+    acceptance:
+      - "Tests cursor positioning"
+      - "Tests line clamping"
+      - "Tests isNavigating state"
+      - "Tests highlight duration"
+      - ">80% coverage"
+
+  T012:
+    title: "Register toggle-outline command"
+    file: "src/renderer/commands/view-commands.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/quickstart.md"
+      - "src/renderer/commands/view-commands.ts"
+    dependencies: ["T008"]
+    acceptance:
+      - "view.toggle-outline command registered"
+      - "Shortcut: Cmd+Shift+O (macOS)"
+      - "Calls useUILayoutStore.getState().toggleOutline()"
+      - "Command appears in palette"
+
+  T013:
+    title: "Create OutlineEmptyState component"
+    file: "src/renderer/components/outline/OutlineEmptyState.tsx"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T001"]
+    acceptance:
+      - "OutlineEmptyState component exported"
+      - "Displays 'Add headings to see outline' message"
+      - "Accessible with appropriate ARIA"
+
+  T014:
+    title: "Create OutlineItem component"
+    file: "src/renderer/components/outline/OutlineItem.tsx"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+      - "src/shared/types/outline.ts"
+    dependencies: ["T001", "T010"]
+    acceptance:
+      - "OutlineItem component exported"
+      - "Renders item label with truncation"
+      - "Handles click to navigate"
+      - "Renders children recursively"
+      - "Indentation per heading level"
+      - "role='treeitem' applied"
+
+  T015:
+    title: "Create OutlineSection component"
+    file: "src/renderer/components/outline/OutlineSection.tsx"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T014"]
+    acceptance:
+      - "OutlineSection component exported"
+      - "Renders section header"
+      - "Renders OutlineItem children"
+      - "role='group' applied"
+      - "aria-labelledby for header"
+
+  T016:
+    title: "Create OutlinePanel component"
+    file: "src/renderer/components/outline/OutlinePanel.tsx"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+      - ".specify/specs/007-mdx-content-outline/quickstart.md"
+    dependencies: ["T006", "T008", "T013", "T015"]
+    acceptance:
+      - "OutlinePanel component exported"
+      - "Subscribes to useOutlineStore"
+      - "Subscribes to useUILayoutStore.outlineVisible"
+      - "Returns null when not visible"
+      - "Renders OutlineSection for each section"
+      - "Renders OutlineEmptyState when no content"
+      - "role='complementary' on aside"
+
+  T017:
+    title: "Create outline component barrel export"
+    file: "src/renderer/components/outline/index.ts"
+    action: "CREATE"
+    context_scope:
+      - "src/renderer/components/outline/"
+    dependencies: ["T013", "T014", "T015", "T016"]
+    acceptance:
+      - "All outline components re-exported"
+      - "Clean public API"
+
+  T018:
+    title: "Extend preview-store with outline AST"
+    file: "src/renderer/stores/preview-store.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/quickstart.md"
+      - "src/renderer/stores/preview-store.ts"
+      - "src/renderer/lib/mdx/outline-extractor.ts"
+    dependencies: ["T004"]
+    acceptance:
+      - "CompileSuccess includes outline: OutlineAST | null"
+      - "extractOutline called during compilation"
+      - "selectOutlineAST selector exported"
+
+  T019:
+    title: "Integrate OutlinePanel into App.tsx"
+    file: "src/renderer/App.tsx"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/quickstart.md"
+      - "src/renderer/App.tsx"
+    dependencies: ["T016", "T018"]
+    acceptance:
+      - "OutlinePanel imported and rendered"
+      - "Positioned to left of editor"
+      - "AST subscription connects preview to outline store"
+
+  T020:
+    title: "Add Tailwind styles for outline"
+    file: "src/renderer/components/outline/OutlinePanel.tsx"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/spec.md"
+    dependencies: ["T016"]
+    acceptance:
+      - "200px default width"
+      - "Scrollable content area"
+      - "Sticky header"
+      - "Proper indentation styles"
+      - "Line highlight animation"
+
+  T021:
+    title: "Implement visibility persistence"
+    file: "src/renderer/stores/ui-layout-store.ts"
+    action: "EXTEND"
+    context_scope:
+      - "src/renderer/stores/ui-layout-store.ts"
+    dependencies: ["T008"]
+    acceptance:
+      - "outlineVisible saved to localStorage on change"
+      - "outlineVisible loaded from localStorage on init"
+      - "Default true if no stored value"
+
+  T022:
+    title: "Test visibility persistence E2E"
+    file: "e2e/outline-visibility.spec.ts"
+    action: "CREATE"
+    context_scope:
+      - "src/renderer/stores/ui-layout-store.ts"
+    dependencies: ["T021", "T019"]
+    acceptance:
+      - "Toggle visibility persists across reload"
+      - "Default visible on fresh start"
+      - "Cmd+Shift+O toggles correctly"
+
+  T023:
+    title: "Extend extractor for component grouping"
+    file: "src/renderer/lib/mdx/outline-extractor.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-store.ts"
+    dependencies: ["T004"]
+    acceptance:
+      - "Components grouped by name"
+      - "Instance count tracked"
+      - "BUILTIN_COMPONENTS distinguished"
+      - "First instance position stored"
+
+  T024:
+    title: "Create ComponentGroup component"
+    file: "src/renderer/components/outline/ComponentGroup.tsx"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T014"]
+    acceptance:
+      - "ComponentGroup component exported"
+      - "Displays component name with count badge"
+      - "Expandable to show instances (Show all)"
+      - "Each instance navigable"
+      - "Visual distinction for built-in vs custom"
+
+  T025:
+    title: "Integrate ComponentGroup into OutlineSection"
+    file: "src/renderer/components/outline/OutlineSection.tsx"
+    action: "EXTEND"
+    context_scope:
+      - "src/renderer/components/outline/OutlineSection.tsx"
+      - "src/renderer/components/outline/ComponentGroup.tsx"
+    dependencies: ["T015", "T024"]
+    acceptance:
+      - "Components section uses ComponentGroup"
+      - "Proper section header 'Components'"
+
+  T026:
+    title: "Extend extractor for frontmatter"
+    file: "src/renderer/lib/mdx/outline-extractor.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-store.ts"
+    dependencies: ["T004"]
+    acceptance:
+      - "Frontmatter extracted from AST"
+      - "DEFAULT_FRONTMATTER_FIELDS prioritized"
+      - "Additional fields included"
+      - "Values truncated at MAX_LABEL_LENGTH"
+
+  T027:
+    title: "Create FrontmatterSection component"
+    file: "src/renderer/components/outline/FrontmatterSection.tsx"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T014"]
+    acceptance:
+      - "FrontmatterSection component exported"
+      - "Displays field name: value pairs"
+      - "Click navigates to frontmatter block"
+      - "Tags displayed inline (comma-separated)"
+
+  T028:
+    title: "Integrate FrontmatterSection into OutlineSection"
+    file: "src/renderer/components/outline/OutlineSection.tsx"
+    action: "EXTEND"
+    context_scope:
+      - "src/renderer/components/outline/OutlineSection.tsx"
+      - "src/renderer/components/outline/FrontmatterSection.tsx"
+    dependencies: ["T015", "T027"]
+    acceptance:
+      - "Frontmatter section uses FrontmatterSection"
+      - "Proper section header 'Frontmatter'"
+      - "Section order: Frontmatter, Headings, Components"
+
+  T029:
+    title: "Add section collapse state to outline-store"
+    file: "src/renderer/stores/outline-store.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-store.ts"
+    dependencies: ["T006"]
+    acceptance:
+      - "collapsedSections: Set<OutlineSectionId> state added"
+      - "toggleSectionCollapse action added"
+      - "Collapsed state persists in memory"
+
+  T030:
+    title: "Add collapse UI to sections and nested items"
+    file: "src/renderer/components/outline/OutlineSection.tsx"
+    action: "EXTEND"
+    context_scope:
+      - "src/renderer/components/outline/OutlineSection.tsx"
+      - "src/renderer/components/outline/OutlineItem.tsx"
+    dependencies: ["T015", "T029"]
+    acceptance:
+      - "Section headers have collapse chevron"
+      - "Clicking header toggles collapse"
+      - "Nested headings collapsible individually"
+      - "aria-expanded attribute set correctly"
+
+  T031:
+    title: "Implement keyboard navigation"
+    file: "src/renderer/components/outline/OutlinePanel.tsx"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T016"]
+    acceptance:
+      - "Arrow Up/Down moves focus between items"
+      - "Enter activates navigation"
+      - "Escape closes panel"
+      - "Focus management correct"
+
+  T032:
+    title: "Add ARIA roles and labels"
+    file: "src/renderer/components/outline/"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T016", "T031"]
+    acceptance:
+      - "role='tree' on nav"
+      - "role='treeitem' on items"
+      - "role='group' on sections"
+      - "aria-label on panel"
+      - "aria-level on tree items"
+
+  T033:
+    title: "Implement auto-hide on narrow window"
+    file: "src/renderer/components/outline/OutlinePanel.tsx"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/contracts/outline-panel.ts"
+    dependencies: ["T016", "T008"]
+    acceptance:
+      - "Auto-hide below 1000px with preview"
+      - "Auto-hide below 600px without preview"
+      - "User preference restored when width increases"
+      - "No flicker on resize"
+
+  T034:
+    title: "Performance validation"
+    file: "src/renderer/lib/mdx/outline-extractor.test.ts"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/plan.md"
+    dependencies: ["T005", "T018"]
+    acceptance:
+      - "AST extraction <50ms for 500-line doc"
+      - "Outline update <500ms after typing"
+      - "Navigation response <100ms"
+      - "Performance tests added"
+
+  T035:
+    title: "Integration E2E tests"
+    file: "e2e/outline-integration.spec.ts"
+    action: "CREATE"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/spec.md"
+    dependencies: ["T019", "T022"]
+    acceptance:
+      - "Headings display correctly"
+      - "Click navigation works"
+      - "Real-time updates work"
+      - "Toggle visibility works"
+      - "Keyboard navigation works"
+
+  T036:
+    title: "Final checklist validation"
+    file: ".specify/specs/007-mdx-content-outline/checklists/requirements.md"
+    action: "EXTEND"
+    context_scope:
+      - ".specify/specs/007-mdx-content-outline/checklists/requirements.md"
+    dependencies: ["T034", "T035"]
+    acceptance:
+      - "All checklist items marked complete"
+      - "No regressions in existing tests"
+      - "Bundle size increase <5KB"
+
+gates:
+  G1:
+    name: "Types Gate"
+    description: "All shared types compile without errors"
+    tasks_required: ["T001", "T002", "T003"]
+    validation: "tsc --noEmit passes"
+
+  G2:
+    name: "Infrastructure Gate"
+    description: "Core infrastructure functional"
+    tasks_required: ["T004", "T005", "T006", "T007", "T008", "T009", "T010", "T011", "T012"]
+    validation: "npm test passes for new files"
+
+  G3:
+    name: "US1 Gate"
+    description: "Heading navigation complete"
+    tasks_required: ["T013", "T014", "T015", "T016", "T017", "T018", "T019", "T020"]
+    validation: "Manual verification of heading tree and navigation"
+
+  G4:
+    name: "US2 Gate"
+    description: "Toggle visibility complete"
+    tasks_required: ["T021", "T022"]
+    validation: "E2E test passes"
+
+  G5:
+    name: "US3 Gate"
+    description: "Components section complete"
+    tasks_required: ["T023", "T024", "T025"]
+    validation: "Components display with grouping"
+
+  G6:
+    name: "US4 Gate"
+    description: "Frontmatter section complete"
+    tasks_required: ["T026", "T027", "T028"]
+    validation: "Frontmatter fields display"
+
+  G7:
+    name: "US5 Gate"
+    description: "Collapse functionality complete"
+    tasks_required: ["T029", "T030"]
+    validation: "Collapse/expand works for sections and items"
+
+  G8:
+    name: "Final Gate"
+    description: "Feature complete and validated"
+    tasks_required: ["T031", "T032", "T033", "T034", "T035", "T036"]
+    validation: "All tests pass, checklist complete"
+
+dependency_graph:
+  edges:
+    # Phase 1 dependencies
+    - [null, "T001"]  # Root node
+    - ["T001", "T002"]
+    - ["T001", "T003"]
+
+    # Phase 2 dependencies
+    - ["T001", "T004"]
+    - ["T004", "T005"]
+    - ["T001", "T006"]
+    - ["T002", "T006"]
+    - ["T006", "T007"]
+    - ["T001", "T008"]
+    - ["T008", "T009"]
+    - ["T001", "T010"]
+    - ["T003", "T010"]
+    - ["T010", "T011"]
+    - ["T008", "T012"]
+
+    # Phase 3 dependencies
+    - ["T001", "T013"]
+    - ["T001", "T014"]
+    - ["T010", "T014"]
+    - ["T014", "T015"]
+    - ["T006", "T016"]
+    - ["T008", "T016"]
+    - ["T013", "T016"]
+    - ["T015", "T016"]
+    - ["T013", "T017"]
+    - ["T014", "T017"]
+    - ["T015", "T017"]
+    - ["T016", "T017"]
+    - ["T004", "T018"]
+    - ["T016", "T019"]
+    - ["T018", "T019"]
+    - ["T016", "T020"]
+
+    # Phase 4 dependencies
+    - ["T008", "T021"]
+    - ["T021", "T022"]
+    - ["T019", "T022"]
+
+    # Phase 5 dependencies
+    - ["T004", "T023"]
+    - ["T014", "T024"]
+    - ["T015", "T025"]
+    - ["T024", "T025"]
+
+    # Phase 6 dependencies
+    - ["T004", "T026"]
+    - ["T014", "T027"]
+    - ["T015", "T028"]
+    - ["T027", "T028"]
+
+    # Phase 7 dependencies
+    - ["T006", "T029"]
+    - ["T015", "T030"]
+    - ["T029", "T030"]
+
+    # Phase 8 dependencies
+    - ["T016", "T031"]
+    - ["T016", "T032"]
+    - ["T031", "T032"]
+    - ["T016", "T033"]
+    - ["T008", "T033"]
+    - ["T005", "T034"]
+    - ["T018", "T034"]
+    - ["T019", "T035"]
+    - ["T022", "T035"]
+    - ["T034", "T036"]
+    - ["T035", "T036"]
+
+execution_hints:
+  recommended_batch_size: 4
+  max_parallel_agents: 6
+  checkpoint_after_gates: true
+  rollback_strategy: "git stash + branch reset"
+
+  file_lock_groups:
+    - group: "outline-types"
+      files: ["src/shared/types/outline.ts"]
+      tasks: ["T001", "T002", "T003"]
+    - group: "outline-extractor"
+      files: ["src/renderer/lib/mdx/outline-extractor.ts"]
+      tasks: ["T004", "T023", "T026"]
+    - group: "outline-store"
+      files: ["src/renderer/stores/outline-store.ts"]
+      tasks: ["T006", "T029"]
+    - group: "ui-layout-store"
+      files: ["src/renderer/stores/ui-layout-store.ts"]
+      tasks: ["T008", "T021"]
+    - group: "outline-section"
+      files: ["src/renderer/components/outline/OutlineSection.tsx"]
+      tasks: ["T015", "T025", "T028", "T030"]
+    - group: "outline-panel"
+      files: ["src/renderer/components/outline/OutlinePanel.tsx"]
+      tasks: ["T016", "T020", "T031", "T032", "T033"]
