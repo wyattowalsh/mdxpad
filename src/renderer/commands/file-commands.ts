@@ -14,7 +14,43 @@ import type {
   CommandResult,
 } from '@shared/types/commands';
 import type { FileError, FileHandle, FileId } from '@shared/types/file';
+import type { DocumentFileHandle, DocumentId } from '@shared/types/document';
 import { useCommandRegistry } from '../stores/command-registry-store';
+import { useDocumentStore } from '../stores/document-store';
+
+// =============================================================================
+// COMMAND IDS
+// =============================================================================
+
+/**
+ * File command identifiers.
+ * Use these constants when executing commands programmatically.
+ */
+export const FILE_COMMAND_IDS = {
+  new: 'file.new' as CommandId,
+  open: 'file.open' as CommandId,
+  save: 'file.save' as CommandId,
+  saveAs: 'file.saveAs' as CommandId,
+  close: 'file.close' as CommandId,
+} as const;
+
+// =============================================================================
+// DIRTY STATE CHECK
+// =============================================================================
+
+/**
+ * Placeholder function to check if user wants to proceed when document is dirty.
+ * Returns true to proceed, false to cancel.
+ *
+ * TODO: Integrate with T008 (unsaved changes dialog) to show actual confirmation.
+ *
+ * @returns true - always proceeds (placeholder behavior)
+ */
+export function checkDirtyState(): boolean {
+  // Placeholder: always proceed for now
+  // Will be integrated with unsaved changes dialog in T008
+  return true;
+}
 
 /**
  * Format a FileError into a user-friendly message.
@@ -34,6 +70,37 @@ function formatFileError(error: FileError): string {
   }
 }
 
+/**
+ * Helper to load file content and update document store.
+ * @returns CommandResult indicating success or failure with error message
+ */
+async function loadFileIntoStore(
+  handle: FileHandle,
+  api: CommandContext['api']
+): Promise<CommandResult> {
+  // Ensure path exists (should always be set when openFile returns success)
+  const filePath = handle.path;
+  if (!filePath) {
+    return { ok: false, error: 'No file path returned' };
+  }
+
+  // Read the file content
+  const readResult = await api.readFile(filePath);
+  if (!readResult.ok) {
+    return { ok: false, error: formatFileError(readResult.error) };
+  }
+
+  // Convert FileHandle to DocumentFileHandle and update document store
+  const docHandle: DocumentFileHandle = {
+    fileId: handle.id as unknown as DocumentId,
+    filePath,
+    mtime: Date.now(), // Use current time as mtime (will be updated by file watcher)
+  };
+  useDocumentStore.getState().openDocument(docHandle, readResult.value);
+
+  return { ok: true };
+}
+
 // =============================================================================
 // COMMAND DEFINITIONS
 // =============================================================================
@@ -43,14 +110,21 @@ function formatFileError(error: FileError): string {
  * Clears the editor and resets document state.
  */
 const newFileCommand: Command = {
-  id: 'file.new' as CommandId,
+  id: FILE_COMMAND_IDS.new,
   name: 'New File',
   description: 'Create a new empty document',
   category: 'file',
   shortcut: { key: 'n', modifiers: ['Mod'] },
   icon: '📄',
   execute: (ctx: CommandContext): CommandResult => {
-    // For now, notify user - actual implementation will be added when editor is integrated
+    // Check dirty state before creating new document
+    if (ctx.document.isDirty && !checkDirtyState()) {
+      return { ok: true }; // User cancelled
+    }
+
+    // Reset document store to new document state
+    useDocumentStore.getState().newDocument();
+
     ctx.notify({
       type: 'info',
       message: 'New file created',
@@ -65,13 +139,18 @@ const newFileCommand: Command = {
  * Shows native file dialog and loads selected file.
  */
 const openFileCommand: Command = {
-  id: 'file.open' as CommandId,
+  id: FILE_COMMAND_IDS.open,
   name: 'Open File...',
   description: 'Open an existing file',
   category: 'file',
   shortcut: { key: 'o', modifiers: ['Mod'] },
   icon: '📂',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    // Check dirty state before opening a new file
+    if (ctx.document.isDirty && !checkDirtyState()) {
+      return { ok: true }; // User cancelled
+    }
+
     try {
       const result = await ctx.api.openFile();
       if (!result.ok) {
@@ -80,24 +159,22 @@ const openFileCommand: Command = {
           return { ok: true }; // Cancelled is not an error
         }
         const errorMessage = formatFileError(result.error);
-        ctx.notify({
-          type: 'error',
-          message: `Failed to open file: ${errorMessage}`,
-        });
+        ctx.notify({ type: 'error', message: `Failed to open file: ${errorMessage}` });
         return { ok: false, error: errorMessage };
       }
 
-      ctx.notify({
-        type: 'success',
-        message: `Opened: ${result.value.name}`,
-      });
+      // Load file content and update document store
+      const loadResult = await loadFileIntoStore(result.value, ctx.api);
+      if (!loadResult.ok) {
+        ctx.notify({ type: 'error', message: `Failed to open file: ${loadResult.error}` });
+        return loadResult;
+      }
+
+      ctx.notify({ type: 'success', message: `Opened: ${result.value.name}` });
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      ctx.notify({
-        type: 'error',
-        message: `Failed to open file: ${message}`,
-      });
+      ctx.notify({ type: 'error', message: `Failed to open file: ${message}` });
       return { ok: false, error: message };
     }
   },
@@ -109,7 +186,7 @@ const openFileCommand: Command = {
  * Saves current document to its existing path, or shows Save As if new.
  */
 const saveFileCommand: Command = {
-  id: 'file.save' as CommandId,
+  id: FILE_COMMAND_IDS.save,
   name: 'Save',
   description: 'Save the current file',
   category: 'file',
@@ -118,7 +195,7 @@ const saveFileCommand: Command = {
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
     const { document, api } = ctx;
 
-    // If no file path, use Save As
+    // If no file path (untitled), delegate to Save As
     if (!document.filePath) {
       return saveFileAsCommand.execute(ctx);
     }
@@ -142,6 +219,9 @@ const saveFileCommand: Command = {
         return { ok: false, error: errorMessage };
       }
 
+      // Mark document as saved in the store
+      useDocumentStore.getState().markSaved();
+
       ctx.notify({
         type: 'success',
         message: 'File saved',
@@ -164,7 +244,7 @@ const saveFileCommand: Command = {
  * Shows native save dialog and saves to new location.
  */
 const saveFileAsCommand: Command = {
-  id: 'file.save-as' as CommandId,
+  id: FILE_COMMAND_IDS.saveAs,
   name: 'Save As...',
   description: 'Save the current file to a new location',
   category: 'file',
@@ -186,6 +266,24 @@ const saveFileAsCommand: Command = {
         });
         return { ok: false, error: errorMessage };
       }
+
+      // Ensure path exists (should always be set when saveFileAs returns success)
+      const savedPath = result.value.path;
+      if (!savedPath) {
+        ctx.notify({
+          type: 'error',
+          message: 'Failed to save: No file path returned',
+        });
+        return { ok: false, error: 'No file path returned' };
+      }
+
+      // Convert FileHandle to DocumentFileHandle and mark as saved with new handle
+      const docHandle: DocumentFileHandle = {
+        fileId: result.value.id as unknown as DocumentId,
+        filePath: savedPath,
+        mtime: Date.now(), // Use current time as mtime
+      };
+      useDocumentStore.getState().markSaved(docHandle);
 
       ctx.notify({
         type: 'success',
@@ -209,21 +307,16 @@ const saveFileAsCommand: Command = {
  * Prompts for unsaved changes before closing.
  */
 const closeWindowCommand: Command = {
-  id: 'file.close' as CommandId,
+  id: FILE_COMMAND_IDS.close,
   name: 'Close Window',
   description: 'Close the current window',
   category: 'file',
   shortcut: { key: 'w', modifiers: ['Mod'] },
   icon: '❌',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    // TODO: Check for unsaved changes and prompt user
-    if (ctx.document.isDirty) {
-      ctx.notify({
-        type: 'warning',
-        message: 'You have unsaved changes. Save before closing?',
-      });
-      // For now, just warn - actual dialog will be added later
-      return { ok: true };
+    // Check dirty state before closing
+    if (ctx.document.isDirty && !checkDirtyState()) {
+      return { ok: true }; // User cancelled
     }
 
     try {

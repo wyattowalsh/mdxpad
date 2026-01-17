@@ -16,6 +16,7 @@ export * from './preview';
 export * from './preview-iframe';
 export * from './ipc';
 export * from './ui';
+export * from './document';
 
 // Re-export command types (excluding Command to avoid conflict with editor.ts)
 // Use explicit imports from './commands' for the Command interface

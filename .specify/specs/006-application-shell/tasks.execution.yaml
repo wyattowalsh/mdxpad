@@ -1,0 +1,405 @@
+# Application Shell - Execution Configuration
+# Branch: 006-application-shell
+# Generated: 2026-01-10
+
+metadata:
+  feature: application-shell
+  branch: 006-application-shell
+  spec_version: "1.0"
+  total_tasks: 14
+  parallel_batches: 4
+  max_parallelism: 3
+
+# Execution modes supported:
+# - sequential: Execute tasks one at a time in dependency order
+# - parallel: Execute independent tasks concurrently within batches
+# - auto: Let orchestrator decide based on available resources
+
+execution:
+  mode: parallel
+  max_concurrent_agents: 3
+  retry_on_failure: true
+  max_retries: 2
+  timeout_per_task: 600  # 10 minutes per task
+
+# Batch definitions with validation gates
+batches:
+  - id: batch_1
+    name: "Foundation"
+    description: "Core state management - must complete before shell components"
+    parallelism: 2
+    tasks:
+      - T001
+      - T002
+    gate:
+      name: "foundation_gate"
+      condition: "all_tasks_pass"
+      validation:
+        - type: unit_tests
+          pattern: "src/renderer/stores/*.test.ts"
+        - type: type_check
+          command: "pnpm typecheck"
+
+  - id: batch_2
+    name: "Shell Components"
+    description: "UI components and command integration"
+    parallelism: 3
+    depends_on:
+      - batch_1
+    tasks:
+      - T003
+      - T004
+      - T005
+      - T006
+      - T007
+    gate:
+      name: "shell_gate"
+      condition: "all_tasks_pass"
+      validation:
+        - type: unit_tests
+          pattern: "src/renderer/components/shell/**/*.test.{ts,tsx}"
+        - type: integration_tests
+          pattern: "tests/integration/file-commands.test.ts"
+        - type: visual_check
+          description: "App renders without errors"
+
+  - id: batch_3
+    name: "Document Lifecycle"
+    description: "Complete document lifecycle with dirty checks"
+    parallelism: 2
+    depends_on:
+      - batch_2
+    tasks:
+      - T008
+      - T009
+      - T010
+      - T011
+    gate:
+      name: "lifecycle_gate"
+      condition: "all_tasks_pass"
+      validation:
+        - type: unit_tests
+          pattern: "src/renderer/hooks/*.test.ts"
+        - type: manual_check
+          description: "Dirty check dialog appears on close with unsaved changes"
+
+  - id: batch_4
+    name: "Validation"
+    description: "Integration, E2E, and performance testing"
+    parallelism: 1  # Sequential for test stability
+    depends_on:
+      - batch_3
+    tasks:
+      - T012
+      - T013
+      - T014
+    gate:
+      name: "merge_gate"
+      condition: "all_tasks_pass"
+      validation:
+        - type: integration_tests
+          command: "pnpm test:integration"
+        - type: e2e_tests
+          command: "pnpm test:e2e"
+        - type: performance_tests
+          command: "pnpm test:perf"
+        - type: build_check
+          command: "pnpm build"
+
+# Task definitions with dependencies and execution details
+tasks:
+  T001:
+    id: T001
+    name: "Document Store"
+    priority: P1
+    estimated_effort: medium
+    dependencies: []
+    files:
+      create:
+        - src/shared/types/document.ts
+        - src/renderer/stores/document-store.ts
+        - src/renderer/stores/document-store.test.ts
+    artifacts:
+      - useDocumentStore hook
+      - DocumentState types
+    validation:
+      - pnpm test src/renderer/stores/document-store.test.ts
+
+  T002:
+    id: T002
+    name: "UI Layout Store Extension"
+    priority: P3
+    estimated_effort: small
+    dependencies: []
+    files:
+      modify:
+        - src/renderer/stores/ui-layout-store.ts
+        - src/renderer/stores/ui-layout-store.test.ts
+    artifacts:
+      - splitRatio state
+      - setSplitRatio action
+    validation:
+      - pnpm test src/renderer/stores/ui-layout-store.test.ts
+
+  T003:
+    id: T003
+    name: "File Lifecycle Commands"
+    priority: P1
+    estimated_effort: medium
+    dependencies:
+      - T001
+    files:
+      create:
+        - src/renderer/commands/file-commands.ts
+        - tests/integration/file-commands.test.ts
+      modify:
+        - src/renderer/commands/index.ts
+    artifacts:
+      - file.new command
+      - file.open command
+      - file.save command
+      - file.saveAs command
+      - file.close command
+    validation:
+      - pnpm test tests/integration/file-commands.test.ts
+
+  T004:
+    id: T004
+    name: "StatusBar Components"
+    priority: P2
+    estimated_effort: medium
+    dependencies:
+      - T001
+    files:
+      create:
+        - src/renderer/components/shell/StatusBar/StatusBar.tsx
+        - src/renderer/components/shell/StatusBar/FileInfo.tsx
+        - src/renderer/components/shell/StatusBar/CursorPosition.tsx
+        - src/renderer/components/shell/StatusBar/ErrorCount.tsx
+        - src/renderer/components/shell/StatusBar/types.ts
+        - src/renderer/components/shell/StatusBar/index.ts
+        - src/renderer/components/shell/StatusBar/__tests__/StatusBar.test.tsx
+    artifacts:
+      - StatusBar component
+      - FileInfo component
+      - CursorPosition component
+      - ErrorCount component with Popover
+    validation:
+      - pnpm test src/renderer/components/shell/StatusBar
+
+  T005:
+    id: T005
+    name: "EditorPane Wrapper"
+    priority: P1
+    estimated_effort: small
+    dependencies:
+      - T001
+    files:
+      create:
+        - src/renderer/components/shell/EditorPane.tsx
+        - src/renderer/components/shell/EditorPane.test.tsx
+    artifacts:
+      - EditorPane component
+    validation:
+      - pnpm test src/renderer/components/shell/EditorPane.test.tsx
+
+  T006:
+    id: T006
+    name: "Split-Pane Layout"
+    priority: P1
+    estimated_effort: large
+    dependencies:
+      - T002
+      - T005
+    files:
+      rewrite:
+        - src/renderer/App.tsx
+      create:
+        - src/renderer/components/shell/PreviewPane.tsx
+    artifacts:
+      - Rewritten App.tsx with shell layout
+      - PreviewPane wrapper
+    validation:
+      - pnpm test src/renderer/__tests__/App.test.tsx
+      - visual: App renders split-pane correctly
+
+  T007:
+    id: T007
+    name: "Error Click Integration"
+    priority: P2
+    estimated_effort: small
+    dependencies:
+      - T004
+    files:
+      modify:
+        - src/renderer/App.tsx
+      create:
+        - src/renderer/hooks/useErrorNavigation.ts
+    artifacts:
+      - useErrorNavigation hook
+      - Error click handler
+    validation:
+      - manual: Click error → jumps to line
+
+  T008:
+    id: T008
+    name: "Dirty Check Dialog"
+    priority: P2
+    estimated_effort: medium
+    dependencies:
+      - T001
+      - T003
+    files:
+      create:
+        - src/renderer/hooks/useDocumentLifecycle.ts
+        - src/renderer/hooks/useDocumentLifecycle.test.ts
+    artifacts:
+      - useDocumentLifecycle hook
+    validation:
+      - pnpm test src/renderer/hooks/useDocumentLifecycle.test.ts
+
+  T009:
+    id: T009
+    name: "Window Close Interception"
+    priority: P2
+    estimated_effort: medium
+    dependencies:
+      - T008
+    files:
+      modify:
+        - src/main/index.ts
+        - src/preload/api.ts
+        - src/renderer/App.tsx
+    artifacts:
+      - Window close handler in main
+      - Close check IPC channel
+    validation:
+      - manual: Close with dirty shows dialog
+
+  T010:
+    id: T010
+    name: "External Modification Detection"
+    priority: P2
+    estimated_effort: small
+    dependencies:
+      - T001
+      - T009
+    files:
+      modify:
+        - src/main/index.ts
+        - src/preload/api.ts
+        - src/renderer/App.tsx
+    artifacts:
+      - Focus event handler
+      - checkFileModification IPC
+    validation:
+      - manual: Modify file externally → focus → prompt appears
+
+  T011:
+    id: T011
+    name: "Menu Integration"
+    priority: P3
+    estimated_effort: small
+    dependencies:
+      - T003
+    files:
+      modify:
+        - src/main/menu.ts
+        - src/main/ipc/index.ts
+    artifacts:
+      - File menu items
+      - Menu → command routing
+    validation:
+      - manual: Menu items trigger commands
+
+  T012:
+    id: T012
+    name: "Integration Tests"
+    priority: P1
+    estimated_effort: large
+    dependencies:
+      - T006
+      - T007
+      - T009
+      - T010
+      - T011
+    files:
+      create:
+        - tests/integration/document-lifecycle.test.ts
+        - tests/integration/shell-layout.test.ts
+    artifacts:
+      - Document lifecycle tests
+      - Shell layout tests
+    validation:
+      - pnpm test:integration
+
+  T013:
+    id: T013
+    name: "E2E Tests"
+    priority: P1
+    estimated_effort: large
+    dependencies:
+      - T012
+    files:
+      create:
+        - tests/e2e/shell.spec.ts
+    artifacts:
+      - Playwright E2E tests
+    validation:
+      - pnpm test:e2e
+
+  T014:
+    id: T014
+    name: "Performance Validation"
+    priority: P1
+    estimated_effort: medium
+    dependencies:
+      - T013
+    files:
+      create:
+        - tests/performance/shell-perf.test.ts
+        - .specify/specs/006-application-shell/checklists/performance.md
+    artifacts:
+      - Performance test results
+      - Performance checklist
+    validation:
+      - All SC metrics pass
+
+# Critical path for planning (longest dependency chain)
+critical_path:
+  sequence:
+    - T001  # Document store (foundation)
+    - T003  # File commands
+    - T008  # Dirty check
+    - T009  # Window close
+    - T012  # Integration tests
+    - T013  # E2E tests
+    - T014  # Performance
+  estimated_duration: "sum of critical path task estimates"
+
+# Parallelism visualization
+parallelism_chart: |
+  Time →
+  ══════════════════════════════════════════════════════════════════════════
+  Batch 1   │ T001 ████████████████
+  (parallel)│ T002 ████████
+            │                      ▼ Gate: foundation_gate
+  ──────────┼──────────────────────────────────────────────────────────────
+  Batch 2   │           T003 ████████████████
+  (parallel)│           T004 ████████████████
+            │           T005 ████████
+            │                    T006 ████████████████████████
+            │                              T007 ████████
+            │                                          ▼ Gate: shell_gate
+  ──────────┼──────────────────────────────────────────────────────────────
+  Batch 3   │                                    T008 ████████████████
+  (parallel)│                                         T009 ████████████
+            │                                              T010 ████████
+            │                                    T011 ████████
+            │                                                ▼ Gate: lifecycle_gate
+  ──────────┼──────────────────────────────────────────────────────────────
+  Batch 4   │                                                 T012 ████████████████
+  (seq.)    │                                                           T013 ████████████
+            │                                                                      T014 ████████
+            │                                                                              ▼ Gate: merge_gate
+  ══════════════════════════════════════════════════════════════════════════

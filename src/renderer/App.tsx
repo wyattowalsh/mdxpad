@@ -1,16 +1,51 @@
 /**
  * Root application component.
- * Shows basic shell UI with app info.
+ * Implements the main split-pane layout with EditorPane and PreviewPane.
+ *
+ * Layout Structure:
+ * ```
+ * +-------------------------------------+
+ * | Title Bar (drag region)             |
+ * +---------------+-----+---------------+
+ * |               |     |               |
+ * |  EditorPane   |  H  |  PreviewPane  |  <- Resizable
+ * |               |     |               |
+ * +---------------+-----+---------------+
+ * | StatusBar                           |  <- Fixed
+ * +-------------------------------------+
+ * ```
+ *
+ * @module renderer/App
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Button } from '@ui/button';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { useCommandPalette, buildCommandContext } from './hooks/useCommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useCommandRegistry } from './stores/command-registry-store';
+import { useUILayoutStore, selectPreviewVisible, selectSplitRatio } from './stores/ui-layout-store';
+import { useDocumentStore, selectFileName, selectIsDirty } from './stores/document-store';
 import { registerAllCommands } from './commands';
+import { EditorPane, type CursorPosition } from './components/shell/EditorPane';
+import { PreviewPane } from './components/shell/PreviewPane';
+import { StatusBar } from './components/shell/StatusBar';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { CommandContext, CommandId, NormalizedShortcut } from '@shared/types/commands';
+import type { CompilationError } from './components/shell/StatusBar/types';
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Minimum pane size as percentage (10% = ~100px at 1000px width) */
+const MIN_PANE_SIZE = 10;
+
+/** Default split ratio (50% editor / 50% preview) */
+const DEFAULT_SPLIT_RATIO = 0.5;
+
+// =============================================================================
+// HELPERS
+// =============================================================================
 
 /** Get mdxpad API with fallback for non-Electron environments */
 function getMdxpadApi() {
@@ -36,6 +71,21 @@ function getMdxpadApi() {
     platform: { os: 'browser' as const, arch: 'unknown' as const },
   };
 }
+
+/** Convert split ratio (0-1) to panel size percentage */
+function ratioToSize(ratio: number): number {
+  return ratio * 100;
+}
+
+/** Convert panel sizes array to split ratio */
+function sizesToRatio(sizes: number[]): number {
+  // First panel size / total gives us the ratio
+  return (sizes[0] ?? 50) / 100;
+}
+
+// =============================================================================
+// HOOKS
+// =============================================================================
 
 /** Hook for registering built-in commands */
 function useBuiltInCommands(toggle: () => void): void {
@@ -65,19 +115,70 @@ function useAppEvents(toggle: () => void): { version: string; platform: { os: st
   return { version, platform: mdxpad.platform };
 }
 
-/** Main App component. */
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
+/** Main App component with split-pane layout. */
 export function App(): React.ReactElement {
+  // Command palette state
   const palette = useCommandPalette();
   const { isOpen, toggle, executeCommand } = palette;
-  const { version, platform } = useAppEvents(toggle);
+  useAppEvents(toggle);
   useBuiltInCommands(toggle);
 
+  // UI layout state from store
+  const previewVisible = useUILayoutStore(selectPreviewVisible);
+  const splitRatio = useUILayoutStore(selectSplitRatio);
+  const setSplitRatio = useUILayoutStore((s) => s.setSplitRatio);
+
+  // Document state for StatusBar
+  const fileName = useDocumentStore(selectFileName);
+  const isDirty = useDocumentStore(selectIsDirty);
+
+  // Local state for cursor position and errors
+  const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
+  const [errors, setErrors] = useState<readonly CompilationError[]>([]);
+
+  // Handle resize - update split ratio in store (debounced via store)
+  const handleLayout = useCallback(
+    (sizes: number[]): void => {
+      const newRatio = sizesToRatio(sizes);
+      setSplitRatio(newRatio);
+    },
+    [setSplitRatio]
+  );
+
+  // Handle cursor position change from editor
+  const handleCursorChange = useCallback((position: CursorPosition): void => {
+    setCursorPosition(position);
+  }, []);
+
+  // Handle errors change from preview
+  const handleErrorsChange = useCallback((newErrors: readonly CompilationError[]): void => {
+    setErrors(newErrors);
+  }, []);
+
+  // Handle error click - navigate to error location in editor
+  const handleErrorClick = useCallback((error: CompilationError): void => {
+    // TODO: Implement editor navigation to error location
+    console.log('Navigate to error:', error.line, error.column);
+  }, []);
+
+  // Handle error click from preview
+  const handlePreviewErrorClick = useCallback((line: number, column?: number): void => {
+    // TODO: Implement editor navigation to error location
+    console.log('Navigate to error from preview:', line, column);
+  }, []);
+
+  // Build command context
   const getCommandContext = useCallback((): CommandContext => buildCommandContext(
     null, getMdxpadApi(),
     { fileId: null, filePath: null, content: '', isDirty: false },
     (n) => { console.log(`[${n.type}] ${n.message}`); }
   ), []);
 
+  // Handle keyboard shortcuts
   const handleShortcut = useCallback(
     (_: NormalizedShortcut, cmdId: string) => {
       void executeCommand(cmdId as CommandId, getCommandContext());
@@ -87,18 +188,80 @@ export function App(): React.ReactElement {
 
   useKeyboardShortcuts({ enabled: !isOpen, onShortcutExecuted: handleShortcut });
 
+  // Calculate panel sizes based on split ratio and preview visibility
+  const editorSize = useMemo(() => {
+    if (!previewVisible) return 100;
+    return ratioToSize(splitRatio);
+  }, [previewVisible, splitRatio]);
+
+  const previewSize = useMemo(() => {
+    if (!previewVisible) return 0;
+    return ratioToSize(1 - splitRatio);
+  }, [previewVisible, splitRatio]);
+
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <div className="h-8 w-full" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
-      <main className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold">mdxpad</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Version {version} • {platform.os} {platform.arch}
-          </p>
-          <Button className="mt-4" variant="default" onClick={toggle}>Get Started</Button>
-        </div>
+    <div className="flex h-screen flex-col bg-background text-foreground overflow-hidden">
+      {/* Title bar drag region */}
+      <div
+        className="h-8 w-full flex-shrink-0"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      />
+
+      {/* Main content area with split panes */}
+      <main className="flex-1 min-h-0 overflow-hidden">
+        <ResizablePanelGroup
+          direction="horizontal"
+          onLayout={handleLayout}
+          className="h-full"
+        >
+          {/* Editor Panel */}
+          <ResizablePanel
+            defaultSize={editorSize}
+            minSize={MIN_PANE_SIZE}
+            className="flex flex-col"
+          >
+            <EditorPane
+              onCursorChange={handleCursorChange}
+              className="flex-1"
+              theme="system"
+              height="100%"
+            />
+          </ResizablePanel>
+
+          {/* Only show handle and preview when preview is visible */}
+          {previewVisible && (
+            <>
+              <ResizableHandle withHandle />
+
+              {/* Preview Panel */}
+              <ResizablePanel
+                defaultSize={previewSize}
+                minSize={MIN_PANE_SIZE}
+                className="flex flex-col"
+              >
+                <PreviewPane
+                  className="flex-1 h-full"
+                  theme="dark"
+                  onErrorClick={handlePreviewErrorClick}
+                  onErrorsChange={handleErrorsChange}
+                />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
       </main>
+
+      {/* Status Bar - fixed at bottom */}
+      <StatusBar
+        fileName={fileName}
+        isDirty={isDirty}
+        line={cursorPosition.line}
+        column={cursorPosition.column}
+        errors={errors}
+        onErrorClick={handleErrorClick}
+      />
+
+      {/* Command Palette overlay */}
       <CommandPalette getContext={getCommandContext} palette={palette} />
     </div>
   );
