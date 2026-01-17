@@ -52,6 +52,7 @@ describe('usePreviewStore', () => {
         ok: true,
         code: 'compiled code',
         frontmatter: { title: 'Test' },
+        outline: undefined,
       };
 
       usePreviewStore.getState().setSuccess(successResult);
@@ -68,6 +69,7 @@ describe('usePreviewStore', () => {
         ok: true,
         code: 'compiled code',
         frontmatter: { title: 'Test' },
+        outline: undefined,
       };
 
       usePreviewStore.getState().setSuccess(successResult);
@@ -84,6 +86,7 @@ describe('usePreviewStore', () => {
         ok: true,
         code: 'compiled code',
         frontmatter: { title: 'Test' },
+        outline: undefined,
       };
 
       usePreviewStore.getState().setSuccess(successResult);
@@ -113,6 +116,7 @@ describe('usePreviewStore', () => {
         ok: true,
         code: 'compiled code',
         frontmatter: {},
+        outline: undefined,
       };
       const errors: CompileError[] = [{ message: 'New syntax error' }];
 
@@ -138,6 +142,7 @@ describe('usePreviewStore', () => {
         ok: true,
         code: 'compiled code',
         frontmatter: {},
+        outline: undefined,
       };
 
       usePreviewStore.getState().setSuccess(successResult);
@@ -217,7 +222,7 @@ describe('selectors', () => {
     it('should return true when in success state', () => {
       usePreviewStore
         .getState()
-        .setSuccess({ ok: true, code: '', frontmatter: {} });
+        .setSuccess({ ok: true, code: '', frontmatter: {}, outline: undefined });
       expect(selectIsSuccess(usePreviewStore.getState())).toBe(true);
     });
 
@@ -240,7 +245,7 @@ describe('selectors', () => {
 
   describe('selectSuccessResult', () => {
     it('should return result when in success state', () => {
-      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {} };
+      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {}, outline: undefined };
       usePreviewStore.getState().setSuccess(result);
       expect(selectSuccessResult(usePreviewStore.getState())).toEqual(result);
     });
@@ -252,7 +257,7 @@ describe('selectors', () => {
 
   describe('selectRenderableContent', () => {
     it('should return current success result when in success state', () => {
-      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {} };
+      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {}, outline: undefined };
       usePreviewStore.getState().setSuccess(result);
       expect(selectRenderableContent(usePreviewStore.getState())).toEqual(
         result
@@ -260,7 +265,7 @@ describe('selectors', () => {
     });
 
     it('should return lastSuccessfulRender when in error state', () => {
-      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {} };
+      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {}, outline: undefined };
       usePreviewStore.getState().setSuccess(result);
       usePreviewStore.getState().setError([{ message: 'error' }]);
 
@@ -270,7 +275,7 @@ describe('selectors', () => {
     });
 
     it('should return lastSuccessfulRender when compiling', () => {
-      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {} };
+      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {}, outline: undefined };
       usePreviewStore.getState().setSuccess(result);
       usePreviewStore.getState().startCompiling();
 
@@ -286,7 +291,7 @@ describe('selectors', () => {
 
   describe('selectLastSuccessfulRender', () => {
     it('should return last successful render', () => {
-      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {} };
+      const result: CompileSuccess = { ok: true, code: 'code', frontmatter: {}, outline: undefined };
       usePreviewStore.getState().setSuccess(result);
       expect(selectLastSuccessfulRender(usePreviewStore.getState())).toEqual(
         result

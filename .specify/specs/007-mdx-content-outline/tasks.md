@@ -100,21 +100,22 @@ npx tsc --noEmit src/shared/types/outline.ts src/shared/types/preview.ts src/sha
 **Purpose**: Core infrastructure - stores and extraction logic
 **Max Parallelism**: 4 subagents
 
-⚠️ **BLOCKING**: No UI work can begin until this phase completes
+⚠️ **BLOCKING**: Tasks T013-T020 (Phase 3 UI components) cannot begin until Phase 2 completes
 
 ### Batch 2.1: AST Extraction (parallel) ⚡
 
 <!-- Context: plan.md#structure, research.md#R5, data-model.md#OutlineAST -->
 - [ ] T004 [P:2.1] Create outline extractor in `src/renderer/lib/mdx/outline-extractor.ts` implementing `extractOutline(tree: Root): OutlineAST` using unist-util-visit to extract headings and JSX components
-- [ ] T005 [P:2.1] Create outline extractor tests in `src/renderer/lib/mdx/outline-extractor.test.ts` covering heading extraction, component extraction, frontmatter extraction, and empty document handling
+- [ ] T005 [P:2.1] Create outline extractor tests in `src/renderer/lib/mdx/outline-extractor.test.ts` covering heading extraction, component extraction, frontmatter extraction, empty document handling, and non-standard heading sequences (h1 → h3 → h2) per spec clarification Q2
+- [ ] T004a [P:2.1] [FR-030] Create fallback outline parser in `src/renderer/lib/mdx/fallback-outline-parser.ts` implementing lightweight markdown-only parsing using remark-parse for when preview AST is unavailable. Must parse documents up to 1000 lines in <20ms.
 
 #### Gate 2.1: Extractor Validation
 
 ```bash
-npx tsc --noEmit src/renderer/lib/mdx/outline-extractor.ts && npx vitest run src/renderer/lib/mdx/outline-extractor.test.ts --reporter=verbose
+npx tsc --noEmit src/renderer/lib/mdx/outline-extractor.ts src/renderer/lib/mdx/fallback-outline-parser.ts && npx vitest run src/renderer/lib/mdx/outline-extractor.test.ts --reporter=verbose
 ```
 
-**On-Fail**: Verify unist-util-visit import; check data-model.md HeadingNode/ComponentNode definitions
+**On-Fail**: Verify unist-util-visit import; check data-model.md HeadingNode/ComponentNode definitions; verify remark-parse import for fallback parser
 
 ### Batch 2.2: Store Extensions (parallel) ⚡
 
@@ -172,7 +173,7 @@ npx tsc --noEmit src/renderer/commands/view-commands.ts
 ### Batch 3.1: Core Components (parallel) ⚡
 
 <!-- Context: plan.md#structure, contracts/outline-panel.ts, quickstart.md#Step7 -->
-- [ ] T013 [P:3.1] [US1] Create OutlinePanel component in `src/renderer/components/outline/OutlinePanel.tsx` with header, close button, section list, and visibility controlled by useUILayoutStore
+- [ ] T013 [P:3.1] [US1] Create OutlinePanel component in `src/renderer/components/outline/OutlinePanel.tsx` with header (including warning icon when parseError is set, showing "Outline may be outdated" tooltip), close button, section list, and visibility controlled by useUILayoutStore
 - [ ] T014 [P:3.1] [US1] Create OutlineSection component in `src/renderer/components/outline/OutlineSection.tsx` with collapsible header, item list, and collapse toggle
 - [ ] T015 [P:3.1] [US1] Create OutlineItem component in `src/renderer/components/outline/OutlineItem.tsx` as recursive tree item with click handler, indentation, and optional collapse toggle for headings with children
 - [ ] T016 [P:3.1] [US1] Create OutlineEmptyState component in `src/renderer/components/outline/OutlineEmptyState.tsx` showing message when no outline content available
@@ -189,7 +190,7 @@ npx tsc --noEmit src/renderer/components/outline/*.tsx
 
 <!-- Context: plan.md#structure, existing component patterns -->
 - [ ] T017 [P:3.2] [US1] Create barrel export in `src/renderer/components/outline/index.ts` exporting OutlinePanel, OutlineSection, OutlineItem, OutlineEmptyState
-- [ ] T018 [P:3.2] [US1] Add Tailwind CSS styles for outline components including panel layout (w-[250px] min-w-[150px]), item hover states, indentation, truncation, and highlight animation
+- [ ] T018 [P:3.2] [US1] Add Tailwind CSS styles for outline components: panel layout (w-[250px] min-w-[150px]), item hover (bg-gray-100 dark:bg-gray-800), indentation (pl-4 per nesting level), text truncation (truncate class with max-w-full), and highlight animation (bg-yellow-200/50 transition-colors duration-500)
 
 #### Gate 3.2: Export Validation
 
@@ -227,7 +228,7 @@ npx tsc --noEmit src/renderer/App.tsx && npm run build
 
 <!-- Context: ui-layout-store.ts persistence patterns -->
 - [ ] T021 [P:4.1] [US2] Add outline visibility to loadFromStorage and persist methods in `src/renderer/stores/ui-layout-store.ts` using localStorage key 'mdxpad:ui:outline-visible'
-- [ ] T022 [P:4.1] [US2] Add UI layout store tests for outline visibility in `src/renderer/stores/ui-layout-store.test.ts` covering toggle, persistence load/save, and default value
+- [ ] T022 [P:4.1] [US2] [SC-003] Add UI layout store tests for outline visibility in `src/renderer/stores/ui-layout-store.test.ts` covering toggle, persistence load/save, default value, and toggle latency (<50ms measured via Performance.now())
 
 #### Gate 4.1: Persistence Validation
 
@@ -373,6 +374,7 @@ npx tsc --noEmit src/renderer/components/outline/OutlinePanel.tsx
 ### Batch 8.3: Final Validation
 
 - [ ] T035 [P:8.3] Run full test suite and fix any failures
+- [ ] T035a [P:8.3] [SC-004] Add performance benchmark tests in `src/renderer/lib/mdx/outline-extractor.perf.test.ts` measuring extraction time: 100-line doc <10ms, 500-line doc <30ms, 1000-line doc <50ms
 - [ ] T036 [P:8.3] Run quickstart.md validation scenarios manually verifying all 10 checklist items
 
 #### Gate 8.3: Final Validation
@@ -495,15 +497,15 @@ graph LR
 | 6 | US4 Frontmatter | 2 | 3 | 2 | T026 → T028 |
 | 7 | US5 Collapse | 1 | 2 | 2 | T029 |
 | 8 | Polish | 3 | 6 | 3 | T031 → T035 |
-| **Total** | | **17** | **36** | **10 (cap)** | **8 tasks** |
+| **Total** | | **17** | **38** | **10 (cap)** | **8 tasks** |
 
 ### Parallelism Metrics
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| **Total Tasks** | 36 | Sum of all tasks |
+| **Total Tasks** | 38 | Sum of all tasks (including T004a, T035a) |
 | **Critical Path Length** | 8 | T001 → T004 → T006 → T010 → T015 → T019 → T031 → T035 |
-| **Parallelism Factor** | 4.5x | 36 tasks / 8 critical |
+| **Parallelism Factor** | 4.75x | 38 tasks / 8 critical |
 | **Max Concurrent Subagents** | 10 | Hard cap per Claude session |
 | **Theoretical Speedup** | 4.5x | With unlimited parallelism |
 | **Practical Speedup** | 3.5x | With 10 slots + greedy refill |

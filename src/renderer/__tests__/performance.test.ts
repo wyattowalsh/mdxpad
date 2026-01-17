@@ -234,6 +234,7 @@ describe('Performance - Store Operations', () => {
           ok: true,
           code: `code-${i}`,
           frontmatter: { index: i },
+          outline: undefined,
         });
       }
       const duration = performance.now() - start;
@@ -249,7 +250,7 @@ describe('Performance - Store Operations', () => {
       const start = performance.now();
       for (let i = 0; i < cycles; i++) {
         store.startCompiling();
-        store.setSuccess({ ok: true, code: '', frontmatter: {} });
+        store.setSuccess({ ok: true, code: '', frontmatter: {}, outline: undefined });
         store.setError([{ message: 'test' }]);
         store.reset();
       }
@@ -263,7 +264,7 @@ describe('Performance - Store Operations', () => {
   describe('selector performance', () => {
     it('should access selectors efficiently', () => {
       const store = usePreviewStore.getState();
-      store.setSuccess({ ok: true, code: 'test', frontmatter: { key: 'value' } });
+      store.setSuccess({ ok: true, code: 'test', frontmatter: { key: 'value' }, outline: undefined });
 
       const iterations = 10000;
       const start = performance.now();
@@ -411,6 +412,7 @@ describe('Performance - Memory Management', () => {
           ok: true,
           code: `code-${i}`,
           frontmatter: { data: 'x'.repeat(100) },
+          outline: undefined,
         });
         usePreviewStore.getState().reset();
       }

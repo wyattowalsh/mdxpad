@@ -11,9 +11,11 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo, memo } from 'react';
 import type { Extension } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { useCodeMirror, type UseCodeMirrorOptions, type EditorTheme } from '../../hooks/useCodeMirror';
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
 import type { EditorError } from '../../lib/editor/errors';
+import { lineHighlightExtension } from '../../lib/editor/line-highlight';
 
 // Re-export for consumer convenience
 export type { EditorTheme } from '../../hooks/useCodeMirror';
@@ -77,6 +79,18 @@ export interface MDXEditorProps {
    * ```
    */
   readonly extensions?: Extension[];
+  /**
+   * Optional ref to receive the CodeMirror EditorView instance.
+   * Use this for external navigation or advanced editor manipulation.
+   *
+   * @example
+   * ```typescript
+   * const editorRef = useRef<EditorView | null>(null);
+   * <MDXEditor value={content} editorRef={editorRef} />
+   * // Later: editorRef.current?.focus()
+   * ```
+   */
+  readonly editorRef?: React.RefObject<EditorView | null>;
 }
 
 /**
@@ -137,16 +151,19 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
  *
  * @example
  * ```tsx
- * import { useState } from 'react';
+ * import { useState, useRef } from 'react';
  * import { MDXEditor } from './MDXEditor';
+ * import type { EditorView } from '@codemirror/view';
  *
  * function MyEditor() {
  *   const [content, setContent] = useState('# Hello World');
+ *   const editorRef = useRef<EditorView | null>(null);
  *
  *   return (
  *     <MDXEditor
  *       value={content}
  *       onChange={(state) => setContent(state.doc)}
+ *       editorRef={editorRef}
  *       theme="dark"
  *       lineNumbers={true}
  *       height="400px"
@@ -159,7 +176,7 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
 const ERROR_ANNOUNCEMENT_DURATION_MS = 5000;
 
 function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
-  const { value, onChange, onError, className, height = '100%', ariaLabel = 'MDX Editor' } = props;
+  const { value, onChange, onError, className, height = '100%', ariaLabel = 'MDX Editor', editorRef } = props;
   const isFirstRender = useRef(true);
   const isInternalChange = useRef(false);
   // Track version of external value to prevent race conditions with rapid updates
@@ -242,7 +259,10 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         closeBrackets,
         indentationGuides,
         ...(onSelectionChange !== undefined && { onSelectionChange }),
-        ...(extensions !== undefined && { extensions }),
+        // Always include lineHighlightExtension, plus any user extensions
+        extensions: extensions !== undefined
+          ? [lineHighlightExtension, ...extensions]
+          : [lineHighlightExtension],
       }),
     [
       value,
@@ -262,7 +282,15 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
     ]
   );
 
-  const { containerRef, state, setValue } = useCodeMirror(hookOptions);
+  const { containerRef, state, setValue, getView } = useCodeMirror(hookOptions);
+
+  // Sync external editorRef with the internal view
+  useEffect(() => {
+    if (editorRef) {
+      // Update editorRef to point to current view
+      (editorRef as React.MutableRefObject<EditorView | null>).current = getView();
+    }
+  }, [editorRef, getView]);
 
   // Increment version when external value prop changes
   useEffect(() => {

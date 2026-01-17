@@ -147,6 +147,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.0.0
         version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@types/mdast':
+        specifier: ^4.0.4
+        version: 4.0.4
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.3
@@ -183,6 +186,9 @@ importers:
       happy-dom:
         specifier: ^15.0.0
         version: 15.11.7
+      mdast-util-mdx-jsx:
+        specifier: ^3.2.0
+        version: 3.2.0
       playwright:
         specifier: ^1.49.0
         version: 1.57.0
@@ -207,6 +213,9 @@ importers:
       typescript-eslint:
         specifier: ^8.0.0
         version: 8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      unist-util-visit:
+        specifier: ^5.0.0
+        version: 5.0.0
       vite:
         specifier: ^6.0.0
         version: 6.4.1(@types/node@22.19.3)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)

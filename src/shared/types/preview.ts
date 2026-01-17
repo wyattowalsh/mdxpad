@@ -7,6 +7,8 @@
  * @module shared/types/preview
  */
 
+import type { OutlineAST } from './outline';
+
 // ============================================================================
 // Compilation Results
 // ============================================================================
@@ -28,6 +30,8 @@ export interface CompileSuccess {
   readonly code: string;
   /** Parsed YAML frontmatter as key-value pairs */
   readonly frontmatter: Readonly<Record<string, unknown>>;
+  /** Lightweight outline AST extracted during compilation (007-mdx-content-outline) */
+  readonly outline: OutlineAST | null | undefined;
 }
 
 /**

@@ -96,7 +96,11 @@ export const DEFAULT_HIGHLIGHT_DURATION_MS = 500;
 /** CSS class applied to highlighted lines */
 export const HIGHLIGHT_LINE_CLASS = 'cm-outline-highlight';
 
-/** Scroll behavior for navigation */
+/**
+ * Scroll behavior for navigation.
+ * NOTE: Verified compatible with CodeMirror 6's scrollIntoView.
+ * If issues arise, consider using EditorView.scrollIntoView(pos, { y: 'center' }) instead.
+ */
 export const SCROLL_BEHAVIOR: ScrollIntoViewOptions = {
   block: 'center',
   behavior: 'smooth',

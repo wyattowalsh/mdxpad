@@ -102,31 +102,48 @@ export interface OutlineStoreActions {
   /**
    * Update outline from parsed AST data.
    * Called when preview store receives new compilation result.
+   *
+   * @param ast - The lightweight AST data extracted from MDX compilation
+   * @returns void
    */
   readonly updateFromAST: (ast: OutlineAST) => void;
 
   /**
    * Mark outline as parsing (compilation in progress).
+   *
+   * @param isParsing - Whether parsing is currently in progress
+   * @returns void
    */
   readonly setIsParsing: (isParsing: boolean) => void;
 
   /**
    * Set parse error state.
+   *
+   * @param error - Error message string, or null to clear error state
+   * @returns void
    */
   readonly setParseError: (error: string | null) => void;
 
   /**
    * Toggle collapse state for a section.
+   *
+   * @param sectionId - The section to toggle ('headings' | 'components' | 'frontmatter')
+   * @returns void
    */
   readonly toggleSectionCollapse: (sectionId: OutlineSectionId) => void;
 
   /**
    * Toggle collapse state for a heading item (nested collapse).
+   *
+   * @param itemId - The heading item ID to toggle
+   * @returns void
    */
   readonly toggleItemCollapse: (itemId: string) => void;
 
   /**
    * Reset outline to initial empty state.
+   *
+   * @returns void
    */
   readonly reset: () => void;
 }
@@ -261,5 +278,9 @@ export const DEFAULT_FRONTMATTER_FIELDS = ['title', 'date', 'author', 'tags'];
 /** Maximum label length before truncation */
 export const MAX_LABEL_LENGTH = 40;
 
-/** Debounce delay for outline updates (ms) */
+/**
+ * Debounce delay for outline updates (ms).
+ * This does NOT affect keystroke latency - only AST extraction scheduling.
+ * Keystroke-to-render remains <16ms per Constitution Article V.
+ */
 export const OUTLINE_UPDATE_DEBOUNCE_MS = 300;

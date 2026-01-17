@@ -289,4 +289,5 @@ export const STORAGE_KEYS = {
   recentCommands: 'mdxpad:recent-commands',
   zoomLevel: 'mdxpad:ui:zoom-level',
   previewVisible: 'mdxpad:ui:preview-visible',
+  outlineVisible: 'mdxpad:ui:outline-visible',
 } as const;

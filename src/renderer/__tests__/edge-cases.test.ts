@@ -238,6 +238,7 @@ describe('Edge Cases - Rapid Updates', () => {
           ok: true,
           code: `code-${i}`,
           frontmatter: { iteration: i },
+          outline: undefined,
         });
       }
 
@@ -257,6 +258,7 @@ describe('Edge Cases - Rapid Updates', () => {
             ok: true,
             code: `success-${i}`,
             frontmatter: {},
+            outline: undefined,
           });
         } else {
           store.setError([{ message: `error-${i}` }]);
@@ -276,6 +278,7 @@ describe('Edge Cases - Rapid Updates', () => {
         ok: true,
         code: 'initial',
         frontmatter: { preserved: true },
+        outline: undefined,
       };
 
       store.setSuccess(successResult);
@@ -449,6 +452,7 @@ describe('Edge Cases - Memory and Resource Management', () => {
           ok: true,
           code: `code-${i}`,
           frontmatter: { large: 'x'.repeat(1000) },
+          outline: undefined,
         });
         usePreviewStore.getState().reset();
       }

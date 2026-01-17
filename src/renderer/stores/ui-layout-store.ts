@@ -21,6 +21,8 @@ export interface UILayoutStoreState {
   readonly previewVisible: boolean;
   /** Whether sidebar is visible (for future use) */
   readonly sidebarVisible: boolean;
+  /** Whether outline panel is visible */
+  readonly outlineVisible: boolean;
   /** Current zoom level (50-200) */
   readonly zoomLevel: number;
   /** Split pane ratio (0.1 to 0.9, where 0.5 = 50% editor / 50% preview) */
@@ -43,6 +45,10 @@ export interface UILayoutStoreActions {
   toggleSidebar: () => void;
   /** Set sidebar visibility */
   setSidebarVisible: (visible: boolean) => void;
+  /** Toggle outline panel visibility */
+  toggleOutline: () => void;
+  /** Set outline panel visibility */
+  setOutlineVisible: (visible: boolean) => void;
   /** Set zoom level (clamped to 50-200) */
   setZoomLevel: (level: number) => void;
   /** Increase zoom by 10 (max 200) */
@@ -101,6 +107,7 @@ const SPLIT_RATIO_DEBOUNCE_MS = 500;
 const initialState: UILayoutStoreState = {
   previewVisible: true,
   sidebarVisible: true,
+  outlineVisible: false,
   zoomLevel: DEFAULT_ZOOM,
   splitRatio: DEFAULT_SPLIT_RATIO,
 };
@@ -210,6 +217,19 @@ function loadPersistedState(): Partial<UILayoutStoreState> {
   }
 
   try {
+    // Load and validate outlineVisible
+    const outlineVisibleRaw = localStorage.getItem(STORAGE_KEYS.outlineVisible);
+    if (outlineVisibleRaw !== null) {
+      const parsed = JSON.parse(outlineVisibleRaw);
+      if (typeof parsed === 'boolean') {
+        result.outlineVisible = parsed;
+      }
+    }
+  } catch {
+    // Ignore invalid outlineVisible, will use default
+  }
+
+  try {
     // Load and validate zoomLevel
     const zoomLevelRaw = localStorage.getItem(STORAGE_KEYS.zoomLevel);
     if (zoomLevelRaw !== null) {
@@ -290,6 +310,16 @@ export const useUILayoutStore = create<UILayoutStore>()(
         draft.sidebarVisible = visible;
       }),
 
+    toggleOutline: () =>
+      set((draft) => {
+        draft.outlineVisible = !draft.outlineVisible;
+      }),
+
+    setOutlineVisible: (visible) =>
+      set((draft) => {
+        draft.outlineVisible = visible;
+      }),
+
     setZoomLevel: (level) =>
       set((draft) => {
         draft.zoomLevel = clampZoom(level);
@@ -333,6 +363,9 @@ export const useUILayoutStore = create<UILayoutStore>()(
         if (persisted.previewVisible !== undefined) {
           draft.previewVisible = persisted.previewVisible;
         }
+        if (persisted.outlineVisible !== undefined) {
+          draft.outlineVisible = persisted.outlineVisible;
+        }
         if (persisted.zoomLevel !== undefined) {
           draft.zoomLevel = persisted.zoomLevel;
         }
@@ -348,6 +381,10 @@ export const useUILayoutStore = create<UILayoutStore>()(
         localStorage.setItem(
           STORAGE_KEYS.previewVisible,
           JSON.stringify(state.previewVisible)
+        );
+        localStorage.setItem(
+          STORAGE_KEYS.outlineVisible,
+          JSON.stringify(state.outlineVisible)
         );
         localStorage.setItem(
           STORAGE_KEYS.zoomLevel,
@@ -408,3 +445,12 @@ export const selectZoomLevel = (state: UILayoutStore): number =>
  */
 export const selectSplitRatio = (state: UILayoutStore): number =>
   state.splitRatio;
+
+/**
+ * Selector for outline panel visibility.
+ *
+ * @param state - UI layout store state
+ * @returns Whether outline panel is visible
+ */
+export const selectOutlineVisible = (state: UILayoutStore): boolean =>
+  state.outlineVisible;

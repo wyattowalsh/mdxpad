@@ -181,6 +181,7 @@ describe('PreviewPane', () => {
       ok: true,
       code: 'function MDXContent() { return "Hello"; }',
       frontmatter: { title: 'Test' },
+      outline: undefined,
     };
 
     mockedUsePreview.mockReturnValue({
@@ -206,6 +207,7 @@ describe('PreviewPane', () => {
       ok: true,
       code: 'function MDXContent() { return "Previous"; }',
       frontmatter: { title: 'Previous Render' },
+      outline: undefined,
     };
 
     const errors: CompileError[] = [
@@ -267,6 +269,7 @@ describe('PreviewPane', () => {
       ok: true,
       code: 'function MDXContent() { return "Hello"; }',
       frontmatter: {},
+      outline: undefined,
     };
 
     mockedUsePreview.mockReturnValue({
@@ -290,6 +293,7 @@ describe('PreviewPane', () => {
       ok: true,
       code: 'function MDXContent() { return "Hello"; }',
       frontmatter: {},
+      outline: undefined,
     };
 
     mockedUsePreview.mockReturnValue({

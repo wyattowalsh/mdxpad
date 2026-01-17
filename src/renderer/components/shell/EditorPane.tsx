@@ -9,6 +9,7 @@
  */
 
 import { useCallback, memo } from 'react';
+import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import type { EditorState, SelectionInfo } from '@shared/types/editor';
@@ -40,6 +41,8 @@ export interface EditorPaneProps {
   readonly theme?: EditorTheme;
   /** Height of the editor container */
   readonly height?: string;
+  /** Optional ref to receive the CodeMirror EditorView instance */
+  readonly editorRef?: React.RefObject<EditorView | null>;
 }
 
 // =============================================================================
@@ -103,7 +106,7 @@ function offsetToLineColumn(doc: string, offset: number): CursorPosition {
  * ```
  */
 function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
-  const { onCursorChange, className, theme = 'system', height = '100%' } = props;
+  const { onCursorChange, className, theme = 'system', height = '100%', editorRef } = props;
 
   // Connect to document store
   const content = useDocumentStore(selectContent);
@@ -136,7 +139,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     [onCursorChange, content]
   );
 
-  // Build props object, only including className when defined
+  // Build props object, only including optional props when defined
   // This satisfies exactOptionalPropertyTypes
   const editorProps = {
     value: content,
@@ -153,6 +156,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     indentationGuides: true,
     ariaLabel: 'MDX Document Editor',
     ...(className !== undefined && { className }),
+    ...(editorRef !== undefined && { editorRef }),
   };
 
   return <MDXEditor {...editorProps} />;

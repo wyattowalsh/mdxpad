@@ -36,7 +36,7 @@ export interface UsePreviewResult {
 
 /** Convert worker response to CompileSuccess type. */
 function toCompileSuccess(response: CompileResponseSuccess): CompileSuccess {
-  return { ok: true, code: response.code, frontmatter: response.frontmatter };
+  return { ok: true, code: response.code, frontmatter: response.frontmatter, outline: undefined };
 }
 
 /** Trigger compilation after debounce timeout */
@@ -48,7 +48,7 @@ function triggerCompilation(
   setSuccess: (r: CompileSuccess) => void,
   setError: (e: readonly import('@shared/types/preview').CompileError[]) => void
 ): void {
-  if (source === '') { setSuccess({ ok: true, code: '', frontmatter: {} }); return; }
+  if (source === '') { setSuccess({ ok: true, code: '', frontmatter: {}, outline: null }); return; }
 
   startCompiling();
   const compiler = getCompiler();

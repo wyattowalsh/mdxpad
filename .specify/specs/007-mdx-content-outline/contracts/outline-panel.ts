@@ -102,6 +102,18 @@ export interface OutlineErrorStateProps {
 export interface OutlinePanelHeaderProps {
   /** Callback when close button is clicked */
   readonly onClose: () => void;
+
+  /**
+   * Whether the outline data may be stale due to parse errors.
+   * When true, displays warning indicator in panel header.
+   */
+  readonly isStale?: boolean;
+
+  /**
+   * Error message to display on hover when isStale is true.
+   * Default: "Outline may be outdated due to parse error"
+   */
+  readonly staleMessage?: string;
 }
 
 // ============================================================================

@@ -115,6 +115,7 @@ describe('Integration - Full Compilation Flow', () => {
           ok: true,
           code: result.code,
           frontmatter: result.frontmatter,
+          outline: undefined,
         });
       });
 
@@ -161,6 +162,7 @@ describe('Integration - Full Compilation Flow', () => {
         ok: true,
         code: 'original-code',
         frontmatter: { title: 'Original' },
+        outline: undefined,
       };
       store.setSuccess(successResult);
 
@@ -494,7 +496,7 @@ describe('Integration - Store Selectors', () => {
       expect(state.state.status).toBe('compiling');
 
       // Success state
-      store.setSuccess({ ok: true, code: 'code', frontmatter: {} });
+      store.setSuccess({ ok: true, code: 'code', frontmatter: {}, outline: undefined });
       state = usePreviewStore.getState();
       expect(state.state.status).toBe('success');
       if (state.state.status === 'success') {
@@ -512,7 +514,7 @@ describe('Integration - Store Selectors', () => {
 
     it('should correctly derive renderable content', () => {
       const store = usePreviewStore.getState();
-      const successResult: CompileSuccess = { ok: true, code: 'original', frontmatter: {} };
+      const successResult: CompileSuccess = { ok: true, code: 'original', frontmatter: {}, outline: undefined };
 
       // Initially null
       let state = usePreviewStore.getState();

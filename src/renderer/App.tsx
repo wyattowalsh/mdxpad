@@ -18,20 +18,25 @@
  * @module renderer/App
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import type { EditorView } from '@codemirror/view';
 import { CommandPalette } from './components/CommandPalette';
 import { useCommandPalette, buildCommandContext } from './hooks/useCommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useCommandRegistry } from './stores/command-registry-store';
-import { useUILayoutStore, selectPreviewVisible, selectSplitRatio } from './stores/ui-layout-store';
+import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible } from './stores/ui-layout-store';
 import { useDocumentStore, selectFileName, selectIsDirty } from './stores/document-store';
 import { registerAllCommands } from './commands';
 import { EditorPane, type CursorPosition } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
 import { StatusBar } from './components/shell/StatusBar';
+import { OutlinePanel } from './components/outline';
+import { useOutlineSync } from './hooks/useOutlineSync';
+import { useOutlineNavigation } from './hooks/useOutlineNavigation';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { CommandContext, CommandId, NormalizedShortcut } from '@shared/types/commands';
 import type { CompilationError } from './components/shell/StatusBar/types';
+import type { OutlineItem } from '@shared/types/outline';
 
 // =============================================================================
 // CONSTANTS
@@ -121,14 +126,24 @@ function useAppEvents(toggle: () => void): { version: string; platform: { os: st
 
 /** Main App component with split-pane layout. */
 export function App(): React.ReactElement {
+  // Ref to the CodeMirror EditorView for navigation
+  const editorRef = useRef<EditorView | null>(null);
+
   // Command palette state
   const palette = useCommandPalette();
   const { isOpen, toggle, executeCommand } = palette;
   useAppEvents(toggle);
   useBuiltInCommands(toggle);
 
+  // Sync outline store with preview AST
+  useOutlineSync();
+
+  // Outline navigation hook for click-to-navigate
+  const { navigateToItem } = useOutlineNavigation({ editorRef });
+
   // UI layout state from store
   const previewVisible = useUILayoutStore(selectPreviewVisible);
+  const outlineVisible = useUILayoutStore(selectOutlineVisible);
   const splitRatio = useUILayoutStore(selectSplitRatio);
   const setSplitRatio = useUILayoutStore((s) => s.setSplitRatio);
 
@@ -171,6 +186,11 @@ export function App(): React.ReactElement {
     console.log('Navigate to error from preview:', line, column);
   }, []);
 
+  // Handle outline item navigation (FR-020, FR-021, FR-022, FR-024)
+  const handleOutlineNavigate = useCallback((item: OutlineItem): void => {
+    navigateToItem(item);
+  }, [navigateToItem]);
+
   // Build command context
   const getCommandContext = useCallback((): CommandContext => buildCommandContext(
     null, getMdxpadApi(),
@@ -208,11 +228,17 @@ export function App(): React.ReactElement {
       />
 
       {/* Main content area with split panes */}
-      <main className="flex-1 min-h-0 overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-hidden flex">
+        {/* Outline Panel - left sidebar */}
+        {outlineVisible && (
+          <OutlinePanel onNavigate={handleOutlineNavigate} />
+        )}
+
+        {/* Editor and Preview panels */}
         <ResizablePanelGroup
           direction="horizontal"
           onLayout={handleLayout}
-          className="h-full"
+          className="h-full flex-1"
         >
           {/* Editor Panel */}
           <ResizablePanel
@@ -221,6 +247,7 @@ export function App(): React.ReactElement {
             className="flex flex-col"
           >
             <EditorPane
+              editorRef={editorRef}
               onCursorChange={handleCursorChange}
               className="flex-1"
               theme="system"

@@ -59,6 +59,46 @@ type HeadingLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 // Frontmatter: "fm-{fieldName}"
 ```
 
+**Truncation Implementation** (MAX_LABEL_LENGTH = 40):
+```typescript
+function truncateLabel(text: string): string {
+  const MAX_LABEL_LENGTH = 40;
+  if (text.length <= MAX_LABEL_LENGTH) return text;
+
+  const limit = MAX_LABEL_LENGTH - 3; // Reserve space for "..."
+  const lastSpace = text.lastIndexOf(' ', limit);
+
+  // Break at word boundary if within 5 chars of limit
+  if (lastSpace > limit - 5) {
+    return text.slice(0, lastSpace) + '...';
+  }
+
+  return text.slice(0, limit) + '...';
+}
+```
+
+**Non-Standard Heading Sequence Example**:
+
+Input:
+```markdown
+# Title
+### Skipped H2
+## Back to H2
+#### Deep nesting
+```
+
+Expected `OutlineItem[]` structure:
+```typescript
+[
+  { level: 1, label: "Title", children: [
+    { level: 3, label: "Skipped H2", children: [] },  // h3 under h1 (strict nesting)
+    { level: 2, label: "Back to H2", children: [
+      { level: 4, label: "Deep nesting", children: [] }
+    ]}
+  ]}
+]
+```
+
 ---
 
 ### OutlineSection

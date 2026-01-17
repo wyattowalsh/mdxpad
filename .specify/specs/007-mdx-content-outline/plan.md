@@ -15,19 +15,18 @@ Implement a live document outline panel showing headings tree (h1-h6), component
 - Reuse and extend useErrorNavigation pattern for cursor positioning with line highlighting
 - Follow existing UI layout store patterns for visibility persistence
 
+> **Design Decision**: Reuse AST from preview compilation per FR-029. All AST references in this plan and tasks.md cite this decision rather than restating it.
+
 ---
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9.x with `strict: true`
-**Primary Dependencies**: React 19.x, Zustand 5.x + Immer 11.x, CodeMirror 6.x, Tailwind CSS 4.x
+**Technical Stack**: Per AGENTS.md Active Technologies section and Constitution Article II.
 **Storage**: localStorage for outline panel visibility (`mdxpad:ui:outline-visible`)
-**Testing**: Vitest 4.x (unit), Playwright 1.57.x (E2E)
-**Target Platform**: macOS (Electron 39.x)
 **Project Type**: Single Electron app (renderer process focus)
-**Performance Goals**: <100ms navigation response, <50ms AST extraction overhead, <500ms outline update after typing
+**Performance Goals**: <100ms navigation response, <50ms AST extraction overhead, <500ms outline update after debounce timer fires (300ms after last keystroke)
 **Constraints**: Must not block main thread, reuse existing AST from preview compilation
-**Scale/Scope**: Single document, typical documents ~500 lines
+**Scale/Scope**: Single document, optimized for documents up to 500 lines, must remain functional for documents up to 2000 lines with graceful degradation
 
 ---
 
@@ -44,7 +43,7 @@ Implement a live document outline panel showing headings tree (h1-h6), component
 | III.1 | Renderer process only | ✅ PASS | All outline code in renderer |
 | III.4 | CodeMirror 6 owns editor state | ✅ PASS | Navigation uses CM transactions |
 | V | Keystroke latency <16ms | ✅ PASS | Outline updates debounced, async |
-| V | Renderer bundle <5MB | ✅ TBD | Minimal new code (~2KB) |
+| V | Renderer bundle <5MB | ⏳ PENDING | Estimated ~2KB new code, verification after implementation |
 | VI.1 | No `any` types | ✅ PASS | Full type coverage in contracts |
 | VI.2 | Functions <50 lines | ✅ PASS | Design follows limits |
 | VI.4 | >80% unit coverage | ✅ TBD | Test plan includes coverage |
@@ -123,9 +122,11 @@ The implementation follows existing patterns:
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure (P1 Stories)
+*See spec.md User Stories for full context on P1/P2/P3 priorities.*
 
-**Goal**: Heading navigation and panel toggle working
+### Phase 1: Core Infrastructure (US1, US2)
+
+**Implements**: FR-001 through FR-010, FR-029
 
 1. Extend preview store with outline AST field
 2. Create outline-extractor for AST processing
@@ -134,9 +135,9 @@ The implementation follows existing patterns:
 5. Create useOutlineNavigation hook
 6. Register toggle-outline command
 
-### Phase 2: UI Components (P1 Stories)
+### Phase 2: UI Components (US1, US2)
 
-**Goal**: Visual outline panel with heading tree
+**Implements**: FR-020 through FR-024
 
 1. Create OutlinePanel component
 2. Create OutlineSection component
@@ -145,9 +146,9 @@ The implementation follows existing patterns:
 5. Integrate with App.tsx layout
 6. Add Tailwind styling
 
-### Phase 3: Components & Frontmatter (P2 Stories)
+### Phase 3: Components & Frontmatter (US3, US4)
 
-**Goal**: Components section and frontmatter section
+**Implements**: FR-011 through FR-019
 
 1. Add component extraction to outline-extractor
 2. Create ComponentGroup component
@@ -155,9 +156,9 @@ The implementation follows existing patterns:
 4. Create FrontmatterSection component
 5. Handle "Show all" expansion
 
-### Phase 4: Polish & Accessibility (P3 Stories)
+### Phase 4: Polish & Accessibility (US5)
 
-**Goal**: Collapse functionality and keyboard navigation
+**Implements**: FR-025 through FR-028
 
 1. Add section collapse state
 2. Add nested heading collapse

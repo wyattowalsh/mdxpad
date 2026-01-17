@@ -39,6 +39,18 @@ const toggleSidebarCommand: Command = {
   },
 };
 
+const toggleOutlineCommand: Command = {
+  id: 'view.toggle-outline' as CommandId,
+  name: 'Toggle Outline',
+  description: 'Show or hide the document outline panel',
+  category: 'view',
+  shortcut: { key: 'o', modifiers: ['Mod', 'Shift'] },
+  execute: (): CommandResult => {
+    useUILayoutStore.getState().toggleOutline();
+    return { ok: true };
+  },
+};
+
 const zoomInCommand: Command = {
   id: 'view.zoom-in' as CommandId,
   name: 'Zoom In',
@@ -82,6 +94,7 @@ const resetZoomCommand: Command = {
 const VIEW_COMMANDS: readonly Command[] = [
   togglePreviewCommand,
   toggleSidebarCommand,
+  toggleOutlineCommand,
   zoomInCommand,
   zoomOutCommand,
   resetZoomCommand,

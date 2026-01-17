@@ -6,11 +6,13 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { castDraft } from 'immer';
 import type {
   PreviewState,
   CompileSuccess,
   CompileError,
 } from '@shared/types/preview';
+import type { OutlineAST } from '@shared/types/outline';
 
 /**
  * Preview store state interface.
@@ -83,8 +85,9 @@ export const usePreviewStore = create<PreviewStore>()(
 
     setSuccess: (result) =>
       set((draft) => {
-        draft.state = { status: 'success', result };
-        draft.lastSuccessfulRender = result;
+        // Use castDraft for readonly OutlineAST compatibility with Immer
+        draft.state = { status: 'success', result: castDraft(result) };
+        draft.lastSuccessfulRender = castDraft(result);
       }),
 
     setError: (errors) =>
@@ -203,3 +206,18 @@ export const selectLastSuccessfulRender = (
  */
 export const selectScrollRatio = (state: PreviewStore): number =>
   state.scrollRatio;
+
+/**
+ * Selector for outline AST from renderable content.
+ * Returns outline from current success result or falls back to last successful render.
+ * Used by outline panel for graceful degradation during compilation errors.
+ *
+ * @param state - Preview store state
+ * @returns OutlineAST if available, otherwise null
+ */
+export const selectOutlineAST = (
+  state: PreviewStore
+): OutlineAST | null => {
+  const content = selectRenderableContent(state);
+  return content?.outline ?? null;
+};

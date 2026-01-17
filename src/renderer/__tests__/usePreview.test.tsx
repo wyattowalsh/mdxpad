@@ -247,6 +247,7 @@ describe('usePreview', () => {
         ok: true,
         code: 'previous success',
         frontmatter: { title: 'Test' },
+        outline: undefined,
       };
       usePreviewStore.getState().setSuccess(successResult);
 
@@ -473,6 +474,7 @@ describe('usePreview', () => {
         ok: true,
         code: 'previous success',
         frontmatter: { title: 'Test' },
+        outline: undefined,
       };
       usePreviewStore.getState().setSuccess(successResult);
 
@@ -589,6 +591,7 @@ describe('usePreviewStatus', () => {
       ok: true,
       code: 'test',
       frontmatter: {},
+      outline: undefined,
     });
     const { result } = renderHook(() => usePreviewStatus());
     expect(result.current).toBe('success');
@@ -614,6 +617,7 @@ describe('usePreviewStatus', () => {
         ok: true,
         code: 'test',
         frontmatter: {},
+        outline: undefined,
       });
     });
     expect(result.current).toBe('success');
