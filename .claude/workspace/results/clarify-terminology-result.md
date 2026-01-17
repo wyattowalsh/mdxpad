@@ -1,189 +1,198 @@
-# Terminology & Consistency Analysis
+# Terminology & Consistency Scan Results
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
-**Analysis Date**: 2026-01-10
+**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
 **Category**: Terminology
+**Date**: 2026-01-17
 
 ---
 
-## Summary
+## Executive Summary
 
-The spec introduces several terms in its Glossary section and Key Entities. Analysis compares these against:
-- Constitution Glossary (canonical source)
-- Previous specs (002-005) for consistency
-- Usage within the spec itself
-
-Overall: **Partial coverage** - The spec defines key terms but has some inconsistencies with prior specs and missing canonical definitions.
+The 007-mdx-content-outline spec has several terminology inconsistencies and missing glossary terms when compared against the canonical sources (Constitution glossary, and previous specs 003-preview-pane and 006-application-shell). Key issues include undefined terms, potential synonym conflicts, and missing alignment with established project vocabulary.
 
 ---
 
-## Term-by-Term Analysis
+## Findings
 
-### 1. Document
+### 1. "Outline Item" vs "OutlineItem" Entity Inconsistency
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Spec Definition** | "Represents the currently open file with: fileId (UUID for tracking), filePath (null if untitled), fileName (display name), content (current editor content), savedContent (content at last save), isDirty (derived: content !== savedContent)" |
-| **Issue** | Term "Document" overlaps with but differs from Spec 004's "FileState" which has similar fields (handle, content, savedContent, dirty). Spec 002 also uses "document" loosely (e.g., "new document is created", "document content changes") without formal definition. |
-| **Question Candidate** | Should "Document" be aligned with the existing "FileState" entity from Spec 004, or should they remain distinct? If distinct, what is the relationship between Document and FileState? |
-| **Impact Score** | 4 |
-
----
-
-### 2. Dirty / isDirty
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Clear |
-| **Spec Definition** | "A document is 'dirty' when it has unsaved changes (current content differs from last saved content)" |
-| **Notes** | This is consistent with Spec 004's "dirty state" concept (FR-005: "track dirty state by comparing current content with last saved content"). Constitution Section 7.3 also mentions "dirty" in context of auto-save. |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: Glossary (line 260) vs Key Entities (line 182)
+- **Issue**: The glossary defines "Outline Item" (two words) while the Key Entities section uses "OutlineItem" (PascalCase, one word). This creates ambiguity about the canonical form.
+- **Question Candidate**: Should the canonical term be "Outline Item" (human-readable glossary form) or "OutlineItem" (code entity form)? Should both forms be documented explicitly?
+- **Impact Score**: 2
+- **Recommendation**: Align glossary term with Key Entity naming. Use "OutlineItem" consistently, with glossary entry clarifying it as "**OutlineItem** (Outline Item in prose)"
 
 ---
 
-### 3. File Handle
+### 2. "Source Position" vs "line/column" Terminology
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Spec Definition** | "An object containing fileId, filePath, and fileName that identifies a saved document" |
-| **Issue** | Spec 004 defines "FileHandle" as "Represents a reference to a file, containing unique id, path (null for untitled), and display name". The definitions are equivalent but use slightly different field names (fileId vs id, filePath vs path, fileName vs display name). |
-| **Question Candidate** | Should the File Handle definition use the exact field names from Spec 004's FileHandle type (id, path, displayName) for consistency? |
-| **Impact Score** | 3 |
-
----
-
-### 4. Split Ratio
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Clear |
-| **Spec Definition** | "A value from 0 to 1 representing the position of the divider (0 = all preview, 1 = all editor)" |
-| **Notes** | New term, not used in previous specs. Definition is complete and unambiguous. |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: Glossary (line 261), FR-032 (line 176)
+- **Issue**: The glossary defines "Source Position" as "line and column number" but the spec uses "line" and "column" separately in various places without referencing "Source Position". Spec 003 (Preview Pane) uses "position information" in FR-006. Spec 006 uses "cursor position" (different concept).
+- **Question Candidate**: Is "Source Position" the canonical term for line/column tuples in the codebase, or should each spec define its own terminology?
+- **Impact Score**: 3
+- **Recommendation**: Add "Source Position" to project-wide glossary (Constitution) and reference it consistently. Distinguish from "Cursor Position" (006) which is editor-specific.
 
 ---
 
-### 5. Untitled
+### 3. "AST" Term Undefined in Constitution
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Clear |
-| **Spec Definition** | "A document that has never been saved and has no associated file path" |
-| **Notes** | Consistent with usage in Spec 004 ("untitled document", "Untitled" as display name). |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
-
----
-
-### 6. Layout (Key Entity)
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Spec Definition** | "Represents the visual arrangement with: splitRatio (0-1, position of divider), previewVisible (boolean), editorWidth (derived from splitRatio and container)" |
-| **Issue** | Spec 005 introduces `uiLayoutStore` for "UI-only state like panel visibility" (per clarification). This spec's "Layout" entity appears to serve the same purpose but with different structure. |
-| **Question Candidate** | Should the Layout entity be implemented as an extension of Spec 005's `uiLayoutStore`, or is this a separate store? What fields from uiLayoutStore should be reused vs. extended? |
-| **Impact Score** | 4 |
+- **Category**: Terminology
+- **Status**: Missing (from Constitution)
+- **Location**: Glossary (line 259), FR-029-032 (lines 173-176)
+- **Issue**: "AST" is defined in the 007 spec glossary but not in the Constitution's master glossary. This is a core concept referenced in multiple specs (003-preview-pane mentions "MDX compilation" which produces AST, 007 extensively uses AST).
+- **Question Candidate**: Should "AST" be elevated to the Constitution glossary as a project-wide canonical term?
+- **Impact Score**: 4
+- **Recommendation**: Add "AST" (Abstract Syntax Tree) to Constitution glossary since it's fundamental to MDX compilation and preview architecture.
 
 ---
 
-### 7. Settings (Key Entity)
+### 4. "Tree View" vs "Hierarchical Tree" vs "Headings Tree"
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Spec Definition** | "User preferences with: theme ('light' | 'dark' | 'system'), zoomLevel (50-200), recentFiles (array of paths), other future preferences" |
-| **Issue** | Spec 005 already defines zoom level persistence (FR-044: "persist zoom level to localStorage") and recent commands (RecentCommands entity). Spec 004 defines "recent files list with maximum 10 entries" (FR-013). This creates potential overlap: should zoom/recent be in Settings or in their respective stores? |
-| **Question Candidate** | Should Settings consolidate zoom level (from uiLayoutStore), recent files (from file system), and theme into a single store, or should each remain in its domain-specific store with Settings providing a facade? |
-| **Impact Score** | 3 |
-
----
-
-### 8. Status (Key Entity)
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Clear |
-| **Spec Definition** | "Derived display information with: displayName (fileName or 'Untitled'), dirtyIndicator (boolean), cursorPosition ({line, column}), errorCount (number from preview state)" |
-| **Notes** | New entity type. Definition is complete. Error count references "preview state" which is well-defined in Spec 003's PreviewState entity. |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: Glossary (line 262), FR-007 (line 137), User Story 1 (line 27)
+- **Issue**: Multiple terms are used for tree-based UI concepts:
+  - "Tree View" (glossary)
+  - "hierarchical tree structure" (FR-007)
+  - "Headings tree" (FR-006 section header)
+  - "navigable tree view" (Executive Summary)
+- **Question Candidate**: What is the canonical term for tree-based hierarchical UI components? Should "Tree View" encompass all uses, or should more specific terms (Headings Tree, Component List) be documented?
+- **Impact Score**: 2
+- **Recommendation**: Standardize on "Tree View" as the UI pattern term. Use "Headings Tree", "Component List", and "Frontmatter Section" as specific instances.
 
 ---
 
-### 9. Editor vs. MDXEditor vs. CodeMirror
+### 5. "Preview AST" vs "MDX AST" vs "AST"
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Spec Usage** | Uses "editor" (lowercase) throughout, "CodeMirror editor" in Executive Summary, "MDXEditor" in Assumptions |
-| **Issue** | Inconsistent naming. Spec 002 uses "editor" generically and defines EditorState. The spec refers to "MDXEditor" in assumptions but this component name is not formally defined anywhere. Constitution uses "CodeMirror 6" as the technology. |
-| **Question Candidate** | What is the canonical component name for the editor: "MDXEditor", "Editor", or something else? Should the spec use one consistent term? |
-| **Impact Score** | 2 |
-
----
-
-### 10. Preview Pane vs. PreviewPane
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Spec Usage** | Uses "preview pane" (two words), "preview" alone, "preview rendering", and "PreviewPane" (PascalCase component name in Assumptions) |
-| **Issue** | Minor inconsistency between prose ("preview pane") and component name ("PreviewPane"). Spec 003 also uses both forms. |
-| **Question Candidate** | N/A (minor - component naming convention is clear) |
-| **Impact Score** | 1 |
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: FR-029 (line 173), Assumptions (line 229)
+- **Issue**: The spec uses both "preview AST" and "AST" without clarifying if these are the same thing. Spec 003 doesn't use the term "AST" explicitly but refers to "compiled MDX" and "CompileResult".
+- **Question Candidate**: Is "preview AST" specifically the AST generated by the preview pane (spec 003), or is it a general MDX AST? Should we use "CompileResult" (from 003) as the canonical term?
+- **Impact Score**: 3
+- **Recommendation**: Clarify that "AST" in 007 refers to the parsed structure from MDX compilation (which spec 003 calls "CompileResult"). Consider aligning terminology.
 
 ---
 
-### 11. Command Palette vs. command palette
+### 6. Missing "useErrorNavigation" Definition
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Clear |
-| **Spec Usage** | Uses "command palette" (lowercase) consistently |
-| **Notes** | Matches Spec 005 usage. Component name is "CommandPalette" (PascalCase) per standard React conventions. |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
-
----
-
-### 12. Missing Constitution Glossary Alignment
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Missing |
-| **Issue** | The Constitution defines canonical terms (IPC, MDX, contextIsolation, Tier 1/2/3 Plugin) that are not referenced in this spec's glossary. While some terms (IPC) are used in the spec, they rely on implicit understanding rather than explicit reference to the Constitution glossary. |
-| **Question Candidate** | Should the spec's glossary explicitly reference or inherit from the Constitution glossary for terms like "IPC"? |
-| **Impact Score** | 2 |
+- **Category**: Terminology
+- **Status**: Missing
+- **Location**: FR-023 (line 161), Assumptions (line 232)
+- **Issue**: The spec references "useErrorNavigation hook" as an existing pattern but doesn't define it in the glossary. This appears to be a hook from spec 006 (Application Shell) but spec 006 doesn't define it in its glossary either.
+- **Question Candidate**: Should "useErrorNavigation" be added to the glossary with a definition? What spec owns this pattern?
+- **Impact Score**: 3
+- **Recommendation**: Add "useErrorNavigation" to glossary: "A React hook providing cursor positioning and navigation functionality for jumping to specific lines in the editor."
 
 ---
 
-## Deprecated/Synonym Terms to Avoid
+### 7. "Outline" vs "Navigator" Title Ambiguity
 
-| Preferred Term | Avoid Using |
-|----------------|-------------|
-| Document | file state, current file (as entity name) |
-| Dirty | unsaved changes (when referring to the boolean state) |
-| File Handle | file reference, file info |
-| Split Ratio | divider position, pane ratio |
-| Untitled | new document (when referring to save state) |
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: Title (line 1), throughout spec
+- **Issue**: The spec title is "MDX Content Outline/Navigator" (with slash) but the body uses only "outline" (~50 occurrences) and never "navigator". This creates ambiguity about whether these are synonyms or distinct concepts.
+- **Question Candidate**: Is "Navigator" an alias for "Outline" or does it represent a different aspect of the feature? Should one term be deprecated?
+- **Impact Score**: 2
+- **Recommendation**: Standardize on "Outline" as the canonical term. Add to glossary: "**Outline** (also: Navigator): A panel displaying document structure for navigation."
 
 ---
 
-## Recommendations
+### 8. "Panel" vs "Pane" Terminology
 
-1. **High Priority (Impact 4)**
-   - Clarify relationship between "Document" entity and Spec 004's "FileState" entity
-   - Clarify relationship between "Layout" entity and Spec 005's "uiLayoutStore"
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: Throughout spec, comparison with 006-application-shell
+- **Issue**: Spec 007 uses "panel" (outline panel, ~20 occurrences) while spec 006 uses "pane" (preview pane, editor pane). Spec 003 also uses "pane" (Preview Pane). This inconsistency could confuse developers.
+- **Question Candidate**: Are "panel" and "pane" interchangeable, or should there be a distinction (e.g., pane for main content areas, panel for auxiliary sidebars)?
+- **Impact Score**: 3
+- **Recommendation**: Establish convention: "pane" for main editing areas (editor pane, preview pane), "panel" for auxiliary/sidebar UI (outline panel, status panel). Document in Constitution glossary.
 
-2. **Medium Priority (Impact 3)**
-   - Align File Handle field names with Spec 004's FileHandle type definition
-   - Clarify Settings store boundaries vs. domain-specific stores
+---
 
-3. **Low Priority (Impact 1-2)**
-   - Establish canonical component name for the editor (MDXEditor vs. Editor)
-   - Consider referencing Constitution glossary for IPC and other shared terms
+### 9. "Collapsible" Definition Missing
+
+- **Category**: Terminology
+- **Status**: Missing
+- **Location**: FR-001 (line 127), FR-025-027 (lines 165-168)
+- **Issue**: The spec uses "collapsible" extensively but doesn't define it. There are two distinct collapse behaviors:
+  1. Entire outline panel can collapse/hide (FR-001, FR-002)
+  2. Individual sections within the outline can collapse (FR-025-027)
+- **Question Candidate**: Should "collapsible" be defined to distinguish panel-level collapse (hide/show) from section-level collapse (expand/contract)?
+- **Impact Score**: 2
+- **Recommendation**: Add glossary entry: "**Collapse**: (1) For panels: hiding the panel entirely. (2) For sections: contracting to show only the header."
+
+---
+
+### 10. "Section" Overloaded Term
+
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: OutlineSection entity (line 184), FR-025 (line 165), User Stories
+- **Issue**: "Section" is used for both:
+  1. OutlineSection (Headings, Components, Frontmatter groupings in the outline)
+  2. Document sections (referenced in User Story 1: "jump to a specific section")
+- **Question Candidate**: Should "OutlineSection" be the canonical term for outline groupings to distinguish from document sections?
+- **Impact Score**: 2
+- **Recommendation**: Use "OutlineSection" in technical contexts, "section" (lowercase) for document sections. Add clarity in glossary.
+
+---
+
+### 11. "Click-to-Navigate" vs "Navigation" Terminology
+
+- **Category**: Terminology
+- **Status**: Clear
+- **Location**: Input description (line 6), FR-020-024 (lines 158-163)
+- **Issue**: Minor - "click-to-navigate" in the input description is a compound term that could be documented.
+- **Question Candidate**: N/A
+- **Impact Score**: 1
+- **Recommendation**: No action needed. "Navigation" is sufficiently clear in context.
+
+---
+
+### 12. "Real-time" vs "Live" Usage
+
+- **Category**: Terminology
+- **Status**: Clear
+- **Location**: Title, User Story 1 (line 38)
+- **Issue**: Both "real-time" and "live" are used (e.g., "live document outline", "updates in real-time"). This is consistent with spec 003 which uses "live preview".
+- **Question Candidate**: N/A
+- **Impact Score**: 1
+- **Recommendation**: No action needed. Both terms are industry-standard synonyms for immediate updates.
+
+---
+
+## Summary Table
+
+| # | Term/Issue | Status | Impact | Action Required |
+|---|------------|--------|--------|-----------------|
+| 1 | Outline Item vs OutlineItem | Partial | 2 | Align naming convention |
+| 2 | Source Position vs line/column | Partial | 3 | Standardize and elevate to Constitution |
+| 3 | AST not in Constitution | Missing | 4 | Add to Constitution glossary |
+| 4 | Tree View variations | Partial | 2 | Standardize terminology |
+| 5 | Preview AST vs AST | Partial | 3 | Clarify relationship to CompileResult |
+| 6 | useErrorNavigation undefined | Missing | 3 | Add to glossary |
+| 7 | Outline vs Navigator | Partial | 2 | Deprecate Navigator, standardize on Outline |
+| 8 | Panel vs Pane | Partial | 3 | Establish convention in Constitution |
+| 9 | Collapsible undefined | Missing | 2 | Add glossary entry |
+| 10 | Section overloaded | Partial | 2 | Clarify OutlineSection vs document section |
+| 11 | Click-to-navigate | Clear | 1 | No action |
+| 12 | Real-time vs Live | Clear | 1 | No action |
+
+---
+
+## Recommended Clarification Questions (Priority Order)
+
+1. **(Impact 4)** Should "AST" (Abstract Syntax Tree) be added to the Constitution glossary as a project-wide canonical term, given its fundamental role in MDX compilation across specs 003 and 007?
+
+2. **(Impact 3)** What is the canonical distinction between "panel" (used in 007) and "pane" (used in 003, 006)? Should this be documented in the Constitution?
+
+3. **(Impact 3)** The spec references "preview AST" and "useErrorNavigation hook" - should these be formally defined in the glossary with their owning spec referenced?
+
+4. **(Impact 3)** Should "Source Position" (line/column tuple) be elevated to the Constitution glossary to ensure consistent usage across specs?
+
+5. **(Impact 2)** Should the feature name be standardized to just "MDX Content Outline" (dropping "Navigator") to avoid synonym confusion?

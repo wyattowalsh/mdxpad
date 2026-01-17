@@ -1,8 +1,8 @@
 # Non-Functional Requirements Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
+**Spec**: `specs/007-mdx-content-outline/spec.md`
 **Category**: Non-Functional Quality Attributes
-**Analyzed**: 2026-01-10
+**Analyzed**: 2026-01-17
 
 ---
 
@@ -11,149 +11,177 @@
 | Quality Attribute | Status | Issues Found |
 |-------------------|--------|--------------|
 | Performance | Partial | 4 issues |
-| Scalability | Missing | 1 issue |
+| Scalability | Missing | 3 issues |
 | Reliability & Availability | Partial | 3 issues |
-| Observability | Missing | 2 issues |
-| Security & Privacy | Missing | 3 issues |
-| Compliance / Regulatory | N/A | 0 issues |
+| Observability | Missing | 3 issues |
+| Security & Privacy | Missing | 2 issues |
+| Compliance / Regulatory | Partial | 2 issues |
 
-**Total Ambiguities Identified**: 13
+**Total Ambiguities Identified**: 17
+
+**Note**: The Non-Functional Requirements section (lines 205-224) is notably thin, covering only Performance, Accessibility, and Maintainability at a high level. Several critical NFR categories are entirely missing, and the existing ones lack quantitative targets.
 
 ---
 
 ## Detailed Analysis
 
-### 1. Performance
+### 1. Performance (Latency, Throughput Targets)
 
-#### 1.1 Layout Resize Frame Rate Target
-- **Category**: non_functional
-- **Status**: Partial
-- **Location**: Non-Functional Requirements > Performance, Success Criteria SC-009
-- **Issue**: The spec mentions "60fps target" in SC-009 and "no visible jank or dropped frames" in NFR, but no specific measurement methodology, acceptable deviation thresholds, or definition of "visible jank" is provided.
-- **Question Candidate**: What is the acceptable frame drop threshold during resize operations (e.g., no more than X frames below 60fps per 1-second window)? How will frame rate be measured and validated during testing?
+#### 1.1 Memory Budget Unspecified
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No memory budget or ceiling is specified for the outline feature. Parsing large documents with many headings and components could consume significant memory.
+- **Question Candidate**: What is the maximum acceptable memory footprint for the outline feature (e.g., max 50MB additional memory for a 10,000-line document)?
+- **Impact Score**: 4
+
+#### 1.2 CPU Utilization Ceiling Unspecified
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: NFR Performance section (lines 209-211)
+- **Issue**: The spec says "must not block the main thread or cause editor input lag" but provides no quantitative CPU utilization limit.
+- **Question Candidate**: Should there be a CPU utilization ceiling for outline parsing (e.g., no more than 5% of single core during background updates)?
 - **Impact Score**: 3
 
-#### 1.2 Settings Persistence Debounce Timing
-- **Category**: non_functional
+#### 1.3 Performance Targets Scattered Across Sections
+- **Category**: Non-Functional
 - **Status**: Partial
-- **Location**: Non-Functional Requirements > Performance
-- **Issue**: The spec requires "Settings persistence must be debounced to avoid excessive disk writes" but does not specify the debounce interval or what constitutes "excessive."
-- **Question Candidate**: What debounce interval should be used for settings persistence (e.g., 500ms, 1s, 2s)? What is the maximum acceptable write frequency?
+- **Location**: NFR (209-211), FR-010/015/019 (500ms), SC-001 (100ms), SC-002 (500ms), SC-003 (50ms), SC-004 (50ms)
+- **Issue**: Performance targets are scattered across Success Criteria, Functional Requirements, and NFR sections. The NFR section itself only provides qualitative guidance ("debounce," "reuse AST") without consolidating quantitative targets.
+- **Question Candidate**: Should all performance targets be consolidated into a single NFR subsection with a clear performance budget table?
 - **Impact Score**: 2
 
-#### 1.3 Preview Update Latency Under Load
-- **Category**: non_functional
+#### 1.4 Debounce Interval Not Specified
+- **Category**: Non-Functional
 - **Status**: Partial
-- **Location**: Success Criteria SC-002
-- **Issue**: The 500ms preview update target does not account for large documents or complex MDX content. No degradation strategy or document size limits are specified.
-- **Question Candidate**: What is the maximum document size (in characters or lines) for which the 500ms preview latency guarantee applies? What behavior is acceptable for larger documents?
-- **Impact Score**: 4
-
-#### 1.4 App Launch Time Definition
-- **Category**: non_functional
-- **Status**: Partial
-- **Location**: Success Criteria SC-008
-- **Issue**: "App launches to usable state within 2 seconds on standard hardware" lacks definition of "usable state" (window visible? editor interactive? preferences loaded?) and "standard hardware" specifications.
-- **Question Candidate**: What constitutes "usable state" for the 2-second launch target (first paint, editor interactive, or fully loaded)? What hardware baseline should be used for testing?
-- **Impact Score**: 3
-
----
-
-### 2. Scalability
-
-#### 2.1 Document Size Limits
-- **Category**: non_functional
-- **Status**: Missing
-- **Location**: N/A (not addressed in spec)
-- **Issue**: No scalability requirements exist for document size. Large MDX files could cause memory issues, editor lag, or preview compilation timeouts. The spec does not define maximum supported document size.
-- **Question Candidate**: What is the maximum document size (KB/MB or lines/characters) that the application must support while maintaining performance requirements? What graceful degradation is expected beyond that limit?
-- **Impact Score**: 5
-
----
-
-### 3. Reliability & Availability
-
-#### 3.1 Recovery from Crash or Abnormal Termination
-- **Category**: non_functional
-- **Status**: Partial
-- **Location**: Edge Cases section
-- **Issue**: The spec explicitly notes "autosave/recovery (out of scope for this spec, but design should not preclude it)" - however, no requirements exist for what "not precluding" means in practice. There's no guidance on data preservation expectations if the app crashes.
-- **Question Candidate**: Should the application store any recovery state (e.g., last content snapshot to temp storage) even without full autosave? What specific design constraints must be followed to enable future crash recovery?
-- **Impact Score**: 4
-
-#### 3.2 File System Error Recovery
-- **Category**: non_functional
-- **Status**: Partial
-- **Location**: FR-023, Edge Cases
-- **Issue**: The spec mentions "handle save errors gracefully" but doesn't specify retry behavior, error classification, or recovery strategies for different failure types (disk full, permission denied, network drive disconnected).
-- **Question Candidate**: Should the application implement automatic retry for transient errors? How should different error categories (permissions, disk full, file locked) be communicated to users?
-- **Impact Score**: 3
-
-#### 3.3 External File Modification Handling
-- **Category**: non_functional
-- **Status**: Partial
-- **Location**: Edge Cases
-- **Issue**: While the spec mentions "Detect change and prompt user to reload or keep current version" for external modifications, it's listed as an edge case without specifying detection mechanism, polling interval, or explicit reliability requirements.
-- **Question Candidate**: Is external file change detection required for this spec or deferred? If required, what detection mechanism (file watching, modification time check on focus) and latency is acceptable?
-- **Impact Score**: 3
-
----
-
-### 4. Observability
-
-#### 4.1 Logging Requirements
-- **Category**: non_functional
-- **Status**: Missing
-- **Location**: N/A (not addressed in spec)
-- **Issue**: No logging requirements are specified. For a desktop application, diagnostic logging is critical for debugging user-reported issues. The spec does not define what events should be logged, log levels, or log persistence.
-- **Question Candidate**: What logging infrastructure is required? What events must be logged (file operations, errors, performance metrics)? Where should logs be stored and what retention policy applies?
-- **Impact Score**: 4
-
-#### 4.2 Error Reporting and Diagnostics
-- **Category**: non_functional
-- **Status**: Missing
-- **Location**: N/A (not addressed in spec)
-- **Issue**: The spec requires error feedback to users but does not specify developer-facing diagnostics, error aggregation, or crash reporting mechanisms.
-- **Question Candidate**: Should the application capture and report errors for telemetry purposes? What diagnostic information should be available for debugging user-reported issues?
-- **Impact Score**: 3
-
----
-
-### 5. Security & Privacy
-
-#### 5.1 File Access Permissions
-- **Category**: non_functional
-- **Status**: Missing
-- **Location**: N/A (not addressed in spec)
-- **Issue**: No security requirements for file access are specified. The spec doesn't address sandboxing, file permission validation, or protection against path traversal or malicious file paths.
-- **Question Candidate**: What file access restrictions apply? Should the application validate file paths against sandboxing rules? How should permission errors be handled securely?
-- **Impact Score**: 4
-
-#### 5.2 Settings Data Protection
-- **Category**: non_functional
-- **Status**: Missing
-- **Location**: N/A (not addressed in spec)
-- **Issue**: Settings persistence via electron-store is mentioned, but no requirements exist for protecting sensitive settings data, encryption, or preventing unauthorized access to stored preferences.
-- **Question Candidate**: Do any settings contain sensitive data requiring encryption? What protection mechanisms are needed for persisted settings on shared systems?
+- **Location**: NFR Performance (line 210)
+- **Issue**: The spec requires "Debounce outline updates to avoid excessive re-parsing during rapid typing" but does not specify the debounce interval.
+- **Question Candidate**: What debounce interval should be used for outline updates during rapid typing (e.g., 100ms, 200ms, 300ms)?
 - **Impact Score**: 2
 
-#### 5.3 Content Handling Security
-- **Category**: non_functional
+---
+
+### 2. Scalability (Horizontal/Vertical, Limits)
+
+#### 2.1 Document Size Limits Not Defined
+- **Category**: Non-Functional
 - **Status**: Missing
-- **Location**: N/A (not addressed in spec)
-- **Issue**: MDX content is rendered in a preview pane, but no security requirements address potential XSS, script injection, or malicious content handling. The spec doesn't specify content sanitization or iframe sandboxing requirements.
-- **Question Candidate**: What content security policy applies to the preview pane? Is the preview iframe sandboxed? How is potentially malicious MDX content (e.g., embedded scripts) handled?
-- **Impact Score**: 5
+- **Location**: N/A (not addressed)
+- **Issue**: No maximum document size (lines, characters, headings, components) is specified. Large documents could cause outline performance degradation.
+- **Question Candidate**: What is the maximum document size (lines/characters) and item count (headings/components) the outline must fully support without degradation?
+- **Impact Score**: 4
+
+#### 2.2 Virtualization/Pagination Strategy Missing
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No virtualization or pagination strategy is defined for documents with many outline items. A document with 500+ headings could overwhelm the outline panel.
+- **Question Candidate**: What is the maximum number of outline items the panel should display before employing virtualization or a "show more" pattern?
+- **Impact Score**: 3
+
+#### 2.3 Graceful Degradation Strategy Missing
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No graceful degradation strategy exists for very large documents that exceed performance targets.
+- **Question Candidate**: How should the outline behave when document size exceeds supported limits (e.g., "Outline simplified for large document" with only top-level headings)?
+- **Impact Score**: 3
 
 ---
 
-### 6. Compliance / Regulatory
+### 3. Reliability & Availability (Uptime, Recovery)
 
-- **Category**: non_functional
-- **Status**: N/A
-- **Location**: N/A
-- **Issue**: No compliance or regulatory requirements appear relevant for a local desktop MDX editor. This is appropriate given the application's scope.
-- **Impact Score**: N/A
+#### 3.1 Component Crash Isolation Not Specified
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No error boundary or crash isolation requirement exists. If the outline component throws an unhandled exception, it could crash the entire editor.
+- **Question Candidate**: Should the outline component be wrapped in an error boundary to prevent cascading failures to the editor?
+- **Impact Score**: 3
+
+#### 3.2 Outline Staleness Threshold Not Defined
+- **Category**: Non-Functional
+- **Status**: Partial
+- **Location**: FR-031, Edge Cases (line 113)
+- **Issue**: The spec mentions showing "last valid outline" on parse failure but doesn't define how long stale data is acceptable before showing an error state.
+- **Question Candidate**: What is the maximum acceptable staleness for "last valid outline" data (e.g., if AST fails for 10+ seconds, show explicit error state)?
+- **Impact Score**: 2
+
+#### 3.3 Retry Logic for Transient Failures Missing
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No retry logic is specified for transient AST parsing failures.
+- **Question Candidate**: Should there be automatic retry logic if outline AST parsing fails transiently (e.g., retry once after 500ms)?
+- **Impact Score**: 2
+
+---
+
+### 4. Observability (Logging, Metrics, Tracing)
+
+#### 4.1 No Logging Requirements
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No logging requirements exist for outline operations. Debugging slow outline updates or navigation failures would be difficult without logs.
+- **Question Candidate**: Should outline parsing performance and navigation events be logged for debugging (e.g., log parse duration, item count, navigation targets)?
+- **Impact Score**: 2
+
+#### 4.2 No Performance Metrics Collection
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No metrics collection is specified for monitoring outline performance in production.
+- **Question Candidate**: Should outline performance metrics (parse times, update frequency, memory usage) be collected for monitoring?
+- **Impact Score**: 2
+
+#### 4.3 No Debug Mode for Developers
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No developer debugging capability is specified for inspecting outline state.
+- **Question Candidate**: Should there be a developer console command or debug panel to inspect current outline state and AST data?
+- **Impact Score**: 1
+
+---
+
+### 5. Security & Privacy (AuthN/Z, Data Protection)
+
+#### 5.1 Input Sanitization Not Addressed
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: Heading text and component names come from user-authored content. No sanitization requirement exists to prevent potential rendering issues or injection.
+- **Question Candidate**: Should outline item text (heading text, component names) be sanitized before rendering in the tree view to prevent any rendering injection concerns?
+- **Impact Score**: 2
+
+#### 5.2 Data Exposure Considerations Missing
+- **Category**: Non-Functional
+- **Status**: Missing
+- **Location**: N/A (not addressed)
+- **Issue**: No consideration of whether outline data could expose document structure in error reports or logs.
+- **Question Candidate**: Is there any risk of outline data (document structure, heading text) being exposed unintentionally in logs or error reports?
+- **Impact Score**: 1
+
+---
+
+### 6. Compliance / Regulatory Constraints
+
+#### 6.1 WCAG Compliance Level Not Specified
+- **Category**: Non-Functional
+- **Status**: Partial
+- **Location**: NFR Accessibility (lines 215-217)
+- **Issue**: The spec requires keyboard navigation and ARIA roles but doesn't specify a target WCAG compliance level.
+- **Question Candidate**: What WCAG compliance level is required for the outline (2.0 AA minimum, 2.1 AA, or 2.1 AAA)?
+- **Impact Score**: 3
+
+#### 6.2 WAI-ARIA TreeView Pattern Not Referenced
+- **Category**: Non-Functional
+- **Status**: Partial
+- **Location**: NFR Accessibility (lines 215-217)
+- **Issue**: The spec mentions "tree, treeitem" roles but doesn't reference the specific WAI-ARIA TreeView pattern for keyboard interactions.
+- **Question Candidate**: Should keyboard navigation follow the specific WAI-ARIA TreeView pattern (with arrow keys, Home/End, expand/collapse)?
+- **Impact Score**: 2
 
 ---
 
@@ -163,28 +191,55 @@ Sorted by impact score (highest first):
 
 | # | Impact | Quality Attribute | Question |
 |---|--------|-------------------|----------|
-| 1 | 5 | Scalability | What is the maximum document size that the application must support while maintaining performance requirements? |
-| 2 | 5 | Security | What content security policy applies to the preview pane and how is potentially malicious MDX content handled? |
-| 3 | 4 | Performance | What is the maximum document size for which the 500ms preview latency guarantee applies? |
-| 4 | 4 | Reliability | Should the application store any recovery state even without full autosave? What design constraints enable future crash recovery? |
-| 5 | 4 | Observability | What logging infrastructure is required and what events must be logged? |
-| 6 | 4 | Security | What file access restrictions and validation are required? |
-| 7 | 3 | Performance | What constitutes "usable state" and "standard hardware" for the 2-second launch target? |
-| 8 | 3 | Performance | What is the acceptable frame drop threshold during resize operations? |
-| 9 | 3 | Reliability | Should the application implement automatic retry for transient file system errors? |
-| 10 | 3 | Reliability | Is external file change detection required for this spec or deferred? |
-| 11 | 3 | Observability | Should the application capture errors for telemetry? What diagnostics are needed? |
-| 12 | 2 | Performance | What debounce interval should be used for settings persistence? |
-| 13 | 2 | Security | Do any settings contain sensitive data requiring encryption? |
+| 1 | 4 | Performance | What is the maximum acceptable memory footprint for the outline feature? |
+| 2 | 4 | Scalability | What is the maximum document size and item count the outline must support without degradation? |
+| 3 | 3 | Performance | Should there be a CPU utilization ceiling for outline parsing? |
+| 4 | 3 | Scalability | What is the maximum number of outline items before employing virtualization? |
+| 5 | 3 | Scalability | How should the outline degrade gracefully for very large documents? |
+| 6 | 3 | Reliability | Should the outline component be error-boundary isolated? |
+| 7 | 3 | Compliance | What WCAG compliance level is required for the outline? |
+| 8 | 2 | Performance | Should all performance targets be consolidated into a single NFR section? |
+| 9 | 2 | Performance | What debounce interval should be used for outline updates? |
+| 10 | 2 | Reliability | What is the maximum acceptable staleness for "last valid outline" data? |
+| 11 | 2 | Reliability | Should there be retry logic for transient AST parsing failures? |
+| 12 | 2 | Observability | Should outline parsing performance be logged for debugging? |
+| 13 | 2 | Observability | Should outline performance metrics be collected for monitoring? |
+| 14 | 2 | Security | Should outline item text be sanitized before rendering? |
+| 15 | 2 | Compliance | Should keyboard navigation follow the WAI-ARIA TreeView pattern? |
+| 16 | 1 | Observability | Should there be a debug mode for inspecting outline state? |
+| 17 | 1 | Security | Is there risk of outline data exposure in logs/error reports? |
 
 ---
 
 ## Recommendations
 
-1. **Critical (Impact 5)**: Address document size limits and content security before implementation. These gaps could lead to significant performance issues or security vulnerabilities.
+### Critical (Impact 4)
+1. **Memory Budget**: Define a memory ceiling for the outline feature to prevent resource exhaustion on large documents (e.g., "Outline feature must not exceed 50MB additional memory for documents up to 50,000 lines").
 
-2. **High Priority (Impact 4)**: Clarify logging requirements and crash recovery constraints. These affect debuggability and user trust.
+2. **Document Size Limits**: Specify maximum supported document dimensions and define graceful degradation behavior beyond those limits.
 
-3. **Medium Priority (Impact 3)**: Refine performance measurement criteria and error handling strategies. These affect test validation and user experience.
+### High Priority (Impact 3)
+3. **WCAG Compliance**: Specify a target WCAG level (recommend 2.1 AA) and reference the WAI-ARIA TreeView pattern for keyboard navigation.
 
-4. **Low Priority (Impact 2)**: Debounce timing and settings encryption can be resolved during implementation with reasonable defaults.
+4. **Error Isolation**: Require error boundary wrapping to prevent outline failures from crashing the editor.
+
+5. **Scalability Strategy**: Define virtualization threshold for outline panels with many items.
+
+### Medium Priority (Impact 2)
+6. **Performance Consolidation**: Consolidate all quantitative performance targets into a single NFR subsection for clarity.
+
+7. **Observability**: Add basic logging requirements for debugging outline issues in production.
+
+8. **Input Sanitization**: Clarify text rendering approach to prevent any edge-case rendering issues.
+
+### Low Priority (Impact 1)
+9. **Debug Mode**: Consider adding developer tooling for outline state inspection (can be deferred to later spec).
+
+---
+
+## Notes
+
+- The spec compensates somewhat for NFR vagueness by including quantitative targets in Success Criteria (SC-001 through SC-008)
+- The scattered nature of performance targets across FR, SC, and NFR sections could lead to implementation confusion
+- Security concerns are minimal for a local desktop app, but input sanitization is good practice
+- The accessibility requirements are directionally correct but would benefit from specific standard references

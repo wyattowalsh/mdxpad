@@ -1,188 +1,264 @@
-# Integration Ambiguity Analysis: 006-application-shell
+# Integration Ambiguity Analysis: MDX Content Outline/Navigator (Spec 007)
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
-**Analysis Date**: 2026-01-10
+**Analyzed**: 2026-01-17
 **Category Focus**: Integration & External Dependencies
+**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
 
 ---
 
 ## Summary
 
-The Application Shell spec (006) primarily focuses on integrating existing internal components rather than external services. However, several integration-related ambiguities exist around data persistence formats, dependency contracts, and failure mode handling.
+| Status | Count |
+|--------|-------|
+| Clear | 2 |
+| Partial | 4 |
+| Missing | 3 |
 
 ---
 
-## Findings
+## 1. AST Data Sharing with Preview Pane
 
-### 1. Settings Persistence Storage Backend
+**Category**: Integration
+**Status**: Partial
+**Location**: FR-029, FR-030, Assumptions #1
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Impact** | 4 |
+**What's Specified**:
+- "System MUST reuse AST data from the preview pane's MDX compilation when available"
+- "System MUST fall back to a lightweight parser if preview AST is unavailable"
+- Assumption: "The preview pane already compiles MDX and produces an AST"
 
-**Current State**: The spec references "electron-store persistence" in the input description and FR-033/FR-034 require persisting layout and user preferences across sessions. However, the spec does not explicitly define:
-- Whether to use `electron-store` (main process) vs `localStorage` (renderer process)
-- The store schema/data format for settings
-- Migration strategy if schema changes
+**What's Missing**:
+- No defined interface/contract for accessing the preview AST
+- No specification of which AST format is expected (mdast, hast, esast, unified processor result?)
+- No protocol for AST availability notification (pub/sub, polling, reactive subscription?)
+- No versioning consideration if MDX compiler changes AST structure
 
-**Evidence from Codebase**:
-- `src/main/services/recent-files.ts` uses `electron-store` for recent files
-- `src/renderer/stores/ui-layout-store.ts` uses `localStorage` for UI layout
-- These are two different persistence mechanisms
+**Question Candidate**: "What is the contract for accessing the preview pane's AST? Should the outline subscribe to AST updates via a Zustand store slice, event emitter, or other mechanism? What specific AST node types (mdast.Heading, mdxJsxFlowElement, etc.) should the outline expect?"
 
-**Question Candidate**: Which persistence backend should be used for settings in Spec 006 - `electron-store` (main process, per Spec 004 pattern) or `localStorage` (renderer process, per Spec 005 pattern)? If both, which settings belong where?
-
----
-
-### 2. Split Ratio Persistence Format
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Impact** | 3 |
-
-**Current State**: FR-033 requires persisting "layout preferences (split ratio, panel visibility)" but does not specify:
-- The exact data structure for split ratio storage
-- Validation rules for persisted values (is 0-1 range enforced on load?)
-- Default value if persisted value is invalid or missing
-
-**Key Entity Definition**: "Layout: ... splitRatio (0-1, position of divider)" - defines the range but not the persistence format.
-
-**Question Candidate**: What is the exact schema for persisting split ratio? Should invalid persisted values (outside 0-1) be rejected with error, clamped to valid range, or reset to default?
+**Impact Score**: 5/5
+*Critical: This is the core integration point. Ambiguity here blocks implementation of real-time outline updates.*
 
 ---
 
-### 3. Dependency on Spec 004 Auto-Save Recovery
+## 2. Lightweight Parser Fallback
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Missing |
-| **Impact** | 4 |
+**Category**: Integration
+**Status**: Missing
+**Location**: FR-030
 
-**Current State**: The spec mentions in Edge Cases: "What happens when the app crashes with unsaved changes? → Future: autosave/recovery (out of scope for this spec, but design should not preclude it)". However, Spec 004 (File System Shell) FR-014/FR-015 already mandate:
-- FR-014: Auto-save dirty files every 30 seconds to a temporary location
-- FR-015: On app launch detect recoverable auto-saved files and show a dialog
+**What's Specified**:
+- "System MUST fall back to a lightweight parser if preview AST is unavailable"
 
-This creates a contract dependency that is not explicitly acknowledged in Spec 006's Dependencies section.
+**What's Missing**:
+- No specification of what "lightweight parser" means
+- No library/approach identified (regex-based? remark-only? mdx-js subset?)
+- No clarity on when preview AST is "unavailable" (preview hidden? preview crashed? initial load?)
+- No feature parity requirements between full AST and lightweight parser
 
-**Question Candidate**: Should Spec 006 integrate with Spec 004's auto-save recovery system (FR-014/FR-015)? If so, how should the recovery dialog integrate with the Application Shell's document lifecycle?
+**Question Candidate**: "What triggers the fallback to a lightweight parser, and what parser should be used? Should the lightweight parser provide identical outline structure, or is degraded functionality acceptable (e.g., headings only, no components)?"
 
----
-
-### 4. External File Modification Detection Integration
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Missing |
-| **Impact** | 5 |
-
-**Current State**: Edge Cases mention: "What happens when the file being edited is deleted or moved externally?" and "What happens when the file is modified externally while open?" with behavioral descriptions. However:
-- No explicit FR requirements exist for this behavior
-- Spec 004 FR-010/FR-011 provide file watching infrastructure
-- The `MdxpadAPI.onFileChange` callback exists in `src/preload/api.ts`
-
-The Application Shell needs to consume these events but there is no requirement specifying the integration contract.
-
-**Question Candidate**: How should Spec 006 integrate with Spec 004's file change events (FR-010/FR-011)? Specifically: (a) What UI should display the "orphaned" warning for deleted files? (b) What dialog options for external modification conflicts (reload/keep/merge)?
+**Impact Score**: 4/5
+*High: Without clarity, the fallback path may produce inconsistent outlines or fail silently.*
 
 ---
 
-### 5. Menu Event Routing Contract
+## 3. useErrorNavigation Hook Integration
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Impact** | 3 |
+**Category**: Integration
+**Status**: Partial
+**Location**: FR-023, Assumptions #4
 
-**Current State**: FR-040 states "System MUST handle menu events (from native menu) and route them to appropriate commands". The `MdxpadAPI` in `src/preload/api.ts` defines several menu event subscriptions:
-- `onMenuCommandPalette`
-- `onMenuNewFile`
-- `onMenuOpenFileDialog`
-- `onMenuOpenFile`
-- `onMenuSaveFile`
-- `onMenuSaveFileAs`
+**What's Specified**:
+- "System MUST use the existing useErrorNavigation hook pattern for cursor positioning"
+- Assumption: "The useErrorNavigation hook from spec 006 provides a proven pattern"
 
-However, the spec does not explicitly enumerate:
-- Which menu events must be handled
-- The expected event payload types
-- How menu state (enabled/disabled) synchronizes with document state
+**What's Missing**:
+- No API signature of useErrorNavigation provided
+- No confirmation the hook supports arbitrary line/column navigation (vs. error-specific navigation)
+- No indication if the hook needs extension or can be used as-is
+- Dependency on Spec 006 but no version/interface contract
 
-**Question Candidate**: Which specific menu events from `MdxpadAPI` must be integrated? How should menu item enabled states (e.g., "Save" disabled when not dirty) be synchronized with Application Shell state?
+**Question Candidate**: "Does the useErrorNavigation hook from Spec 006 support general-purpose navigation to any line/column, or is it specific to error locations? If extension is needed, what should the API look like?"
 
----
-
-### 6. Command Context Data Contract
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Impact** | 4 |
-
-**Current State**: FR-039 states "System MUST provide complete CommandContext to command palette including current document and editor state". The `CommandContext` type in `src/shared/types/commands.ts` defines:
-- `editor: EditorView | null`
-- `document: DocumentContext`
-- `ui: UIContext`
-- `platform: PlatformContext`
-- `api: MdxpadAPI`
-- `notify: (notification: NotificationInput) => void`
-
-The spec references `DocumentContext` fields (fileId, filePath, content, isDirty) but does not explicitly map how the Application Shell's document state store provides these values to the command context.
-
-**Question Candidate**: Should the Application Shell's document state store directly implement `DocumentContext`, or should a transformation layer exist? Who owns the creation of `CommandContext` instances?
+**Impact Score**: 3/5
+*Medium: May require refactoring existing code if assumptions are wrong.*
 
 ---
 
-### 7. Error Count Integration with Preview
+## 4. Settings Store Integration
 
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Partial |
-| **Impact** | 3 |
+**Category**: Integration
+**Status**: Clear
+**Location**: FR-003
 
-**Current State**: FR-031 requires "System MUST display error count when preview compilation has errors" and FR-041 requires "System MUST connect error click events from preview to editor navigation (jump to error line)". However:
-- The spec does not define how error state is obtained from the preview component
-- No contract for the error data structure (line number, column, message)
-- Spec 003 (Preview Pane) contract details are not explicitly referenced
+**What's Specified**:
+- "System MUST persist outline panel visibility preference across sessions using the existing settings store"
+- References existing Zustand store pattern in Dependencies (Spec 006)
 
-**Question Candidate**: What is the contract for obtaining error information from the Preview Pane? Does the preview expose an error list/count via props, store subscription, or callback?
+**Assessment**: Adequate for implementation. Settings persistence follows established patterns.
 
----
-
-### 8. IPC Zod Schema Versioning
-
-| Attribute | Value |
-|-----------|-------|
-| **Status** | Missing |
-| **Impact** | 3 |
-
-**Current State**: FR-009 in Spec 004 mandates "System MUST validate all IPC payloads using zod schemas on both ends". The Application Shell relies on these IPC channels but does not address:
-- What happens if schema validation fails on one end
-- How schema evolution/versioning is handled
-- Error reporting for schema validation failures
-
-This could cause silent failures or unclear errors during IPC communication.
-
-**Question Candidate**: How should the Application Shell handle IPC schema validation failures? Should validation errors be surfaced to the user, logged silently, or trigger a specific error flow?
+**Impact Score**: 1/5
 
 ---
 
-## Impact Summary
+## 5. Command Palette Registration
 
-| Impact Score | Count | Items |
-|--------------|-------|-------|
-| 5 (Critical) | 1 | External File Modification Detection Integration |
-| 4 (High) | 3 | Settings Persistence Backend, Dependency on Auto-Save Recovery, Command Context Data Contract |
-| 3 (Medium) | 4 | Split Ratio Persistence Format, Menu Event Routing Contract, Error Count Integration, IPC Schema Versioning |
+**Category**: Integration
+**Status**: Clear
+**Location**: Dependencies
+
+**What's Specified**:
+- Dependency on "Spec 005 (Command Palette): Command registration for outline toggle"
+
+**Assessment**: Clear dependency stated. Command registration pattern established in Spec 005.
+
+**Impact Score**: 1/5
 
 ---
 
-## Recommendations
+## 6. AST Parsing Failure Handling
 
-1. **High Priority**: Explicitly document the integration contract with Spec 004's file watching and auto-save features. These are already implemented and the Application Shell must consume them.
+**Category**: Integration
+**Status**: Partial
+**Location**: FR-031, Edge Cases
 
-2. **High Priority**: Clarify the persistence strategy - recommend using `electron-store` for settings that need main process access (file paths, window state) and `localStorage` for renderer-only UI state (similar to existing pattern).
+**What's Specified**:
+- "System MUST handle AST parsing failures gracefully"
+- Edge case: "Show the last valid outline with a warning indicator, or show 'Unable to parse document' if no valid outline exists"
 
-3. **Medium Priority**: Add explicit FRs for external file modification handling, referencing Spec 004's infrastructure.
+**What's Missing**:
+- No specification of how parsing errors are communicated from preview to outline
+- No error type classification (syntax error vs. runtime error vs. timeout)
+- No recovery strategy when parsing eventually succeeds after failure
+- No indication if outline should retry parsing or wait for preview
 
-4. **Medium Priority**: Document the `CommandContext` creation ownership and its relationship to the document state store.
+**Question Candidate**: "How should parsing errors propagate from the MDX compiler to the outline? Should the outline component subscribe to an error state, or catch errors during AST traversal?"
+
+**Impact Score**: 3/5
+*Medium: Error handling is a secondary path but affects user experience significantly.*
+
+---
+
+## 7. Source Position Information from AST
+
+**Category**: Integration
+**Status**: Partial
+**Location**: FR-032
+
+**What's Specified**:
+- "System MUST extract source position information (line, column) from AST nodes for navigation"
+
+**What's Missing**:
+- No guarantee that MDX AST preserves source positions for all node types
+- No specification of position format (0-indexed vs 1-indexed, point vs range)
+- No handling for cases where source positions are missing (e.g., generated nodes)
+- No protocol versioning if MDX compiler changes position format
+
+**Question Candidate**: "Does the MDX/remark/rehype pipeline guarantee source position data for heading, JSX, and YAML nodes? What format are positions in (unist Position type?), and how should missing positions be handled?"
+
+**Impact Score**: 4/5
+*High: Navigation accuracy depends entirely on source position availability and correctness.*
+
+---
+
+## 8. Preview Pane Lifecycle Coupling
+
+**Category**: Integration
+**Status**: Missing
+**Location**: Implicit in FR-029
+
+**What's Specified**:
+- Assumes preview AST is available for reuse
+
+**What's Missing**:
+- No specification of behavior when preview is hidden (does AST still compile?)
+- No specification of behavior when preview compilation is disabled by user
+- No handling for preview panel initialization race condition
+- No explicit dependency lifecycle management
+
+**Question Candidate**: "If the user hides the preview panel, does MDX compilation still occur for the outline's benefit? What happens during app startup if the outline panel loads before the preview compiler is ready?"
+
+**Impact Score**: 4/5
+*High: Core feature may break silently if preview lifecycle assumptions are incorrect.*
+
+---
+
+## 9. Data Export/Import Formats
+
+**Category**: Integration
+**Status**: Missing
+**Location**: Out of Scope section
+
+**What's Specified**:
+- "Outline export or printing" explicitly marked out of scope
+
+**Assessment**: Intentionally excluded. No integration needed. However, the internal data format for OutlineItem/OutlineSection/OutlineState entities is specified clearly.
+
+**Impact Score**: 1/5
+*Intentionally scoped out.*
+
+---
+
+## Recommended Clarification Questions (Prioritized)
+
+1. **(Impact 5)** What is the contract for accessing the preview pane's AST? Should the outline subscribe to AST updates via a Zustand store slice, event emitter, or other mechanism? What specific AST node types should the outline expect?
+
+2. **(Impact 4)** Does the MDX/remark/rehype pipeline guarantee source position data for heading, JSX, and YAML nodes? What format are positions in, and how should missing positions be handled?
+
+3. **(Impact 4)** If the user hides the preview panel, does MDX compilation still occur for the outline's benefit? What happens during app startup if the outline panel loads before the preview compiler is ready?
+
+4. **(Impact 4)** What triggers the fallback to a lightweight parser, and what parser should be used? Should the lightweight parser provide identical outline structure, or is degraded functionality acceptable?
+
+5. **(Impact 3)** Does the useErrorNavigation hook from Spec 006 support general-purpose navigation to any line/column, or does it need extension?
+
+---
+
+## Integration Dependency Map
+
+```
++--------------------------------------------------------------+
+|                    MDX Content Outline                        |
+|                       (Spec 007)                              |
++--------------------------------------------------------------+
+|                                                               |
+|  +------------------+    +------------------+                 |
+|  |  AST Consumer    |<---|  Preview Pane    | [PARTIAL]       |
+|  |                  |    |   (Spec 003)     | Interface TBD   |
+|  +---------+--------+    +------------------+                 |
+|            |                                                  |
+|            v                                                  |
+|  +------------------+    +------------------+                 |
+|  |   Navigation     |--->| useErrorNav      | [PARTIAL]       |
+|  |    Handler       |    |   (Spec 006)     | API TBD         |
+|  +------------------+    +------------------+                 |
+|                                                               |
+|  +------------------+    +------------------+                 |
+|  | Toggle Command   |--->| Command Palette  | [CLEAR]         |
+|  |                  |    |   (Spec 005)     |                 |
+|  +------------------+    +------------------+                 |
+|                                                               |
+|  +------------------+    +------------------+                 |
+|  |  Visibility      |--->| Settings Store   | [CLEAR]         |
+|  |  Persistence     |    |   (Spec 006)     |                 |
+|  +------------------+    +------------------+                 |
+|                                                               |
+|  +------------------+                                         |
+|  | Fallback Parser  |    [MISSING] No spec                    |
+|  |                  |                                         |
+|  +------------------+                                         |
+|                                                               |
++--------------------------------------------------------------+
+```
+
+---
+
+## Conclusion
+
+The spec has **9 integration touchpoints** analyzed:
+- **2 Clear**: Settings store persistence and command palette registration are well-defined
+- **4 Partial**: AST sharing, useErrorNavigation hook, AST parsing failures, and source positions have gaps
+- **3 Missing**: Lightweight parser fallback, preview lifecycle coupling, and export formats (intentionally scoped out)
+
+The most critical gap is the **AST data sharing interface** with the preview pane (Impact 5/5). Without a defined contract for how the outline accesses and subscribes to AST updates, implementation will require assumptions that may need significant rework.
+
+**Recommended Action**: Prioritize clarifying the AST integration contract before implementation begins.

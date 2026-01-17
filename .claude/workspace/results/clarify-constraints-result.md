@@ -1,140 +1,136 @@
 # Constraints Category Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
 **Category**: Constraints & Tradeoffs
-**Date**: 2026-01-10
+**Date**: 2026-01-17
 
 ---
 
 ## Summary
 
-The spec references constraints implicitly through assumptions and dependencies but lacks a dedicated **Constraints & Tradeoffs** section. Key technical constraints are documented in the Constitution (Article II, V) but the spec does not explicitly map to these or document spec-specific constraints.
+The spec has significant gaps in the Constraints category. While it mentions some performance targets and behavioral constraints, it lacks explicit sections for technical constraints (language/framework choices), storage mechanisms, and formally documented tradeoffs/rejected alternatives.
 
 ---
 
 ## Ambiguity Findings
 
-### 1. Settings Persistence Technology
+### 1. Technical Language/Framework Constraints
 
 | Field | Value |
 |-------|-------|
 | **Status** | Missing |
-| **Question Candidate** | What technology should be used for persisting settings/preferences? The input mentions "electron-store persistence" but this is not carried forward into the spec requirements or constraints. Should electron-store be mandated, or is localStorage acceptable for some settings? What are the constraints on storage location and format? |
+| **Question Candidate** | What specific technologies (TypeScript version, React version, state management library, CSS approach) are required or preferred for implementing the outline panel? Should this align with existing spec conventions (e.g., TypeScript 5.9.x strict, React 19.x, Zustand 5.x)? |
 | **Impact Score** | 4 |
-| **Rationale** | FR-033 through FR-036 require persistence but do not specify the technology. The Constitution does not pin electron-store as a required technology. This leaves implementers without clear guidance and could lead to inconsistent approaches (e.g., using localStorage for renderer-accessible settings vs electron-store for main-process settings). |
+| **Rationale** | The spec references "existing Zustand store pattern" and "existing hooks" but never explicitly states the required technology stack. The AGENTS.md and CLAUDE.md files mention TypeScript 5.9.x, React 19.x, Zustand 5.x - this should be codified in the spec's constraints section. |
 
 ---
 
-### 2. Minimum Pane Width Values
+### 2. Storage/Persistence Mechanism
 
 | Field | Value |
 |-------|-------|
 | **Status** | Partial |
-| **Question Candidate** | What are the specific minimum width values for editor and preview panes? FR-003 states "neither can be resized below usability threshold" but does not quantify the constraint. Should this be a fixed pixel value, a percentage of window width, or dynamically calculated based on content? |
+| **Question Candidate** | What specific storage mechanism should be used for outline panel visibility persistence? Should it use localStorage (like spec 005), electron-store (like spec 004), or the "existing settings store" mentioned in FR-003? |
 | **Impact Score** | 3 |
-| **Rationale** | Without defined minimums, different implementations could vary significantly. This affects both UX consistency and edge case behavior (e.g., very narrow windows). The Constitution's UX requirements (Article VII) do not specify numeric values for panel sizing. |
+| **Rationale** | FR-003 says "persist outline panel visibility preference across sessions using the existing settings store" but doesn't specify which store. Prior specs use different storage approaches (localStorage vs electron-store). The collapse state is explicitly session-only (User Story 5), but the mechanism is not specified. |
 
 ---
 
-### 3. Minimum Window Size
+### 3. Panel Width Constraints
 
 | Field | Value |
 |-------|-------|
 | **Status** | Partial |
-| **Question Candidate** | What is the minimum window size for the application? Edge case mentions "Enforce minimum window size" but no constraint value is specified. What dimensions should be enforced, and should this be configurable? |
+| **Question Candidate** | What are the minimum and maximum width constraints for the outline panel? Is 150px the minimum width (mentioned in edge cases), and what is the maximum/default width? Should the panel be resizable? |
 | **Impact Score** | 2 |
-| **Rationale** | This affects usability on smaller displays and window management behavior. Without explicit constraints, the implementation may choose arbitrary values that conflict with macOS HIG recommendations or user expectations. |
+| **Rationale** | Edge cases mention "minimum width of 150px" but there's no explicit constraint section defining panel dimensions. FR-001 says "collapsible sidebar" but doesn't specify if it's resizable, fixed-width, or what the default width should be. |
 
 ---
 
-### 4. Preview Update Debounce/Throttle Strategy
+### 4. Window Width Threshold for Auto-hide
 
 | Field | Value |
 |-------|-------|
 | **Status** | Partial |
-| **Question Candidate** | What is the specific debounce/throttle strategy for preview updates? Success criterion SC-002 specifies "within 500ms of typing pause" but the spec does not constrain the implementation approach. Should this be debounce (wait for pause), throttle (max rate), or a hybrid approach? What is the minimum debounce delay? |
+| **Question Candidate** | What exact window width thresholds trigger auto-hide behavior? FR-004 specifies 600px (with preview) and 400px (without preview) - are these final values or placeholders? How do these interact with Application Shell (spec 006) layout constraints? |
+| **Impact Score** | 2 |
+| **Rationale** | FR-004 provides specific pixel values but doesn't explain how they were derived or how they coordinate with the existing Application Shell spec's responsive behavior. Edge cases mention "similar to preview auto-hide behavior" but the relationship isn't explicit. |
+
+---
+
+### 5. AST Fallback Parser Constraint
+
+| Field | Value |
+|-------|-------|
+| **Status** | Partial |
+| **Question Candidate** | What specific "lightweight parser" should be used when preview AST is unavailable (FR-030)? Is this a custom implementation, an existing library (remark, unified), or should the outline simply show an empty/error state? |
 | **Impact Score** | 3 |
-| **Rationale** | The Constitution (Article V) sets a 500ms budget for MDX preview compile but does not specify input debouncing. A pure throttle would cause unnecessary recompilations; a long debounce would feel sluggish. The tradeoff between responsiveness and resource usage is not addressed. |
+| **Rationale** | FR-030 says "fall back to a lightweight parser" but doesn't specify what this parser is or its performance characteristics. This is a technical constraint that affects implementation approach and bundle size. |
 
 ---
 
-### 5. Settings Persistence Debounce Strategy
-
-| Field | Value |
-|-------|-------|
-| **Status** | Partial |
-| **Question Candidate** | What is the debounce interval for settings persistence? The NFR "Settings persistence must be debounced to avoid excessive disk writes" does not specify a duration. What constitutes "excessive"? What is the maximum acceptable delay between user action and persistence? |
-| **Impact Score** | 2 |
-| **Rationale** | Too short leads to disk thrashing; too long risks data loss on crash. A concrete value (e.g., 500ms, 2s) would provide clear implementation guidance. |
-
----
-
-### 6. Error Count Threshold for Status Bar
+### 6. Rejected Alternatives / Tradeoffs Documentation
 
 | Field | Value |
 |-------|-------|
 | **Status** | Missing |
-| **Question Candidate** | Is there a maximum error count displayed in the status bar? Should errors be aggregated, truncated, or shown as "99+" style overflow? What happens if there are hundreds of compilation errors? |
+| **Question Candidate** | What alternative approaches were considered and rejected? For example: (1) Why left-side panel vs right-side? (2) Why no scroll-position sync (highlighted as Out of Scope but rationale not given)? (3) Why 500ms update debounce vs other values? (4) Why session-only collapse state vs persisted? |
+| **Impact Score** | 3 |
+| **Rationale** | The spec documents "Out of Scope" items but doesn't explain the tradeoffs or reasoning behind these decisions. Understanding rejected alternatives helps implementers avoid revisiting already-considered approaches. |
+
+---
+
+### 7. Debounce/Throttle Constraints
+
+| Field | Value |
+|-------|-------|
+| **Status** | Partial |
+| **Question Candidate** | What is the specific debounce strategy for outline updates? Is 500ms the debounce delay, or the maximum latency? Should updates be debounced, throttled, or use requestIdleCallback? |
+| **Impact Score** | 2 |
+| **Rationale** | Multiple requirements mention "within 500ms of document changes" (FR-010, FR-015, FR-019) and NFR mentions "debounce outline updates" but the exact debounce configuration isn't specified. SC-002 says "500ms of typing pause" which suggests debounce, but this conflicts with the "within 500ms" language elsewhere. |
+
+---
+
+### 8. Memory/Resource Constraints
+
+| Field | Value |
+|-------|-------|
+| **Status** | Missing |
+| **Question Candidate** | Are there constraints on memory usage or DOM node limits for the outline tree? For very large documents with hundreds of headings/components, what are the performance boundaries? |
+| **Impact Score** | 2 |
+| **Rationale** | NFRs mention "must not block the main thread" but don't specify memory limits or how to handle extremely large documents. Virtualization requirements (if any) are not documented. |
+
+---
+
+### 9. Browser/Electron Version Constraints
+
+| Field | Value |
+|-------|-------|
+| **Status** | Missing |
+| **Question Candidate** | What minimum Electron/Chromium version is required? Are there any browser API constraints (e.g., ResizeObserver availability, CSS container queries)? |
 | **Impact Score** | 1 |
-| **Rationale** | Minor UX detail, but affects status bar layout and performance if error tracking is unbounded. |
+| **Rationale** | The spec doesn't mention platform constraints. AGENTS.md mentions Electron 39.x in other specs but this spec doesn't explicitly state its Electron requirements. |
 
 ---
 
-### 7. Rejected Alternatives Documentation
+### 10. CSS/Styling Approach Constraint
 
 | Field | Value |
 |-------|-------|
 | **Status** | Missing |
-| **Question Candidate** | What alternative approaches were considered and rejected for key decisions? For example: Why split-pane over tabbed layout? Why single-document model over multi-document initially? Why Zustand over React Context or Redux for document state? Documenting rejected alternatives helps future maintainers understand design rationale. |
+| **Question Candidate** | What CSS methodology should be used for styling the outline panel? Should it use CSS modules, Tailwind, styled-components, or plain CSS to match the existing codebase patterns? |
 | **Impact Score** | 2 |
-| **Rationale** | The spec mentions "single document model" as an assumption but does not explain why or what was rejected. This is standard practice in architectural decision records (ADRs) and helps prevent re-litigating decisions. |
-
----
-
-### 8. File Size Constraints
-
-| Field | Value |
-|-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What are the file size constraints for opened documents? The Constitution specifies performance budgets for 1MB and 10MB files, but the spec does not define behavior for files exceeding these sizes. Should there be a hard limit? A warning? Graceful degradation? |
-| **Impact Score** | 3 |
-| **Rationale** | Users may attempt to open very large files. Without constraints, the app could hang or crash. The Constitution provides performance targets but not behavioral constraints for exceeding them. |
-
----
-
-### 9. State Store Technology Constraint
-
-| Field | Value |
-|-------|-------|
-| **Status** | Partial |
-| **Question Candidate** | Should all document state use Zustand as mandated by the Constitution, or can React state be used for ephemeral UI state (e.g., dialog visibility)? The NFR states "Document state must be centralized (single source of truth)" but does not clarify the boundary between document state and transient UI state. |
-| **Impact Score** | 2 |
-| **Rationale** | The Constitution mandates Zustand+Immer for state, but over-centralizing trivial UI state (like "is save dialog open") adds unnecessary complexity. Clarifying the boundary helps implementers make consistent decisions. |
-
----
-
-### 10. External File Change Detection Timing
-
-| Field | Value |
-|-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What is the polling interval or file watching strategy for detecting external file changes? Edge case mentions "detect change and prompt user" but does not constrain the implementation. Is this chokidar-based watching? Polling? On-focus-only checks? What is the acceptable detection latency? |
-| **Impact Score** | 3 |
-| **Rationale** | File watching has performance implications (battery, CPU). The Constitution mentions chokidar in Section 3.1 but does not specify when/how it should be used. This feature may be better deferred to a separate spec if not core to MVP. |
+| **Rationale** | No styling constraints are mentioned. The existing codebase likely has established patterns that should be followed for consistency. |
 
 ---
 
 ## Recommendations
 
-1. **Add Constraints Section**: The spec should include an explicit "Constraints & Tradeoffs" section documenting technology constraints inherited from Constitution and spec-specific constraints.
-
-2. **Quantify UI Constraints**: Provide specific pixel/percentage values for minimum pane widths and window dimensions.
-
-3. **Document Storage Strategy**: Explicitly state that electron-store will be used for settings persistence, aligning with the user's input description.
-
-4. **Add Rejected Alternatives**: Document at least the key architectural decisions (single-document model, split-pane layout) with brief rationale.
-
-5. **Clarify Performance Tradeoffs**: Specify debounce strategies and their values for both preview updates and settings persistence.
+1. **Add "Technical Constraints" Section**: Explicitly state TypeScript 5.9.x, React 19.x, Zustand 5.x + Immer 11.x per codebase standards
+2. **Clarify Storage Mechanism**: Specify whether to use localStorage or electron-store, and which specific store key
+3. **Document Panel Dimensions**: Add explicit min/max/default width values and resizability constraint
+4. **Add "Tradeoffs & Alternatives" Section**: Document why certain approaches were chosen over alternatives
+5. **Specify Debounce Strategy**: Clarify exact debounce configuration (delay value, leading/trailing edge)
 
 ---
 
@@ -144,9 +140,9 @@ The spec references constraints implicitly through assumptions and dependencies 
 |--------------|-------|
 | 5 (Critical) | 0 |
 | 4 (High) | 1 |
-| 3 (Medium) | 4 |
-| 2 (Low) | 4 |
-| 1 (Minimal) | 1 |
+| 3 (Medium) | 3 |
+| 2 (Medium-Low) | 5 |
+| 1 (Low) | 1 |
 
 **Total Ambiguities**: 10
-**Requiring Clarification**: 5 (High + Medium impact)
+**Requiring Clarification**: 4 (High + Medium impact)

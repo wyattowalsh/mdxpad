@@ -1,143 +1,140 @@
 # Clarification Analysis: Misc / Placeholders
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
 **Category**: Misc / Placeholders
 **Focus Areas**: TODO markers, unresolved decisions, ambiguous adjectives lacking quantification
-**Analyzed**: 2026-01-10
+**Analyzed**: 2026-01-17
 
 ---
 
 ## Summary
 
-The spec is relatively well-defined with most requirements quantified. However, several ambiguous adjectives and unresolved decisions were identified that could benefit from clarification.
+The spec is generally well-specified with most timing requirements quantified (500ms updates, 100ms navigation, etc.). However, several ambiguous adjectives and missing specifications were identified that require clarification before implementation.
+
+| Status | Count |
+|--------|-------|
+| Clear | 3 |
+| Partial | 4 |
+| Missing | 2 |
 
 ---
 
 ## Findings
 
-### 1. Ambiguous Adjective: "reasonable period" (Line 155)
+### 1. TODO Markers / Unresolved Decisions
 
-**Location**: Edge Cases section
-**Text**: "...timeout after reasonable period"
-**Status**: **Missing**
-**Impact Score**: 4/5
-
-**Question Candidate**: What specific timeout value should be used when preview compilation takes too long? Should this be configurable, and what is the default (e.g., 5 seconds, 10 seconds, 30 seconds)?
-
-**Rationale**: This directly affects user experience and testability. Without a specific value, developers cannot implement consistent behavior and QA cannot verify correctness.
+**Status**: Clear
+**Finding**: No explicit TODO markers, FIXME, or TBD annotations found in the spec.
 
 ---
 
-### 2. Ambiguous Adjective: "user-friendly error message" (Line 201, FR-023)
+### 2. Quantified Adjective: "briefly highlighted" (Line 160)
 
-**Location**: Requirements > Document Lifecycle - Save
-**Text**: "...showing user-friendly error message..."
-**Status**: **Partial**
-**Impact Score**: 3/5
-
-**Question Candidate**: What constitutes a "user-friendly" error message? Should there be specific guidance on: (a) reading level/complexity, (b) whether to include technical details, (c) actionable next steps, (d) localization requirements?
-
-**Rationale**: "User-friendly" is subjective. While the phrase "specific problem" provides some guidance, more concrete criteria would ensure consistent UX across all error scenarios.
-
----
-
-### 3. Ambiguous Adjective: "usability threshold" (Line 169, FR-003)
-
-**Location**: Requirements > Layout & Panels
-**Text**: "...neither can be resized below usability threshold"
-**Status**: **Missing**
-**Impact Score**: 4/5
-
-**Question Candidate**: What are the specific minimum pixel widths for each pane? Should these be based on content requirements (e.g., minimum 200px for editor, 250px for preview), or should they be expressed as percentages of the container?
-
-**Rationale**: This directly affects implementation and testing. Without specific values, different developers may choose different thresholds leading to inconsistent behavior.
-
----
-
-### 4. Ambiguous Adjective: "standard hardware" (Line 258, SC-008)
-
-**Location**: Success Criteria
-**Text**: "...within 2 seconds on standard hardware"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: What defines "standard hardware"? Should there be a baseline specification (e.g., M1 MacBook Air, 8GB RAM) or a performance budget that scales with hardware capability?
-
-**Rationale**: While 2 seconds is quantified, the hardware baseline is vague. This could lead to confusion about whether performance issues are bugs or expected on lower-spec machines.
-
----
-
-### 5. Unresolved Decision: Theme values (Line 241)
-
-**Location**: Key Entities > Settings
-**Text**: "theme ('light' | 'dark' | 'system')"
+**Location**: FR-022
+**Text**: "System MUST briefly highlight the target line after navigation (flash highlight for 500ms)"
 **Status**: **Clear**
 **Impact Score**: 1/5
 
-**Note**: This is actually well-defined. No ambiguity found.
+**Note**: The adjective "briefly" is properly quantified with "500ms" in parentheses. No ambiguity.
 
 ---
 
-### 6. Ambiguous Adjective: "clear" error feedback (Line 273)
+### 3. Ambiguous Adjective: "lightweight parser" (Line 174)
 
-**Location**: Non-Functional Requirements > Reliability
-**Text**: "...clear success/failure feedback"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: What form should "clear feedback" take? Should this be visual (toast notification, status bar update), auditory, or both? How long should feedback be displayed?
-
-**Rationale**: While the requirement for feedback is stated, the implementation details that ensure "clarity" are not specified.
-
----
-
-### 7. Ambiguous Phrase: "logical during dialog flows" (Line 282)
-
-**Location**: Non-Functional Requirements > Accessibility
-**Text**: "Focus management must be logical during dialog flows"
+**Location**: FR-030
+**Text**: "System MUST fall back to a lightweight parser if preview AST is unavailable"
 **Status**: **Partial**
 **Impact Score**: 3/5
 
-**Question Candidate**: What specific focus management pattern should be followed? Should this conform to WAI-ARIA dialog patterns, and should focus trap be implemented for modal dialogs?
+**Question Candidate**: What constitutes a "lightweight" parser? Should it be defined by: (a) parsing time budget (e.g., <20ms), (b) memory footprint (e.g., <5MB), (c) feature set (heading-only vs full MDX parsing), or (d) a specific library/implementation (e.g., remark-parse without MDX)?
 
-**Rationale**: "Logical" is subjective. Referencing an accessibility standard would provide concrete implementation guidance.
+**Rationale**: Without a concrete definition, developers may choose different fallback parsers with varying performance characteristics. This affects consistency and testability. The parser choice also impacts what outline information is available in fallback mode.
 
 ---
 
-### 8. Ambiguous Reference: "certain thresholds" (Line 156)
+### 4. Ambiguous Adjective: "common fields" (Line 152)
+
+**Location**: FR-017
+**Text**: "System MUST limit displayed frontmatter to common fields, with option to expand for all fields"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: What specific fields are considered "common"? FR-016 mentions title, date, author, description, tags - are these definitively the "common fields" referenced in FR-017? Should there be a configurable whitelist, or is this a fixed list?
+
+**Rationale**: Inconsistency between FR-016 (explicit list) and FR-017 (vague "common") could lead to implementation confusion. Low impact since FR-016 provides reasonable guidance.
+
+---
+
+### 5. Quantified ARIA Roles: "appropriate ARIA roles" (Line 216)
+
+**Location**: NFR Accessibility
+**Text**: "All outline items must have appropriate ARIA roles (tree, treeitem)"
+**Status**: **Clear**
+**Impact Score**: 1/5
+
+**Note**: The parenthetical "(tree, treeitem)" provides specific roles. No ambiguity.
+
+---
+
+### 6. Ambiguous Phrase: "distinguish...visually" (Line 146)
+
+**Location**: FR-014
+**Text**: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: How should built-in components be visually distinguished from custom components? Options include: (a) different icons, (b) different text colors/styles, (c) grouping/sorting within the Components section, (d) badge/label indicators. Additionally, what is the exhaustive list of "built-in" components (the "etc." is undefined)?
+
+**Rationale**: Without visual design guidance, implementation requires additional design decisions. The incomplete list ("Callout, CodeBlock, etc.") leaves the built-in set undefined.
+
+---
+
+### 7. Partially Specified: Window Width Thresholds (Lines 117, 130)
+
+**Location**: FR-004, Edge Cases
+**Text**: "System MUST auto-hide the outline when window width is insufficient (below 600px with preview visible, or below 400px with preview hidden)"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: Are the thresholds (600px with preview, 400px without) final design decisions or placeholders? How do these interact with the existing preview auto-hide thresholds from spec-006 to ensure consistent responsive behavior?
+
+**Rationale**: Thresholds are numerically specified, but the relationship to existing spec-006 preview behavior and whether these are configurable needs clarification.
+
+---
+
+### 8. Missing Specification: Debounce Timing (Line 210)
+
+**Location**: NFR Performance
+**Text**: "Debounce outline updates to avoid excessive re-parsing during rapid typing"
+**Status**: **Missing**
+**Impact Score**: 4/5
+
+**Question Candidate**: What is the specific debounce interval for outline updates? The 500ms update requirement (FR-010, FR-015, FR-019) implies a maximum latency, but the debounce value itself is unspecified. Should it match the preview pane debounce timing for consistency?
+
+**Rationale**: Without a specific debounce value, implementations may vary, affecting UX consistency and perceived responsiveness. This is a performance-critical parameter that needs specification.
+
+---
+
+### 9. Missing Specification: Panel Width Constraints (Line 116)
 
 **Location**: Edge Cases
-**Text**: "...gracefully collapse panels below certain thresholds"
+**Text**: "Enforce minimum width of 150px"
 **Status**: **Missing**
 **Impact Score**: 3/5
 
-**Question Candidate**: What are the specific thresholds for panel collapse behavior? At what window width should: (a) preview auto-hide, (b) status bar elements stack or hide, (c) minimum viable layout be enforced?
+**Question Candidate**: What is the default width of the outline panel? What is the maximum width (if any)? Is the panel resizable by the user via drag handle, and if so, should the width be persisted across sessions?
 
-**Rationale**: Related to the "usability threshold" ambiguity but specific to window resize behavior. Without concrete values, responsive behavior cannot be consistently implemented.
-
----
-
-### 9. Implicit Decision: Error count click behavior (Lines 109, FR-031)
-
-**Location**: User Story 5 / FR-031
-**Text**: "Clicking the error count shows error details" / "error details are shown (or focus moves to first error in preview)"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: Should clicking the error count: (a) show a popup/tooltip with error list, (b) navigate to first error in preview, (c) navigate to first error line in editor, or (d) open a dedicated error panel? The current wording suggests options but doesn't make a decision.
-
-**Rationale**: The parenthetical "(or focus moves to first error in preview)" suggests this is an unresolved design decision that should be finalized before implementation.
+**Rationale**: Only minimum width is specified. Default width, maximum width, resize behavior, and persistence are unspecified but essential for layout implementation and consistency with spec-006 panel patterns.
 
 ---
 
-### 10. Ambiguous Adjective: "smooth" window operations (Line 259, SC-009)
+### 10. Quantified Timing: Success Criteria Metrics
 
-**Location**: Success Criteria
-**Text**: "Window operations (resize, divider drag) feel smooth with no perceptible lag (60fps target)"
+**Location**: Success Criteria (Lines 194-201)
 **Status**: **Clear**
 **Impact Score**: 1/5
 
-**Note**: This is actually well-defined with the "60fps target" quantification. No ambiguity.
+**Note**: SC-001 through SC-008 all have specific quantified targets (100ms, 500ms, 50ms, etc.). No ambiguous adjectives found in success criteria.
 
 ---
 
@@ -145,29 +142,40 @@ The spec is relatively well-defined with most requirements quantified. However, 
 
 | # | Ambiguity | Status | Impact | Line(s) |
 |---|-----------|--------|--------|---------|
-| 1 | "reasonable period" timeout | Missing | 4/5 | 155 |
-| 2 | "user-friendly error message" | Partial | 3/5 | 201 |
-| 3 | "usability threshold" for panes | Missing | 4/5 | 169 |
-| 4 | "standard hardware" baseline | Partial | 2/5 | 258 |
-| 5 | "clear" feedback | Partial | 2/5 | 273 |
-| 6 | "logical" focus management | Partial | 3/5 | 282 |
-| 7 | "certain thresholds" for collapse | Missing | 3/5 | 156 |
-| 8 | Error count click behavior | Partial | 2/5 | 109 |
+| 1 | No TODO markers | Clear | 0/5 | - |
+| 2 | "briefly highlighted" | Clear | 1/5 | 160 |
+| 3 | "lightweight parser" | Partial | 3/5 | 174 |
+| 4 | "common fields" | Partial | 2/5 | 152 |
+| 5 | "appropriate ARIA roles" | Clear | 1/5 | 216 |
+| 6 | "visually" distinguish + "etc." list | Partial | 3/5 | 146 |
+| 7 | Window width threshold interaction | Partial | 2/5 | 117, 130 |
+| 8 | Debounce timing unspecified | Missing | 4/5 | 210 |
+| 9 | Panel width (default/max/resize) | Missing | 3/5 | 116 |
 
 ---
 
 ## Recommended Priority for Clarification
 
 **High Priority** (Impact 4-5):
-1. "usability threshold" for panes (FR-003) - affects core layout implementation
-2. "reasonable period" timeout - affects preview compilation behavior
+1. **Debounce timing** - What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing?
 
 **Medium Priority** (Impact 3):
-3. "user-friendly error message" - affects error handling consistency
-4. "logical" focus management - affects accessibility compliance
-5. "certain thresholds" for collapse - affects responsive behavior
+2. **Lightweight parser definition** - What constitutes a "lightweight parser" for the fallback scenario - specific performance budget, feature constraints, or recommended library?
+3. **Visual distinction for components** - How should built-in components be visually distinguished from custom components, and what is the complete list of built-in components?
+4. **Panel width specification** - What are the default and maximum widths for the outline panel, and should the panel be user-resizable with persisted width?
 
 **Lower Priority** (Impact 1-2):
-6. "standard hardware" baseline
-7. "clear" feedback
-8. Error count click behavior
+5. **Common fields clarification** - Confirm whether FR-016's list (title, date, author, description, tags) is the definitive "common fields" list
+6. **Window threshold interaction** - Confirm thresholds are final and document interaction with spec-006 preview auto-hide
+
+---
+
+## Recommended Clarification Questions (Sorted by Impact)
+
+1. **[Impact 4]** What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing for consistency?
+
+2. **[Impact 3]** What constitutes a "lightweight parser" for the fallback scenario - specific performance budget (e.g., <20ms), feature constraints (heading-only), or recommended library?
+
+3. **[Impact 3]** How should built-in components be visually distinguished from custom components (icons, colors, badges)? What is the complete list of built-in components beyond Callout and CodeBlock?
+
+4. **[Impact 3]** What are the default and maximum widths for the outline panel? Should the panel be user-resizable via drag handle, and if so, should width be persisted across sessions?

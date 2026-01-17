@@ -1,242 +1,165 @@
 # Edge Cases Ambiguity Analysis
 
-**Spec**: 006-application-shell
+**Spec**: specs/007-mdx-content-outline/spec.md
 **Category**: Edge Cases & Failure Handling
-**Analyzed**: 2026-01-10
+**Analysis Date**: 2026-01-17
 
 ---
 
 ## Summary
 
-The spec covers 7 explicit edge cases (lines 149-157) but has significant gaps in negative scenarios, rate limiting/throttling, and conflict resolution. Several edge cases are mentioned but lack concrete implementation details.
+| Status | Count |
+|--------|-------|
+| Clear | 3 |
+| Partial | 5 |
+| Missing | 6 |
 
 ---
 
-## Ambiguity Findings
+## Detailed Findings
 
-### 1. External File Deletion Detection
+### 1. Empty Document State
 
-**Status**: Partial
-
-**Spec Statement** (line 151):
-> "What happens when the file being edited is deleted or moved externally? → Show a warning and mark document as 'orphaned' with option to save elsewhere"
-
-**Question Candidate**:
-- How should the system detect that a file was deleted or moved externally? Polling interval? File watcher? On next save attempt only?
-- What UI treatment defines "orphaned" state (visual indicator, status bar change, dialog)?
-- Should the detection be active (continuous monitoring) or passive (discovered on save)?
-- If moved (not deleted), should the system attempt to locate the new path?
-
-**Impact Score**: 4
-
-**Rationale**: File integrity is critical for user trust. Without clear detection mechanism, users may not know their file was moved until save fails, potentially causing confusion about where their work went.
+- **Category**: Edge Cases
+- **Status**: Clear
+- **Location**: Line 112
+- **Analysis**: The spec clearly defines behavior for documents with no headings, components, or frontmatter - show message "No outline available. Add headings, components, or frontmatter to see the document structure."
 
 ---
 
-### 2. External File Modification Conflict
+### 2. AST Parsing Errors
 
-**Status**: Partial
-
-**Spec Statement** (line 152):
-> "What happens when the file is modified externally while open? → Detect change and prompt user to reload or keep current version"
-
-**Question Candidate**:
-- How should external modifications be detected? File system watching, polling, or on-focus check?
-- What if both local and external changes exist (true conflict)? Can user merge or only choose one version?
-- Should the user see a diff of changes before deciding?
-- What is the polling/detection interval if using active monitoring?
-- If user chooses to keep current version, should we warn them that saving will overwrite external changes?
-
-**Impact Score**: 5
-
-**Rationale**: This is classic concurrent edit conflict resolution. Without clear handling, users risk losing external changes (e.g., from another tool editing the same file) or their own changes if they accidentally reload.
+- **Category**: Edge Cases
+- **Status**: Partial
+- **Location**: Lines 113, 175-176
+- **Current Definition**: "Show the last valid outline with a warning indicator, or show 'Unable to parse document' if no valid outline exists"
+- **Question Candidate**: What should happen when partial parsing succeeds (e.g., headings parse but JSX components cause errors)? Should the outline show valid sections while indicating errors in failed sections?
+- **Impact Score**: 4
+- **Rationale**: Real MDX documents often have transient syntax errors during editing. Partial failure handling is common but undefined.
 
 ---
 
-### 3. Disk Full During Save
+### 3. Long Heading Text Truncation
 
-**Status**: Partial
-
-**Spec Statement** (line 153):
-> "What happens when disk is full during save? → Show clear error message with the specific problem and do not lose editor content"
-
-**Question Candidate**:
-- What specific error message format/UI should be used?
-- Should the system suggest solutions (e.g., "free up space", "save to different location")?
-- Is partial write cleanup needed if write fails mid-stream?
-- Should the user be prompted to save elsewhere immediately?
-- What other I/O errors need similar handling (permission denied, path too long, network drive disconnected)?
-
-**Impact Score**: 4
-
-**Rationale**: Clear error handling prevents user panic but the spec doesn't enumerate other common I/O failure scenarios beyond disk full.
+- **Category**: Edge Cases
+- **Status**: Clear
+- **Location**: Line 114, FR-009
+- **Analysis**: Clearly defined - truncate after ~40 characters with ellipsis, show full on hover.
 
 ---
 
-### 4. Preview Compilation Hang/Timeout
+### 4. Narrow Panel Width
 
-**Status**: Partial
-
-**Spec Statement** (line 155):
-> "What happens when preview compilation hangs or takes too long? → Show loading state, allow user to continue editing, timeout after reasonable period"
-
-**Question Candidate**:
-- What is the "reasonable period" timeout value? (1s? 5s? 10s?)
-- After timeout, what error message is shown to the user?
-- Is compilation cancelled or allowed to complete in background?
-- If user makes additional edits during compilation, is current compilation cancelled or allowed to finish?
-- What visual indicator shows the "loading state"?
-- Should there be a manual "retry compilation" action?
-
-**Impact Score**: 3
-
-**Rationale**: Undefined timeout could lead to either frustrating waits or premature timeouts. Users need to understand why preview isn't updating.
+- **Category**: Edge Cases
+- **Status**: Clear
+- **Location**: Line 116
+- **Analysis**: Clearly defined - minimum 150px width, text truncates with ellipsis.
 
 ---
 
-### 5. Rapid File Operations (Rate Limiting)
+### 5. Rapid Typing / Debounce Behavior
 
-**Status**: Partial
-
-**Spec Statement** (line 157):
-> "What happens when user rapidly opens multiple files? → Queue operations, show last opened file, maintain data integrity"
-
-**Question Candidate**:
-- What is "rapid"? What debounce/throttle interval?
-- If dirty check dialogs are involved, how are they queued (one at a time? combined?)?
-- Does the queue have a maximum size? What happens if exceeded?
-- Is there visual feedback that operations are queued?
-- What about rapid save operations (user pressing Cmd+S repeatedly)?
-- What about rapid new document operations?
-
-**Impact Score**: 3
-
-**Rationale**: Without clear throttling strategy, rapid operations could create race conditions or confusing dialog stacking.
+- **Category**: Edge Cases (Rate Limiting/Throttling)
+- **Status**: Partial
+- **Location**: Line 208 (NFR), FR-010, FR-015, FR-019
+- **Current Definition**: "Debounce outline updates to avoid excessive re-parsing during rapid typing" and "update within 500ms of document changes"
+- **Question Candidate**: What is the specific debounce delay? Is the 500ms update deadline measured from typing pause or from debounce trigger? What happens if AST parsing takes longer than 500ms on a large document?
+- **Impact Score**: 3
+- **Rationale**: The interaction between debounce timing and the 500ms update SLA is ambiguous. Could cause test failures or unexpected UX.
 
 ---
 
-### 6. Window Minimum Size Behavior
+### 6. Concurrent AST Updates (Conflict Resolution)
 
-**Status**: Partial
-
-**Spec Statement** (line 156):
-> "What happens when window is resized very small? → Enforce minimum window size, gracefully collapse panels below certain thresholds"
-
-**Question Candidate**:
-- What are the specific minimum dimensions (width x height)?
-- What does "gracefully collapse" mean for each panel (preview hidden first? status bar hidden?)?
-- At what threshold does each collapse occur?
-- Can user manually toggle collapsed state vs automatic collapse?
-- Should collapsed state persist or restore when window grows?
-
-**Impact Score**: 2
-
-**Rationale**: Important for UX polish but unlikely to cause data loss. Affects edge-case user scenarios with small displays.
+- **Category**: Edge Cases (Conflict Resolution)
+- **Status**: Missing
+- **Question Candidate**: If the user edits the document while an AST parse is in-flight, should the in-progress parse be cancelled and restarted, or should it complete and be discarded if outdated? What mechanism prevents race conditions between AST parsing and outline updates?
+- **Impact Score**: 4
+- **Rationale**: Concurrent edits during parsing could cause stale outline states or race conditions. No cancellation or versioning strategy is defined.
 
 ---
 
-### 7. Save Dialog Cancellation
+### 7. Window Resize During Panel Animation
 
-**Status**: Missing
-
-**Spec Statement**: Not explicitly covered in edge cases
-
-**Question Candidate**:
-- If user cancels the save dialog on an untitled document during close, what happens? (Return to editing? Close without save?)
-- If user cancels save-as dialog, should dirty state remain?
-- Repeated cancel on dirty close should not trap user in loop - is there a "force close without save" option?
-
-**Impact Score**: 4
-
-**Rationale**: Dialog cancellation is a common edge case in document lifecycle that could trap users or cause unexpected behavior.
+- **Category**: Edge Cases
+- **Status**: Missing
+- **Question Candidate**: What happens if the user resizes the window while the outline panel is animating open/close? Should the animation be interrupted, or should resize be deferred until animation completes?
+- **Impact Score**: 2
+- **Rationale**: Edge case but can cause jarring UX. Low impact since this is a polish concern.
 
 ---
 
-### 8. IPC/Main Process Communication Failure
+### 8. Navigation Target No Longer Exists
 
-**Status**: Missing
-
-**Spec Statement**: Not covered
-
-**Question Candidate**:
-- What happens if IPC communication between renderer and main process fails during file operation?
-- Should there be retry logic? How many retries?
-- What error message is shown to the user?
-- Is there graceful degradation (e.g., can still edit, just can't save)?
-
-**Impact Score**: 4
-
-**Rationale**: Electron IPC is assumed reliable but failures can occur. Without handling, users could lose work or face cryptic errors.
+- **Category**: Edge Cases (Negative Scenario)
+- **Status**: Missing
+- **Question Candidate**: What happens if a user clicks an outline item but the target line no longer exists (e.g., content was deleted between outline render and click)? Should navigation fail silently, show an error, or navigate to the nearest valid position?
+- **Impact Score**: 4
+- **Rationale**: This is a common race condition in live-updating outlines. No fallback behavior is specified.
 
 ---
 
-### 9. Settings/Preferences Corruption
+### 9. Very Large Documents
 
-**Status**: Missing
-
-**Spec Statement**: Not covered (electron-store persistence mentioned in FR-033 through FR-036 but no failure handling)
-
-**Question Candidate**:
-- What happens if the electron-store JSON file is corrupted or invalid?
-- Should settings reset to defaults on corruption?
-- Should user be notified of settings reset?
-- Is there settings backup/versioning?
-
-**Impact Score**: 2
-
-**Rationale**: Settings corruption is rare but can cause confusing UX if not handled gracefully. Lower impact since data loss is settings, not document content.
+- **Category**: Edge Cases (Rate Limiting/Throttling)
+- **Status**: Missing
+- **Question Candidate**: Is there a maximum document size or heading/component count where the outline should degrade gracefully (e.g., collapse deeply nested items, limit displayed items, show "too many items" warning)? What is the performance threshold?
+- **Impact Score**: 3
+- **Rationale**: Performance NFRs mention "not blocking main thread" but no specific limits or degradation strategy is defined for extreme cases.
 
 ---
 
-### 10. Memory Pressure / Large Documents
+### 10. Malformed Frontmatter YAML
 
-**Status**: Missing
-
-**Spec Statement**: Not covered
-
-**Question Candidate**:
-- Is there a maximum document size limit?
-- What happens when editing very large MDX files that stress memory?
-- Should there be lazy loading or chunking for large documents?
-- What feedback is given if document is too large to handle?
-
-**Impact Score**: 3
-
-**Rationale**: Large document handling affects reliability. Without limits, app could crash on extremely large files.
+- **Category**: Edge Cases (Negative Scenario)
+- **Status**: Partial
+- **Location**: FR-016, FR-018
+- **Current Definition**: "parse YAML frontmatter if present" and "hide if no frontmatter"
+- **Question Candidate**: What should happen when frontmatter exists but contains invalid YAML syntax? Should it be treated as "no frontmatter" (hidden), show an error indicator, or display partially parsed content?
+- **Impact Score**: 3
+- **Rationale**: YAML parsing errors are common during editing. The spec doesn't distinguish between "no frontmatter" and "invalid frontmatter".
 
 ---
 
-### 11. File Path Length / Invalid Characters
+### 11. Duplicate Heading Text
 
-**Status**: Missing
-
-**Spec Statement**: Not covered
-
-**Question Candidate**:
-- What happens if user attempts to save to a path that exceeds OS limits?
-- What happens with filenames containing special characters?
-- Are there any filename validations before save dialog?
-
-**Impact Score**: 2
-
-**Rationale**: Edge case that's rare but could cause cryptic errors on Windows especially.
+- **Category**: Edge Cases
+- **Status**: Missing
+- **Question Candidate**: How are multiple headings with identical text distinguished in the outline? Should they show line numbers, or is the tree position sufficient? Could this cause navigation ambiguity?
+- **Impact Score**: 2
+- **Rationale**: Common in documents with repeated section names (e.g., multiple "Example" headings). Minor UX concern.
 
 ---
 
-### 12. Concurrent Access from Same User
+### 12. Nested Component Edge Cases
 
-**Status**: Missing
+- **Category**: Edge Cases (Negative Scenario)
+- **Status**: Partial
+- **Location**: FR-011, FR-013
+- **Current Definition**: "identify all JSX component usages" and "show each instance with its line number"
+- **Question Candidate**: How should deeply nested components be handled (component inside component)? Should both the outer and inner components appear in the list? What about self-closing vs. container components?
+- **Impact Score**: 2
+- **Rationale**: MDX allows complex component nesting. The flat listing approach may not capture nesting relationships clearly.
 
-**Spec Statement**: Not covered (spec assumes single document model per instance)
+---
 
-**Question Candidate**:
-- What if user opens same file in two mdxpad windows?
-- Is there file locking or just external modification detection?
-- Should there be a warning when opening an already-open file?
+### 13. Panel Visibility Persistence Failure
 
-**Impact Score**: 3
+- **Category**: Edge Cases (Negative Scenario)
+- **Status**: Missing
+- **Question Candidate**: What happens if localStorage is unavailable or corrupted? Should the outline default to visible or hidden? Should there be a fallback storage mechanism?
+- **Impact Score**: 2
+- **Rationale**: Edge case for storage failures. Low impact since a default state can be assumed.
 
-**Rationale**: Users may accidentally open same file twice, leading to save conflicts between their own instances.
+---
+
+### 14. Keyboard Navigation Conflicts
+
+- **Category**: Edge Cases (Conflict Resolution)
+- **Status**: Missing
+- **Question Candidate**: If the outline has keyboard focus and the user presses a key that conflicts with editor shortcuts (e.g., arrow keys, Enter), how is focus management handled? Should Tab move between outline and editor?
+- **Impact Score**: 3
+- **Rationale**: Accessibility NFR mentions keyboard navigation but doesn't address focus trapping or keyboard shortcut conflicts.
 
 ---
 
@@ -244,19 +167,43 @@ The spec covers 7 explicit edge cases (lines 149-157) but has significant gaps i
 
 | Score | Count | Topics |
 |-------|-------|--------|
-| 5 (Critical) | 1 | External modification conflict resolution |
-| 4 (High) | 4 | File deletion, disk errors, save dialog cancel, IPC failure |
-| 3 (Medium) | 4 | Preview timeout, rapid operations, memory pressure, concurrent access |
-| 2 (Low) | 3 | Window sizing, settings corruption, path validation |
+| 4 (High) | 3 | AST parsing partial failures, concurrent AST updates, navigation target deleted |
+| 3 (Medium) | 4 | Debounce timing, large documents, malformed YAML, keyboard navigation conflicts |
+| 2 (Low) | 4 | Window resize animation, duplicate headings, nested components, persistence failure |
 
 ---
 
 ## Recommendations
 
-1. **Priority Clarification Needed**: External modification conflict resolution (Impact 5) should be clarified before implementation - this affects core data integrity.
+### High Priority (Impact 4+)
+1. **Clarify concurrent AST update handling** - Define cancellation/versioning strategy
+2. **Define navigation fallback for deleted targets** - Specify behavior when outline item's target no longer exists
+3. **Specify partial parsing failure behavior** - Define per-section error handling
 
-2. **Group Related Questions**: File system failures (deletion, modification, disk full, permissions) could be addressed with a unified error handling strategy.
+### Medium Priority (Impact 3)
+1. **Clarify debounce timing vs 500ms SLA** - Make the timing relationship explicit
+2. **Define large document degradation strategy** - Set thresholds and fallback behaviors
+3. **Specify invalid YAML frontmatter handling** - Distinguish from "no frontmatter"
+4. **Address keyboard focus conflicts** - Define focus management between outline and editor
 
-3. **Define Concrete Values**: Timeouts, intervals, and thresholds need specific values (e.g., "compile timeout: 5 seconds", "minimum window: 600x400px").
+### Low Priority (Impact 2)
+1. **Clarify duplicate heading display** - Consider showing line numbers
+2. **Specify nested component display** - Define depth handling
+3. **Document storage failure fallback** - Define default state
+4. **Address window resize during animation** - Define interruption behavior
 
-4. **Consider Adding to Requirements**: Missing edge cases (IPC failure, settings corruption, concurrent access) should be documented even if handling is simple.
+---
+
+## Questions for Clarification
+
+1. When the user edits the document during an in-flight AST parse, should the parse be cancelled and restarted, or complete and be discarded if stale?
+
+2. If a user clicks an outline item that has been deleted from the document, should navigation fail silently, show a toast notification, or attempt to navigate to the nearest valid line?
+
+3. What is the exact debounce delay for outline updates, and how does it relate to the 500ms update deadline?
+
+4. For documents with syntax errors, should partially valid sections (e.g., valid headings but broken JSX) still be displayed?
+
+5. Is there a maximum heading/component count threshold beyond which the outline should show a "truncated" indicator or collapse by default?
+
+6. How should invalid YAML frontmatter be displayed - as an error state, hidden, or showing raw unparsed content?

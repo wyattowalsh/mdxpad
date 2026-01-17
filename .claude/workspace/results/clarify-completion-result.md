@@ -1,181 +1,251 @@
-# Completion Ambiguity Analysis: 006-application-shell
+# Completion Ambiguity Analysis: MDX Content Outline/Navigator (007)
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
-**Analysis Date**: 2026-01-10
+**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Analysis Date**: 2026-01-17
 **Focus Area**: Completion Signals (Acceptance Criteria Testability, Measurable Definition of Done)
 
 ---
 
 ## Summary
 
-The spec contains 10 Success Criteria (SC-001 through SC-010) and 41 Functional Requirements (FR-001 through FR-041). While many are well-defined with measurable outcomes, several have completion ambiguities that need clarification.
+| Status | Count |
+|--------|-------|
+| Clear | 8 |
+| Partial | 9 |
+| Missing | 4 |
 
 ---
 
 ## Ambiguity Findings
 
-### 1. SC-001: Full Document Workflow Timing
+### 1. US1-AS1: Headings Tree Nesting Structure
 
-**Category**: completion
+**Category**: Completion
 **Status**: Partial
-**Spec Text**: "Users can complete a full document workflow (create → edit → save → close) in under 5 seconds excluding typing time"
-**Question Candidate**: What constitutes "standard" user interaction speed for create/open/save/close operations? How is "excluding typing time" measured in automated tests - via stopwatch exclusion, or by using predefined test content?
-**Impact Score**: 3
-**Rationale**: The timing metric is defined but the measurement methodology is ambiguous. Testing requires consistent definition of what actions count as "workflow steps" vs "typing".
-
----
-
-### 2. SC-003: Layout Preference Restoration Timing
-
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "Layout preferences are restored within 100ms of app launch (no visible flash of default state)"
-**Question Candidate**: How is "100ms of app launch" measured - from process start, from window creation, or from first paint? What constitutes a "visible flash" - any frame showing default state, or a threshold duration?
+**Spec Text (Line 35)**: "Then all headings appear in a hierarchical tree reflecting their nesting structure"
+**Question Candidate**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a placeholder h2?
 **Impact Score**: 4
-**Rationale**: The 100ms target is specific but the measurement point is ambiguous. A flash of even 50ms might be visible but under 100ms from one reference point while over from another.
+**Rationale**: "Nesting structure" is ambiguous for non-sequential heading levels. Test cases cannot be written without knowing expected behavior for malformed heading hierarchies.
 
 ---
 
-### 3. SC-006: Status Bar Update Timing
+### 2. US1-AS3: Brief Highlight Duration
 
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "Status bar updates within 50ms of state changes (cursor movement, error changes, save state)"
-**Question Candidate**: How is the 50ms latency measured in practice - from user input event, from state change in store, or from React state update? What testing infrastructure validates sub-50ms updates?
-**Impact Score**: 3
-**Rationale**: 50ms is a very aggressive target. Without clear measurement points, tests may pass or fail inconsistently depending on where timing starts.
-
----
-
-### 4. SC-007: Keyboard-Only P1 Completion
-
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "All P1 user stories are completable using only keyboard shortcuts"
-**Question Candidate**: Does "keyboard shortcuts" include Tab navigation and Enter to confirm dialogs, or only explicit shortcuts like Cmd+S? Must native file dialogs be navigable by keyboard (which may depend on OS)?
-**Impact Score**: 3
-**Rationale**: Native file dialogs (open/save) are OS-controlled and may not be fully keyboard-navigable in all scenarios. The boundary of "keyboard only" needs definition.
-
----
-
-### 5. SC-008: App Launch Timing
-
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "App launches to usable state within 2 seconds on standard hardware"
-**Question Candidate**: What constitutes "standard hardware"? What defines "usable state" - window visible, editor focused, or first keystroke accepted? Is this cold start or warm start?
-**Impact Score**: 4
-**Rationale**: "Standard hardware" is undefined, making CI/CD testing non-deterministic. "Usable state" could mean different things (visible vs interactive).
-
----
-
-### 6. SC-009: Smooth Window Operations
-
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "Window operations (resize, divider drag) feel smooth with no perceptible lag (60fps target)"
-**Question Candidate**: How is 60fps measured during resize - frame timing logs, performance API, or visual inspection? Is occasional frame drop acceptable, or must it be 100% of frames at 60fps?
-**Impact Score**: 2
-**Rationale**: "No perceptible lag" is subjective. 60fps target is measurable but tolerance (e.g., P95 vs P100) is unspecified.
-
----
-
-### 7. SC-010: Error State Recoverability
-
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "Error states are always recoverable - no action leaves the app in an unusable state"
-**Question Candidate**: What specific error states must be tested? What defines "unusable state" - crash, frozen UI, or inability to save? Is there a test matrix of error scenarios?
-**Impact Score**: 5
-**Rationale**: This is a critical safety requirement with no enumerated test cases. Without a defined list of error scenarios, testers cannot verify completeness.
-
----
-
-### 8. FR-003: Minimum Pane Widths
-
-**Category**: completion
-**Status**: Missing
-**Spec Text**: "System MUST enforce minimum widths for each pane (neither can be resized below usability threshold)"
-**Question Candidate**: What are the specific minimum pixel widths for editor and preview panes? What constitutes "usability threshold"?
-**Impact Score**: 4
-**Rationale**: No numeric values provided. Implementers and testers have no concrete target to verify against.
-
----
-
-### 9. FR-037: Preview Compilation Trigger
-
-**Category**: completion
-**Status**: Partial
-**Spec Text**: "System MUST wire editor content changes to trigger preview compilation"
-**Question Candidate**: What is the debounce/throttle timing for compilation triggers? Is compilation triggered on every keystroke, on pause, or on explicit action?
-**Impact Score**: 3
-**Rationale**: SC-002 mentions "500ms of typing pause" but FR-037 doesn't cross-reference this. The completion criteria for this requirement needs explicit debounce specification.
-
----
-
-### 10. User Story 1 - Scenario 2: Preview Update Timing
-
-**Category**: completion
+**Category**: Completion
 **Status**: Clear
-**Spec Text**: "the preview updates to reflect the changes within 500ms of typing pause"
-**Question Candidate**: N/A - This is well-specified.
+**Spec Text (Line 37)**: "Then the heading line is briefly highlighted to help the user locate it"
+**Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Good example of measurable acceptance criterion. No ambiguity.
+**Rationale**: FR-022 specifies "flash highlight for 500ms" which makes this testable.
 
 ---
 
-### 11. User Story 5 - Scenario 5: Error Click Behavior
+### 3. US1-AS4: Outline Update Timing Reference Point
 
-**Category**: completion
+**Category**: Completion
 **Status**: Partial
-**Spec Text**: "the error details are shown (or focus moves to first error in preview)"
-**Question Candidate**: Should clicking the error count show a popup/panel, navigate to the error in preview, or jump to the error line in the editor? The "or" suggests multiple valid implementations - which is the acceptance target?
+**Spec Text (Line 38)**: "outline updates within 500ms to reflect the changes"
+**Question Candidate**: Is the 500ms measured from when typing stops (debounce), from the last keystroke, or from when the AST becomes available?
 **Impact Score**: 3
-**Rationale**: The word "or" introduces ambiguity. Testers don't know which behavior to verify.
+**Rationale**: The timing trigger is ambiguous. Tests need to know the exact start point of the 500ms window to write deterministic assertions.
 
 ---
 
-### 12. Edge Case: External File Deletion
+### 4. US2-AS1/AS2: Toggle Shortcut
 
-**Category**: completion
-**Status**: Missing
-**Spec Text**: "Show a warning and mark document as 'orphaned' with option to save elsewhere"
-**Question Candidate**: Is external file deletion detection in scope for this spec? What triggers the check - a timer, focus event, or save attempt? What does "orphaned" state look like in UI?
-**Impact Score**: 3
-**Rationale**: Edge case is described but no acceptance scenario or FR covers it. Unclear if it's in scope or just documented for future reference.
-
----
-
-### 13. Edge Case: External File Modification
-
-**Category**: completion
-**Status**: Missing
-**Spec Text**: "Detect change and prompt user to reload or keep current version"
-**Question Candidate**: Is external modification detection in scope? The Out of Scope section lists "File watching for external changes (separate spec)" - this contradicts the edge case description.
-**Impact Score**: 4
-**Rationale**: Direct contradiction between Edge Cases and Out of Scope sections. Needs clarification on what's actually deliverable.
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 52)**: "Cmd+Shift+O"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Specific shortcut is defined. Testable via keyboard simulation.
 
 ---
 
-### 14. Edge Case: Preview Compilation Timeout
+### 5. US2-AS3: Persistence Verification Scope
 
-**Category**: completion
-**Status**: Missing
-**Spec Text**: "timeout after reasonable period"
-**Question Candidate**: What is the "reasonable period" timeout value in milliseconds? What UI is shown when timeout occurs?
-**Impact Score**: 3
-**Rationale**: No specific timeout value provided, making testing impossible without arbitrary choice by implementer.
-
----
-
-### 15. NFR: Settings Persistence Debounce
-
-**Category**: completion
-**Status**: Missing
-**Spec Text**: "Settings persistence must be debounced to avoid excessive disk writes"
-**Question Candidate**: What is the debounce duration? What constitutes "excessive" disk writes?
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 54)**: "restart the app, Then the outline remains hidden (persistence)"
+**Question Candidate**: What constitutes an "app restart" for testing purposes - full quit and relaunch, window close and reopen, or F5 refresh in dev mode?
 **Impact Score**: 2
-**Rationale**: Implementation detail but affects testability. Cannot verify "not excessive" without threshold.
+**Rationale**: Different persistence mechanisms may be tested differently. Need clarity for automated test design and CI/CD.
+
+---
+
+### 6. FR-014: Component Visual Distinction Treatment
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 146)**: "MUST distinguish between built-in components...and custom/unknown components visually"
+**Question Candidate**: What specific visual treatment differentiates built-in from custom components? Different icons, colors, labels, badges, or prefixes?
+**Impact Score**: 4
+**Rationale**: Cannot write visual regression tests or verify implementation without knowing the expected visual distinction. Implementers will make arbitrary choices.
+
+---
+
+### 7. FR-014: Built-in Component List Definition
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 146)**: "built-in components (Callout, CodeBlock, etc.)"
+**Question Candidate**: What is the complete, exhaustive list of "built-in" components that should be recognized? The spec only gives examples with "etc."
+**Impact Score**: 4
+**Rationale**: Tests cannot verify correct classification without an authoritative list of built-in components. What about `<Note>`, `<Warning>`, `<Tip>`, `<Tabs>`?
+
+---
+
+### 8. FR-016/FR-017: Frontmatter Fields Enumeration
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Lines 151-152)**: "display key fields (title, date, author, description, tags)" and "limit displayed frontmatter to common fields, with option to expand for all fields"
+**Question Candidate**: What is the exact list of "common fields" that are always shown vs expanded? Is the list in FR-016 exhaustive or just examples?
+**Impact Score**: 3
+**Rationale**: Test cases need to know which fields are "common" (always shown) vs "other" (shown on expand). The word "key" suggests priority but doesn't enumerate.
+
+---
+
+### 9. SC-001: Navigation Timing
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 196)**: "within 100ms (perceived instant)"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Specific, measurable timing provided. Testable with performance testing tools and assertions.
+
+---
+
+### 10. SC-004: Parsing Overhead Measurement
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 197)**: "less than 50ms overhead to the existing preview compilation cycle"
+**Question Candidate**: How should this be measured? Delta between preview-only compilation vs preview+outline compilation? What document size is the baseline for testing?
+**Impact Score**: 3
+**Rationale**: Performance tests need baseline document specification and measurement methodology defined. Results vary dramatically by document complexity.
+
+---
+
+### 11. SC-005: Heading Representation Scope
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 198)**: "100% of headings in the document are represented in the outline"
+**Question Candidate**: Does this include headings inside JSX components, code blocks (as examples), or markdown blocks within JSX? Only top-level markdown headings?
+**Impact Score**: 4
+**Rationale**: Edge cases around heading location affect what "100%" means. A heading inside `<CodeBlock>` is fundamentally different from a parsed heading.
+
+---
+
+### 12. SC-006: Component Identification Scope
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 199)**: "100% of JSX component usages are identified"
+**Question Candidate**: Does this include components inside code blocks (shown as examples), MDX expressions like `{MyComponent}`, or only directly rendered `<Component>` tags?
+**Impact Score**: 3
+**Rationale**: False positives from code examples would fail this criterion if not scoped correctly. Need to define what counts as "usage" vs "reference."
+
+---
+
+### 13. SC-007: Full Workflow Timing
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 200)**: "under 3 seconds"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Specific, measurable timing provided. End-to-end test can verify with stopwatch.
+
+---
+
+### 14. Edge Case: Empty State Message
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 112)**: "Show an empty state message: 'No outline available. Add headings, components, or frontmatter to see the document structure.'"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Exact text specified makes this testable via DOM assertion.
+
+---
+
+### 15. Edge Case: Syntax Error Warning Indicator
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 113)**: "show the last valid outline with a warning indicator"
+**Question Candidate**: What does the "warning indicator" look like? Icon, color, text, tooltip, banner? How is "last valid outline" cached across parse failures?
+**Impact Score**: 3
+**Rationale**: Tests need to verify warning indicator appearance and outline caching behavior. Without visual spec, multiple implementations are valid.
+
+---
+
+### 16. Edge Case/FR-004: Auto-hide Threshold
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Lines 117, 130)**: "below 600px with preview visible, or below 400px with preview hidden"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Exact pixel values make this testable via window resize assertions.
+
+---
+
+### 17. NFR: Keyboard Navigation Keys
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 215)**: "arrow keys to move, Enter to select"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Specific keys defined. Testable via keyboard simulation.
+
+---
+
+### 18. NFR: ARIA Roles
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 216)**: "tree, treeitem"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Specific ARIA roles defined. Testable via DOM role assertions.
+
+---
+
+### 19. FR-029: AST Reuse Verification Method
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 173)**: "MUST reuse AST data from the preview pane"
+**Question Candidate**: How do we verify AST is actually being reused vs re-parsed? What metric, assertion, or observable behavior proves reuse?
+**Impact Score**: 3
+**Rationale**: Implementation detail that affects performance testing. Need observable verification method (e.g., parse count counter, shared reference check).
+
+---
+
+### 20. NFR: Debounce Configuration
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 209)**: "Debounce outline updates to avoid excessive re-parsing"
+**Question Candidate**: What is the debounce duration? Is it the same as the 500ms update window, or a separate configuration?
+**Impact Score**: 3
+**Rationale**: Tests need to know debounce timing to set appropriate wait times. If different from 500ms update target, could create race conditions.
+
+---
+
+### 21. Edge Case: Minimum Panel Width
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 116)**: "Enforce minimum width of 150px"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Specific pixel value. Testable via CSS/DOM assertions during resize.
 
 ---
 
@@ -183,35 +253,54 @@ The spec contains 10 Success Criteria (SC-001 through SC-010) and 41 Functional 
 
 | Impact Score | Count |
 |--------------|-------|
-| 5 (Critical) | 1     |
+| 5 (Critical) | 0     |
 | 4 (High)     | 4     |
 | 3 (Medium)   | 7     |
-| 2 (Low)      | 2     |
-| 1 (Clear)    | 1     |
+| 2 (Low)      | 1     |
+| 1 (Clear)    | 9     |
+
+---
+
+## High-Impact Questions (Impact >= 4)
+
+1. **[Impact 4] Heading Nesting for Skipped Levels**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a phantom/placeholder h2?
+
+2. **[Impact 4] Built-in Component Visual Distinction**: What specific visual treatment differentiates built-in from custom components? (icon, color, label, badge)
+
+3. **[Impact 4] Built-in Component List**: What is the complete, authoritative list of "built-in" components that should be recognized and classified specially?
+
+4. **[Impact 4] Heading Scope for 100% Coverage (SC-005)**: Does 100% heading representation include headings inside JSX components, code blocks, or only top-level markdown headings?
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **[Impact 5]** What is the exhaustive list of error states that must be tested for SC-010 recoverability? Can you provide a test matrix?
+1. **[Impact 4]** Please enumerate the complete list of built-in MDX components that should be visually distinguished from custom components.
 
-2. **[Impact 4]** What are the specific minimum pixel widths for editor (FR-003) and preview panes?
+2. **[Impact 4]** What visual treatment (icon, color, label) should differentiate built-in components from custom/unknown components in the outline?
 
-3. **[Impact 4]** What measurement reference point defines "100ms of app launch" for SC-003 - process start, window creation, or first paint?
+3. **[Impact 4]** When heading levels skip (e.g., `# H1` followed by `### H3` with no H2), how should the outline tree represent this - nest H3 under H1, show H3 at root level, or create a placeholder?
 
-4. **[Impact 4]** What hardware specs define "standard hardware" for the 2-second launch requirement (SC-008)?
+4. **[Impact 4]** Should headings inside JSX components or code blocks be included in the "100% of headings represented" success criterion?
 
-5. **[Impact 4]** Is external file modification detection in scope? Edge cases mention it but Out of Scope explicitly excludes "File watching for external changes."
+5. **[Impact 3]** What is the debounce duration for outline updates, and is it the same as or separate from the 500ms update window in SC-002?
 
 ---
 
 ## Overall Assessment
 
-The spec has **strong measurable outcomes** in the Success Criteria section with specific timing targets (500ms, 100ms, 50ms, 2s). However, there are gaps in:
+The spec has **strong measurable outcomes** in the Success Criteria section with specific timing targets (100ms navigation, 500ms update, 50ms overhead, 3s workflow). The acceptance scenarios follow Given/When/Then format and most have clear assertions.
 
-1. **Measurement methodology** - When do timers start/stop?
-2. **Concrete thresholds** - Some requirements use subjective terms like "usability threshold" or "reasonable period"
-3. **Test case enumeration** - Critical safety requirements (SC-010) lack specific test scenarios
-4. **Scope boundary** - Contradiction between edge cases and out-of-scope sections
+**Strengths:**
+- Specific timing metrics for performance testing
+- Exact pixel thresholds for responsive behavior
+- Explicit ARIA roles for accessibility testing
+- Precise keyboard shortcuts defined
 
-The spec is approximately **75% complete** from a testability standpoint. Addressing the high-impact clarifications above would bring it to production-ready Definition of Done quality.
+**Gaps requiring clarification:**
+1. **Visual specifications** - Component distinction treatment undefined
+2. **Data enumeration** - Built-in component list incomplete
+3. **Edge case handling** - Skipped heading levels behavior undefined
+4. **Scope boundaries** - What counts as "heading" or "component usage" in edge cases
+
+The spec is approximately **80% complete** from a testability standpoint. Addressing the 4 high-impact clarifications above would bring it to production-ready Definition of Done quality.

@@ -1,149 +1,158 @@
 # Functional Scope Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
 **Category**: Functional Scope
-**Analysis Date**: 2026-01-10
+**Analysis Date**: 2026-01-17
 
 ---
 
 ## Summary
 
-The spec demonstrates strong coverage of core user goals with well-defined acceptance scenarios. However, several areas require clarification to ensure complete functional scope coverage.
+| Aspect | Status | Issues Found |
+|--------|--------|--------------|
+| Core User Goals | Partial | 2 |
+| Success Criteria | Partial | 3 |
+| Out-of-Scope Declarations | Clear | 0 |
+| User Roles/Personas | Missing | 2 |
 
 ---
 
-## Analysis Results
+## Detailed Findings
 
-### 1. Core User Goals & Success Criteria Clarity
+### 1. Core User Goals & Success Criteria
 
-| Aspect | Status | Details |
-|--------|--------|---------|
-| Primary value proposition | **Clear** | "Live MDX editing experience" is clearly stated |
-| P1 User Stories | **Clear** | Stories 1-3 cover core editing, saving, opening |
-| P2/P3 User Stories | **Clear** | Stories 4-7 appropriately prioritized |
-| Success Criteria | **Partial** | Measurable but some metrics lack baseline definitions |
+#### Finding 1.1: Ambiguous "Writer" Persona Definition
 
-#### Ambiguity 1: Success Criteria Measurement Baseline
-
-- **Category**: functional_scope
-- **Status**: Partial
-- **Question Candidate**: "What constitutes 'standard hardware' for SC-008 (2-second launch time)? Should minimum hardware specs be defined for performance success criteria?"
-- **Impact Score**: 3
-
-The success criteria SC-008 mentions "standard hardware" without defining what this means. This could lead to disagreements about whether performance targets are met.
+- **Category**: Functional Scope
+- **Status**: Missing
+- **Location**: Throughout spec (User Stories 1-5, Executive Summary)
+- **Issue**: The spec repeatedly refers to "a writer" without defining who this user is, their technical proficiency level, or distinguishing between different user types (e.g., technical documentation writers vs. creative content writers vs. developers using MDX for app documentation).
+- **Question Candidate**: "What is the expected technical proficiency of the target 'writer' persona? Should the outline panel UX accommodate both technical users familiar with AST/JSX concepts and non-technical content writers?"
+- **Impact Score**: 3/5
+- **Rationale**: Different user personas may have different expectations for component display, terminology, and feature complexity. A technical writer might want full JSX component details while a content writer might find this confusing.
 
 ---
 
-#### Ambiguity 2: "Real-time" Preview Definition
+#### Finding 1.2: Undefined "Built-in Components" List
 
-- **Category**: functional_scope
+- **Category**: Functional Scope
 - **Status**: Partial
-- **Question Candidate**: "The spec mentions 500ms preview update delay (SC-002) as 'perceived real-time' but also mentions preview updates 'within 500ms of typing pause' - does this mean 500ms after the user stops typing, or 500ms from the last keystroke regardless of continued typing?"
-- **Impact Score**: 4
-
-This affects core user experience. The distinction between "typing pause" and "last keystroke" significantly impacts implementation and user perception.
+- **Location**: FR-014: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
+- **Issue**: The spec mentions built-in components with "etc." indicating an incomplete list. What components are considered "built-in"? Is this tied to a specific component library? How is the distinction made programmatically?
+- **Question Candidate**: "What is the complete list of 'built-in' components that should be visually distinguished? Are these components bundled with mdxpad, or is this referencing commonly used MDX ecosystem components?"
+- **Impact Score**: 4/5
+- **Rationale**: Without a definitive list, implementation cannot correctly distinguish built-in vs custom components. This directly affects UI rendering and user understanding.
 
 ---
 
-### 2. Explicit Out-of-Scope Declarations Completeness
+#### Finding 1.3: Undefined "Common Fields" for Frontmatter
 
-| Aspect | Status | Details |
-|--------|--------|---------|
-| Multi-document/tabs | **Clear** | Explicitly out of scope |
-| Autosave | **Clear** | Explicitly deferred to separate spec |
-| File watching | **Clear** | Explicitly deferred to separate spec |
-| Cloud storage | **Clear** | Explicitly out of scope |
-| Collaborative editing | **Clear** | Explicitly out of scope |
-
-#### Ambiguity 3: External File Modification Handling Scope
-
-- **Category**: functional_scope
+- **Category**: Functional Scope
 - **Status**: Partial
-- **Question Candidate**: "Edge case mentions 'file modified externally while open' with prompt to reload, but file watching is listed as out of scope. Should basic external modification detection (on window focus/save attempt) be in scope, or is ALL external change detection out of scope?"
-- **Impact Score**: 4
-
-The edge case section (line 152) describes behavior for external file modification, but Out of Scope section (line 307) says "File watching for external changes (separate spec)". This creates ambiguity about whether ANY external modification detection is in scope.
+- **Location**: FR-016 & FR-017
+- **Issue**: FR-016 specifies "key fields (title, date, author, description, tags)" but FR-017 says "limit displayed frontmatter to common fields, with option to expand for all fields." The relationship between these is unclear - is the list in FR-016 exhaustive for "common fields"? What happens with non-standard frontmatter schemas?
+- **Question Candidate**: "Is the list in FR-016 (title, date, author, description, tags) the exhaustive definition of 'common fields' for FR-017, or should additional fields like 'draft', 'category', 'slug', 'image' also be considered common?"
+- **Impact Score**: 2/5
+- **Rationale**: This is relatively low impact as the spec does provide a reasonable default list, but clarity would improve consistency.
 
 ---
 
-#### Ambiguity 4: Recent Files List Implementation Scope
+#### Finding 1.4: Success Criteria SC-007 Lacks Baseline
 
-- **Category**: functional_scope
+- **Category**: Functional Scope
 - **Status**: Partial
-- **Question Candidate**: "The spec says 'Recent files list in UI (though settings store should support it)' is out of scope. Does this mean the settings store MUST include recentFiles array implementation, or is that also deferred?"
-- **Impact Score**: 2
-
-Line 313 creates ambiguity - the parenthetical suggests partial implementation is expected even though UI is out of scope.
+- **Location**: SC-007: "Users can complete a full navigation workflow (open outline, click item, edit, see update) in under 3 seconds"
+- **Issue**: The 3-second threshold appears arbitrary without justification. Is this based on user research, industry standards, or existing similar features? Additionally, the workflow description is vague about what "edit" and "see update" entail.
+- **Question Candidate**: "What is the basis for the 3-second threshold in SC-007? Should this be tied to a specific document size (e.g., '3 seconds for documents under 5000 lines')?"
+- **Impact Score**: 2/5
+- **Rationale**: While the criterion is testable, the threshold may be unrealistic for very large documents or insufficient for small ones.
 
 ---
 
-#### Ambiguity 5: Error Details Display Mechanism
+#### Finding 1.5: Component "Instance Location" Display Undefined
 
-- **Category**: functional_scope
+- **Category**: Functional Scope
 - **Status**: Partial
-- **Question Candidate**: "FR-031/User Story 5 mentions clicking error count shows error details, with alternative 'or focus moves to first error in preview'. Which behavior is required? Both? Either? Is there a preference?"
-- **Impact Score**: 3
+- **Location**: User Story 3, Acceptance Scenario 2: "they see each instance with its line number"
+- **Issue**: For components that span multiple lines, what line number is shown? The opening tag line? What if the component is self-closing vs. has children? How are nested components of the same type displayed?
+- **Question Candidate**: "For multi-line JSX components, should the outline show the opening tag line number, or should it display a line range (e.g., 'Lines 15-42')? How should nested instances of the same component type be visually distinguished?"
+- **Impact Score**: 3/5
+- **Rationale**: This affects user navigation accuracy - users clicking a component entry need to land at a predictable location.
 
-Acceptance scenario 5 in User Story 5 (line 109) uses "or" between two different behaviors, making it unclear which is the required implementation.
+---
+
+### 2. Explicit Out-of-Scope Declarations
+
+#### Finding 2.1: Out-of-Scope Section is Well-Defined
+
+- **Category**: Functional Scope
+- **Status**: Clear
+- **Location**: Out of Scope section (lines 237-246)
+- **Assessment**: The out-of-scope declarations are explicit and comprehensive:
+  - Drag-and-drop reordering
+  - Outline search/filter
+  - Active item highlighting based on scroll
+  - Custom configurations/filtering
+  - Export/printing
+  - Multi-document outline
+  - Bookmarks/favorites
+- **Impact Score**: N/A (no ambiguity)
 
 ---
 
 ### 3. User Roles / Personas Differentiation
 
-| Aspect | Status | Details |
-|--------|--------|---------|
-| Primary persona | **Partial** | "Writer" mentioned but not fully characterized |
-| Power user | **Partial** | User Story 7 mentions "power user" for keyboard workflow |
-| Beginner user | **Missing** | No consideration of first-time user experience |
+#### Finding 3.1: No User Personas Defined
 
-#### Ambiguity 6: User Persona Definition
-
-- **Category**: functional_scope
-- **Status**: Partial
-- **Question Candidate**: "The spec mentions 'writer' and 'power user' personas. Should success criteria differ between these personas? Is there an assumption about technical sophistication (e.g., familiarity with markdown/MDX syntax)?"
-- **Impact Score**: 2
-
-The spec uses "writer" throughout but User Story 7 introduces "power user" without defining the distinction or whether different acceptance criteria apply.
-
----
-
-#### Ambiguity 7: First Launch Experience
-
-- **Category**: functional_scope
+- **Category**: Functional Scope
 - **Status**: Missing
-- **Question Candidate**: "Should there be any onboarding, welcome content, or sample document for first-time users? Or is 'empty Untitled document' the intended first launch experience for all users?"
-- **Impact Score**: 2
-
-No consideration of first-time user experience or differentiation between new and returning users beyond settings persistence.
+- **Location**: Entire spec
+- **Issue**: The spec does not define any user personas or roles. All user stories reference generic "a writer" without distinguishing:
+  - Technical proficiency levels
+  - Use case types (documentation, blogging, app development)
+  - Frequency of use (daily power user vs. occasional user)
+  - Accessibility needs
+- **Question Candidate**: "Should the spec define distinct user personas (e.g., 'Technical Writer', 'Content Creator', 'Developer') with potentially different feature priorities or UX expectations?"
+- **Impact Score**: 3/5
+- **Rationale**: Without personas, it's unclear whose needs take priority when design tradeoffs arise.
 
 ---
 
-#### Ambiguity 8: MDX vs Markdown File Support
+#### Finding 3.2: Accessibility User Needs Partially Addressed
 
-- **Category**: functional_scope
+- **Category**: Functional Scope
 - **Status**: Partial
-- **Question Candidate**: "FR-014 mentions file picker 'filters for MDX/MD files by default' - does the application equally support both .mdx and .md files? Are there any functional differences in handling between the two formats?"
-- **Impact Score**: 3
+- **Location**: Non-Functional Requirements > Accessibility (lines 214-217)
+- **Issue**: While keyboard navigation and ARIA roles are mentioned, there's no user story or acceptance criteria from the perspective of a user with accessibility needs. The requirements are technical specifications rather than user goals.
+- **Question Candidate**: "Should there be a dedicated user story for accessibility users (e.g., 'As a screen reader user, I want to navigate the outline and hear the document structure so I can understand document organization without visual cues')?"
+- **Impact Score**: 3/5
+- **Rationale**: Accessibility requirements without user-centered acceptance criteria may lead to technically compliant but practically unusable implementations.
 
-The spec mentions filtering for both MDX/MD files but doesn't clarify if both are first-class citizens or if .md is secondary/limited support.
+---
+
+## Recommendations
+
+1. **Define User Personas** (High Priority): Add a section defining 2-3 user personas with their characteristics, goals, and technical proficiency levels.
+
+2. **Enumerate Built-in Components** (High Priority): Provide a definitive list of components considered "built-in" or define the criteria for classification.
+
+3. **Clarify Component Line Display** (Medium Priority): Specify exactly what line number/range is shown for multi-line components.
+
+4. **Add Accessibility User Story** (Medium Priority): Include at least one user story from an accessibility perspective.
+
+5. **Document Success Criteria Rationale** (Low Priority): Add brief justification for the timing thresholds in success criteria.
 
 ---
 
 ## Impact Summary
 
 | Impact Score | Count | Items |
-|-------------|-------|-------|
+|--------------|-------|-------|
 | 5 (Critical) | 0 | - |
-| 4 (High) | 2 | Real-time preview definition, External file modification scope |
-| 3 (Medium) | 3 | Hardware baseline, Error details mechanism, MDX vs MD support |
-| 2 (Low) | 3 | Recent files store, User personas, First launch experience |
+| 4 (High) | 1 | Built-in components list undefined |
+| 3 (Medium) | 4 | User personas, component instance display, writer proficiency, accessibility story |
+| 2 (Low) | 2 | Common frontmatter fields, SC-007 threshold |
 | 1 (Minimal) | 0 | - |
 
----
-
-## Recommendations
-
-1. **Prioritize clarifying Impact 4 items** before implementation begins
-2. **Real-time preview definition** should be resolved first as it affects core user experience and testing
-3. **External file modification scope** needs explicit boundary - suggest implementing basic "on focus" detection as minimum if full file watching is deferred
-4. **Consider adding a "Personas" section** to the spec to formally define user types and their expectations
+**Total Ambiguities Found**: 7
+**Recommended Clarification Questions**: 6
