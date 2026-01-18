@@ -1,148 +1,179 @@
 # Constraints Category Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
-**Category**: Constraints & Tradeoffs
-**Date**: 2026-01-17
+**Spec**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
+**Feature**: Smart Filtering for File Tree
+**Analysis Date**: 2026-01-17
+**Category Focus**: Constraints & Tradeoffs
 
 ---
 
 ## Summary
 
-The spec has significant gaps in the Constraints category. While it mentions some performance targets and behavioral constraints, it lacks explicit sections for technical constraints (language/framework choices), storage mechanisms, and formally documented tradeoffs/rejected alternatives.
+The spec is notably **sparse on explicit constraints**. While functional requirements and success criteria are well-defined, the specification lacks a dedicated Constraints section and does not explicitly document tradeoffs or rejected alternatives.
 
 ---
 
-## Ambiguity Findings
+## Ambiguity Analysis
 
-### 1. Technical Language/Framework Constraints
+### 1. Fuzzy Matching Algorithm Selection
 
 | Field | Value |
 |-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What specific technologies (TypeScript version, React version, state management library, CSS approach) are required or preferred for implementing the outline panel? Should this align with existing spec conventions (e.g., TypeScript 5.9.x strict, React 19.x, Zustand 5.x)? |
+| **Category** | constraints |
+| **Status** | Partial |
+| **Location** | Assumptions section, line 138 |
+| **Current Text** | "Fuzzy matching uses a standard algorithm like fzf-style matching for consistency with developer expectations" |
+| **Question Candidate** | What specific fuzzy matching library or algorithm should be used (e.g., fzf, fuse.js, flexsearch, custom implementation)? Should we prioritize match quality, performance, or bundle size? |
 | **Impact Score** | 4 |
-| **Rationale** | The spec references "existing Zustand store pattern" and "existing hooks" but never explicitly states the required technology stack. The AGENTS.md and CLAUDE.md files mention TypeScript 5.9.x, React 19.x, Zustand 5.x - this should be codified in the spec's constraints section. |
+| **Rationale** | The spec says "like fzf-style" which is vague. Different libraries have different performance characteristics, match scoring algorithms, and bundle sizes. This affects both implementation and the 100ms performance target (SC-002). |
 
 ---
 
-### 2. Storage/Persistence Mechanism
+### 2. Storage Mechanism for Persistence
 
 | Field | Value |
 |-------|-------|
+| **Category** | constraints |
 | **Status** | Partial |
-| **Question Candidate** | What specific storage mechanism should be used for outline panel visibility persistence? Should it use localStorage (like spec 005), electron-store (like spec 004), or the "existing settings store" mentioned in FR-003? |
+| **Location** | Assumptions section, line 136 |
+| **Current Text** | "The application uses localStorage or similar mechanism for session persistence (established pattern)" |
+| **Question Candidate** | Should filter persistence use localStorage (renderer process), electron-store (main process), or another mechanism? Is there a size limit concern for storing per-project filter state? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-003 says "persist outline panel visibility preference across sessions using the existing settings store" but doesn't specify which store. Prior specs use different storage approaches (localStorage vs electron-store). The collapse state is explicitly session-only (User Story 5), but the mechanism is not specified. |
+| **Rationale** | The "or similar mechanism" leaves ambiguity. The project already uses both localStorage (005, 006, 007 specs) and electron-store (004, 006 specs) for different purposes. The choice affects architecture and where state is managed. |
 
 ---
 
-### 3. Panel Width Constraints
+### 3. Maximum Filter Query Length
 
 | Field | Value |
 |-------|-------|
-| **Status** | Partial |
-| **Question Candidate** | What are the minimum and maximum width constraints for the outline panel? Is 150px the minimum width (mentioned in edge cases), and what is the maximum/default width? Should the panel be resizable? |
+| **Category** | constraints |
+| **Status** | Missing |
+| **Location** | Edge Cases section, line 96 |
+| **Current Text** | "What happens when the user pastes a very long string into the filter? (Truncate or limit input length gracefully)" |
+| **Question Candidate** | What is the maximum allowed filter query length? Should it be a hard limit (truncation) or soft limit (warning)? What is the specific character count? |
 | **Impact Score** | 2 |
-| **Rationale** | Edge cases mention "minimum width of 150px" but there's no explicit constraint section defining panel dimensions. FR-001 says "collapsible sidebar" but doesn't specify if it's resizable, fixed-width, or what the default width should be. |
+| **Rationale** | No specific limit is defined. While the edge case acknowledges this scenario, implementation needs a concrete number to enforce. This affects both UX and performance. |
 
 ---
 
-### 4. Window Width Threshold for Auto-hide
+### 4. Keyboard Shortcut Binding
 
 | Field | Value |
 |-------|-------|
+| **Category** | constraints |
 | **Status** | Partial |
-| **Question Candidate** | What exact window width thresholds trigger auto-hide behavior? FR-004 specifies 600px (with preview) and 400px (without preview) - are these final values or placeholders? How do these interact with Application Shell (spec 006) layout constraints? |
-| **Impact Score** | 2 |
-| **Rationale** | FR-004 provides specific pixel values but doesn't explain how they were derived or how they coordinate with the existing Application Shell spec's responsive behavior. Edge cases mention "similar to preview auto-hide behavior" but the relationship isn't explicit. |
-
----
-
-### 5. AST Fallback Parser Constraint
-
-| Field | Value |
-|-------|-------|
-| **Status** | Partial |
-| **Question Candidate** | What specific "lightweight parser" should be used when preview AST is unavailable (FR-030)? Is this a custom implementation, an existing library (remark, unified), or should the outline simply show an empty/error state? |
+| **Location** | Assumptions section, line 137 |
+| **Current Text** | "Standard keyboard shortcut conventions apply (e.g., Cmd/Ctrl+Shift+E or similar unassigned shortcut)" |
+| **Question Candidate** | What is the exact keyboard shortcut for focusing the filter input? Has conflict analysis been done with existing shortcuts in specs 005 (command palette) and 006 (application shell)? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-030 says "fall back to a lightweight parser" but doesn't specify what this parser is or its performance characteristics. This is a technical constraint that affects implementation approach and bundle size. |
+| **Rationale** | The shortcut is not definitively specified. Cmd/Ctrl+Shift+E is only suggested. Conflicts with existing shortcuts could cause UX issues or require refactoring. |
 
 ---
 
-### 6. Rejected Alternatives / Tradeoffs Documentation
+### 5. Performance Constraints for Large Projects
 
 | Field | Value |
 |-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What alternative approaches were considered and rejected? For example: (1) Why left-side panel vs right-side? (2) Why no scroll-position sync (highlighted as Out of Scope but rationale not given)? (3) Why 500ms update debounce vs other values? (4) Why session-only collapse state vs persisted? |
-| **Impact Score** | 3 |
-| **Rationale** | The spec documents "Out of Scope" items but doesn't explain the tradeoffs or reasoning behind these decisions. Understanding rejected alternatives helps implementers avoid revisiting already-considered approaches. |
-
----
-
-### 7. Debounce/Throttle Constraints
-
-| Field | Value |
-|-------|-------|
+| **Category** | constraints |
 | **Status** | Partial |
-| **Question Candidate** | What is the specific debounce strategy for outline updates? Is 500ms the debounce delay, or the maximum latency? Should updates be debounced, throttled, or use requestIdleCallback? |
-| **Impact Score** | 2 |
-| **Rationale** | Multiple requirements mention "within 500ms of document changes" (FR-010, FR-015, FR-019) and NFR mentions "debounce outline updates" but the exact debounce configuration isn't specified. SC-002 says "500ms of typing pause" which suggests debounce, but this conflicts with the "within 500ms" language elsewhere. |
+| **Location** | Success Criteria, lines 125-126 |
+| **Current Text** | "SC-001: Users can locate a specific file in a 500+ file project within 5 seconds" and "SC-002: Filter results update within 100ms of keystroke for projects with up to 10,000 files" |
+| **Question Candidate** | What is the expected behavior for projects exceeding 10,000 files? Should there be degradation strategies (debouncing, pagination, background indexing)? What is the upper bound for supported project size? |
+| **Impact Score** | 3 |
+| **Rationale** | The spec defines performance targets up to 10,000 files but does not address larger projects. Real-world monorepos can have 50,000+ files. Without guidance, implementation may fail silently or degrade unpredictably. |
 
 ---
 
-### 8. Memory/Resource Constraints
+### 6. Case Sensitivity Behavior
 
 | Field | Value |
 |-------|-------|
+| **Category** | constraints |
 | **Status** | Missing |
-| **Question Candidate** | Are there constraints on memory usage or DOM node limits for the outline tree? For very large documents with hundreds of headings/components, what are the performance boundaries? |
-| **Impact Score** | 2 |
-| **Rationale** | NFRs mention "must not block the main thread" but don't specify memory limits or how to handle extremely large documents. Virtualization requirements (if any) are not documented. |
+| **Location** | N/A - Not mentioned in spec |
+| **Current Text** | N/A |
+| **Question Candidate** | Should the filter be case-insensitive by default? Should there be an option to toggle case sensitivity (e.g., typing uppercase triggers case-sensitive mode like in some search tools)? |
+| **Impact Score** | 3 |
+| **Rationale** | Case sensitivity is not mentioned anywhere in the spec. This is a fundamental UX decision that affects fuzzy matching behavior and user expectations. Most developer tools default to case-insensitive with smart-case options. |
 
 ---
 
-### 9. Browser/Electron Version Constraints
+### 7. Technology Stack / Dependencies
 
 | Field | Value |
 |-------|-------|
+| **Category** | constraints |
 | **Status** | Missing |
-| **Question Candidate** | What minimum Electron/Chromium version is required? Are there any browser API constraints (e.g., ResizeObserver availability, CSS container queries)? |
-| **Impact Score** | 1 |
-| **Rationale** | The spec doesn't mention platform constraints. AGENTS.md mentions Electron 39.x in other specs but this spec doesn't explicitly state its Electron requirements. |
+| **Location** | N/A - No technology section |
+| **Current Text** | N/A |
+| **Question Candidate** | What are the allowed/preferred dependencies for this feature? Should we use an existing fuzzy search library (fuse.js, flexsearch, etc.) or implement custom matching? Are there bundle size constraints? |
+| **Impact Score** | 4 |
+| **Rationale** | Unlike other specs in this project (see CLAUDE.md Active Technologies sections), this spec does not declare its technology stack. This leaves implementers to make independent choices that may conflict with project conventions. |
 
 ---
 
-### 10. CSS/Styling Approach Constraint
+### 8. Rejected Alternatives / Tradeoffs
 
 | Field | Value |
 |-------|-------|
+| **Category** | constraints |
 | **Status** | Missing |
-| **Question Candidate** | What CSS methodology should be used for styling the outline panel? Should it use CSS modules, Tailwind, styled-components, or plain CSS to match the existing codebase patterns? |
+| **Location** | N/A - No tradeoffs section |
+| **Current Text** | N/A |
+| **Question Candidate** | Were alternative approaches considered (e.g., glob patterns, regex search, tag-based filtering)? Why was fuzzy-only matching chosen? Should advanced users have access to more powerful search modes? |
 | **Impact Score** | 2 |
-| **Rationale** | No styling constraints are mentioned. The existing codebase likely has established patterns that should be followed for consistency. |
+| **Rationale** | The spec does not document why fuzzy matching was chosen over alternatives. This context helps implementers understand design intent and avoid re-introducing rejected patterns. |
 
 ---
 
-## Recommendations
+### 9. Accessibility Constraints
 
-1. **Add "Technical Constraints" Section**: Explicitly state TypeScript 5.9.x, React 19.x, Zustand 5.x + Immer 11.x per codebase standards
-2. **Clarify Storage Mechanism**: Specify whether to use localStorage or electron-store, and which specific store key
-3. **Document Panel Dimensions**: Add explicit min/max/default width values and resizability constraint
-4. **Add "Tradeoffs & Alternatives" Section**: Document why certain approaches were chosen over alternatives
-5. **Specify Debounce Strategy**: Clarify exact debounce configuration (delay value, leading/trailing edge)
+| Field | Value |
+|-------|-------|
+| **Category** | constraints |
+| **Status** | Missing |
+| **Location** | N/A - Not mentioned |
+| **Current Text** | N/A |
+| **Question Candidate** | What accessibility requirements apply to the filter input and highlighted results? Should there be screen reader announcements for filter result counts? ARIA labels for the input field? |
+| **Impact Score** | 2 |
+| **Rationale** | No accessibility requirements are specified. The application shell (006) likely has patterns to follow, but filter-specific accessibility (live regions for result counts, proper labeling) is not addressed. |
 
 ---
 
-## Impact Summary
+### 10. Memory/Resource Constraints
 
-| Impact Score | Count |
-|--------------|-------|
-| 5 (Critical) | 0 |
-| 4 (High) | 1 |
-| 3 (Medium) | 3 |
-| 2 (Medium-Low) | 5 |
-| 1 (Low) | 1 |
+| Field | Value |
+|-------|-------|
+| **Category** | constraints |
+| **Status** | Missing |
+| **Location** | N/A |
+| **Current Text** | N/A |
+| **Question Candidate** | Are there memory constraints for indexing/caching file trees for filtering? Should the filter operate on-demand or maintain a pre-built index? What is acceptable memory overhead? |
+| **Impact Score** | 2 |
+| **Rationale** | For large projects (10,000+ files), caching strategies significantly impact memory usage. No guidance is provided on acceptable memory overhead or whether indexing is preferred over on-the-fly filtering. |
 
-**Total Ambiguities**: 10
-**Requiring Clarification**: 4 (High + Medium impact)
+---
+
+## Priority Summary
+
+| Impact Score | Count | Items |
+|--------------|-------|-------|
+| **5** | 0 | - |
+| **4** | 2 | Fuzzy matching algorithm, Technology stack |
+| **3** | 4 | Storage mechanism, Keyboard shortcut, Performance for large projects, Case sensitivity |
+| **2** | 4 | Max query length, Rejected alternatives, Accessibility, Memory constraints |
+
+---
+
+## Recommended Clarification Questions (Top 5 by Impact)
+
+1. **[Impact 4]** What specific fuzzy matching library or algorithm should be used, and what are the priorities: match quality, performance, or bundle size?
+
+2. **[Impact 4]** What technology stack/dependencies are allowed for this feature? Should this section be added to align with other specs in the project?
+
+3. **[Impact 3]** What is the exact keyboard shortcut for focusing the filter, and has conflict analysis been done with existing shortcuts?
+
+4. **[Impact 3]** Should the filter be case-insensitive by default, and should there be a mechanism to toggle case sensitivity?
+
+5. **[Impact 3]** What is the expected behavior and degradation strategy for projects exceeding 10,000 files?

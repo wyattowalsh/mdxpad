@@ -1,245 +1,163 @@
 # Non-Functional Requirements Ambiguity Analysis
 
-**Spec**: `specs/007-mdx-content-outline/spec.md`
+**Spec**: Smart Filtering for File Tree (014-smart-filtering)
+**Analysis Date**: 2026-01-17
 **Category**: Non-Functional Quality Attributes
-**Analyzed**: 2026-01-17
 
 ---
 
 ## Summary
 
-| Quality Attribute | Status | Issues Found |
-|-------------------|--------|--------------|
-| Performance | Partial | 4 issues |
-| Scalability | Missing | 3 issues |
-| Reliability & Availability | Partial | 3 issues |
-| Observability | Missing | 3 issues |
-| Security & Privacy | Missing | 2 issues |
-| Compliance / Regulatory | Partial | 2 issues |
-
-**Total Ambiguities Identified**: 17
-
-**Note**: The Non-Functional Requirements section (lines 205-224) is notably thin, covering only Performance, Accessibility, and Maintainability at a high level. Several critical NFR categories are entirely missing, and the existing ones lack quantitative targets.
+| Status | Count |
+|--------|-------|
+| Clear | 2 |
+| Partial | 5 |
+| Missing | 6 |
 
 ---
 
-## Detailed Analysis
+## Performance
 
-### 1. Performance (Latency, Throughput Targets)
-
-#### 1.1 Memory Budget Unspecified
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No memory budget or ceiling is specified for the outline feature. Parsing large documents with many headings and components could consume significant memory.
-- **Question Candidate**: What is the maximum acceptable memory footprint for the outline feature (e.g., max 50MB additional memory for a 10,000-line document)?
+### 1. Filter Response Latency
+- **Category**: non_functional
+- **Status**: Partial
+- **Current Spec Reference**: SC-002 states "Filter results update within 100ms of keystroke for projects with up to 10,000 files"
+- **Question Candidate**: What is the acceptable latency for projects with 10,000-100,000 files? Should filtering degrade gracefully (e.g., debounce) or maintain strict 100ms even with larger datasets?
 - **Impact Score**: 4
+- **Rationale**: Large monorepo projects can easily exceed 10,000 files. Without defined behavior for larger projects, implementation choices may lead to UI freezes or inconsistent UX.
 
-#### 1.2 CPU Utilization Ceiling Unspecified
-- **Category**: Non-Functional
+### 2. Memory Consumption
+- **Category**: non_functional
 - **Status**: Missing
-- **Location**: NFR Performance section (lines 209-211)
-- **Issue**: The spec says "must not block the main thread or cause editor input lag" but provides no quantitative CPU utilization limit.
-- **Question Candidate**: Should there be a CPU utilization ceiling for outline parsing (e.g., no more than 5% of single core during background updates)?
+- **Question Candidate**: What is the maximum acceptable memory overhead for the filter index/cache? Should the fuzzy matching index be built eagerly at startup or lazily on first filter activation?
 - **Impact Score**: 3
+- **Rationale**: Fuzzy matching often requires pre-computed indexes. Memory constraints affect mobile/low-resource environments and overall app performance.
 
-#### 1.3 Performance Targets Scattered Across Sections
-- **Category**: Non-Functional
+### 3. Throughput / Keystroke Handling
+- **Category**: non_functional
 - **Status**: Partial
-- **Location**: NFR (209-211), FR-010/015/019 (500ms), SC-001 (100ms), SC-002 (500ms), SC-003 (50ms), SC-004 (50ms)
-- **Issue**: Performance targets are scattered across Success Criteria, Functional Requirements, and NFR sections. The NFR section itself only provides qualitative guidance ("debounce," "reuse AST") without consolidating quantitative targets.
-- **Question Candidate**: Should all performance targets be consolidated into a single NFR subsection with a clear performance budget table?
-- **Impact Score**: 2
-
-#### 1.4 Debounce Interval Not Specified
-- **Category**: Non-Functional
-- **Status**: Partial
-- **Location**: NFR Performance (line 210)
-- **Issue**: The spec requires "Debounce outline updates to avoid excessive re-parsing during rapid typing" but does not specify the debounce interval.
-- **Question Candidate**: What debounce interval should be used for outline updates during rapid typing (e.g., 100ms, 200ms, 300ms)?
-- **Impact Score**: 2
+- **Current Spec Reference**: FR-010 mentions "without noticeable delay as the user types"
+- **Question Candidate**: Should keystrokes be debounced (e.g., 50-150ms) or should every keystroke trigger immediate filtering? What happens during rapid typing (10+ keystrokes/second)?
+- **Impact Score**: 3
+- **Rationale**: Debounce strategy directly impacts perceived responsiveness vs. CPU usage trade-off. Fast typists may flood the system.
 
 ---
 
-### 2. Scalability (Horizontal/Vertical, Limits)
+## Scalability
 
-#### 2.1 Document Size Limits Not Defined
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No maximum document size (lines, characters, headings, components) is specified. Large documents could cause outline performance degradation.
-- **Question Candidate**: What is the maximum document size (lines/characters) and item count (headings/components) the outline must fully support without degradation?
+### 4. File Count Limits
+- **Category**: non_functional
+- **Status**: Partial
+- **Current Spec Reference**: SC-002 mentions "up to 10,000 files"
+- **Question Candidate**: What is the hard upper limit before the feature should warn users or degrade? Should there be a configurable threshold where filtering switches to server-side or background worker?
 - **Impact Score**: 4
+- **Rationale**: Enterprise/monorepo users may have 50,000+ files. Without clear limits, the feature may become a liability rather than an asset.
 
-#### 2.2 Virtualization/Pagination Strategy Missing
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No virtualization or pagination strategy is defined for documents with many outline items. A document with 500+ headings could overwhelm the outline panel.
-- **Question Candidate**: What is the maximum number of outline items the panel should display before employing virtualization or a "show more" pattern?
-- **Impact Score**: 3
-
-#### 2.3 Graceful Degradation Strategy Missing
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No graceful degradation strategy exists for very large documents that exceed performance targets.
-- **Question Candidate**: How should the outline behave when document size exceeds supported limits (e.g., "Outline simplified for large document" with only top-level headings)?
-- **Impact Score**: 3
-
----
-
-### 3. Reliability & Availability (Uptime, Recovery)
-
-#### 3.1 Component Crash Isolation Not Specified
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No error boundary or crash isolation requirement exists. If the outline component throws an unhandled exception, it could crash the entire editor.
-- **Question Candidate**: Should the outline component be wrapped in an error boundary to prevent cascading failures to the editor?
-- **Impact Score**: 3
-
-#### 3.2 Outline Staleness Threshold Not Defined
-- **Category**: Non-Functional
+### 5. Folder Depth Limits
+- **Category**: non_functional
 - **Status**: Partial
-- **Location**: FR-031, Edge Cases (line 113)
-- **Issue**: The spec mentions showing "last valid outline" on parse failure but doesn't define how long stale data is acceptable before showing an error state.
-- **Question Candidate**: What is the maximum acceptable staleness for "last valid outline" data (e.g., if AST fails for 10+ seconds, show explicit error state)?
+- **Current Spec Reference**: Edge case mentions "very deep nested folder structures" with behavior note "(Parent folders of matching items remain visible)"
+- **Question Candidate**: Is there a maximum folder depth (e.g., 50 levels) that the filter should support? How should performance degrade with extreme nesting?
 - **Impact Score**: 2
-
-#### 3.3 Retry Logic for Transient Failures Missing
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No retry logic is specified for transient AST parsing failures.
-- **Question Candidate**: Should there be automatic retry logic if outline AST parsing fails transiently (e.g., retry once after 500ms)?
-- **Impact Score**: 2
+- **Rationale**: Deep nesting affects rendering performance and match result display. Extreme cases (100+ levels) could cause stack overflows or UI issues.
 
 ---
 
-### 4. Observability (Logging, Metrics, Tracing)
+## Reliability & Availability
 
-#### 4.1 No Logging Requirements
-- **Category**: Non-Functional
+### 6. Filter Persistence Failure Handling
+- **Category**: non_functional
 - **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No logging requirements exist for outline operations. Debugging slow outline updates or navigation failures would be difficult without logs.
-- **Question Candidate**: Should outline parsing performance and navigation events be logged for debugging (e.g., log parse duration, item count, navigation targets)?
-- **Impact Score**: 2
-
-#### 4.2 No Performance Metrics Collection
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No metrics collection is specified for monitoring outline performance in production.
-- **Question Candidate**: Should outline performance metrics (parse times, update frequency, memory usage) be collected for monitoring?
-- **Impact Score**: 2
-
-#### 4.3 No Debug Mode for Developers
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No developer debugging capability is specified for inspecting outline state.
-- **Question Candidate**: Should there be a developer console command or debug panel to inspect current outline state and AST data?
-- **Impact Score**: 1
-
----
-
-### 5. Security & Privacy (AuthN/Z, Data Protection)
-
-#### 5.1 Input Sanitization Not Addressed
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: Heading text and component names come from user-authored content. No sanitization requirement exists to prevent potential rendering issues or injection.
-- **Question Candidate**: Should outline item text (heading text, component names) be sanitized before rendering in the tree view to prevent any rendering injection concerns?
-- **Impact Score**: 2
-
-#### 5.2 Data Exposure Considerations Missing
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No consideration of whether outline data could expose document structure in error reports or logs.
-- **Question Candidate**: Is there any risk of outline data (document structure, heading text) being exposed unintentionally in logs or error reports?
-- **Impact Score**: 1
-
----
-
-### 6. Compliance / Regulatory Constraints
-
-#### 6.1 WCAG Compliance Level Not Specified
-- **Category**: Non-Functional
-- **Status**: Partial
-- **Location**: NFR Accessibility (lines 215-217)
-- **Issue**: The spec requires keyboard navigation and ARIA roles but doesn't specify a target WCAG compliance level.
-- **Question Candidate**: What WCAG compliance level is required for the outline (2.0 AA minimum, 2.1 AA, or 2.1 AAA)?
+- **Question Candidate**: What happens if localStorage is full, corrupted, or unavailable (e.g., private browsing)? Should the filter gracefully degrade to non-persistent mode with a warning?
 - **Impact Score**: 3
+- **Rationale**: Session persistence (FR-007) is a requirement. Failure to persist should not block core filtering functionality.
 
-#### 6.2 WAI-ARIA TreeView Pattern Not Referenced
-- **Category**: Non-Functional
-- **Status**: Partial
-- **Location**: NFR Accessibility (lines 215-217)
-- **Issue**: The spec mentions "tree, treeitem" roles but doesn't reference the specific WAI-ARIA TreeView pattern for keyboard interactions.
-- **Question Candidate**: Should keyboard navigation follow the specific WAI-ARIA TreeView pattern (with arrow keys, Home/End, expand/collapse)?
+### 7. File System Change Race Conditions
+- **Category**: non_functional
+- **Status**: Missing
+- **Question Candidate**: If a file is renamed/deleted while the user is viewing filtered results and clicks on the match, what error handling is expected? Should there be retry logic or graceful error messaging?
+- **Impact Score**: 3
+- **Rationale**: FR-009 requires automatic updates but doesn't address race conditions between filter display and underlying file system state.
+
+---
+
+## Observability
+
+### 8. Logging Strategy
+- **Category**: non_functional
+- **Status**: Missing
+- **Question Candidate**: Should filter operations (queries, results count, latency) be logged for debugging or telemetry? If so, at what verbosity level and where (console, file, telemetry service)?
 - **Impact Score**: 2
+- **Rationale**: Debugging filter performance issues in production requires some observability. Privacy implications of logging user queries must be considered.
+
+### 9. Metrics / Performance Monitoring
+- **Category**: non_functional
+- **Status**: Missing
+- **Question Candidate**: Should the application track filter performance metrics (p50/p95 latency, query frequency, match rate) internally or externally? What triggers performance degradation alerts?
+- **Impact Score**: 2
+- **Rationale**: Achieving SC-002 (100ms target) requires measurement capability. Without metrics, regressions may go unnoticed.
 
 ---
 
-## Prioritized Question Candidates
+## Security & Privacy
 
-Sorted by impact score (highest first):
+### 10. Query Input Sanitization
+- **Category**: non_functional
+- **Status**: Partial
+- **Current Spec Reference**: Edge case mentions "special characters in the filter query" treated as "literal characters for matching"
+- **Question Candidate**: Are there any characters that should be explicitly blocked or escaped to prevent regex injection, XSS in highlighted output, or path traversal attempts?
+- **Impact Score**: 3
+- **Rationale**: While filtering is client-side, highlighted output rendered as HTML could introduce XSS if not properly escaped. Long queries could also be used for ReDoS attacks.
 
-| # | Impact | Quality Attribute | Question |
-|---|--------|-------------------|----------|
-| 1 | 4 | Performance | What is the maximum acceptable memory footprint for the outline feature? |
-| 2 | 4 | Scalability | What is the maximum document size and item count the outline must support without degradation? |
-| 3 | 3 | Performance | Should there be a CPU utilization ceiling for outline parsing? |
-| 4 | 3 | Scalability | What is the maximum number of outline items before employing virtualization? |
-| 5 | 3 | Scalability | How should the outline degrade gracefully for very large documents? |
-| 6 | 3 | Reliability | Should the outline component be error-boundary isolated? |
-| 7 | 3 | Compliance | What WCAG compliance level is required for the outline? |
-| 8 | 2 | Performance | Should all performance targets be consolidated into a single NFR section? |
-| 9 | 2 | Performance | What debounce interval should be used for outline updates? |
-| 10 | 2 | Reliability | What is the maximum acceptable staleness for "last valid outline" data? |
-| 11 | 2 | Reliability | Should there be retry logic for transient AST parsing failures? |
-| 12 | 2 | Observability | Should outline parsing performance be logged for debugging? |
-| 13 | 2 | Observability | Should outline performance metrics be collected for monitoring? |
-| 14 | 2 | Security | Should outline item text be sanitized before rendering? |
-| 15 | 2 | Compliance | Should keyboard navigation follow the WAI-ARIA TreeView pattern? |
-| 16 | 1 | Observability | Should there be a debug mode for inspecting outline state? |
-| 17 | 1 | Security | Is there risk of outline data exposure in logs/error reports? |
+### 11. Query Privacy / Telemetry
+- **Category**: non_functional
+- **Status**: Missing
+- **Question Candidate**: Should filter queries be excluded from any application telemetry or crash reports? Are queries containing sensitive patterns (passwords, tokens) a concern?
+- **Impact Score**: 2
+- **Rationale**: Users may accidentally type sensitive information while searching. Privacy policy implications exist if queries are logged.
 
 ---
 
-## Recommendations
+## Compliance / Regulatory
 
-### Critical (Impact 4)
-1. **Memory Budget**: Define a memory ceiling for the outline feature to prevent resource exhaustion on large documents (e.g., "Outline feature must not exceed 50MB additional memory for documents up to 50,000 lines").
+### 12. Accessibility (a11y) Requirements
+- **Category**: non_functional
+- **Status**: Missing
+- **Question Candidate**: What WCAG compliance level (A, AA, AAA) is required for the filter input, results list, and match highlighting? Should screen readers announce filter result counts?
+- **Impact Score**: 4
+- **Rationale**: Accessibility is often a regulatory requirement (ADA, Section 508) and significantly impacts implementation of keyboard navigation, ARIA labels, and focus management.
 
-2. **Document Size Limits**: Specify maximum supported document dimensions and define graceful degradation behavior beyond those limits.
-
-### High Priority (Impact 3)
-3. **WCAG Compliance**: Specify a target WCAG level (recommend 2.1 AA) and reference the WAI-ARIA TreeView pattern for keyboard navigation.
-
-4. **Error Isolation**: Require error boundary wrapping to prevent outline failures from crashing the editor.
-
-5. **Scalability Strategy**: Define virtualization threshold for outline panels with many items.
-
-### Medium Priority (Impact 2)
-6. **Performance Consolidation**: Consolidate all quantitative performance targets into a single NFR subsection for clarity.
-
-7. **Observability**: Add basic logging requirements for debugging outline issues in production.
-
-8. **Input Sanitization**: Clarify text rendering approach to prevent any edge-case rendering issues.
-
-### Low Priority (Impact 1)
-9. **Debug Mode**: Consider adding developer tooling for outline state inspection (can be deferred to later spec).
+### 13. Internationalization (i18n)
+- **Category**: non_functional
+- **Status**: Missing
+- **Question Candidate**: Should fuzzy matching correctly handle Unicode characters, diacritics, and non-Latin scripts (CJK, Arabic, Hebrew)? Should "cafe" match "cafe"?
+- **Impact Score**: 3
+- **Rationale**: International users may have file names in various scripts. Fuzzy matching algorithms must be Unicode-aware to avoid excluding valid matches.
 
 ---
 
-## Notes
+## Additional Observations
 
-- The spec compensates somewhat for NFR vagueness by including quantitative targets in Success Criteria (SC-001 through SC-008)
-- The scattered nature of performance targets across FR, SC, and NFR sections could lead to implementation confusion
-- Security concerns are minimal for a local desktop app, but input sanitization is good practice
-- The accessibility requirements are directionally correct but would benefit from specific standard references
+### Clear Items (No Action Needed)
+
+1. **Basic Latency Target**: SC-002 provides a clear 100ms target for up to 10,000 files - this is specific and measurable.
+2. **Persistence Scope**: FR-007 and User Story 5 clearly define per-project persistence semantics.
+
+---
+
+## Recommended Priority for Clarification
+
+| Priority | Item | Impact | Reason |
+|----------|------|--------|--------|
+| High | Accessibility (a11y) | 4 | Legal/regulatory implications |
+| High | Scalability limits (10k+ files) | 4 | Common enterprise use case |
+| High | Performance degradation strategy | 4 | User experience at scale |
+| Medium | Input sanitization / XSS | 3 | Security vulnerability risk |
+| Medium | Persistence failure handling | 3 | Feature reliability |
+| Medium | i18n / Unicode support | 3 | International user base |
+| Medium | Memory consumption limits | 3 | Resource management |
+| Medium | Keystroke debouncing strategy | 3 | UX consistency |
+| Medium | File system race conditions | 3 | Error handling completeness |
+| Low | Observability/logging | 2 | Development/debugging convenience |
+| Low | Privacy/telemetry | 2 | Policy documentation need |
+| Low | Folder depth limits | 2 | Edge case handling |

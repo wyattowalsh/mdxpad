@@ -1,8 +1,8 @@
 # UX Flow Ambiguity Analysis
 
-**Spec**: `specs/007-mdx-content-outline/spec.md`
-**Category**: UX Flow
+**Spec**: 014-smart-filtering (Smart Filtering for File Tree)
 **Analysis Date**: 2026-01-17
+**Category**: UX Flow
 
 ---
 
@@ -11,216 +11,231 @@
 | Status | Count |
 |--------|-------|
 | Clear | 4 |
-| Partial | 7 |
+| Partial | 8 |
 | Missing | 5 |
 
 ---
 
-## Findings
+## Critical User Journeys / Sequences
 
-### 1. Loading State During Initial AST Parsing
+### 1. Filter Input Focus Flow
 
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: What should the outline panel display while the AST is being parsed for the first time when a document is opened? Should there be a loading spinner, skeleton UI, or is it expected to be fast enough to not need one?
-- **Impact Score**: 3
-
-**Analysis**: The spec mentions the outline updates within 500ms of document changes (FR-010, FR-015, FR-019), but there's no mention of what users see during the initial load when a document is first opened. The success criteria (SC-004) mentions parsing adds less than 50ms overhead, but initial document opening may take longer.
-
----
-
-### 2. Loading State During Document Switching
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: When the user switches from one document to another, what is the transition state for the outline panel? Does it show the old outline until the new one is ready, clear immediately and show loading, or flash briefly?
-- **Impact Score**: 3
-
-**Analysis**: The spec assumes single-document model (Assumption 2) but doesn't describe the UX flow when switching between documents in the same session. Users may have multiple files open in sequence.
-
----
-
-### 3. Error State Visual Design and Recovery Flow
-
-- **Category**: UX Flow
+- **Category**: ux_flow
 - **Status**: Partial
-- **Question Candidate**: When AST parsing fails, what specific visual treatment indicates the "warning indicator" mentioned in edge cases? Is there a retry mechanism, and if the user fixes the syntax error, does the outline auto-recover?
+- **Question Candidate**: What is the designated keyboard shortcut to focus the filter input, and how should conflicts with existing shortcuts be handled?
 - **Impact Score**: 4
 
-**Analysis**: Edge case mentions "Show the last valid outline with a warning indicator" but doesn't specify what the warning looks like (icon, banner, color change), where it appears, or whether users can dismiss it. FR-031 mentions "error state" but the visual treatment is undefined. Auto-recovery behavior is implied but not explicit.
+**Analysis**: The spec mentions a keyboard shortcut to focus the filter input (FR-006, User Story 4) but does not specify the actual keyboard shortcut. It mentions "Cmd/Ctrl+Shift+E or similar unassigned shortcut" in Assumptions but this is vague and non-committal.
 
 ---
 
-### 4. Empty State Message Placement and Design
+### 2. Focus Return Behavior After Escape
 
-- **Category**: UX Flow
+- **Category**: ux_flow
 - **Status**: Partial
-- **Question Candidate**: For the empty state ("No outline available..."), should this message appear in a specific visual style (muted text, icon, illustration)? Should it span the entire panel or be centered? Is the guidance text sufficient or should there be action buttons?
-- **Impact Score**: 2
-
-**Analysis**: Edge case specifies the message text but not the visual presentation. Modern UIs often include helpful illustrations or quick-action buttons in empty states.
-
----
-
-### 5. Keyboard Navigation Flow Within Outline Tree
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: What is the complete keyboard navigation flow? Specifically: How does Tab/Shift+Tab interact with the tree? What happens when pressing Enter on a collapsed parent (expand or navigate)? Is there Escape to exit tree focus? What about Home/End keys?
-- **Impact Score**: 4
-
-**Analysis**: Non-functional requirements mention "arrow keys to move, Enter to select" and ARIA roles, but the full keyboard interaction model is incomplete. For example:
-- Left/Right arrows for expand/collapse vs. Up/Down for traversal
-- Tab behavior relative to other UI elements
-- Focus ring visibility
-- Typeahead search behavior
-
----
-
-### 6. Screen Reader Announcement Specifics
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: What specific announcements should screen readers make? Should they announce the heading level (e.g., "Heading level 2, Installation"), component counts, section collapse state changes, and navigation success messages?
-- **Impact Score**: 4
-
-**Analysis**: The spec mentions "Screen readers must announce outline structure and navigation actions" but doesn't specify what text should be announced. This is critical for accessibility compliance. For example:
-- "Installation, heading level 2, item 3 of 8"
-- "Components section collapsed, 5 items hidden"
-- "Navigated to line 42"
-
----
-
-### 7. Visual Feedback During Navigation
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: Beyond the 500ms line highlight, should the clicked outline item show a selected/active state? What happens if the user clicks another item before the highlight fades - does the previous highlight cancel immediately?
-- **Impact Score**: 2
-
-**Analysis**: FR-022 specifies a 500ms flash highlight on the target line, but doesn't address:
-- Whether the outline item itself shows selection state
-- Behavior when rapidly clicking multiple items
-- Whether the highlight uses the editor's current theme colors
-
----
-
-### 8. Panel Resize Interaction
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: Can users manually resize the outline panel width? If so, what are the resize constraints (min/max width), is there a visual resize handle, and is the width persisted across sessions?
+- **Question Candidate**: When pressing Escape to exit the filter input, should focus return to (a) the previously focused element before the shortcut was invoked, (b) the file tree panel, (c) the main editor, or (d) a configurable default?
 - **Impact Score**: 3
 
-**Analysis**: FR-004 mentions minimum width of 150px enforced when narrow, but there's no specification of whether users can manually resize the panel. The spec only mentions auto-hide behavior. Manual resizing is a standard expectation for sidebar panels.
+**Analysis**: User Story 4 Scenario 2 says "returns focus to the previous element" but doesn't define what "previous element" means. Is it the last focused element before invoking the shortcut? The file tree? The editor?
 
 ---
 
-### 9. Hover State and Tooltip Behavior
+### 3. Two-Stage Escape Behavior
 
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: For truncated headings (40+ chars), how long is the hover delay before showing the tooltip? Should tooltips also appear for component instances showing additional context (e.g., the component's props)?
-- **Impact Score**: 2
-
-**Analysis**: FR-009 mentions "showing full text on hover" but doesn't specify tooltip delay, positioning, or whether tooltips apply to other truncated content like long component names.
-
----
-
-### 10. Focus Management After Navigation
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: After clicking an outline item and the editor scrolls to the target, where does keyboard focus go? Does it move to the editor (allowing immediate typing), stay in the outline panel, or follow a specific accessibility pattern?
-- **Impact Score**: 4
-
-**Analysis**: The spec describes cursor positioning (FR-021) but not focus management. For accessibility, focus should typically move to the editor after navigation to allow users to immediately start editing. This is critical for keyboard-only users.
-
----
-
-### 11. Localization/i18n for Section Headers
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: Should the section headers ("Headings", "Components", "Frontmatter") and the empty state message be localized? If so, what is the localization strategy (i18n library, string keys)?
-- **Impact Score**: 3
-
-**Analysis**: The spec uses hard-coded English strings for section names and messages. There's no mention of localization support, string externalization, or RTL language considerations for the outline panel layout.
-
----
-
-### 12. Animation/Transition Specifications
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: What are the animation specifications for panel show/hide, section collapse/expand, and the navigation highlight? Should animations respect prefers-reduced-motion for accessibility?
-- **Impact Score**: 2
-
-**Analysis**: The spec mentions toggle and collapse behaviors but not transition timing or animation style. Modern UI expectations include smooth animations, but accessibility requires respecting user motion preferences.
-
----
-
-### 13. Outline Panel Header Actions
-
-- **Category**: UX Flow
+- **Category**: ux_flow
 - **Status**: Clear
 - **Question Candidate**: N/A
 - **Impact Score**: N/A
 
-**Analysis**: FR-005 clearly specifies a close button in the header. The toggle shortcut (Cmd+Shift+O) is well-defined.
+**Analysis**: User Story 4 Scenario 3 clearly defines the two-stage Escape behavior: first clears text, second removes focus. This is well specified.
 
 ---
 
-### 14. Click-to-Navigate User Journey
+### 4. Filter Results Update During Typing
 
-- **Category**: UX Flow
+- **Category**: ux_flow
 - **Status**: Clear
 - **Question Candidate**: N/A
 - **Impact Score**: N/A
 
-**Analysis**: User Story 1 provides a complete journey with clear acceptance scenarios. The flow from click to cursor position to highlight is well-specified.
+**Analysis**: FR-002 and FR-010 clearly specify that filtering happens "as the user types" without "noticeable delay". SC-002 quantifies this as "within 100ms".
 
 ---
 
-### 15. Toggle Panel Visibility Journey
+### 5. File Selection While Filter Active
 
-- **Category**: UX Flow
+- **Category**: ux_flow
+- **Status**: Missing
+- **Question Candidate**: After selecting a file from filtered results, should (a) the filter clear and show full tree, (b) the filter persist allowing additional selections, or (c) the behavior be configurable? Additionally, can users navigate the filtered list with keyboard (arrow keys)?
+- **Impact Score**: 4
+
+**Analysis**: The spec does not describe what happens after a user selects a file from the filtered results. Does the filter clear? Does it persist? Can the user navigate the filtered list with keyboard (arrow keys)?
+
+---
+
+### 6. Filter Input Visibility and Position
+
+- **Category**: ux_flow
+- **Status**: Partial
+- **Question Candidate**: Where should the filter input be positioned within the file explorer sidebar - always visible at top, collapsible, or appearing only when the keyboard shortcut is invoked?
+- **Impact Score**: 3
+
+**Analysis**: FR-001 states a "text input field in the file explorer sidebar" but doesn't specify positioning (top, bottom, floating), whether it's always visible or appears on demand, or how it integrates visually with the file tree.
+
+---
+
+## Error / Empty / Loading States
+
+### 7. Empty State Message
+
+- **Category**: ux_flow
+- **Status**: Partial
+- **Question Candidate**: What should the empty state message say when no files match? Should it include (a) just "No results found", (b) a suggestion like "Try a different search term", (c) a count of total files searched, or (d) an option to clear the filter?
+- **Impact Score**: 3
+
+**Analysis**: FR-011 requires "a clear empty state message" and the Edge Cases mention "(Empty state with helpful message)" but the actual message content, visual design, or whether it should include suggestions (like "Try a different search term") is not specified.
+
+---
+
+### 8. Loading State During Large Tree Filter
+
+- **Category**: ux_flow
+- **Status**: Missing
+- **Question Candidate**: If filtering exceeds the 100ms target (e.g., on very large projects or slower machines), should the UI (a) show a loading indicator, (b) debounce input and show "searching...", (c) progressively render results, or (d) allow background filtering with cancellation?
+- **Impact Score**: 3
+
+**Analysis**: The spec mentions performance targets (SC-002: 100ms for 10,000 files) but doesn't address what happens if filtering takes longer. Is there a loading indicator? Does the UI remain responsive? What about initial load when restoring persisted filter?
+
+---
+
+### 9. Error State for Filter Persistence Failure
+
+- **Category**: ux_flow
+- **Status**: Missing
+- **Question Candidate**: How should the system behave if filter persistence fails? Should it (a) silently continue without persistence, (b) show a non-blocking notification, (c) attempt recovery, or (d) fall back to session-only storage?
+- **Impact Score**: 2
+
+**Analysis**: FR-007 requires persistence across sessions but there's no error handling specified if localStorage is unavailable, quota is exceeded, or data is corrupted.
+
+---
+
+### 10. Real-time File System Changes During Filter
+
+- **Category**: ux_flow
+- **Status**: Partial
+- **Question Candidate**: When files are added/deleted/renamed while a filter is active, should the UI (a) silently update the list, (b) provide subtle animation for changes, (c) show a notification of changes, or (d) flash/highlight newly matching items?
+- **Impact Score**: 3
+
+**Analysis**: Edge cases mention "Filter results update automatically" for file changes, but doesn't specify visual feedback. Should new matching files animate in? Should deletions animate out? What if a currently highlighted file is deleted?
+
+---
+
+## Accessibility Notes
+
+### 11. Screen Reader Announcements
+
+- **Category**: ux_flow
+- **Status**: Missing
+- **Question Candidate**: What accessibility features are required? Should the system provide (a) ARIA live regions announcing result counts, (b) screen reader announcements for empty state, (c) accessible descriptions of match highlighting, (d) all of the above?
+- **Impact Score**: 4
+
+**Analysis**: The spec has no accessibility requirements. Screen reader users need announcements for: filter result count changes, empty state, matched/highlighted portions, and focus changes.
+
+---
+
+### 12. Keyboard Navigation Within Filtered Results
+
+- **Category**: ux_flow
+- **Status**: Missing
+- **Question Candidate**: How should keyboard navigation work within filtered results? Specifically: (a) Can users arrow down from the filter input into results? (b) Does Enter open the highlighted file? (c) Can Tab move between filter input, clear button, and results?
+- **Impact Score**: 4
+
+**Analysis**: No specification for how keyboard users navigate the filtered file tree. Arrow keys? Tab? Enter to select? How does this integrate with the filter input focus?
+
+---
+
+### 13. Color Contrast for Match Highlighting
+
+- **Category**: ux_flow
+- **Status**: Partial
+- **Question Candidate**: How should matched characters be visually distinguished? Should highlighting use (a) bold text, (b) background color, (c) text color change, (d) underline, or a combination? Must it meet WCAG 2.1 AA contrast requirements?
+- **Impact Score**: 3
+
+**Analysis**: FR-005 requires "visually highlight the matched portions" but doesn't specify the highlighting method (bold, color, background) or ensure WCAG color contrast compliance.
+
+---
+
+## Localization Notes
+
+### 14. RTL Language Support
+
+- **Category**: ux_flow
+- **Status**: Partial
+- **Question Candidate**: Should the filter input and file tree support RTL languages? If so, how should (a) the input field direction, (b) match highlighting, and (c) tree indentation behave in RTL mode?
+- **Impact Score**: 2
+
+**Analysis**: No mention of RTL (right-to-left) language support for the filter input or file tree display. This affects Arabic, Hebrew, and other RTL language users.
+
+---
+
+### 15. Internationalized Empty State and UI Text
+
+- **Category**: ux_flow
 - **Status**: Clear
 - **Question Candidate**: N/A
 - **Impact Score**: N/A
 
-**Analysis**: User Story 2 fully covers the toggle flow including persistence and both keyboard and button interactions.
+**Analysis**: While specific message content isn't specified, the spec doesn't preclude internationalization. This follows established patterns in the application.
 
 ---
 
-### 16. Component Navigation Journey
+### 16. Special Character Handling Across Languages
 
-- **Category**: UX Flow
+- **Category**: ux_flow
 - **Status**: Clear
 - **Question Candidate**: N/A
 - **Impact Score**: N/A
 
-**Analysis**: User Story 3 clearly defines expanding component types, viewing instances, and clicking to navigate.
+**Analysis**: Edge cases mention "Treat as literal characters for matching" for special characters, which implicitly covers Unicode characters from different languages.
+
+---
+
+## Additional UX Flow Gaps
+
+### 17. Filter Clear Button Behavior
+
+- **Category**: ux_flow
+- **Status**: Partial
+- **Question Candidate**: Should the clear button (a) always be visible, (b) appear only when the filter has text, or (c) be an "X" icon inside the input field? After clearing, should focus remain on the input or move elsewhere?
+- **Impact Score**: 2
+
+**Analysis**: FR-012 mentions "clear button" as one way to clear the filter, but doesn't specify when it appears (always? only when text exists?), its position, or whether clicking it returns focus to the filter input.
+
+---
+
+## High-Priority Questions (Impact >= 4)
+
+1. **What is the designated keyboard shortcut to focus the filter input, and how should conflicts with existing shortcuts be handled?** (Impact: 4)
+
+2. **After selecting a file from filtered results, should the filter clear, persist, or be configurable? Can users navigate filtered results with arrow keys?** (Impact: 4)
+
+3. **What accessibility features are required for screen reader users?** (Impact: 4)
+
+4. **How should keyboard navigation work within filtered results?** (Impact: 4)
 
 ---
 
 ## Recommendations
 
-### High Priority (Impact 4)
-1. **Error State Design** - Define visual treatment for parsing errors and recovery flow
-2. **Keyboard Navigation** - Document complete keyboard interaction model
-3. **Screen Reader Announcements** - Specify announcement text templates
-4. **Focus Management** - Define focus behavior after navigation
+1. Add an **Accessibility Requirements** section addressing screen readers, keyboard navigation, and color contrast.
 
-### Medium Priority (Impact 3)
-5. **Loading States** - Define initial load and document switch transitions
-6. **Panel Resizing** - Clarify if manual resize is supported
-7. **Localization** - Determine i18n strategy
+2. Specify the **exact keyboard shortcut** and document conflict resolution strategy.
 
-### Lower Priority (Impact 2)
-8. **Empty State Design** - Enhance visual treatment specification
-9. **Hover/Tooltip Behavior** - Specify timing and scope
-10. **Animation Specs** - Define transitions and motion preferences
+3. Define the complete **user journey** from filter invocation through file selection and beyond.
+
+4. Clarify **loading/error states** for edge cases like slow filtering or persistence failures.
+
+5. Document **keyboard navigation flow** between filter input and filtered tree results.
 
 ---
 
@@ -229,12 +244,12 @@
 | Topic | Covered | Notes |
 |-------|---------|-------|
 | Happy path user journey | Yes | User Stories 1-5 well-defined |
-| Empty state | Partial | Message defined, visual treatment not |
+| Empty state | Partial | Behavior mentioned, visual design not |
 | Loading state | No | Not addressed |
-| Error state | Partial | Mentioned but not detailed |
-| Keyboard navigation | Partial | Basic mentioned, details missing |
-| Screen reader support | Partial | Required but not specified |
-| Focus management | No | Not addressed |
-| Localization | No | Not addressed |
-| Animations | Partial | Behavior implied, timing not specified |
-| Responsive behavior | Yes | Auto-hide thresholds defined |
+| Error state | No | Persistence failures not addressed |
+| Keyboard navigation | No | Not specified for filtered results |
+| Screen reader support | No | No accessibility requirements |
+| Focus management | Partial | Escape behavior defined, selection not |
+| Localization | Partial | RTL not addressed |
+| Animations | No | No transition specs |
+| Responsive behavior | No | Not mentioned |

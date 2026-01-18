@@ -1,6 +1,6 @@
 # Clarification Analysis: Misc / Placeholders
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
 **Category**: Misc / Placeholders
 **Focus Areas**: TODO markers, unresolved decisions, ambiguous adjectives lacking quantification
 **Analyzed**: 2026-01-17
@@ -9,13 +9,13 @@
 
 ## Summary
 
-The spec is generally well-specified with most timing requirements quantified (500ms updates, 100ms navigation, etc.). However, several ambiguous adjectives and missing specifications were identified that require clarification before implementation.
+The spec is reasonably well-specified with most performance metrics quantified (100ms latency, 80% match threshold). However, several ambiguous adjectives and unresolved decisions were identified that require clarification before implementation. No explicit TODO markers were found.
 
 | Status | Count |
 |--------|-------|
 | Clear | 3 |
-| Partial | 4 |
-| Missing | 2 |
+| Partial | 6 |
+| Missing | 1 |
 
 ---
 
@@ -28,113 +28,128 @@ The spec is generally well-specified with most timing requirements quantified (5
 
 ---
 
-### 2. Quantified Adjective: "briefly highlighted" (Line 160)
+### 2. Ambiguous Adjective: "noticeable delay" (Line 111)
 
-**Location**: FR-022
-**Text**: "System MUST briefly highlight the target line after navigation (flash highlight for 500ms)"
-**Status**: **Clear**
-**Impact Score**: 1/5
-
-**Note**: The adjective "briefly" is properly quantified with "500ms" in parentheses. No ambiguity.
-
----
-
-### 3. Ambiguous Adjective: "lightweight parser" (Line 174)
-
-**Location**: FR-030
-**Text**: "System MUST fall back to a lightweight parser if preview AST is unavailable"
+**Location**: FR-010
+**Text**: "System MUST perform filtering without noticeable delay as the user types"
 **Status**: **Partial**
 **Impact Score**: 3/5
 
-**Question Candidate**: What constitutes a "lightweight" parser? Should it be defined by: (a) parsing time budget (e.g., <20ms), (b) memory footprint (e.g., <5MB), (c) feature set (heading-only vs full MDX parsing), or (d) a specific library/implementation (e.g., remark-parse without MDX)?
+**Question Candidate**: What specific latency threshold (in milliseconds) defines "noticeable delay"? SC-002 specifies 100ms for 10k files - should FR-010 reference this explicitly?
 
-**Rationale**: Without a concrete definition, developers may choose different fallback parsers with varying performance characteristics. This affects consistency and testability. The parser choice also impacts what outline information is available in fallback mode.
-
----
-
-### 4. Ambiguous Adjective: "common fields" (Line 152)
-
-**Location**: FR-017
-**Text**: "System MUST limit displayed frontmatter to common fields, with option to expand for all fields"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: What specific fields are considered "common"? FR-016 mentions title, date, author, description, tags - are these definitively the "common fields" referenced in FR-017? Should there be a configurable whitelist, or is this a fixed list?
-
-**Rationale**: Inconsistency between FR-016 (explicit list) and FR-017 (vague "common") could lead to implementation confusion. Low impact since FR-016 provides reasonable guidance.
+**Rationale**: The term "noticeable delay" is subjective. While SC-002 provides a quantified metric (100ms), the functional requirement itself lacks precision. This creates potential ambiguity in implementation and testing.
 
 ---
 
-### 5. Quantified ARIA Roles: "appropriate ARIA roles" (Line 216)
-
-**Location**: NFR Accessibility
-**Text**: "All outline items must have appropriate ARIA roles (tree, treeitem)"
-**Status**: **Clear**
-**Impact Score**: 1/5
-
-**Note**: The parenthetical "(tree, treeitem)" provides specific roles. No ambiguity.
-
----
-
-### 6. Ambiguous Phrase: "distinguish...visually" (Line 146)
-
-**Location**: FR-014
-**Text**: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
-**Status**: **Partial**
-**Impact Score**: 3/5
-
-**Question Candidate**: How should built-in components be visually distinguished from custom components? Options include: (a) different icons, (b) different text colors/styles, (c) grouping/sorting within the Components section, (d) badge/label indicators. Additionally, what is the exhaustive list of "built-in" components (the "etc." is undefined)?
-
-**Rationale**: Without visual design guidance, implementation requires additional design decisions. The incomplete list ("Callout, CodeBlock, etc.") leaves the built-in set undefined.
-
----
-
-### 7. Partially Specified: Window Width Thresholds (Lines 117, 130)
-
-**Location**: FR-004, Edge Cases
-**Text**: "System MUST auto-hide the outline when window width is insufficient (below 600px with preview visible, or below 400px with preview hidden)"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: Are the thresholds (600px with preview, 400px without) final design decisions or placeholders? How do these interact with the existing preview auto-hide thresholds from spec-006 to ensure consistent responsive behavior?
-
-**Rationale**: Thresholds are numerically specified, but the relationship to existing spec-006 preview behavior and whether these are configurable needs clarification.
-
----
-
-### 8. Missing Specification: Debounce Timing (Line 210)
-
-**Location**: NFR Performance
-**Text**: "Debounce outline updates to avoid excessive re-parsing during rapid typing"
-**Status**: **Missing**
-**Impact Score**: 4/5
-
-**Question Candidate**: What is the specific debounce interval for outline updates? The 500ms update requirement (FR-010, FR-015, FR-019) implies a maximum latency, but the debounce value itself is unspecified. Should it match the preview pane debounce timing for consistency?
-
-**Rationale**: Without a specific debounce value, implementations may vary, affecting UX consistency and perceived responsiveness. This is a performance-critical parameter that needs specification.
-
----
-
-### 9. Missing Specification: Panel Width Constraints (Line 116)
+### 3. Ambiguous Adjective: "very long string" (Line 96)
 
 **Location**: Edge Cases
-**Text**: "Enforce minimum width of 150px"
-**Status**: **Missing**
+**Text**: "What happens when the user pastes a very long string into the filter? (Truncate or limit input length gracefully)"
+**Status**: **Partial**
 **Impact Score**: 3/5
 
-**Question Candidate**: What is the default width of the outline panel? What is the maximum width (if any)? Is the panel resizable by the user via drag handle, and if so, should the width be persisted across sessions?
+**Question Candidate**: What is the maximum character limit for filter input? What constitutes "gracefully" handling overflow (silent truncation, warning message, visual indicator)?
 
-**Rationale**: Only minimum width is specified. Default width, maximum width, resize behavior, and persistence are unspecified but essential for layout implementation and consistency with spec-006 panel patterns.
+**Rationale**: "Very long" is undefined. The resolution mentions truncation but doesn't specify the limit or the user feedback mechanism.
 
 ---
 
-### 10. Quantified Timing: Success Criteria Metrics
+### 4. Ambiguous Adjective: "helpful message" (Line 92)
 
-**Location**: Success Criteria (Lines 194-201)
+**Location**: Edge Cases
+**Text**: "What happens when the filter query matches no files or folders? (Empty state with helpful message)"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: What specific text should the empty state message display? Should it provide suggestions for improving the query?
+
+**Rationale**: "Helpful" is subjective. The specific message content and whether it should include actionable suggestions is not defined.
+
+---
+
+### 5. Unresolved Decision: Specific Keyboard Shortcut (Lines 68, 137)
+
+**Location**: User Story 4, Assumptions
+**Text**: "the designated keyboard shortcut" and "e.g., Cmd/Ctrl+Shift+E or similar unassigned shortcut"
+**Status**: **Partial**
+**Impact Score**: 4/5
+
+**Question Candidate**: What is the definitive keyboard shortcut for focusing the filter input? How will conflicts with existing shortcuts be resolved?
+
+**Rationale**: The specification mentions "designated" shortcut without defining it. The assumption section gives an example but uses tentative language ("or similar"). This is a UX decision that affects documentation and command palette integration.
+
+---
+
+### 6. Ambiguous Term: "match quality" (Line 38)
+
+**Location**: User Story 2, Acceptance Scenario 3
+**Text**: "all matching files are displayed ranked by match quality"
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: What algorithm/criteria determines "match quality" ranking? (e.g., character proximity, position in filename, consecutive matches)
+
+**Rationale**: While SC-006 defines fuzzy matching threshold (80% characters), the ranking algorithm for match quality is not specified. Different implementations could produce different orderings.
+
+---
+
+### 7. Ambiguous Adjective: "visually highlighted" / "visually distinguished" (Lines 52-54)
+
+**Location**: User Story 3, Acceptance Scenarios
+**Text**: "visually highlighted", "visually distinguished"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: What specific visual treatment should be used for match highlighting? (bold, color, background, underline) Should it follow existing UI conventions from the codebase?
+
+**Rationale**: The visual style is not specified. Implementation could vary significantly (color highlighting, bold text, underline, background color).
+
+---
+
+### 8. Assumption: "standard algorithm like fzf-style matching" (Line 138)
+
+**Location**: Assumptions
+**Text**: "Fuzzy matching uses a standard algorithm like fzf-style matching"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: Should the implementation use fzf algorithm specifically, or is any fuzzy matching algorithm acceptable? Are there specific fuzzy matching libraries preferred?
+
+**Rationale**: The phrase "like fzf-style" is non-committal. For consistency and predictable behavior, a specific algorithm or library should be designated.
+
+---
+
+### 9. Clear Specification: Filter Persistence Scope (Line 86)
+
+**Location**: User Story 5, Acceptance Scenario 3
+**Text**: "the filter state is specific to that project"
 **Status**: **Clear**
 **Impact Score**: 1/5
 
-**Note**: SC-001 through SC-008 all have specific quantified targets (100ms, 500ms, 50ms, etc.). No ambiguous adjectives found in success criteria.
+**Note**: Filter persistence is clearly scoped per-project/workspace. No ambiguity.
+
+---
+
+### 10. Clear Specification: Special Character Handling (Line 95)
+
+**Location**: Edge Cases
+**Text**: "special characters in the filter query? (Treat as literal characters for matching)"
+**Status**: **Clear**
+**Impact Score**: 1/5
+
+**Note**: Clearly resolved - special characters are treated as literals. No regex interpretation.
+
+---
+
+### 11. Missing Specification: Filter Input Length Limit
+
+**Location**: Edge Cases (Line 96)
+**Status**: **Missing**
+**Impact Score**: 3/5
+
+**Question Candidate**: What is the maximum allowed length for the filter input field? Should there be a character counter or visual indication when approaching the limit?
+
+**Rationale**: The edge case mentions handling long strings but does not specify the actual limit.
 
 ---
 
@@ -143,39 +158,45 @@ The spec is generally well-specified with most timing requirements quantified (5
 | # | Ambiguity | Status | Impact | Line(s) |
 |---|-----------|--------|--------|---------|
 | 1 | No TODO markers | Clear | 0/5 | - |
-| 2 | "briefly highlighted" | Clear | 1/5 | 160 |
-| 3 | "lightweight parser" | Partial | 3/5 | 174 |
-| 4 | "common fields" | Partial | 2/5 | 152 |
-| 5 | "appropriate ARIA roles" | Clear | 1/5 | 216 |
-| 6 | "visually" distinguish + "etc." list | Partial | 3/5 | 146 |
-| 7 | Window width threshold interaction | Partial | 2/5 | 117, 130 |
-| 8 | Debounce timing unspecified | Missing | 4/5 | 210 |
-| 9 | Panel width (default/max/resize) | Missing | 3/5 | 116 |
+| 2 | "noticeable delay" | Partial | 3/5 | 111 |
+| 3 | "very long string" + "gracefully" | Partial | 3/5 | 96 |
+| 4 | "helpful message" | Partial | 2/5 | 92 |
+| 5 | Keyboard shortcut undefined | Partial | 4/5 | 68, 137 |
+| 6 | "match quality" ranking | Partial | 3/5 | 38 |
+| 7 | "visually highlighted" style | Partial | 2/5 | 52-54 |
+| 8 | "fzf-style" algorithm | Partial | 2/5 | 138 |
+| 9 | Filter persistence scope | Clear | 1/5 | 86 |
+| 10 | Special character handling | Clear | 1/5 | 95 |
+| 11 | Input length limit | Missing | 3/5 | 96 |
 
 ---
 
 ## Recommended Priority for Clarification
 
 **High Priority** (Impact 4-5):
-1. **Debounce timing** - What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing?
+1. **Keyboard shortcut** - What is the definitive keyboard shortcut for focusing the filter input, and how are conflicts resolved?
 
 **Medium Priority** (Impact 3):
-2. **Lightweight parser definition** - What constitutes a "lightweight parser" for the fallback scenario - specific performance budget, feature constraints, or recommended library?
-3. **Visual distinction for components** - How should built-in components be visually distinguished from custom components, and what is the complete list of built-in components?
-4. **Panel width specification** - What are the default and maximum widths for the outline panel, and should the panel be user-resizable with persisted width?
+2. **Noticeable delay quantification** - Align FR-010 with SC-002's 100ms threshold or specify a different value
+3. **Input length limit** - Specify maximum filter input length (e.g., 256 characters) and overflow handling behavior
+4. **Match quality ranking** - Define the fuzzy matching scoring/ranking criteria or reference a specific library
+5. **Long string handling** - Specify the character limit and user feedback mechanism for overflow
 
 **Lower Priority** (Impact 1-2):
-5. **Common fields clarification** - Confirm whether FR-016's list (title, date, author, description, tags) is the definitive "common fields" list
-6. **Window threshold interaction** - Confirm thresholds are final and document interaction with spec-006 preview auto-hide
+6. **Visual highlight style** - Define the specific CSS/visual treatment for match highlighting
+7. **Helpful message content** - Specify the empty state message text
+8. **Fuzzy algorithm specification** - Commit to fzf-style or specify acceptable alternatives
 
 ---
 
 ## Recommended Clarification Questions (Sorted by Impact)
 
-1. **[Impact 4]** What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing for consistency?
+1. **[Impact 4]** What is the definitive keyboard shortcut for focusing the filter input? How will conflicts with existing application shortcuts be detected and resolved?
 
-2. **[Impact 3]** What constitutes a "lightweight parser" for the fallback scenario - specific performance budget (e.g., <20ms), feature constraints (heading-only), or recommended library?
+2. **[Impact 3]** Should FR-010 ("without noticeable delay") explicitly reference SC-002's 100ms threshold, or is a different performance target intended?
 
-3. **[Impact 3]** How should built-in components be visually distinguished from custom components (icons, colors, badges)? What is the complete list of built-in components beyond Callout and CodeBlock?
+3. **[Impact 3]** What is the maximum character limit for filter input, and what user feedback should be provided when the limit is reached or exceeded?
 
-4. **[Impact 3]** What are the default and maximum widths for the outline panel? Should the panel be user-resizable via drag handle, and if so, should width be persisted across sessions?
+4. **[Impact 3]** What algorithm/criteria determines "match quality" for result ranking? Should the spec require a specific scoring approach (e.g., character proximity bonus, consecutive match bonus)?
+
+5. **[Impact 2]** What specific visual treatment should be used for highlighting matched characters in filtered results (bold, background color, text color, underline)?

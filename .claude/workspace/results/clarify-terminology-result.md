@@ -1,168 +1,159 @@
-# Terminology & Consistency Scan Results
+# Terminology Analysis: 014-smart-filtering
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
-**Category**: Terminology
-**Date**: 2026-01-17
+**Spec**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
+**Analysis Date**: 2026-01-17
+**Category**: Terminology & Consistency
 
 ---
 
-## Executive Summary
+## Summary
 
-The 007-mdx-content-outline spec has several terminology inconsistencies and missing glossary terms when compared against the canonical sources (Constitution glossary, and previous specs 003-preview-pane and 006-application-shell). Key issues include undefined terms, potential synonym conflicts, and missing alignment with established project vocabulary.
+Analyzed the Smart Filtering specification for terminology consistency against:
+- Project Constitution glossary
+- Established terms from specs 004 (File System Shell) and 006 (Application Shell)
+- Internal consistency within the spec
 
 ---
 
 ## Findings
 
-### 1. "Outline Item" vs "OutlineItem" Entity Inconsistency
+### 1. "File Tree" vs "File Explorer"
 
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Glossary (line 260) vs Key Entities (line 182)
-- **Issue**: The glossary defines "Outline Item" (two words) while the Key Entities section uses "OutlineItem" (PascalCase, one word). This creates ambiguity about the canonical form.
-- **Question Candidate**: Should the canonical term be "Outline Item" (human-readable glossary form) or "OutlineItem" (code entity form)? Should both forms be documented explicitly?
-- **Impact Score**: 2
-- **Recommendation**: Align glossary term with Key Entity naming. Use "OutlineItem" consistently, with glossary entry clarifying it as "**OutlineItem** (Outline Item in prose)"
-
----
-
-### 2. "Source Position" vs "line/column" Terminology
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Glossary (line 261), FR-032 (line 176)
-- **Issue**: The glossary defines "Source Position" as "line and column number" but the spec uses "line" and "column" separately in various places without referencing "Source Position". Spec 003 (Preview Pane) uses "position information" in FR-006. Spec 006 uses "cursor position" (different concept).
-- **Question Candidate**: Is "Source Position" the canonical term for line/column tuples in the codebase, or should each spec define its own terminology?
-- **Impact Score**: 3
-- **Recommendation**: Add "Source Position" to project-wide glossary (Constitution) and reference it consistently. Distinguish from "Cursor Position" (006) which is editor-specific.
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Partial |
+| **Terms Used** | "file tree" (9 occurrences), "file explorer" (5 occurrences), "file explorer sidebar" (3 occurrences) |
+| **Issue** | The spec uses both "file tree" and "file explorer" interchangeably. Line 10: "file tree", Line 12: "file explorer sidebar", Line 20: "file explorer" |
+| **Question Candidate** | Should "file tree" and "file explorer" be distinguished (tree = data structure, explorer = UI component), or should one canonical term be chosen? If so, which term should be canonical: "file tree", "file explorer", or "file explorer sidebar"? |
+| **Impact Score** | 3 |
+| **Rationale** | Medium impact - could cause confusion during implementation about whether requirements refer to the data model or the UI component. Spec 006 does not define these terms in its glossary. |
 
 ---
 
-### 3. "AST" Term Undefined in Constitution
+### 2. "Filter Query" vs "Query" vs "Filter Input" vs "Search Query"
 
-- **Category**: Terminology
-- **Status**: Missing (from Constitution)
-- **Location**: Glossary (line 259), FR-029-032 (lines 173-176)
-- **Issue**: "AST" is defined in the 007 spec glossary but not in the Constitution's master glossary. This is a core concept referenced in multiple specs (003-preview-pane mentions "MDX compilation" which produces AST, 007 extensively uses AST).
-- **Question Candidate**: Should "AST" be elevated to the Constitution glossary as a project-wide canonical term?
-- **Impact Score**: 4
-- **Recommendation**: Add "AST" (Abstract Syntax Tree) to Constitution glossary since it's fundamental to MDX compilation and preview architecture.
-
----
-
-### 4. "Tree View" vs "Hierarchical Tree" vs "Headings Tree"
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Glossary (line 262), FR-007 (line 137), User Story 1 (line 27)
-- **Issue**: Multiple terms are used for tree-based UI concepts:
-  - "Tree View" (glossary)
-  - "hierarchical tree structure" (FR-007)
-  - "Headings tree" (FR-006 section header)
-  - "navigable tree view" (Executive Summary)
-- **Question Candidate**: What is the canonical term for tree-based hierarchical UI components? Should "Tree View" encompass all uses, or should more specific terms (Headings Tree, Component List) be documented?
-- **Impact Score**: 2
-- **Recommendation**: Standardize on "Tree View" as the UI pattern term. Use "Headings Tree", "Component List", and "Frontmatter Section" as specific instances.
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Partial |
+| **Terms Used** | "filter query" (Key Entity + 8 occurrences), "query" (standalone, 12 occurrences), "filter input" (7 occurrences), "search query" (line 12) |
+| **Issue** | Multiple related terms used: "filter query" (the string), "query" (shorthand), "filter input" (UI element), "search query" (line 12). Key Entities defines "Filter Query" but "search query" appears in User Story 1. |
+| **Question Candidate** | N/A - Recommend adding to glossary: "Filter Query" = the text string, "Filter Input" = the UI text field component. Avoid "search query" synonym. |
+| **Impact Score** | 2 |
+| **Rationale** | Low-medium impact. The context usually clarifies meaning, but formal glossary would improve precision. Key Entities partially addresses this but doesn't distinguish "filter input" (UI) from "filter query" (value). |
 
 ---
 
-### 5. "Preview AST" vs "MDX AST" vs "AST"
+### 3. "Match" vs "Match Result" vs "Matching"
 
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: FR-029 (line 173), Assumptions (line 229)
-- **Issue**: The spec uses both "preview AST" and "AST" without clarifying if these are the same thing. Spec 003 doesn't use the term "AST" explicitly but refers to "compiled MDX" and "CompileResult".
-- **Question Candidate**: Is "preview AST" specifically the AST generated by the preview pane (spec 003), or is it a general MDX AST? Should we use "CompileResult" (from 003) as the canonical term?
-- **Impact Score**: 3
-- **Recommendation**: Clarify that "AST" in 007 refers to the parsed structure from MDX compilation (which spec 003 calls "CompileResult"). Consider aligning terminology.
-
----
-
-### 6. Missing "useErrorNavigation" Definition
-
-- **Category**: Terminology
-- **Status**: Missing
-- **Location**: FR-023 (line 161), Assumptions (line 232)
-- **Issue**: The spec references "useErrorNavigation hook" as an existing pattern but doesn't define it in the glossary. This appears to be a hook from spec 006 (Application Shell) but spec 006 doesn't define it in its glossary either.
-- **Question Candidate**: Should "useErrorNavigation" be added to the glossary with a definition? What spec owns this pattern?
-- **Impact Score**: 3
-- **Recommendation**: Add "useErrorNavigation" to glossary: "A React hook providing cursor positioning and navigation functionality for jumping to specific lines in the editor."
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Clear |
+| **Terms Used** | "Match Result" (Key Entity), "match" (verb), "matching" (adjective/gerund) |
+| **Issue** | None - well defined |
+| **Question Candidate** | N/A |
+| **Impact Score** | 1 |
+| **Rationale** | Key Entities defines "Match Result" clearly. Other uses are grammatical variations. No ambiguity. |
 
 ---
 
-### 7. "Outline" vs "Navigator" Title Ambiguity
+### 4. "File Tree Node" - Missing Definition Detail
 
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Title (line 1), throughout spec
-- **Issue**: The spec title is "MDX Content Outline/Navigator" (with slash) but the body uses only "outline" (~50 occurrences) and never "navigator". This creates ambiguity about whether these are synonyms or distinct concepts.
-- **Question Candidate**: Is "Navigator" an alias for "Outline" or does it represent a different aspect of the feature? Should one term be deprecated?
-- **Impact Score**: 2
-- **Recommendation**: Standardize on "Outline" as the canonical term. Add to glossary: "**Outline** (also: Navigator): A panel displaying document structure for navigation."
-
----
-
-### 8. "Panel" vs "Pane" Terminology
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Throughout spec, comparison with 006-application-shell
-- **Issue**: Spec 007 uses "panel" (outline panel, ~20 occurrences) while spec 006 uses "pane" (preview pane, editor pane). Spec 003 also uses "pane" (Preview Pane). This inconsistency could confuse developers.
-- **Question Candidate**: Are "panel" and "pane" interchangeable, or should there be a distinction (e.g., pane for main content areas, panel for auxiliary sidebars)?
-- **Impact Score**: 3
-- **Recommendation**: Establish convention: "pane" for main editing areas (editor pane, preview pane), "panel" for auxiliary/sidebar UI (outline panel, status panel). Document in Constitution glossary.
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Partial |
+| **Terms Used** | "File Tree Node" (Key Entity) |
+| **Issue** | Key Entity "File Tree Node" is defined but doesn't reference spec 004's "FileHandle" or other established types. Is a File Tree Node the same as a FileHandle, or a different abstraction? |
+| **Question Candidate** | Should "File Tree Node" align with or extend the existing `FileHandle` type from spec 004, or is it a distinct concept specific to the tree UI component? |
+| **Impact Score** | 3 |
+| **Rationale** | Medium impact - implementation needs to know whether to reuse existing file types or create new ones for the tree visualization. |
 
 ---
 
-### 9. "Collapsible" Definition Missing
+### 5. "Fuzzy Matching" Algorithm Reference
 
-- **Category**: Terminology
-- **Status**: Missing
-- **Location**: FR-001 (line 127), FR-025-027 (lines 165-168)
-- **Issue**: The spec uses "collapsible" extensively but doesn't define it. There are two distinct collapse behaviors:
-  1. Entire outline panel can collapse/hide (FR-001, FR-002)
-  2. Individual sections within the outline can collapse (FR-025-027)
-- **Question Candidate**: Should "collapsible" be defined to distinguish panel-level collapse (hide/show) from section-level collapse (expand/contract)?
-- **Impact Score**: 2
-- **Recommendation**: Add glossary entry: "**Collapse**: (1) For panels: hiding the panel entirely. (2) For sections: contracting to show only the header."
-
----
-
-### 10. "Section" Overloaded Term
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: OutlineSection entity (line 184), FR-025 (line 165), User Stories
-- **Issue**: "Section" is used for both:
-  1. OutlineSection (Headings, Components, Frontmatter groupings in the outline)
-  2. Document sections (referenced in User Story 1: "jump to a specific section")
-- **Question Candidate**: Should "OutlineSection" be the canonical term for outline groupings to distinguish from document sections?
-- **Impact Score**: 2
-- **Recommendation**: Use "OutlineSection" in technical contexts, "section" (lowercase) for document sections. Add clarity in glossary.
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Partial |
+| **Terms Used** | "fuzzy matching" (8 occurrences), "fzf-style matching" (line 138) |
+| **Issue** | Line 138 mentions "fzf-style matching" as an assumption, but no formal definition exists. SC-006 specifies "80% of query characters present in any order" which may not match fzf algorithm behavior. |
+| **Question Candidate** | Should "fuzzy matching" be precisely defined in the glossary with specific algorithm characteristics, or should implementation be left to use standard fzf-like scoring (which prioritizes consecutive matches, not just presence)? |
+| **Impact Score** | 3 |
+| **Rationale** | Medium impact - different fuzzy matching algorithms produce different results. fzf prioritizes consecutive character sequences and path components, which differs from "characters present in any order" described in SC-006. |
 
 ---
 
-### 11. "Click-to-Navigate" vs "Navigation" Terminology
+### 6. "Project" vs "Workspace"
 
-- **Category**: Terminology
-- **Status**: Clear
-- **Location**: Input description (line 6), FR-020-024 (lines 158-163)
-- **Issue**: Minor - "click-to-navigate" in the input description is a compound term that could be documented.
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Recommendation**: No action needed. "Navigation" is sufficiently clear in context.
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Partial |
+| **Terms Used** | "project" (5 occurrences), "workspace" (4 occurrences), "project/workspace" (1 occurrence at line 108) |
+| **Issue** | Line 86: "different project/workspace", Line 108: "per project/workspace", Line 117: "persisted per project". Are these synonyms or distinct concepts? Constitution uses "Workspace" in Section 4.2 (plugin paths). |
+| **Question Candidate** | Should "project" and "workspace" be consolidated to one canonical term? The Constitution uses "Workspace root" (Section 4.2). Recommend standardizing on "workspace" for consistency. |
+| **Impact Score** | 2 |
+| **Rationale** | Low-medium impact. The meaning is clear in context, but formal distinction or consolidation would improve consistency with Constitution terminology. |
 
 ---
 
-### 12. "Real-time" vs "Live" Usage
+### 7. "Session" - Ambiguous Scope
 
-- **Category**: Terminology
-- **Status**: Clear
-- **Location**: Title, User Story 1 (line 38)
-- **Issue**: Both "real-time" and "live" are used (e.g., "live document outline", "updates in real-time"). This is consistent with spec 003 which uses "live preview".
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Recommendation**: No action needed. Both terms are industry-standard synonyms for immediate updates.
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Partial |
+| **Terms Used** | "session" (2 occurrences), "sessions" (2 occurrences) |
+| **Issue** | User Story 5 title: "Filter Persistence" with text "persist across sessions". What defines a session boundary? App restart? Window close? Tab close (future)? |
+| **Question Candidate** | What constitutes a "session" for filter persistence purposes? Is it bounded by app restart, window close, or something else? |
+| **Impact Score** | 2 |
+| **Rationale** | Low-medium impact. Context implies app restart, but explicit definition would clarify implementation scope. Spec 006 uses "app launch" terminology which is clearer. |
+
+---
+
+### 8. "Items" - Generic Term
+
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Clear |
+| **Terms Used** | "items" (5 occurrences, always as "files and folders" or "matching items") |
+| **Issue** | None - always clarified in context |
+| **Question Candidate** | N/A |
+| **Impact Score** | 1 |
+| **Rationale** | "Items" is always qualified (e.g., "matching items", "files and folders"). No standalone ambiguous use. |
+
+---
+
+### 9. "Visual Highlighting" vs "Match Highlighting"
+
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Clear |
+| **Terms Used** | "visual highlighting" (1), "visually highlighted" (2), "match highlighting" (0), "highlight" (verb, 3) |
+| **Issue** | None - consistent use of "visual highlighting" for the feature |
+| **Question Candidate** | N/A |
+| **Impact Score** | 1 |
+| **Rationale** | FR-005 uses "visually highlight" consistently. No conflicting terms. |
+
+---
+
+### 10. Missing Glossary Section
+
+| Field | Value |
+|-------|-------|
+| **Category** | terminology |
+| **Status** | Missing |
+| **Terms Used** | N/A |
+| **Issue** | Spec 006 (Application Shell) has a dedicated "Glossary" section defining key terms (Dirty, File Handle, Split Ratio, Untitled). Spec 014 lacks a glossary section despite introducing new domain terms. |
+| **Question Candidate** | Should spec 014 include a Glossary section defining: Filter Query, Filter Input, Match Result, File Tree Node, Fuzzy Matching, and potentially consolidating file tree/file explorer terminology? |
+| **Impact Score** | 4 |
+| **Rationale** | Higher impact - a glossary would resolve multiple partial findings above and establish canonical terminology for implementation. |
 
 ---
 
@@ -170,29 +161,66 @@ The 007-mdx-content-outline spec has several terminology inconsistencies and mis
 
 | # | Term/Issue | Status | Impact | Action Required |
 |---|------------|--------|--------|-----------------|
-| 1 | Outline Item vs OutlineItem | Partial | 2 | Align naming convention |
-| 2 | Source Position vs line/column | Partial | 3 | Standardize and elevate to Constitution |
-| 3 | AST not in Constitution | Missing | 4 | Add to Constitution glossary |
-| 4 | Tree View variations | Partial | 2 | Standardize terminology |
-| 5 | Preview AST vs AST | Partial | 3 | Clarify relationship to CompileResult |
-| 6 | useErrorNavigation undefined | Missing | 3 | Add to glossary |
-| 7 | Outline vs Navigator | Partial | 2 | Deprecate Navigator, standardize on Outline |
-| 8 | Panel vs Pane | Partial | 3 | Establish convention in Constitution |
-| 9 | Collapsible undefined | Missing | 2 | Add glossary entry |
-| 10 | Section overloaded | Partial | 2 | Clarify OutlineSection vs document section |
-| 11 | Click-to-navigate | Clear | 1 | No action |
-| 12 | Real-time vs Live | Clear | 1 | No action |
+| 1 | File Tree vs File Explorer | Partial | 3 | Distinguish or consolidate |
+| 2 | Filter Query vs Query vs Search Query | Partial | 2 | Add glossary entries |
+| 3 | Match vs Match Result | Clear | 1 | No action |
+| 4 | File Tree Node relationship to FileHandle | Partial | 3 | Clarify type relationship |
+| 5 | Fuzzy Matching algorithm undefined | Partial | 3 | Define algorithm or reference |
+| 6 | Project vs Workspace | Partial | 2 | Consolidate to "workspace" |
+| 7 | Session boundary undefined | Partial | 2 | Define session scope |
+| 8 | Items (generic term) | Clear | 1 | No action |
+| 9 | Visual Highlighting | Clear | 1 | No action |
+| 10 | Missing Glossary section | Missing | 4 | Add glossary to spec |
+
+---
+
+## Recommendations
+
+1. **Add Glossary Section** (Impact: 4) - Define canonical terms for this feature domain
+2. **Standardize "File Tree" vs "File Explorer"** (Impact: 3) - Choose one or distinguish clearly
+3. **Clarify "File Tree Node" Relationship to FileHandle** (Impact: 3) - Connect to existing types
+4. **Define "Fuzzy Matching" Algorithm** (Impact: 3) - Reconcile SC-006 with fzf-style assumption
+5. **Consolidate "Project/Workspace"** (Impact: 2) - Align with Constitution's "Workspace" term
+6. **Define "Session" Boundary** (Impact: 2) - Clarify persistence scope
+
+---
+
+## Proposed Glossary Additions
+
+If a glossary is added, recommend these definitions:
+
+| Term | Proposed Definition |
+|------|---------------------|
+| **File Explorer** | The UI sidebar component that displays the file tree and filter input |
+| **File Tree** | The hierarchical data structure representing files and folders in the workspace |
+| **Filter Query** | The text string entered by the user to filter the file tree |
+| **Filter Input** | The text field UI component where users enter the filter query |
+| **Match Result** | A file or folder node that matches the filter query, including match positions for highlighting |
+| **File Tree Node** | A node in the file tree representing a file or folder, with visibility state determined by filter matches |
+| **Fuzzy Matching** | An algorithm that matches filter queries against file names by finding query characters in order but not necessarily contiguous, scoring based on consecutive character matches and match positions |
+
+---
+
+## Cross-Reference: Constitution Glossary Terms
+
+The Constitution glossary (Section #glossary) defines:
+- Tier 1/2/3 Plugin
+- contextIsolation
+- IPC
+- MDX
+
+None of these directly apply to spec 014, but the spec should maintain consistency with the Constitution's language conventions (MUST/SHALL/SHOULD/MAY per Section #language-conventions), which it does correctly in the Requirements section.
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **(Impact 4)** Should "AST" (Abstract Syntax Tree) be added to the Constitution glossary as a project-wide canonical term, given its fundamental role in MDX compilation across specs 003 and 007?
+1. **(Impact 4)** Should spec 014 include a Glossary section defining: Filter Query, Filter Input, Match Result, File Tree Node, Fuzzy Matching, and resolving file tree/file explorer terminology?
 
-2. **(Impact 3)** What is the canonical distinction between "panel" (used in 007) and "pane" (used in 003, 006)? Should this be documented in the Constitution?
+2. **(Impact 3)** Should "file tree" (data structure) and "file explorer" (UI component) be formally distinguished, or should one canonical term be chosen for both?
 
-3. **(Impact 3)** The spec references "preview AST" and "useErrorNavigation hook" - should these be formally defined in the glossary with their owning spec referenced?
+3. **(Impact 3)** Should "File Tree Node" align with or extend the existing `FileHandle` type from spec 004, or is it a distinct concept specific to the tree visualization?
 
-4. **(Impact 3)** Should "Source Position" (line/column tuple) be elevated to the Constitution glossary to ensure consistent usage across specs?
+4. **(Impact 3)** Should "fuzzy matching" be precisely defined with specific algorithm characteristics (e.g., consecutive match scoring), or is "fzf-style" sufficient as a reference?
 
-5. **(Impact 2)** Should the feature name be standardized to just "MDX Content Outline" (dropping "Navigator") to avoid synonym confusion?
+5. **(Impact 2)** Should "project" and "workspace" be consolidated to the Constitution's canonical term "workspace"?

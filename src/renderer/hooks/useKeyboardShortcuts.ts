@@ -104,15 +104,28 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
-      // Ignore if typing in input/textarea (unless it's a modal shortcut)
+      // Ignore if typing in input/textarea (unless it's allowed)
       const target = event.target as HTMLElement;
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
       ) {
-        // Allow Escape and specific modal shortcuts
-        if (event.key !== 'Escape') return;
+        // Allow Escape key
+        if (event.key === 'Escape') {
+          // Allow through
+        }
+        // Allow Mod+P for filter focus (per FR-012)
+        else if (
+          event.key.toLowerCase() === 'p' &&
+          (navigator.platform.includes('Mac') ? event.metaKey : event.ctrlKey) &&
+          !event.shiftKey &&
+          !event.altKey
+        ) {
+          // Allow through
+        } else {
+          return;
+        }
       }
 
       // Build normalized shortcut from event

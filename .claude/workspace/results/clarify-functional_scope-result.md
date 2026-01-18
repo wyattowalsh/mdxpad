@@ -1,19 +1,19 @@
 # Functional Scope Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
-**Category**: Functional Scope
+**Spec**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
+**Feature**: Smart Filtering for File Tree
 **Analysis Date**: 2026-01-17
+**Category Focus**: Functional Scope (Core user goals & success criteria, Explicit out-of-scope declarations, User roles/personas differentiation)
 
 ---
 
 ## Summary
 
-| Aspect | Status | Issues Found |
-|--------|--------|--------------|
-| Core User Goals | Partial | 2 |
-| Success Criteria | Partial | 3 |
-| Out-of-Scope Declarations | Clear | 0 |
-| User Roles/Personas | Missing | 2 |
+| Status | Count |
+|--------|-------|
+| Clear | 3 |
+| Partial | 4 |
+| Missing | 3 |
 
 ---
 
@@ -21,138 +21,145 @@
 
 ### 1. Core User Goals & Success Criteria
 
-#### Finding 1.1: Ambiguous "Writer" Persona Definition
-
-- **Category**: Functional Scope
-- **Status**: Missing
-- **Location**: Throughout spec (User Stories 1-5, Executive Summary)
-- **Issue**: The spec repeatedly refers to "a writer" without defining who this user is, their technical proficiency level, or distinguishing between different user types (e.g., technical documentation writers vs. creative content writers vs. developers using MDX for app documentation).
-- **Question Candidate**: "What is the expected technical proficiency of the target 'writer' persona? Should the outline panel UX accommodate both technical users familiar with AST/JSX concepts and non-technical content writers?"
-- **Impact Score**: 3/5
-- **Rationale**: Different user personas may have different expectations for component display, terminology, and feature complexity. A technical writer might want full JSX component details while a content writer might find this confusing.
+#### Finding 1.1: Success Criteria Measurability
+- **Category**: functional_scope
+- **Status**: Partial
+- **Location**: SC-003: "95% of users successfully find their target file on first filter attempt"
+- **Issue**: There is no mechanism defined for measuring "first attempt" success or user satisfaction. How will this be validated?
+- **Question Candidate**: How will "first filter attempt success" be measured? Is this through analytics, user testing, or inferred from behavior patterns (e.g., file opened immediately after filtering)?
+- **Impact Score**: 3
 
 ---
 
-#### Finding 1.2: Undefined "Built-in Components" List
-
-- **Category**: Functional Scope
+#### Finding 1.2: Fuzzy Matching Quality Threshold Inconsistency
+- **Category**: functional_scope
 - **Status**: Partial
-- **Location**: FR-014: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
-- **Issue**: The spec mentions built-in components with "etc." indicating an incomplete list. What components are considered "built-in"? Is this tied to a specific component library? How is the distinction made programmatically?
-- **Question Candidate**: "What is the complete list of 'built-in' components that should be visually distinguished? Are these components bundled with mdxpad, or is this referencing commonly used MDX ecosystem components?"
-- **Impact Score**: 4/5
-- **Rationale**: Without a definitive list, implementation cannot correctly distinguish built-in vs custom components. This directly affects UI rendering and user understanding.
+- **Location**: SC-006 vs User Story 2 examples
+- **Issue**: SC-006 specifies "Fuzzy matching correctly identifies files with at least 80% of query characters present in any order" but this conflicts with User Story 2 examples where "mycmp" (5 chars) matches "MyComponent.tsx" (16 chars in name) - that's only ~31% character presence from target, or 100% query chars in target. The metric direction is ambiguous.
+- **Question Candidate**: Should fuzzy matching prioritize (a) percentage of query characters found in target, or (b) percentage of target characters covered by query? What is the minimum match threshold for displaying results?
+- **Impact Score**: 4
 
 ---
 
-#### Finding 1.3: Undefined "Common Fields" for Frontmatter
-
-- **Category**: Functional Scope
-- **Status**: Partial
-- **Location**: FR-016 & FR-017
-- **Issue**: FR-016 specifies "key fields (title, date, author, description, tags)" but FR-017 says "limit displayed frontmatter to common fields, with option to expand for all fields." The relationship between these is unclear - is the list in FR-016 exhaustive for "common fields"? What happens with non-standard frontmatter schemas?
-- **Question Candidate**: "Is the list in FR-016 (title, date, author, description, tags) the exhaustive definition of 'common fields' for FR-017, or should additional fields like 'draft', 'category', 'slug', 'image' also be considered common?"
-- **Impact Score**: 2/5
-- **Rationale**: This is relatively low impact as the spec does provide a reasonable default list, but clarity would improve consistency.
-
----
-
-#### Finding 1.4: Success Criteria SC-007 Lacks Baseline
-
-- **Category**: Functional Scope
-- **Status**: Partial
-- **Location**: SC-007: "Users can complete a full navigation workflow (open outline, click item, edit, see update) in under 3 seconds"
-- **Issue**: The 3-second threshold appears arbitrary without justification. Is this based on user research, industry standards, or existing similar features? Additionally, the workflow description is vague about what "edit" and "see update" entail.
-- **Question Candidate**: "What is the basis for the 3-second threshold in SC-007? Should this be tied to a specific document size (e.g., '3 seconds for documents under 5000 lines')?"
-- **Impact Score**: 2/5
-- **Rationale**: While the criterion is testable, the threshold may be unrealistic for very large documents or insufficient for small ones.
-
----
-
-#### Finding 1.5: Component "Instance Location" Display Undefined
-
-- **Category**: Functional Scope
-- **Status**: Partial
-- **Location**: User Story 3, Acceptance Scenario 2: "they see each instance with its line number"
-- **Issue**: For components that span multiple lines, what line number is shown? The opening tag line? What if the component is self-closing vs. has children? How are nested components of the same type displayed?
-- **Question Candidate**: "For multi-line JSX components, should the outline show the opening tag line number, or should it display a line range (e.g., 'Lines 15-42')? How should nested instances of the same component type be visually distinguished?"
-- **Impact Score**: 3/5
-- **Rationale**: This affects user navigation accuracy - users clicking a component entry need to land at a predictable location.
+#### Finding 1.3: Performance Benchmark Conditions
+- **Category**: functional_scope
+- **Status**: Clear
+- **Location**: SC-001 and SC-002
+- **Notes**: SC-001 and SC-002 define clear, measurable performance targets (5 seconds for 500+ files, 100ms for 10,000 files). These are testable and specific. No ambiguity found.
 
 ---
 
 ### 2. Explicit Out-of-Scope Declarations
 
-#### Finding 2.1: Out-of-Scope Section is Well-Defined
+#### Finding 2.1: Missing Out-of-Scope Section
+- **Category**: functional_scope
+- **Status**: Missing
+- **Location**: Entire spec - no "Out of Scope" section exists
+- **Issue**: The spec has no explicit "Out of Scope" section. This creates ambiguity about feature boundaries and risks scope creep or misaligned expectations.
+- **Question Candidate**: Should the following be explicitly declared out of scope: (1) Content-based file search (grep-like search inside files), (2) Regular expression support in filter, (3) Multiple simultaneous filter queries/tabs, (4) Filter presets/saved filters, (5) File type filtering (e.g., show only .tsx files)?
+- **Impact Score**: 4
 
-- **Category**: Functional Scope
-- **Status**: Clear
-- **Location**: Out of Scope section (lines 237-246)
-- **Assessment**: The out-of-scope declarations are explicit and comprehensive:
-  - Drag-and-drop reordering
-  - Outline search/filter
-  - Active item highlighting based on scroll
-  - Custom configurations/filtering
-  - Export/printing
-  - Multi-document outline
-  - Bookmarks/favorites
-- **Impact Score**: N/A (no ambiguity)
+---
+
+#### Finding 2.2: Content Search vs Name Search Boundary
+- **Category**: functional_scope
+- **Status**: Missing
+- **Location**: User input description, FR-002, FR-003
+- **Issue**: The spec mentions filtering "file and folder names" but doesn't explicitly exclude searching within file contents. Content search (grep-like functionality) is a common user expectation that should be explicitly addressed to prevent confusion.
+- **Question Candidate**: Should the spec explicitly state that content-based search (searching inside files for text) is out of scope for this feature?
+- **Impact Score**: 3
+
+---
+
+#### Finding 2.3: Filter Scope/Project Boundary Definition
+- **Category**: functional_scope
+- **Status**: Partial
+- **Location**: FR-007, User Story 5 Scenario 3
+- **Issue**: FR-007 mentions persistence "per project/workspace" and User Story 5 Scenario 3 says "filter state is specific to that project" but there's no definition of what constitutes a project boundary. Does opening a different folder create a new filter context? Is it tied to git repos?
+- **Question Candidate**: How is "project/workspace" defined for filter persistence purposes? Is it (a) the root folder opened in the file explorer, (b) a workspace configuration file, or (c) tied to git repository root boundaries?
+- **Impact Score**: 3
 
 ---
 
 ### 3. User Roles / Personas Differentiation
 
-#### Finding 3.1: No User Personas Defined
-
-- **Category**: Functional Scope
-- **Status**: Missing
-- **Location**: Entire spec
-- **Issue**: The spec does not define any user personas or roles. All user stories reference generic "a writer" without distinguishing:
-  - Technical proficiency levels
-  - Use case types (documentation, blogging, app development)
-  - Frequency of use (daily power user vs. occasional user)
-  - Accessibility needs
-- **Question Candidate**: "Should the spec define distinct user personas (e.g., 'Technical Writer', 'Content Creator', 'Developer') with potentially different feature priorities or UX expectations?"
-- **Impact Score**: 3/5
-- **Rationale**: Without personas, it's unclear whose needs take priority when design tradeoffs arise.
+#### Finding 3.1: Single Persona Assumption - Adequate
+- **Category**: functional_scope
+- **Status**: Clear
+- **Location**: User Stories 1-5
+- **Notes**: The spec consistently targets a single user persona ("user working with a large project", "keyboard-oriented user"). This is appropriate for a universal file filtering feature. No explicit persona definition needed for this scope.
 
 ---
 
-#### Finding 3.2: Accessibility User Needs Partially Addressed
-
-- **Category**: Functional Scope
+#### Finding 3.2: Power User vs Casual User MVP Definition
+- **Category**: functional_scope
 - **Status**: Partial
-- **Location**: Non-Functional Requirements > Accessibility (lines 214-217)
-- **Issue**: While keyboard navigation and ARIA roles are mentioned, there's no user story or acceptance criteria from the perspective of a user with accessibility needs. The requirements are technical specifications rather than user goals.
-- **Question Candidate**: "Should there be a dedicated user story for accessibility users (e.g., 'As a screen reader user, I want to navigate the outline and hear the document structure so I can understand document organization without visual cues')?"
-- **Impact Score**: 3/5
-- **Rationale**: Accessibility requirements without user-centered acceptance criteria may lead to technically compliant but practically unusable implementations.
+- **Location**: Priority designations (P1-P3) across User Stories
+- **Issue**: User Story 4 mentions "keyboard-oriented user" as a distinct persona, and the priority system (P1-P3) suggests incremental delivery, but there's no explicit MVP definition. Should all P1 features ship together as MVP, or is there a different minimum viable feature set?
+- **Question Candidate**: Is the set of P1 features (Quick File Filtering + Fuzzy Matching) sufficient as a shippable MVP? Should filter persistence (P3) be required before initial release due to user experience expectations?
+- **Impact Score**: 2
 
 ---
 
-## Recommendations
-
-1. **Define User Personas** (High Priority): Add a section defining 2-3 user personas with their characteristics, goals, and technical proficiency levels.
-
-2. **Enumerate Built-in Components** (High Priority): Provide a definitive list of components considered "built-in" or define the criteria for classification.
-
-3. **Clarify Component Line Display** (Medium Priority): Specify exactly what line number/range is shown for multi-line components.
-
-4. **Add Accessibility User Story** (Medium Priority): Include at least one user story from an accessibility perspective.
-
-5. **Document Success Criteria Rationale** (Low Priority): Add brief justification for the timing thresholds in success criteria.
+#### Finding 3.3: Accessibility User Considerations
+- **Category**: functional_scope
+- **Status**: Missing
+- **Location**: Entire spec - no accessibility requirements section
+- **Issue**: No explicit consideration for users with accessibility needs. Visual highlighting (User Story 3) requires color contrast considerations. Screen reader users need filter state announcements. No WCAG compliance requirements mentioned.
+- **Question Candidate**: Should accessibility requirements be explicitly included in functional requirements? Specifically: (a) WCAG 2.1 AA compliance for highlight colors, (b) screen reader announcements for filter state changes and result counts, (c) keyboard-only operation beyond the shortcut (navigation within results)?
+- **Impact Score**: 3
 
 ---
 
-## Impact Summary
+### 4. Additional Functional Scope Concerns
 
-| Impact Score | Count | Items |
-|--------------|-------|-------|
-| 5 (Critical) | 0 | - |
-| 4 (High) | 1 | Built-in components list undefined |
-| 3 (Medium) | 4 | User personas, component instance display, writer proficiency, accessibility story |
-| 2 (Low) | 2 | Common frontmatter fields, SC-007 threshold |
-| 1 (Minimal) | 0 | - |
+#### Finding 4.1: Filter Input Location
+- **Category**: functional_scope
+- **Status**: Clear
+- **Location**: FR-001
+- **Notes**: FR-001 clearly specifies "a text input field in the file explorer sidebar". Location is unambiguous.
 
-**Total Ambiguities Found**: 7
-**Recommended Clarification Questions**: 6
+---
+
+#### Finding 4.2: Match Ranking Algorithm Criteria
+- **Category**: functional_scope
+- **Status**: Partial
+- **Location**: User Story 2 Scenario 3, Assumptions section
+- **Issue**: User Story 2 Scenario 3 mentions results "ranked by match quality" but no ranking criteria are defined in requirements. The Assumptions section mentions "fzf-style matching" but assumptions are not requirements - this is underspecified.
+- **Question Candidate**: Should the spec define explicit ranking criteria for fuzzy match results (e.g., exact match > prefix match > substring match > fuzzy match), or is the algorithm choice left to implementation discretion with only behavioral requirements?
+- **Impact Score**: 2
+
+---
+
+## Recommended Clarification Questions (Prioritized by Impact)
+
+| Priority | Impact | Question |
+|----------|--------|----------|
+| 1 | 4 | Should the following be explicitly declared out of scope: content-based file search, regex support, multiple filter queries, filter presets, file type filtering? |
+| 2 | 4 | Should fuzzy matching prioritize (a) percentage of query characters found in target, or (b) percentage of target characters covered by query? What is the minimum match threshold? |
+| 3 | 3 | How is "project/workspace" defined for filter persistence purposes - root folder, workspace file, or git repository? |
+| 4 | 3 | Should content-based search (searching inside files) be explicitly declared out of scope? |
+| 5 | 3 | Should accessibility requirements (WCAG compliance, screen reader support) be included in functional requirements? |
+| 6 | 3 | How will "first filter attempt success" (SC-003) be measured and validated? |
+| 7 | 2 | Is P1 features alone sufficient as MVP, or should P3 persistence be required before initial release? |
+| 8 | 2 | Should the spec define explicit ranking criteria for fuzzy match results, or leave to implementation? |
+
+---
+
+## Analysis Summary
+
+The spec is well-structured with clear user stories and acceptance criteria. The primary functional scope gaps are:
+
+1. **No explicit out-of-scope declarations** - Risk of scope creep, especially around content search vs. name-only search
+2. **Fuzzy matching threshold inconsistency** - Examples don't mathematically align with stated success criteria
+3. **Project/workspace boundary undefined** - Affects persistence implementation strategy
+4. **Accessibility not addressed** - Potential WCAG compliance gap for visual highlighting
+
+**Strengths Observed**:
+- Clear priority system (P1-P3) for features
+- Well-defined edge cases section with proposed behaviors
+- Measurable performance targets in success criteria
+- Appropriate single-persona approach for universal feature
+
+**Total Ambiguities Found**: 10 (3 Clear, 4 Partial, 3 Missing)
+**Recommended Clarification Questions**: 8
