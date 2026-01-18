@@ -5,8 +5,11 @@
  */
 
 // Re-export IPC contracts for convenience
-export { IPC_CHANNELS, IPC_CHANNELS_DEFERRED } from '../lib/ipc';
-export type { IpcPayloads, IpcRequest, IpcResponse, SecurityInfo } from '../lib/ipc';
+export { IPC_CHANNELS, IPC_CHANNELS_DEFERRED, IPC_EVENTS } from '../lib/ipc';
+export type { IpcChannel, IpcEvent, IpcPayloads, IpcRequest, IpcResponse, SecurityInfo } from '../lib/ipc';
 
 // File system contracts (Spec 004)
 export * from './file-schemas';
+
+// Template contracts (Spec 016)
+export * from './template-schemas';

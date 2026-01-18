@@ -150,8 +150,8 @@ test -d resources/templates
 ### Batch 2.1: IPC Infrastructure (parallel) ⚡
 
 <!-- Context: plan.md#shared, contracts/template-schemas.ts -->
-- [ ] T004 [P:2.1] Add TEMPLATE_IPC_CHANNEL and TEMPLATE_CREATE_CHANNEL exports to `src/shared/ipc-channels.ts`
-- [ ] T005 [P:2.1] Expose template API bindings in `src/preload/index.ts`: `list()`, `get(id)`, `save(template)`, `delete(id)`, `import(path)`, `export(id, path)`, `validate(content)`, `createFromTemplate(id, variables)` — all with zod-validated IPC
+- [x] T004 [P:2.1] Add TEMPLATE_IPC_CHANNEL and TEMPLATE_CREATE_CHANNEL exports to `src/shared/ipc-channels.ts`
+- [x] T005 [P:2.1] Expose template API bindings in `src/preload/index.ts`: `list()`, `get(id)`, `save(template)`, `delete(id)`, `import(path)`, `export(id, path)`, `validate(content)`, `createFromTemplate(id, variables)` — all with zod-validated IPC
 
 #### Gate 2.1: IPC Validation
 
