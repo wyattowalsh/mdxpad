@@ -1,6 +1,7 @@
 # Constraints Category Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad-persist/specs/011-autosave-recovery/spec.md`
+**Feature**: Autosave & Crash Recovery
 **Category**: Constraints & Tradeoffs
 **Date**: 2026-01-17
 
@@ -8,141 +9,176 @@
 
 ## Summary
 
-The spec has significant gaps in the Constraints category. While it mentions some performance targets and behavioral constraints, it lacks explicit sections for technical constraints (language/framework choices), storage mechanisms, and formally documented tradeoffs/rejected alternatives.
+The spec has significant gaps in the Constraints category. While it defines autosave interval bounds and platform assumptions (Electron), it lacks explicit constraints on storage location, file format, atomic write strategy, retention policies, and performance budgets. No rejected alternatives or explicit tradeoffs are documented.
+
+| Status | Count |
+|--------|-------|
+| Clear | 3 |
+| Partial | 5 |
+| Missing | 4 |
 
 ---
 
 ## Ambiguity Findings
 
-### 1. Technical Language/Framework Constraints
+### 1. Storage Location for Recovery Files
 
 | Field | Value |
 |-------|-------|
 | **Status** | Missing |
-| **Question Candidate** | What specific technologies (TypeScript version, React version, state management library, CSS approach) are required or preferred for implementing the outline panel? Should this align with existing spec conventions (e.g., TypeScript 5.9.x strict, React 19.x, Zustand 5.x)? |
+| **Question Candidate** | Where should recovery files be stored? Options include: (a) Electron's userData directory via `app.getPath('userData')`, (b) OS temp directory, (c) A `.mdxpad-recovery` folder alongside source files, (d) A user-configurable location? |
+| **Impact Score** | 5 |
+| **Rationale** | The spec mentions "recovery location" (FR-001) and "dedicated directory separate from user documents" (Assumptions) but does not specify WHERE this directory should be. Storage location affects cross-platform behavior, file cleanup on uninstall, user privacy, and portability of recovery data. |
+
+---
+
+### 2. Recovery File Format
+
+| Field | Value |
+|-------|-------|
+| **Status** | Missing |
+| **Question Candidate** | What format should recovery files use? Options include: (a) Plain MDX content only with filename convention for metadata, (b) JSON envelope with content + metadata, (c) SQLite database for all recovery data, (d) Native file copy with separate sidecar metadata file? |
 | **Impact Score** | 4 |
-| **Rationale** | The spec references "existing Zustand store pattern" and "existing hooks" but never explicitly states the required technology stack. The AGENTS.md and CLAUDE.md files mention TypeScript 5.9.x, React 19.x, Zustand 5.x - this should be codified in the spec's constraints section. |
+| **Rationale** | The spec defines `RecoveryFile` entity (Key Entities) with "document identifier, content snapshot, timestamp, and original file path reference" but does not specify serialization format. Format choice affects recovery reliability, corruption detection, file size, and parsing complexity. |
 
 ---
 
-### 2. Storage/Persistence Mechanism
+### 3. Atomic Write / Locking Strategy
 
 | Field | Value |
 |-------|-------|
 | **Status** | Partial |
-| **Question Candidate** | What specific storage mechanism should be used for outline panel visibility persistence? Should it use localStorage (like spec 005), electron-store (like spec 004), or the "existing settings store" mentioned in FR-003? |
+| **Question Candidate** | What atomic write/locking strategy should be used to prevent corrupted recovery files? Options include: (a) Write to temp file then atomic rename, (b) Write-ahead logging, (c) File system advisory locks, (d) Accept potential corruption with checksum-based detection? |
+| **Impact Score** | 4 |
+| **Rationale** | Edge case asks "What happens if the application exits during an autosave write operation?" but no constraint on write strategy is provided. This is critical for preventing corrupted recovery files during crashes or power loss. FR-013 says "handle autosave failures gracefully" but doesn't specify prevention strategy. |
+
+---
+
+### 4. RecoveryManifest Persistence Strategy
+
+| Field | Value |
+|-------|-------|
+| **Status** | Missing |
+| **Question Candidate** | How should the RecoveryManifest be persisted? Options include: (a) Single JSON manifest file updated atomically, (b) Individual metadata files per recovery file, (c) electron-store, (d) SQLite database? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-003 says "persist outline panel visibility preference across sessions using the existing settings store" but doesn't specify which store. Prior specs use different storage approaches (localStorage vs electron-store). The collapse state is explicitly session-only (User Story 5), but the mechanism is not specified. |
+| **Rationale** | `RecoveryManifest` is defined as an entity ("Index of all recoverable documents from previous sessions") but there's no constraint on its persistence mechanism. Affects atomic write guarantees, corruption resilience, and recovery scanning performance. |
 
 ---
 
-### 3. Panel Width Constraints
+### 5. Recovery Data Retention/Cleanup Policy
 
 | Field | Value |
 |-------|-------|
 | **Status** | Partial |
-| **Question Candidate** | What are the minimum and maximum width constraints for the outline panel? Is 150px the minimum width (mentioned in edge cases), and what is the maximum/default width? Should the panel be resizable? |
-| **Impact Score** | 2 |
-| **Rationale** | Edge cases mention "minimum width of 150px" but there's no explicit constraint section defining panel dimensions. FR-001 says "collapsible sidebar" but doesn't specify if it's resizable, fixed-width, or what the default width should be. |
-
----
-
-### 4. Window Width Threshold for Auto-hide
-
-| Field | Value |
-|-------|-------|
-| **Status** | Partial |
-| **Question Candidate** | What exact window width thresholds trigger auto-hide behavior? FR-004 specifies 600px (with preview) and 400px (without preview) - are these final values or placeholders? How do these interact with Application Shell (spec 006) layout constraints? |
-| **Impact Score** | 2 |
-| **Rationale** | FR-004 provides specific pixel values but doesn't explain how they were derived or how they coordinate with the existing Application Shell spec's responsive behavior. Edge cases mention "similar to preview auto-hide behavior" but the relationship isn't explicit. |
-
----
-
-### 5. AST Fallback Parser Constraint
-
-| Field | Value |
-|-------|-------|
-| **Status** | Partial |
-| **Question Candidate** | What specific "lightweight parser" should be used when preview AST is unavailable (FR-030)? Is this a custom implementation, an existing library (remark, unified), or should the outline simply show an empty/error state? |
+| **Question Candidate** | What retention policy applies to recovery data? Options include: (a) Keep forever until manually cleared, (b) Auto-delete after N days (specify N), (c) Keep last N recovery points per document, (d) Storage quota with LRU eviction? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-030 says "fall back to a lightweight parser" but doesn't specify what this parser is or its performance characteristics. This is a technical constraint that affects implementation approach and bundle size. |
+| **Rationale** | `AutosaveSettings` entity mentions "retention settings" but no constraints on retention period, maximum storage size, or cleanup triggers are defined. FR-008 only covers clearing on successful manual save. |
 
 ---
 
-### 6. Rejected Alternatives / Tradeoffs Documentation
-
-| Field | Value |
-|-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What alternative approaches were considered and rejected? For example: (1) Why left-side panel vs right-side? (2) Why no scroll-position sync (highlighted as Out of Scope but rationale not given)? (3) Why 500ms update debounce vs other values? (4) Why session-only collapse state vs persisted? |
-| **Impact Score** | 3 |
-| **Rationale** | The spec documents "Out of Scope" items but doesn't explain the tradeoffs or reasoning behind these decisions. Understanding rejected alternatives helps implementers avoid revisiting already-considered approaches. |
-
----
-
-### 7. Debounce/Throttle Constraints
+### 6. Performance Budget for Autosave Operations
 
 | Field | Value |
 |-------|-------|
 | **Status** | Partial |
-| **Question Candidate** | What is the specific debounce strategy for outline updates? Is 500ms the debounce delay, or the maximum latency? Should updates be debounced, throttled, or use requestIdleCallback? |
-| **Impact Score** | 2 |
-| **Rationale** | Multiple requirements mention "within 500ms of document changes" (FR-010, FR-015, FR-019) and NFR mentions "debounce outline updates" but the exact debounce configuration isn't specified. SC-002 says "500ms of typing pause" which suggests debounce, but this conflicts with the "within 500ms" language elsewhere. |
+| **Question Candidate** | What is the maximum acceptable main thread blocking time during autosave? Options include: (a) <16ms (one frame at 60fps), (b) <50ms, (c) <100ms, (d) Must be fully async with zero main thread impact? |
+| **Impact Score** | 3 |
+| **Rationale** | SC-002 requires "no perceptible interruption to user typing (no visible lag or pause)" but provides no quantified latency budget. This affects implementation choice between sync/async writes, worker threads, chunked writes, etc. |
 
 ---
 
-### 8. Memory/Resource Constraints
+### 7. Large Document Handling Strategy
+
+| Field | Value |
+|-------|-------|
+| **Status** | Partial |
+| **Question Candidate** | How should the system handle documents larger than can be saved within the autosave interval? Options include: (a) No limit, extend interval dynamically, (b) Skip interval if previous save incomplete (coalesce), (c) Stream/chunk large files, (d) Warn user and recommend longer interval? |
+| **Impact Score** | 3 |
+| **Rationale** | Edge case asks "How does the system handle very large documents that take longer to save than the autosave interval?" but no size limit or strategy is defined. Could cause overlapping save operations or performance issues. |
+
+---
+
+### 8. Encryption/Security Constraints
 
 | Field | Value |
 |-------|-------|
 | **Status** | Missing |
-| **Question Candidate** | Are there constraints on memory usage or DOM node limits for the outline tree? For very large documents with hundreds of headings/components, what are the performance boundaries? |
+| **Question Candidate** | Should recovery files be encrypted at rest? Options include: (a) No encryption (plain text, acceptable for MVP), (b) Encryption using OS keychain integration, (c) User-provided password option, (d) Defer to future spec? |
 | **Impact Score** | 2 |
-| **Rationale** | NFRs mention "must not block the main thread" but don't specify memory limits or how to handle extremely large documents. Virtualization requirements (if any) are not documented. |
+| **Rationale** | No mention of whether recovery files should be protected, especially if they contain sensitive user content. Likely acceptable to defer for MVP, but should be explicitly documented as out of scope if so. |
 
 ---
 
-### 9. Browser/Electron Version Constraints
+### 9. Rejected Alternatives / Explicit Tradeoffs
 
 | Field | Value |
 |-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What minimum Electron/Chromium version is required? Are there any browser API constraints (e.g., ResizeObserver availability, CSS container queries)? |
-| **Impact Score** | 1 |
-| **Rationale** | The spec doesn't mention platform constraints. AGENTS.md mentions Electron 39.x in other specs but this spec doesn't explicitly state its Electron requirements. |
+| **Status** | Partial |
+| **Question Candidate** | What alternative approaches were considered and explicitly rejected? For example: (a) Cloud-based recovery sync, (b) Git-style versioning/history, (c) In-memory only recovery, (d) Integration with external backup tools, (e) Undo history as recovery mechanism? |
+| **Impact Score** | 2 |
+| **Rationale** | The spec implies some tradeoffs (e.g., "30 seconds balances protection with performance" in Assumptions) but does not explicitly document rejected alternatives. The spec has no "Out of Scope" or "Tradeoffs" section. Documenting rejected alternatives prevents scope creep and re-litigation. |
 
 ---
 
-### 10. CSS/Styling Approach Constraint
+### 10. Autosave Interval Constraints
 
 | Field | Value |
 |-------|-------|
-| **Status** | Missing |
-| **Question Candidate** | What CSS methodology should be used for styling the outline panel? Should it use CSS modules, Tailwind, styled-components, or plain CSS to match the existing codebase patterns? |
-| **Impact Score** | 2 |
-| **Rationale** | No styling constraints are mentioned. The existing codebase likely has established patterns that should be followed for consistency. |
+| **Status** | Clear |
+| **Question Candidate** | N/A |
+| **Impact Score** | N/A |
+| **Rationale** | FR-009 clearly specifies "minimum 5 seconds, maximum 10 minutes" and Assumptions state "Default autosave interval of 30 seconds". This constraint is well-defined. |
 
 ---
 
-## Recommendations
+### 11. Platform/Runtime Constraints
 
-1. **Add "Technical Constraints" Section**: Explicitly state TypeScript 5.9.x, React 19.x, Zustand 5.x + Immer 11.x per codebase standards
-2. **Clarify Storage Mechanism**: Specify whether to use localStorage or electron-store, and which specific store key
-3. **Document Panel Dimensions**: Add explicit min/max/default width values and resizability constraint
-4. **Add "Tradeoffs & Alternatives" Section**: Document why certain approaches were chosen over alternatives
-5. **Specify Debounce Strategy**: Clarify exact debounce configuration (delay value, leading/trailing edge)
+| Field | Value |
+|-------|-------|
+| **Status** | Clear |
+| **Question Candidate** | N/A |
+| **Impact Score** | N/A |
+| **Rationale** | Assumptions clearly state "Electron environment with access to local storage paths" and dependency on "004-file-system-shell". Technology stack is inherited from codebase standards (TypeScript 5.9.x strict, Electron 39.x per CLAUDE.md). |
+
+---
+
+### 12. Language/Framework Constraints
+
+| Field | Value |
+|-------|-------|
+| **Status** | Clear |
+| **Question Candidate** | N/A |
+| **Impact Score** | N/A |
+| **Rationale** | Project-level constraints apply: TypeScript 5.9.x with `strict: true`, Electron 39.x, Zustand 5.x, zod 4.x per constitution and CLAUDE.md. Spec 004 dependency provides file system patterns. |
+
+---
+
+## Prioritized Question Candidates for Clarification
+
+| Priority | Question | Impact |
+|----------|----------|--------|
+| 1 | Where should recovery files be stored? (userData, temp, alongside source, configurable?) | 5 |
+| 2 | What format should recovery files use? (plain MDX, JSON envelope, SQLite, sidecar?) | 4 |
+| 3 | What atomic write/locking strategy should be used? (temp+rename, WAL, locks, checksum?) | 4 |
+| 4 | How should RecoveryManifest be persisted? (single JSON, per-file, electron-store, SQLite?) | 3 |
+| 5 | What retention policy applies to recovery data? (forever, N days, N versions, quota?) | 3 |
+| 6 | What is the maximum main thread blocking time during autosave? | 3 |
+| 7 | How should large documents (save time > interval) be handled? | 3 |
+| 8 | Should recovery files be encrypted? (or explicitly deferred?) | 2 |
+| 9 | What alternatives were explicitly rejected? | 2 |
 
 ---
 
 ## Impact Summary
 
-| Impact Score | Count |
-|--------------|-------|
-| 5 (Critical) | 0 |
-| 4 (High) | 1 |
-| 3 (Medium) | 3 |
-| 2 (Medium-Low) | 5 |
-| 1 (Low) | 1 |
+| Impact Score | Count | Description |
+|--------------|-------|-------------|
+| 5 (Critical) | 1 | Storage location |
+| 4 (High) | 2 | File format, atomic writes |
+| 3 (Medium) | 4 | Manifest persistence, retention, performance budget, large docs |
+| 2 (Low) | 2 | Encryption, rejected alternatives |
+| 1 (Minimal) | 0 | - |
 
-**Total Ambiguities**: 10
-**Requiring Clarification**: 4 (High + Medium impact)
+**Total Ambiguities Analyzed**: 12
+**Clear**: 3
+**Requiring Clarification**: 9 (7 high-priority with impact >= 3)

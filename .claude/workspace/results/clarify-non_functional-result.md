@@ -1,6 +1,6 @@
 # Non-Functional Requirements Ambiguity Analysis
 
-**Spec**: `specs/007-mdx-content-outline/spec.md`
+**Spec**: `specs/011-autosave-recovery/spec.md`
 **Category**: Non-Functional Quality Attributes
 **Analyzed**: 2026-01-17
 
@@ -10,16 +10,16 @@
 
 | Quality Attribute | Status | Issues Found |
 |-------------------|--------|--------------|
-| Performance | Partial | 4 issues |
-| Scalability | Missing | 3 issues |
+| Performance | Partial | 3 issues |
+| Scalability | Missing | 1 issue |
 | Reliability & Availability | Partial | 3 issues |
-| Observability | Missing | 3 issues |
-| Security & Privacy | Missing | 2 issues |
-| Compliance / Regulatory | Partial | 2 issues |
+| Observability | Missing | 2 issues |
+| Security & Privacy | Partial | 2 issues |
+| Compliance / Regulatory | Partial | 1 issue |
 
-**Total Ambiguities Identified**: 17
+**Total Ambiguities Identified**: 12
 
-**Note**: The Non-Functional Requirements section (lines 205-224) is notably thin, covering only Performance, Accessibility, and Maintainability at a high level. Several critical NFR categories are entirely missing, and the existing ones lack quantitative targets.
+**Note**: The spec includes Success Criteria with some measurable targets (SC-001 through SC-006) but lacks a dedicated Non-Functional Requirements section. Critical NFR categories like observability and security are not addressed.
 
 ---
 
@@ -27,160 +27,128 @@
 
 ### 1. Performance (Latency, Throughput Targets)
 
-#### 1.1 Memory Budget Unspecified
+#### 1.1 Autosave Latency Threshold Undefined
 - **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No memory budget or ceiling is specified for the outline feature. Parsing large documents with many headings and components could consume significant memory.
-- **Question Candidate**: What is the maximum acceptable memory footprint for the outline feature (e.g., max 50MB additional memory for a 10,000-line document)?
+- **Status**: Partial
+- **Location**: SC-002 (line 114)
+- **Issue**: SC-002 states "Autosave operations complete without perceptible interruption to user typing (no visible lag or pause)" but "perceptible" is subjective and not quantified.
+- **Question Candidate**: What is the maximum acceptable latency in milliseconds for an autosave operation (e.g., main thread block <50ms)? Should autosave be performed asynchronously in a background process?
 - **Impact Score**: 4
 
-#### 1.2 CPU Utilization Ceiling Unspecified
+#### 1.2 Large Document Handling Unspecified
 - **Category**: Non-Functional
 - **Status**: Missing
-- **Location**: NFR Performance section (lines 209-211)
-- **Issue**: The spec says "must not block the main thread or cause editor input lag" but provides no quantitative CPU utilization limit.
-- **Question Candidate**: Should there be a CPU utilization ceiling for outline parsing (e.g., no more than 5% of single core during background updates)?
-- **Impact Score**: 3
-
-#### 1.3 Performance Targets Scattered Across Sections
-- **Category**: Non-Functional
-- **Status**: Partial
-- **Location**: NFR (209-211), FR-010/015/019 (500ms), SC-001 (100ms), SC-002 (500ms), SC-003 (50ms), SC-004 (50ms)
-- **Issue**: Performance targets are scattered across Success Criteria, Functional Requirements, and NFR sections. The NFR section itself only provides qualitative guidance ("debounce," "reuse AST") without consolidating quantitative targets.
-- **Question Candidate**: Should all performance targets be consolidated into a single NFR subsection with a clear performance budget table?
-- **Impact Score**: 2
-
-#### 1.4 Debounce Interval Not Specified
-- **Category**: Non-Functional
-- **Status**: Partial
-- **Location**: NFR Performance (line 210)
-- **Issue**: The spec requires "Debounce outline updates to avoid excessive re-parsing during rapid typing" but does not specify the debounce interval.
-- **Question Candidate**: What debounce interval should be used for outline updates during rapid typing (e.g., 100ms, 200ms, 300ms)?
-- **Impact Score**: 2
-
----
-
-### 2. Scalability (Horizontal/Vertical, Limits)
-
-#### 2.1 Document Size Limits Not Defined
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No maximum document size (lines, characters, headings, components) is specified. Large documents could cause outline performance degradation.
-- **Question Candidate**: What is the maximum document size (lines/characters) and item count (headings/components) the outline must fully support without degradation?
+- **Location**: Edge Cases (line 81)
+- **Issue**: Edge case asks "How does the system handle very large documents that take longer to save than the autosave interval?" but no requirement addresses this. No document size limits or handling strategy defined.
+- **Question Candidate**: What is the maximum document size the autosave system must support without performance degradation? Should there be a document size threshold that triggers chunked, incremental, or diff-based saving?
 - **Impact Score**: 4
 
-#### 2.2 Virtualization/Pagination Strategy Missing
+#### 1.3 Concurrent Document Throughput Not Defined
 - **Category**: Non-Functional
 - **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No virtualization or pagination strategy is defined for documents with many outline items. A document with 500+ headings could overwhelm the outline panel.
-- **Question Candidate**: What is the maximum number of outline items the panel should display before employing virtualization or a "show more" pattern?
-- **Impact Score**: 3
-
-#### 2.3 Graceful Degradation Strategy Missing
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No graceful degradation strategy exists for very large documents that exceed performance targets.
-- **Question Candidate**: How should the outline behave when document size exceeds supported limits (e.g., "Outline simplified for large document" with only top-level headings)?
+- **Location**: FR-014 (line 100)
+- **Issue**: FR-014 mentions "multiple documents from a single crash event" but no throughput or concurrency requirements are specified for simultaneous autosave operations.
+- **Question Candidate**: How many concurrent documents should the autosave system support simultaneously without performance degradation? Should autosaves be serialized, parallelized, or prioritized?
 - **Impact Score**: 3
 
 ---
 
-### 3. Reliability & Availability (Uptime, Recovery)
+### 2. Scalability (Limits, Storage)
 
-#### 3.1 Component Crash Isolation Not Specified
+#### 2.1 Recovery Storage Limits Undefined
 - **Category**: Non-Functional
 - **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No error boundary or crash isolation requirement exists. If the outline component throws an unhandled exception, it could crash the entire editor.
-- **Question Candidate**: Should the outline component be wrapped in an error boundary to prevent cascading failures to the editor?
-- **Impact Score**: 3
+- **Location**: Assumptions (line 126)
+- **Issue**: Assumptions mention "Recovery files use a dedicated directory separate from user documents" but no limits on number of recovery files, total disk space, or retention period are defined. The AutosaveSettings entity (line 105) mentions "retention settings" but provides no specifics.
+- **Question Candidate**: What is the maximum number of recovery files to retain? What is the maximum total disk space the recovery system may consume? What is the retention policy for old recovery files (e.g., delete after 7 days, keep last 10 sessions)?
+- **Impact Score**: 4
 
-#### 3.2 Outline Staleness Threshold Not Defined
+---
+
+### 3. Reliability & Availability (Recovery Guarantees)
+
+#### 3.1 Atomic Write Guarantee Missing
 - **Category**: Non-Functional
 - **Status**: Partial
-- **Location**: FR-031, Edge Cases (line 113)
-- **Issue**: The spec mentions showing "last valid outline" on parse failure but doesn't define how long stale data is acceptable before showing an error state.
-- **Question Candidate**: What is the maximum acceptable staleness for "last valid outline" data (e.g., if AST fails for 10+ seconds, show explicit error state)?
-- **Impact Score**: 2
+- **Location**: Edge Cases (line 78)
+- **Issue**: Edge case asks "What happens if the application exits during an autosave write operation?" but no requirement addresses atomic writes or crash-safe persistence. A partial write could corrupt the recovery file.
+- **Question Candidate**: Should autosave writes be atomic (write to temp file then rename) to guarantee crash-safe persistence? What guarantees exist that a crash during write won't corrupt the recovery file?
+- **Impact Score**: 5
 
-#### 3.3 Retry Logic for Transient Failures Missing
+#### 3.2 Recovery Data Validation Missing
 - **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No retry logic is specified for transient AST parsing failures.
-- **Question Candidate**: Should there be automatic retry logic if outline AST parsing fails transiently (e.g., retry once after 500ms)?
-- **Impact Score**: 2
+- **Status**: Partial
+- **Location**: Edge Cases (line 80)
+- **Issue**: Edge case mentions "What happens when recovery data is corrupted or incomplete?" but no integrity validation requirements exist. FR-013 mentions "handle autosave failures gracefully" but doesn't address data integrity.
+- **Question Candidate**: Should recovery files include checksums or integrity markers? How should the system detect and handle corrupted recovery data (e.g., show warning, skip file, attempt partial recovery)?
+- **Impact Score**: 4
+
+#### 3.3 Recovery Success Rate Well-Defined
+- **Category**: Non-Functional
+- **Status**: Clear
+- **Location**: SC-001 (line 113)
+- **Issue**: N/A - SC-001 states "Users can recover at least 95% of their work after an unexpected application exit"
+- **Question Candidate**: N/A
+- **Impact Score**: N/A
+
+#### 3.4 External File Conflict Handling Unspecified
+- **Category**: Non-Functional
+- **Status**: Partial
+- **Location**: Edge Cases (line 79)
+- **Issue**: Edge case asks "How are conflicts handled if the source file was modified externally between autosaves?" but no requirement addresses conflict detection or resolution strategy.
+- **Question Candidate**: When recovering a document, how should the system detect and handle conflicts if the original file was modified externally (e.g., show diff, offer merge options, warn user)?
+- **Impact Score**: 3
 
 ---
 
-### 4. Observability (Logging, Metrics, Tracing)
+### 4. Observability (Logging, Metrics)
 
 #### 4.1 No Logging Requirements
 - **Category**: Non-Functional
 - **Status**: Missing
 - **Location**: N/A (not addressed)
-- **Issue**: No logging requirements exist for outline operations. Debugging slow outline updates or navigation failures would be difficult without logs.
-- **Question Candidate**: Should outline parsing performance and navigation events be logged for debugging (e.g., log parse duration, item count, navigation targets)?
-- **Impact Score**: 2
+- **Issue**: No logging requirements exist for autosave operations. Debugging autosave failures, recovery issues, or performance problems would be difficult without logs.
+- **Question Candidate**: What autosave events should be logged (start, success, failure, recovery attempts, file conflicts)? What log level and format should be used? Should there be user-visible status indicators for autosave operations (e.g., "Last autosaved 30 seconds ago")?
+- **Impact Score**: 3
 
-#### 4.2 No Performance Metrics Collection
+#### 4.2 No Metrics or Telemetry
 - **Category**: Non-Functional
 - **Status**: Missing
 - **Location**: N/A (not addressed)
-- **Issue**: No metrics collection is specified for monitoring outline performance in production.
-- **Question Candidate**: Should outline performance metrics (parse times, update frequency, memory usage) be collected for monitoring?
+- **Issue**: No metrics requirements exist. SC-001 targets 95% recovery rate but no mechanism to measure real-world success is specified.
+- **Question Candidate**: Should autosave emit metrics (save duration, file sizes, success/failure rates)? Should there be telemetry to measure real-world recovery success rates against SC-001?
 - **Impact Score**: 2
-
-#### 4.3 No Debug Mode for Developers
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No developer debugging capability is specified for inspecting outline state.
-- **Question Candidate**: Should there be a developer console command or debug panel to inspect current outline state and AST data?
-- **Impact Score**: 1
 
 ---
 
-### 5. Security & Privacy (AuthN/Z, Data Protection)
+### 5. Security & Privacy (Data Protection)
 
-#### 5.1 Input Sanitization Not Addressed
+#### 5.1 Recovery File Protection Unspecified
+- **Category**: Non-Functional
+- **Status**: Partial
+- **Location**: Assumptions (line 126)
+- **Issue**: Assumptions mention "dedicated directory separate from user documents" but no security requirements exist for recovery files. Recovery files contain full document content which may be sensitive.
+- **Question Candidate**: What file permissions should recovery files have (e.g., 600/owner-only)? Should recovery files be encrypted at rest for sensitive documents? How are recovery files protected from unauthorized access on shared systems?
+- **Impact Score**: 3
+
+#### 5.2 Secure Deletion Not Addressed
 - **Category**: Non-Functional
 - **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: Heading text and component names come from user-authored content. No sanitization requirement exists to prevent potential rendering issues or injection.
-- **Question Candidate**: Should outline item text (heading text, component names) be sanitized before rendering in the tree view to prevent any rendering injection concerns?
+- **Location**: FR-007 (line 93)
+- **Issue**: FR-007 states "discard recovery data when user explicitly declines recovery" but doesn't specify secure deletion. Simple file deletion may leave recoverable data on disk.
+- **Question Candidate**: Should declined or obsolete recovery files be securely deleted (overwritten) rather than simply unlinked? Is there a risk of residual sensitive data persisting on disk?
 - **Impact Score**: 2
-
-#### 5.2 Data Exposure Considerations Missing
-- **Category**: Non-Functional
-- **Status**: Missing
-- **Location**: N/A (not addressed)
-- **Issue**: No consideration of whether outline data could expose document structure in error reports or logs.
-- **Question Candidate**: Is there any risk of outline data (document structure, heading text) being exposed unintentionally in logs or error reports?
-- **Impact Score**: 1
 
 ---
 
 ### 6. Compliance / Regulatory Constraints
 
-#### 6.1 WCAG Compliance Level Not Specified
+#### 6.1 Data Retention Compliance Unclear
 - **Category**: Non-Functional
 - **Status**: Partial
-- **Location**: NFR Accessibility (lines 215-217)
-- **Issue**: The spec requires keyboard navigation and ARIA roles but doesn't specify a target WCAG compliance level.
-- **Question Candidate**: What WCAG compliance level is required for the outline (2.0 AA minimum, 2.1 AA, or 2.1 AAA)?
-- **Impact Score**: 3
-
-#### 6.2 WAI-ARIA TreeView Pattern Not Referenced
-- **Category**: Non-Functional
-- **Status**: Partial
-- **Location**: NFR Accessibility (lines 215-217)
-- **Issue**: The spec mentions "tree, treeitem" roles but doesn't reference the specific WAI-ARIA TreeView pattern for keyboard interactions.
-- **Question Candidate**: Should keyboard navigation follow the specific WAI-ARIA TreeView pattern (with arrow keys, Home/End, expand/collapse)?
+- **Location**: AutosaveSettings entity (line 105)
+- **Issue**: AutosaveSettings mentions "retention settings" but no specifics provided. No consideration of data retention compliance (GDPR, organizational policies) for storing document copies.
+- **Question Candidate**: What is the maximum retention period for recovery files? Should users be informed that document copies are stored? Are there compliance considerations (GDPR right to deletion, etc.) for recovery file storage?
 - **Impact Score**: 2
 
 ---
@@ -191,55 +159,69 @@ Sorted by impact score (highest first):
 
 | # | Impact | Quality Attribute | Question |
 |---|--------|-------------------|----------|
-| 1 | 4 | Performance | What is the maximum acceptable memory footprint for the outline feature? |
-| 2 | 4 | Scalability | What is the maximum document size and item count the outline must support without degradation? |
-| 3 | 3 | Performance | Should there be a CPU utilization ceiling for outline parsing? |
-| 4 | 3 | Scalability | What is the maximum number of outline items before employing virtualization? |
-| 5 | 3 | Scalability | How should the outline degrade gracefully for very large documents? |
-| 6 | 3 | Reliability | Should the outline component be error-boundary isolated? |
-| 7 | 3 | Compliance | What WCAG compliance level is required for the outline? |
-| 8 | 2 | Performance | Should all performance targets be consolidated into a single NFR section? |
-| 9 | 2 | Performance | What debounce interval should be used for outline updates? |
-| 10 | 2 | Reliability | What is the maximum acceptable staleness for "last valid outline" data? |
-| 11 | 2 | Reliability | Should there be retry logic for transient AST parsing failures? |
-| 12 | 2 | Observability | Should outline parsing performance be logged for debugging? |
-| 13 | 2 | Observability | Should outline performance metrics be collected for monitoring? |
-| 14 | 2 | Security | Should outline item text be sanitized before rendering? |
-| 15 | 2 | Compliance | Should keyboard navigation follow the WAI-ARIA TreeView pattern? |
-| 16 | 1 | Observability | Should there be a debug mode for inspecting outline state? |
-| 17 | 1 | Security | Is there risk of outline data exposure in logs/error reports? |
+| 1 | 5 | Reliability | Should autosave writes be atomic (write-then-rename) to prevent corruption during crashes? |
+| 2 | 4 | Performance | What is the maximum acceptable latency in milliseconds for autosave operations? Should autosave run in a background thread/process? |
+| 3 | 4 | Performance | What is the maximum document size autosave must support? Should large documents use incremental/chunked/diff-based saving? |
+| 4 | 4 | Scalability | What are the maximum number of recovery files and total disk space allowed? What is the retention policy? |
+| 5 | 4 | Reliability | Should recovery files include checksums? How is corrupted data detected and handled? |
+| 6 | 3 | Performance | How many concurrent documents should autosave support? Should saves be serialized or parallelized? |
+| 7 | 3 | Reliability | How should conflicts with externally-modified source files be detected and handled during recovery? |
+| 8 | 3 | Observability | What autosave events should be logged? Should there be user-visible autosave status indicators? |
+| 9 | 3 | Security | What file permissions should recovery files have? Should they be encrypted at rest? |
+| 10 | 2 | Observability | Should autosave emit performance and success metrics for monitoring? |
+| 11 | 2 | Security | Should recovery files be securely deleted when discarded? |
+| 12 | 2 | Compliance | What is the maximum retention period? Any GDPR or compliance considerations? |
 
 ---
 
 ## Recommendations
 
-### Critical (Impact 4)
-1. **Memory Budget**: Define a memory ceiling for the outline feature to prevent resource exhaustion on large documents (e.g., "Outline feature must not exceed 50MB additional memory for documents up to 50,000 lines").
+### Critical (Impact 5)
+1. **Atomic Writes**: Define a requirement for atomic/crash-safe writes (write to temp file, then rename). This is fundamental to the core value proposition - without atomic writes, crashes during autosave could corrupt the recovery file, resulting in worse outcomes than no autosave at all.
 
-2. **Document Size Limits**: Specify maximum supported document dimensions and define graceful degradation behavior beyond those limits.
+### High Priority (Impact 4)
+2. **Autosave Latency**: Specify maximum main thread blocking time (e.g., <50ms) and require asynchronous saving for larger documents.
 
-### High Priority (Impact 3)
-3. **WCAG Compliance**: Specify a target WCAG level (recommend 2.1 AA) and reference the WAI-ARIA TreeView pattern for keyboard navigation.
+3. **Document Size Strategy**: Define maximum supported document size and specify handling for large documents (chunked saving, incremental diffs, or clear performance degradation expectations).
 
-4. **Error Isolation**: Require error boundary wrapping to prevent outline failures from crashing the editor.
+4. **Storage Limits**: Specify retention policy (e.g., "Keep recovery files for 7 days or until manual save, maximum 500MB total, oldest files purged first").
 
-5. **Scalability Strategy**: Define virtualization threshold for outline panels with many items.
+5. **Data Integrity**: Require checksums or magic bytes for recovery files and define behavior for corrupted data detection.
 
-### Medium Priority (Impact 2)
-6. **Performance Consolidation**: Consolidate all quantitative performance targets into a single NFR subsection for clarity.
+### Medium Priority (Impact 3)
+6. **Concurrency Model**: Specify whether autosaves are serialized (simpler, prevents I/O contention) or parallelized (faster for multiple documents).
 
-7. **Observability**: Add basic logging requirements for debugging outline issues in production.
+7. **Conflict Detection**: Define strategy for detecting and presenting conflicts when source file changed externally.
 
-8. **Input Sanitization**: Clarify text rendering approach to prevent any edge-case rendering issues.
+8. **Observability**: Add logging requirements for autosave events and consider user-visible "last saved" indicator.
 
-### Low Priority (Impact 1)
-9. **Debug Mode**: Consider adding developer tooling for outline state inspection (can be deferred to later spec).
+9. **File Security**: Specify restrictive file permissions (600) for recovery files.
+
+### Low Priority (Impact 2)
+10. **Metrics**: Consider adding telemetry hooks for measuring real-world recovery success rates.
+
+11. **Secure Deletion**: Document whether secure deletion is required (typically overkill for desktop apps).
+
+12. **Compliance**: Document retention expectations and user notification if required by target markets.
+
+---
+
+## Clear Requirements (No Issues)
+
+| Requirement | Location | Status |
+|-------------|----------|--------|
+| Recovery success rate target (95%) | SC-001 | Clear |
+| Recovery dialog timing (2 seconds) | SC-003 | Clear |
+| User recovery workflow timing (30 seconds) | SC-004 | Clear |
+| Autosave interval range (5s - 10min) | FR-009 | Clear |
+| Settings persistence requirement | FR-011 | Clear |
 
 ---
 
 ## Notes
 
-- The spec compensates somewhat for NFR vagueness by including quantitative targets in Success Criteria (SC-001 through SC-008)
-- The scattered nature of performance targets across FR, SC, and NFR sections could lead to implementation confusion
-- Security concerns are minimal for a local desktop app, but input sanitization is good practice
-- The accessibility requirements are directionally correct but would benefit from specific standard references
+- The spec has a strong user-focused structure with clear acceptance scenarios
+- Success Criteria provide some quantitative targets but key NFR categories are absent
+- Edge cases section (lines 74-81) identifies important reliability questions but they aren't resolved as requirements
+- The "graceful failure handling" requirement (FR-013) is too vague to be actionable
+- Security is particularly important for autosave since recovery files contain full document content that persists on disk

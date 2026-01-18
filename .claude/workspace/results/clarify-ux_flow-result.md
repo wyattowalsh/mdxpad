@@ -1,6 +1,6 @@
 # UX Flow Ambiguity Analysis
 
-**Spec**: `specs/007-mdx-content-outline/spec.md`
+**Spec**: `specs/011-autosave-recovery/spec.md`
 **Category**: UX Flow
 **Analysis Date**: 2026-01-17
 
@@ -10,231 +10,224 @@
 
 | Status | Count |
 |--------|-------|
-| Clear | 4 |
-| Partial | 7 |
+| Clear | 3 |
+| Partial | 6 |
 | Missing | 5 |
 
 ---
 
 ## Findings
 
-### 1. Loading State During Initial AST Parsing
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: What should the outline panel display while the AST is being parsed for the first time when a document is opened? Should there be a loading spinner, skeleton UI, or is it expected to be fast enough to not need one?
-- **Impact Score**: 3
-
-**Analysis**: The spec mentions the outline updates within 500ms of document changes (FR-010, FR-015, FR-019), but there's no mention of what users see during the initial load when a document is first opened. The success criteria (SC-004) mentions parsing adds less than 50ms overhead, but initial document opening may take longer.
-
----
-
-### 2. Loading State During Document Switching
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: When the user switches from one document to another, what is the transition state for the outline panel? Does it show the old outline until the new one is ready, clear immediately and show loading, or flash briefly?
-- **Impact Score**: 3
-
-**Analysis**: The spec assumes single-document model (Assumption 2) but doesn't describe the UX flow when switching between documents in the same session. Users may have multiple files open in sequence.
-
----
-
-### 3. Error State Visual Design and Recovery Flow
+### 1. Recovery Dialog Dismissal Behavior
 
 - **Category**: UX Flow
 - **Status**: Partial
-- **Question Candidate**: When AST parsing fails, what specific visual treatment indicates the "warning indicator" mentioned in edge cases? Is there a retry mechanism, and if the user fixes the syntax error, does the outline auto-recover?
+- **Question Candidate**: What should happen when a user dismisses the recovery dialog without explicitly accepting or declining (e.g., pressing Escape, clicking outside the modal, closing the window)? Should recovery data be preserved for the next startup, discarded, or should dismissal be prevented?
 - **Impact Score**: 4
 
-**Analysis**: Edge case mentions "Show the last valid outline with a warning indicator" but doesn't specify what the warning looks like (icon, banner, color change), where it appears, or whether users can dismiss it. FR-031 mentions "error state" but the visual treatment is undefined. Auto-recovery behavior is implied but not explicit.
+**Analysis**: The spec describes that users can accept or decline recovery (FR-006, FR-007), but does not specify what happens if the user dismisses the dialog without making a choice. This is a common interaction pattern that needs explicit definition to avoid data loss ambiguity.
 
 ---
 
-### 4. Empty State Message Placement and Design
+### 2. Multiple Document Recovery Selection UX
 
 - **Category**: UX Flow
 - **Status**: Partial
-- **Question Candidate**: For the empty state ("No outline available..."), should this message appear in a specific visual style (muted text, icon, illustration)? Should it span the entire panel or be centered? Is the guidance text sufficient or should there be action buttons?
-- **Impact Score**: 2
-
-**Analysis**: Edge case specifies the message text but not the visual presentation. Modern UIs often include helpful illustrations or quick-action buttons in empty states.
-
----
-
-### 5. Keyboard Navigation Flow Within Outline Tree
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: What is the complete keyboard navigation flow? Specifically: How does Tab/Shift+Tab interact with the tree? What happens when pressing Enter on a collapsed parent (expand or navigate)? Is there Escape to exit tree focus? What about Home/End keys?
-- **Impact Score**: 4
-
-**Analysis**: Non-functional requirements mention "arrow keys to move, Enter to select" and ARIA roles, but the full keyboard interaction model is incomplete. For example:
-- Left/Right arrows for expand/collapse vs. Up/Down for traversal
-- Tab behavior relative to other UI elements
-- Focus ring visibility
-- Typeahead search behavior
-
----
-
-### 6. Screen Reader Announcement Specifics
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: What specific announcements should screen readers make? Should they announce the heading level (e.g., "Heading level 2, Installation"), component counts, section collapse state changes, and navigation success messages?
-- **Impact Score**: 4
-
-**Analysis**: The spec mentions "Screen readers must announce outline structure and navigation actions" but doesn't specify what text should be announced. This is critical for accessibility compliance. For example:
-- "Installation, heading level 2, item 3 of 8"
-- "Components section collapsed, 5 items hidden"
-- "Navigated to line 42"
-
----
-
-### 7. Visual Feedback During Navigation
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: Beyond the 500ms line highlight, should the clicked outline item show a selected/active state? What happens if the user clicks another item before the highlight fades - does the previous highlight cancel immediately?
-- **Impact Score**: 2
-
-**Analysis**: FR-022 specifies a 500ms flash highlight on the target line, but doesn't address:
-- Whether the outline item itself shows selection state
-- Behavior when rapidly clicking multiple items
-- Whether the highlight uses the editor's current theme colors
-
----
-
-### 8. Panel Resize Interaction
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: Can users manually resize the outline panel width? If so, what are the resize constraints (min/max width), is there a visual resize handle, and is the width persisted across sessions?
+- **Question Candidate**: What UI pattern should be used for selecting multiple documents in the recovery dialog? (e.g., checkboxes with individual selection, multi-select list, toggle switches, "Recover All" + "Recover Selected" buttons, or drag-select)
 - **Impact Score**: 3
 
-**Analysis**: FR-004 mentions minimum width of 150px enforced when narrow, but there's no specification of whether users can manually resize the panel. The spec only mentions auto-hide behavior. Manual resizing is a standard expectation for sidebar panels.
+**Analysis**: User Story 3 and FR-014 mention "select specific documents to recover" and support for "multiple documents from a single crash event" but the interaction pattern is not defined. The selection mechanism significantly affects the user experience when many documents need recovery.
 
 ---
 
-### 9. Hover State and Tooltip Behavior
-
-- **Category**: UX Flow
-- **Status**: Partial
-- **Question Candidate**: For truncated headings (40+ chars), how long is the hover delay before showing the tooltip? Should tooltips also appear for component instances showing additional context (e.g., the component's props)?
-- **Impact Score**: 2
-
-**Analysis**: FR-009 mentions "showing full text on hover" but doesn't specify tooltip delay, positioning, or whether tooltips apply to other truncated content like long component names.
-
----
-
-### 10. Focus Management After Navigation
+### 3. Autosave Progress/Status Indicator
 
 - **Category**: UX Flow
 - **Status**: Missing
-- **Question Candidate**: After clicking an outline item and the editor scrolls to the target, where does keyboard focus go? Does it move to the editor (allowing immediate typing), stay in the outline panel, or follow a specific accessibility pattern?
-- **Impact Score**: 4
-
-**Analysis**: The spec describes cursor positioning (FR-021) but not focus management. For accessibility, focus should typically move to the editor after navigation to allow users to immediately start editing. This is critical for keyboard-only users.
-
----
-
-### 11. Localization/i18n for Section Headers
-
-- **Category**: UX Flow
-- **Status**: Missing
-- **Question Candidate**: Should the section headers ("Headings", "Components", "Frontmatter") and the empty state message be localized? If so, what is the localization strategy (i18n library, string keys)?
+- **Question Candidate**: Should autosave provide any visual feedback to the user? If so, what form should it take (status bar message like "Autosaved at 2:30 PM", subtle icon change, transient toast notification, or completely invisible operation) and how long should feedback persist?
 - **Impact Score**: 3
 
-**Analysis**: The spec uses hard-coded English strings for section names and messages. There's no mention of localization support, string externalization, or RTL language considerations for the outline panel layout.
+**Analysis**: The spec emphasizes autosave should happen "without interrupting the user's editing flow" (Acceptance Scenario 2) and "without perceptible interruption" (SC-002), but does not specify whether any visual feedback should be provided. Users often want reassurance that their work is being protected.
 
 ---
 
-### 12. Animation/Transition Specifications
+### 4. Error State: Autosave Failure Notification
+
+- **Category**: UX Flow
+- **Status**: Missing
+- **Question Candidate**: When autosave fails (e.g., disk full, permissions error, file locked), should the user be notified? If yes, how (non-blocking status bar warning, toast notification, modal alert)? If no, how will users know their work is not protected?
+- **Impact Score**: 5
+
+**Analysis**: FR-013 states the system "MUST handle autosave failures gracefully without disrupting user workflow" but does not specify if/how failures should be communicated to users. Silent failure could lead users to falsely believe their work is protected. This is a critical UX decision that directly impacts user trust and data safety perception.
+
+---
+
+### 5. Error State: Recovery Data Corruption
+
+- **Category**: UX Flow
+- **Status**: Missing
+- **Question Candidate**: How should the UI handle corrupted or incomplete recovery data? Should it: (a) show a partial preview with a warning badge, (b) omit the corrupted document from the list entirely, (c) display an error message explaining partial recovery is possible, or (d) show the document grayed out with an error indicator?
+- **Impact Score**: 4
+
+**Analysis**: Edge cases mention "What happens when recovery data is corrupted or incomplete?" but no UX flow is defined. Users need to understand why a document they expected to recover is unavailable or only partially recoverable.
+
+---
+
+### 6. Loading State: Recovery Dialog Population
+
+- **Category**: UX Flow
+- **Status**: Missing
+- **Question Candidate**: What loading state should be shown while the recovery dialog is scanning and populating the list of recoverable documents? (e.g., spinner with "Scanning for recoverable documents...", skeleton UI with placeholder items, progressive loading where each document appears as discovered)
+- **Impact Score**: 2
+
+**Analysis**: SC-003 specifies recovery dialog should present documents "within 2 seconds of application start" but no loading state is defined for this window. For large recovery sets or slow storage, users need feedback that the scan is in progress.
+
+---
+
+### 7. Empty State: No Recoverable Documents After Dialog Opens
 
 - **Category**: UX Flow
 - **Status**: Partial
-- **Question Candidate**: What are the animation specifications for panel show/hide, section collapse/expand, and the navigation highlight? Should animations respect prefers-reduced-motion for accessibility?
+- **Question Candidate**: If the recovery dialog opens because initial detection indicated recovery data exists, but validation finds all recovery files are invalid or empty, should the dialog: (a) close automatically with no message, (b) show an empty state with explanation text, (c) show an error dialog, or (d) never open in the first place (defer validation to before dialog)?
 - **Impact Score**: 2
 
-**Analysis**: The spec mentions toggle and collapse behaviors but not transition timing or animation style. Modern UI expectations include smooth animations, but accessibility requires respecting user motion preferences.
+**Analysis**: FR-004 states the dialog appears "when recoverable documents are detected" implying detection happens before the dialog opens. However, the timing of validation versus detection is unclear, and the edge case of "all detected files turn out to be invalid" is not addressed.
 
 ---
 
-### 13. Outline Panel Header Actions
+### 8. Dirty State Indicator Location and Style
 
 - **Category**: UX Flow
-- **Status**: Clear
-- **Question Candidate**: N/A
-- **Impact Score**: N/A
+- **Status**: Partial
+- **Question Candidate**: Where should the dirty state indicator be displayed (tab title with asterisk, status bar icon, document title area, window title bar) and what visual style should it use (asterisk prefix, dot indicator, color change, icon)?
+- **Impact Score**: 3
 
-**Analysis**: FR-005 clearly specifies a close button in the header. The toggle shortcut (Cmd+Shift+O) is well-defined.
+**Analysis**: User Story 1 Acceptance Scenario 3 mentions "dirty state indicator reflects unsaved changes" and FR-002/FR-012 reference dirty state tracking, but the visual representation and placement are not specified. This is a visible UI element users interact with mentally throughout their editing session.
 
 ---
 
-### 14. Click-to-Navigate User Journey
+### 9. Settings Panel Access and Integration
 
 - **Category**: UX Flow
-- **Status**: Clear
-- **Question Candidate**: N/A
-- **Impact Score**: N/A
+- **Status**: Missing
+- **Question Candidate**: How do users access autosave settings? Is there an existing application settings panel to integrate with (from another spec), or does this feature need to define a new settings UI? What is the navigation path to these settings (menu item, keyboard shortcut, command palette)?
+- **Impact Score**: 3
 
-**Analysis**: User Story 1 provides a complete journey with clear acceptance scenarios. The flow from click to cursor position to highlight is well-specified.
+**Analysis**: User Story 4 references "the settings panel is open" for autosave configuration, but doesn't specify how users reach it or whether this assumes an existing settings infrastructure. The spec lists dependencies on 004-file-system-shell and Document Store, but not on any settings/preferences spec.
 
 ---
 
-### 15. Toggle Panel Visibility Journey
+### 10. Recovery Dialog Timing and Modality
 
 - **Category**: UX Flow
-- **Status**: Clear
-- **Question Candidate**: N/A
-- **Impact Score**: N/A
+- **Status**: Partial
+- **Question Candidate**: At what point in the application startup sequence should the recovery dialog appear (before main window, after main window loads but before user can interact, or overlaid on the main window)? Should the dialog be modal (blocking all other interaction) or non-modal (allowing the user to dismiss and access the app)?
+- **Impact Score**: 3
 
-**Analysis**: User Story 2 fully covers the toggle flow including persistence and both keyboard and button interactions.
+**Analysis**: The spec states recovery dialog appears "on startup" and "when the application restarts" but doesn't specify the precise timing in the startup sequence or whether users can interact with the main application while the dialog is shown. This affects whether users can compare the recovery version with existing files.
 
 ---
 
-### 16. Component Navigation Journey
+### 11. Keyboard Accessibility for Recovery Dialog
 
 - **Category**: UX Flow
-- **Status**: Clear
-- **Question Candidate**: N/A
-- **Impact Score**: N/A
+- **Status**: Missing
+- **Question Candidate**: What keyboard accessibility requirements apply to the recovery dialog? Specifically: Tab navigation order between document list and buttons, Enter key behavior (accept focused item vs. confirm dialog), Escape key behavior (decline? close without action?), and ARIA labels for screen reader users.
+- **Impact Score**: 4
 
-**Analysis**: User Story 3 clearly defines expanding component types, viewing instances, and clicking to navigate.
+**Analysis**: No accessibility considerations are mentioned for the recovery dialog. Given that this is a critical workflow (data recovery), keyboard navigation, screen reader support, and focus management are essential for users who cannot use a mouse.
+
+---
+
+### 12. Autosave Timer Reset Conditions
+
+- **Category**: UX Flow
+- **Status**: Partial
+- **Question Candidate**: How does the autosave timer behave? Options: (a) fixed interval from app start regardless of activity, (b) interval resets after each user edit (debounce-style, only saves after period of inactivity), (c) interval resets after each successful autosave. Which model provides the most predictable user experience?
+- **Impact Score**: 3
+
+**Analysis**: The spec mentions autosave occurs "at configurable intervals" (FR-001, FR-009) but doesn't clarify the timer behavior. This affects user mental model of when their work will be saved. The debounce model (reset on edit) is common but different from a fixed cadence model.
+
+---
+
+### 13. Recovery Preview Content Format
+
+- **Category**: UX Flow
+- **Status**: Partial
+- **Question Candidate**: What should the recovery preview display for each document? Options: (a) raw MDX source text (first N lines or characters), (b) rendered preview of the MDX content, (c) metadata only (filename, last modified time, word count, size), (d) diff view showing changes since last manual save. What level of detail helps users make informed decisions?
+- **Impact Score**: 3
+
+**Analysis**: FR-005 requires users to "preview recoverable document content before accepting recovery" but doesn't specify the preview format. The preview content significantly affects users' ability to identify documents and assess recovery value. For MDX documents, rendered vs. raw source is a meaningful distinction.
+
+---
+
+### 14. Localization/Internationalization
+
+- **Category**: UX Flow
+- **Status**: Missing
+- **Question Candidate**: Does this feature need to support localization/internationalization? If so, which strings need externalization (recovery dialog labels, error messages, settings labels, status messages), and how should date/time formatting in "last modified" timestamps be handled for different locales?
+- **Impact Score**: 2
+
+**Analysis**: No localization requirements are mentioned. User-facing strings include: "Recover", "Discard", "Autosave interval", error messages, and potentially timestamp displays. If the application targets international users, these need i18n consideration.
+
+---
+
+## Clear Items (No Ambiguity)
+
+### 1. Basic Autosave Flow
+- **Status**: Clear
+- **Analysis**: User Story 1 provides a complete journey: user edits document -> interval elapses -> content saved to recovery location. Acceptance scenarios cover the core flow, concurrent editing, and dirty state reflection.
+
+### 2. Accept/Decline Recovery Binary Choice
+- **Status**: Clear
+- **Analysis**: FR-006 and FR-007 clearly define that accepting recovery opens the document with autosaved content intact, while declining discards recovery data and lets the user start fresh.
+
+### 3. Settings Persistence Across Restarts
+- **Status**: Clear
+- **Analysis**: FR-011 explicitly states "System MUST persist autosave settings across application restarts" and User Story 4 Acceptance Scenario 3 confirms this with a testable scenario.
 
 ---
 
 ## Recommendations
 
-### High Priority (Impact 4)
-1. **Error State Design** - Define visual treatment for parsing errors and recovery flow
-2. **Keyboard Navigation** - Document complete keyboard interaction model
-3. **Screen Reader Announcements** - Specify announcement text templates
-4. **Focus Management** - Define focus behavior after navigation
+### High Priority (Impact 4-5)
+1. **Autosave Failure Notification** (Impact 5) - Critical: Define how users learn when autosave fails. Silent failure vs. notification has major trust implications.
+2. **Recovery Data Corruption Handling** (Impact 4) - Define UX for corrupted/incomplete recovery files.
+3. **Recovery Dialog Dismissal** (Impact 4) - Clarify what happens on Escape/click-outside.
+4. **Keyboard Accessibility** (Impact 4) - Document keyboard navigation and screen reader support for recovery dialog.
 
 ### Medium Priority (Impact 3)
-5. **Loading States** - Define initial load and document switch transitions
-6. **Panel Resizing** - Clarify if manual resize is supported
-7. **Localization** - Determine i18n strategy
+5. **Autosave Status Indicator** - Determine if/how successful autosaves are communicated.
+6. **Multiple Document Selection UI** - Define selection pattern (checkboxes, multi-select, etc.).
+7. **Dirty State Indicator Design** - Specify location and visual style.
+8. **Settings Panel Access** - Define navigation path to autosave settings.
+9. **Recovery Dialog Modality** - Specify timing and whether dialog is modal.
+10. **Autosave Timer Behavior** - Document reset conditions.
+11. **Recovery Preview Format** - Specify content shown in preview.
 
 ### Lower Priority (Impact 2)
-8. **Empty State Design** - Enhance visual treatment specification
-9. **Hover/Tooltip Behavior** - Specify timing and scope
-10. **Animation Specs** - Define transitions and motion preferences
+12. **Loading State** - Define recovery dialog loading indicator.
+13. **Empty State After Detection** - Handle edge case of invalid recovery files.
+14. **Localization** - Determine i18n requirements.
 
 ---
 
-## Appendix: Checklist of UX Flow Topics
+## Appendix: UX Flow Coverage Checklist
 
-| Topic | Covered | Notes |
-|-------|---------|-------|
-| Happy path user journey | Yes | User Stories 1-5 well-defined |
-| Empty state | Partial | Message defined, visual treatment not |
+| Topic | Coverage | Notes |
+|-------|----------|-------|
+| Happy path - autosave | Yes | User Story 1 well-defined |
+| Happy path - recovery accept | Yes | User Story 2 well-defined |
+| Happy path - recovery decline | Yes | User Story 2 well-defined |
+| Happy path - preview/select | Partial | Flow defined, UI pattern not |
+| Happy path - settings | Partial | Behavior defined, access path not |
+| Empty state | Partial | Implied but edge case not explicit |
 | Loading state | No | Not addressed |
-| Error state | Partial | Mentioned but not detailed |
-| Keyboard navigation | Partial | Basic mentioned, details missing |
-| Screen reader support | Partial | Required but not specified |
+| Error state - autosave failure | No | Mentioned but UX not defined |
+| Error state - recovery failure | No | Not addressed |
+| Keyboard accessibility | No | Not addressed |
+| Screen reader support | No | Not addressed |
 | Focus management | No | Not addressed |
 | Localization | No | Not addressed |
-| Animations | Partial | Behavior implied, timing not specified |
-| Responsive behavior | Yes | Auto-hide thresholds defined |
+| Visual feedback | Partial | Dirty state mentioned, style not |
+| Dialog dismissal | No | Not addressed |

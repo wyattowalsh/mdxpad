@@ -28,8 +28,34 @@ import {
   AppVersionResponseSchema,
   AppReadyResponseSchema,
 } from '@shared/contracts/file-schemas';
+import {
+  AutosaveChannels,
+  RecoveryCheckResponseSchema,
+  RecoveryListResponseSchema,
+  RecoveryPreviewRequestSchema,
+  RecoveryPreviewResponseSchema,
+  RecoveryRestoreRequestSchema,
+  RecoveryRestoreResponseSchema,
+  RecoveryDiscardRequestSchema,
+  RecoveryDiscardResponseSchema,
+  AutosaveTriggerRequestSchema,
+  AutosaveTriggerResponseSchema,
+  AutosaveStatusResponseSchema,
+  SettingsGetResponseSchema,
+  SettingsSetRequestSchema,
+  SettingsSetResponseSchema,
+  ConflictResolveRequestSchema,
+  ConflictResolveResponseSchema,
+} from '@shared/contracts/autosave-ipc';
+import { AutosaveSettingsSchema } from '@shared/contracts/autosave-schemas';
 import type { MdxpadAPI } from './api';
 import type { FileResult, FileHandle } from '@shared/types/file';
+import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
+import type {
+  RecoveryListResponse,
+  RecoveryPreviewResponse,
+  RecoveryRestoreResponse,
+} from '@shared/contracts/autosave-ipc';
 
 // ============================================================================
 // Schema for SecurityInfo (not in file-schemas.ts)
@@ -174,6 +200,26 @@ ipcRenderer.on(IPC_EVENTS.menuSaveFile, () => {
 ipcRenderer.on(IPC_EVENTS.menuSaveFileAs, () => {
   for (const listener of menuSaveFileAsListeners) {
     listener();
+  }
+});
+
+// ============================================================================
+// Autosave Settings Change Event Handling
+// ============================================================================
+
+/**
+ * Autosave settings change event listeners registry.
+ */
+const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => void>();
+
+// Set up IPC listener for settings changes (once, shared across all subscriptions)
+ipcRenderer.on('mdxpad:autosave:settings:changed', (_event, data: unknown) => {
+  // Validate incoming data
+  const parsed = AutosaveSettingsSchema.safeParse(data);
+  if (parsed.success) {
+    for (const listener of autosaveSettingsChangeListeners) {
+      listener(parsed.data);
+    }
   }
 });
 
@@ -338,6 +384,99 @@ const api: MdxpadAPI = {
     menuSaveFileAsListeners.add(callback);
     return () => {
       menuSaveFileAsListeners.delete(callback);
+    };
+  },
+
+  // === Autosave & Recovery (Spec 011) ===
+  recoveryCheck: () =>
+    validatedInvoke(
+      AutosaveChannels.RECOVERY_CHECK,
+      null,
+      RecoveryCheckResponseSchema
+    ),
+
+  recoveryList: async (): Promise<RecoveryListResponse> => {
+    const result = await validatedInvoke(
+      AutosaveChannels.RECOVERY_LIST,
+      null,
+      RecoveryListResponseSchema
+    );
+    // Cast validated result to expected type (structurally equivalent, branded types)
+    return result as unknown as RecoveryListResponse;
+  },
+
+  recoveryPreview: async (request): Promise<RecoveryPreviewResponse> => {
+    const result = await validatedInvoke(
+      AutosaveChannels.RECOVERY_PREVIEW,
+      RecoveryPreviewRequestSchema,
+      RecoveryPreviewResponseSchema,
+      request
+    );
+    // Cast validated result to expected type (structurally equivalent, branded types)
+    return result as unknown as RecoveryPreviewResponse;
+  },
+
+  recoveryRestore: async (request): Promise<RecoveryRestoreResponse> => {
+    const result = await validatedInvoke(
+      AutosaveChannels.RECOVERY_RESTORE,
+      RecoveryRestoreRequestSchema,
+      RecoveryRestoreResponseSchema,
+      request
+    );
+    // Cast validated result to expected type (structurally equivalent, branded types)
+    return result as unknown as RecoveryRestoreResponse;
+  },
+
+  recoveryDiscard: (request) =>
+    validatedInvoke(
+      AutosaveChannels.RECOVERY_DISCARD,
+      RecoveryDiscardRequestSchema,
+      RecoveryDiscardResponseSchema,
+      request
+    ),
+
+  autosaveTrigger: (request) =>
+    validatedInvoke(
+      AutosaveChannels.AUTOSAVE_TRIGGER,
+      AutosaveTriggerRequestSchema,
+      AutosaveTriggerResponseSchema,
+      request
+    ),
+
+  autosaveStatus: () =>
+    validatedInvoke(
+      AutosaveChannels.AUTOSAVE_STATUS,
+      null,
+      AutosaveStatusResponseSchema
+    ),
+
+  autosaveSettingsGet: () =>
+    validatedInvoke(
+      AutosaveChannels.SETTINGS_GET,
+      null,
+      SettingsGetResponseSchema
+    ),
+
+  autosaveSettingsSet: (settings) =>
+    validatedInvoke(
+      AutosaveChannels.SETTINGS_SET,
+      SettingsSetRequestSchema,
+      SettingsSetResponseSchema,
+      settings
+    ),
+
+  conflictResolve: (request) =>
+    validatedInvoke(
+      AutosaveChannels.CONFLICT_RESOLVE,
+      ConflictResolveRequestSchema,
+      ConflictResolveResponseSchema,
+      request
+    ),
+
+  onAutosaveSettingsChange: (callback) => {
+    autosaveSettingsChangeListeners.add(callback);
+    return () => {
+      autosaveSettingsChangeListeners.delete(callback);
     };
   },
 

@@ -1,6 +1,6 @@
-# Completion Ambiguity Analysis: MDX Content Outline/Navigator (007)
+# Completion Ambiguity Analysis: Autosave & Crash Recovery (011)
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec File**: `/Users/ww/dev/projects/mdxpad-persist/specs/011-autosave-recovery/spec.md`
 **Analysis Date**: 2026-01-17
 **Focus Area**: Completion Signals (Acceptance Criteria Testability, Measurable Definition of Done)
 
@@ -11,241 +11,208 @@
 | Status | Count |
 |--------|-------|
 | Clear | 8 |
-| Partial | 9 |
-| Missing | 4 |
+| Partial | 7 |
+| Missing | 3 |
 
 ---
 
 ## Ambiguity Findings
 
-### 1. US1-AS1: Headings Tree Nesting Structure
+### 1. SC-001: "95% of work" Metric Undefined
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 35)**: "Then all headings appear in a hierarchical tree reflecting their nesting structure"
-**Question Candidate**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a placeholder h2?
+**Spec Text (Line 113)**: "Users can recover at least 95% of their work after an unexpected application exit"
+**Question Candidate**: How is "95% of work" measured? Is it 95% of document content bytes, 95% of characters, 95% of time since last manual save, or 95% of editing sessions? What constitutes the measurement baseline?
 **Impact Score**: 4
-**Rationale**: "Nesting structure" is ambiguous for non-sequential heading levels. Test cases cannot be written without knowing expected behavior for malformed heading hierarchies.
+**Rationale**: The metric is aspirational but unmeasurable without defining the unit of "work." Test cases cannot assert 95% without knowing what is being counted and compared against what baseline.
 
 ---
 
-### 2. US1-AS3: Brief Highlight Duration
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 37)**: "Then the heading line is briefly highlighted to help the user locate it"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: FR-022 specifies "flash highlight for 500ms" which makes this testable.
-
----
-
-### 3. US1-AS4: Outline Update Timing Reference Point
+### 2. SC-002: "Perceptible Interruption" Lacks Measurable Threshold
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 38)**: "outline updates within 500ms to reflect the changes"
-**Question Candidate**: Is the 500ms measured from when typing stops (debounce), from the last keystroke, or from when the AST becomes available?
+**Spec Text (Line 114)**: "Autosave operations complete without perceptible interruption to user typing (no visible lag or pause)"
+**Question Candidate**: What is the maximum acceptable latency in milliseconds for an autosave operation to be considered "imperceptible"? (e.g., <16ms for 60fps smooth typing, <50ms for unnoticed delay, <100ms for acceptable)
 **Impact Score**: 3
-**Rationale**: The timing trigger is ambiguous. Tests need to know the exact start point of the 500ms window to write deterministic assertions.
+**Rationale**: "Perceptible" is subjective. Performance tests need a concrete threshold to assert against. Different testers may judge "perceptible" differently.
 
 ---
 
-### 4. US2-AS1/AS2: Toggle Shortcut
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 52)**: "Cmd+Shift+O"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific shortcut is defined. Testable via keyboard simulation.
-
----
-
-### 5. US2-AS3: Persistence Verification Scope
+### 3. SC-006: "Zero Data Loss" Measurement Undefined
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 54)**: "restart the app, Then the outline remains hidden (persistence)"
-**Question Candidate**: What constitutes an "app restart" for testing purposes - full quit and relaunch, window close and reopen, or F5 refresh in dev mode?
+**Spec Text (Line 118)**: "Zero data loss events reported after feature deployment (excluding user-declined recovery)"
+**Question Candidate**: How will data loss events be detected and reported? Is there telemetry, user feedback mechanism, or automated monitoring? Over what time period is "zero" measured to consider the criterion met?
+**Impact Score**: 4
+**Rationale**: This is an operational metric requiring instrumentation to detect and report. Without defining the detection mechanism, the criterion is unverifiable post-deployment.
+
+---
+
+### 4. US1-AS1: "Recovery Location" Unspecified
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 20)**: "the document content is saved to a recovery location"
+**Question Candidate**: What constitutes a valid recovery location? Is there a specific directory path, naming convention, or verification method to confirm successful autosave?
 **Impact Score**: 2
-**Rationale**: Different persistence mechanisms may be tested differently. Need clarity for automated test design and CI/CD.
+**Rationale**: Tests need to verify autosave actually occurred. Without knowing where to check, tests cannot assert file creation or content correctness.
 
 ---
 
-### 6. FR-014: Component Visual Distinction Treatment
+### 5. US1-AS2: "Editing Flow" Interruption Criteria Missing
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 21)**: "the autosave completes without interrupting the user's editing flow"
+**Question Candidate**: What specific behaviors would constitute an interruption to editing flow? (e.g., cursor freeze >X ms, input queue blocked, UI freeze, focus loss, keystroke delay)
+**Impact Score**: 2
+**Rationale**: Similar to SC-002 but at acceptance scenario level. "Editing flow" is subjective without measurable criteria.
+
+---
+
+### 6. US1-AS3: Dirty State Indicator Behavior After Autosave
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 22)**: "dirty state indicator reflects unsaved changes until autosave completes"
+**Question Candidate**: Should the dirty indicator clear after autosave, or only after manual save? What is the expected UI state immediately after autosave completes - dirty (still needs manual save) or clean (autosave counts as saved)?
+**Impact Score**: 3
+**Rationale**: The acceptance criterion specifies behavior "until autosave completes" but not the state after. This affects both UI behavior and user expectation around what "saved" means.
+
+---
+
+### 7. Edge Cases: No Definition of Done
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 146)**: "MUST distinguish between built-in components...and custom/unknown components visually"
-**Question Candidate**: What specific visual treatment differentiates built-in from custom components? Different icons, colors, labels, badges, or prefixes?
+**Spec Text (Lines 74-81)**: Six edge cases listed as questions without resolution or acceptance criteria
+**Question Candidate**: Which edge cases must be handled for v1 release? What are the acceptance criteria for each prioritized edge case (disk space, read-only, mid-save crash, external modification, corrupted recovery, large documents)?
+**Impact Score**: 5
+**Rationale**: Edge cases are identified but completely unresolved. Implementation and testing cannot proceed without knowing expected behavior for these failure modes. This is the highest-impact gap.
+
+---
+
+### 8. FR-013: Graceful Failure Handling Undefined
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 99)**: "System MUST handle autosave failures gracefully without disrupting user workflow"
+**Question Candidate**: What specific failure scenarios must be tested, and what constitutes "graceful" handling? (e.g., retry count, user notification, error logging, fallback behavior, silent fail vs alert)
 **Impact Score**: 4
-**Rationale**: Cannot write visual regression tests or verify implementation without knowing the expected visual distinction. Implementers will make arbitrary choices.
+**Rationale**: "Gracefully" is subjective. Tests cannot verify graceful handling without knowing expected behavior: Should user see an error? How many retries? What UI feedback?
 
 ---
 
-### 7. FR-014: Built-in Component List Definition
+### 9. Recovery Data Validation Criteria Missing
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 146)**: "built-in components (Callout, CodeBlock, etc.)"
-**Question Candidate**: What is the complete, exhaustive list of "built-in" components that should be recognized? The spec only gives examples with "etc."
+**Spec Text (Lines 104-107)**: Key entity definitions (RecoveryFile, RecoveryManifest) without validation criteria
+**Question Candidate**: What validation must pass for recovery data to be considered valid/complete? How do we test for and handle partial/corrupted recovery files? What makes a recovery file "usable" vs "unusable"?
 **Impact Score**: 4
-**Rationale**: Tests cannot verify correct classification without an authoritative list of built-in components. What about `<Note>`, `<Warning>`, `<Tip>`, `<Tabs>`?
+**Rationale**: The edge case "What happens when recovery data is corrupted or incomplete?" (line 80) has no answer. Tests cannot distinguish valid from invalid recovery files without criteria.
 
 ---
 
-### 8. FR-016/FR-017: Frontmatter Fields Enumeration
+### 10. SC-003: "Application Start" Measurement Point Unclear
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Lines 151-152)**: "display key fields (title, date, author, description, tags)" and "limit displayed frontmatter to common fields, with option to expand for all fields"
-**Question Candidate**: What is the exact list of "common fields" that are always shown vs expanded? Is the list in FR-016 exhaustive or just examples?
-**Impact Score**: 3
-**Rationale**: Test cases need to know which fields are "common" (always shown) vs "other" (shown on expand). The word "key" suggests priority but doesn't enumerate.
+**Spec Text (Line 115)**: "Recovery dialog presents all recoverable documents within 2 seconds of application start"
+**Question Candidate**: Is "application start" measured from process launch, Electron ready event, main window visibility, or renderer process ready state? What happens if recovery scanning exceeds 2 seconds with many files?
+**Impact Score**: 2
+**Rationale**: Electron apps have multiple lifecycle events. Tests need to know which event starts the 2-second clock. Also, failure behavior (timeout exceeded) is unspecified.
 
 ---
 
-### 9. SC-001: Navigation Timing
+### 11. FR-009: Interval Configuration Bounds
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 196)**: "within 100ms (perceived instant)"
+**Spec Text (Line 95)**: "minimum 5 seconds, maximum 10 minutes"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Specific, measurable timing provided. Testable with performance testing tools and assertions.
+**Rationale**: Specific bounds provided. Testable via UI validation and boundary value testing.
 
 ---
 
-### 10. SC-004: Parsing Overhead Measurement
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 197)**: "less than 50ms overhead to the existing preview compilation cycle"
-**Question Candidate**: How should this be measured? Delta between preview-only compilation vs preview+outline compilation? What document size is the baseline for testing?
-**Impact Score**: 3
-**Rationale**: Performance tests need baseline document specification and measurement methodology defined. Results vary dramatically by document complexity.
-
----
-
-### 11. SC-005: Heading Representation Scope
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 198)**: "100% of headings in the document are represented in the outline"
-**Question Candidate**: Does this include headings inside JSX components, code blocks (as examples), or markdown blocks within JSX? Only top-level markdown headings?
-**Impact Score**: 4
-**Rationale**: Edge cases around heading location affect what "100%" means. A heading inside `<CodeBlock>` is fundamentally different from a parsed heading.
-
----
-
-### 12. SC-006: Component Identification Scope
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 199)**: "100% of JSX component usages are identified"
-**Question Candidate**: Does this include components inside code blocks (shown as examples), MDX expressions like `{MyComponent}`, or only directly rendered `<Component>` tags?
-**Impact Score**: 3
-**Rationale**: False positives from code examples would fail this criterion if not scoped correctly. Need to define what counts as "usage" vs "reference."
-
----
-
-### 13. SC-007: Full Workflow Timing
+### 12. US2-AS2/AS3: Recovery Accept/Decline Outcomes
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 200)**: "under 3 seconds"
+**Spec Text (Lines 37-38)**: "user accepts recovery, Then the recovered document opens" / "user declines recovery, Then the recovery data is discarded"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Specific, measurable timing provided. End-to-end test can verify with stopwatch.
+**Rationale**: Binary outcomes with clear assertions. Testable via UI interaction and state verification.
 
 ---
 
-### 14. Edge Case: Empty State Message
+### 13. US4-AS3: Settings Persistence on Restart
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 112)**: "Show an empty state message: 'No outline available. Add headings, components, or frontmatter to see the document structure.'"
+**Spec Text (Line 70)**: "When the application restarts, Then the configured interval persists"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Exact text specified makes this testable via DOM assertion.
+**Rationale**: Testable - change setting, restart app, verify setting retained.
 
 ---
 
-### 15. Edge Case: Syntax Error Warning Indicator
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 113)**: "show the last valid outline with a warning indicator"
-**Question Candidate**: What does the "warning indicator" look like? Icon, color, text, tooltip, banner? How is "last valid outline" cached across parse failures?
-**Impact Score**: 3
-**Rationale**: Tests need to verify warning indicator appearance and outline caching behavior. Without visual spec, multiple implementations are valid.
-
----
-
-### 16. Edge Case/FR-004: Auto-hide Threshold
+### 14. US3-AS3: Selective Recovery
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Lines 117, 130)**: "below 600px with preview visible, or below 400px with preview hidden"
+**Spec Text (Line 54)**: "When the user selects specific documents to recover, Then only the selected documents are restored"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Exact pixel values make this testable via window resize assertions.
+**Rationale**: Testable - select subset, verify only those recovered, verify others discarded.
 
 ---
 
-### 17. NFR: Keyboard Navigation Keys
+### 15. SC-005: Immediate Setting Effect
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 215)**: "arrow keys to move, Enter to select"
+**Spec Text (Line 117)**: "Autosave setting changes take effect immediately without requiring application restart"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Specific keys defined. Testable via keyboard simulation.
+**Rationale**: Testable - change interval, verify next autosave uses new interval without restart.
 
 ---
 
-### 18. NFR: ARIA Roles
+### 16. US4-AS2: Disable Autosave Behavior
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 216)**: "tree, treeitem"
+**Spec Text (Line 69)**: "When the user disables autosave, Then no automatic saves occur until re-enabled"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Specific ARIA roles defined. Testable via DOM role assertions.
+**Rationale**: Testable - disable, wait past interval, verify no recovery file created.
 
 ---
 
-### 19. FR-029: AST Reuse Verification Method
-
-**Category**: Completion
-**Status**: Missing
-**Spec Text (Line 173)**: "MUST reuse AST data from the preview pane"
-**Question Candidate**: How do we verify AST is actually being reused vs re-parsed? What metric, assertion, or observable behavior proves reuse?
-**Impact Score**: 3
-**Rationale**: Implementation detail that affects performance testing. Need observable verification method (e.g., parse count counter, shared reference check).
-
----
-
-### 20. NFR: Debounce Configuration
-
-**Category**: Completion
-**Status**: Missing
-**Spec Text (Line 209)**: "Debounce outline updates to avoid excessive re-parsing"
-**Question Candidate**: What is the debounce duration? Is it the same as the 500ms update window, or a separate configuration?
-**Impact Score**: 3
-**Rationale**: Tests need to know debounce timing to set appropriate wait times. If different from 500ms update target, could create race conditions.
-
----
-
-### 21. Edge Case: Minimum Panel Width
+### 17. FR-008: Recovery Data Cleanup
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 116)**: "Enforce minimum width of 150px"
+**Spec Text (Line 94)**: "System MUST clear recovery data after a document is successfully manually saved"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Specific pixel value. Testable via CSS/DOM assertions during resize.
+**Rationale**: Testable - autosave occurs, manual save, verify recovery file deleted.
+
+---
+
+### 18. Default Autosave Interval
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 127)**: "Default autosave interval of 30 seconds"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Explicit default provided. Testable via fresh install verification.
 
 ---
 
@@ -253,54 +220,63 @@
 
 | Impact Score | Count |
 |--------------|-------|
-| 5 (Critical) | 0     |
-| 4 (High)     | 4     |
-| 3 (Medium)   | 7     |
-| 2 (Low)      | 1     |
-| 1 (Clear)    | 9     |
+| 5 (Critical) | 1 |
+| 4 (High) | 4 |
+| 3 (Medium) | 2 |
+| 2 (Low) | 3 |
+| 1 (Clear) | 8 |
 
 ---
 
 ## High-Impact Questions (Impact >= 4)
 
-1. **[Impact 4] Heading Nesting for Skipped Levels**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a phantom/placeholder h2?
+1. **[Impact 5] Edge Case Resolution**: Which of the six listed edge cases (disk space, read-only, mid-save crash, external modification, corrupted recovery, large documents) must have defined handling behavior for v1 release? What are the acceptance criteria for each?
 
-2. **[Impact 4] Built-in Component Visual Distinction**: What specific visual treatment differentiates built-in from custom components? (icon, color, label, badge)
+2. **[Impact 4] 95% Work Recovery Metric**: How is "95% of work" measured - what unit (bytes, characters, time-based), what baseline, and how is this validated in testing?
 
-3. **[Impact 4] Built-in Component List**: What is the complete, authoritative list of "built-in" components that should be recognized and classified specially?
+3. **[Impact 4] Graceful Failure Definition**: What specific behaviors constitute "graceful" failure handling for autosave failures? Retry policy, user notification, logging, fallback?
 
-4. **[Impact 4] Heading Scope for 100% Coverage (SC-005)**: Does 100% heading representation include headings inside JSX components, code blocks, or only top-level markdown headings?
+4. **[Impact 4] Recovery Data Validation**: What criteria determine whether recovery data is valid/complete vs corrupted/unusable? How should corrupted files be handled?
+
+5. **[Impact 4] Zero Data Loss Detection**: How will data loss events be detected, reported, and measured post-deployment to validate SC-006?
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **[Impact 4]** Please enumerate the complete list of built-in MDX components that should be visually distinguished from custom components.
+1. **[Impact 5]** Please define the expected behavior for each of the six edge cases listed. Which must be handled for v1, and what are the acceptance criteria?
 
-2. **[Impact 4]** What visual treatment (icon, color, label) should differentiate built-in components from custom/unknown components in the outline?
+2. **[Impact 4]** How is "95% of work recovered" (SC-001) measured? What is the unit of measurement and baseline for comparison?
 
-3. **[Impact 4]** When heading levels skip (e.g., `# H1` followed by `### H3` with no H2), how should the outline tree represent this - nest H3 under H1, show H3 at root level, or create a placeholder?
+3. **[Impact 4]** What constitutes "graceful" failure handling (FR-013)? Please specify retry count, user notification behavior, and logging requirements.
 
-4. **[Impact 4]** Should headings inside JSX components or code blocks be included in the "100% of headings represented" success criterion?
+4. **[Impact 4]** What validation determines whether recovery data is usable? How should corrupted/partial recovery files be handled?
 
-5. **[Impact 3]** What is the debounce duration for outline updates, and is it the same as or separate from the 500ms update window in SC-002?
+5. **[Impact 4]** What instrumentation or mechanism will detect and report data loss events for SC-006 validation?
+
+6. **[Impact 3]** Should the dirty state indicator clear after autosave completes, or only after manual save?
+
+7. **[Impact 3]** What is the maximum acceptable autosave latency in milliseconds to meet the "no perceptible interruption" criterion?
 
 ---
 
 ## Overall Assessment
 
-The spec has **strong measurable outcomes** in the Success Criteria section with specific timing targets (100ms navigation, 500ms update, 50ms overhead, 3s workflow). The acceptance scenarios follow Given/When/Then format and most have clear assertions.
+The spec has **good structural coverage** with clear functional requirements and basic acceptance scenarios following Given/When/Then format. The success criteria include measurable timing targets (2 seconds for dialog, 30 seconds default interval).
 
 **Strengths:**
-- Specific timing metrics for performance testing
-- Exact pixel thresholds for responsive behavior
-- Explicit ARIA roles for accessibility testing
-- Precise keyboard shortcuts defined
+- Clear binary outcomes for accept/decline recovery flows
+- Specific configuration bounds (5s-10min interval range)
+- Explicit cleanup behavior after manual save
+- Default values documented
+- Dependencies clearly identified
 
-**Gaps requiring clarification:**
-1. **Visual specifications** - Component distinction treatment undefined
-2. **Data enumeration** - Built-in component list incomplete
-3. **Edge case handling** - Skipped heading levels behavior undefined
-4. **Scope boundaries** - What counts as "heading" or "component usage" in edge cases
+**Critical Gaps:**
+1. **Edge cases unresolved** - Six failure modes identified but no behavior defined
+2. **Metrics unmeasurable** - "95% of work" and "zero data loss" lack measurement methodology
+3. **Graceful handling undefined** - Key non-functional requirement without specification
+4. **Recovery validation missing** - No criteria for valid vs corrupted recovery data
 
-The spec is approximately **80% complete** from a testability standpoint. Addressing the 4 high-impact clarifications above would bring it to production-ready Definition of Done quality.
+The spec is approximately **65% complete** from a testability standpoint. The edge cases section is particularly concerning as it acknowledges known unknowns without resolving them. Addressing the 5 high-impact clarifications above is essential before implementation can proceed safely.
+
+**Recommended Action**: Prioritize edge case resolution (Finding 7) as it blocks multiple test scenarios and represents the highest risk to user data integrity.

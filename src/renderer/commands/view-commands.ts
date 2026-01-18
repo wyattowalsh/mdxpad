@@ -87,6 +87,21 @@ const resetZoomCommand: Command = {
   },
 };
 
+const toggleSettingsCommand: Command = {
+  id: 'view.toggle-settings' as CommandId,
+  name: 'Open Settings',
+  description: 'Open application settings',
+  category: 'view',
+  shortcut: { key: ',', modifiers: ['Mod'] },
+  execute: (): CommandResult => {
+    // Dynamic import to avoid circular dependencies
+    import('../stores/settings-store').then(({ useSettingsStore }) => {
+      useSettingsStore.getState().toggle();
+    });
+    return { ok: true };
+  },
+};
+
 // =============================================================================
 // REGISTRATION
 // =============================================================================
@@ -98,6 +113,7 @@ const VIEW_COMMANDS: readonly Command[] = [
   zoomInCommand,
   zoomOutCommand,
   resetZoomCommand,
+  toggleSettingsCommand,
 ];
 
 /**

@@ -1,6 +1,6 @@
 # Terminology & Consistency Scan Results
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec File**: `/Users/ww/dev/projects/mdxpad-persist/specs/011-autosave-recovery/spec.md`
 **Category**: Terminology
 **Date**: 2026-01-17
 
@@ -8,161 +8,145 @@
 
 ## Executive Summary
 
-The 007-mdx-content-outline spec has several terminology inconsistencies and missing glossary terms when compared against the canonical sources (Constitution glossary, and previous specs 003-preview-pane and 006-application-shell). Key issues include undefined terms, potential synonym conflicts, and missing alignment with established project vocabulary.
+The 011-autosave-recovery spec has several terminology inconsistencies when compared against the Constitution glossary and existing codebase implementation (`src/main/services/auto-save.ts`, `src/renderer/stores/document-store.ts`). Key issues include entity naming conflicts with existing code, undefined terms, and inconsistent hyphenation of "auto-save".
 
 ---
 
 ## Findings
 
-### 1. "Outline Item" vs "OutlineItem" Entity Inconsistency
+### 1. "RecoveryFile" vs "AutoSaveEntry" Entity Conflict
 
 - **Category**: Terminology
-- **Status**: Partial
-- **Location**: Glossary (line 260) vs Key Entities (line 182)
-- **Issue**: The glossary defines "Outline Item" (two words) while the Key Entities section uses "OutlineItem" (PascalCase, one word). This creates ambiguity about the canonical form.
-- **Question Candidate**: Should the canonical term be "Outline Item" (human-readable glossary form) or "OutlineItem" (code entity form)? Should both forms be documented explicitly?
-- **Impact Score**: 2
-- **Recommendation**: Align glossary term with Key Entity naming. Use "OutlineItem" consistently, with glossary entry clarifying it as "**OutlineItem** (Outline Item in prose)"
-
----
-
-### 2. "Source Position" vs "line/column" Terminology
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Glossary (line 261), FR-032 (line 176)
-- **Issue**: The glossary defines "Source Position" as "line and column number" but the spec uses "line" and "column" separately in various places without referencing "Source Position". Spec 003 (Preview Pane) uses "position information" in FR-006. Spec 006 uses "cursor position" (different concept).
-- **Question Candidate**: Is "Source Position" the canonical term for line/column tuples in the codebase, or should each spec define its own terminology?
-- **Impact Score**: 3
-- **Recommendation**: Add "Source Position" to project-wide glossary (Constitution) and reference it consistently. Distinguish from "Cursor Position" (006) which is editor-specific.
-
----
-
-### 3. "AST" Term Undefined in Constitution
-
-- **Category**: Terminology
-- **Status**: Missing (from Constitution)
-- **Location**: Glossary (line 259), FR-029-032 (lines 173-176)
-- **Issue**: "AST" is defined in the 007 spec glossary but not in the Constitution's master glossary. This is a core concept referenced in multiple specs (003-preview-pane mentions "MDX compilation" which produces AST, 007 extensively uses AST).
-- **Question Candidate**: Should "AST" be elevated to the Constitution glossary as a project-wide canonical term?
+- **Status**: Missing (name conflict with codebase)
+- **Location**: Line 104 (Key Entities section)
+- **Issue**: The spec introduces "RecoveryFile" as a Key Entity representing autosaved backup content. However, the existing codebase (`src/main/services/auto-save.ts`) already defines `AutoSaveEntry` interface with nearly identical properties (`fileId`, `originalPath`, `tempPath`, `savedAt`, `displayName`).
+- **Existing Codebase Usage**:
+  - `src/main/services/auto-save.ts`: `AutoSaveEntry` interface (lines 31-46)
+- **Question Candidate**: Should the spec adopt "AutoSaveEntry" to align with existing codebase, or should the codebase be refactored to use "RecoveryFile"? Which term is canonical for auto-saved document backups?
 - **Impact Score**: 4
-- **Recommendation**: Add "AST" (Abstract Syntax Tree) to Constitution glossary since it's fundamental to MDX compilation and preview architecture.
 
 ---
 
-### 4. "Tree View" vs "Hierarchical Tree" vs "Headings Tree"
+### 2. "RecoveryManifest" Not Implemented
 
 - **Category**: Terminology
-- **Status**: Partial
-- **Location**: Glossary (line 262), FR-007 (line 137), User Story 1 (line 27)
-- **Issue**: Multiple terms are used for tree-based UI concepts:
-  - "Tree View" (glossary)
-  - "hierarchical tree structure" (FR-007)
-  - "Headings tree" (FR-006 section header)
-  - "navigable tree view" (Executive Summary)
-- **Question Candidate**: What is the canonical term for tree-based hierarchical UI components? Should "Tree View" encompass all uses, or should more specific terms (Headings Tree, Component List) be documented?
-- **Impact Score**: 2
-- **Recommendation**: Standardize on "Tree View" as the UI pattern term. Use "Headings Tree", "Component List", and "Frontmatter Section" as specific instances.
+- **Status**: Missing (new entity not in codebase)
+- **Location**: Line 107 (Key Entities section)
+- **Issue**: The spec introduces "RecoveryManifest" as "Index of all recoverable documents from previous sessions". The current implementation in `AutoSaveManager.findRecoverable()` discovers files dynamically via glob pattern scanning - no manifest file exists.
+- **Existing Codebase Usage**: None - dynamic discovery via `glob(pattern)` in `auto-save.ts`
+- **Question Candidate**: Is a formal RecoveryManifest file/structure required, or does the existing dynamic file discovery approach satisfy FR-003 ("detect on startup whether recovery data exists")? If a manifest is needed, what format (JSON?) and storage location?
+- **Impact Score**: 4
 
 ---
 
-### 5. "Preview AST" vs "MDX AST" vs "AST"
+### 3. "DirtyState" vs "isDirty" Property
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: FR-029 (line 173), Assumptions (line 229)
-- **Issue**: The spec uses both "preview AST" and "AST" without clarifying if these are the same thing. Spec 003 doesn't use the term "AST" explicitly but refers to "compiled MDX" and "CompileResult".
-- **Question Candidate**: Is "preview AST" specifically the AST generated by the preview pane (spec 003), or is it a general MDX AST? Should we use "CompileResult" (from 003) as the canonical term?
+- **Location**: Line 106 (Key Entities section)
+- **Issue**: The spec describes "DirtyState" as a Key Entity: "Tracks whether a document has unsaved changes; synchronized with document store; cleared on successful save or autosave." However, the existing codebase implements this as a simple `isDirty: boolean` property on `DocumentState` interface, not as a standalone type.
+- **Existing Codebase Usage**:
+  - `src/shared/types/document.ts` line 59: `readonly isDirty: boolean`
+  - `src/renderer/stores/document-store.ts`: `selectIsDirty` selector
+- **Question Candidate**: Should "DirtyState" remain a conceptual entity description, or does the spec intend a new standalone type beyond the existing `isDirty` boolean? The description mentions "synchronized with document store" which implies coordination logic beyond a simple flag.
 - **Impact Score**: 3
-- **Recommendation**: Clarify that "AST" in 007 refers to the parsed structure from MDX compilation (which spec 003 calls "CompileResult"). Consider aligning terminology.
 
 ---
 
-### 6. Missing "useErrorNavigation" Definition
-
-- **Category**: Terminology
-- **Status**: Missing
-- **Location**: FR-023 (line 161), Assumptions (line 232)
-- **Issue**: The spec references "useErrorNavigation hook" as an existing pattern but doesn't define it in the glossary. This appears to be a hook from spec 006 (Application Shell) but spec 006 doesn't define it in its glossary either.
-- **Question Candidate**: Should "useErrorNavigation" be added to the glossary with a definition? What spec owns this pattern?
-- **Impact Score**: 3
-- **Recommendation**: Add "useErrorNavigation" to glossary: "A React hook providing cursor positioning and navigation functionality for jumping to specific lines in the editor."
-
----
-
-### 7. "Outline" vs "Navigator" Title Ambiguity
+### 4. "Autosave" vs "Auto-save" Hyphenation Inconsistency
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: Title (line 1), throughout spec
-- **Issue**: The spec title is "MDX Content Outline/Navigator" (with slash) but the body uses only "outline" (~50 occurrences) and never "navigator". This creates ambiguity about whether these are synonyms or distinct concepts.
-- **Question Candidate**: Is "Navigator" an alias for "Outline" or does it represent a different aspect of the feature? Should one term be deprecated?
+- **Location**: Title (line 1), throughout spec body
+- **Issue**: Inconsistent hyphenation throughout:
+  - Spec title: "Autosave & Crash Recovery" (no hyphen)
+  - Spec body: "autosave" (no hyphen, ~30 occurrences)
+  - Constitution §7.3: "Auto-save MUST prevent data loss" (hyphenated)
+  - Codebase file: `auto-save.ts` (hyphenated)
+  - Codebase class: `AutoSaveManager` (PascalCase, no hyphen - appropriate for class names)
+  - Codebase constants: `AUTO_SAVE_PREFIX`, `AUTO_SAVE_INTERVAL` (underscored)
+- **Question Candidate**: Should the canonical prose form be "auto-save" (hyphenated) to match Constitution, or "autosave" (one word)? Note: PascalCase `AutoSave` for code identifiers is acceptable regardless.
 - **Impact Score**: 2
-- **Recommendation**: Standardize on "Outline" as the canonical term. Add to glossary: "**Outline** (also: Navigator): A panel displaying document structure for navigation."
 
 ---
 
-### 8. "Panel" vs "Pane" Terminology
+### 5. "Document Store" Undefined in Constitution
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: Throughout spec, comparison with 006-application-shell
-- **Issue**: Spec 007 uses "panel" (outline panel, ~20 occurrences) while spec 006 uses "pane" (preview pane, editor pane). Spec 003 also uses "pane" (Preview Pane). This inconsistency could confuse developers.
-- **Question Candidate**: Are "panel" and "pane" interchangeable, or should there be a distinction (e.g., pane for main content areas, panel for auxiliary sidebars)?
-- **Impact Score**: 3
-- **Recommendation**: Establish convention: "pane" for main editing areas (editor pane, preview pane), "panel" for auxiliary/sidebar UI (outline panel, status panel). Document in Constitution glossary.
-
----
-
-### 9. "Collapsible" Definition Missing
-
-- **Category**: Terminology
-- **Status**: Missing
-- **Location**: FR-001 (line 127), FR-025-027 (lines 165-168)
-- **Issue**: The spec uses "collapsible" extensively but doesn't define it. There are two distinct collapse behaviors:
-  1. Entire outline panel can collapse/hide (FR-001, FR-002)
-  2. Individual sections within the outline can collapse (FR-025-027)
-- **Question Candidate**: Should "collapsible" be defined to distinguish panel-level collapse (hide/show) from section-level collapse (expand/contract)?
+- **Location**: Lines 6, 98, 106, 122, 132
+- **Issue**: The spec references "document store" as an integration point but this term is not defined in the Constitution glossary. The codebase has `useDocumentStore` (Zustand store) and `DocumentStore` type.
+- **Existing Codebase Usage**:
+  - `src/renderer/stores/document-store.ts`: exports `useDocumentStore` hook
+  - `src/shared/types/document.ts`: `DocumentState` interface
+- **Question Candidate**: Should "Document Store" be added to the Constitution glossary as a canonical term? Definition: "Zustand store (`useDocumentStore`) managing document state including content, file handle, and dirty tracking."
 - **Impact Score**: 2
-- **Recommendation**: Add glossary entry: "**Collapse**: (1) For panels: hiding the panel entirely. (2) For sections: contracting to show only the header."
 
 ---
 
-### 10. "Section" Overloaded Term
+### 6. "Recovery Location" Vague Terminology
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: OutlineSection entity (line 184), FR-025 (line 165), User Stories
-- **Issue**: "Section" is used for both:
-  1. OutlineSection (Headings, Components, Frontmatter groupings in the outline)
-  2. Document sections (referenced in User Story 1: "jump to a specific section")
-- **Question Candidate**: Should "OutlineSection" be the canonical term for outline groupings to distinguish from document sections?
+- **Location**: Lines 16, 20
+- **Issue**: The spec uses "recovery location" without specifying where. The existing implementation uses the system temp directory: `app.getPath('temp')`.
+- **Existing Codebase Usage**:
+  - `src/main/services/auto-save.ts` line 101-104: `app.getPath('temp')`
+- **Question Candidate**: Should the spec explicitly define "recovery location" as the system temp directory, or is a dedicated recovery directory needed (e.g., `~/.mdxpad/recovery/`)? The temp directory may be cleared by OS; is this acceptable?
 - **Impact Score**: 2
-- **Recommendation**: Use "OutlineSection" in technical contexts, "section" (lowercase) for document sections. Add clarity in glossary.
 
 ---
 
-### 11. "Click-to-Navigate" vs "Navigation" Terminology
+### 7. "Content Snapshot" vs "Content"
+
+- **Category**: Terminology
+- **Status**: Partial
+- **Location**: Line 104
+- **Issue**: RecoveryFile entity uses "content snapshot" while existing code uses plain "content" string in `DirtyFile` interface.
+- **Existing Codebase Usage**:
+  - `src/main/services/auto-save.ts` line 62: `readonly content: string`
+- **Question Candidate**: Is "snapshot" a meaningful distinction to preserve (implies point-in-time capture), or should "content" be used consistently?
+- **Impact Score**: 1
+
+---
+
+### 8. "Document" Terminology
 
 - **Category**: Terminology
 - **Status**: Clear
-- **Location**: Input description (line 6), FR-020-024 (lines 158-163)
-- **Issue**: Minor - "click-to-navigate" in the input description is a compound term that could be documented.
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Recommendation**: No action needed. "Navigation" is sufficiently clear in context.
+- **Location**: Throughout spec
+- **Issue**: None - "document" is used consistently to mean an MDX file being edited, matching codebase `DocumentState` type and established usage in other specs.
+- **Impact Score**: 0
 
 ---
 
-### 12. "Real-time" vs "Live" Usage
+### 9. "Session" Terminology
 
 - **Category**: Terminology
 - **Status**: Clear
-- **Location**: Title, User Story 1 (line 38)
-- **Issue**: Both "real-time" and "live" are used (e.g., "live document outline", "updates in real-time"). This is consistent with spec 003 which uses "live preview".
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Recommendation**: No action needed. Both terms are industry-standard synonyms for immediate updates.
+- **Location**: Lines 89, 107
+- **Issue**: None - "session" is used correctly to mean a single application run/instance, consistent with standard usage.
+- **Impact Score**: 0
+
+---
+
+### 10. "Crash" Terminology
+
+- **Category**: Terminology
+- **Status**: Clear
+- **Location**: Lines 26-38, 100
+- **Issue**: None - "crash" consistently refers to unexpected application exit (crash, power loss, forced quit). User Story 2 clarifies scope appropriately.
+- **Impact Score**: 0
+
+---
+
+### 11. "Interval" Terminology
+
+- **Category**: Terminology
+- **Status**: Clear
+- **Location**: Lines 20, 64, 68, 95
+- **Issue**: None - "interval" consistently refers to the time period between auto-saves. Matches codebase `AUTO_SAVE_INTERVAL` constant.
+- **Impact Score**: 0
 
 ---
 
@@ -170,29 +154,40 @@ The 007-mdx-content-outline spec has several terminology inconsistencies and mis
 
 | # | Term/Issue | Status | Impact | Action Required |
 |---|------------|--------|--------|-----------------|
-| 1 | Outline Item vs OutlineItem | Partial | 2 | Align naming convention |
-| 2 | Source Position vs line/column | Partial | 3 | Standardize and elevate to Constitution |
-| 3 | AST not in Constitution | Missing | 4 | Add to Constitution glossary |
-| 4 | Tree View variations | Partial | 2 | Standardize terminology |
-| 5 | Preview AST vs AST | Partial | 3 | Clarify relationship to CompileResult |
-| 6 | useErrorNavigation undefined | Missing | 3 | Add to glossary |
-| 7 | Outline vs Navigator | Partial | 2 | Deprecate Navigator, standardize on Outline |
-| 8 | Panel vs Pane | Partial | 3 | Establish convention in Constitution |
-| 9 | Collapsible undefined | Missing | 2 | Add glossary entry |
-| 10 | Section overloaded | Partial | 2 | Clarify OutlineSection vs document section |
-| 11 | Click-to-navigate | Clear | 1 | No action |
-| 12 | Real-time vs Live | Clear | 1 | No action |
+| 1 | RecoveryFile vs AutoSaveEntry | Missing | 4 | Align with codebase or refactor |
+| 2 | RecoveryManifest undefined | Missing | 4 | Clarify if manifest required |
+| 3 | DirtyState vs isDirty | Partial | 3 | Clarify entity vs property |
+| 4 | Autosave vs Auto-save | Partial | 2 | Standardize hyphenation |
+| 5 | Document Store undefined | Partial | 2 | Add to Constitution glossary |
+| 6 | Recovery Location vague | Partial | 2 | Specify storage location |
+| 7 | Content Snapshot vs Content | Partial | 1 | Align terminology |
+| 8 | Document | Clear | 0 | No action |
+| 9 | Session | Clear | 0 | No action |
+| 10 | Crash | Clear | 0 | No action |
+| 11 | Interval | Clear | 0 | No action |
+
+---
+
+## Recommended Glossary Additions
+
+The following terms should be considered for addition to the Constitution glossary:
+
+| Term | Recommended Definition |
+|------|------------------------|
+| **Auto-save** | Automatic periodic saving of dirty documents to a recovery location to prevent data loss (per §7.3) |
+| **Recovery File** (or **AutoSaveEntry**) | Temporary file containing auto-saved document content for crash recovery |
+| **Document Store** | Zustand store (`useDocumentStore`) managing document state including content, file handle, and dirty tracking |
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **(Impact 4)** Should "AST" (Abstract Syntax Tree) be added to the Constitution glossary as a project-wide canonical term, given its fundamental role in MDX compilation across specs 003 and 007?
+1. **(Impact 4)** Should "RecoveryFile" be renamed to "AutoSaveEntry" to align with existing codebase (`src/main/services/auto-save.ts`), or should the codebase be refactored? Which term is canonical?
 
-2. **(Impact 3)** What is the canonical distinction between "panel" (used in 007) and "pane" (used in 003, 006)? Should this be documented in the Constitution?
+2. **(Impact 4)** Is a formal "RecoveryManifest" file required for this spec, or does the existing dynamic file discovery approach (glob scanning temp directory) satisfy requirements FR-003 and FR-004?
 
-3. **(Impact 3)** The spec references "preview AST" and "useErrorNavigation hook" - should these be formally defined in the glossary with their owning spec referenced?
+3. **(Impact 3)** Should "DirtyState" be a new standalone type/entity with synchronization logic, or continue as the existing `isDirty` boolean property on `DocumentState`?
 
-4. **(Impact 3)** Should "Source Position" (line/column tuple) be elevated to the Constitution glossary to ensure consistent usage across specs?
+4. **(Impact 2)** Should the canonical prose form be "auto-save" (hyphenated, per Constitution §7.3) or "autosave" (one word, per spec title)?
 
-5. **(Impact 2)** Should the feature name be standardized to just "MDX Content Outline" (dropping "Navigator") to avoid synonym confusion?
+5. **(Impact 2)** Should "recovery location" be explicitly defined as the system temp directory, or does the spec require a dedicated persistent directory?

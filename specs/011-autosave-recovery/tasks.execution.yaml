@@ -1,0 +1,640 @@
+version: "1.0"
+feature: autosave-recovery
+feature_id: "011"
+generated: "2026-01-17T00:00:00Z"
+
+execution_constraints:
+  # Claude Code MAXIMUM POWER (Jan 2026 - Claude Max 20x)
+  model: opus-4.5
+  max_parallel_subagents: 10
+  default_task_timeout_seconds: 600
+  gate_timeout_seconds: 120
+  subagent_timeout_seconds: 900
+
+  # Dispatch Strategy
+  dispatch_strategy: greedy_queue
+  cross_phase_parallelism: true
+  greedy_refill: true
+
+  # Async/Background (v2.0.60+)
+  async_background:
+    enabled: true
+    background_research_tasks: true
+    wake_on_complete: true
+
+  # Batch Optimization
+  batch_sizing:
+    prefer_wider_batches: true
+    merge_small_batches: true
+    max_batch_size: 10
+
+  # Extended Thinking
+  extended_thinking:
+    enabled: true
+    ultrathink_for: [architecture, design, complex_logic]
+
+  # Fault Tolerance
+  retry_policy:
+    max_attempts: 3
+    strategy: exponential
+    initial_delay_seconds: 5
+    max_delay_seconds: 60
+    retry_on: [timeout, rate_limit]
+    fail_fast_on: [syntax_error, import_error, type_error]
+
+  circuit_breaker:
+    - at_failures: 3
+      action: pause_batch
+    - at_failures: 5
+      action: pause_phase
+    - at_failures: 10
+      action: abort
+
+  context_per_subagent: 200k
+
+phases:
+  - id: phase-1
+    name: Setup
+    batches:
+      - id: "1.1"
+        parallel: true
+        tasks:
+          - id: T001
+            description: "Copy autosave-schemas.ts from specs/011-autosave-recovery/contracts/ to src/shared/contracts/autosave-schemas.ts"
+            output_file: src/shared/contracts/autosave-schemas.ts
+            context_scope:
+              - specs/011-autosave-recovery/contracts/autosave-schemas.ts
+              - src/shared/contracts/
+            timeout_seconds: 180
+          - id: T002
+            description: "Copy autosave-ipc.ts from specs/011-autosave-recovery/contracts/ to src/shared/contracts/autosave-ipc.ts"
+            output_file: src/shared/contracts/autosave-ipc.ts
+            context_scope:
+              - specs/011-autosave-recovery/contracts/autosave-ipc.ts
+              - src/shared/contracts/
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/shared/contracts/autosave-schemas.ts src/shared/contracts/autosave-ipc.ts"
+          on_fail: "Verify zod import paths; check existing type patterns in src/shared/contracts/"
+
+  - id: phase-2
+    name: Foundational
+    depends_on: [phase-1]
+    batches:
+      - id: "2.1"
+        parallel: false
+        tasks:
+          - id: T003
+            description: "Implement AutosaveSettingsService in src/main/services/autosave-settings.ts"
+            output_file: src/main/services/autosave-settings.ts
+            context_scope:
+              - specs/011-autosave-recovery/plan.md#services
+              - specs/011-autosave-recovery/data-model.md#AutosaveSettings
+              - src/shared/contracts/autosave-schemas.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/main/services/autosave-settings.ts"
+          on_fail: "Verify electron-store is available; check AutosaveSettingsSchema import"
+
+      - id: "2.2"
+        parallel: true
+        depends_on: ["2.1"]
+        tasks:
+          - id: T004
+            description: "Implement AutosaveService in src/main/services/autosave-service.ts"
+            output_file: src/main/services/autosave-service.ts
+            context_scope:
+              - specs/011-autosave-recovery/plan.md#services
+              - specs/011-autosave-recovery/data-model.md
+              - src/shared/contracts/autosave-schemas.ts
+              - specs/011-autosave-recovery/quickstart.md#architecture
+            timeout_seconds: 600
+          - id: T005
+            description: "Implement RecoveryService in src/main/services/recovery-service.ts"
+            output_file: src/main/services/recovery-service.ts
+            context_scope:
+              - specs/011-autosave-recovery/plan.md#services
+              - specs/011-autosave-recovery/data-model.md
+              - src/shared/contracts/autosave-schemas.ts
+            timeout_seconds: 600
+          - id: T028
+            description: "Implement disk space check in AutosaveService: detect <100MB available before write, emit warning event, show notification per FR-017"
+            output_file: src/main/services/autosave-service.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#FR-017
+              - src/main/services/autosave-service.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/main/services/autosave-service.ts src/main/services/recovery-service.ts"
+          on_fail: "Check RecoveryFileSchema and RecoveryManifestSchema imports; verify fs/promises usage; verify disk space check with fs.statfs"
+
+      - id: "2.3"
+        parallel: false
+        depends_on: ["2.2"]
+        tasks:
+          - id: T006
+            description: "Implement IPC handlers in src/main/ipc/autosave-handlers.ts"
+            output_file: src/main/ipc/autosave-handlers.ts
+            context_scope:
+              - src/shared/contracts/autosave-ipc.ts
+              - src/main/services/autosave-service.ts
+              - src/main/services/recovery-service.ts
+              - src/main/services/autosave-settings.ts
+            timeout_seconds: 600
+        gate:
+          command: "npx tsc --noEmit src/main/ipc/autosave-handlers.ts"
+          on_fail: "Verify AutosaveChannels import; check service dependency injection pattern"
+
+      - id: "2.4"
+        parallel: false
+        depends_on: ["2.3"]
+        tasks:
+          - id: T007
+            description: "Implement autosave-store.ts in src/renderer/stores/autosave-store.ts"
+            output_file: src/renderer/stores/autosave-store.ts
+            context_scope:
+              - specs/011-autosave-recovery/plan.md#stores
+              - specs/011-autosave-recovery/data-model.md#AutosaveState
+              - src/shared/contracts/autosave-schemas.ts
+              - src/renderer/stores/
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/stores/autosave-store.ts"
+          on_fail: "Verify Zustand + Immer patterns match existing stores; check AutosaveStatusSchema import"
+
+  - id: phase-3
+    name: "User Story 1 - Automatic Background Saving"
+    priority: P1
+    depends_on: [phase-2]
+    batches:
+      - id: "3.1"
+        parallel: true
+        tasks:
+          - id: T008
+            description: "Implement useAutosave hook in src/renderer/hooks/use-autosave.ts"
+            story: US1
+            output_file: src/renderer/hooks/use-autosave.ts
+            context_scope:
+              - specs/011-autosave-recovery/plan.md#hooks
+              - src/renderer/stores/document-store.ts
+              - src/shared/contracts/autosave-ipc.ts
+              - src/renderer/stores/autosave-store.ts
+            timeout_seconds: 300
+          - id: T029
+            description: "Handle read-only/locked documents in useAutosave: detect file permissions, skip autosave with visual indicator per FR-018"
+            story: US1
+            output_file: src/renderer/hooks/use-autosave.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#FR-018
+              - src/renderer/hooks/use-autosave.ts
+            timeout_seconds: 300
+          - id: T030
+            description: "Implement autosave queue with in-progress guard: skip interval if previous save running, emit slow-save warning after 2x interval per FR-020"
+            story: US1
+            output_file: src/main/services/autosave-service.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#FR-020
+              - src/main/services/autosave-service.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/hooks/use-autosave.ts src/main/services/autosave-service.ts"
+          on_fail: "Verify document store exports isDirty selector; check IPC invoke pattern; verify queue guards"
+
+      - id: "3.2"
+        parallel: false
+        depends_on: ["3.1"]
+        tasks:
+          - id: T009
+            description: "Implement AutosaveIndicator component in src/renderer/components/autosave-indicator.tsx"
+            story: US1
+            output_file: src/renderer/components/autosave-indicator.tsx
+            context_scope:
+              - src/shared/contracts/autosave-schemas.ts#AutosaveStatus
+              - src/renderer/stores/autosave-store.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/components/autosave-indicator.tsx"
+          on_fail: "Verify AutosaveStatus type import; check toast notification integration"
+
+      - id: "3.3"
+        parallel: false
+        depends_on: ["3.2"]
+        tasks:
+          - id: T010
+            description: "Wire up autosave: register IPC handlers in main process, add useAutosave to editor, add indicator to toolbar"
+            story: US1
+            output_file: null
+            context_scope:
+              - specs/011-autosave-recovery/quickstart.md#phase1
+              - src/main/main.ts
+              - src/renderer/app.tsx
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit"
+          on_fail: "Check IPC handler registration; verify hook is mounted in editor"
+
+  - id: phase-4
+    name: "User Story 2 - Crash Recovery on Restart"
+    priority: P1
+    depends_on: [phase-2]
+    batches:
+      - id: "4.1"
+        parallel: false
+        tasks:
+          - id: T011
+            description: "Implement RecoveryDialog component in src/renderer/components/recovery-dialog.tsx"
+            story: US2
+            output_file: src/renderer/components/recovery-dialog.tsx
+            context_scope:
+              - src/shared/contracts/autosave-ipc.ts
+              - specs/011-autosave-recovery/data-model.md#RecoveryDialogEntry
+              - specs/011-autosave-recovery/quickstart.md#phase2
+            timeout_seconds: 600
+        gate:
+          command: "npx tsc --noEmit src/renderer/components/recovery-dialog.tsx"
+          on_fail: "Verify RecoveryDialogEntrySchema import; check dialog/modal component pattern"
+
+      - id: "4.2"
+        parallel: true
+        depends_on: ["4.1"]
+        tasks:
+          - id: T012
+            description: "Implement startup recovery flow: check manifest on app ready, emit recovery-available event, show dialog"
+            story: US2
+            output_file: null
+            context_scope:
+              - src/main/services/recovery-service.ts
+              - src/renderer/stores/autosave-store.ts
+            timeout_seconds: 300
+          - id: T013
+            description: "Implement document restore logic: load recovery content, open in editor, delete recovery file after restore"
+            story: US2
+            output_file: null
+            context_scope:
+              - src/main/services/recovery-service.ts
+              - src/renderer/stores/document-store.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit"
+          on_fail: "Check recovery service startup hook; verify document store integration"
+
+      - id: "4.3"
+        parallel: false
+        depends_on: ["4.2"]
+        tasks:
+          - id: T014
+            description: "Implement recovery cleanup on manual save: delete recovery file when document is saved"
+            story: US2
+            output_file: null
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#FR-008
+              - src/main/services/autosave-service.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit"
+          on_fail: "Check save action integration in document store or file service"
+
+  - id: phase-5
+    name: "User Story 3 - Recovery Dialog with Preview"
+    priority: P2
+    depends_on: [phase-4]
+    batches:
+      - id: "5.1"
+        parallel: false
+        tasks:
+          - id: T015
+            description: "Add content preview to RecoveryDialog: fetch full content on selection, render preview"
+            story: US3
+            output_file: src/renderer/components/recovery-dialog.tsx
+            context_scope:
+              - src/shared/contracts/autosave-ipc.ts#RecoveryPreviewRequest
+              - src/renderer/components/recovery-dialog.tsx
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/components/recovery-dialog.tsx"
+          on_fail: "Check RecoveryPreviewResponse handling; verify preview render component"
+
+      - id: "5.2"
+        parallel: true
+        depends_on: ["5.1"]
+        tasks:
+          - id: T016
+            description: "Implement selective recovery: checkbox per document, Restore Selected button"
+            story: US3
+            output_file: src/renderer/components/recovery-dialog.tsx
+            context_scope:
+              - src/shared/contracts/autosave-ipc.ts#RecoveryRestoreRequest
+              - specs/011-autosave-recovery/data-model.md#RecoveryDecision
+            timeout_seconds: 300
+          - id: T017
+            description: "Implement conflict detection: compare disk mtime vs recovery timestamp"
+            story: US3
+            output_file: null
+            context_scope:
+              - src/main/services/recovery-service.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit"
+          on_fail: "Verify RecoveryDecision schema matches action types"
+
+      - id: "5.3"
+        parallel: false
+        depends_on: ["5.2"]
+        tasks:
+          - id: T018
+            description: "Implement ConflictDialog component in src/renderer/components/conflict-dialog.tsx"
+            story: US3
+            output_file: src/renderer/components/conflict-dialog.tsx
+            context_scope:
+              - src/shared/contracts/autosave-schemas.ts#FileConflict
+              - specs/011-autosave-recovery/spec.md#FR-016
+            timeout_seconds: 600
+        gate:
+          command: "npx tsc --noEmit src/renderer/components/conflict-dialog.tsx"
+          on_fail: "Check ConflictResolutionSchema import; verify diff view library integration"
+
+  - id: phase-6
+    name: "User Story 4 - Autosave Configuration"
+    priority: P3
+    depends_on: [phase-2]
+    batches:
+      - id: "6.1"
+        parallel: false
+        tasks:
+          - id: T019
+            description: "Add Autosave section to settings panel: interval slider, enable/disable toggle"
+            story: US4
+            output_file: null
+            context_scope:
+              - src/shared/contracts/autosave-ipc.ts#SettingsGet
+              - specs/011-autosave-recovery/data-model.md#AutosaveSettings
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit"
+          on_fail: "Check settings panel component location; verify SettingsSetRequest schema"
+
+      - id: "6.2"
+        parallel: false
+        depends_on: ["6.1"]
+        tasks:
+          - id: T020
+            description: "Implement immediate effect: settings changes update autosave timer without restart"
+            story: US4
+            output_file: src/renderer/hooks/use-autosave.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#SC-005
+              - src/renderer/hooks/use-autosave.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit"
+          on_fail: "Verify settings store subscription; check timer reset logic"
+
+  - id: phase-7
+    name: "Testing & Polish"
+    depends_on: [phase-3, phase-4, phase-5, phase-6]
+    batches:
+      - id: "7.1"
+        parallel: true
+        tasks:
+          - id: T021
+            description: "Write unit tests for AutosaveService in tests/unit/autosave-service.test.ts"
+            output_file: tests/unit/autosave-service.test.ts
+            context_scope:
+              - src/main/services/autosave-service.ts
+            timeout_seconds: 600
+          - id: T022
+            description: "Write unit tests for RecoveryService in tests/unit/recovery-service.test.ts"
+            output_file: tests/unit/recovery-service.test.ts
+            context_scope:
+              - src/main/services/recovery-service.ts
+            timeout_seconds: 600
+          - id: T023
+            description: "Write unit tests for useAutosave hook in tests/unit/use-autosave.test.ts"
+            output_file: tests/unit/use-autosave.test.ts
+            context_scope:
+              - src/renderer/hooks/use-autosave.ts
+            timeout_seconds: 600
+          - id: T031
+            description: "Add performance benchmark tests for autosave: measure main thread impact, assert <16ms blocking time per SC-002 in tests/unit/autosave-performance.test.ts"
+            output_file: tests/unit/autosave-performance.test.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#SC-002
+              - src/main/services/autosave-service.ts
+            timeout_seconds: 600
+        gate:
+          command: "npx vitest run tests/unit/autosave-service.test.ts tests/unit/recovery-service.test.ts tests/unit/use-autosave.test.ts tests/unit/autosave-performance.test.ts"
+          on_fail: "Review test assertions; check mock setup for fs and IPC; verify performance.now() timing assertions"
+
+      - id: "7.2"
+        parallel: false
+        depends_on: ["7.1"]
+        tasks:
+          - id: T024
+            description: "Write IPC integration tests in tests/integration/autosave-ipc.test.ts"
+            output_file: tests/integration/autosave-ipc.test.ts
+            context_scope:
+              - src/main/ipc/autosave-handlers.ts
+              - src/shared/contracts/autosave-ipc.ts
+            timeout_seconds: 600
+        gate:
+          command: "npx vitest run tests/integration/autosave-ipc.test.ts"
+          on_fail: "Verify IPC mock or real Electron test runner setup"
+
+      - id: "7.3"
+        parallel: true
+        depends_on: ["7.2"]
+        tasks:
+          - id: T025
+            description: "Write E2E tests in tests/e2e/autosave-recovery.spec.ts with SC-001 recovery completeness validation"
+            output_file: tests/e2e/autosave-recovery.spec.ts
+            context_scope:
+              - specs/011-autosave-recovery/quickstart.md#testing-strategy
+              - specs/011-autosave-recovery/spec.md#SC-001
+            timeout_seconds: 600
+          - id: T032
+            description: "Add E2E performance test: measure time from app launch to recovery dialog render, assert <2000ms per SC-003 in tests/e2e/autosave-performance.spec.ts"
+            output_file: tests/e2e/autosave-performance.spec.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#SC-003
+            timeout_seconds: 600
+          - id: T033
+            description: "Add chaos/adversarial E2E tests: kill process during save, corrupt manifest mid-write, simulate disk full per SC-006 in tests/e2e/autosave-chaos.spec.ts"
+            output_file: tests/e2e/autosave-chaos.spec.ts
+            context_scope:
+              - specs/011-autosave-recovery/spec.md#SC-006
+            timeout_seconds: 900
+        gate:
+          command: "npx playwright test tests/e2e/autosave-recovery.spec.ts tests/e2e/autosave-performance.spec.ts tests/e2e/autosave-chaos.spec.ts"
+          on_fail: "Check Playwright Electron setup; verify recovery directory access; check chaos test teardown"
+
+      - id: "7.4"
+        parallel: true
+        depends_on: ["7.3"]
+        tasks:
+          - id: T026
+            description: "Run quickstart.md validation scenarios, fix any issues found"
+            output_file: null
+            context_scope:
+              - specs/011-autosave-recovery/quickstart.md
+            timeout_seconds: 300
+          - id: T027
+            description: "Update exports: add autosave schemas to index, add stores/hooks to renderer index"
+            output_file: null
+            context_scope:
+              - src/shared/contracts/index.ts
+              - src/renderer/index.ts
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit && npx vitest run"
+          on_fail: "Address any remaining type errors or test failures"
+
+dependency_graph:
+  edges:
+    # Phase 1 → Phase 2
+    - from: T003
+      to: T001
+      type: requires
+    - from: T003
+      to: T002
+      type: requires
+    # Phase 2 internal
+    - from: T004
+      to: T003
+      type: requires
+    - from: T005
+      to: T003
+      type: requires
+    - from: T006
+      to: T004
+      type: imports
+    - from: T006
+      to: T005
+      type: imports
+    - from: T007
+      to: T006
+      type: requires
+    # Phase 3 (US1)
+    - from: T008
+      to: T007
+      type: requires
+    - from: T009
+      to: T008
+      type: requires
+    - from: T010
+      to: T009
+      type: requires
+    # Phase 4 (US2)
+    - from: T011
+      to: T007
+      type: requires
+    - from: T012
+      to: T011
+      type: requires
+    - from: T013
+      to: T012
+      type: requires
+    - from: T014
+      to: T013
+      type: requires
+    # Phase 5 (US3) - depends on US2
+    - from: T015
+      to: T011
+      type: extends
+    - from: T016
+      to: T015
+      type: requires
+    - from: T017
+      to: T016
+      type: requires
+    - from: T018
+      to: T017
+      type: requires
+    # Phase 6 (US4)
+    - from: T019
+      to: T007
+      type: requires
+    - from: T020
+      to: T019
+      type: requires
+    # Phase 7 (Testing)
+    - from: T021
+      to: T004
+      type: tests
+    - from: T022
+      to: T005
+      type: tests
+    - from: T023
+      to: T008
+      type: tests
+    - from: T024
+      to: T006
+      type: tests
+    - from: T025
+      to: T010
+      type: tests
+    - from: T025
+      to: T014
+      type: tests
+    - from: T026
+      to: T025
+      type: requires
+    - from: T027
+      to: T026
+      type: requires
+    # New edge case tasks (T028-T033)
+    - from: T028
+      to: T003
+      type: requires
+    - from: T029
+      to: T007
+      type: requires
+    - from: T030
+      to: T004
+      type: extends
+    - from: T031
+      to: T004
+      type: tests
+    - from: T032
+      to: T010
+      type: tests
+    - from: T033
+      to: T010
+      type: tests
+    - from: T033
+      to: T028
+      type: tests
+
+critical_path:
+  tasks: [T001, T003, T004, T006, T007, T008, T009, T010]
+  length: 8
+  estimated_duration_seconds: 2400
+
+parallelism_analysis:
+  total_tasks: 33
+  critical_path_length: 8
+  parallelism_factor: 4.125
+  theoretical_speedup: 4.1x
+  practical_speedup: 3.4x
+  max_concurrent_subagents: 10
+  queue_overflow_capacity: unlimited
+  max_parallelism_by_phase:
+    phase-1: 2
+    phase-2: 3
+    phase-3: 3
+    phase-4: 2
+    phase-5: 2
+    phase-6: 1
+    phase-7: 4
+  cross_phase_execution:
+    strategy: interleaved
+    parallel_phases_after_foundational:
+      - phase-3 # US1
+      - phase-4 # US2
+      - phase-6 # US4
+    sequential_after:
+      - phase-5 # US3 needs US2
+
+workspace:
+  context_file: .claude/workspace/context.md
+  results_dir: .claude/workspace/results/
+  gates_dir: .claude/workspace/gates/

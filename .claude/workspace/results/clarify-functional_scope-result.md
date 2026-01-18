@@ -1,19 +1,21 @@
-# Functional Scope Ambiguity Analysis
+# Functional Scope Analysis: 011-autosave-recovery
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Analyzed**: 2026-01-17
+**Spec File**: `/Users/ww/dev/projects/mdxpad-persist/specs/011-autosave-recovery/spec.md`
 **Category**: Functional Scope
-**Analysis Date**: 2026-01-17
 
 ---
 
 ## Summary
 
-| Aspect | Status | Issues Found |
-|--------|--------|--------------|
-| Core User Goals | Partial | 2 |
-| Success Criteria | Partial | 3 |
-| Out-of-Scope Declarations | Clear | 0 |
-| User Roles/Personas | Missing | 2 |
+| Aspect | Status | Count |
+|--------|--------|-------|
+| Core User Goals & Success Criteria | Partial | 3 issues |
+| Explicit Out-of-Scope Declarations | Missing | 1 issue |
+| User Roles/Personas Differentiation | Missing | 1 issue |
+
+**Total Ambiguities Found**: 5
+**Total Clarification Questions**: 5
 
 ---
 
@@ -21,126 +23,117 @@
 
 ### 1. Core User Goals & Success Criteria
 
-#### Finding 1.1: Ambiguous "Writer" Persona Definition
-
-- **Category**: Functional Scope
-- **Status**: Missing
-- **Location**: Throughout spec (User Stories 1-5, Executive Summary)
-- **Issue**: The spec repeatedly refers to "a writer" without defining who this user is, their technical proficiency level, or distinguishing between different user types (e.g., technical documentation writers vs. creative content writers vs. developers using MDX for app documentation).
-- **Question Candidate**: "What is the expected technical proficiency of the target 'writer' persona? Should the outline panel UX accommodate both technical users familiar with AST/JSX concepts and non-technical content writers?"
-- **Impact Score**: 3/5
-- **Rationale**: Different user personas may have different expectations for component display, terminology, and feature complexity. A technical writer might want full JSX component details while a content writer might find this confusing.
-
----
-
-#### Finding 1.2: Undefined "Built-in Components" List
+#### Finding 1.1: Success Criteria Measurement Methodology Undefined
 
 - **Category**: Functional Scope
 - **Status**: Partial
-- **Location**: FR-014: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
-- **Issue**: The spec mentions built-in components with "etc." indicating an incomplete list. What components are considered "built-in"? Is this tied to a specific component library? How is the distinction made programmatically?
-- **Question Candidate**: "What is the complete list of 'built-in' components that should be visually distinguished? Are these components bundled with mdxpad, or is this referencing commonly used MDX ecosystem components?"
+- **Location**: SC-001 (line 113)
+- **Issue**: SC-001 states "Users can recover at least 95% of their work after an unexpected application exit" but doesn't define how this metric will be measured or what constitutes "work" (characters typed? document sections? time-based content?). The success criterion is aspirational but unverifiable without a measurement methodology.
+- **Question Candidate**: How will the 95% work recovery rate in SC-001 be measured? Is this measured by content (bytes/characters recovered vs. lost), time (work done in last N seconds before crash), or document state completeness? What testing methodology will validate this criterion?
 - **Impact Score**: 4/5
-- **Rationale**: Without a definitive list, implementation cannot correctly distinguish built-in vs custom components. This directly affects UI rendering and user understanding.
+- **Rationale**: Without a clear measurement methodology, the success criterion cannot be verified during testing and acceptance. This is a primary value proposition of the feature.
 
 ---
 
-#### Finding 1.3: Undefined "Common Fields" for Frontmatter
+#### Finding 1.2: "Imperceptible Interruption" Not Quantified
 
 - **Category**: Functional Scope
 - **Status**: Partial
-- **Location**: FR-016 & FR-017
-- **Issue**: FR-016 specifies "key fields (title, date, author, description, tags)" but FR-017 says "limit displayed frontmatter to common fields, with option to expand for all fields." The relationship between these is unclear - is the list in FR-016 exhaustive for "common fields"? What happens with non-standard frontmatter schemas?
-- **Question Candidate**: "Is the list in FR-016 (title, date, author, description, tags) the exhaustive definition of 'common fields' for FR-017, or should additional fields like 'draft', 'category', 'slug', 'image' also be considered common?"
-- **Impact Score**: 2/5
-- **Rationale**: This is relatively low impact as the spec does provide a reasonable default list, but clarity would improve consistency.
-
----
-
-#### Finding 1.4: Success Criteria SC-007 Lacks Baseline
-
-- **Category**: Functional Scope
-- **Status**: Partial
-- **Location**: SC-007: "Users can complete a full navigation workflow (open outline, click item, edit, see update) in under 3 seconds"
-- **Issue**: The 3-second threshold appears arbitrary without justification. Is this based on user research, industry standards, or existing similar features? Additionally, the workflow description is vague about what "edit" and "see update" entail.
-- **Question Candidate**: "What is the basis for the 3-second threshold in SC-007? Should this be tied to a specific document size (e.g., '3 seconds for documents under 5000 lines')?"
-- **Impact Score**: 2/5
-- **Rationale**: While the criterion is testable, the threshold may be unrealistic for very large documents or insufficient for small ones.
-
----
-
-#### Finding 1.5: Component "Instance Location" Display Undefined
-
-- **Category**: Functional Scope
-- **Status**: Partial
-- **Location**: User Story 3, Acceptance Scenario 2: "they see each instance with its line number"
-- **Issue**: For components that span multiple lines, what line number is shown? The opening tag line? What if the component is self-closing vs. has children? How are nested components of the same type displayed?
-- **Question Candidate**: "For multi-line JSX components, should the outline show the opening tag line number, or should it display a line range (e.g., 'Lines 15-42')? How should nested instances of the same component type be visually distinguished?"
+- **Location**: SC-002 (line 114)
+- **Issue**: SC-002 specifies "no visible lag or pause" but doesn't quantify what constitutes "perceptible." Is this 16ms (60fps frame budget)? 100ms? 250ms (human perception threshold)? Without a specific threshold, this criterion is subjective and untestable.
+- **Question Candidate**: What is the maximum acceptable latency for autosave operations to be considered "imperceptible"? Should this be defined as a frame budget (e.g., <16ms main thread block), a time threshold (e.g., <100ms input delay), or a user-perceived responsiveness standard?
 - **Impact Score**: 3/5
-- **Rationale**: This affects user navigation accuracy - users clicking a component entry need to land at a predictable location.
+- **Rationale**: Performance requirements need quantification for meaningful testing, optimization decisions, and regression detection.
+
+---
+
+#### Finding 1.3: Autosave Interval Boundary Validation Behavior
+
+- **Category**: Functional Scope
+- **Status**: Partial
+- **Location**: FR-009 (line 95)
+- **Issue**: FR-009 specifies minimum 5 seconds, maximum 10 minutes for autosave interval, but doesn't address:
+  - What happens when a user attempts to set an interval outside this range?
+  - Should the system silently clamp to valid bounds, show a warning, or reject the input?
+  - What UX feedback should the user receive?
+- **Question Candidate**: What is the expected behavior when a user attempts to set an autosave interval outside the 5s-10min range? Should the system: (a) silently clamp to nearest valid value, (b) show a warning and clamp, (c) reject the input and require valid entry, or (d) allow out-of-range values for power users?
+- **Impact Score**: 2/5
+- **Rationale**: Edge case that affects UX consistency but has reasonable default solutions. Lower priority than core functionality clarity.
 
 ---
 
 ### 2. Explicit Out-of-Scope Declarations
 
-#### Finding 2.1: Out-of-Scope Section is Well-Defined
-
-- **Category**: Functional Scope
-- **Status**: Clear
-- **Location**: Out of Scope section (lines 237-246)
-- **Assessment**: The out-of-scope declarations are explicit and comprehensive:
-  - Drag-and-drop reordering
-  - Outline search/filter
-  - Active item highlighting based on scroll
-  - Custom configurations/filtering
-  - Export/printing
-  - Multi-document outline
-  - Bookmarks/favorites
-- **Impact Score**: N/A (no ambiguity)
-
----
-
-### 3. User Roles / Personas Differentiation
-
-#### Finding 3.1: No User Personas Defined
+#### Finding 2.1: Missing Out-of-Scope Section
 
 - **Category**: Functional Scope
 - **Status**: Missing
-- **Location**: Entire spec
-- **Issue**: The spec does not define any user personas or roles. All user stories reference generic "a writer" without distinguishing:
-  - Technical proficiency levels
-  - Use case types (documentation, blogging, app development)
-  - Frequency of use (daily power user vs. occasional user)
-  - Accessibility needs
-- **Question Candidate**: "Should the spec define distinct user personas (e.g., 'Technical Writer', 'Content Creator', 'Developer') with potentially different feature priorities or UX expectations?"
-- **Impact Score**: 3/5
-- **Rationale**: Without personas, it's unclear whose needs take priority when design tradeoffs arise.
+- **Location**: Entire spec (no out-of-scope section exists)
+- **Issue**: The spec lacks any explicit out-of-scope declarations. This creates ambiguity around several adjacent features that stakeholders might expect:
+  - **Cloud/remote backup synchronization** - Is syncing recovery data to cloud out of scope?
+  - **Version history** - Is maintaining multiple recovery points (beyond single autosave) out of scope?
+  - **Undo/redo stack persistence** - Should undo history survive crashes?
+  - **Collaborative editing conflicts** - N/A or deferred?
+  - **Direct autosave to source file** - Is autosave to the original file location (vs. recovery-only) out of scope?
+  - **Manual recovery file browser** - Can users browse/manage recovery files directly?
+  - **Automatic recovery** - Should recovery happen silently without user dialog for single documents?
+- **Question Candidate**: Should the spec include an explicit out-of-scope section to clarify feature boundaries? Specifically: (1) Is cloud/remote backup synchronization out of scope? (2) Is version history with multiple recovery points out of scope? (3) Is direct autosave to the source file (not just recovery location) out of scope? (4) Is automatic/silent recovery (without dialog) out of scope?
+- **Impact Score**: 5/5
+- **Rationale**: Without explicit boundaries, scope creep is highly likely. Developers may implement features beyond intent, testers may raise bugs for intentionally excluded functionality, and stakeholders may have misaligned expectations.
 
 ---
 
-#### Finding 3.2: Accessibility User Needs Partially Addressed
+### 3. User Roles/Personas Differentiation
+
+#### Finding 3.1: No User Persona Definition
 
 - **Category**: Functional Scope
-- **Status**: Partial
-- **Location**: Non-Functional Requirements > Accessibility (lines 214-217)
-- **Issue**: While keyboard navigation and ARIA roles are mentioned, there's no user story or acceptance criteria from the perspective of a user with accessibility needs. The requirements are technical specifications rather than user goals.
-- **Question Candidate**: "Should there be a dedicated user story for accessibility users (e.g., 'As a screen reader user, I want to navigate the outline and hear the document structure so I can understand document organization without visual cues')?"
+- **Status**: Missing
+- **Location**: Entire spec (User Stories 1-4)
+- **Issue**: The spec uses generic "user" throughout all user stories without distinguishing between different user types or personas. This matters because:
+  - **Power users** may want shorter intervals, multiple recovery points, and fine-grained control
+  - **Casual users** may prefer "set and forget" with sensible defaults and minimal configuration
+  - **Resource-constrained users** (low-spec machines, limited disk space) may need different performance tradeoffs
+  - The assumption "Users primarily work with single documents at a time" (line 125) hints at persona assumptions but doesn't make them explicit
+  - P3 priority of User Story 4 (Configuration) suggests power users are secondary, but this should be stated explicitly
+- **Question Candidate**: Should the spec define target user personas to guide design tradeoffs? For example: (1) "Default User" - accepts defaults, minimal configuration needs (2) "Power User" - wants fine-grained control, shorter intervals, advanced recovery options (3) "Resource-Constrained User" - needs lightweight autosave with minimal system/disk impact. Does the current single-persona design adequately serve all intended user types?
 - **Impact Score**: 3/5
-- **Rationale**: Accessibility requirements without user-centered acceptance criteria may lead to technically compliant but practically unusable implementations.
+- **Rationale**: Persona clarity helps prioritize features and make design tradeoffs when conflicts arise between simplicity and power.
+
+---
+
+## Edge Cases Requiring Scope Clarification
+
+The spec's Edge Cases section (lines 74-81) lists scenarios but does not indicate whether handling them is in-scope for this feature or deferred to future work:
+
+| Edge Case | Mentioned | Resolution Specified | Recommendation |
+|-----------|-----------|---------------------|----------------|
+| Insufficient disk space for autosave | Yes | No | Clarify: In-scope with graceful degradation, or out-of-scope? |
+| Read-only/locked documents | Yes | No | Clarify: Skip autosave silently, warn user, or error? |
+| Exit during autosave write operation | Yes | No | Clarify: Atomic writes required? Recovery from partial writes? |
+| External file modification conflicts | Yes | No | Clarify: In-scope conflict detection, or defer to file system spec? |
+| Corrupted/incomplete recovery data | Yes | No | Clarify: Skip corrupted files, attempt repair, or warn user? |
+| Large documents exceeding interval | Yes | No | Clarify: Queue next autosave, skip, or extend interval dynamically? |
+
+**Note**: These edge cases are valuable to have listed, but without indicating which are in-scope with specified behavior vs. intentionally deferred, implementation will require ad-hoc decisions.
 
 ---
 
 ## Recommendations
 
-1. **Define User Personas** (High Priority): Add a section defining 2-3 user personas with their characteristics, goals, and technical proficiency levels.
+### High Priority (Impact 4-5)
+1. **Add explicit out-of-scope section** - Critical for preventing scope creep and aligning stakeholder expectations
+2. **Define measurable criteria for SC-001** - Quantify what "95% of work" means in testable terms
 
-2. **Enumerate Built-in Components** (High Priority): Provide a definitive list of components considered "built-in" or define the criteria for classification.
+### Medium Priority (Impact 3)
+3. **Quantify "imperceptible" latency threshold** - Specify maximum acceptable latency in milliseconds for SC-002
+4. **Consider adding user personas** - Or explicitly state the feature serves all users equally with sensible defaults
 
-3. **Clarify Component Line Display** (Medium Priority): Specify exactly what line number/range is shown for multi-line components.
+### Low Priority (Impact 1-2)
+5. **Clarify interval boundary validation behavior** - Document expected UX for invalid interval inputs
 
-4. **Add Accessibility User Story** (Medium Priority): Include at least one user story from an accessibility perspective.
-
-5. **Document Success Criteria Rationale** (Low Priority): Add brief justification for the timing thresholds in success criteria.
+### Additional Recommendations
+6. **Resolve edge case scope** - For each listed edge case, indicate whether it's in-scope (with expected behavior) or explicitly deferred
 
 ---
 
@@ -148,11 +141,11 @@
 
 | Impact Score | Count | Items |
 |--------------|-------|-------|
-| 5 (Critical) | 0 | - |
-| 4 (High) | 1 | Built-in components list undefined |
-| 3 (Medium) | 4 | User personas, component instance display, writer proficiency, accessibility story |
-| 2 (Low) | 2 | Common frontmatter fields, SC-007 threshold |
+| 5 (Critical) | 1 | Missing out-of-scope section |
+| 4 (High) | 1 | SC-001 measurement methodology undefined |
+| 3 (Medium) | 2 | SC-002 latency threshold, user persona definition |
+| 2 (Low) | 1 | Interval boundary validation behavior |
 | 1 (Minimal) | 0 | - |
 
-**Total Ambiguities Found**: 7
-**Recommended Clarification Questions**: 6
+**Total Ambiguities Found**: 5
+**Recommended Clarification Questions**: 5

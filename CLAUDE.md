@@ -13,8 +13,10 @@ ALWAYS START BY READING ANY AND ALL PERTINENT `AGENTS.md` INSTRUCTION FILES FIRS
 - localStorage for UI state (splitRatio, previewVisible, zoomLevel), electron-store for main process data (006-application-shell)
 - TypeScript 5.9.x, strict: true + React 19.x, Zustand 5.x + Immer 11.x (007-mdx-content-outline)
 - Reuses preview AST, localStorage for outline visibility persistence (007-mdx-content-outline)
+- TypeScript 5.9.x, strict: true + Electron 39.x, React 19.x, Zustand 5.x + Immer 11.x, zod 4.x (011-autosave-recovery)
+- File system (`{userData}/recovery/`), electron-store for autosave settings persistence (011-autosave-recovery)
 
 ## Recent Changes
-- 000-foundational-setup: Added TypeScript 5.9.x with `strict: true`
-- 006-application-shell: Planning complete - integrates editor, preview, file ops into cohesive shell
+- 011-autosave-recovery: Planning complete - autosave to recovery dir, crash recovery dialog, conflict resolution
 - 007-mdx-content-outline: Specification complete - live document outline with headings, components, and frontmatter navigation
+- 006-application-shell: Planning complete - integrates editor, preview, file ops into cohesive shell

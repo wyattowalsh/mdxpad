@@ -1,6 +1,6 @@
-# Data Model Ambiguity Analysis
+# Data Model Clarification Analysis
 
-**Spec**: `specs/007-mdx-content-outline/spec.md`
+**Spec**: 011-autosave-recovery
 **Category**: Data Model
 **Analyzed**: 2026-01-17
 
@@ -8,139 +8,149 @@
 
 ## Summary
 
-The spec defines three key entities (`OutlineItem`, `OutlineSection`, `OutlineState`) in the "Key Entities" section (lines 180-186). While the basic structure is provided, several important data model concerns remain underspecified.
+The specification defines four key entities (RecoveryFile, AutosaveSettings, DirtyState, RecoveryManifest) at a conceptual level but lacks critical detail on identity rules, relationships, lifecycle transitions, and scale assumptions.
 
 ---
 
 ## Ambiguity Findings
 
-### 1. OutlineItem Identity & Uniqueness
+### 1. RecoveryFile Identity & Uniqueness
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
-| **Status** | Missing |
-| **Element** | OutlineItem identity/key |
-| **Question Candidate** | How should OutlineItems be uniquely identified? Is `(type, line, column)` sufficient, or do we need a generated ID? What happens when two headings have identical text on different lines? |
+| **Status** | Partial |
+| **Element** | RecoveryFile identity/key |
+| **Question Candidate** | How is a RecoveryFile uniquely identified? Is identity based on a combination of document identifier + timestamp, or is there a separate recovery file ID? What exactly constitutes the "document identifier" - is this a UUID, file path, or something else? Can multiple RecoveryFiles exist for the same document (e.g., multiple snapshots at different times)? |
+| **Impact Score** | 5 |
+
+**Rationale**: Identity is fundamental to all CRUD operations, deduplication logic, and recovery selection. Without clear uniqueness rules, implementation will face conflicts, duplicate recovery entries, or orphaned files.
+
+---
+
+### 2. RecoveryFile-to-Document Relationship
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Partial |
+| **Element** | RecoveryFile-Document cardinality |
+| **Question Candidate** | What is the relationship cardinality between RecoveryFile and Document? Is it 1:1 (latest only), 1:N (multiple snapshots per document), or N:1 (multiple documents consolidated)? How does the system link a RecoveryFile back to its source document if the source file was renamed, moved, or deleted? For new unsaved documents (no file path yet), what serves as the document identifier? |
+| **Impact Score** | 5 |
+
+**Rationale**: This affects recovery logic, storage strategy, and the recovery dialog's ability to match recovery data with documents. Critical for the core recovery flow.
+
+---
+
+### 3. RecoveryManifest Structure & Contents
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Partial |
+| **Element** | RecoveryManifest attributes |
+| **Question Candidate** | What attributes does the RecoveryManifest contain for each entry (file name, path, last modified, preview snippet, recovery file path)? Is there one global RecoveryManifest or per-session manifests? How does the manifest relate to individual RecoveryFiles - does it reference them by path, ID, or embed them? |
 | **Impact Score** | 4 |
-| **Rationale** | React requires stable keys for list rendering. Without clear identity rules, outline updates may cause unnecessary re-renders or lose collapse/selection state. The spec mentions `line` and `column` but doesn't confirm these form a unique key. |
+
+**Rationale**: The manifest structure determines how quickly recovery data can be enumerated (SC-003: 2 second requirement), what information is shown in the recovery dialog, and how recovery selection works.
 
 ---
 
-### 2. Component Instance Attributes
+### 4. DirtyState Lifecycle & Transitions
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineItem for components |
-| **Question Candidate** | What attributes should a component OutlineItem have beyond type, label, line, column? Should it include: component props summary, opening/closing tag line range, self-closing indicator, nested children count? |
-| **Impact Score** | 3 |
-| **Rationale** | FR-013 says "show individual instances with line numbers" and FR-014 mentions "distinguish built-in vs custom components", but the OutlineItem entity doesn't have a field for built-in/custom classification or prop info. |
-
----
-
-### 3. Frontmatter Field Representation
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Partial |
-| **Element** | Frontmatter OutlineItem structure |
-| **Question Candidate** | How are frontmatter fields modeled as OutlineItems? Should each field (title, date, tags) be a separate OutlineItem child, or is frontmatter a single item with metadata? How are complex values (arrays like `tags`, nested objects) represented? |
-| **Impact Score** | 3 |
-| **Rationale** | FR-016/FR-017 describe displaying frontmatter fields, but the OutlineItem entity uses a flat `label` field. The spec doesn't clarify if frontmatter is a single item or multiple items, or how to represent array/object values. |
-
----
-
-### 4. Heading Nesting Algorithm
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Partial |
-| **Element** | OutlineItem children relationship |
-| **Question Candidate** | How exactly should heading nesting work? If document has `# A`, `### B`, `## C` (skipped h2), should B be a child of A or standalone? What about `## D`, `# E` - does E reset the hierarchy? |
+| **Element** | DirtyState state machine |
+| **Question Candidate** | What are all valid DirtyState transitions? (e.g., clean -> dirty -> autosaved -> clean) Is "autosaved" a distinct state from "clean" or does autosave clear dirty state entirely? If autosave occurs but the source file is never manually saved, what is the dirty state? Does DirtyState track whether recovery data exists separately from unsaved changes? |
 | **Impact Score** | 4 |
-| **Rationale** | FR-007 says "hierarchical tree structure reflecting their nesting based on level" but doesn't specify how to handle level-skipping (h1 -> h3) or descending levels (h3 -> h1). This affects the `children` array population algorithm. |
+
+**Rationale**: DirtyState drives UI indicators, autosave trigger logic, and integration with the document store (FR-012). Unclear transitions lead to inconsistent UI and missed autosaves.
 
 ---
 
-### 5. Data Volume / Scale Assumptions
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Missing |
-| **Element** | Scale limits and performance bounds |
-| **Question Candidate** | What are the expected upper bounds for: max headings per document, max components per document, max frontmatter fields, max nesting depth? Should there be virtualization for very large outlines (100+ items)? |
-| **Impact Score** | 3 |
-| **Rationale** | The spec mentions 500ms update requirement but doesn't specify data volume assumptions. A 10,000-line MDX document could have hundreds of headings/components. Without scale bounds, performance requirements are untestable. |
-
----
-
-### 6. OutlineState Lifecycle & Initialization
+### 5. AutosaveSettings Attributes & Defaults
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineState transitions |
-| **Question Candidate** | What is the initial OutlineState when: (a) no document is open, (b) document is loading, (c) empty document is open? Should there be explicit loading/error states beyond `parseError`? |
-| **Impact Score** | 2 |
-| **Rationale** | OutlineState has `parseError` for failures but no explicit loading state. The edge case mentions "no outline available" empty state but this isn't modeled in the entity. State transitions (loading -> parsed -> error) aren't defined. |
-
----
-
-### 7. Section Collapse State Persistence Scope
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Partial |
-| **Element** | OutlineSection.isCollapsed persistence |
-| **Question Candidate** | Is collapse state per-document or global? If I collapse "Components" in doc A, then switch to doc B and back to doc A, is "Components" still collapsed? FR-026 says "during the editing session" but doesn't clarify document scope. |
-| **Impact Score** | 2 |
-| **Rationale** | OutlineSection has `isCollapsed` but the spec doesn't clarify if this is document-specific or application-wide. FR-028 says "start expanded on app launch" but doesn't address document switching. |
-
----
-
-### 8. AST Node Position Precision
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Partial |
-| **Element** | OutlineItem line/column source |
-| **Question Candidate** | Should `line` and `column` point to: (a) the start of the element syntax (e.g., `#` for heading), (b) the start of content (e.g., first letter of heading text), (c) the AST-reported position? Different MDX parsers may report positions differently. |
+| **Element** | AutosaveSettings schema |
+| **Question Candidate** | What exactly are "retention settings"? (e.g., max recovery files per document, max total size, max age) What are the precise default values for each setting? Are settings stored per-user, per-workspace, or globally? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-032 says "extract source position information (line, column) from AST nodes" but AST parsers vary in position reporting (0-indexed vs 1-indexed, start of token vs start of content). This affects navigation accuracy. |
+
+**Rationale**: Retention settings affect storage management and data model design. Without clarity, implementation may default to unbounded retention, causing disk space issues.
 
 ---
 
-### 9. Component Type Grouping Key
+### 6. RecoveryFile Content Structure
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Missing |
-| **Element** | Component grouping/deduplication |
-| **Question Candidate** | How should component types be grouped? Is `<Callout>` the same as `<callout>` (case sensitivity)? Is `<Callout type="warning">` grouped with `<Callout type="info">`? Is `<components.Callout>` grouped with `<Callout>`? |
-| **Impact Score** | 2 |
-| **Rationale** | FR-012 says "group components by type" but doesn't define what constitutes the same "type". JSX component names can include namespaces (`ns.Component`), and JSX is case-sensitive. Grouping rules affect the outline structure. |
+| **Element** | Content snapshot format |
+| **Question Candidate** | What format is the content snapshot stored in (raw MDX text, AST, compressed blob)? Does the RecoveryFile store metadata alongside content (cursor position, scroll position, undo history)? Is the snapshot differential (changes only) or full document content? |
+| **Impact Score** | 3 |
+
+**Rationale**: Affects storage efficiency, recovery fidelity, and SC-001 (95% work recovery). Full vs. differential impacts performance and storage.
 
 ---
 
-### 10. Relationship to Document Store
+### 7. RecoveryFile Lifecycle & Cleanup
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Partial |
+| **Element** | RecoveryFile state transitions |
+| **Question Candidate** | What is the complete lifecycle of a RecoveryFile? (created on autosave -> updated on subsequent autosaves -> deleted on manual save/recovery decline -> ?) When are old RecoveryFiles purged if the user never manually saves? What happens to recovery data when a document is closed without saving (normal exit, not crash)? Is there a maximum age for recovery files before automatic cleanup? |
+| **Impact Score** | 4 |
+
+**Rationale**: Without clear lifecycle rules, recovery storage can grow unbounded. Edge case of "close without save" is common and unclear.
+
+---
+
+### 8. Data Volume & Scale Assumptions
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Missing |
-| **Element** | OutlineState relationship to DocumentState |
-| **Question Candidate** | Is OutlineState stored within the document store (as a derived field of DocumentState), in a separate outline store, or computed on-the-fly from AST? How does outline state relate to the document's dirty/saved state? |
+| **Element** | Scale limits |
+| **Question Candidate** | What is the expected maximum number of concurrent open documents requiring autosave? What is the expected maximum document size that autosave must handle? What is the expected maximum total recovery storage footprint? How many RecoveryFiles (snapshots) should be retained per document? |
 | **Impact Score** | 3 |
-| **Rationale** | The spec mentions "integrate with existing Zustand store pattern" but doesn't specify if outline is part of document state, a separate store, or a derived selector. This affects architecture and data flow. |
+
+**Rationale**: Scale assumptions affect storage strategy (flat files vs. SQLite), cleanup policies, and performance testing requirements. Edge case in spec (line 81) mentions "very large documents" without quantifying.
+
+---
+
+### 9. Timestamp Granularity & Timezone
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Missing |
+| **Element** | Timestamp attributes |
+| **Question Candidate** | What granularity is the timestamp (milliseconds, seconds)? Is the timestamp stored in UTC or local timezone? Is the timestamp the creation time, last modification time, or both? |
+| **Impact Score** | 2 |
+
+**Rationale**: Affects ordering, display in recovery dialog, and conflict resolution when multiple autosaves occur close together.
+
+---
+
+### 10. Corruption Handling Data Model
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Missing |
+| **Element** | Integrity tracking |
+| **Question Candidate** | Should RecoveryFile include a checksum or integrity flag attribute? How is corruption detected and represented in the data model? Should there be a "recovery status" attribute (valid, corrupted, partial)? |
+| **Impact Score** | 3 |
+
+**Rationale**: Directly addresses edge case in spec (line 80: "What happens when recovery data is corrupted or incomplete?"). Without integrity tracking, the system cannot reliably filter out corrupted recovery files in the recovery dialog.
 
 ---
 
@@ -155,22 +165,22 @@ The spec defines three key entities (`OutlineItem`, `OutlineSection`, `OutlineSt
 
 | Impact Score | Count |
 |--------------|-------|
-| 5 (Critical) | 0 |
-| 4 (High) | 2 |
+| 5 (Critical) | 2 |
+| 4 (High) | 3 |
 | 3 (Medium) | 4 |
-| 2 (Low) | 4 |
+| 2 (Low) | 1 |
 
 ---
 
 ## Recommended Clarification Priority
 
-1. **OutlineItem Identity & Uniqueness** (Impact: 4) - Blocks stable React rendering
-2. **Heading Nesting Algorithm** (Impact: 4) - Core feature correctness
-3. **AST Node Position Precision** (Impact: 3) - Navigation accuracy
-4. **Component Instance Attributes** (Impact: 3) - Feature completeness
-5. **Relationship to Document Store** (Impact: 3) - Architecture decision
-6. **Data Volume / Scale Assumptions** (Impact: 3) - Performance testability
-7. **Frontmatter Field Representation** (Impact: 3) - Data structure clarity
-8. **OutlineState Lifecycle & Initialization** (Impact: 2) - State machine completeness
-9. **Section Collapse State Persistence Scope** (Impact: 2) - UX consistency
-10. **Component Type Grouping Key** (Impact: 2) - Grouping logic clarity
+1. **RecoveryFile Identity & Uniqueness** (Impact: 5) - Foundational to all CRUD operations
+2. **RecoveryFile-to-Document Relationship** (Impact: 5) - Core recovery flow depends on this
+3. **RecoveryManifest Structure & Contents** (Impact: 4) - Required for recovery dialog
+4. **DirtyState Lifecycle & Transitions** (Impact: 4) - UI and autosave trigger logic
+5. **RecoveryFile Lifecycle & Cleanup** (Impact: 4) - Storage management
+6. **AutosaveSettings Attributes & Defaults** (Impact: 3) - Configuration completeness
+7. **RecoveryFile Content Structure** (Impact: 3) - Storage efficiency
+8. **Data Volume & Scale Assumptions** (Impact: 3) - Performance testability
+9. **Corruption Handling Data Model** (Impact: 3) - Edge case robustness
+10. **Timestamp Granularity & Timezone** (Impact: 2) - Minor but affects ordering
