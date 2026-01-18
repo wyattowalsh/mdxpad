@@ -1,0 +1,594 @@
+version: "1.0"
+feature: bidirectional-preview-sync
+generated: "2026-01-17T00:00:00Z"
+
+execution_constraints:
+  model: opus-4.5
+  max_parallel_subagents: 10
+  default_task_timeout_seconds: 600
+  gate_timeout_seconds: 120
+  subagent_timeout_seconds: 900
+
+  dispatch_strategy: greedy_queue
+  cross_phase_parallelism: true
+  greedy_refill: true
+
+  async_background:
+    enabled: true
+    background_research_tasks: true
+    wake_on_complete: true
+
+  batch_sizing:
+    prefer_wider_batches: true
+    merge_small_batches: true
+    max_batch_size: 10
+
+  extended_thinking:
+    enabled: true
+    ultrathink_for: [architecture, design, complex_logic]
+
+  retry_policy:
+    max_attempts: 3
+    strategy: exponential
+    initial_delay_seconds: 5
+    max_delay_seconds: 60
+    retry_on: [timeout, rate_limit]
+    fail_fast_on: [syntax_error, import_error, type_error]
+
+  circuit_breaker:
+    - at_failures: 3
+      action: pause_batch
+    - at_failures: 5
+      action: pause_phase
+    - at_failures: 10
+      action: abort
+
+  context_per_subagent: 200k
+
+phases:
+  - id: phase-1
+    name: Setup
+    batches:
+      - id: "1.1"
+        parallel: true
+        tasks:
+          - id: T001
+            description: "Create shared sync types in src/shared/types/sync.ts from contracts/sync-store.ts"
+            output_file: src/shared/types/sync.ts
+            context_scope:
+              - contracts/sync-store.ts
+              - contracts/sync-orchestrator.ts
+              - contracts/position-mapping.ts
+              - data-model.md
+            timeout_seconds: 300
+          - id: T002
+            description: "Create sync constants file in src/renderer/lib/sync/constants.ts"
+            output_file: src/renderer/lib/sync/constants.ts
+            context_scope:
+              - data-model.md#Constants
+              - contracts/sync-store.ts#SYNC_CONSTANTS
+            timeout_seconds: 180
+          - id: T003
+            description: "Create lib/sync barrel export in src/renderer/lib/sync/index.ts"
+            output_file: src/renderer/lib/sync/index.ts
+            context_scope:
+              - plan.md#project-structure
+            timeout_seconds: 120
+        gate:
+          command: "npx tsc --noEmit src/shared/types/sync.ts src/renderer/lib/sync/constants.ts"
+          on_fail: "Check contracts/ for correct type definitions; verify imports match"
+
+  - id: phase-2
+    name: Foundational
+    depends_on: [phase-1]
+    batches:
+      - id: "2.1"
+        parallel: true
+        tasks:
+          - id: T004
+            description: "Create scroll lock module in src/renderer/lib/sync/scroll-lock.ts"
+            output_file: src/renderer/lib/sync/scroll-lock.ts
+            context_scope:
+              - contracts/sync-orchestrator.ts#ScrollLockController
+              - quickstart.md#Step2
+              - research.md#R6
+            timeout_seconds: 300
+          - id: T005
+            description: "Create position cache module in src/renderer/lib/sync/position-cache.ts"
+            output_file: src/renderer/lib/sync/position-cache.ts
+            context_scope:
+              - contracts/position-mapping.ts#PositionCache
+              - quickstart.md#Step4
+              - research.md#R7
+            timeout_seconds: 300
+          - id: T006
+            description: "Create position mapper module in src/renderer/lib/sync/position-mapper.ts"
+            output_file: src/renderer/lib/sync/position-mapper.ts
+            context_scope:
+              - contracts/position-mapping.ts#PositionMapper
+              - quickstart.md#Step3
+              - research.md#R2
+            timeout_seconds: 300
+          - id: T007
+            description: "Update lib/sync/index.ts to export scroll-lock, position-cache, position-mapper"
+            output_file: src/renderer/lib/sync/index.ts
+            context_scope:
+              - plan.md#project-structure
+            timeout_seconds: 120
+        gate:
+          command: "npx tsc --noEmit src/renderer/lib/sync/*.ts"
+          on_fail: "Check contracts/position-mapping.ts for interface definitions"
+
+      - id: "2.2"
+        parallel: false
+        depends_on: ["2.1"]
+        tasks:
+          - id: T008
+            description: "Create sync store in src/renderer/stores/sync-store.ts with all actions"
+            output_file: src/renderer/stores/sync-store.ts
+            context_scope:
+              - contracts/sync-store.ts
+              - quickstart.md#Step1
+              - data-model.md#SyncState
+              - research.md#R3
+            timeout_seconds: 600
+        gate:
+          command: "npx tsc --noEmit src/renderer/stores/sync-store.ts"
+          on_fail: "Check data-model.md for SyncState definition; verify Zustand/Immer imports"
+
+  - id: phase-3
+    name: "User Story 1+2 - Editor/Preview Sync"
+    depends_on: [phase-2]
+    stories: [US1, US2]
+    batches:
+      - id: "3.1"
+        parallel: false
+        tasks:
+          - id: T009
+            description: "Create useScrollSync hook in src/renderer/hooks/useScrollSync.ts"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - contracts/sync-orchestrator.ts
+              - quickstart.md#Step5
+              - research.md#R5
+              - src/renderer/lib/sync/scroll-lock.ts
+              - src/renderer/lib/sync/position-mapper.ts
+              - src/renderer/lib/sync/position-cache.ts
+            timeout_seconds: 600
+        gate:
+          command: "npx tsc --noEmit src/renderer/hooks/useScrollSync.ts"
+          on_fail: "Check contracts/sync-orchestrator.ts for UseScrollSyncOptions/Result types"
+
+      - id: "3.2"
+        parallel: true
+        depends_on: ["3.1"]
+        tasks:
+          - id: T010
+            description: "Extend preview iframe to send scroll-report messages"
+            output_file: null
+            context_scope:
+              - research.md#R1
+              - quickstart.md#Step7
+              - contracts/sync-orchestrator.ts#PreviewScrollReport
+            timeout_seconds: 300
+          - id: T011
+            description: "Update PreviewFrame.tsx to handle scroll-report messages"
+            output_file: src/renderer/components/preview/PreviewFrame.tsx
+            context_scope:
+              - research.md#R1
+              - contracts/sync-orchestrator.ts#PreviewScrollReceiver
+            timeout_seconds: 300
+          - id: T012
+            description: "Add scroll command handler in preview iframe"
+            output_file: null
+            context_scope:
+              - research.md#R1
+              - contracts/sync-orchestrator.ts#PreviewScrollCommand
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/components/preview/*.tsx"
+          on_fail: "Check research.md#R1 for postMessage protocol"
+
+      - id: "3.3"
+        parallel: true
+        depends_on: ["3.2"]
+        tasks:
+          - id: T013
+            description: "Add editor scroll event listener using EditorView.scrollHandler"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - research.md#R5
+              - contracts/sync-orchestrator.ts#EditorScrollHandler
+            timeout_seconds: 300
+          - id: T014
+            description: "Implement editor scroll-to-line using EditorView.scrollIntoView"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - research.md#R5
+              - contracts/sync-orchestrator.ts#ScrollEditorToLine
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/hooks/useScrollSync.ts"
+          on_fail: "Check research.md#R5 for CodeMirror scroll API"
+
+      - id: "3.4"
+        parallel: false
+        depends_on: ["3.3"]
+        tasks:
+          - id: T015
+            description: "Integrate useScrollSync hook in src/renderer/App.tsx"
+            output_file: src/renderer/App.tsx
+            context_scope:
+              - quickstart.md#Step8
+              - src/renderer/hooks/useScrollSync.ts
+              - src/renderer/stores/sync-store.ts
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/App.tsx"
+          on_fail: "Check editorRef and previewRef typing"
+
+  - id: phase-4
+    name: "User Story 3 - Configure Sync Mode"
+    depends_on: [phase-2]
+    stories: [US3]
+    batches:
+      - id: "4.1"
+        parallel: true
+        tasks:
+          - id: T016
+            description: "Add sync mode setting to settings panel UI"
+            output_file: src/renderer/components/settings/SyncSettings.tsx
+            context_scope:
+              - research.md#R3
+              - data-model.md#SyncMode
+              - contracts/sync-store.ts#SYNC_MODE_LABELS
+            timeout_seconds: 300
+          - id: T017
+            description: "Connect settings UI to sync store setMode action"
+            output_file: src/renderer/components/settings/SyncSettings.tsx
+            context_scope:
+              - src/renderer/stores/sync-store.ts
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/components/settings/*.tsx"
+          on_fail: "Check data-model.md for SYNC_MODE_LABELS"
+
+      - id: "4.2"
+        parallel: false
+        depends_on: ["4.1"]
+        tasks:
+          - id: T018
+            description: "Implement sync mode persistence to localStorage on change"
+            output_file: src/renderer/stores/sync-store.ts
+            context_scope:
+              - research.md#R3
+              - contracts/sync-store.ts#SYNC_STORAGE_KEYS
+            timeout_seconds: 180
+          - id: T019
+            description: "Load persisted sync mode on app startup"
+            output_file: src/renderer/stores/sync-store.ts
+            context_scope:
+              - research.md#R3
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/stores/sync-store.ts"
+          on_fail: "Check SYNC_STORAGE_KEYS constants"
+
+  - id: phase-5
+    name: "User Story 5 - Command Palette Toggle"
+    depends_on: [phase-2]
+    stories: [US5]
+    batches:
+      - id: "5.1"
+        parallel: true
+        tasks:
+          - id: T020
+            description: "Create toggleSyncCommand in view-commands.ts"
+            output_file: src/renderer/commands/view-commands.ts
+            context_scope:
+              - research.md#R4
+              - quickstart.md#Step6
+              - contracts/sync-store.ts
+            timeout_seconds: 300
+          - id: T021
+            description: "Register keyboard shortcut Cmd+Shift+Y"
+            output_file: src/renderer/commands/view-commands.ts
+            context_scope:
+              - research.md#R4
+              - spec.md#FR-051
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/commands/view-commands.ts"
+          on_fail: "Check research.md#R4 for command registration pattern"
+
+      - id: "5.2"
+        parallel: false
+        depends_on: ["5.1"]
+        tasks:
+          - id: T022
+            description: "Implement 2-second notification on sync toggle"
+            output_file: src/renderer/commands/view-commands.ts
+            context_scope:
+              - spec.md#FR-052
+              - contracts/sync-store.ts#SYNC_CONSTANTS
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/commands/view-commands.ts"
+          on_fail: "Check NOTIFICATION_DURATION_MS constant"
+
+  - id: phase-6
+    name: "User Story 4 - Sync While Typing"
+    depends_on: [phase-3]
+    stories: [US4]
+    batches:
+      - id: "6.1"
+        parallel: true
+        tasks:
+          - id: T023
+            description: "Add cursor position tracking to useScrollSync"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - spec.md#FR-014
+              - contracts/sync-orchestrator.ts
+            timeout_seconds: 300
+          - id: T024
+            description: "Implement SYNC_THRESHOLD_LINES gate for micro-sync prevention"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - spec.md#FR-014
+              - contracts/sync-store.ts#SYNC_CONSTANTS
+            timeout_seconds: 300
+        gate:
+          command: "npx tsc --noEmit src/renderer/hooks/useScrollSync.ts"
+          on_fail: "Check SYNC_THRESHOLD_LINES constant (should be 3)"
+
+      - id: "6.2"
+        parallel: false
+        depends_on: ["6.1"]
+        tasks:
+          - id: T025
+            description: "Ensure typing sync maintains <16ms keystroke latency"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - spec.md#NFR
+              - contracts/sync-store.ts#SYNC_CONSTANTS
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/hooks/useScrollSync.ts"
+          on_fail: "Manual performance testing required"
+
+  - id: phase-7
+    name: "Polish & Accessibility"
+    depends_on: [phase-3, phase-4, phase-5, phase-6]
+    batches:
+      - id: "7.1"
+        parallel: true
+        tasks:
+          - id: T026
+            description: "Implement reduced motion support (prefers-reduced-motion)"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - spec.md#NFR-Accessibility
+              - contracts/sync-orchestrator.ts#ScrollAnimationOptions
+            timeout_seconds: 180
+          - id: T027
+            description: "Add screen reader announcement for sync state changes"
+            output_file: src/renderer/commands/view-commands.ts
+            context_scope:
+              - spec.md#NFR-Accessibility
+            timeout_seconds: 180
+          - id: T028
+            description: "Ensure all sync controls are keyboard accessible"
+            output_file: null
+            context_scope:
+              - spec.md#NFR-Accessibility
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/hooks/useScrollSync.ts src/renderer/commands/view-commands.ts"
+          on_fail: "Check window.matchMedia for reduced motion detection"
+
+      - id: "7.2"
+        parallel: false
+        depends_on: ["7.1"]
+        tasks:
+          - id: T029
+            description: "Implement position cache invalidation on document change"
+            output_file: src/renderer/lib/sync/position-cache.ts
+            context_scope:
+              - spec.md#FR-041
+              - contracts/position-mapping.ts#PositionCache
+            timeout_seconds: 180
+          - id: T030
+            description: "Subscribe to editor content changes for cache invalidation"
+            output_file: src/renderer/hooks/useScrollSync.ts
+            context_scope:
+              - spec.md#FR-041
+            timeout_seconds: 180
+        gate:
+          command: "npx tsc --noEmit src/renderer/lib/sync/position-cache.ts src/renderer/hooks/useScrollSync.ts"
+          on_fail: "Verify cache invalidation triggers"
+
+      - id: "7.3"
+        parallel: false
+        depends_on: ["7.2"]
+        tasks:
+          - id: T031
+            description: "Update lib/sync/index.ts with all final exports"
+            output_file: src/renderer/lib/sync/index.ts
+            context_scope:
+              - plan.md#project-structure
+            timeout_seconds: 120
+          - id: T032
+            description: "Run quickstart.md testing checklist for manual validation"
+            output_file: null
+            context_scope:
+              - quickstart.md#Testing-Checklist
+            timeout_seconds: 600
+        gate:
+          command: "npx tsc --noEmit src/renderer/**/*.ts src/renderer/**/*.tsx"
+          on_fail: "Run full type check for detailed errors"
+
+dependency_graph:
+  edges:
+    # Phase 1 → Phase 2
+    - from: T004
+      to: T001
+      type: imports
+    - from: T005
+      to: T001
+      type: imports
+    - from: T006
+      to: T001
+      type: imports
+    - from: T004
+      to: T002
+      type: imports
+    - from: T005
+      to: T002
+      type: imports
+    - from: T007
+      to: T003
+      type: extends
+
+    # Phase 2 internal
+    - from: T008
+      to: T004
+      type: imports
+    - from: T006
+      to: T005
+      type: uses
+    - from: T008
+      to: T006
+      type: imports
+    - from: T008
+      to: T007
+      type: imports
+
+    # Phase 2 → Phase 3
+    - from: T009
+      to: T008
+      type: imports
+
+    # Phase 3 internal
+    - from: T010
+      to: T009
+      type: uses
+    - from: T011
+      to: T009
+      type: uses
+    - from: T012
+      to: T009
+      type: uses
+    - from: T013
+      to: T009
+      type: extends
+    - from: T014
+      to: T009
+      type: extends
+    - from: T015
+      to: T010
+      type: uses
+    - from: T015
+      to: T011
+      type: uses
+    - from: T015
+      to: T012
+      type: uses
+    - from: T015
+      to: T013
+      type: uses
+    - from: T015
+      to: T014
+      type: uses
+
+    # Phase 2 → Phase 4
+    - from: T016
+      to: T008
+      type: imports
+    - from: T017
+      to: T016
+      type: uses
+    - from: T018
+      to: T017
+      type: uses
+    - from: T019
+      to: T018
+      type: uses
+
+    # Phase 2 → Phase 5
+    - from: T020
+      to: T008
+      type: imports
+    - from: T021
+      to: T020
+      type: extends
+    - from: T022
+      to: T021
+      type: extends
+
+    # Phase 3 → Phase 6
+    - from: T023
+      to: T009
+      type: extends
+    - from: T024
+      to: T023
+      type: uses
+    - from: T025
+      to: T024
+      type: uses
+
+    # All → Phase 7
+    - from: T026
+      to: T015
+      type: uses
+    - from: T027
+      to: T015
+      type: uses
+    - from: T028
+      to: T015
+      type: uses
+    - from: T029
+      to: T005
+      type: extends
+    - from: T030
+      to: T029
+      type: uses
+    - from: T031
+      to: T030
+      type: uses
+    - from: T032
+      to: T031
+      type: validates
+
+critical_path:
+  tasks: [T001, T004, T008, T009, T015, T029, T031, T032]
+  length: 8
+  description: "Setup types → scroll-lock → sync-store → useScrollSync → App integration → cache invalidation → exports → validation"
+
+parallelism_analysis:
+  total_tasks: 32
+  critical_path_length: 8
+  parallelism_factor: 4.0
+  theoretical_speedup: 4.0x
+  practical_speedup: 3.5x
+  max_concurrent_subagents: 10
+  queue_overflow_capacity: unlimited
+  max_parallelism_by_phase:
+    phase-1: 3
+    phase-2: 4
+    phase-3: 4
+    phase-4: 2
+    phase-5: 2
+    phase-6: 2
+    phase-7: 3
+  cross_phase_execution:
+    strategy: interleaved
+    independent_phases: [phase-3, phase-4, phase-5]
+    dependent_phases:
+      phase-6: [phase-3]
+      phase-7: [phase-3, phase-4, phase-5, phase-6]
+
+workspace:
+  context_file: .claude/workspace/context.md
+  results_dir: .claude/workspace/results/
+  gates_dir: .claude/workspace/gates/

@@ -13,6 +13,7 @@ import { PreviewPane as BasePreviewPane } from '../preview/PreviewPane';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { usePreviewStore } from '@renderer/stores/preview-store';
 import type { CompilationError } from './StatusBar/types';
+import type { ScrollReportSignal } from '@shared/types/preview-iframe';
 
 // =============================================================================
 // CONSTANTS
@@ -33,13 +34,21 @@ const COMPILATION_TIMEOUT_MS = 3000;
  */
 export interface ShellPreviewPaneProps {
   /** Optional className for styling */
-  readonly className?: string;
+  readonly className?: string | undefined;
   /** Theme mode for the preview */
-  readonly theme?: 'light' | 'dark';
+  readonly theme?: 'light' | 'dark' | undefined;
+  /** Scroll ratio for editor-to-preview synchronization (0-1) */
+  readonly scrollRatio?: number | undefined;
   /** Callback when user clicks an error location */
-  readonly onErrorClick?: (line: number, column?: number) => void;
+  readonly onErrorClick?: ((line: number, column?: number) => void) | undefined;
   /** Callback when compilation errors change (for StatusBar) */
-  readonly onErrorsChange?: (errors: readonly CompilationError[]) => void;
+  readonly onErrorsChange?: ((errors: readonly CompilationError[]) => void) | undefined;
+  /**
+   * Callback when user scrolls in the preview iframe.
+   * Used for preview-to-editor scroll synchronization.
+   * Feature: 008-bidirectional-sync
+   */
+  readonly onScrollReport?: ((report: Omit<ScrollReportSignal, 'type'>) => void) | undefined;
 }
 
 // =============================================================================
@@ -68,8 +77,10 @@ export interface ShellPreviewPaneProps {
 function ShellPreviewPaneComponent({
   className,
   theme,
+  scrollRatio,
   onErrorClick,
   onErrorsChange,
+  onScrollReport,
 }: ShellPreviewPaneProps): React.JSX.Element {
   // Get content from document store
   const content = useDocumentStore(selectContent);
@@ -159,11 +170,13 @@ function ShellPreviewPaneComponent({
     [onErrorClick]
   );
 
-  // Build className conditionally to satisfy exactOptionalPropertyTypes
+// Build props conditionally to satisfy exactOptionalPropertyTypes
   const previewProps: Omit<React.ComponentProps<typeof BasePreviewPane>, 'source' | 'onErrorClick'> & { source: string; onErrorClick: (line: number, column?: number) => void } = {
     source: content,
     theme: theme ?? 'light',
     onErrorClick: handleErrorClick,
+    scrollRatio,
+    onScrollReport,
     ...(className !== undefined && { className }),
   };
 

@@ -14,6 +14,7 @@ import {
   type ReadySignal,
   type SizeSignal,
   type RuntimeErrorSignal,
+  type ScrollReportSignal,
   type RenderCommand,
   type ParentToIframeMessage,
 } from '@shared/types/preview-iframe';
@@ -106,6 +107,21 @@ let currentMessageHandler: ((event: MessageEvent) => void) | null = null;
 /** Render counter for ErrorBoundary resetKey (enables recovery from errors) */
 let renderCounter = 0;
 
+/** Scroll event handler reference for cleanup */
+let scrollHandler: (() => void) | null = null;
+
+/** Debounce timer for scroll events */
+let scrollDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Scroll debounce delay in milliseconds (Feature: 008-bidirectional-sync) */
+const SCROLL_DEBOUNCE_MS = 50;
+
+/** Flag to track if scroll is programmatic (to avoid feedback loops) */
+let isProgrammaticScroll = false;
+
+/** Timer to reset programmatic scroll flag */
+let programmaticScrollTimer: ReturnType<typeof setTimeout> | null = null;
+
 // ============================================================================
 // Message Sending Helpers
 // ============================================================================
@@ -128,6 +144,28 @@ function sendSizeSignal(height: number): void {
   }
   lastReportedHeight = height;
   const signal: SizeSignal = { type: 'size', height };
+  window.parent.postMessage(signal, '*');
+}
+
+/**
+ * Sends a scroll report signal to parent window.
+ * Used for preview-to-editor scroll synchronization.
+ *
+ * Feature: 008-bidirectional-sync
+ */
+function sendScrollReportSignal(
+  ratio: number,
+  scrollTop: number,
+  scrollHeight: number,
+  clientHeight: number
+): void {
+  const signal: ScrollReportSignal = {
+    type: 'scroll-report',
+    ratio,
+    scrollTop,
+    scrollHeight,
+    clientHeight,
+  };
   window.parent.postMessage(signal, '*');
 }
 
@@ -262,6 +300,9 @@ function prefersReducedMotion(): boolean {
 
 /**
  * Scrolls to proportional position based on ratio (0-1)
+ *
+ * Feature: 008-bidirectional-sync
+ * Sets programmatic scroll flag to prevent feedback loops
  */
 function scrollToRatio(ratio: number): void {
   // Clamp ratio to 0-1
@@ -270,6 +311,21 @@ function scrollToRatio(ratio: number): void {
   // Calculate target scroll position
   const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
   const targetY = maxScroll * clampedRatio;
+
+  // Mark this as a programmatic scroll to avoid reporting it back
+  isProgrammaticScroll = true;
+
+  // Clear any existing timer
+  if (programmaticScrollTimer !== null) {
+    clearTimeout(programmaticScrollTimer);
+  }
+
+  // Reset flag after animation completes (or immediately for instant scroll)
+  const animationDuration = prefersReducedMotion() ? 0 : 200;
+  programmaticScrollTimer = setTimeout(() => {
+    isProgrammaticScroll = false;
+    programmaticScrollTimer = null;
+  }, animationDuration);
 
   // Respect user's motion preference per WCAG 2.3.3
   window.scrollTo({
@@ -301,6 +357,61 @@ function setupResizeObserver(rootElement: HTMLElement): void {
 
   // Send initial size
   sendSizeSignal(Math.ceil(rootElement.scrollHeight));
+}
+
+// ============================================================================
+// Scroll Event Handling (Feature: 008-bidirectional-sync)
+// ============================================================================
+
+/**
+ * Sets up scroll event listener to report scroll position to parent.
+ * Used for preview-to-editor scroll synchronization.
+ *
+ * Features:
+ * - Debounced to prevent excessive messages
+ * - Ignores programmatic scrolls to prevent feedback loops
+ * - Reports scroll ratio, position, and dimensions
+ */
+function setupScrollListener(): void {
+  // Clean up previous handler if it exists (important for HMR)
+  if (scrollHandler !== null) {
+    document.removeEventListener('scroll', scrollHandler);
+    scrollHandler = null;
+  }
+
+  // Clean up any pending debounce timer
+  if (scrollDebounceTimer !== null) {
+    clearTimeout(scrollDebounceTimer);
+    scrollDebounceTimer = null;
+  }
+
+  scrollHandler = (): void => {
+    // Ignore programmatic scrolls to prevent feedback loops
+    if (isProgrammaticScroll) {
+      return;
+    }
+
+    // Debounce scroll reports
+    if (scrollDebounceTimer !== null) {
+      clearTimeout(scrollDebounceTimer);
+    }
+
+    scrollDebounceTimer = setTimeout(() => {
+      scrollDebounceTimer = null;
+
+      const scrollTop = document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = document.documentElement.clientHeight;
+      const maxScroll = scrollHeight - clientHeight;
+
+      // Calculate ratio (0-1), handle edge case of no scrollable content
+      const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0;
+
+      sendScrollReportSignal(ratio, scrollTop, scrollHeight, clientHeight);
+    }, SCROLL_DEBOUNCE_MS);
+  };
+
+  document.addEventListener('scroll', scrollHandler, { passive: true });
 }
 
 // ============================================================================
@@ -380,6 +491,7 @@ function createMessageHandler(): (event: MessageEvent) => void {
  * Sets up:
  * - React root for content rendering
  * - ResizeObserver for height tracking
+ * - Scroll listener for preview-to-editor sync (Feature: 008-bidirectional-sync)
  * - Secure message handler with origin validation and rate limiting
  * - Default theme
  */
@@ -399,6 +511,9 @@ function initialize(): void {
 
   // Set up resize observer
   setupResizeObserver(rootElement);
+
+  // Set up scroll listener for preview-to-editor sync (Feature: 008-bidirectional-sync)
+  setupScrollListener();
 
   // Clean up previous message handler if it exists (important for HMR)
   if (currentMessageHandler) {

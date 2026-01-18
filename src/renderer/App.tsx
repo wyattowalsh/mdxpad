@@ -23,6 +23,7 @@ import type { EditorView } from '@codemirror/view';
 import { CommandPalette } from './components/CommandPalette';
 import { useCommandPalette, buildCommandContext } from './hooks/useCommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useScrollSync } from './hooks/useScrollSync';
 import { useCommandRegistry } from './stores/command-registry-store';
 import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible } from './stores/ui-layout-store';
 import { useDocumentStore, selectFileName, selectIsDirty } from './stores/document-store';
@@ -34,9 +35,10 @@ import { OutlinePanel } from './components/outline';
 import { useOutlineSync } from './hooks/useOutlineSync';
 import { useOutlineNavigation } from './hooks/useOutlineNavigation';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
-import type { CommandContext, CommandId, NormalizedShortcut } from '@shared/types/commands';
+import type { CommandContext, CommandId, NormalizedShortcut, NotificationInput } from '@shared/types/commands';
 import type { CompilationError } from './components/shell/StatusBar/types';
 import type { OutlineItem } from '@shared/types/outline';
+import type { ScrollReportSignal } from '@shared/types/preview-iframe';
 
 // =============================================================================
 // CONSTANTS
@@ -129,6 +131,10 @@ export function App(): React.ReactElement {
   // Ref to the CodeMirror EditorView for navigation
   const editorRef = useRef<EditorView | null>(null);
 
+  // Ref to the preview iframe for scroll synchronization
+  // Feature: 008-bidirectional-sync
+  const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
+
   // Command palette state
   const palette = useCommandPalette();
   const { isOpen, toggle, executeCommand } = palette;
@@ -140,6 +146,13 @@ export function App(): React.ReactElement {
 
   // Outline navigation hook for click-to-navigate
   const { navigateToItem } = useOutlineNavigation({ editorRef });
+
+  // Bidirectional scroll synchronization between editor and preview
+  // Feature: 008-bidirectional-sync
+  const { syncEditorToPreview } = useScrollSync({
+    editorRef,
+    previewRef: previewIframeRef,
+  });
 
   // UI layout state from store
   const previewVisible = useUILayoutStore(selectPreviewVisible);
@@ -154,6 +167,9 @@ export function App(): React.ReactElement {
   // Local state for cursor position and errors
   const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
   const [errors, setErrors] = useState<readonly CompilationError[]>([]);
+
+  // T027: Screen reader announcement state for accessibility
+  const [announcement, setAnnouncement] = useState<string>('');
 
   // Handle resize - update split ratio in store (debounced via store)
   const handleLayout = useCallback(
@@ -191,12 +207,32 @@ export function App(): React.ReactElement {
     navigateToItem(item);
   }, [navigateToItem]);
 
+  // Handle scroll report from preview iframe for preview-to-editor sync
+  // Feature: 008-bidirectional-sync
+  const handleScrollReport = useCallback(
+    (report: Omit<ScrollReportSignal, 'type'>): void => {
+      // The useScrollSync hook handles this via its internal message listener
+      // This callback is provided for additional processing if needed
+      void report; // Currently handled internally by useScrollSync
+    },
+    []
+  );
+
   // Build command context
+  // T027: Notification callback announces to screen readers via aria-live region
+  const handleNotification = useCallback((n: NotificationInput) => {
+    console.log(`[${n.type}] ${n.message}`);
+    // Update aria-live region for screen readers
+    setAnnouncement(n.message);
+    // Clear announcement after duration (or 3 seconds default) to allow future announcements
+    setTimeout(() => setAnnouncement(''), n.duration ?? 3000);
+  }, []);
+
   const getCommandContext = useCallback((): CommandContext => buildCommandContext(
     null, getMdxpadApi(),
     { fileId: null, filePath: null, content: '', isDirty: false },
-    (n) => { console.log(`[${n.type}] ${n.message}`); }
-  ), []);
+    handleNotification
+  ), [handleNotification]);
 
   // Handle keyboard shortcuts
   const handleShortcut = useCallback(
@@ -271,6 +307,7 @@ export function App(): React.ReactElement {
                   theme="dark"
                   onErrorClick={handlePreviewErrorClick}
                   onErrorsChange={handleErrorsChange}
+                  onScrollReport={handleScrollReport}
                 />
               </ResizablePanel>
             </>
@@ -290,6 +327,16 @@ export function App(): React.ReactElement {
 
       {/* Command Palette overlay */}
       <CommandPalette getContext={getCommandContext} palette={palette} />
+
+      {/* T027: Screen reader announcement region for accessibility */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </div>
     </div>
   );
 }

@@ -7,9 +7,10 @@
  * @module renderer/commands/view-commands
  */
 
-import type { Command, CommandId, CommandResult } from '@shared/types/commands';
+import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useUILayoutStore } from '../stores/ui-layout-store';
+import { useSyncStore } from '../stores/sync-store';
 
 // =============================================================================
 // COMMAND DEFINITIONS
@@ -87,6 +88,38 @@ const resetZoomCommand: Command = {
   },
 };
 
+/**
+ * Toggle preview scroll synchronization command.
+ * Feature: 008-bidirectional-sync (T020, T021)
+ *
+ * Shortcut: Cmd+Shift+Y (macOS) / Ctrl+Shift+Y (Windows/Linux)
+ * Shows a 2-second notification with the new sync state (T022).
+ */
+const toggleSyncCommand: Command = {
+  id: 'view.toggle-sync' as CommandId,
+  name: 'Toggle Preview Sync',
+  description: 'Enable or disable scroll synchronization between editor and preview',
+  category: 'view',
+  shortcut: { key: 'y', modifiers: ['Mod', 'Shift'] },
+  execute: (ctx: CommandContext): CommandResult => {
+    const store = useSyncStore.getState();
+    store.toggleSync();
+
+    // Persist change to localStorage
+    store.persist();
+
+    // Show notification with new state (T022: 2-second duration per FR-052)
+    const newState = useSyncStore.getState().mode === 'disabled' ? 'disabled' : 'enabled';
+    ctx.notify({
+      type: 'info',
+      message: `Preview sync ${newState}`,
+      duration: 2000,
+    });
+
+    return { ok: true };
+  },
+};
+
 // =============================================================================
 // REGISTRATION
 // =============================================================================
@@ -98,6 +131,7 @@ const VIEW_COMMANDS: readonly Command[] = [
   zoomInCommand,
   zoomOutCommand,
   resetZoomCommand,
+  toggleSyncCommand,
 ];
 
 /**

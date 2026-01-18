@@ -82,10 +82,23 @@ export const runtimeErrorSignalSchema = z.object({
   componentStack: z.string().optional(),
 });
 
+/**
+ * Schema for scroll report signal.
+ * Feature: 008-bidirectional-sync
+ */
+export const scrollReportSignalSchema = z.object({
+  type: z.literal('scroll-report'),
+  ratio: z.number().min(0).max(1),
+  scrollTop: z.number().min(0),
+  scrollHeight: z.number().min(0),
+  clientHeight: z.number().min(0),
+});
+
 export const iframeToParentMessageSchema = z.discriminatedUnion('type', [
   readySignalSchema,
   sizeSignalSchema,
   runtimeErrorSignalSchema,
+  scrollReportSignalSchema,
 ]);
 
 // ============================================================================
@@ -104,4 +117,5 @@ export type ParentToIframeMessage = z.infer<typeof parentToIframeMessageSchema>;
 export type ReadySignal = z.infer<typeof readySignalSchema>;
 export type SizeSignal = z.infer<typeof sizeSignalSchema>;
 export type RuntimeErrorSignal = z.infer<typeof runtimeErrorSignalSchema>;
+export type ScrollReportSignal = z.infer<typeof scrollReportSignalSchema>;
 export type IframeToParentMessage = z.infer<typeof iframeToParentMessageSchema>;

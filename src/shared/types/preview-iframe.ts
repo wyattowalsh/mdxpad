@@ -41,7 +41,7 @@ export interface ScrollCommand {
 // ============================================================================
 
 /** All message types sent from iframe to parent (signals only, no data queries) */
-export type IframeToParentMessage = ReadySignal | SizeSignal | RuntimeErrorSignal;
+export type IframeToParentMessage = ReadySignal | SizeSignal | RuntimeErrorSignal | ScrollReportSignal;
 
 /** Signal sent when iframe is ready to receive render commands */
 export interface ReadySignal {
@@ -62,6 +62,24 @@ export interface RuntimeErrorSignal {
   readonly message: string;
   /** React component stack trace (if available) */
   readonly componentStack?: string | undefined;
+}
+
+/**
+ * Signal sent when user scrolls in the preview iframe.
+ * Used for preview-to-editor scroll synchronization.
+ *
+ * Feature: 008-bidirectional-sync
+ */
+export interface ScrollReportSignal {
+  readonly type: 'scroll-report';
+  /** Current scroll position as ratio (0-1) */
+  readonly ratio: number;
+  /** Current scroll position in pixels from top */
+  readonly scrollTop: number;
+  /** Total scrollable height in pixels */
+  readonly scrollHeight: number;
+  /** Visible viewport height in pixels */
+  readonly clientHeight: number;
 }
 
 // ============================================================================
@@ -93,7 +111,7 @@ export function isIframeToParentMessage(
 ): message is IframeToParentMessage {
   if (typeof message !== 'object' || message === null) return false;
   const msg = message as { type?: unknown };
-  return msg.type === 'ready' || msg.type === 'size' || msg.type === 'runtime-error';
+  return msg.type === 'ready' || msg.type === 'size' || msg.type === 'runtime-error' || msg.type === 'scroll-report';
 }
 
 // ============================================================================
@@ -160,6 +178,23 @@ export function isRuntimeErrorSignal(message: unknown): message is RuntimeErrorS
     msg.type === 'runtime-error' &&
     typeof msg.message === 'string' &&
     (msg.componentStack === undefined || typeof msg.componentStack === 'string')
+  );
+}
+
+/**
+ * Type guard for ScrollReportSignal messages.
+ *
+ * Feature: 008-bidirectional-sync
+ */
+export function isScrollReportSignal(message: unknown): message is ScrollReportSignal {
+  if (typeof message !== 'object' || message === null) return false;
+  const msg = message as Record<string, unknown>;
+  return (
+    msg.type === 'scroll-report' &&
+    typeof msg.ratio === 'number' &&
+    typeof msg.scrollTop === 'number' &&
+    typeof msg.scrollHeight === 'number' &&
+    typeof msg.clientHeight === 'number'
   );
 }
 
