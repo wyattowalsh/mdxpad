@@ -13,6 +13,8 @@ ALWAYS START BY READING ANY AND ALL PERTINENT `AGENTS.md` INSTRUCTION FILES FIRS
 - localStorage for UI state (splitRatio, previewVisible, zoomLevel), electron-store for main process data (006-application-shell)
 - TypeScript 5.9.x, strict: true + React 19.x, Zustand 5.x + Immer 11.x (007-mdx-content-outline)
 - Reuses preview AST, localStorage for outline visibility persistence (007-mdx-content-outline)
+- TypeScript 5.9.x, strict: true (per Constitution Article II) + React 19.x, Zustand 5.x + Immer 11.x, zod 4.x, @mdx-js/mdx 3.x (for template validation) (016-template-library)
+- File system via Spec 004 infrastructure; custom templates in `~/.mdxpad/templates/`; built-in templates bundled in app resources (016-template-library)
 
 ## Recent Changes
 - 000-foundational-setup: Added TypeScript 5.9.x with `strict: true`

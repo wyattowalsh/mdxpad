@@ -1,91 +1,67 @@
-# Duplication Analysis: Application Shell (006)
+# Template Library Specification - Duplication Analysis
 
-**Analysis Date**: 2026-01-17
-**Spec**: spec.md | **Tasks**: tasks.md
-**Focus**: Functional Requirements (FR-001 to FR-042) and User Stories (US1-US7) vs Tasks (T001-T014)
-
----
-
-## Findings
+## Findings Summary
 
 | ID | Severity | Location(s) | Summary | Recommendation |
-|----|-----------|-----------|---------|----|
-| DUP-001 | HIGH | Spec US1 (lines 38-51) + Spec US6 (lines 125-138) | Layout preferences persistence described twice: US1 includes "layout remembers their preference for next time" (line 50), US6 fully specifies preference restoration (lines 125-138). These describe the same functional capability from different angles but with different priority levels (P1 vs P3). | Merge US1 and US6 into single P1 story focused on editing experience, moving preference persistence to explicit P3 acceptance criterion. Current split creates ambiguity about when persistence actually takes effect. |
-| DUP-002 | HIGH | Spec FR-003 (line 181) + Spec FR-035 (line 237) | Minimum pane width enforced in FR-003 ("100px minimum") also discussed in edge case handling (line 168: "100px editor min + 100px preview min"). Specification is consistent but enforced differently: FR-003 is design constraint, edge case implies runtime logic. These should be consolidated into single requirement with clear enforcement point. | Move minimum width constraint to dedicated NFR (Non-Functional Requirement) section with explicit enforcement points, remove duplication from FR-003 and edge cases. |
-| DUP-003 | MEDIUM | Spec US5 (lines 108-121) + Spec FR-031a (lines 229-230) | Error click behavior defined twice: US5 acceptance scenario 5 (line 121) states three actions "cursor jumps to first error line in editor, error details popover is shown, and preview scrolls to show error". FR-031a (lines 229-230) repeats identical three-action requirement with numbered list. Both describe exact same user interaction. | Consolidate into single FR-031a requirement; reference it from US5 acceptance criteria by number rather than restating. |
-| DUP-004 | MEDIUM | Spec US2 (lines 55-68) + Spec US3 (lines 72-85) + Tasks T003 | Save/Open workflows described separately in US2 and US3, but T003 "File Lifecycle Commands" (lines 124-148) implements both in single task without distinguishing between them. Acceptance criteria for T003 lists all file commands together (lines 138-145), but task lacks sub-tasks to separate new/open/save logic. | Split T003 into T003a (Save Commands: new, save, saveAs) and T003b (Open Commands: open) to maintain 1:1 traceability with US2 and US3. Update task dependencies accordingly. |
-| DUP-005 | MEDIUM | Spec US3 (line 85) + Spec US4 (lines 98-102) + Tasks T008 | Dirty check dialog requirement appears in three places: US3 acceptance scenario 4 (line 85: "confirmation dialog appears asking to 'Save', 'Don't Save', or 'Cancel'"), US4 acceptance scenarios 1-4 (lines 98-102), and T008 "Dirty Check Dialog" (lines 256-277). US3 treats it as edge case during open; US4 treats it as primary feature during close; T008 implements both. No clear demarcation of when dialog appears. | Create separate task T008a (Dirty Check on Close) and T008b (Dirty Check on Open) with distinct acceptance criteria. Make task dependencies more granular: US3→T008b, US4→T008a. |
-| DUP-006 | MEDIUM | Spec FR-012 + FR-013 (lines 196-197) + Spec US2 (lines 55-68) + Tasks T003 | New document creation specified in FR-012/FR-013 ("start with empty Untitled document", "allow creating new document") and restated in US2 narrative and T003 acceptance criteria. Three separate statements of same requirement without clear integration point. | Consolidate FR-012/FR-013 into single "New Document" requirement; reference from both US2 and T003 by requirement number to avoid narrative duplication. |
-| DUP-007 | MEDIUM | Spec FR-014 + FR-015 (lines 201-202) + Spec US3 (lines 72-85) + Tasks T003/T010 | Open file workflow split across FR-014/FR-015 (functional requirements), US3 (user story with test scenarios), and two tasks (T003 File Lifecycle Commands + T010 External Modification Detection). The sequence "show file picker → load file → update state" is described in all three locations with no cross-reference. | Create traceability matrix in spec linking US3 acceptance scenarios 1-3 to FR-014/FR-015; update T003 to reference spec by line number rather than restating. Keep T010 focused on post-load edge case (external modification). |
-| DUP-008 | LOW | Spec FR-033 + FR-034 (lines 235-236) + Spec US6 (lines 125-138) + Tasks T002 | Preference persistence requirements (FR-033, FR-034) are restated verbatim in US6 acceptance scenarios (lines 135-138). Both say: split ratio restored, preview visibility restored, zoom restored (with FR-034 noting zoom is future scope). Redundant statements. | Remove narrative restatement from US6; replace with: "Acceptance Criteria: As per FR-033, FR-034 with focus on split ratio and preview visibility (zoom deferred)." Single source of truth. |
-| DUP-009 | LOW | Spec US2 Acceptance Scenario 3 (lines 66-67) + Spec FR-009 (line 190) | US2 acceptance scenario 3: "the status bar updates to show the filename and the dirty indicator disappears" (line 67). FR-009: "System MUST clear the dirty flag when a document is successfully saved" (line 190). Both describe clearing dirty flag on save but from different perspectives (UI manifestation vs. state change). Minor redundancy but natural to different concerns. | No action needed; represents legitimate separation of concerns (user-facing vs. internal state). Keep both but add cross-reference comment in spec: "FR-009 (internal) manifests as dirty indicator disappearance per US2-S3 (user-facing)." |
-| DUP-010 | LOW | Spec T001 Acceptance Criteria (lines 81-86) + Spec T002 Acceptance Criteria (lines 107-114) | Both T001 and T002 require "Unit tests cover..." statements (line 87: "Unit tests cover all state transitions"; line 112: "Unit tests cover persistence round-trip"). Redundant reminder of testing requirement across multiple tasks. | Extract testing requirement into shared task template or project standard rather than repeating in each task. Keep individual acceptance criteria scoped to task-specific testing (state transitions vs. persistence) but remove redundant "unit tests" intro language. |
+|---|---|---|---|---|
+| DUP-001 | Medium | spec.md:112-138, plan.md:59-100 | Functional Requirements (FR-001 through FR-026) directly parallel project structure and component architecture from plan.md. FR lists are not duplicative per se but represent same concepts differently (e.g., "FR-001: template browser interface" vs "project structure > TemplateBrowser.tsx"). | These are intentionally separate concerns—spec is user-facing requirements, plan is technical design. No consolidation needed; consider this intentional abstraction. |
+| DUP-002 | High | plan.md:7-9, tasks.md:7-8 | Summary sections appear nearly identical: Both describe "Template Library provides a collection of MDX document templates with browsing, preview, and management capabilities." Exact same feature description repeated. | Consolidate to single summary in plan.md; remove redundant summary from tasks.md intro, or reference plan.md instead. |
+| DUP-003 | Medium | spec.md:169-178 (Assumptions), plan.md:22-41 (Constitution Check) | Both sections address technical assumptions and constraints (e.g., file system infrastructure, preview reuse, command palette extension). Spec's Assumptions section (lines 169-178) and Plan's Technical Context + Constitution Check cover overlapping ground. | Move all assumption validation to plan.md's Constitution Check; spec's Assumptions should focus on user-facing assumptions only (e.g., "Users understand basic MDX syntax"). |
+| DUP-004 | Medium | spec.md:45-76 (User Story 3 & 4), tasks.md:234-262 (Phase 4 & 5) | User Stories 3 & 4 and their Phase 4/Phase 5 tasks are extensively detailed in both locations with near-identical acceptance criteria and task descriptions. For example: US3 acceptance scenario "Given user saves template with duplicate name..." parallels T019 task description "handle duplicate name detection". | Spec should contain user stories; tasks.md should reference spec by story ID rather than re-describing. Consider adding cross-references like "[See spec.md US3]" to each task. |
+| DUP-005 | Low | spec.md:24-25 (US1 acceptance scenario 5), spec.md:136 (FR-024), spec.md:166 (Clarification) | Dynamic variable feature (`{{title}}`) mentioned three times in spec.md with identical meaning but different contexts: acceptance scenario, functional requirement, and clarification answer. | This is acceptable scattering across different document sections (scenario, requirement, decision). However, consider a single "Feature: Dynamic Variables" section in spec under Functional Requirements for clarity. |
+| DUP-006 | High | tasks.md:145-147 (T006-T007), tasks.md:157-160 (T008-T009) | Near-duplicate task phrasing: T006/T007 both say "[US1] Implement [X] per quickstart.md pattern" and T008/T009 use identical phrasing "per quickstart.md pattern". Pattern reference appears 4+ times in Phase 3 tasks. | Standardize task templates. Create a single instruction block at Phase 3 start: "All Phase 3 implementation tasks reference quickstart.md patterns—see [link]. Individual tasks list what to implement, not the pattern reference." |
+| DUP-007 | Medium | tasks.md:99-103 (Gate 1.1), tasks.md:125-129 (Gate 2.1), tasks.md:150-154 (Gate 3.1) | Gate validation commands follow near-identical structure but use different test syntax: some use `test -d`, others use `test -f`, others use `npx tsc`. No meta-pattern or documentation explaining gate strategy. | Create a Gates section at tasks.md start defining gate types: "File Existence Gates (test -d/-f), Type Check Gates (tsc), Runtime Gates (npm run). See Appendix for gate templates." |
+| DUP-008 | Low | spec.md:103-106 (Edge Cases: template corruption), plan.md:15-17 (Storage assumptions) | Both sections address corrupted/inaccessible templates but with different solutions: Spec says "Skip corrupted templates during loading; display error indicator", Plan assumes "no artificial limits". These are complementary, not duplicative. | Acceptable—spec defines user-facing behavior, plan covers technical approach. No consolidation needed. |
+| DUP-009 | Medium | spec.md:129-132 (FR-018 through FR-022), tasks.md:336-356 (Batch 7.1: Built-in Templates) | Functional requirements FR-018 through FR-022 define what templates should support (export, import, file format, variables). Phase 7.1 tasks T026-T030 create 5 built-in templates but don't explicitly verify they satisfy these requirements. Risk: Templates created without validating FR compliance. | Add validation step to Batch 7.1 Gate 7.1 bash script: Verify each .mdxt file has YAML frontmatter with name, description, category, tags; verify variables use `{{variable}}` syntax per FR-024. |
+| DUP-010 | Low | spec.md:8-92 (User Scenarios section header), plan.md:5 (section: "Summary") | Both documents have introductory/summary sections describing the same feature from slightly different angles. Spec's "User Scenarios & Testing" intro vs Plan's "Summary"—both establish context. | This duplication is intentional—spec is requirements document, plan is design document. Both need their own intros. Accept as-is. |
 
 ---
 
-## Summary Statistics
+## Duplication Issues by Severity
 
-| Metric | Value |
-|--------|-------|
-| Total Duplications Found | 10 |
-| HIGH Severity | 2 |
-| MEDIUM Severity | 6 |
-| LOW Severity | 2 |
-| Duplication Index | 7.1% (10 duplications across ~140 requirements) |
+### High Severity (Require Action)
+- **DUP-002**: Identical summary sections in plan.md and tasks.md
+- **DUP-006**: Repetitive phrasing in task descriptions ("per quickstart.md pattern" appears 4+ times)
 
----
+### Medium Severity (Should Address)
+- **DUP-001**: Parallel FR/architecture lists (architectural, not operational duplication)
+- **DUP-003**: Assumptions scattered across spec.md and plan.md instead of centralized
+- **DUP-004**: User Stories 3/4 and Phases 4/5 extensively duplicate acceptance criteria
+- **DUP-007**: Gate validation syntax inconsistency without documented pattern
+- **DUP-009**: Risk that built-in templates won't validate against FR requirements
 
-## Risk Assessment
-
-### High-Risk Duplications (Must Fix)
-- **DUP-001**: US1/US6 split creates priority ambiguity for core feature
-- **DUP-002**: Minimum width constraint scattered across three locations
-
-### Medium-Risk Duplications (Should Fix)
-- **DUP-003**: Error click behavior duplicated in two requirement formats
-- **DUP-004**: File commands (T003) lack sub-task granularity for separate features
-- **DUP-005**: Dirty check triggers not clearly demarcated by context (close vs. open)
-- **DUP-007**: Open file workflow traced to three independent sources without clear hierarchy
-
-### Low-Risk Duplications (Nice to Fix)
-- **DUP-008**: Preference persistence already well-defined; restatement just verbose
-- **DUP-009**: Legitimate separation of concerns; minor redundancy acceptable
-- **DUP-010**: Testing requirements naturally repeated; extract to template
+### Low Severity (Acceptable)
+- **DUP-005**: Dynamic variables feature scattered across acceptance criteria, FR, and clarification (acceptable contextual repetition)
+- **DUP-008**: Template corruption handling addressed in both spec and plan (complementary)
+- **DUP-010**: Introductory sections in spec vs plan (intentional, both necessary)
 
 ---
 
-## Recommended Resolution Priority
+## Consolidated Recommendations
 
-1. **Immediate (Block Merge)**: Fix DUP-001, DUP-002
-   - These create feature ambiguity and structural inconsistency
-   - Corrections required before task start
-
-2. **Before Testing (Batch Completion)**: Fix DUP-003, DUP-004, DUP-005, DUP-007
-   - These reduce traceability and test clarity
-   - Address during T012 (Integration Tests) review
-
-3. **Documentation (Post-Merge)**: Fix DUP-008, DUP-010
-   - These are efficiency/clarity improvements
-   - Can be addressed in CLAUDE.md or project standards
-
-4. **Acceptable As-Is**: DUP-009
-   - Represents legitimate separation of user-facing vs. internal concerns
+1. **Immediate**: Remove summary from tasks.md line 7-8; reference plan.md summary or create tasks-specific summary focusing on execution
+2. **Immediate**: Add cross-references in tasks.md (e.g., "[See spec.md US3 line 45]") to reduce duplication of acceptance criteria
+3. **Soon**: Consolidate all technical assumptions into plan.md's Constitution Check section; remove redundancy from spec.md Assumptions
+4. **Documentation**: Create "Implementation Patterns" section in tasks.md that explains quickstart.md references once, rather than repeating in each task
+5. **Documentation**: Create "Gate Strategy" appendix in tasks.md explaining validation types (File gates, Type gates, Runtime gates)
+6. **Validation**: Add FR compliance check to Batch 7.1 Gate to ensure built-in templates satisfy functional requirements
 
 ---
 
-## Implementation Guidance
+## Copy-Paste Artifacts Detected
 
-When implementing tasks based on this spec:
-
-1. **Use Requirement Numbers as Primary Reference**: Task developers should work from FR numbers, not from narrative restates
-2. **Establish Traceability First**: Create mapping document linking each task to its source requirements before coding
-3. **Treat User Stories as Test Scripts**: Each acceptance scenario should map to exactly one task acceptance criterion
-4. **Consolidate Before Coding**: Resolve DUP-001, DUP-002, DUP-003 before T001/T003/T004 development to prevent implementation confusion
+- **tasks.md, Batch 3.1-3.6**: "per quickstart.md pattern" repeated without variation (4 instances, lines 145-147, 159-160, 170, 214)
+- **tasks.md, Gates**: Similar bash test syntax repeated across gates without unifying pattern documentation
+- **spec.md + tasks.md**: User Story acceptance criteria copied into task descriptions without reference links
 
 ---
 
-## Conclusion
+## Overall Assessment
 
-The specification exhibits **moderate duplication (7.1% index)** with **2 high-severity issues** requiring resolution before development begins. Most duplication stems from legitimate separation of concerns (requirements vs. user stories vs. tasks) but insufficient cross-referencing. The corrective actions are straightforward—primarily adding cross-references and consolidating redundant statements.
+The specification documents are well-structured but contain **operational duplication** (same information repeated for different audiences) rather than **critical duplication** (contradictory or redundant requirements). The main issues are:
 
-**Recommended Action**: Fix high-severity issues (DUP-001, DUP-002) before task execution. Address medium-severity issues (DUP-003 through DUP-007) during task planning refinement. Remaining duplications are manageable through careful implementation.
+1. **spec.md → tasks.md duplication**: User Stories and acceptance criteria restated in Phase descriptions
+2. **Assumption scattering**: Technical assumptions split between spec.md and plan.md
+3. **Pattern repetition**: Implementation guidance ("per quickstart.md") repeated without meta-documentation
+
+These are low-risk issues that reflect document organization rather than specification errors. Resolution involves adding cross-references and consolidating redundant sections, not fixing contradictory requirements.

@@ -1,232 +1,66 @@
-# Constitution Alignment Analysis: 006-Application-Shell
+# Constitution Alignment Analysis: Template Library (016)
 
 **Analysis Date**: 2026-01-17
-**Spec Branch**: `006-application-shell`
-**Analysis Scope**: Specification, Plan, Tasks, and Implementation
+**Artifacts Analyzed**:
+- `/Users/ww/dev/projects/mdxpad-template/.specify/memory/constitution.md` (v1.1.0)
+- `/Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/spec.md`
+- `/Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/plan.md`
+- `/Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/tasks.md`
 
 ---
 
-## Executive Summary
+## Findings
 
-**Result**: ✅ **PASSING** - No constitution alignment issues detected.
-
-All specification, plan, tasks, and current implementation for the 006-application-shell feature are fully compliant with project constitution principles.
-
----
-
-## Detailed Findings by Constitution Article
-
-### 1. TypeScript Strict Mode (Constitution Article II)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| TypeScript 5.9.x with `strict: true` | ✅ PASS | All new source files use strict mode |
-
-**Analysis**:
-- `src/shared/types/document.ts`: Complete type definitions with branded types (DocumentId)
-- `src/renderer/stores/document-store.ts`: All functions and state interfaces properly typed
-- `src/renderer/stores/ui-layout-store.ts`: Full TypeScript compliance with readonly modifiers
-- `src/renderer/commands/file-commands.ts`: Proper imports and return type annotations
-- `src/renderer/components/shell/EditorPane.tsx`: Interface definitions with readonly props
-- `src/renderer/components/shell/StatusBar/StatusBar.tsx`: Typed props interfaces
-
-### 2. State Management: Zustand + Immer (Constitution Article II)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Use Zustand with Immer middleware | ✅ PASS | Both stores correctly configured |
-
-**Analysis**:
-- Document Store uses: `create<DocumentStore>()(immer((set) => ({ ... })))`
-- UI Layout Store uses: `create<UILayoutStore>()(immer((set, get) => ({ ... })))`
-- Debounced persistence prevents excessive writes (500ms debounce)
-- Proper selector pattern for optimized subscriptions
-- No Redux or custom state management used
-
-### 3. Storage Persistence (Constitution Article II)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| localStorage for UI state | ✅ PASS | Implemented with validation |
-| electron-store for main process | ✅ PASS | Documented in plan |
-
-**Analysis**:
-- Document Store: In-memory only (correct design)
-- UI Layout Store: localStorage with validation and fallback
-- splitRatio persisted with debounce (500ms)
-- previewVisible and zoomLevel persisted
-- Loaded synchronously on module import (prevents flash)
-
-### 4. React 19.x & Electron 39.x (Constitution Article II)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Use React 19.x patterns | ✅ PASS | Proper hooks usage |
-| Use Electron 39.x | ✅ PASS | IPC patterns correct |
-
-**Analysis**:
-- Functional components with hooks (useEffect, useState, useCallback, useMemo)
-- Components memoized where appropriate (EditorPane, StatusBar)
-- File operations delegate through IPC (openFile, saveFile, saveFileAs, readFile)
-- No direct Node.js access in renderer process
-
-### 5. Component Architecture (Constitution Article II)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Reuse existing components | ✅ PASS | Properly integrated |
-| Single source of truth | ✅ PASS | Zustand stores are centralized |
-| Props flow pattern | ✅ PASS | Children receive props from App |
-
-**Analysis**:
-- MDXEditor from Spec 002 wrapped in EditorPane
-- PreviewPane from Spec 003 wrapped in shell PreviewPane
-- CommandPalette from Spec 005 integrated in App.tsx
-- App.tsx builds command context and passes state as props
-- StatusBar receives data props, not direct store access
-
-### 6. Keyboard Navigation & Accessibility (Constitution Article VII)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Keyboard shortcuts | ✅ PASS | All shortcuts defined in spec |
-| Accessible status bar | ✅ PASS | ARIA labels and role attributes |
-| Error recovery | ✅ PASS | All states preserve user data |
-
-**Analysis**:
-- Shortcuts defined: Cmd+N (new), Cmd+O (open), Cmd+S (save), Cmd+Shift+S (save-as), Cmd+W (close)
-- StatusBar has role="status" and aria-label attributes
-- Error states do not clear editor content
-- Save failures preserve editor for retry
-
-### 7. Performance Requirements (Constitution Article V)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Cold start < 2s | ✅ PASS | No heavy dependencies in init |
-| Keystroke latency < 16ms | ✅ PASS | Sync state updates |
-| Memory < 200MB idle | ✅ PASS | Minimal footprint design |
-
-**Analysis**:
-- Zustand stores lightweight with no heavy middleware
-- Debounced persistence prevents blocking
-- Selectors optimize component subscriptions
-- Performance validation task (T014) will measure all metrics
-
-### 8. Security & IPC (Constitution Article III)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| contextIsolation: true | ✅ PASS | File ops use preload API |
-| IPC invoke/handle pattern | ✅ PASS | All file I/O through IPC |
-
-**Analysis**:
-- No direct fs module access in renderer
-- All file operations delegated through ctx.api
-- IPC calls: openFile, saveFile, saveFileAs, readFile, closeWindow
-- Error handling includes result.ok checks and error codes
-
-### 9. Code Quality (Constitution Article VI)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| JSDoc documentation | ✅ PASS | All public APIs documented |
-| Function length < 50 lines | ✅ PASS | Proper decomposition |
-| Unit coverage > 80% | ✅ PLAN | Test tasks T012-T014 ensure coverage |
-
-**Analysis**:
-- Module-level JSDoc on all files
-- Function-level JSDoc with @example tags
-- Interface documentation complete
-- Helper functions kept small (3-6 lines)
-- No monolithic functions
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|-----------|-----------|---------| --------------|
+| ALN-001 | **CRITICAL** | plan.md line 13; tasks.md T006 | **Article II Violation**: Plan specifies use of `gray-matter` library for template parsing, which is NOT in the pinned technology stack (Article II). New dependencies require constitution amendment. | Add `gray-matter` (or specify version) to Article II Technology Stack table, OR choose an alternative parsing approach using only approved technologies (e.g., manual YAML/frontmatter parsing with `zod` validation). Escalate to user for decision. |
+| ALN-002 | **CRITICAL** | plan.md lines 22-41 (Constitution Check section) | **Article IX.1 Violation**: Constitution Compliance table mixes MUST/SHOULD/conditional ("WILL COMPLY", "TBD") without distinguishing mandatory gates from optional considerations. Per Article IX.1, status MUST clearly mark PASS/FAIL for MUST requirements. | Revise Constitution Check table to explicitly separate MUST requirements (must show PASS/FAIL with no TBD) from SHOULD requirements (may show conditional status). Mark any TBD MUST items as blockers requiring resolution before Phase 0 completion. |
+| ALN-003 | **CRITICAL** | spec.md FR-015; plan.md line 34; tasks.md T008, T019 | **Article V Violation**: FR-015 requires "System MUST validate template MDX syntax before saving custom templates." This validation (compilation) is not explicitly budgeted in Article V performance budgets. If validation triggers MDX compile, it must meet Article V's 500ms budget OR have separate documented budget. | Add explicit performance budget for template validation/MDX compilation in plan.md. Test and verify validation completes within Article V's 500ms MDX compile budget. If exceeding, document rationale and escalate for architecture review per Article V escalation clause. |
+| ALN-004 | **CRITICAL** | plan.md line 35 (Gate 3.2: Service Validation); tasks.md T008 | **Article III.3 Violation**: Plan lists IPC handlers but does not explicitly document that all template IPC payloads MUST be validated with zod on both ends (Article III.3 requirement: "All payloads MUST be validated with zod on both ends"). | Explicitly confirm in plan.md that all template IPC channels will use zod schema validation. Add to contracts/template-schemas.ts validation assertions. Include zod validation examples in T008 implementation. |
+| ALN-005 | HIGH | spec.md edge cases; plan.md line 39 | **Article VII.3 Partial Alignment**: Edge cases state "display error indicator for affected items" but don't specify error message format. Article VII.3 requires "User-facing errors MUST be actionable and clear (no stack traces, no jargon)." | Define specific, actionable error messages for each edge case (corrupted template, invalid MDX, missing components). Add to spec's edge cases section or data-model.md with examples. Validate against Article VII.3 accessibility and clarity requirements. |
+| ALN-006 | HIGH | spec.md SC-005; plan.md line 18 | **Article V Cross-Check**: SC-005 specifies "Custom template save operation completes within 2 seconds including validation." This is user-facing performance but not in Article V's hard budget table. Article V lists only MDX compile budget (500ms); template save with validation may exceed this if MDX validation required. | Clarify in plan.md: Does "save including validation" trigger MDX compilation? If yes, ensure total operation <= 500ms per Article V or document separate budget. If no, SC-005's 2s is acceptable (user-facing, not listed in Article V). Validate empirically during implementation. |
+| ALN-007 | HIGH | tasks.md lines 361-367 (Batch 7.2: Tests) | **Article VI.4 Partial Clarity**: Tests are planned (T031-T033) but unit test file doesn't show target coverage >= 80% requirement per Article VI.4. Gate only checks TypeScript compilation, not coverage. | Add coverage target assertion to Gate 7.2 validation: `npx vitest run --coverage --reporter=v8`. Set minimum threshold to 80% for `src/renderer/lib/` per Article VI.4. Make gate fail if coverage below threshold. Document in plan.md. |
+| ALN-008 | MEDIUM | plan.md line 102; spec.md lines 141-144 | **Article X Deferred Feature Risk**: Spec defines template import/export (FR-021, FR-022) and dynamic variables (FR-024) as core features, but these are not mentioned in Article X Deferred Decisions. However, Article X defers "Plugin system" and "Cloud sync" which could relate to template distribution. Clarify scope boundaries. | Confirm that FR-021 (import/export) and FR-024 (dynamic variables) are local-only features for v1.0 (not cloud/plugin sync). Update plan.md "Technical Context" section to explicitly state these are client-side only and do not attempt deferred plugin/cloud features. |
 
 ---
 
-## Functional Requirements Coverage
+## Summary
 
-All 41 functional requirements from spec.md have implementation or task assignments:
+**Total Issues**: 8
+**Critical**: 4 (ALN-001, ALN-002, ALN-003, ALN-004)
+**High**: 2 (ALN-005, ALN-006, ALN-007)
+**Medium**: 1 (ALN-008)
 
-| Category | Count | Status |
-|----------|-------|--------|
-| Layout & Panels (FR-001-006) | 6 | ✅ Implemented |
-| Document State (FR-007-011) | 5 | ✅ Implemented |
-| New/Open (FR-012-017) | 6 | ✅ Implemented |
-| Save (FR-018-023) | 6 | ✅ Implemented |
-| Close (FR-024-027) | 4 | ✅ Implemented |
-| Status Bar (FR-028-032) | 5 | ✅ Implemented |
-| Settings (FR-033-036) | 4 | ✅ Implemented |
-| Integration (FR-037-041) | 5 | ✅ Implemented |
+### Critical Path Blockers
 
----
+1. **ALN-001 (gray-matter dependency)**: Must resolve before T006 implementation. Requires constitution amendment OR technology substitution.
+2. **ALN-002 (Constitution Check clarity)**: Must resolve before Phase 0 gate. Revise compliance table to distinguish MUST from SHOULD.
+3. **ALN-003 (Performance budget missing)**: Must resolve before Phase 2 gate. Add explicit validation performance budget or confirm within Article V limits.
+4. **ALN-004 (zod validation)**: Must resolve before T008 implementation. Ensure all IPC payloads have explicit zod validation per Article III.3.
 
-## User Story Coverage
+### Recommended Actions
 
-| Story | Priority | Tasks | Status |
-|-------|----------|-------|--------|
-| US1: Edit and Preview | P1 | T001, T002, T005, T006 | ✅ Complete |
-| US2: Create and Save | P1 | T001, T003, T008 | ⏳ Partial (T008 pending) |
-| US3: Open Existing | P1 | T001, T003, T008, T010 | ⏳ Partial (T008, T010 pending) |
-| US4: Safe Close | P2 | T001, T008, T009 | ⏳ Pending (T008, T009) |
-| US5: Status Bar | P2 | T001, T004, T007 | ✅ Complete |
-| US6: Settings | P3 | T002 | ✅ Complete |
-| US7: Keyboard Workflow | P3 | T003, T011 | ⏳ Partial (T011 pending) |
+1. **Immediate** (before Phase 1 starts):
+   - Resolve ALN-001: Approve gray-matter OR remove from plan
+   - Resolve ALN-002: Revise Constitution Check table
+   - Resolve ALN-003: Document template validation performance budget
 
----
+2. **Before Phase 2 complete**:
+   - Resolve ALN-004: Verify zod validation on all IPC channels
+   - Resolve ALN-005: Finalize error message specifications
 
-## Test Planning Analysis
-
-| Phase | Type | Status | Details |
-|-------|------|--------|---------|
-| Unit Tests | Store | ✅ Created | document-store.test.ts, ui-layout-store.test.ts |
-| Unit Tests | Commands | ✅ Created | file-commands.test.ts with error path coverage |
-| Unit Tests | Components | ✅ Created | EditorPane.test.tsx, StatusBar.test.tsx |
-| Integration | Lifecycle | 📋 Planned | T012: document-lifecycle.test.ts |
-| Integration | Layout | 📋 Planned | T012: shell-layout.test.ts |
-| E2E | Shell | 📋 Planned | T013: shell.spec.ts with Playwright |
-| Performance | Validation | 📋 Planned | T014: shell-perf.test.ts |
+3. **Before Phase 7 (Testing)**:
+   - Resolve ALN-007: Add coverage threshold to Gate 7.2
 
 ---
 
-## Known Limitations & Deferred Work
+## Constitution Articles Referenced
 
-Items intentionally out of scope per specification:
-
-- **Autosave**: Future spec (Spec 007)
-- **Continuous file watching**: Focus-based detection only (simpler, more secure)
-- **Multi-document/tabs**: Future enhancement
-- **Theme UI**: Deferred (Spec 007)
-- **Cloud storage**: Local files only
-- **Version history**: Future feature
-- **Plugin system**: Future feature
-
-All deferred items are properly noted in spec section "Out of Scope" (L320-330).
-
----
-
-## Specification Consistency
-
-| Document | Status | Coverage |
-|----------|--------|----------|
-| `spec.md` | ✅ Complete | 349 lines, 7 user stories, 41 FRs, 10 NFRs |
-| `plan.md` | ✅ Complete | 139 lines, constitution check passed, structure defined |
-| `tasks.md` | ✅ Complete | 477 lines, 14 tasks, 4 batches, dependency graph |
-| Implementation | ⏳ In Progress | T001-T007 complete, T008-T014 scheduled |
-
----
-
-## Conclusion
-
-✅ **No constitution alignment issues detected.**
-
-The 006-application-shell specification, plan, and implementation are **fully compliant** with all project constitution principles and requirements.
-
-**Current Status**: 🟢 Implementation in progress
-- Completed: Batch 1 (Foundation), Batch 2 (Shell)
-- Next: Batch 3 (Lifecycle), then Batch 4 (Validation)
-
----
-
-**Analysis Date**: 2026-01-17
-**Analyzed By**: Constitution Alignment Verification System
-**Spec Status**: Draft → Ready for Batch 3 Implementation
+- **Article II**: Technology Stack (pinned versions, no unlisted dependencies)
+- **Article III.3**: IPC Contract Pattern (zod validation required)
+- **Article V**: Performance Budgets (hard limits, >10% regression blocks merge)
+- **Article VI.4**: Testing Requirements (>80% coverage for business logic)
+- **Article VII.3**: Error Handling (actionable, clear, no jargon)
+- **Article IX.1**: Plan Verification (Constitution Compliance section structure)
+- **Article IX.3**: Conflict Resolution (halt if constitution violated)
+- **Article X**: Deferred Decisions (clarify scope boundaries)
