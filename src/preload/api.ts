@@ -5,6 +5,7 @@
 
 import type { SecurityInfo } from '@shared/lib/ipc';
 import type { FileHandle, FileResult } from '@shared/types/file';
+import type { AIApi } from './ai-api';
 
 /** File change event received from main process */
 export interface FileChangeEvent {
@@ -158,4 +159,10 @@ export interface MdxpadAPI {
     os: 'darwin'; // macOS only per constitution
     arch: 'arm64' | 'x64';
   };
+
+  /**
+   * AI Provider API (Spec 028).
+   * Provides access to AI provider configuration, generation, and usage tracking.
+   */
+  ai: AIApi;
 }

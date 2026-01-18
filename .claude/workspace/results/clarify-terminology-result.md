@@ -1,168 +1,129 @@
-# Terminology & Consistency Scan Results
+# Terminology Ambiguity Analysis: AI Provider Abstraction Layer
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
 **Category**: Terminology
-**Date**: 2026-01-17
+**Spec**: `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md`
+**Analysis Date**: 2026-01-17
 
 ---
 
-## Executive Summary
+## Glossary Terms Defined
 
-The 007-mdx-content-outline spec has several terminology inconsistencies and missing glossary terms when compared against the canonical sources (Constitution glossary, and previous specs 003-preview-pane and 006-application-shell). Key issues include undefined terms, potential synonym conflicts, and missing alignment with established project vocabulary.
+The spec provides explicit definitions in the "Key Entities" section:
+
+| Term | Definition | Status |
+|------|------------|--------|
+| Provider | AI service (OpenAI, Anthropic, local) with configuration, credentials, and connection status | Clear |
+| Credential | Securely stored API key or authentication token associated with a provider | Clear |
+| UsageRecord | Tracks individual AI requests including provider, tokens used, timestamp, and estimated cost | Clear |
+| ProviderConfig | User-facing configuration for a provider including display name, type, and settings | Clear |
 
 ---
 
-## Findings
+## Ambiguity Findings
 
-### 1. "Outline Item" vs "OutlineItem" Entity Inconsistency
+### 1. "Active provider" vs "selected provider" vs "current provider"
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: Glossary (line 260) vs Key Entities (line 182)
-- **Issue**: The glossary defines "Outline Item" (two words) while the Key Entities section uses "OutlineItem" (PascalCase, one word). This creates ambiguity about the canonical form.
-- **Question Candidate**: Should the canonical term be "Outline Item" (human-readable glossary form) or "OutlineItem" (code entity form)? Should both forms be documented explicitly?
+- **Observation**: The spec uses "active provider" in FR-005 and the glossary input, but User Story 2 also uses "active provider indicator" and "different provider as active". The term is mostly consistent but never explicitly defined in the Key Entities section. Additionally, "currently selected provider" could be used interchangeably.
+- **Question Candidate**: Should the glossary include an explicit definition for "Active provider" as the canonical term, and should synonyms like "selected provider" or "current provider" be listed as deprecated/avoided terms?
 - **Impact Score**: 2
-- **Recommendation**: Align glossary term with Key Entity naming. Use "OutlineItem" consistently, with glossary entry clarifying it as "**OutlineItem** (Outline Item in prose)"
+- **Rationale**: Low impact because usage is reasonably consistent throughout the spec, but explicit glossary inclusion would improve clarity.
 
 ---
 
-### 2. "Source Position" vs "line/column" Terminology
+### 2. "API key" vs "Credential" vs "authentication token"
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: Glossary (line 261), FR-032 (line 176)
-- **Issue**: The glossary defines "Source Position" as "line and column number" but the spec uses "line" and "column" separately in various places without referencing "Source Position". Spec 003 (Preview Pane) uses "position information" in FR-006. Spec 006 uses "cursor position" (different concept).
-- **Question Candidate**: Is "Source Position" the canonical term for line/column tuples in the codebase, or should each spec define its own terminology?
+- **Observation**: The spec uses "Credential" as a formal entity but also uses "API key" extensively (16+ occurrences). The Key Entities section defines Credential as "API key or authentication token" but doesn't establish when to use which term. User scenarios consistently use "API key" while requirements use both.
+- **Question Candidate**: Should "API key" be the user-facing term and "Credential" the technical/storage term? Should the glossary clarify that "Credential" is the canonical term encompassing both API keys and authentication tokens?
 - **Impact Score**: 3
-- **Recommendation**: Add "Source Position" to project-wide glossary (Constitution) and reference it consistently. Distinguish from "Cursor Position" (006) which is editor-specific.
+- **Rationale**: Medium impact because this affects UI copy, error messages, and documentation consistency. Users may be confused if the UI says "Credential" when they're thinking "API key".
 
 ---
 
-### 3. "AST" Term Undefined in Constitution
-
-- **Category**: Terminology
-- **Status**: Missing (from Constitution)
-- **Location**: Glossary (line 259), FR-029-032 (lines 173-176)
-- **Issue**: "AST" is defined in the 007 spec glossary but not in the Constitution's master glossary. This is a core concept referenced in multiple specs (003-preview-pane mentions "MDX compilation" which produces AST, 007 extensively uses AST).
-- **Question Candidate**: Should "AST" be elevated to the Constitution glossary as a project-wide canonical term?
-- **Impact Score**: 4
-- **Recommendation**: Add "AST" (Abstract Syntax Tree) to Constitution glossary since it's fundamental to MDX compilation and preview architecture.
-
----
-
-### 4. "Tree View" vs "Hierarchical Tree" vs "Headings Tree"
+### 3. "Local model" vs "Local Model Provider" vs "Local endpoint"
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: Glossary (line 262), FR-007 (line 137), User Story 1 (line 27)
-- **Issue**: Multiple terms are used for tree-based UI concepts:
-  - "Tree View" (glossary)
-  - "hierarchical tree structure" (FR-007)
-  - "Headings tree" (FR-006 section header)
-  - "navigable tree view" (Executive Summary)
-- **Question Candidate**: What is the canonical term for tree-based hierarchical UI components? Should "Tree View" encompass all uses, or should more specific terms (Headings Tree, Component List) be documented?
+- **Observation**: The spec uses multiple related terms:
+  - "local models" (general concept)
+  - "Local Model provider type" (User Story 4)
+  - "local endpoint" (acceptance scenarios)
+  - "Local model providers" (FR-009)
+
+  These terms are related but not explicitly distinguished.
+- **Question Candidate**: Should "Local provider" be the canonical term for this provider type, with "local model" and "local endpoint" being subsidiary terms? Or should all three be defined in the glossary with their relationships?
 - **Impact Score**: 2
-- **Recommendation**: Standardize on "Tree View" as the UI pattern term. Use "Headings Tree", "Component List", and "Frontmatter Section" as specific instances.
+- **Rationale**: Low-medium impact. The context makes meaning clear, but explicit definitions would improve implementation consistency (e.g., what appears in the UI dropdown).
 
 ---
 
-### 5. "Preview AST" vs "MDX AST" vs "AST"
+### 4. "Provider configuration" vs "ProviderConfig" vs "provider settings"
 
 - **Category**: Terminology
 - **Status**: Partial
-- **Location**: FR-029 (line 173), Assumptions (line 229)
-- **Issue**: The spec uses both "preview AST" and "AST" without clarifying if these are the same thing. Spec 003 doesn't use the term "AST" explicitly but refers to "compiled MDX" and "CompileResult".
-- **Question Candidate**: Is "preview AST" specifically the AST generated by the preview pane (spec 003), or is it a general MDX AST? Should we use "CompileResult" (from 003) as the canonical term?
+- **Observation**: The spec defines "ProviderConfig" as a key entity but also uses:
+  - "provider configurations" (FR-010, Success Criteria)
+  - "provider settings" (User Story 1)
+  - "AI Provider Settings" (User Story 1 acceptance scenarios)
+  - "configuration UI" (User Story 4)
+
+  It's unclear if these all refer to the same thing or if "settings" is the UI and "configuration" is the data model.
+- **Question Candidate**: Should "ProviderConfig" be the data entity, "AI Provider Settings" the UI panel name, and "provider configuration" the general action/concept? Should these distinctions be explicit in the glossary?
 - **Impact Score**: 3
-- **Recommendation**: Clarify that "AST" in 007 refers to the parsed structure from MDX compilation (which spec 003 calls "CompileResult"). Consider aligning terminology.
+- **Rationale**: Medium impact because this affects UI labeling, documentation, and code naming conventions.
 
 ---
 
-### 6. Missing "useErrorNavigation" Definition
-
-- **Category**: Terminology
-- **Status**: Missing
-- **Location**: FR-023 (line 161), Assumptions (line 232)
-- **Issue**: The spec references "useErrorNavigation hook" as an existing pattern but doesn't define it in the glossary. This appears to be a hook from spec 006 (Application Shell) but spec 006 doesn't define it in its glossary either.
-- **Question Candidate**: Should "useErrorNavigation" be added to the glossary with a definition? What spec owns this pattern?
-- **Impact Score**: 3
-- **Recommendation**: Add "useErrorNavigation" to glossary: "A React hook providing cursor positioning and navigation functionality for jumping to specific lines in the editor."
-
----
-
-### 7. "Outline" vs "Navigator" Title Ambiguity
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Title (line 1), throughout spec
-- **Issue**: The spec title is "MDX Content Outline/Navigator" (with slash) but the body uses only "outline" (~50 occurrences) and never "navigator". This creates ambiguity about whether these are synonyms or distinct concepts.
-- **Question Candidate**: Is "Navigator" an alias for "Outline" or does it represent a different aspect of the feature? Should one term be deprecated?
-- **Impact Score**: 2
-- **Recommendation**: Standardize on "Outline" as the canonical term. Add to glossary: "**Outline** (also: Navigator): A panel displaying document structure for navigation."
-
----
-
-### 8. "Panel" vs "Pane" Terminology
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: Throughout spec, comparison with 006-application-shell
-- **Issue**: Spec 007 uses "panel" (outline panel, ~20 occurrences) while spec 006 uses "pane" (preview pane, editor pane). Spec 003 also uses "pane" (Preview Pane). This inconsistency could confuse developers.
-- **Question Candidate**: Are "panel" and "pane" interchangeable, or should there be a distinction (e.g., pane for main content areas, panel for auxiliary sidebars)?
-- **Impact Score**: 3
-- **Recommendation**: Establish convention: "pane" for main editing areas (editor pane, preview pane), "panel" for auxiliary/sidebar UI (outline panel, status panel). Document in Constitution glossary.
-
----
-
-### 9. "Collapsible" Definition Missing
-
-- **Category**: Terminology
-- **Status**: Missing
-- **Location**: FR-001 (line 127), FR-025-027 (lines 165-168)
-- **Issue**: The spec uses "collapsible" extensively but doesn't define it. There are two distinct collapse behaviors:
-  1. Entire outline panel can collapse/hide (FR-001, FR-002)
-  2. Individual sections within the outline can collapse (FR-025-027)
-- **Question Candidate**: Should "collapsible" be defined to distinguish panel-level collapse (hide/show) from section-level collapse (expand/contract)?
-- **Impact Score**: 2
-- **Recommendation**: Add glossary entry: "**Collapse**: (1) For panels: hiding the panel entirely. (2) For sections: contracting to show only the header."
-
----
-
-### 10. "Section" Overloaded Term
-
-- **Category**: Terminology
-- **Status**: Partial
-- **Location**: OutlineSection entity (line 184), FR-025 (line 165), User Stories
-- **Issue**: "Section" is used for both:
-  1. OutlineSection (Headings, Components, Frontmatter groupings in the outline)
-  2. Document sections (referenced in User Story 1: "jump to a specific section")
-- **Question Candidate**: Should "OutlineSection" be the canonical term for outline groupings to distinguish from document sections?
-- **Impact Score**: 2
-- **Recommendation**: Use "OutlineSection" in technical contexts, "section" (lowercase) for document sections. Add clarity in glossary.
-
----
-
-### 11. "Click-to-Navigate" vs "Navigation" Terminology
+### 5. "Keychain" terminology across platforms
 
 - **Category**: Terminology
 - **Status**: Clear
-- **Location**: Input description (line 6), FR-020-024 (lines 158-163)
-- **Issue**: Minor - "click-to-navigate" in the input description is a compound term that could be documented.
-- **Question Candidate**: N/A
+- **Observation**: The spec correctly lists all three platform-specific terms (macOS Keychain, Windows Credential Manager, Linux Secret Service) in FR-002. The glossary input lists only "Keychain" as a generic term.
+- **Question Candidate**: N/A - No question needed. The spec handles this well.
 - **Impact Score**: 1
-- **Recommendation**: No action needed. "Navigation" is sufficiently clear in context.
+- **Rationale**: Minimal impact. Could add "Secure storage" as a platform-agnostic umbrella term in the glossary for consistency.
 
 ---
 
-### 12. "Real-time" vs "Live" Usage
+### 6. "BYOK" (Bring Your Own Key)
 
 - **Category**: Terminology
 - **Status**: Clear
-- **Location**: Title, User Story 1 (line 38)
-- **Issue**: Both "real-time" and "live" are used (e.g., "live document outline", "updates in real-time"). This is consistent with spec 003 which uses "live preview".
-- **Question Candidate**: N/A
+- **Observation**: Defined in the glossary input and used consistently in User Story 2 context. Only used twice in the spec (feature input and User Story 2 priority justification).
+- **Question Candidate**: N/A - Well defined and consistently used.
 - **Impact Score**: 1
-- **Recommendation**: No action needed. Both terms are industry-standard synonyms for immediate updates.
+- **Rationale**: Minimal impact. Acronym is industry-standard and properly defined.
+
+---
+
+### 7. "Connection status" vs "connected" vs "connection state"
+
+- **Category**: Terminology
+- **Status**: Partial
+- **Observation**: The spec uses:
+  - "connection status" (Key Entities - Provider)
+  - "Connected" (User Story 1 acceptance)
+  - "connection status" (User Story 2)
+  - "connectivity" (User Story 1, Edge Cases)
+
+  These appear to be the same concept but without explicit definition of possible states.
+- **Question Candidate**: Should the glossary define "Connection status" with its possible states (e.g., Connected, Disconnected, Validating, Error)? This would clarify what "shows as Connected" means.
+- **Impact Score**: 2
+- **Rationale**: Low-medium impact. Affects UI design and status indicators but the general meaning is clear.
+
+---
+
+### 8. "Provider abstraction layer" vs "unified interface"
+
+- **Category**: Terminology
+- **Status**: Clear
+- **Observation**: FR-001 uses "unified interface" and FR-014 uses "provider abstraction layer". These refer to the same architectural concept but from different perspectives (user-facing vs technical).
+- **Question Candidate**: N/A - The distinction is appropriate (user-facing requirement vs architectural requirement).
+- **Impact Score**: 1
+- **Rationale**: Minimal impact. Both terms are appropriate in their contexts.
 
 ---
 
@@ -170,29 +131,45 @@ The 007-mdx-content-outline spec has several terminology inconsistencies and mis
 
 | # | Term/Issue | Status | Impact | Action Required |
 |---|------------|--------|--------|-----------------|
-| 1 | Outline Item vs OutlineItem | Partial | 2 | Align naming convention |
-| 2 | Source Position vs line/column | Partial | 3 | Standardize and elevate to Constitution |
-| 3 | AST not in Constitution | Missing | 4 | Add to Constitution glossary |
-| 4 | Tree View variations | Partial | 2 | Standardize terminology |
-| 5 | Preview AST vs AST | Partial | 3 | Clarify relationship to CompileResult |
-| 6 | useErrorNavigation undefined | Missing | 3 | Add to glossary |
-| 7 | Outline vs Navigator | Partial | 2 | Deprecate Navigator, standardize on Outline |
-| 8 | Panel vs Pane | Partial | 3 | Establish convention in Constitution |
-| 9 | Collapsible undefined | Missing | 2 | Add glossary entry |
-| 10 | Section overloaded | Partial | 2 | Clarify OutlineSection vs document section |
-| 11 | Click-to-navigate | Clear | 1 | No action |
-| 12 | Real-time vs Live | Clear | 1 | No action |
+| 1 | Active provider undefined | Partial | 2 | Add to Key Entities glossary |
+| 2 | API key vs Credential usage | Partial | 3 | Clarify user-facing vs technical terms |
+| 3 | Local model/provider/endpoint | Partial | 2 | Standardize canonical term |
+| 4 | ProviderConfig vs settings | Partial | 3 | Distinguish UI vs data model terms |
+| 5 | Keychain cross-platform | Clear | 1 | No action needed |
+| 6 | BYOK | Clear | 1 | No action needed |
+| 7 | Connection status states | Partial | 2 | Define valid states |
+| 8 | Abstraction layer vs unified interface | Clear | 1 | No action needed |
 
 ---
 
-## Recommended Clarification Questions (Priority Order)
+## Overall Assessment
 
-1. **(Impact 4)** Should "AST" (Abstract Syntax Tree) be added to the Constitution glossary as a project-wide canonical term, given its fundamental role in MDX compilation across specs 003 and 007?
+| Status | Count | Terms |
+|--------|-------|-------|
+| Clear | 4 | Provider, Credential (entity), UsageRecord, ProviderConfig, BYOK, Keychain, Provider abstraction layer |
+| Partial | 5 | Active provider, API key vs Credential (usage), Local model variants, Provider configuration variants, Connection status |
+| Missing | 0 | None |
 
-2. **(Impact 3)** What is the canonical distinction between "panel" (used in 007) and "pane" (used in 003, 006)? Should this be documented in the Constitution?
+---
 
-3. **(Impact 3)** The spec references "preview AST" and "useErrorNavigation hook" - should these be formally defined in the glossary with their owning spec referenced?
+## Recommendations
 
-4. **(Impact 3)** Should "Source Position" (line/column tuple) be elevated to the Constitution glossary to ensure consistent usage across specs?
+1. **Add to glossary**: "Active provider" - The currently selected provider that will be used for AI features
+2. **Clarify usage pattern**: "API key" for user-facing contexts, "Credential" for technical/storage contexts
+3. **Standardize**: "Local provider" as the canonical provider type name
+4. **Distinguish**: "AI Provider Settings" (UI panel) vs "ProviderConfig" (data entity)
+5. **Consider defining**: Connection status states for UI consistency
 
-5. **(Impact 2)** Should the feature name be standardized to just "MDX Content Outline" (dropping "Navigator") to avoid synonym confusion?
+---
+
+## Questions for Clarification (Priority Order)
+
+1. **(Impact 3)** **API key vs Credential**: When should each term be used? Is "API key" user-facing and "Credential" technical?
+
+2. **(Impact 3)** **Provider configuration terminology**: What's the canonical UI panel name vs entity name vs action?
+
+3. **(Impact 2)** **Active provider**: Should this be added to the formal glossary as a Key Entity?
+
+4. **(Impact 2)** **Local provider terminology**: What's the canonical term for this provider type?
+
+5. **(Impact 2)** **Connection status states**: Should valid states be enumerated (e.g., Connected, Disconnected, Validating, Error)?

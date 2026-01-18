@@ -1,6 +1,6 @@
 # Clarification Analysis: Misc / Placeholders
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md`
 **Category**: Misc / Placeholders
 **Focus Areas**: TODO markers, unresolved decisions, ambiguous adjectives lacking quantification
 **Analyzed**: 2026-01-17
@@ -9,13 +9,13 @@
 
 ## Summary
 
-The spec is generally well-specified with most timing requirements quantified (500ms updates, 100ms navigation, etc.). However, several ambiguous adjectives and missing specifications were identified that require clarification before implementation.
+The spec contains several ambiguous adjectives and vague terms that require concrete definitions before implementation. No explicit TODO markers were found, but multiple phrases lack the quantification necessary for consistent implementation.
 
 | Status | Count |
 |--------|-------|
-| Clear | 3 |
-| Partial | 4 |
-| Missing | 2 |
+| Clear | 0 |
+| Partial | 8 |
+| Missing | 3 |
 
 ---
 
@@ -24,158 +24,201 @@ The spec is generally well-specified with most timing requirements quantified (5
 ### 1. TODO Markers / Unresolved Decisions
 
 **Status**: Clear
-**Finding**: No explicit TODO markers, FIXME, or TBD annotations found in the spec.
+**Finding**: No explicit TODO markers, FIXME, TBD, PLACEHOLDER, or similar unresolved decision annotations found in the spec.
 
 ---
 
-### 2. Quantified Adjective: "briefly highlighted" (Line 160)
+### 2. Ambiguous Term: "reasonable limits" (Line 97)
 
-**Location**: FR-022
-**Text**: "System MUST briefly highlight the target line after navigation (flash highlight for 500ms)"
-**Status**: **Clear**
-**Impact Score**: 1/5
-
-**Note**: The adjective "briefly" is properly quantified with "500ms" in parentheses. No ambiguity.
-
----
-
-### 3. Ambiguous Adjective: "lightweight parser" (Line 174)
-
-**Location**: FR-030
-**Text**: "System MUST fall back to a lightweight parser if preview AST is unavailable"
-**Status**: **Partial**
-**Impact Score**: 3/5
-
-**Question Candidate**: What constitutes a "lightweight" parser? Should it be defined by: (a) parsing time budget (e.g., <20ms), (b) memory footprint (e.g., <5MB), (c) feature set (heading-only vs full MDX parsing), or (d) a specific library/implementation (e.g., remark-parse without MDX)?
-
-**Rationale**: Without a concrete definition, developers may choose different fallback parsers with varying performance characteristics. This affects consistency and testability. The parser choice also impacts what outline information is available in fallback mode.
-
----
-
-### 4. Ambiguous Adjective: "common fields" (Line 152)
-
-**Location**: FR-017
-**Text**: "System MUST limit displayed frontmatter to common fields, with option to expand for all fields"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: What specific fields are considered "common"? FR-016 mentions title, date, author, description, tags - are these definitively the "common fields" referenced in FR-017? Should there be a configurable whitelist, or is this a fixed list?
-
-**Rationale**: Inconsistency between FR-016 (explicit list) and FR-017 (vague "common") could lead to implementation confusion. Low impact since FR-016 provides reasonable guidance.
-
----
-
-### 5. Quantified ARIA Roles: "appropriate ARIA roles" (Line 216)
-
-**Location**: NFR Accessibility
-**Text**: "All outline items must have appropriate ARIA roles (tree, treeitem)"
-**Status**: **Clear**
-**Impact Score**: 1/5
-
-**Note**: The parenthetical "(tree, treeitem)" provides specific roles. No ambiguity.
-
----
-
-### 6. Ambiguous Phrase: "distinguish...visually" (Line 146)
-
-**Location**: FR-014
-**Text**: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
-**Status**: **Partial**
-**Impact Score**: 3/5
-
-**Question Candidate**: How should built-in components be visually distinguished from custom components? Options include: (a) different icons, (b) different text colors/styles, (c) grouping/sorting within the Components section, (d) badge/label indicators. Additionally, what is the exhaustive list of "built-in" components (the "etc." is undefined)?
-
-**Rationale**: Without visual design guidance, implementation requires additional design decisions. The incomplete list ("Callout, CodeBlock, etc.") leaves the built-in set undefined.
-
----
-
-### 7. Partially Specified: Window Width Thresholds (Lines 117, 130)
-
-**Location**: FR-004, Edge Cases
-**Text**: "System MUST auto-hide the outline when window width is insufficient (below 600px with preview visible, or below 400px with preview hidden)"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: Are the thresholds (600px with preview, 400px without) final design decisions or placeholders? How do these interact with the existing preview auto-hide thresholds from spec-006 to ensure consistent responsive behavior?
-
-**Rationale**: Thresholds are numerically specified, but the relationship to existing spec-006 preview behavior and whether these are configurable needs clarification.
-
----
-
-### 8. Missing Specification: Debounce Timing (Line 210)
-
-**Location**: NFR Performance
-**Text**: "Debounce outline updates to avoid excessive re-parsing during rapid typing"
+**Location**: Edge Cases section
+**Text**: "What happens when usage tracking storage exceeds reasonable limits?"
 **Status**: **Missing**
 **Impact Score**: 4/5
 
-**Question Candidate**: What is the specific debounce interval for outline updates? The 500ms update requirement (FR-010, FR-015, FR-019) implies a maximum latency, but the debounce value itself is unspecified. Should it match the preview pane debounce timing for consistency?
+**Question Candidate**: What specific storage size (in MB) constitutes "reasonable limits" for usage tracking data? Should there be automatic cleanup/rotation policies at certain thresholds (e.g., 50MB, 100MB)?
 
-**Rationale**: Without a specific debounce value, implementations may vary, affecting UX consistency and perceived responsiveness. This is a performance-critical parameter that needs specification.
+**Rationale**: Without a concrete definition, implementations cannot define storage caps or cleanup strategies. This affects long-term data management and potential performance issues.
 
 ---
 
-### 9. Missing Specification: Panel Width Constraints (Line 116)
+### 3. Ambiguous Adjective: "clear error messages" (Line 114)
 
-**Location**: Edge Cases
-**Text**: "Enforce minimum width of 150px"
+**Location**: FR-012
+**Text**: "System MUST provide clear error messages when provider connections fail"
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: What constitutes "clear" error messages? Should they include: (a) error codes, (b) user-friendly descriptions, (c) troubleshooting steps, (d) retry options, (e) support links? What is the minimum required information per error type?
+
+**Rationale**: "Clear" is subjective and varies by user expertise level. Without structure requirements, error message quality will be inconsistent across provider failure types.
+
+---
+
+### 4. Ambiguous Phrase: "appropriate user guidance" (Line 115)
+
+**Location**: FR-013
+**Text**: "System MUST gracefully handle keychain access failures with appropriate user guidance"
+**Status**: **Partial**
+**Impact Score**: 4/5
+
+**Question Candidate**: What specific guidance should be provided for keychain failures? Should guidance include: (a) system settings navigation instructions, (b) fallback storage options, (c) manual unlock prompts, (d) IT admin contact suggestions? What platforms need specific guidance?
+
+**Rationale**: Keychain failures are platform-specific (macOS vs Windows vs Linux) and require different guidance. Without specifics, users may be left without actionable steps.
+
+---
+
+### 5. Ambiguous Timing: "immediately" (Line 131)
+
+**Location**: SC-003
+**Text**: "Provider switching takes effect immediately with no application restart required"
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: What is the acceptable latency for "immediately"? Is this <100ms, <500ms, <1 second? Does this include any necessary validation or health-check calls to the new provider?
+
+**Rationale**: "Immediately" is ambiguous in technical contexts. A measurable threshold is needed for success criteria validation and performance testing.
+
+---
+
+### 6. Ambiguous Assumption: "reasonably stable APIs" (Line 140)
+
+**Location**: Assumptions section
+**Text**: "AI providers maintain reasonably stable APIs with published pricing information"
 **Status**: **Missing**
 **Impact Score**: 3/5
 
-**Question Candidate**: What is the default width of the outline panel? What is the maximum width (if any)? Is the panel resizable by the user via drag handle, and if so, should the width be persisted across sessions?
+**Question Candidate**: What happens when an AI provider's API is NOT stable (breaking changes, deprecations)? Should the system include version-specific adapters or graceful degradation mechanisms?
 
-**Rationale**: Only minimum width is specified. Default width, maximum width, resize behavior, and persistence are unspecified but essential for layout implementation and consistency with spec-006 panel patterns.
+**Rationale**: This assumption may not hold (providers do change APIs). Without a degradation strategy, the system could break unexpectedly for users.
 
 ---
 
-### 10. Quantified Timing: Success Criteria Metrics
+### 7. Ambiguous Adjective: "troubleshooting hints" (Line 71)
 
-**Location**: Success Criteria (Lines 194-201)
-**Status**: **Clear**
-**Impact Score**: 1/5
+**Location**: User Story 4, Scenario 3
+**Text**: "appropriate error message is displayed with troubleshooting hints"
+**Status**: **Partial**
+**Impact Score**: 2/5
 
-**Note**: SC-001 through SC-008 all have specific quantified targets (100ms, 500ms, 50ms, etc.). No ambiguous adjectives found in success criteria.
+**Question Candidate**: What troubleshooting hints should be provided for local endpoint failures? Should hints include common issues like: (a) service not running, (b) port conflicts, (c) firewall blocking, (d) incorrect URL format?
+
+**Rationale**: Without defined hint categories, implementations may provide inconsistent or unhelpful troubleshooting guidance.
+
+---
+
+### 8. Ambiguous Phrase: "gracefully handle" (Line 115)
+
+**Location**: FR-013
+**Text**: "System MUST gracefully handle keychain access failures"
+**Status**: **Partial**
+**Impact Score**: 4/5
+
+**Question Candidate**: What defines "graceful" handling? Should the system: (a) retry automatically, (b) offer in-memory session-only storage, (c) queue operations until keychain available, (d) disable AI features entirely? What is the expected user experience during failure state?
+
+**Rationale**: Without defined behavior, implementations may choose conflicting strategies (e.g., blocking vs non-blocking). User experience during failures must be consistent.
+
+---
+
+### 9. Ambiguous Phrase: "securely stores" (Line 12)
+
+**Location**: User Story 1
+**Text**: "The system securely stores the credential and validates connectivity"
+**Status**: **Partial**
+**Impact Score**: 5/5
+
+**Question Candidate**: While FR-002 specifies OS-native keychain, should there be additional security requirements such as: (a) encryption at rest verification, (b) access logging, (c) automatic credential expiry, (d) memory protection during runtime? Should there be a security audit trail?
+
+**Rationale**: Security is critical for credential management. "Secure" without specific requirements leaves room for varying security levels that may not meet user expectations.
+
+---
+
+### 10. Ambiguous Phrase: "validated connectivity" / "validates credentials" (Line 105)
+
+**Location**: FR-003
+**Text**: "System MUST validate provider credentials before storing them and display connection status"
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: What specific validation is required? Should validation include: (a) simple auth check, (b) model listing, (c) test completion request, (d) permissions verification? What is the timeout for validation requests?
+
+**Rationale**: Different validation depths have different latency and reliability characteristics. Without specification, implementations may choose minimal validation that doesn't catch permission issues.
+
+---
+
+### 11. Ambiguous Term: "unified interface" (Line 103)
+
+**Location**: FR-001
+**Text**: "System MUST provide a unified interface for configuring multiple AI providers"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: What does "unified" mean in practice? Is this: (a) a single UI panel, (b) consistent API across providers, (c) identical configuration workflow per provider, (d) all of the above? Should provider-specific fields be dynamically rendered or follow strict uniformity?
+
+**Rationale**: "Unified" could mean UI consistency, API consistency, or workflow consistency. Different interpretations lead to different architectural decisions.
+
+---
+
+### 12. Missing Measurement: "without documentation" (Line 134)
+
+**Location**: SC-006
+**Text**: "95% of users can successfully configure their first provider without documentation"
+**Status**: **Missing**
+**Impact Score**: 3/5
+
+**Question Candidate**: How will this 95% success rate be measured? Is this based on: (a) user testing sessions, (b) analytics data, (c) support ticket analysis? What user population defines "users" for this metric?
+
+**Rationale**: Success criteria without measurement methodology cannot be validated. This metric is unmeasurable as specified.
 
 ---
 
 ## Summary Table
 
-| # | Ambiguity | Status | Impact | Line(s) |
-|---|-----------|--------|--------|---------|
+| # | Ambiguity | Status | Impact | Line |
+|---|-----------|--------|--------|------|
 | 1 | No TODO markers | Clear | 0/5 | - |
-| 2 | "briefly highlighted" | Clear | 1/5 | 160 |
-| 3 | "lightweight parser" | Partial | 3/5 | 174 |
-| 4 | "common fields" | Partial | 2/5 | 152 |
-| 5 | "appropriate ARIA roles" | Clear | 1/5 | 216 |
-| 6 | "visually" distinguish + "etc." list | Partial | 3/5 | 146 |
-| 7 | Window width threshold interaction | Partial | 2/5 | 117, 130 |
-| 8 | Debounce timing unspecified | Missing | 4/5 | 210 |
-| 9 | Panel width (default/max/resize) | Missing | 3/5 | 116 |
+| 2 | "reasonable limits" | Missing | 4/5 | 97 |
+| 3 | "clear error messages" | Partial | 3/5 | 114 |
+| 4 | "appropriate user guidance" | Partial | 4/5 | 115 |
+| 5 | "immediately" | Partial | 3/5 | 131 |
+| 6 | "reasonably stable APIs" | Missing | 3/5 | 140 |
+| 7 | "troubleshooting hints" | Partial | 2/5 | 71 |
+| 8 | "gracefully handle" | Partial | 4/5 | 115 |
+| 9 | "securely stores" | Partial | 5/5 | 12 |
+| 10 | "validates credentials" | Partial | 3/5 | 105 |
+| 11 | "unified interface" | Partial | 2/5 | 103 |
+| 12 | "without documentation" (measurement) | Missing | 3/5 | 134 |
 
 ---
 
 ## Recommended Priority for Clarification
 
 **High Priority** (Impact 4-5):
-1. **Debounce timing** - What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing?
+1. **"securely stores"** - Define specific security requirements beyond keychain usage (encryption verification, memory protection, audit trail)
+2. **"reasonable limits"** - Define concrete storage thresholds (MB) and cleanup/rotation policies for usage data
+3. **"appropriate user guidance"** - Specify per-platform guidance content for keychain failures
+4. **"gracefully handle"** - Define fallback behavior and user experience during keychain failure state
 
 **Medium Priority** (Impact 3):
-2. **Lightweight parser definition** - What constitutes a "lightweight parser" for the fallback scenario - specific performance budget, feature constraints, or recommended library?
-3. **Visual distinction for components** - How should built-in components be visually distinguished from custom components, and what is the complete list of built-in components?
-4. **Panel width specification** - What are the default and maximum widths for the outline panel, and should the panel be user-resizable with persisted width?
+5. **"clear error messages"** - Define error message structure and required components
+6. **"immediately"** - Establish acceptable latency threshold (ms) for provider switching
+7. **"reasonably stable APIs"** - Define degradation strategy when provider APIs change
+8. **"validates credentials"** - Specify validation depth (auth check vs model list vs test request) and timeout
+9. **"without documentation"** - Define measurement methodology for SC-006 success rate
 
 **Lower Priority** (Impact 1-2):
-5. **Common fields clarification** - Confirm whether FR-016's list (title, date, author, description, tags) is the definitive "common fields" list
-6. **Window threshold interaction** - Confirm thresholds are final and document interaction with spec-006 preview auto-hide
+10. **"troubleshooting hints"** - Define standard hint categories for local endpoint failures
+11. **"unified interface"** - Clarify UI vs API vs workflow uniformity requirements
 
 ---
 
-## Recommended Clarification Questions (Sorted by Impact)
+## Recommended Clarification Questions (Top 5 by Impact)
 
-1. **[Impact 4]** What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing for consistency?
+1. **[Impact 5]** What specific security requirements apply to credential storage beyond OS keychain? Should the system include: (a) runtime memory protection, (b) access logging/audit trail, (c) automatic credential expiry, (d) encryption verification?
 
-2. **[Impact 3]** What constitutes a "lightweight parser" for the fallback scenario - specific performance budget (e.g., <20ms), feature constraints (heading-only), or recommended library?
+2. **[Impact 4]** What specific storage size (in MB) constitutes "reasonable limits" for usage tracking data? Should there be automatic cleanup when thresholds are reached (e.g., rotate oldest data, alert user)?
 
-3. **[Impact 3]** How should built-in components be visually distinguished from custom components (icons, colors, badges)? What is the complete list of built-in components beyond Callout and CodeBlock?
+3. **[Impact 4]** What defines "graceful" handling for keychain failures? Should the system: (a) retry automatically with backoff, (b) offer session-only in-memory storage, (c) disable AI features until resolved, (d) queue operations? What does the user see during the failure state?
 
-4. **[Impact 3]** What are the default and maximum widths for the outline panel? Should the panel be user-resizable via drag handle, and if so, should width be persisted across sessions?
+4. **[Impact 4]** What platform-specific guidance should be provided when keychain access fails? (e.g., macOS: "Open Keychain Access and unlock...", Windows: "Check Credential Manager settings...", Linux: "Ensure secret-service is running...")
+
+5. **[Impact 3]** What is the acceptable latency for "immediate" provider switching (SC-003)? Is this <100ms, <500ms, or <1s? Does this include validation of the new provider's connectivity?

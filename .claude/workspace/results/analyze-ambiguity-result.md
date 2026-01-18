@@ -1,100 +1,85 @@
-# Ambiguity Analysis: 006-Application-Shell spec.md
+# Ambiguity Analysis: AI Provider Abstraction Layer
+
+**Feature Branch**: `028-ai-provider-abstraction`
+**Analysis Date**: 2026-01-17
+**Artifacts Analyzed**: spec.md, plan.md, tasks.md
+
+---
 
 ## Summary
-Analyzed spec.md (349 lines) against FR-001 to FR-042 functional requirements, SC-001 to SC-010 success criteria, and non-functional requirements for ambiguity issues.
 
-**Total Ambiguity Issues Found: 4**
+| Metric | Value |
+|--------|-------|
+| Total Issues Found | 8 |
+| Critical (blocks implementation) | 1 |
+| High (may cause inconsistencies) | 3 |
+| Medium (clarification recommended) | 4 |
+| Vague Adjectives | 3 |
+| Unresolved Placeholders | 0 |
+| Unclear Scope | 3 |
+| Untestable Criteria | 2 |
 
 ---
 
-## Detailed Findings
+## Ambiguity Issues
 
 | ID | Severity | Location(s) | Summary | Recommendation |
-|---|---|---|---|---|
-| AMB-001 | HIGH | FR-006, Line 184 | "Custom titlebar region MUST be marked as a drag region" - no quantification of which DOM elements qualify or how they're identified. "Interactive elements excluded" lacks specification of which elements are interactive (buttons, links, input fields?). | Define explicit selector pattern or component prop for identifying interactive regions. Example: "All elements with `data-no-drag` attribute or `.no-drag` class are interactive regions. Button, input, and anchor elements within the drag region are non-interactive by default." |
-| AMB-002 | MEDIUM | SC-003, Line 269 | "Restored within 100ms of app launch (no visible flash)" - "visible flash" is subjective. What constitutes a visible flash? Needs measurable definition (e.g., "screen rendered with default state for >16ms before preferences applied" or "DOM shows old values before update"). | Replace vague "visible flash" with objective metric: "Preferences must be applied before first paint" or "First visual frame must contain user preferences, not defaults" with acceptance test showing before/after timing. |
-| AMB-003 | MEDIUM | SC-009, Line 275 | "MUST maintain at least 60 frames per second (16.67ms frame budget)" - spec says "at least 60 FPS" but then adds "with no dropped frames during continuous interaction." These are contradictory: maintaining 60 FPS allows ~1 dropped frame per second, while "no dropped frames" means 0 drops. | Clarify: either "maintain stable 60 FPS with <5% frame drops allowed" OR "zero dropped frames at 60+ FPS" - pick one and justify why. If zero drops required, acknowledge performance is much stricter than 60 FPS minimum. |
-| AMB-004 | MEDIUM | FR-031b, Line 230 | "Error details popover MUST display... (4) dismiss on click outside or Escape key. Popover positioned below the error count badge with arrow pointing to badge." - "below" is positional but doesn't account for viewport edges. What happens if popover would render off-screen (e.g., error count near bottom)? Auto-position above? Clamp to viewport? | Specify collision behavior: "If positioned below would exceed viewport bounds, position above instead. Clamp horizontal position to remain fully visible within window bounds." |
+|----|----------|-------------|---------|----------------|
+| AMB-001 | High | spec.md:104-108 (Edge Cases) | Three edge cases are phrased as open questions without resolution: "How does the system handle network connectivity loss during provider validation?", "What happens when a provider API changes or deprecates endpoints?", "What happens when usage tracking storage exceeds reasonable limits?" | Convert each question to a definitive FR or clarification answer. Define specific behaviors, error messages, and fallback strategies. |
+| AMB-002 | Medium | spec.md:107 | "reasonable limits" is vague - no measurable threshold defined for usage tracking storage limits | Define explicit limits (e.g., "100,000 records" or "50MB") and specify behavior when exceeded (e.g., FIFO pruning, warning threshold at 80%). Note: tasks.md:439 does specify "90-day retention, max 100K records" but this should be in spec.md as a formal requirement. |
+| AMB-003 | Critical | spec.md:148 (SC-006) | "95% of users can successfully configure their first provider without documentation" - measurement methodology is unclear. "Automated onboarding analytics tracking completion rate" doesn't specify what constitutes "without documentation" or how to distinguish users who consulted docs vs. those who didn't. | Define precisely: (1) what triggers a measurement attempt, (2) what constitutes success vs. failure, (3) how documentation access is tracked or excluded. Consider rephrasing to measurable metric like "95% first-attempt success rate" with clear start/end conditions. |
+| AMB-004 | Medium | spec.md:155 | "reasonably stable APIs" is subjective. No criteria for what constitutes acceptable API stability or how to handle instability. | Either remove this assumption or define fallback behavior when APIs are unstable (versioned SDK pinning, deprecation warning system, etc.). |
+| AMB-005 | High | spec.md:127 (FR-015) | "estimated wait time" lacks specification of how to determine this when providers return inconsistent or no retry-after headers. | Specify fallback estimation logic (e.g., exponential backoff starting at 60s, or provider-specific defaults). Define format for displaying time to user. |
+| AMB-006 | Medium | tasks.md:439 (P:3.6) | "90-day retention" and "max 100K records" are implementation details in tasks.md but not captured as formal requirements in spec.md. This creates ambiguity about whether these are firm requirements or implementation suggestions. | Elevate these to FR in spec.md to ensure they're treated as requirements, not arbitrary implementation choices. |
+| AMB-007 | High | spec.md:143 (SC-001) | "within 2 minutes" is testable but lacks definition of start/end points. Does timer start when user opens settings or when they decide to add a provider? Does it end at "Connected" status or first successful AI request? | Define precise measurement points: e.g., "From clicking 'Add Provider' to seeing 'Connected' status indicator." |
+| AMB-008 | Medium | plan.md:18 | "<16ms keystroke latency (unaffected)" is labeled as a performance goal but marked as "unaffected" without explanation. Unclear if this is a constraint to preserve or explicitly out of scope for this feature. | Clarify whether this is: (a) inherited from other specs to maintain, (b) explicitly not impacted by this feature, or (c) should be removed from this plan as irrelevant. |
 
 ---
 
-## Requirements Coverage Assessment
+## Vague Adjectives Detected
 
-### Functional Requirements (FR-001 to FR-042)
-- **FR-001 to FR-005**: Clear and testable
-- **FR-006**: **AMBIGUOUS** - Drag region marking not precisely defined (see AMB-001)
-- **FR-007 to FR-032**: Clear with measurable criteria
-- **FR-031a, FR-031b**: **AMBIGUOUS** - Popover positioning behavior incomplete (see AMB-004)
-- **FR-033 to FR-042**: Clear and testable
-
-### Success Criteria (SC-001 to SC-010)
-- **SC-001**: Clear ("under 5 seconds excluding typing time")
-- **SC-002**: Clear (500ms)
-- **SC-003**: **AMBIGUOUS** - "Visible flash" undefined (see AMB-002)
-- **SC-004 to SC-006**: Clear with precise metrics
-- **SC-007**: Clear
-- **SC-008**: Clear (2 seconds)
-- **SC-009**: **AMBIGUOUS** - Contradictory frame rate requirements (see AMB-003)
-- **SC-010**: Clear with recovery scenarios defined
-
-### Non-Functional Requirements
-- **Performance section**: Vague terms ("not cause visible jank") but not critical to implementation since more specific SCs override
-- **Reliability section**: Clear with specific requirements
-- **Accessibility section**: Clear requirements
-- **Maintainability section**: Clear architectural directives
+| Term | Location | Context | Issue |
+|------|----------|---------|-------|
+| "reasonably stable" | spec.md:155 | "AI providers maintain reasonably stable APIs" | No criteria for what constitutes "reasonably stable" |
+| "reasonable limits" | spec.md:107 | "usage tracking storage exceeds reasonable limits" | No numeric threshold defined |
+| "clear" | spec.md:32, 124 | "clear validation error", "clear error messages" | While commonly understood, could benefit from examples or format specification for consistency |
 
 ---
 
-## Vague Terms Audit
-The following terms appear but are either:
-1. Defined by success criteria with measurable values, or
-2. Used in accepted technical contexts
+## Unresolved Placeholders
 
-| Term | Location | Status | Notes |
-|---|---|---|---|
-| "real-time" | SC-002 | ✓ Quantified | Defined as "within 500ms of typing pause" |
-| "visible jank" | NFR Performance | ⚠ Informal | Not critical; SC-009 provides measurable alternative (60 FPS) |
-| "user-friendly error message" | FR-023 | ⚠ Subjective | Acceptable - implementation detail; clear intent of "not cryptic" |
-| "gracefully" | FR-023 | ✓ Defined by context | Combined with SC-010 for error recovery behavior |
-| "no visible flash" | SC-003 | ✗ Undefined | **AMBIGUOUS** - needs measurable definition (see AMB-002) |
+**None detected.** All TODO, TKTK, ???, and placeholder patterns were searched and none were found.
 
 ---
 
-## Unresolved Placeholders Check
-✓ **PASS** - No unresolved placeholders (TODO, TKTK, ???, etc.) found in spec
+## Requirements with Unclear Scope
+
+1. **FR-014** (spec.md:126): Lists capability types (text generation, embeddings, image generation, agents, multiagent systems, deep agents) but "agents", "multiagent systems", and "deep agents" are not defined elsewhere in the spec. These terms need definitions or references to where they're specified.
+
+2. **FR-016** (spec.md:128): "detect and expose provider capability matrix" - the term "matrix" implies a specific data structure but the format is not defined. tasks.md defines this as arrays but the spec doesn't commit to a format.
+
+3. **Local model support scope** (spec.md:69-82, 155): Mentions Ollama and LM Studio specifically, then assumes "OpenAI-compatible endpoints" as a common standard. The scope of "local model providers" is implicitly limited to OpenAI-compatible ones, but this isn't explicitly stated as a requirement or constraint.
 
 ---
 
-## Testing Feasibility Assessment
+## Acceptance Criteria Testability Issues
 
-| Category | Status | Notes |
-|---|---|---|
-| FR requirements | TESTABLE | All FRs have clear acceptance scenarios or measurable criteria |
-| SC criteria | MOSTLY TESTABLE | SC-003 and SC-009 require clarification |
-| Non-functional | TESTABLE | Measurable performance targets defined in SCs |
+1. **spec.md:148 (SC-006)**: "95% of users can successfully configure their first provider without documentation" - Cannot be objectively tested because "without documentation" cannot be measured in the system. The clarification mentions "automated onboarding analytics" but doesn't specify how documentation access would be tracked.
+
+2. **spec.md:146 (SC-004)**: "accurate within 1% of actual provider-reported usage" - Requires provider-reported usage as ground truth, but not all providers expose detailed usage APIs. Testing methodology for providers without usage APIs is undefined.
 
 ---
 
 ## Recommendations Priority
 
-### P0 (Resolve before implementation)
-1. **AMB-003** (SC-009) - Frame rate contradiction must be resolved; conflicting requirements can cause acceptance failures
-
-### P1 (Resolve before testing)
-2. **AMB-001** (FR-006) - Drag region specification needed for QA verification
-3. **AMB-002** (SC-003) - "Visible flash" definition needed for performance acceptance testing
-
-### P2 (Resolve before production)
-4. **AMB-004** (FR-031b) - Popover positioning edge cases impact UX quality
+1. **Immediate (Critical)**: Resolve AMB-003 (SC-006 measurement methodology)
+2. **Before Implementation**: Resolve AMB-001 (unanswered edge cases), AMB-005 (rate limit wait time), AMB-007 (SC-001 timing boundaries)
+3. **During Implementation**: Address AMB-002, AMB-004, AMB-006, AMB-008 as they arise
 
 ---
 
-## Conclusion
+## Files Analyzed
 
-**Spec Quality: GOOD** - Ambiguity is limited to 4 issues, mostly edge cases and visual behaviors. The core 32 functional requirements and 8 core success criteria are well-defined and testable. The three high-priority issues should be resolved before implementation begins, particularly the contradictory frame rate requirement in SC-009.
-
-### Next Steps
-1. Clarify SC-009 frame rate requirement with stakeholder
-2. Define SC-003 "visible flash" with technical acceptance test
-3. Add drag region selector specification to FR-006
-4. Add popover collision handling behavior to FR-031b
+- `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md` (165 lines)
+- `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/plan.md` (158 lines)
+- `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/tasks.md` (977 lines)

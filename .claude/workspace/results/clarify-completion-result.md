@@ -1,6 +1,6 @@
-# Completion Ambiguity Analysis: MDX Content Outline/Navigator (007)
+# Completion Ambiguity Analysis: AI Provider Abstraction Layer (028)
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec File**: `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md`
 **Analysis Date**: 2026-01-17
 **Focus Area**: Completion Signals (Acceptance Criteria Testability, Measurable Definition of Done)
 
@@ -10,242 +10,262 @@
 
 | Status | Count |
 |--------|-------|
-| Clear | 8 |
-| Partial | 9 |
-| Missing | 4 |
+| Clear | 6 |
+| Partial | 10 |
+| Missing | 3 |
 
 ---
 
-## Ambiguity Findings
+## Success Criteria Analysis
 
-### 1. US1-AS1: Headings Tree Nesting Structure
+### 1. SC-001: 2-Minute Configuration Time
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 35)**: "Then all headings appear in a hierarchical tree reflecting their nesting structure"
-**Question Candidate**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a placeholder h2?
-**Impact Score**: 4
-**Rationale**: "Nesting structure" is ambiguous for non-sequential heading levels. Test cases cannot be written without knowing expected behavior for malformed heading hierarchies.
-
----
-
-### 2. US1-AS3: Brief Highlight Duration
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 37)**: "Then the heading line is briefly highlighted to help the user locate it"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: FR-022 specifies "flash highlight for 500ms" which makes this testable.
-
----
-
-### 3. US1-AS4: Outline Update Timing Reference Point
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 38)**: "outline updates within 500ms to reflect the changes"
-**Question Candidate**: Is the 500ms measured from when typing stops (debounce), from the last keystroke, or from when the AST becomes available?
+**Spec Text (Line 129)**: "Users can configure a new AI provider and start using AI features within 2 minutes"
+**Question Candidates**:
+- What constitutes "start using AI features" - making a successful API call, or just showing "Connected" status?
+- Does the 2-minute timeframe assume the user already has their API key ready, or includes time to retrieve/copy from provider dashboard?
+- How will this timing be measured - user testing sessions, automated timing, or self-reported?
 **Impact Score**: 3
-**Rationale**: The timing trigger is ambiguous. Tests need to know the exact start point of the 500ms window to write deterministic assertions.
+**Rationale**: "Start using AI features" is ambiguous. Tests need to know the exact end-state condition to verify timing.
 
 ---
 
-### 4. US2-AS1/AS2: Toggle Shortcut
+### 2. SC-002: Secure Credential Storage
 
 **Category**: Completion
 **Status**: Clear
-**Spec Text (Line 52)**: "Cmd+Shift+O"
+**Spec Text (Line 130)**: "API credentials are never stored in plain text or logged; all storage uses OS-native secure storage"
 **Question Candidate**: N/A
 **Impact Score**: 1
-**Rationale**: Specific shortcut is defined. Testable via keyboard simulation.
+**Rationale**: Testable via code review, security audit, and automated tests checking storage locations and log outputs.
 
 ---
 
-### 5. US2-AS3: Persistence Verification Scope
+### 3. SC-003: Immediate Provider Switching
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 54)**: "restart the app, Then the outline remains hidden (persistence)"
-**Question Candidate**: What constitutes an "app restart" for testing purposes - full quit and relaunch, window close and reopen, or F5 refresh in dev mode?
+**Spec Text (Line 131)**: "Provider switching takes effect immediately with no application restart required"
+**Question Candidates**:
+- Does "immediately" mean within 1 second, 5 seconds, or just "without restart"?
+- Does "takes effect" mean the UI updates, or that the next AI request uses the new provider?
+- What about in-flight requests when switching occurs - should they complete with old provider or be cancelled?
 **Impact Score**: 2
-**Rationale**: Different persistence mechanisms may be tested differently. Need clarity for automated test design and CI/CD.
+**Rationale**: "Immediately" lacks measurable threshold. Tests need precise timing expectations.
 
 ---
 
-### 6. FR-014: Component Visual Distinction Treatment
+### 4. SC-004: Usage Statistics Accuracy
 
 **Category**: Completion
-**Status**: Missing
-**Spec Text (Line 146)**: "MUST distinguish between built-in components...and custom/unknown components visually"
-**Question Candidate**: What specific visual treatment differentiates built-in from custom components? Different icons, colors, labels, badges, or prefixes?
+**Status**: Partial
+**Spec Text (Line 132)**: "Usage statistics are accurate within 1% of actual provider-reported usage"
+**Question Candidates**:
+- How will "actual provider-reported usage" be obtained for verification? Manual comparison against provider dashboards?
+- What metrics are included in this 1% accuracy guarantee - token counts, request counts, costs, or all?
+- Over what time period is this accuracy measured (single request, daily aggregate, monthly)?
+- What happens when providers don't report certain metrics (e.g., local models)?
 **Impact Score**: 4
-**Rationale**: Cannot write visual regression tests or verify implementation without knowing the expected visual distinction. Implementers will make arbitrary choices.
+**Rationale**: Verification methodology undefined. Cannot write automated tests without knowing how to obtain the "actual" reference value.
 
 ---
 
-### 7. FR-014: Built-in Component List Definition
+### 5. SC-005: Multiple Provider Configurations
+
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 133)**: "System supports at least 5 different provider configurations simultaneously"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Directly testable by configuring 5 providers and verifying all remain accessible and functional.
+
+---
+
+### 6. SC-006: First-Time Configuration Success Rate
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 146)**: "built-in components (Callout, CodeBlock, etc.)"
-**Question Candidate**: What is the complete, exhaustive list of "built-in" components that should be recognized? The spec only gives examples with "etc."
-**Impact Score**: 4
-**Rationale**: Tests cannot verify correct classification without an authoritative list of built-in components. What about `<Note>`, `<Warning>`, `<Tip>`, `<Tabs>`?
+**Spec Text (Line 134)**: "95% of users can successfully configure their first provider without documentation"
+**Question Candidates**:
+- How will this 95% success rate be measured? User testing sessions? Analytics? Survey?
+- What sample size is required to validate this criterion?
+- What constitutes "without documentation" - no in-app help, no tooltips, or just no external docs?
+- What user population is being sampled - technical developers, general users, or a mix?
+- Is this criterion required for MVP/initial release, or is it a post-launch metric?
+**Impact Score**: 5
+**Rationale**: No measurement methodology defined. This criterion cannot be verified without defining the research methodology, sample size, and user population.
 
 ---
 
-### 8. FR-016/FR-017: Frontmatter Fields Enumeration
+## Acceptance Scenarios Analysis
+
+### 7. Story 1 - AS2: Valid API Key Storage and Connection
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Lines 151-152)**: "display key fields (title, date, author, description, tags)" and "limit displayed frontmatter to common fields, with option to expand for all fields"
-**Question Candidate**: What is the exact list of "common fields" that are always shown vs expanded? Is the list in FR-016 exhaustive or just examples?
+**Spec Text (Lines 21-22)**: "enter a valid API key, Then the key is stored securely and provider shows as 'Connected'"
+**Question Candidates**:
+- What validation is performed on API keys before storage - format check only, or actual API call?
+- How long should the system wait for validation before timing out?
+- How is "Connected" verified - just UI state or actual API ping?
 **Impact Score**: 3
-**Rationale**: Test cases need to know which fields are "common" (always shown) vs "other" (shown on expand). The word "key" suggests priority but doesn't enumerate.
+**Rationale**: "Valid" and "Connected" verification methods undefined. Tests need to know if this requires live API calls.
 
 ---
 
-### 9. SC-001: Navigation Timing
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 196)**: "within 100ms (perceived instant)"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific, measurable timing provided. Testable with performance testing tools and assertions.
-
----
-
-### 10. SC-004: Parsing Overhead Measurement
+### 8. Story 1 - AS3: Invalid Key Error Handling
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 197)**: "less than 50ms overhead to the existing preview compilation cycle"
-**Question Candidate**: How should this be measured? Delta between preview-only compilation vs preview+outline compilation? What document size is the baseline for testing?
+**Spec Text (Lines 22-23)**: "enters an invalid API key, When they attempt to save, Then a clear validation error is displayed"
+**Question Candidates**:
+- What types of errors are considered "clear" - network errors, auth errors, format errors?
+- Should the error message include the specific failure reason from the provider?
+- Is there a distinction between "invalid format" and "invalid credentials"?
+**Impact Score**: 2
+**Rationale**: "Clear" is subjective. Need specific error message requirements for test assertions.
+
+---
+
+### 9. Story 2 - AS2: Immediate Active Provider Change
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 38)**: "the selection is confirmed, Then the active provider changes immediately"
+**Question Candidate**: Same "immediately" ambiguity as SC-003.
+**Impact Score**: 2
+**Rationale**: Same timing ambiguity as SC-003.
+
+---
+
+### 10. Story 2 - AS3: Re-authentication Prompt
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 39)**: "API key becomes invalid, When user attempts to switch to it, Then a re-authentication prompt is displayed"
+**Question Candidates**:
+- Is provider validity re-checked on every switch, or only when an AI request fails?
+- What does "re-authentication prompt" look like - modal, inline form, or redirect to settings?
+**Impact Score**: 2
+**Rationale**: Trigger timing and UI treatment undefined.
+
+---
+
+### 11. Story 3 - AS1: Usage Statistics Display
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 53)**: "total requests and token usage are displayed per provider"
+**Question Candidates**:
+- What if a provider doesn't support token counting (e.g., some local models)?
+- What granularity is required (total only, or broken down by model)?
 **Impact Score**: 3
-**Rationale**: Performance tests need baseline document specification and measurement methodology defined. Results vary dramatically by document complexity.
+**Rationale**: Edge case handling for providers without certain metrics undefined.
 
 ---
 
-### 11. SC-005: Heading Representation Scope
+### 12. Story 3 - AS3: Estimated Costs Display
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 198)**: "100% of headings in the document are represented in the outline"
-**Question Candidate**: Does this include headings inside JSX components, code blocks (as examples), or markdown blocks within JSX? Only top-level markdown headings?
-**Impact Score**: 4
-**Rationale**: Edge cases around heading location affect what "100%" means. A heading inside `<CodeBlock>` is fundamentally different from a parsed heading.
-
----
-
-### 12. SC-006: Component Identification Scope
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 199)**: "100% of JSX component usages are identified"
-**Question Candidate**: Does this include components inside code blocks (shown as examples), MDX expressions like `{MyComponent}`, or only directly rendered `<Component>` tags?
+**Spec Text (Line 55)**: "provider pricing is available, When viewing statistics, Then estimated costs are calculated and displayed"
+**Question Candidates**:
+- How are estimated costs calculated when provider pricing changes during the time period?
+- What is displayed for providers without known pricing (local models)?
+- What currency is used for cost display?
 **Impact Score**: 3
-**Rationale**: False positives from code examples would fail this criterion if not scoped correctly. Need to define what counts as "usage" vs "reference."
+**Rationale**: Pricing data source and calculation methodology undefined.
 
 ---
 
-### 13. SC-007: Full Workflow Timing
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 200)**: "under 3 seconds"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific, measurable timing provided. End-to-end test can verify with stopwatch.
-
----
-
-### 14. Edge Case: Empty State Message
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 112)**: "Show an empty state message: 'No outline available. Add headings, components, or frontmatter to see the document structure.'"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Exact text specified makes this testable via DOM assertion.
-
----
-
-### 15. Edge Case: Syntax Error Warning Indicator
+### 13. Story 4 - AS2: Local Model Connection Test
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 113)**: "show the last valid outline with a warning indicator"
-**Question Candidate**: What does the "warning indicator" look like? Icon, color, text, tooltip, banner? How is "last valid outline" cached across parse failures?
-**Impact Score**: 3
-**Rationale**: Tests need to verify warning indicator appearance and outline caching behavior. Without visual spec, multiple implementations are valid.
+**Spec Text (Line 70)**: "user enters a valid local endpoint, When they test connection, Then available models are listed"
+**Question Candidates**:
+- What if the endpoint is valid but returns no models?
+- What local model providers must be explicitly supported (Ollama, LM Studio, others)?
+**Impact Score**: 2
+**Rationale**: "Valid endpoint" with no models is an edge case not addressed.
 
 ---
 
-### 16. Edge Case/FR-004: Auto-hide Threshold
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Lines 117, 130)**: "below 600px with preview visible, or below 400px with preview hidden"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Exact pixel values make this testable via window resize assertions.
-
----
-
-### 17. NFR: Keyboard Navigation Keys
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 215)**: "arrow keys to move, Enter to select"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific keys defined. Testable via keyboard simulation.
-
----
-
-### 18. NFR: ARIA Roles
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 216)**: "tree, treeitem"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific ARIA roles defined. Testable via DOM role assertions.
-
----
-
-### 19. FR-029: AST Reuse Verification Method
+### 14. Story 4 - AS3: Troubleshooting Hints
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 173)**: "MUST reuse AST data from the preview pane"
-**Question Candidate**: How do we verify AST is actually being reused vs re-parsed? What metric, assertion, or observable behavior proves reuse?
+**Spec Text (Line 71)**: "appropriate error message is displayed with troubleshooting hints"
+**Question Candidate**: What specific troubleshooting hints are required? (check endpoint URL, verify service running, firewall settings, etc.)
 **Impact Score**: 3
-**Rationale**: Implementation detail that affects performance testing. Need observable verification method (e.g., parse count counter, shared reference check).
+**Rationale**: "Troubleshooting hints" is vague. Tests cannot verify without knowing expected hint content.
 
 ---
 
-### 20. NFR: Debounce Configuration
+### 15. Story 5 - AS2: Key Update Verification
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 86)**: "the old key is replaced in secure storage"
+**Question Candidates**:
+- How is "replaced" verified vs "added alongside"?
+- Is there a confirmation step before key replacement?
+**Impact Score**: 2
+**Rationale**: Secure storage verification method undefined for automated tests.
+
+---
+
+### 16. Story 5 - AS3: Credential Purging
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 87)**: "all associated credentials are purged from secure storage"
+**Question Candidates**:
+- How can secure storage purging be verified in automated tests without compromising security?
+- Is there a confirmation step before permanent credential deletion?
+**Impact Score**: 2
+**Rationale**: Verification method for secure deletion undefined.
+
+---
+
+## Independent Tests Analysis
+
+### 17. Test Strategy: Mock vs Real Providers
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 209)**: "Debounce outline updates to avoid excessive re-parsing"
-**Question Candidate**: What is the debounce duration? Is it the same as the 500ms update window, or a separate configuration?
+**Spec Text (Lines 16, 33, 49)**: Independent test descriptions reference "valid API key" and provider configurations
+**Question Candidates**:
+- Will the test suite include mock providers/responses, or require real API keys?
+- What is the minimum number of requests needed to verify usage metric accuracy?
 **Impact Score**: 3
-**Rationale**: Tests need to know debounce timing to set appropriate wait times. If different from 500ms update target, could create race conditions.
+**Rationale**: Test environment strategy undefined. CI/CD pipeline needs clarity on mock vs live testing.
 
 ---
 
-### 21. Edge Case: Minimum Panel Width
+### 18. Story 3 Independent Test: "Several AI Requests"
 
 **Category**: Completion
-**Status**: Clear
-**Spec Text (Line 116)**: "Enforce minimum width of 150px"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific pixel value. Testable via CSS/DOM assertions during resize.
+**Status**: Partial
+**Spec Text (Line 49)**: "making several AI requests and verifying usage metrics"
+**Question Candidate**: How many is "several"? What constitutes sufficient verification?
+**Impact Score**: 2
+**Rationale**: "Several" is imprecise for test case specification.
+
+---
+
+## Edge Cases Analysis
+
+### 19. Keychain Unavailable Handling
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 93, 115)**: "What happens when the system keychain is locked or unavailable?" and FR-013 "MUST gracefully handle keychain access failures"
+**Question Candidate**: What does "graceful" handling look like? Error message only, fallback storage, or prevent usage entirely?
+**Impact Score**: 3
+**Rationale**: FR-013 mandates handling but doesn't define the expected behavior.
 
 ---
 
@@ -253,54 +273,52 @@
 
 | Impact Score | Count |
 |--------------|-------|
-| 5 (Critical) | 0     |
-| 4 (High)     | 4     |
+| 5 (Critical) | 1     |
+| 4 (High)     | 1     |
 | 3 (Medium)   | 7     |
-| 2 (Low)      | 1     |
-| 1 (Clear)    | 9     |
+| 2 (Low)      | 8     |
+| 1 (Clear)    | 2     |
 
 ---
 
 ## High-Impact Questions (Impact >= 4)
 
-1. **[Impact 4] Heading Nesting for Skipped Levels**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a phantom/placeholder h2?
+1. **[Impact 5] SC-006 Measurement Methodology**: How will the 95% first-time configuration success rate be measured? What methodology, sample size, and user population are required?
 
-2. **[Impact 4] Built-in Component Visual Distinction**: What specific visual treatment differentiates built-in from custom components? (icon, color, label, badge)
-
-3. **[Impact 4] Built-in Component List**: What is the complete, authoritative list of "built-in" components that should be recognized and classified specially?
-
-4. **[Impact 4] Heading Scope for 100% Coverage (SC-005)**: Does 100% heading representation include headings inside JSX components, code blocks, or only top-level markdown headings?
+2. **[Impact 4] SC-004 Verification Method**: How will usage statistics accuracy be verified against "actual provider-reported usage"? What is the reference data source and verification process?
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **[Impact 4]** Please enumerate the complete list of built-in MDX components that should be visually distinguished from custom components.
+1. **[Critical - Impact 5]** SC-006 requires 95% of users to successfully configure their first provider without documentation. How will this be measured (user testing, analytics, survey)? What sample size and user population are required? Is this a pre-release gate or post-launch metric?
 
-2. **[Impact 4]** What visual treatment (icon, color, label) should differentiate built-in components from custom/unknown components in the outline?
+2. **[High - Impact 4]** SC-004 states usage statistics must be accurate within 1% of actual provider-reported usage. How will this be verified? What is the source of "actual" usage data, and what metrics (tokens, requests, costs) are included?
 
-3. **[Impact 4]** When heading levels skip (e.g., `# H1` followed by `### H3` with no H2), how should the outline tree represent this - nest H3 under H1, show H3 at root level, or create a placeholder?
+3. **[Medium - Impact 3]** SC-001 references "start using AI features." What specific action constitutes this milestone - seeing "Connected" status, or successfully completing an AI request?
 
-4. **[Impact 4]** Should headings inside JSX components or code blocks be included in the "100% of headings represented" success criterion?
+4. **[Medium - Impact 3]** For automated testing, will the test suite use mock providers/responses or require real API keys? This affects CI/CD pipeline design.
 
-5. **[Impact 3]** What is the debounce duration for outline updates, and is it the same as or separate from the 500ms update window in SC-002?
+5. **[Medium - Impact 3]** Story 4 AS3 mentions "troubleshooting hints" for unreachable local endpoints. What specific hints are required (e.g., "check if service is running", "verify firewall settings")?
+
+6. **[Low - Impact 2]** SC-003 states provider switching takes effect "immediately." What is the measurable threshold (e.g., within 500ms, within 1 second)?
 
 ---
 
 ## Overall Assessment
 
-The spec has **strong measurable outcomes** in the Success Criteria section with specific timing targets (100ms navigation, 500ms update, 50ms overhead, 3s workflow). The acceptance scenarios follow Given/When/Then format and most have clear assertions.
+The spec provides a solid foundation with many testable criteria, but has **significant gaps in measurement methodology** for key success criteria.
 
 **Strengths:**
-- Specific timing metrics for performance testing
-- Exact pixel thresholds for responsive behavior
-- Explicit ARIA roles for accessibility testing
-- Precise keyboard shortcuts defined
+- Clear functional requirements with MUST/SHOULD language
+- Structured acceptance scenarios in Given/When/Then format
+- Specific entity definitions (Provider, Credential, UsageRecord, ProviderConfig)
+- Well-defined out-of-scope boundaries
 
 **Gaps requiring clarification:**
-1. **Visual specifications** - Component distinction treatment undefined
-2. **Data enumeration** - Built-in component list incomplete
-3. **Edge case handling** - Skipped heading levels behavior undefined
-4. **Scope boundaries** - What counts as "heading" or "component usage" in edge cases
+1. **SC-006 (95% success rate)** - No measurement methodology defined (Critical)
+2. **SC-004 (1% accuracy)** - No verification methodology defined (High)
+3. **Testing strategy** - Mock vs real providers undefined
+4. **Edge case behaviors** - Keychain failures, local model edge cases
 
-The spec is approximately **80% complete** from a testability standpoint. Addressing the 4 high-impact clarifications above would bring it to production-ready Definition of Done quality.
+The spec is approximately **70% complete** from a Definition of Done perspective. The two critical success criteria (SC-004, SC-006) cannot be objectively verified without additional specification. Addressing the high-impact clarifications is essential before implementation begins.

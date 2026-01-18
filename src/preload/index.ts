@@ -30,6 +30,7 @@ import {
 } from '@shared/contracts/file-schemas';
 import type { MdxpadAPI } from './api';
 import type { FileResult, FileHandle } from '@shared/types/file';
+import { aiApi } from './ai-api';
 
 // ============================================================================
 // Schema for SecurityInfo (not in file-schemas.ts)
@@ -346,6 +347,9 @@ const api: MdxpadAPI = {
     os: 'darwin',
     arch: getArch(),
   },
+
+  // === AI Provider API (Spec 028) ===
+  ai: aiApi,
 };
 
 // Expose API to renderer via contextBridge

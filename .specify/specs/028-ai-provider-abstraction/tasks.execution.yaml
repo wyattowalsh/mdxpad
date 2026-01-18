@@ -1,0 +1,662 @@
+# AI Provider Abstraction Layer - Execution Manifest
+# Feature Branch: 028-ai-provider-abstraction
+# Generated: 2026-01-17
+
+metadata:
+  feature: 028-ai-provider-abstraction
+  version: "1.0"
+  generated_at: "2026-01-17T00:00:00Z"
+  source_documents:
+    - plan.md
+    - spec.md
+    - data-model.md
+    - contracts/ipc-channels.md
+    - contracts/service-interfaces.md
+    - research.md
+    - quickstart.md
+
+metrics:
+  total_tasks: 30
+  parallel_batches: 12
+  max_parallelism: 4
+  critical_path_length: 12
+  estimated_parallelism_efficiency: 0.50
+
+phases:
+  - id: phase_1
+    name: "Setup"
+    description: "Install dependencies and configure build"
+    gate_name: "Dependencies Installed"
+    gate_criteria:
+      - "AI SDK packages installed"
+      - "pnpm build succeeds"
+    tasks:
+      - id: "1.1"
+        name: "Install AI SDK dependencies"
+        description: "Install Vercel AI SDK and provider packages"
+        files:
+          - package.json
+        commands:
+          - "pnpm add ai @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/openai-compatible"
+          - "pnpm add -D ollama-ai-provider"
+        dependencies: []
+        fr_coverage: [FR-001, FR-014]
+        acceptance_criteria:
+          - "AI SDK packages installed"
+          - "pnpm build succeeds"
+
+  - id: phase_2
+    name: "Foundational"
+    description: "Create shared types, schemas, and IPC definitions"
+    gate_name: "Foundational Types Complete"
+    gate_criteria:
+      - "All Phase 2 tasks completed"
+      - "pnpm typecheck passes"
+      - "Shared types importable from main process"
+    tasks:
+      - id: "2.1"
+        name: "Create shared type definitions"
+        description: "Define TypeScript types for entities from data-model.md"
+        files:
+          - src/shared/ai/types.ts
+        dependencies: ["1.1"]
+        fr_coverage: [FR-001]
+        entities:
+          - ProviderType
+          - ConnectionStatus
+          - OperationType
+          - ProviderCapability
+          - ProviderConfig
+          - CredentialMetadata
+          - UsageRecord
+          - ModelCapabilities
+          - CapabilityConstraints
+          - OnboardingMetrics
+          - OnboardingAttempt
+        acceptance_criteria:
+          - "All types from data-model.md defined"
+          - "Types use readonly for immutable fields"
+          - "No any types (Constitution VI.1)"
+          - "TypeScript compiles with strict: true"
+
+      - id: "2.2"
+        name: "Create Zod validation schemas"
+        description: "Define Zod schemas for IPC validation"
+        files:
+          - src/shared/ai/schemas.ts
+        dependencies: ["2.1"]
+        fr_coverage: [FR-001]
+        acceptance_criteria:
+          - "All schemas from ipc-channels.md defined"
+          - "Schemas match types from types.ts"
+          - "Schema inference types exported"
+
+      - id: "2.3"
+        name: "Create IPC channel definitions"
+        description: "Define IPC channel constants and type-safe helpers"
+        files:
+          - src/shared/ai/ipc-channels.ts
+        dependencies: ["2.1", "2.2"]
+        fr_coverage: [FR-001]
+        channels:
+          - "mdxpad:ai:provider:*"
+          - "mdxpad:ai:credential:*"
+          - "mdxpad:ai:generate:*"
+          - "mdxpad:ai:usage:*"
+          - "mdxpad:ai:capability:*"
+        acceptance_criteria:
+          - "All channels from ipc-channels.md defined"
+          - "Channel constants use mdxpad:ai:<domain>:<action> format"
+          - "Follows Constitution III.3 naming convention"
+
+      - id: "2.4"
+        name: "Create error types"
+        description: "Define typed error classes"
+        files:
+          - src/shared/ai/errors.ts
+        dependencies: ["1.1"]
+        fr_coverage: [FR-012, FR-015]
+        error_types:
+          - AIProviderError
+          - NoActiveProviderError
+          - ProviderNotFoundError
+          - ProviderDisconnectedError
+          - CapabilityNotSupportedError
+          - RateLimitError
+          - CredentialStorageError
+          - InvalidApiKeyError
+        acceptance_criteria:
+          - "All errors from service-interfaces.md defined"
+          - "Errors extend base AIProviderError"
+          - "Each error has unique code property"
+
+  - id: phase_3
+    name: "Core Services"
+    description: "Implement main process services"
+    gate_name: "Services Implemented"
+    gate_criteria:
+      - "All Phase 3 tasks completed"
+      - "All service unit tests pass with >80% coverage"
+      - "pnpm test passes"
+    tasks:
+      - id: "3.1"
+        name: "Implement CredentialService"
+        description: "Secure credential storage using Electron safeStorage"
+        files:
+          - src/main/services/ai/credential-service.ts
+          - tests/unit/services/ai/credential-service.test.ts
+        dependencies: ["2.1", "2.4"]
+        fr_coverage: [FR-002, FR-011, FR-013]
+        interface: ICredentialService
+        methods:
+          - "isAvailable(): boolean"
+          - "setCredential(providerId, apiKey): Promise<CredentialSetResult>"
+          - "getCredential(providerId): Promise<string | null>"
+          - "hasCredential(providerId): Promise<CredentialMetadata | null>"
+          - "clearCredential(providerId): Promise<boolean>"
+          - "getStorageType(): 'persistent' | 'session'"
+        acceptance_criteria:
+          - "All interface methods implemented"
+          - "Unit tests with >80% coverage"
+          - "safeStorage mocked in tests"
+          - "Session fallback tested"
+
+      - id: "3.2"
+        name: "Implement ProviderService"
+        description: "Provider configuration CRUD and lifecycle"
+        files:
+          - src/main/services/ai/provider-service.ts
+          - tests/unit/services/ai/provider-service.test.ts
+        dependencies: ["2.1", "2.4", "3.1"]
+        fr_coverage: [FR-001, FR-003, FR-004, FR-005, FR-010]
+        interface: IProviderService
+        methods:
+          - "getProviders(): Promise<ProviderConfig[]>"
+          - "getProvider(id): Promise<ProviderConfig | null>"
+          - "getActiveProvider(): Promise<ProviderConfig | null>"
+          - "addProvider(config, apiKey?): Promise<ProviderConfig>"
+          - "updateProvider(id, updates): Promise<ProviderConfig>"
+          - "removeProvider(id): Promise<void>"
+          - "setActiveProvider(id): Promise<void>"
+          - "validateProvider(id): Promise<ProviderValidationResult>"
+          - "getProviderCount(): Promise<number>"
+        acceptance_criteria:
+          - "All interface methods implemented"
+          - "Unit tests with >80% coverage"
+          - "Enforces max 10 providers"
+          - "Enforces single active provider"
+
+      - id: "3.3"
+        name: "Create capability registries"
+        description: "Static capability registries for cloud providers"
+        files:
+          - src/main/services/ai/registries/openai-registry.ts
+          - src/main/services/ai/registries/anthropic-registry.ts
+        dependencies: ["2.1"]
+        fr_coverage: [FR-016]
+        models:
+          openai:
+            - gpt-4o
+            - gpt-4o-mini
+            - gpt-4-turbo
+            - o1
+            - o1-mini
+            - text-embedding-3-small
+            - text-embedding-3-large
+            - dall-e-3
+          anthropic:
+            - claude-opus-4-5-20250929
+            - claude-sonnet-4-5-20250929
+            - claude-3-5-sonnet-20241022
+            - claude-3-5-haiku-20241022
+        acceptance_criteria:
+          - "All current models registered"
+          - "Capabilities accurate per provider docs"
+          - "Context windows and constraints defined"
+
+      - id: "3.4"
+        name: "Implement CapabilityService"
+        description: "Capability detection with static + dynamic hybrid"
+        files:
+          - src/main/services/ai/capability-service.ts
+          - tests/unit/services/ai/capability-service.test.ts
+        dependencies: ["3.2", "3.3"]
+        fr_coverage: [FR-016]
+        interface: ICapabilityService
+        methods:
+          - "getCapabilities(providerId, modelId): Promise<ModelCapabilities>"
+          - "listModels(providerId): Promise<ModelInfo[]>"
+          - "hasCapability(providerId, modelId, capability): Promise<boolean>"
+          - "refreshCapabilities(providerId): Promise<void>"
+          - "getProvidersWithCapability(capability): Promise<string[]>"
+        acceptance_criteria:
+          - "All interface methods implemented"
+          - "Unit tests with >80% coverage"
+          - "Static registry used for cloud providers"
+          - "Dynamic detection for Ollama tested"
+
+      - id: "3.5"
+        name: "Implement AIService"
+        description: "AI operations using Vercel AI SDK"
+        files:
+          - src/main/services/ai/ai-service.ts
+          - tests/unit/services/ai/ai-service.test.ts
+        dependencies: ["3.1", "3.2", "3.4"]
+        fr_coverage: [FR-014, FR-017]
+        interface: IAIService
+        methods:
+          - "generateText(request): Promise<TextGenerationResponse>"
+          - "streamText(request, onChunk): Promise<StreamController>"
+          - "generateEmbedding(request): Promise<EmbeddingResponse>"
+          - "generateImage(request): Promise<ImageGenerationResponse>"
+          - "getActiveModel(): LanguageModel | null"
+          - "isReady(): boolean"
+        acceptance_criteria:
+          - "All interface methods implemented"
+          - "Unit tests with >80% coverage"
+          - "Streaming with abort controller"
+          - "Capability check before operations"
+
+      - id: "3.6"
+        name: "Implement UsageService"
+        description: "Usage tracking and statistics"
+        files:
+          - src/main/services/ai/usage-service.ts
+          - tests/unit/services/ai/usage-service.test.ts
+        dependencies: ["2.1"]
+        fr_coverage: [FR-006, FR-007, FR-008]
+        interface: IUsageService
+        methods:
+          - "recordUsage(record): Promise<void>"
+          - "queryStats(query): Promise<UsageStats>"
+          - "exportData(timeRange, format): Promise<string>"
+          - "clearHistory(beforeDate?): Promise<void>"
+          - "getEstimatedCost(providerId, timeRange): Promise<number>"
+        acceptance_criteria:
+          - "All interface methods implemented"
+          - "Unit tests with >80% coverage"
+          - "Record pruning tested"
+          - "Cost calculation accurate within 1% (SC-004)"
+
+      - id: "3.7"
+        name: "Implement OnboardingService"
+        description: "Onboarding analytics for SC-006"
+        files:
+          - src/main/services/ai/onboarding-service.ts
+          - tests/unit/services/ai/onboarding-service.test.ts
+        dependencies: ["2.1"]
+        fr_coverage: [FR-018]
+        interface: IOnboardingService
+        methods:
+          - "startAttempt(providerType): string"
+          - "recordOutcome(attemptId, outcome, details?): Promise<void>"
+          - "getMetrics(): Promise<OnboardingMetrics>"
+          - "resetMetrics(): Promise<void>"
+        acceptance_criteria:
+          - "All interface methods implemented"
+          - "Unit tests with >80% coverage"
+          - "Success rate calculation tested"
+
+      - id: "3.8"
+        name: "Create service index and exports"
+        description: "Index file exporting all services"
+        files:
+          - src/main/services/ai/index.ts
+        dependencies: ["3.1", "3.2", "3.4", "3.5", "3.6", "3.7"]
+        fr_coverage: [FR-001]
+        acceptance_criteria:
+          - "All services exported"
+          - "Singleton pattern implemented"
+
+  - id: phase_4
+    name: "IPC Layer"
+    description: "Implement IPC handlers for renderer communication"
+    gate_name: "IPC Handlers Complete"
+    gate_criteria:
+      - "All Phase 4 tasks completed"
+      - "IPC handlers can be invoked from renderer"
+      - "pnpm build passes"
+    tasks:
+      - id: "4.1"
+        name: "Implement provider IPC handlers"
+        description: "IPC handlers for provider management"
+        files:
+          - src/main/ipc/ai-handlers.ts
+        dependencies: ["3.1", "3.2"]
+        fr_coverage: [FR-001, FR-003, FR-004, FR-005]
+        channels:
+          - "mdxpad:ai:provider:list"
+          - "mdxpad:ai:provider:add"
+          - "mdxpad:ai:provider:update"
+          - "mdxpad:ai:provider:remove"
+          - "mdxpad:ai:provider:set-active"
+          - "mdxpad:ai:provider:validate"
+        acceptance_criteria:
+          - "All provider channels implemented"
+          - "Zod validation on all requests"
+          - "Error codes match ipc-channels.md"
+          - "Handlers delegate to ProviderService"
+
+      - id: "4.2"
+        name: "Implement credential IPC handlers"
+        description: "IPC handlers for credential management"
+        files:
+          - src/main/ipc/ai-handlers.ts
+        dependencies: ["3.1"]
+        fr_coverage: [FR-002, FR-011, FR-013]
+        channels:
+          - "mdxpad:ai:credential:set"
+          - "mdxpad:ai:credential:has"
+          - "mdxpad:ai:credential:clear"
+        acceptance_criteria:
+          - "All credential channels implemented"
+          - "Zod validation on all requests"
+          - "Returns storageType and keyPreview"
+          - "Handlers delegate to CredentialService"
+
+      - id: "4.3"
+        name: "Implement generate IPC handlers"
+        description: "IPC handlers for AI generation"
+        files:
+          - src/main/ipc/ai-handlers.ts
+        dependencies: ["3.5", "3.6"]
+        fr_coverage: [FR-014, FR-015, FR-017]
+        channels:
+          - "mdxpad:ai:generate:text"
+          - "mdxpad:ai:generate:stream"
+          - "mdxpad:ai:generate:embed"
+          - "mdxpad:ai:generate:image"
+        acceptance_criteria:
+          - "All generate channels implemented"
+          - "Streaming uses webContents.send pattern"
+          - "Usage recorded after each request"
+          - "Rate limit errors include alternateProviders"
+
+      - id: "4.4"
+        name: "Implement usage IPC handlers"
+        description: "IPC handlers for usage statistics"
+        files:
+          - src/main/ipc/ai-handlers.ts
+        dependencies: ["3.6"]
+        fr_coverage: [FR-006, FR-007, FR-008]
+        channels:
+          - "mdxpad:ai:usage:query"
+          - "mdxpad:ai:usage:export"
+          - "mdxpad:ai:usage:clear"
+        acceptance_criteria:
+          - "All usage channels implemented"
+          - "Time range filtering works correctly"
+          - "Export supports JSON and CSV formats"
+
+      - id: "4.5"
+        name: "Implement capability IPC handlers"
+        description: "IPC handlers for capability detection"
+        files:
+          - src/main/ipc/ai-handlers.ts
+        dependencies: ["3.4"]
+        fr_coverage: [FR-016]
+        channels:
+          - "mdxpad:ai:capability:get"
+          - "mdxpad:ai:capability:list-models"
+          - "mdxpad:ai:capability:refresh"
+        acceptance_criteria:
+          - "All capability channels implemented"
+          - "Returns capabilities as array"
+          - "Refresh clears cache for provider"
+
+      - id: "4.6"
+        name: "Register IPC handlers in main process"
+        description: "Register all AI IPC handlers"
+        files:
+          - src/main/ipc/index.ts
+        dependencies: ["4.1", "4.2", "4.3", "4.4", "4.5"]
+        fr_coverage: [FR-001]
+        acceptance_criteria:
+          - "All AI handlers registered"
+          - "Follows existing IPC registration pattern"
+          - "No duplicate channel registrations"
+
+  - id: phase_5
+    name: "Renderer"
+    description: "Implement UI components and state management"
+    gate_name: "UI Complete"
+    gate_criteria:
+      - "All Phase 5 tasks completed"
+      - "UI components render without errors"
+      - "pnpm build passes"
+    tasks:
+      - id: "5.1"
+        name: "Implement Zustand store"
+        description: "AI provider state management"
+        files:
+          - src/renderer/features/ai-provider/store.ts
+        dependencies: ["4.1", "4.2"]
+        fr_coverage: [FR-001]
+        state:
+          - "providers: ProviderConfig[]"
+          - "activeProviderId: string | null"
+          - "isLoading: boolean"
+          - "isValidating: boolean"
+          - "settingsOpen: boolean"
+          - "selectedProviderId: string | null"
+          - "usageStats: UsageStats | null"
+          - "usageStatsTimeRange: TimeRange"
+        actions:
+          - "fetchProviders()"
+          - "addProvider(config, apiKey?)"
+          - "updateProvider(id, updates)"
+          - "removeProvider(id)"
+          - "setActiveProvider(id)"
+          - "validateProvider(id)"
+          - "fetchUsageStats(timeRange)"
+        acceptance_criteria:
+          - "Uses Zustand with Immer middleware"
+          - "All IPC calls wrapped in try/catch"
+          - "Loading states managed correctly"
+
+      - id: "5.2"
+        name: "Create React hooks"
+        description: "React hooks for AI provider features"
+        files:
+          - src/renderer/features/ai-provider/hooks.ts
+        dependencies: ["5.1"]
+        fr_coverage: [FR-001]
+        hooks:
+          - "useProviders()"
+          - "useActiveProvider()"
+          - "useProviderActions()"
+          - "useUsageStats(timeRange)"
+          - "useAIGenerate()"
+        acceptance_criteria:
+          - "Hooks use Zustand store"
+          - "Memoized selectors where appropriate"
+          - "Streaming hook manages abort controller"
+
+      - id: "5.3"
+        name: "Implement ProviderForm component"
+        description: "Form for adding/editing providers"
+        files:
+          - src/renderer/features/ai-provider/components/ProviderForm.tsx
+        dependencies: ["5.2"]
+        fr_coverage: [FR-001, FR-009, FR-011]
+        us_coverage: [US1, US4, US5]
+        features:
+          - "Provider type selection"
+          - "Display name input"
+          - "API key input (masked)"
+          - "Base URL input (for local)"
+          - "Validate button"
+          - "Error display"
+        acceptance_criteria:
+          - "Validation before save"
+          - "API key masked by default"
+          - "Local providers don't require API key"
+          - "Follows existing component patterns"
+
+      - id: "5.4"
+        name: "Implement ProviderList component"
+        description: "List view of configured providers"
+        files:
+          - src/renderer/features/ai-provider/components/ProviderList.tsx
+        dependencies: ["5.2"]
+        fr_coverage: [FR-004, FR-005]
+        us_coverage: [US1, US2]
+        features:
+          - "List all providers with status"
+          - "Active provider highlighted"
+          - "Click to select/activate"
+          - "Edit and delete actions"
+          - "Empty state"
+        acceptance_criteria:
+          - "Shows connection status"
+          - "Active provider visually distinct"
+          - "Confirmation before delete"
+          - "Responsive layout"
+
+      - id: "5.5"
+        name: "Implement ProviderSettings component"
+        description: "Main settings view for AI providers"
+        files:
+          - src/renderer/features/ai-provider/components/ProviderSettings.tsx
+        dependencies: ["5.3", "5.4"]
+        fr_coverage: [FR-001, FR-013]
+        us_coverage: [US1, US2, US5]
+        features:
+          - "Combines ProviderList and ProviderForm"
+          - "Modal or panel-based layout"
+          - "Keyboard navigation"
+          - "Session-only warning banner"
+        acceptance_criteria:
+          - "Integrates list and form"
+          - "Shows session warning when applicable"
+          - "Accessible keyboard navigation"
+
+      - id: "5.6"
+        name: "Implement UsageStats component"
+        description: "Usage statistics dashboard"
+        files:
+          - src/renderer/features/ai-provider/components/UsageStats.tsx
+        dependencies: ["5.2"]
+        fr_coverage: [FR-006, FR-007, FR-008]
+        us_coverage: [US3]
+        features:
+          - "Time period selector"
+          - "Total requests and tokens"
+          - "Per-provider breakdown"
+          - "Estimated costs"
+          - "Export button"
+        acceptance_criteria:
+          - "Updates when time period changes"
+          - "Shows loading state"
+          - "Formats large numbers"
+          - "Export triggers download"
+
+      - id: "5.7"
+        name: "Implement CapabilityBadge component"
+        description: "Visual indicator for model capabilities"
+        files:
+          - src/renderer/features/ai-provider/components/CapabilityBadge.tsx
+        dependencies: ["5.2"]
+        fr_coverage: [FR-016]
+        features:
+          - "Icon + label per capability"
+          - "Tooltip with details"
+          - "All ProviderCapability values"
+        acceptance_criteria:
+          - "Distinct visual per capability"
+          - "Accessible tooltips"
+          - "Compact design"
+
+      - id: "5.8"
+        name: "Create feature index and exports"
+        description: "Index file exporting all components"
+        files:
+          - src/renderer/features/ai-provider/index.ts
+        dependencies: ["5.3", "5.4", "5.5", "5.6", "5.7"]
+        fr_coverage: [FR-001]
+        acceptance_criteria:
+          - "Clean public API"
+          - "No circular dependencies"
+
+  - id: phase_6
+    name: "Integration & Testing"
+    description: "Integration tests and E2E validation"
+    gate_name: "Feature Complete"
+    gate_criteria:
+      - "All Phase 6 tasks completed"
+      - "All tests pass"
+      - "Success criteria verified"
+    tasks:
+      - id: "6.1"
+        name: "Integration tests"
+        description: "Integration tests for provider lifecycle"
+        files:
+          - tests/integration/ai/provider-lifecycle.test.ts
+          - tests/integration/ai/credential-storage.test.ts
+        dependencies: ["5.5", "5.6"]
+        fr_coverage: [FR-002, FR-003, FR-010]
+        test_scenarios:
+          - "Add provider → validate → set active → use → remove"
+          - "Credential persistence across restarts"
+          - "Session-only fallback"
+          - "Provider switching immediate effect (SC-003)"
+        acceptance_criteria:
+          - "Full lifecycle tested"
+          - "Credential security verified"
+          - "Session fallback tested"
+          - "Tests pass in CI"
+
+      - id: "6.2"
+        name: "E2E tests"
+        description: "E2E tests for provider configuration"
+        files:
+          - tests/e2e/ai-provider/configure-provider.test.ts
+          - tests/e2e/ai-provider/switch-provider.test.ts
+        dependencies: ["6.1"]
+        sc_coverage: [SC-001, SC-003, SC-006]
+        test_scenarios:
+          - "Configure first provider (SC-001: < 2 min)"
+          - "Configure invalid API key"
+          - "Switch between providers"
+          - "View usage statistics"
+        acceptance_criteria:
+          - "Tests run in Playwright"
+          - "Configuration < 2 minutes (SC-001)"
+          - "Switch is immediate (SC-003)"
+          - "Tests pass in CI"
+
+      - id: "6.3"
+        name: "Verify success criteria"
+        description: "Verify all success criteria are met"
+        dependencies: ["6.2"]
+        sc_verification:
+          SC-001: "Configure provider < 2 min (E2E test)"
+          SC-002: "No plain text credentials (security audit)"
+          SC-003: "Immediate provider switch (E2E test)"
+          SC-004: "Usage accuracy within 1% (comparison test)"
+          SC-005: "5+ providers supported (unit test)"
+          SC-006: "95% onboarding success (analytics review)"
+        acceptance_criteria:
+          - "All SC-* criteria verified"
+          - "Documentation updated"
+          - "Feature ready for merge"
+
+# Execution Schedule (Optimized for Parallelism)
+#
+# Batch 1: [1.1]
+# Batch 2: [2.1, 2.4] -- parallel
+# Batch 3: [2.2]
+# Batch 4: [2.3]
+# Batch 5: [3.1, 3.3, 3.6, 3.7] -- parallel (max 4)
+# Batch 6: [3.2]
+# Batch 7: [3.4]
+# Batch 8: [3.5, 3.8]
+# Batch 9: [4.1, 4.2, 4.4, 4.5] -- parallel (max 4)
+# Batch 10: [4.3, 4.6]
+# Batch 11: [5.1]
+# Batch 12: [5.2]
+# Batch 13: [5.3, 5.4, 5.6, 5.7] -- parallel (max 4)
+# Batch 14: [5.5, 5.8]
+# Batch 15: [6.1]
+# Batch 16: [6.2]
+# Batch 17: [6.3]

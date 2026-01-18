@@ -10,6 +10,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import { registerFileHandlers } from './file-handlers';
 import { registerWindowHandlers } from './window-handlers';
+import { registerAIHandlers } from './ai-handlers';
 
 /** Track whether global handlers have been registered */
 let globalHandlersRegistered = false;
@@ -50,6 +51,9 @@ export function registerIpcHandlers(window: BrowserWindow): void {
 
     // Register window operation handlers (close, minimize, maximize)
     registerWindowHandlers(ipcMain, window);
+
+    // Register AI provider handlers (Spec 028)
+    registerAIHandlers(window);
 
     globalHandlersRegistered = true;
   }
