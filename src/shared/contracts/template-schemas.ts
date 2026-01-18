@@ -335,6 +335,54 @@ export const CreateFromTemplateResponseSchema = z.object({
 export type CreateFromTemplateResponse = z.infer<typeof CreateFromTemplateResponseSchema>;
 
 // =============================================================================
+// File Dialog Schemas
+// =============================================================================
+
+/**
+ * Template open dialog request (for importing templates)
+ */
+export const TemplateOpenDialogRequestSchema = z.object({
+  action: z.literal('showOpenDialog'),
+});
+
+export type TemplateOpenDialogRequest = z.infer<typeof TemplateOpenDialogRequestSchema>;
+
+/**
+ * Template open dialog response
+ */
+export const TemplateOpenDialogResponseSchema = z.object({
+  success: z.literal(true),
+  /** Selected file path, or null if canceled */
+  path: z.string().nullable(),
+  canceled: z.boolean(),
+});
+
+export type TemplateOpenDialogResponse = z.infer<typeof TemplateOpenDialogResponseSchema>;
+
+/**
+ * Template save dialog request (for exporting templates)
+ */
+export const TemplateSaveDialogRequestSchema = z.object({
+  action: z.literal('showSaveDialog'),
+  /** Suggested file name (without path) */
+  defaultName: z.string().optional(),
+});
+
+export type TemplateSaveDialogRequest = z.infer<typeof TemplateSaveDialogRequestSchema>;
+
+/**
+ * Template save dialog response
+ */
+export const TemplateSaveDialogResponseSchema = z.object({
+  success: z.literal(true),
+  /** Selected file path, or null if canceled */
+  path: z.string().nullable(),
+  canceled: z.boolean(),
+});
+
+export type TemplateSaveDialogResponse = z.infer<typeof TemplateSaveDialogResponseSchema>;
+
+// =============================================================================
 // IPC Channel Constants
 // =============================================================================
 

@@ -248,6 +248,19 @@ export interface MdxpadAPI {
       variables: VariableValues,
       savePath?: string
     ): Promise<TemplateResult<{ content: string; path?: string }>>;
+
+    /**
+     * Show native file open dialog for importing .mdxt files.
+     * @returns Selected file path or null if canceled
+     */
+    showOpenDialog(): Promise<TemplateResult<{ path: string | null; canceled: boolean }>>;
+
+    /**
+     * Show native file save dialog for exporting .mdxt files.
+     * @param defaultName - Suggested file name (without extension)
+     * @returns Selected file path or null if canceled
+     */
+    showSaveDialog(defaultName?: string): Promise<TemplateResult<{ path: string | null; canceled: boolean }>>;
   };
 }
 

@@ -38,6 +38,8 @@ import {
   TemplateExportRequestSchema,
   TemplateValidateRequestSchema,
   CreateFromTemplateRequestSchema,
+  TemplateOpenDialogRequestSchema,
+  TemplateSaveDialogRequestSchema,
   // Template response schemas
   TemplateListResponseSchema,
   TemplateGetResponseSchema,
@@ -47,6 +49,8 @@ import {
   TemplateExportResponseSchema,
   TemplateValidateResponseSchema,
   CreateFromTemplateResponseSchema,
+  TemplateOpenDialogResponseSchema,
+  TemplateSaveDialogResponseSchema,
   TemplateErrorResponseSchema,
 } from '@shared/contracts/template-schemas';
 import type { MdxpadAPI } from './api';
@@ -518,6 +522,44 @@ const api: MdxpadAPI = {
           data.path = resParsed.data.path;
         }
         return { success: true, data };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    showOpenDialog: async () => {
+      const request = { action: 'showOpenDialog' as const };
+      const reqParsed = TemplateOpenDialogRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.showOpenDialog, request);
+      const resParsed = TemplateOpenDialogResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { path: resParsed.data.path, canceled: resParsed.data.canceled } };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    showSaveDialog: async (defaultName) => {
+      const request = { action: 'showSaveDialog' as const, defaultName };
+      const reqParsed = TemplateSaveDialogRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.showSaveDialog, request);
+      const resParsed = TemplateSaveDialogResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { path: resParsed.data.path, canceled: resParsed.data.canceled } };
       }
       const errParsed = TemplateErrorResponseSchema.safeParse(response);
       if (errParsed.success) {

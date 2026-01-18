@@ -10,6 +10,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import { registerFileHandlers } from './file-handlers';
 import { registerWindowHandlers } from './window-handlers';
+import { registerTemplateHandlers } from '@main/services/template-service';
 
 /** Track whether global handlers have been registered */
 let globalHandlersRegistered = false;
@@ -50,6 +51,9 @@ export function registerIpcHandlers(window: BrowserWindow): void {
 
     // Register window operation handlers (close, minimize, maximize)
     registerWindowHandlers(ipcMain, window);
+
+    // Register template operation handlers (list, get, save, delete, import, export, validate, createFromTemplate)
+    registerTemplateHandlers(ipcMain);
 
     globalHandlersRegistered = true;
   }

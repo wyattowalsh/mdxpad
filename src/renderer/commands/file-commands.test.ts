@@ -94,6 +94,8 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
       export: vi.fn().mockResolvedValue({ success: true, data: { path: '/test/path' } }),
       validate: vi.fn().mockResolvedValue({ success: true, data: { valid: true, errors: [] } }),
       createFromTemplate: vi.fn().mockResolvedValue({ success: true, data: { content: '' } }),
+      showOpenDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+      showSaveDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
     },
     ...overrides,
   };
