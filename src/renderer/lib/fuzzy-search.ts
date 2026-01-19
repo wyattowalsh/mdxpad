@@ -8,59 +8,25 @@
 import type {
   NormalizedShortcut,
   FuzzyMatchResult,
+  ShortcutBinding,
 } from '@shared/types/commands';
-import { NormalizedShortcutSchema } from '@shared/types/commands';
 
 // =============================================================================
 // SHORTCUT NORMALIZATION
 // =============================================================================
 
 /**
- * Normalizes a keyboard shortcut string to a consistent format.
- * Handles platform-specific modifiers (Cmd on Mac, Ctrl on Windows/Linux).
+ * Normalizes a keyboard shortcut binding to a consistent format.
+ * Format: "Mod+Shift+Key" (modifiers sorted alphabetically + key)
  *
- * @param shortcut - Raw shortcut string (e.g., "Cmd+Shift+P", "Ctrl+K")
- * @returns Normalized shortcut string with modifiers in canonical order
+ * @param binding - Shortcut binding object with modifiers and key
+ * @returns Normalized shortcut string
  */
-export function normalizeShortcut(shortcut: string): NormalizedShortcut {
-  // Split by + and process each part
-  const parts = shortcut.split('+').map((p) => p.trim());
-  const modifiers: string[] = [];
-  let key = '';
-
-  for (const part of parts) {
-    const lower = part.toLowerCase();
-    if (lower === 'mod' || lower === 'cmd' || lower === 'command') {
-      modifiers.push('Mod');
-    } else if (lower === 'ctrl' || lower === 'control') {
-      modifiers.push('Ctrl');
-    } else if (lower === 'alt' || lower === 'option') {
-      modifiers.push('Alt');
-    } else if (lower === 'shift') {
-      modifiers.push('Shift');
-    } else if (lower === 'meta' || lower === 'win' || lower === 'super') {
-      modifiers.push('Meta');
-    } else {
-      // This is the key
-      key = part.length === 1 ? part.toUpperCase() : part;
-    }
-  }
-
-  // Sort modifiers in canonical order: Mod, Ctrl, Alt, Shift, Meta
-  const order = ['Mod', 'Ctrl', 'Alt', 'Shift', 'Meta'];
-  modifiers.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-
-  // Build normalized shortcut
-  const normalized = [...modifiers, key].join('+');
-
-  // Validate and brand
-  const result = NormalizedShortcutSchema.safeParse(normalized);
-  if (result.success) {
-    return result.data;
-  }
-
-  // Fallback: return as-is branded (may not be valid but allows graceful degradation)
-  return normalized as NormalizedShortcut;
+export function normalizeShortcut(binding: ShortcutBinding): NormalizedShortcut {
+  // Sort modifiers alphabetically for consistent ordering
+  const sortedModifiers = [...binding.modifiers].sort();
+  const parts = [...sortedModifiers, binding.key];
+  return parts.join('+') as NormalizedShortcut;
 }
 
 // =============================================================================
@@ -84,7 +50,7 @@ function fuzzyMatch(text: string, query: string): { score: number; matches: numb
   let score = 0;
 
   for (let i = 0; i < queryLower.length; i++) {
-    const queryChar = queryLower[i];
+    const queryChar = queryLower[i]!;
     const foundIndex = textLower.indexOf(queryChar, textIndex);
 
     if (foundIndex === -1) {
@@ -104,11 +70,12 @@ function fuzzyMatch(text: string, query: string): { score: number; matches: numb
     }
 
     // Bonus for matching at word boundaries
+    const prevChar = text[foundIndex - 1];
     const wordBoundaryBonus =
       foundIndex === 0 ||
-      text[foundIndex - 1] === ' ' ||
-      text[foundIndex - 1] === ':' ||
-      text[foundIndex - 1] === '-'
+      prevChar === ' ' ||
+      prevChar === ':' ||
+      prevChar === '-'
         ? 0.3
         : 0;
 
@@ -126,15 +93,15 @@ function fuzzyMatch(text: string, query: string): { score: number; matches: numb
  * Performs fuzzy search on a list of items.
  *
  * @typeParam T - Type of items being searched
- * @param items - Array of items to search
  * @param query - Search query string
- * @param getSearchText - Function to extract searchable text from an item
+ * @param items - Array of items to search
+ * @param accessor - Optional function to extract searchable text from an item
  * @returns Array of matched items with scores, sorted by score (highest first)
  */
 export function fuzzySearch<T>(
-  items: readonly T[],
   query: string,
-  getSearchText: (item: T) => string
+  items: readonly T[],
+  accessor?: (item: T) => string
 ): FuzzyMatchResult<T>[] {
   if (!query.trim()) {
     // Return all items with default score when no query
@@ -148,7 +115,7 @@ export function fuzzySearch<T>(
   const results: FuzzyMatchResult<T>[] = [];
 
   for (const item of items) {
-    const text = getSearchText(item);
+    const text = accessor ? accessor(item) : String(item);
     const match = fuzzyMatch(text, query);
 
     if (match) {
@@ -194,15 +161,16 @@ export function highlightMatches(text: string, matches: readonly number[]): High
 
   for (let i = 0; i < text.length; i++) {
     const isMatch = matchSet.has(i);
+    const char = text[i]!;
 
     if (isMatch !== currentIsMatch) {
       if (currentSegment) {
         segments.push({ text: currentSegment, isMatch: currentIsMatch });
       }
-      currentSegment = text[i];
+      currentSegment = char;
       currentIsMatch = isMatch;
     } else {
-      currentSegment += text[i];
+      currentSegment += char;
     }
   }
 
