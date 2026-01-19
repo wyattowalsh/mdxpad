@@ -10,6 +10,7 @@ import { enableMapSet } from 'immer';
 import type { CommandContext, CommandId } from '@shared/types/commands';
 import type { FileHandle, FileResult, FileError } from '@shared/types/file';
 import type { MdxpadAPI } from '../../preload/api';
+import type { AIApi } from '../../preload/ai-api';
 import { INITIAL_DOCUMENT_STATE } from '@shared/types/document';
 
 // Enable Immer MapSet plugin for Map/Set support in stores
@@ -62,6 +63,43 @@ import {
 // =============================================================================
 
 /**
+ * Create a mock AIApi for testing.
+ */
+function createMockAIApi(overrides: Partial<AIApi> = {}): AIApi {
+  return {
+    // Provider Management
+    listProviders: vi.fn().mockResolvedValue({ providers: [], activeProviderId: null }),
+    addProvider: vi.fn().mockResolvedValue({ success: true, providerId: 'test-provider' }),
+    updateProvider: vi.fn().mockResolvedValue({ success: true }),
+    removeProvider: vi.fn().mockResolvedValue({ success: true }),
+    setActiveProvider: vi.fn().mockResolvedValue({ success: true }),
+    validateProvider: vi.fn().mockResolvedValue({ valid: true, error: null }),
+    // Credential Management
+    setCredential: vi.fn().mockResolvedValue({ success: true }),
+    hasCredential: vi.fn().mockResolvedValue({ hasCredential: false }),
+    clearCredential: vi.fn().mockResolvedValue({ success: true }),
+    // AI Generation
+    generateText: vi.fn().mockResolvedValue({ text: 'Generated text', usage: null }),
+    generateStream: vi.fn().mockResolvedValue({ streamId: 'test-stream' }),
+    generateEmbed: vi.fn().mockResolvedValue({ embedding: [], usage: null }),
+    generateImage: vi.fn().mockResolvedValue({ url: 'data:image/png;base64,...', usage: null }),
+    // Usage Statistics
+    queryUsage: vi.fn().mockResolvedValue({ entries: [], totalTokens: 0, totalCost: 0 }),
+    exportUsage: vi.fn().mockResolvedValue({ path: '/tmp/usage.csv' }),
+    clearUsage: vi.fn().mockResolvedValue({ success: true, count: 0 }),
+    // Capability Detection
+    getCapability: vi.fn().mockResolvedValue({ capabilities: [], modelInfo: null }),
+    listModels: vi.fn().mockResolvedValue({ models: [] }),
+    refreshCapabilities: vi.fn().mockResolvedValue({ success: true }),
+    // Streaming Events
+    onStreamChunk: vi.fn(() => () => {}),
+    onStreamComplete: vi.fn(() => () => {}),
+    onStreamError: vi.fn(() => () => {}),
+    ...overrides,
+  };
+}
+
+/**
  * Create a mock MdxpadAPI for testing.
  */
 function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
@@ -97,6 +135,8 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     autosaveSettingsSet: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
     conflictResolve: vi.fn().mockResolvedValue({ ok: true }),
     onAutosaveSettingsChange: vi.fn(() => () => {}),
+    // AI API (Spec 028)
+    ai: createMockAIApi(),
     ...overrides,
   };
 }

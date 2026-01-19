@@ -31,6 +31,9 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.15",
+    "@ai-sdk/openai": "^3.0.12",
+    "@ai-sdk/openai-compatible": "^2.0.13",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-javascript": "^6.2.4",
@@ -58,6 +61,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@replit/codemirror-indentation-markers": "^6.5.3",
+    "ai": "^6.0.39",
     "chokidar": "5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -97,6 +101,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "happy-dom": "^15.0.0",
     "mdast-util-mdx-jsx": "^3.2.0",
+    "ollama-ai-provider": "^1.2.0",
     "playwright": "^1.49.0",
     "prettier": "^3.4.0",
     "react": "^19.0.0",

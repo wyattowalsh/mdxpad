@@ -1,153 +1,159 @@
-# Coverage Gap Analysis: Frontmatter Visual Editor
+# Coverage Gap Analysis: AI Provider Abstraction Layer
 
-**Feature**: `020-frontmatter-editor`
-**Analyzed**: 2026-01-17
-**Documents**: spec.md, plan.md, tasks.md
+**Feature Branch**: `028-ai-provider-abstraction`
+**Analysis Date**: 2026-01-17
+**Artifacts Analyzed**: spec.md, plan.md, tasks.md
 
 ---
 
-## Coverage Mapping Table
+## A. Issues Table
+
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|----------|-------------|---------|----------------|
+| GAP-001 | Medium | FR-012 | FR-012 (clear error messages when provider connections fail) has no dedicated task | Add acceptance criteria to P:3.2 (ProviderService) or P:5.3 (ProviderForm) covering error message quality |
+| GAP-002 | Low | FR-015 | FR-015 (rate limit with wait time + alternate provider suggestion) only partially covered in P:4.3 acceptance criteria | Add explicit UI component task or acceptance criteria in ProviderSettings for rate limit banner display |
+| GAP-003 | Low | SC-002 | SC-002 (credentials never stored in plain text/logged) has no explicit security audit task | Add security audit step to P:6.3 with specific credential storage verification |
+| GAP-004 | Low | SC-004 | SC-004 (usage stats accurate within 1%) referenced in P:3.6 but no comparison test task exists | Add acceptance criterion to P:6.1 or P:6.2 with mock provider comparison test |
+| GAP-005 | Medium | US1 Scenario 3 | US1-3 (invalid API key shows error without storing) has no explicit test task | Add E2E test case in P:6.2 configure-provider.test.ts |
+| GAP-006 | Low | US2 Scenario 3 | US2-3 (re-authentication prompt for invalid provider) has no task or test | Add acceptance criteria to P:5.4 ProviderList or P:5.5 ProviderSettings |
+| GAP-007 | Medium | US3 Scenario 2 | US3-2 (time period filtering in usage view) implicit in P:5.6 but not explicit acceptance criterion | Add acceptance criterion "[ ] Time period filter updates displayed statistics" to P:5.6 |
+| GAP-008 | Low | US3 Scenario 3 | US3-3 (estimated costs displayed) covered by FR-008 but no explicit UI test | Add E2E test for cost display in P:6.2 |
+| GAP-009 | Low | US4 Scenario 2 | US4-2 (local endpoint lists available models) covered by P:3.4 but no UI test | Add E2E test for local provider model listing |
+| GAP-010 | Low | US4 Scenario 3 | US4-3 (troubleshooting hints for unreachable endpoint) has no task | Add acceptance criterion to P:5.3 ProviderForm for local endpoint error messages |
+| GAP-011 | Low | US5 Scenario 2 | US5-2 (update key replaces old in secure storage) covered by P:3.1 but no explicit UI flow test | Add acceptance criterion to P:5.3 for key update flow |
+| GAP-012 | Low | US5 Scenario 3 | US5-3 (remove provider purges credentials) covered by P:3.2 but no explicit verification test | Add integration test assertion in P:6.1 |
+| GAP-013 | Medium | Edge Case | Edge case "network connectivity loss during validation" has no handling task | Add network error handling to P:3.2 validateProvider method |
+| GAP-014 | Low | Edge Case | Edge case "provider API deprecation" has no monitoring/handling task | Document as out-of-scope or add future task placeholder |
+| GAP-015 | Low | Edge Case | Edge case "usage tracking storage limits" has no explicit handling | Add acceptance criterion to P:3.6 for storage pruning behavior |
+| GAP-016 | Low | Tasks Summary | tasks.md summary says "30 tasks" but Parallelism Metrics says "24 tasks" | Reconcile task count (actual count is 30 per detailed list) |
+
+---
+
+## B. Coverage Summary Table
 
 ### Functional Requirements Coverage
 
-| Requirement | Has Task? | Task IDs | Notes |
-|-------------|-----------|----------|-------|
-| FR-001: Parse YAML frontmatter to form fields | Yes | T003 | Parser implementation |
-| FR-002: Serialize form changes to YAML | Yes | T003 | Parser handles stringify |
-| FR-003: Toggle visual/raw modes | Yes | T020, T021, T022 | Phase 4 |
-| FR-004: Preserve data integrity on mode switch | Yes | T022, T023 | Mode toggle validation |
-| FR-005: Support field types (text, textarea, number, boolean, date, array, object) | Partial | T007-T012, T038 | ObjectField in Phase 8 |
-| FR-006: Common field suggestions | Yes | T024, T025 | AddFieldDropdown |
-| FR-007: Allow adding custom fields | Partial | T026 | Implicit in addField action, no explicit custom field UX task |
-| FR-008: Allow removing fields | **NO** | - | **GAP: No removeField task** |
-| FR-009: Bidirectional sync < 300ms | Yes | T017, T018 | Sync implementation |
-| FR-010: Validate and display errors | Yes | T028-T032 | Phase 6 |
-| FR-011: Infer field types from values | Yes | T004 | Type inference |
-| FR-012: Schema detection (project config, user settings) | Partial | T033-T037 | Project config handled, user settings default unclear |
-| FR-013: Appropriate input controls per type | Yes | T007-T012, T013 | Field components + registry |
-| FR-014: Handle empty frontmatter | Yes | T047 | Empty state UI |
-| FR-015: Handle no frontmatter (offer to add) | Partial | T047 | Empty state, but no explicit "add frontmatter" action |
-| FR-016: Preserve YAML formatting | Partial | T003 | Implied in parser, no explicit test task |
-| FR-017: Validation indicators on toggle | Yes | T032 | Error badge |
-
-### User Story Acceptance Criteria Coverage
-
-#### User Story 1 - Edit Frontmatter via Form (P1)
-
-| Acceptance Criterion | Has Task? | Task IDs | Notes |
-|---------------------|-----------|----------|-------|
-| AC1: Form populated from existing frontmatter | Yes | T003, T014 | Parser + FrontmatterForm |
-| AC2: Text field changes sync < 300ms | Yes | T017, T018 | Sync implementation |
-| AC3: Date field with date picker | Yes | T011 | DateField component |
-| AC4: Tags/array with tag input | Yes | T012 | ArrayField component |
-| AC5: Boolean with checkbox/switch | Yes | T010 | BooleanField component |
-
-#### User Story 2 - Toggle Visual/Raw Modes (P1)
-
-| Acceptance Criterion | Has Task? | Task IDs | Notes |
-|---------------------|-----------|----------|-------|
-| AC1: Toggle button shows raw YAML | Yes | T020, T021 | RawEditor + Toggle UI |
-| AC2: Edit raw YAML, switch to visual shows updated | Yes | T022 | Mode state |
-| AC3: Unsaved changes preserved on toggle | Yes | T022 | Mode state handling |
-| AC4: Invalid YAML shows error, stays in raw | Yes | T023 | Mode switch validation |
-
-#### User Story 3 - Add Common Fields (P2)
-
-| Acceptance Criterion | Has Task? | Task IDs | Notes |
-|---------------------|-----------|----------|-------|
-| AC1: "Add Field" shows dropdown | Yes | T024 | AddFieldDropdown |
-| AC2: Select "title" adds title field | Yes | T025, T026 | Suggestions + addField |
-| AC3: Select "date" adds date picker | Yes | T025, T026 | Field type mapping |
-| AC4: Select "tags" adds array field | Yes | T025, T026 | Field type mapping |
-| AC5: Custom field name adds text input | Partial | T026 | addField action, but no explicit custom name UX |
-
-#### User Story 4 - Field Validation (P2)
-
-| Acceptance Criterion | Has Task? | Task IDs | Notes |
-|---------------------|-----------|----------|-------|
-| AC1: Invalid date shows error | Yes | T028, T031 | Validation + field display |
-| AC2: Empty required field shows error | Partial | T028, T030 | Validation lib, but "required" needs schema |
-| AC3: Correct value clears error | Yes | T030, T031 | Real-time validation state |
-| AC4: Validation indicator on toggle | Yes | T032 | Error badge |
-
-#### User Story 5 - Schema Detection (P3)
-
-| Acceptance Criterion | Has Task? | Task IDs | Notes |
-|---------------------|-----------|----------|-------|
-| AC1: Schema applies field types/validation | Yes | T033, T034 | Schema loading + zod converter |
-| AC2: No schema = infer from values | Yes | T004 | Type inference |
-| AC3: Schema descriptions as tooltips | Yes | T036 | Tooltip integration |
+| Requirement Key | Has Task? | Task IDs | Notes |
+|-----------------|-----------|----------|-------|
+| FR-001 | Yes | P:1.1, P:2.1, P:2.2, P:2.3, P:3.2, P:3.8, P:4.1, P:5.1, P:5.2, P:5.3, P:5.5, P:5.8 | Well covered across all phases |
+| FR-002 | Yes | P:3.1, P:4.2, P:6.1 | Credential security covered |
+| FR-003 | Yes | P:3.2, P:4.1, P:6.1 | Validation before storage covered |
+| FR-004 | Yes | P:3.2, P:4.1, P:5.4 | CRUD operations covered |
+| FR-005 | Yes | P:3.2, P:4.1, P:5.4 | Active provider designation covered |
+| FR-006 | Yes | P:3.6, P:4.4, P:5.6 | Usage metrics tracking covered |
+| FR-007 | Yes | P:3.6, P:4.4, P:5.6 | Time period statistics covered |
+| FR-008 | Yes | P:3.6, P:4.4, P:5.6 | Cost estimation covered |
+| FR-009 | Yes | P:5.3 | Local model support covered |
+| FR-010 | Yes | P:3.2, P:6.1 | Config persistence covered |
+| FR-011 | Yes | P:3.1, P:4.2, P:5.3 | Key masking covered |
+| FR-012 | Partial | P:2.4 | Error types defined; no UI error display task |
+| FR-013 | Yes | P:3.1, P:5.5 | Keychain fallback covered |
+| FR-014 | Yes | P:1.1, P:3.5, P:4.3 | AI operations covered |
+| FR-015 | Partial | P:4.3 | Rate limit handling in IPC; no UI display task |
+| FR-016 | Yes | P:3.3, P:3.4, P:4.5, P:5.7 | Capability matrix covered |
+| FR-017 | Yes | P:3.5, P:4.3 | Streaming with fallback covered |
+| FR-018 | Yes | P:3.7 | Onboarding analytics covered |
 
 ### Success Criteria Coverage
 
 | Success Criterion | Has Task? | Task IDs | Notes |
-|------------------|-----------|----------|-------|
-| SC-001: Edit without YAML knowledge | Yes | T007-T016, T019 | Visual form implementation |
-| SC-002: Mode toggle preserves data 100% | Partial | T022, T023 | Implementation tasks, but no E2E validation task |
-| SC-003: Sync < 300ms | Partial | T050 | Performance validation task, but no performance test |
-| SC-004: Type inference 95% accuracy | **NO** | - | **GAP: No accuracy validation task** |
-| SC-005: Validation < 100ms | Partial | T050 | General performance check, no specific validation |
-| SC-006: Panel open < 200ms | Partial | T050 | General performance check, no specific validation |
-| SC-007: Code compiles and passes quality gates | Yes | T048 | Final build validation |
+|-------------------|-----------|----------|-------|
+| SC-001 | Yes | P:6.2 | E2E test with <2 min requirement |
+| SC-002 | Partial | P:3.1, P:6.3 | Referenced in verify but no explicit audit step |
+| SC-003 | Yes | P:6.1, P:6.2 | Integration and E2E tests |
+| SC-004 | Partial | P:3.6 | Mentioned in acceptance but no comparison test |
+| SC-005 | Yes | P:3.2 | Max 10 providers enforcement |
+| SC-006 | Yes | P:3.7, P:6.2 | Onboarding analytics + E2E |
+
+### User Stories Coverage
+
+| User Story | Has Task? | Task IDs | Notes |
+|------------|-----------|----------|-------|
+| US1 (Configure First Provider) | Yes | P:5.3, P:5.4, P:5.5, P:6.2 | All scenarios covered except explicit invalid key test |
+| US2 (Switch Between Providers) | Yes | P:5.4, P:5.5, P:6.2 | Missing re-auth prompt scenario |
+| US3 (View Usage Statistics) | Yes | P:5.6, P:6.2 | Missing explicit time filter test |
+| US4 (Configure Local Model) | Partial | P:3.4, P:5.3 | Missing troubleshooting hints UI |
+| US5 (Manage API Key Security) | Yes | P:3.1, P:5.3, P:5.4, P:5.5 | Missing explicit key update flow test |
 
 ### Edge Cases Coverage
 
 | Edge Case | Has Task? | Task IDs | Notes |
 |-----------|-----------|----------|-------|
-| Deeply nested objects (collapsible tree) | Yes | T038, T039 | ObjectField component |
-| YAML features not in form (anchors, aliases) | **NO** | - | **GAP: No warning/raw mode fallback task** |
-| No frontmatter (empty state, add option) | Partial | T047 | Empty state, no "add frontmatter" action |
-| Malformed delimiters | **NO** | - | **GAP: No error display or fix task** |
-| Mode switch during typing (debounce) | Implicit | T017 | Sync has debounce, no explicit test |
-| Simultaneous panel/document edits | Partial | T017 | Last-write-wins in sync, no conflict test |
+| Keychain locked/unavailable | Yes | P:3.1, P:5.5 | Session fallback implemented |
+| Network loss during validation | No | - | No explicit handling |
+| Provider API changes/deprecation | No | - | No handling defined |
+| Rate limit errors | Yes | P:4.3 | Handler implemented |
+| Usage storage limits | Partial | P:3.6 | Pruning mentioned but not explicit acceptance |
 
 ---
 
-## Gap Findings
+## C. Metrics Summary
 
-| ID | Severity | Location(s) | Summary | Recommendation |
-|----|----------|-------------|---------|----------------|
-| GAP-001 | **HIGH** | FR-008 | **No task for removeField action** - Users cannot delete frontmatter fields | Add task T051: "Add removeField action to store and delete button to field components" |
-| GAP-002 | **MEDIUM** | SC-004 | **No type inference accuracy validation** - 95% accuracy criterion has no test | Add task T052: "Create type inference accuracy test suite with >= 50 sample values" |
-| GAP-003 | **MEDIUM** | Edge Case | **No handling for unsupported YAML features** - Anchors, aliases, complex multi-line need warning + raw mode | Add task T053: "Detect unsupported YAML features and display warning with raw mode option" |
-| GAP-004 | **MEDIUM** | Edge Case | **No malformed frontmatter handling** - Broken `---` delimiters not addressed | Add task T054: "Detect malformed frontmatter delimiters and offer fix/recovery" |
-| GAP-005 | **MEDIUM** | FR-015 | **No explicit "add frontmatter" action** - T047 covers empty state UI but not the action to add frontmatter block | Extend T047 or add T055: "Implement addFrontmatter action for documents without frontmatter" |
-| GAP-006 | **LOW** | SC-003, SC-005, SC-006 | **No specific performance test tasks** - T050 is manual verification, no automated perf tests | Add task T056: "Create performance test suite for panel open < 200ms, sync < 300ms, validation < 100ms" |
-| GAP-007 | **LOW** | FR-012 | **User settings defaults for schema unclear** - Tasks cover project config but not user settings fallback | Clarify T035: Ensure loadSchema falls back to user settings when no project schema exists |
-| GAP-008 | **LOW** | FR-016 | **YAML formatting preservation not explicitly tested** - Parser task implicit, no dedicated test | Add test case in T040: "Verify YAML formatting (indentation, quote style) preserved after round-trip" |
-| GAP-009 | **LOW** | US3-AC5 | **Custom field name UX not explicit** - addField action exists but no task for custom field name input UI | Extend T024/T025: Add custom field name input option to AddFieldDropdown |
-| GAP-010 | **LOW** | SC-002, Edge Cases | **No E2E test for mode toggle data integrity** - Implementation tasks exist but no E2E validation | Add E2E test case: "Verify data integrity across 10+ mode toggles with various field types" |
+| Metric | Count |
+|--------|-------|
+| **Total Functional Requirements** | 18 |
+| **FR with Full Task Coverage** | 16 |
+| **FR with Partial Coverage** | 2 |
+| **FR with No Coverage** | 0 |
+| **FR Coverage Rate** | 88.9% (full) / 100% (partial+full) |
+| | |
+| **Total Success Criteria** | 6 |
+| **SC with Full Task Coverage** | 4 |
+| **SC with Partial Coverage** | 2 |
+| **SC with No Coverage** | 0 |
+| **SC Coverage Rate** | 66.7% (full) / 100% (partial+full) |
+| | |
+| **Total User Stories** | 5 |
+| **US with Full Task Coverage** | 3 |
+| **US with Partial Coverage** | 2 |
+| **US with No Coverage** | 0 |
+| **US Coverage Rate** | 60.0% (full) / 100% (partial+full) |
+| | |
+| **Total Tasks in tasks.md** | 30 |
+| **Tasks with FR Mapping** | 28 |
+| **Orphan Tasks (no FR mapping)** | 2 (P:3.8, P:4.6 - infrastructure tasks) |
+| | |
+| **Total Acceptance Scenarios** | 16 |
+| **Scenarios with Explicit Tests** | 10 |
+| **Scenarios Needing Test Coverage** | 6 |
 
 ---
 
-## Summary
+## D. Recommendations Summary
 
-### Coverage Statistics
+### High Priority (Address Before Implementation)
 
-| Category | Total | Covered | Partial | Gaps |
-|----------|-------|---------|---------|------|
-| Functional Requirements (FR-001 to FR-017) | 17 | 12 | 4 | **1** |
-| User Story Acceptance Criteria | 18 | 15 | 3 | **0** |
-| Success Criteria (SC-001 to SC-007) | 7 | 4 | 2 | **1** |
-| Edge Cases | 6 | 2 | 2 | **2** |
-| **TOTAL** | 48 | 33 (69%) | 11 (23%) | **4 (8%)** |
+1. **GAP-001/GAP-002**: Add explicit UI error handling acceptance criteria to ProviderForm and ProviderSettings for connection failures and rate limits
+2. **GAP-005**: Add E2E test case for invalid API key rejection scenario
+3. **GAP-013**: Define network error handling behavior for provider validation
 
-### Critical Gaps (HIGH severity)
+### Medium Priority (Address During Implementation)
 
-1. **GAP-001**: No removeField capability - blocks core editing workflow
+4. **GAP-003/SC-002**: Add security audit checklist item verifying no plain-text credential storage
+5. **GAP-004/SC-004**: Add usage accuracy comparison test against mock provider
+6. **GAP-006**: Define re-authentication flow for providers with invalid credentials
 
-### Recommended Actions
+### Low Priority (Address During Testing Phase)
 
-1. **Immediate**: Add T051 for removeField action (blocks complete form editing)
-2. **Before Phase 9**: Add T052-T054 for edge cases and validation accuracy
-3. **Before Phase 10**: Add T055-T056 for add frontmatter and performance tests
-4. **During Implementation**: Address LOW severity gaps as part of existing tasks
+7. **GAP-007 through GAP-012**: Add explicit acceptance criteria or test cases for remaining user story scenarios
+8. **GAP-014/GAP-015**: Document edge case handling decisions (defer vs implement)
+9. **GAP-016**: Fix task count discrepancy in tasks.md summary
 
-### Orphaned Tasks Analysis
+---
 
-All tasks (T001-T050) map to requirements, user stories, or support infrastructure. No orphaned tasks detected.
+## E. Coverage Visualization
 
-### Unmapped Stories/Requirements
+```
+Functional Requirements (18 total)
+[================||] 88.9% Full / 100% Any
 
-- FR-008 (removeField) has zero task coverage - **CRITICAL**
-- SC-004 (type inference accuracy) has zero validation task - **MEDIUM**
+Success Criteria (6 total)
+[============|---] 66.7% Full / 100% Any
+
+User Stories (5 total)
+[============|---] 60.0% Full / 100% Any
+
+Legend: [=] Full coverage  [|] Partial  [-] None
+```
+
+**Overall Assessment**: The task list provides good coverage of core requirements. Primary gaps are in edge case handling, explicit UI error scenarios, and verification tests for success criteria. No functional requirements are completely uncovered.

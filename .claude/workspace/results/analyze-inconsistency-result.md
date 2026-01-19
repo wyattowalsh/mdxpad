@@ -1,62 +1,49 @@
-# Inconsistency Analysis: Frontmatter Visual Editor (020)
+# Inconsistency Analysis: AI Provider Abstraction Layer
 
-**Analyzed Files**:
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/spec.md`
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/plan.md`
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/tasks.md`
-
+**Feature Branch**: `028-ai-provider-abstraction`
 **Analysis Date**: 2026-01-17
+**Files Analyzed**: 6
 
 ---
 
-## Findings
+## Inconsistency Issues Detected
 
 | ID | Severity | Location(s) | Summary | Recommendation |
 |----|----------|-------------|---------|----------------|
-| INC-001 | Low | plan.md (lines 96-106), tasks.md (lines 410-413, 425) | **Test file path inconsistency**: plan.md specifies test files at `tests/unit/frontmatter/*.test.ts` and `tests/e2e/frontmatter-editor.spec.ts`, but tasks.md places tests at `src/renderer/lib/frontmatter/__tests__/*.test.ts` and `src/renderer/stores/frontmatter-store.test.ts` | Align on one convention. The tasks.md co-location pattern (`__tests__/` adjacent to source) appears to be the preferred modern approach. Update plan.md project structure section to match tasks.md. |
-| INC-002 | Low | spec.md (line 139), tasks.md (Phase 3 Batch 3.1) | **FieldType enumeration completeness**: spec.md Key Entities defines FieldType as "text, textarea, number, boolean, date, array, object", but Phase 3 Batch 3.1 tasks (T007-T013) do not include ObjectField - it appears separately in Phase 8. This is not strictly inconsistent but could cause confusion. | Add a note in tasks.md Phase 3 clarifying ObjectField is deferred to Phase 8 as an edge case, or reference spec.md edge case section for nested objects. |
-| INC-003 | Low | plan.md (line 14), tasks.md (lines 633-646, 652-656) | **Phase dependency diagram inconsistency**: The ASCII dependency chart (lines 633-646) shows Phases 3-8 branching directly from Phase 2, but the "User Story Independence" table (lines 652-656) correctly states US2-US5 depend on "US1 Batch 3.4" (T019 integration). The mermaid graph correctly shows T019 as the dependency point. | Update the text diagram at lines 633-646 to show Phases 4-8 branch from Phase 3 (after T019), not Phase 2, to match the dependency table and mermaid graph. |
-| INC-004 | Medium | spec.md (line 128, FR-010), plan.md (lines 85-91), tasks.md (T028) | **Missing validation.ts in plan.md project structure**: spec.md FR-010 requires field validation, and tasks.md creates `validation.ts` (T028), but plan.md's project structure section (lines 85-91) does not list `src/renderer/lib/frontmatter/validation.ts` in the lib folder | Add `validation.ts` to the plan.md project structure under `src/renderer/lib/frontmatter/` |
-| INC-005 | Low | spec.md (line 169), plan.md (line 19), tasks.md (passim) | **Panel location terminology consistency**: spec.md says "collapsible panel in the application sidebar", plan.md says "Collapsible sidebar panel" and "runs in sidebar alongside editor", tasks.md just says "panel". All consistent in meaning but slight terminology variation. | No action needed - semantically consistent. |
+| INC-001 | Medium | plan.md (line 37), tasks.md (Phase 2.3, line 190-204) | **IPC channel count mismatch**: plan.md states "5 channels: provider, credential, generate, usage, capability" but also includes streaming event channels (`mdxpad:ai:stream:chunk`, `mdxpad:ai:stream:complete`, `mdxpad:ai:stream:error`) in ipc-channels.md (lines 352-376). These are send/on channels, not invoke/handle, but they still count against the channel namespace. | Clarify whether streaming event channels are counted separately or update plan.md to reflect the actual channel structure (5 invoke/handle domains + 3 streaming event channels). |
+| INC-002 | Low | data-model.md (line 51), ipc-channels.md (line 549) | **ProviderType values alignment**: Both files define the same 5 provider types (`openai`, `anthropic`, `ollama`, `lmstudio`, `openai-compatible`), which is consistent. However, plan.md (line 8) and spec.md (line 71) reference "local models like Ollama/LM Studio" without mentioning `openai-compatible`. | Add `openai-compatible` to the user-facing documentation in spec.md for completeness. |
+| INC-003 | Medium | tasks.md (line 86-87), tasks.md (line 966-975) | **Task count discrepancy**: The Parallelism Metrics section states "Total Tasks: 24" but the Summary table shows "Total: 30 tasks across 6 phases". Manual count confirms 30 distinct task entries ([P:1.1] through [P:6.3]). | Update Parallelism Metrics to show "Total Tasks: 30". |
+| INC-004 | Low | data-model.md (line 219-227), ipc-channels.md (line 564-572) | **ProviderCapability representation inconsistency**: data-model.md defines `ProviderCapability` as a TypeScript enum, while ipc-channels.md defines `ProviderCapabilitySchema` as a Zod enum with the same values. The values are consistent, but the runtime representation differs (TypeScript enum vs. string literal union). | Ensure the implementation uses Zod schema inference (`z.infer<typeof ProviderCapabilitySchema>`) rather than the TypeScript enum to maintain consistency, or explicitly note that both exist for different purposes. |
+| INC-005 | High | tasks.md (line 57-74), tasks.md (Phase 3 dependencies) | **Dependency graph inconsistency**: The Mermaid diagram shows `T2_1 & T2_4 --> T3_1 & T3_2` but [P:3.2] ProviderService (line 312) lists dependencies as `[P:2.1], [P:2.4], [P:3.1]`, meaning it depends on CredentialService. The diagram shows T3_1 and T3_2 as parallel, but the task description indicates T3_2 depends on T3_1. | Update the Mermaid diagram to correctly show `T2_1 & T2_4 --> T3_1` and `T3_1 --> T3_2`, reflecting the actual dependency chain. |
+| INC-006 | Low | service-interfaces.md (line 400), data-model.md (line 156) | **UsageRecord method signature alignment**: `IUsageService.recordUsage()` accepts `Omit<UsageRecord, 'id'>` but data-model.md shows `UsageRecord` with `readonly id`, `readonly providerId`, `readonly modelId`, etc. The `Omit` is correct, but the interface should also omit `timestamp` since it's `readonly`. | Update service-interfaces.md to use `Omit<UsageRecord, 'id' | 'timestamp'>` or clarify that timestamp is set by the service. |
+| INC-007 | Medium | spec.md (line 148), tasks.md (line 309) | **Maximum provider count variance**: SC-005 states "at least 5 different provider configurations simultaneously" but tasks.md [P:3.2] says "Enforces max 10 providers" and data-model.md (line 100) says "Maximum 10 providers (SC-005 requires at least 5, cap at 10 for UX)". The spec says "at least 5" as a minimum requirement, which is consistent, but the phrasing could be clearer. | This is actually consistent upon closer reading (5 minimum per SC-005, 10 maximum per implementation). No change needed, but consider adding clarification to spec.md if desired. |
+| INC-008 | Low | tasks.md (line 330-338), Anthropic model naming | **Anthropic model naming convention**: Tasks.md lists `claude-opus-4-5-20250929` and `claude-sonnet-4-5-20250929` but the actual Anthropic model naming pattern uses dates like `20241022` or `20240229`. The dates `20250929` appear to be future dates (September 2025). | Verify and update model IDs to match current Anthropic model naming conventions, or note these are placeholder/anticipated model names. |
+| INC-009 | Medium | ipc-channels.md (line 337), tasks.md (line 580-584) | **Stream channel naming inconsistency**: ipc-channels.md defines `mdxpad:ai:stream:chunk`, `mdxpad:ai:stream:complete`, `mdxpad:ai:stream:error` but tasks.md [P:4.3] references the pattern as `webContents.send('mdxpad:ai:stream:chunk', ...)` without listing these in the IPC channel definitions file ([P:2.3]). | Add the streaming event channels to [P:2.3] task scope, or clarify they are renderer-only receive channels defined separately. |
+| INC-010 | Low | spec.md (line 14), plan.md, tasks.md | **Feature scope terminology**: spec.md FR-014 lists "text generation, embeddings, image generation, agents, multiagent systems, and deep agents" but the data model's `OperationType` (data-model.md line 147-152) only includes `agent-execution`, not separate types for multiagent/deep agents. | Either add `multiagent-execution` and `deep-agent-execution` to OperationType, or clarify that all agent-related operations use the single `agent-execution` type. |
 
 ---
 
-## Summary
+## Summary Statistics
 
-**Total Issues Found**: 5
-- **High Severity**: 0
-- **Medium Severity**: 1 (INC-004)
-- **Low Severity**: 4 (INC-001, INC-002, INC-003, INC-005)
-
-The documents are generally well-aligned. The most actionable finding is **INC-004** where the plan.md project structure is missing the `validation.ts` file that is clearly required by the spec and created in tasks. The test path inconsistency (INC-001) should also be resolved before implementation begins.
-
-No critical conflicts or blocking inconsistencies were detected. The feature can proceed to implementation with minor plan.md updates recommended.
-
----
-
-## Detailed Analysis
-
-### Areas Checked
-
-1. **Terminology drift**: Checked naming of panel, form, fields, modes across all three files
-2. **Data entities**: Verified FrontmatterData, FrontmatterField, FrontmatterSchema, FieldType, ValidationResult referenced consistently
-3. **Task ordering**: Confirmed dependency graph matches stated dependencies
-4. **File paths**: Compared project structure in plan.md vs actual task file paths
-5. **Conflicting requirements**: None found - all three documents align on bidirectional sync, 300ms latency, validation feedback
-
-### Consistency Verified
-
-| Aspect | Status |
-|--------|--------|
-| Field types enumeration | Consistent (text, textarea, number, boolean, date, array, object) |
-| Performance thresholds | Consistent (200ms panel open, 300ms sync, 100ms validation) |
-| Storage mechanism | Consistent (localStorage for panel visibility) |
-| Schema file name | Consistent (`frontmatter.schema.json`) |
-| Store name | Consistent (`frontmatter-store.ts`) |
-| Mode naming | Consistent (visual/raw modes) |
-| Sync direction | Consistent (bidirectional) |
+| Metric | Value |
+|--------|-------|
+| Total Inconsistencies Found | 10 |
+| High Severity | 1 |
+| Medium Severity | 4 |
+| Low Severity | 5 |
+| Files with Issues | 5/6 |
 
 ---
 
-**Status**: PASSED with minor recommendations
-**Confidence Level**: High
+## Critical Path Impact
+
+The most significant inconsistency is **INC-005** (High Severity), which affects task dependency ordering. If developers follow the Mermaid diagram, they may attempt to implement ProviderService in parallel with CredentialService, when the task description indicates ProviderService depends on CredentialService. This could cause integration failures.
+
+---
+
+## Recommendations
+
+1. **Immediate**: Fix INC-005 by correcting the Mermaid dependency graph to show `T3_1 --> T3_2`
+2. **Before Implementation**: Fix INC-003 (task count) and INC-009 (streaming channel scope) for accurate tracking
+3. **During Implementation**: Address INC-001 and INC-004 to ensure consistent type handling
+4. **Optional**: Address low-severity items (INC-002, INC-006, INC-008, INC-010) for documentation clarity

@@ -1,37 +1,65 @@
-# Duplication Analysis: Frontmatter Visual Editor (020)
+# Duplication Analysis: AI Provider Abstraction Layer
 
-**Analyzed Files**:
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/spec.md`
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/plan.md`
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/tasks.md`
-
+**Feature Branch**: `028-ai-provider-abstraction`
 **Analysis Date**: 2026-01-17
-
----
-
-## Duplication Findings
-
-| ID | Severity | Location(s) | Summary | Recommendation |
-|----|----------|-------------|---------|----------------|
-| DUP-001 | Medium | FR-001, FR-002, FR-009 (spec.md lines 109, 110, 124) | Overlapping parsing/serialization/sync requirements. FR-001 covers parsing, FR-002 covers serialization, FR-009 covers bidirectional sync. These are conceptually related but FR-009 implicitly requires FR-001 and FR-002. | Consider consolidating FR-001, FR-002, and FR-009 into a single "bidirectional sync" requirement with sub-bullets for parse/serialize operations, OR clearly note that FR-009 supersedes FR-001/FR-002 for sync context. |
-| DUP-002 | Low | US1-AC2 (spec.md ln 21), FR-009 (spec.md ln 124), SC-003 (spec.md ln 148), plan.md ln 18 | The 300ms sync latency requirement appears in 4 separate places with identical wording. | Consolidate to a single authoritative location (likely FR-009) and reference it elsewhere. Currently creates maintenance burden if timing changes. |
-| DUP-003 | Low | US1-AC3, US1-AC4, US1-AC5, US3-AC2, US3-AC3, US3-AC4 (spec.md lines 22-24, 56-58) | Field type mentions are scattered across acceptance criteria. US1 mentions date/tags/boolean fields; US3 mentions title/date/tags. FR-005 already enumerates all field types comprehensively. | Remove specific field type mentions from AC where they duplicate FR-005. Keep only the behavioral aspect (e.g., "date field with date picker" becomes "appropriate input type"). |
-| DUP-004 | Low | T005 (tasks.md ln 122), T018 (tasks.md ln 195), T037 (tasks.md ln 366) | Three separate tasks for updating the same barrel export file (`src/renderer/lib/frontmatter/index.ts`). Each adds new exports but could be consolidated. | Consider a single "Create and maintain lib barrel export" task that accumulates exports, OR note that T018/T037 are incremental updates to T005's output. |
-| DUP-005 | Low | US4-AC1 (spec.md ln 73), US4-AC3 (spec.md ln 75) | AC1 and AC3 both describe validation error appearance/disappearance for the same scenario (invalid input -> error shown; valid input -> error cleared). AC3 is essentially the inverse/continuation of AC1. | Merge into single AC: "Given a field, when I enter an invalid value, then validation error appears; when I correct it, the error disappears immediately." |
-| DUP-006 | Low | Edge case ln 102-103 (spec.md), US2-AC3 (spec.md ln 40) | Both mention preserving changes when switching modes. US2-AC3: "unsaved changes preserved when toggling". Edge case: "mode switch waits for pending changes to sync". | Keep US2-AC3 as the canonical requirement; remove or reference from edge case section. |
-| DUP-007 | Informational | plan.md Summary (ln 8), spec.md line 6 | Near-duplicate feature descriptions. Plan summarizes spec input almost verbatim. | Acceptable duplication for context, no action needed. |
+**Files Analyzed**:
+- spec.md (165 lines)
+- plan.md (158 lines)
+- tasks.md (977 lines)
 
 ---
 
 ## Summary
 
-**Total Issues Found**: 7 (1 Medium, 5 Low, 1 Informational)
+**Total Duplication Issues Found**: 7
 
-**Most Impactful**: DUP-001 (FR-001/FR-002/FR-009 overlap) - These three requirements describe the same core capability (bidirectional YAML sync) from different angles. During implementation, a developer might implement them separately when they should be a single coherent subsystem.
+| Severity | Count |
+|----------|-------|
+| High     | 1     |
+| Medium   | 4     |
+| Low      | 2     |
 
-**No Critical Duplication**: The specification is generally well-organized. Most duplication is low-severity repetition of performance targets or field type enumerations that provides redundancy without contradiction.
+---
 
-**Recommendations Summary**:
-1. Consolidate the 300ms sync timing to FR-009 as the single source of truth
-2. Review FR-001/FR-002/FR-009 relationship - consider making FR-009 the primary requirement with FR-001/FR-002 as implementation details
-3. The barrel export tasks (T005, T018, T037) are acceptable as incremental updates but could note their relationship
+## Duplication Issues
+
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|----------|-------------|---------|----------------|
+| DUP-001 | High | spec.md FR-001, FR-004, FR-014 | Near-duplicate provider capability requirements. FR-001 says "unified interface for configuring multiple AI providers", FR-004 says "allow users to add, edit, and remove provider configurations", FR-014 says "provide a provider abstraction layer supporting..." - all overlap on provider management abstraction. | Consolidate: FR-001 should cover the unified interface only, FR-004 covers CRUD operations, FR-014 covers AI operation types. Remove "configuring" from FR-001 since FR-004 handles that. |
+| DUP-002 | Medium | spec.md FR-002 vs FR-013 | Overlapping credential storage requirements. FR-002 requires "store API credentials securely using the operating system's native keychain" while FR-013 handles "keychain access failures by prompting user to unlock; if unlock fails, offer session-only credentials". Both address secure credential storage. | Keep FR-002 for the happy path, FR-013 for fallback only. Add cross-reference "(see FR-013 for fallback)" to FR-002. |
+| DUP-003 | Medium | tasks.md P:3.8 vs P:5.8 | Duplicate "index and exports" tasks. [P:3.8] "Create service index and exports" and [P:5.8] "Create feature index and exports" are structurally identical boilerplate tasks for different layers. | Acceptable duplication - different scopes (main vs renderer). Consider templating but no action required. |
+| DUP-004 | Medium | spec.md US5 vs FR-011 | User Story 5 acceptance scenario 1 ("API key is displayed in masked format") duplicates FR-011 ("mask sensitive credential information in the UI"). | Remove explicit masking detail from US5.1, reference FR-011 instead: "...API key is displayed per FR-011". |
+| DUP-005 | Medium | plan.md "Key Technical Decisions" vs tasks.md Phase 3 descriptions | Capability detection approach stated twice: plan.md says "Hybrid Static + Dynamic" with "Static registry for OpenAI/Anthropic (no capability APIs), Dynamic probing for Ollama". tasks.md P:3.4 repeats: "Static registry lookup for OpenAI/Anthropic, Dynamic probe for Ollama". | Acceptable - tasks.md serves as standalone reference. However, ensure single source of truth if approach changes. |
+| DUP-006 | Low | spec.md FR-006 vs FR-007 | Slight overlap in usage tracking scope. FR-006: "track usage metrics per provider including request count and token usage". FR-007: "provide usage statistics viewable by time period". FR-006 covers tracking, FR-007 covers viewing, but "metrics" and "statistics" are used interchangeably. | Clarify terminology: FR-006 = "record" usage, FR-007 = "query/view" usage. Change FR-006 to "System MUST record usage metrics..." |
+| DUP-007 | Low | tasks.md FR Coverage annotations | Multiple tasks claim coverage of FR-001: P:1.1, P:2.1, P:2.2, P:2.3, P:3.8, P:5.1, P:5.2, P:5.8. This suggests FR-001 is too broad or FR Coverage is imprecise. | Narrow FR-001 scope or use sub-requirements (FR-001a, FR-001b) to improve traceability. Currently FR-001 acts as catch-all. |
+
+---
+
+## Metrics
+
+| Metric | Value |
+|--------|-------|
+| Requirements (FRs) | 18 |
+| User Stories | 5 |
+| Tasks | 30 |
+| Unique FR references in tasks | 18 |
+| Tasks with multiple FR coverage | 12 (40%) |
+| Cross-document redundancy instances | 3 |
+
+---
+
+## Recommendations Summary
+
+1. **Consolidate FR-001/FR-004/FR-014** - Highest impact, reduces requirement ambiguity
+2. **Add cross-references** between related FRs (e.g., FR-002 -> FR-013) to clarify relationships
+3. **Standardize terminology** - use "record" vs "query" for usage tracking distinction
+4. **Consider sub-requirements** for broad FRs like FR-001 to improve traceability
+
+---
+
+## No Issues Found In
+
+- Entity definitions (Provider, Credential, UsageRecord, ProviderConfig) are defined once in spec.md and referenced elsewhere
+- Task dependencies are well-structured without circular or duplicate paths
+- IPC channel definitions appear in one location (tasks.md P:2.3)
+- Zod schema definitions appear in one location (tasks.md P:2.2)

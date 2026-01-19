@@ -1,8 +1,8 @@
-# Integration Ambiguity Analysis: Smart Filtering for File Tree (Spec 014)
+# Integration Ambiguity Analysis for Spec 028-ai-provider-abstraction
 
 **Analyzed**: 2026-01-17
-**Category Focus**: Integration & External Dependencies
-**Spec File**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
+**Category Focus**: Integration (External Services/APIs, Failure Modes, Data Formats, Protocol/Versioning)
+**Spec**: 028-ai-provider-abstraction
 
 ---
 
@@ -10,279 +10,261 @@
 
 | Status | Count |
 |--------|-------|
-| Clear | 2 |
+| Clear | 0 |
 | Partial | 3 |
-| Missing | 4 |
+| Missing | 7 |
 
 ---
 
-## 1. Fuzzy Matching Algorithm/Library Selection
+## 1. API Version Compatibility Strategy
 
-**Category**: Integration
-**Status**: Partial
-**Location**: Assumptions, User Story 2, FR-003
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** Assumptions (API stability assumption)
 
-**What's Specified**:
-- "Fuzzy matching uses a standard algorithm like fzf-style matching for consistency with developer expectations"
-- FR-003: "System MUST support fuzzy matching where non-contiguous character sequences can match file/folder names"
-- User Story 2 mentions ranking by "match quality"
+**What's Specified:**
+- "AI providers maintain reasonably stable APIs with published pricing information"
 
-**What's Missing**:
-- No specific library identified (fuse.js, flexsearch, fzf-for-js, uFuzzy, custom implementation?)
-- No scoring/ranking algorithm specified for determining match quality
-- No threshold for what constitutes a valid match (minimum score?)
-- No specification of case sensitivity behavior (FR-003 is silent on this)
+**What's Missing:**
+- No strategy for handling API version changes from providers (OpenAI, Anthropic)
+- No specification of whether to pin to specific API versions, auto-upgrade, or provide configurable version selection
+- No deprecation handling policy
 
-**Question Candidate**: "Which fuzzy matching library should be used (e.g., fuse.js, flexsearch, fzf-for-js), or should a custom implementation be created? What scoring threshold determines a valid match, and should matching be case-insensitive by default?"
+**Question Candidate:** How should the system handle API version changes from providers (OpenAI, Anthropic)? Should it pin to specific API versions, auto-upgrade, or provide configurable version selection?
 
-**Impact Score**: 4/5
-*High: Library choice affects bundle size, performance, match quality, and user expectations. Different libraries produce different results for the same query.*
+**Impact Score:** 5
 
 ---
 
-## 2. File Tree Data Structure Interface
+## 2. OpenAI-Compatible Endpoint Compliance Level
 
-**Category**: Integration
-**Status**: Partial
-**Location**: Assumptions, FR-004, FR-009
+- **Category:** Integration
+- **Status:** Partial
+- **Location:** Assumptions (local model compatibility)
 
-**What's Specified**:
-- "File tree data structure is available from the file system shell (from spec 004)"
-- FR-004: "System MUST display parent folders of matching items to maintain tree structure context"
-- FR-009: "System MUST update filter results automatically when files are added, removed, or renamed"
+**What's Specified:**
+- "Local model providers expose OpenAI-compatible endpoints (common standard)"
 
-**What's Missing**:
-- No defined interface/contract for accessing file tree data from spec 004
-- No specification of the data structure format (nested tree, flat list with paths, observable?)
-- No protocol for subscribing to file system change events
-- No handling for race conditions during rapid file changes
+**What's Missing:**
+- No specification of which OpenAI endpoints must be supported
+- Different local providers (Ollama, LM Studio, llama.cpp, text-generation-webui) implement varying subsets
+- No clarification on `/v1/chat/completions` vs `/v1/completions` vs `/v1/embeddings` vs `/v1/models`
 
-**Question Candidate**: "What is the interface contract for accessing file tree data from spec 004? Is it exposed via Zustand store, IPC channel, or direct import? How should the filter component subscribe to file change events from the chokidar-based watcher?"
+**Question Candidate:** What level of OpenAI-compatible API compliance is required for local models? Should the system support only `/v1/chat/completions` or also `/v1/completions`, `/v1/embeddings`, and `/v1/models` endpoints?
 
-**Impact Score**: 4/5
-*High: This is the primary data source. Without a clear interface, implementation may create tight coupling or incompatible integration points.*
+**Impact Score:** 4
 
 ---
 
-## 3. File System Event Subscription Protocol
+## 3. Connection Failure and Retry Behavior
 
-**Category**: Integration
-**Status**: Missing
-**Location**: FR-009, implicit dependency on spec 004
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** FR-014 (uniform behavior requirement)
 
-**What's Specified**:
-- FR-009: "System MUST update filter results automatically when files are added, removed, or renamed"
-- Spec 004 uses chokidar 5.0.0 for file watching (per CLAUDE.md)
+**What's Specified:**
+- "System MUST provide a provider abstraction layer that enables AI features to work uniformly across different providers"
 
-**What's Missing**:
-- No mechanism specified for receiving file system events
-- No event format/payload defined
-- No debouncing/throttling strategy for rapid file changes
-- No handling for batch operations (e.g., git checkout changing many files)
-- No specification of whether events are per-file or batched
+**What's Missing:**
+- No specification for transient failure handling (network timeouts, rate limits, 5xx errors)
+- No retry policy (exponential backoff, max attempts, jitter)
+- No failover strategy to alternative providers
+- Cloud and local providers have very different failure characteristics
 
-**Question Candidate**: "How should the filter component subscribe to file system events from spec 004's chokidar-based watcher? What is the event payload format? Should debouncing be applied to handle rapid file changes (e.g., 100ms window)?"
+**Question Candidate:** What should happen when a provider connection fails? Should the system implement automatic retries with exponential backoff, failover to alternative providers, or simply surface errors to users?
 
-**Impact Score**: 4/5
-*High: Real-time updates are explicitly required. Without clear event protocol, filter results could become stale or cause performance issues.*
+**Impact Score:** 4
 
 ---
 
-## 4. Filter State Persistence Format
+## 4. Rate Limiting Handling
 
-**Category**: Integration
-**Status**: Missing
-**Location**: FR-007, User Story 5, Assumptions
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** Not addressed
 
-**What's Specified**:
-- FR-007: "System MUST persist the filter query across application sessions per project/workspace"
-- User Story 5 Scenario 3: "filter state is specific to that project"
-- Assumptions: "The application uses localStorage or similar mechanism for session persistence"
+**What's Specified:**
+- Mentions "published pricing information" in assumptions
 
-**What's Missing**:
-- No schema/format for persisted filter state
-- No key naming convention for per-project storage
-- No versioning strategy if schema changes
-- No migration path for existing sessions
-- No handling for localStorage quota exceeded
-- No specification of what "project/workspace" identifier to use as key
+**What's Missing:**
+- No handling for OpenAI 429 responses or Anthropic rate limits
+- No specification for request queuing or throttling
+- No user notification strategy for rate limit encounters
+- Different providers have different rate limiting models (TPM, RPM, tokens per day)
 
-**Question Candidate**: "What is the persistence schema for filter state? How should the localStorage key be structured for per-project scoping (e.g., `mdxpad:filter:${projectPath}`)? What versioning/migration strategy should handle schema changes?"
+**Question Candidate:** How should the system handle rate limiting from cloud providers (OpenAI 429, Anthropic rate limits)? Should it queue requests, inform users of wait times, or provide rate limit status visibility?
 
-**Impact Score**: 3/5
-*Medium: Affects long-term maintainability and user experience across updates. Core functionality works without persistence.*
+**Impact Score:** 4
 
 ---
 
-## 5. Keyboard Shortcut Registration
+## 5. Authentication Protocol Details
 
-**Category**: Integration
-**Status**: Missing
-**Location**: FR-006, User Story 4, Assumptions
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** FR-009, Provider entity
 
-**What's Specified**:
-- FR-006: "System MUST provide a keyboard shortcut to focus the filter input from anywhere in the application"
-- Assumptions: "Standard keyboard shortcut conventions apply (e.g., Cmd/Ctrl+Shift+E or similar unassigned shortcut)"
-- SC-004: "Keyboard shortcut to focus filter is discoverable (documented in UI or command palette)"
+**What's Specified:**
+- "System MUST support local model providers that don't require API keys"
+- Provider entity includes "credentials"
 
-**What's Missing**:
-- No integration with command palette (spec 005) specified
-- No conflict detection mechanism with existing shortcuts
-- No specification of exact shortcut key combination
-- No indication if shortcut should be user-configurable
-- No handling for when filter sidebar is hidden
+**What's Missing:**
+- No specification of authentication methods beyond API keys
+- No OAuth token support for enterprise scenarios
+- No Azure AD authentication (for Azure OpenAI)
+- No proxy authentication for enterprise environments
 
-**Question Candidate**: "Should the keyboard shortcut be registered via the command palette system from spec 005? What is the exact key combination, and how should conflicts with existing shortcuts be detected and resolved?"
+**Question Candidate:** What authentication methods must be supported beyond API keys? Should the system support OAuth tokens, Azure AD authentication (for Azure OpenAI), or proxy authentication for enterprise environments?
 
-**Impact Score**: 3/5
-*Medium: Affects discoverability and power-user workflow. Core filtering works without keyboard shortcut.*
+**Impact Score:** 3
 
 ---
 
-## 6. File Explorer Sidebar Integration Point
+## 6. Local Model Discovery Protocol
 
-**Category**: Integration
-**Status**: Partial
-**Location**: FR-001, Assumptions
+- **Category:** Integration
+- **Status:** Partial
+- **Location:** User Story 4
 
-**What's Specified**:
-- FR-001: "System MUST provide a text input field in the file explorer sidebar for entering filter queries"
-- Assumptions: "The file explorer sidebar already exists as part of the application shell (from spec 006)"
+**What's Specified:**
+- "Given user enters a valid local endpoint, When they test connection, Then available models are listed"
 
-**What's Missing**:
-- No specification of where in the sidebar the filter input should be placed (top, above tree, sticky header?)
-- No integration with existing sidebar component hierarchy
-- No handling for sidebar collapsed/expanded states
-- No specification of filter input dimensions or styling constraints
+**What's Missing:**
+- No specification of model discovery endpoint
+- Ollama uses `/api/tags`, LM Studio uses `/v1/models`
+- Some providers require model names to be known in advance
+- No handling for providers that don't support model listing
 
-**Question Candidate**: "Where exactly should the filter input be mounted within the file explorer sidebar from spec 006? Should it be a sticky header above the tree, and how should it behave when the sidebar is collapsed?"
+**Question Candidate:** How should the system discover available models from local providers? Should it call `/v1/models` endpoint, use provider-specific APIs (e.g., Ollama's `/api/tags`), or require manual model specification?
 
-**Impact Score**: 2/5
-*Low-Medium: Layout decisions are usually resolved during implementation, but clear placement avoids rework.*
+**Impact Score:** 3
 
 ---
 
-## 7. Match Result Data Structure
+## 7. Streaming Response Protocol
 
-**Category**: Integration
-**Status**: Missing
-**Location**: Key Entities section
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** Not addressed
 
-**What's Specified**:
-- "Match Result: A file or folder that matches the filter query, including match positions for highlighting"
-- FR-005: "System MUST visually highlight the matched portions of file/folder names"
-- User Story 3: "each matched character is individually highlighted even if non-contiguous"
+**What's Specified:**
+- Nothing about streaming responses
 
-**What's Missing**:
-- No data structure format for match positions (character indices, ranges, byte offsets?)
-- No specification of how non-contiguous fuzzy matches are represented
-- No interface between fuzzy matcher and highlighting component
-- No handling for Unicode/multi-byte characters in positions
+**What's Missing:**
+- No specification of Server-Sent Events (SSE) streaming support
+- OpenAI and Anthropic use SSE with different event formats
+- No handling for streaming failures mid-response
+- No buffering or partial response recovery strategy
 
-**Question Candidate**: "What data structure should represent match positions for highlighting? Should it be an array of character indices `[0, 3, 7]`, ranges `[{start: 0, end: 3}]`, or another format? How should Unicode characters be indexed?"
+**Question Candidate:** Must the provider abstraction support Server-Sent Events (SSE) streaming for real-time token delivery? How should streaming failures mid-response be handled?
 
-**Impact Score**: 3/5
-*Medium: Highlighting is P2 but directly impacts usability. Wrong format could cause incorrect highlighting.*
+**Impact Score:** 4
 
 ---
 
-## 8. Performance Threshold Requirements
+## 8. Credential Storage and Transmission Security
 
-**Category**: Integration
-**Status**: Clear
-**Location**: SC-002
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** Provider entity (credentials)
 
-**What's Specified**:
-- "Filter results update within 100ms of keystroke for projects with up to 10,000 files"
+**What's Specified:**
+- Provider entity includes "credentials" and "connection status"
 
-**Assessment**: Clear, measurable performance requirement. Implementation can be tested against this threshold. No integration ambiguity.
+**What's Missing:**
+- No security requirements for API key storage
+- No specification of OS keychain integration vs encrypted storage vs in-memory only
+- No secure transmission requirements (TLS version, certificate validation)
+- API keys are high-value secrets requiring secure handling
 
-**Impact Score**: N/A
+**Question Candidate:** How should API keys be stored securely and transmitted to providers? Should the system use OS keychain integration, encrypted storage, or in-memory only?
 
----
-
-## 9. localStorage API Usage
-
-**Category**: Integration
-**Status**: Clear
-**Location**: Assumptions
-
-**What's Specified**:
-- "The application uses localStorage or similar mechanism for session persistence (established pattern)"
-
-**Assessment**: Consistent with established patterns from specs 005 and 006 (per CLAUDE.md). No new integration concerns.
-
-**Impact Score**: N/A
+**Impact Score:** 5
 
 ---
 
-## Priority Questions for Clarification
+## 9. Network Proxy and Corporate Firewall Support
 
-Based on impact scores, these questions should be addressed before implementation:
+- **Category:** Integration
+- **Status:** Missing
+- **Location:** Not addressed
 
-| Priority | Impact | Question |
-|----------|--------|----------|
-| 1 | 4/5 | Which fuzzy matching library should be used, and what scoring/ranking algorithm determines match quality? |
-| 2 | 4/5 | What is the interface contract for accessing file tree data from spec 004 (Zustand store, IPC, direct import)? |
-| 3 | 4/5 | How should the filter subscribe to file system events from spec 004's chokidar watcher, and what debouncing strategy should be applied? |
-| 4 | 3/5 | What is the persistence schema and per-project key naming convention for filter state? |
-| 5 | 3/5 | Should keyboard shortcuts integrate with command palette (spec 005), and what is the exact key combination? |
-| 6 | 3/5 | What data structure represents fuzzy match positions for highlighting (especially non-contiguous matches)? |
+**What's Specified:**
+- Nothing about network configuration
+
+**What's Missing:**
+- No HTTP/HTTPS proxy support specification
+- No proxy authentication methods
+- Corporate environments often block direct API access
+- No SOCKS proxy or VPN tunnel considerations
+
+**Question Candidate:** Should the system support HTTP/HTTPS proxies for corporate environments where direct API access is blocked? What proxy authentication methods should be supported?
+
+**Impact Score:** 3
 
 ---
 
-## Integration Dependency Map
+## 10. API Response Format Normalization
 
-```
-+--------------------------------------------------------------+
-|                 Smart Filtering (Spec 014)                    |
-+--------------------------------------------------------------+
-|                                                               |
-|  +------------------+    +------------------+                 |
-|  |  Filter Input    |--->| File Explorer    | [PARTIAL]       |
-|  |   Component      |    | Sidebar (006)    | Mount point TBD |
-|  +------------------+    +------------------+                 |
-|                                                               |
-|  +------------------+    +------------------+                 |
-|  |  File Tree       |<---| File System      | [PARTIAL]       |
-|  |   Data Access    |    | Shell (004)      | Interface TBD   |
-|  +------------------+    +------------------+                 |
-|                                                               |
-|  +------------------+    +------------------+                 |
-|  |  File Change     |<---| chokidar         | [MISSING]       |
-|  |   Subscription   |    | (via 004)        | Protocol TBD    |
-|  +------------------+    +------------------+                 |
-|                                                               |
-|  +------------------+    +------------------+                 |
-|  |  Keyboard        |--->| Command Palette  | [MISSING]       |
-|  |   Shortcut       |    |   (005)          | Integration TBD |
-|  +------------------+    +------------------+                 |
-|                                                               |
-|  +------------------+    +------------------+                 |
-|  |  Filter State    |--->| localStorage     | [CLEAR]         |
-|  |   Persistence    |    |                  | Schema TBD      |
-|  +------------------+    +------------------+                 |
-|                                                               |
-|  +------------------+                                         |
-|  |  Fuzzy Matcher   |    [PARTIAL]                            |
-|  |  (library TBD)   |    Library selection TBD                |
-|  +------------------+                                         |
-|                                                               |
-+--------------------------------------------------------------+
-```
+- **Category:** Integration
+- **Status:** Partial
+- **Location:** FR-014
+
+**What's Specified:**
+- "System MUST provide a provider abstraction layer that enables AI features to work uniformly across different providers"
+
+**What's Missing:**
+- No normalized response schema defined
+- OpenAI uses `choices[0].message.content`, Anthropic uses `content[0].text`
+- No specification of which metadata to preserve/normalize (usage stats, finish reasons, tool calls)
+- No error response normalization strategy
+
+**Question Candidate:** How should the abstraction layer normalize response formats across providers (e.g., OpenAI's `choices[0].message.content` vs Anthropic's `content[0].text`)? What fields must be preserved/normalized?
+
+**Impact Score:** 4
+
+---
+
+## Summary Table
+
+| # | Ambiguity | Status | Impact |
+|---|-----------|--------|--------|
+| 1 | API Version Compatibility Strategy | Missing | 5 |
+| 2 | OpenAI-Compatible Endpoint Compliance | Partial | 4 |
+| 3 | Connection Failure and Retry Behavior | Missing | 4 |
+| 4 | Rate Limiting Handling | Missing | 4 |
+| 5 | Authentication Protocol Details | Missing | 3 |
+| 6 | Local Model Discovery Protocol | Partial | 3 |
+| 7 | Streaming Response Protocol | Missing | 4 |
+| 8 | Credential Storage Security | Missing | 5 |
+| 9 | Network Proxy Support | Missing | 3 |
+| 10 | API Response Format Normalization | Partial | 4 |
+
+---
+
+## Recommended Clarification Questions (Prioritized by Impact)
+
+1. **(Impact 5)** How should API keys be stored securely and transmitted to providers? Should the system use OS keychain integration, encrypted storage, or in-memory only?
+
+2. **(Impact 5)** How should the system handle API version changes from providers (OpenAI, Anthropic)? Should it pin to specific API versions, auto-upgrade, or provide configurable version selection?
+
+3. **(Impact 4)** How should the abstraction layer normalize response formats across providers? What fields must be preserved/normalized?
+
+4. **(Impact 4)** Must the provider abstraction support Server-Sent Events (SSE) streaming for real-time token delivery? How should streaming failures mid-response be handled?
+
+5. **(Impact 4)** What should happen when a provider connection fails? Should the system implement automatic retries with exponential backoff, failover to alternative providers, or simply surface errors to users?
 
 ---
 
 ## Conclusion
 
-The spec has **9 integration touchpoints** analyzed:
-- **2 Clear**: Performance thresholds (SC-002) and localStorage usage are well-defined
-- **3 Partial**: Fuzzy matching library, file tree data interface, and sidebar mount point have gaps
-- **4 Missing**: File system event subscription, persistence schema, keyboard shortcut registration, and match position data structure need clarification
+The spec has **10 integration touchpoints** analyzed:
+- **0 Clear**: No integration aspects are fully specified
+- **3 Partial**: OpenAI-compatible endpoint compliance, local model discovery, and response normalization have some direction but lack detail
+- **7 Missing**: Critical integration concerns including API versioning, failure handling, rate limiting, streaming, security, and proxy support are not addressed
 
-The most critical gaps are:
-1. **File tree data interface** with spec 004 - core data source
-2. **File system event subscription** - required for FR-009 (real-time updates)
-3. **Fuzzy matching library selection** - affects performance, bundle size, and match quality
+**High Impact Items (4-5):** 7 items require clarification before implementation can proceed safely.
 
-**Recommended Action**: Clarify the file tree data interface and event subscription protocol from spec 004 before implementation begins, as these are blocking dependencies.
+**Critical Gap:** The most critical gaps are **credential security** (Impact 5) and **API version compatibility** (Impact 5). Without security specifications, implementation may expose API keys unsafely. Without versioning strategy, provider API changes could break the system unexpectedly.
+
+**Recommended Action:** Address Impact 5 items (credential security, API versioning) and Impact 4 streaming/normalization items before detailed implementation planning.

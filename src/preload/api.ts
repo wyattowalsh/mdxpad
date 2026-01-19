@@ -20,6 +20,7 @@ import type {
   ConflictResolveResponse,
 } from '@shared/contracts/autosave-ipc';
 import type { AutosaveSettings, AutosaveStatus } from '@shared/contracts/autosave-schemas';
+import type { AIApi } from './ai-api';
 
 /** File change event received from main process */
 export interface FileChangeEvent {
@@ -242,4 +243,10 @@ export interface MdxpadAPI {
    * @returns Unsubscribe function
    */
   onAutosaveSettingsChange(callback: (settings: AutosaveSettings) => void): () => void;
+
+  /**
+   * AI Provider API (Spec 028).
+   * Provides access to AI provider configuration, generation, and usage tracking.
+   */
+  ai: AIApi;
 }

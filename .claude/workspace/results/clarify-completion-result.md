@@ -1,6 +1,6 @@
-# Completion Ambiguity Analysis: Smart Filtering for File Tree (014)
+# Completion Ambiguity Analysis: AI Provider Abstraction Layer (028)
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
+**Spec File**: `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md`
 **Analysis Date**: 2026-01-17
 **Focus Area**: Completion Signals (Acceptance Criteria Testability, Measurable Definition of Done)
 
@@ -10,242 +10,262 @@
 
 | Status | Count |
 |--------|-------|
-| Clear | 8 |
-| Partial | 9 |
-| Missing | 4 |
+| Clear | 6 |
+| Partial | 10 |
+| Missing | 3 |
 
 ---
 
-## Ambiguity Findings
+## Success Criteria Analysis
 
-### 1. Fuzzy Matching Algorithm Definition
+### 1. SC-001: 2-Minute Configuration Time
 
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Lines 29-39, 103, 130, 138)**: "fuzzy matching where non-contiguous character sequences can match" and "fzf-style matching" in assumptions, but SC-006 states "80% of query characters present in any order"
-- **Question Candidate**: What specific fuzzy matching algorithm should be used (fzf, Levenshtein, Smith-Waterman, custom)? How is "match quality" for ranking calculated, and what threshold score determines a valid match?
-- **Impact Score**: 5
-- **Rationale**: SC-006's "80% of query characters in any order" conflicts with fzf-style sequential matching. Tests cannot be deterministic without specifying the exact algorithm and scoring model. This is the core feature.
-
----
-
-### 2. Match Quality Ranking Criteria
-
-- **Category**: Completion
-- **Status**: Missing
-- **Spec Text (Line 38)**: "all matching files are displayed ranked by match quality"
-- **Question Candidate**: How should match quality be calculated for ranking? Should ranking prioritize exact matches, contiguous character runs, filename vs path position, or recency of access?
-- **Impact Score**: 4
-- **Rationale**: "Ranked by match quality" cannot be tested without knowing the ranking algorithm. Different implementers would produce different orderings for the same query.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 129)**: "Users can configure a new AI provider and start using AI features within 2 minutes"
+**Question Candidates**:
+- What constitutes "start using AI features" - making a successful API call, or just showing "Connected" status?
+- Does the 2-minute timeframe assume the user already has their API key ready, or includes time to retrieve/copy from provider dashboard?
+- How will this timing be measured - user testing sessions, automated timing, or self-reported?
+**Impact Score**: 3
+**Rationale**: "Start using AI features" is ambiguous. Tests need to know the exact end-state condition to verify timing.
 
 ---
 
-### 3. Case Sensitivity Behavior
+### 2. SC-002: Secure Credential Storage
 
-- **Category**: Completion
-- **Status**: Missing
-- **Spec Text**: Not addressed anywhere in spec
-- **Question Candidate**: Should the filter be case-sensitive, case-insensitive, or use smart-case matching (case-insensitive unless uppercase is present)?
-- **Impact Score**: 4
-- **Rationale**: Fundamental filter behavior affecting all test cases. User Story 2 examples use lowercase queries for CamelCase files, implying case-insensitivity, but this is never stated.
-
----
-
-### 4. Keyboard Shortcut Definition
-
-- **Category**: Completion
-- **Status**: Missing
-- **Spec Text (Lines 68, 107, 137)**: "designated keyboard shortcut" with assumption "Cmd/Ctrl+Shift+E or similar unassigned shortcut"
-- **Question Candidate**: What is the specific keyboard shortcut for focusing the filter input? Should it be configurable by the user?
-- **Impact Score**: 3
-- **Rationale**: User Story 4 and FR-006 require a shortcut but none is specified. Assumption uses "or similar" which is not a testable definition.
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 130)**: "API credentials are never stored in plain text or logged; all storage uses OS-native secure storage"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Testable via code review, security audit, and automated tests checking storage locations and log outputs.
 
 ---
 
-### 5. Performance Threshold Measurement Methodology
+### 3. SC-003: Immediate Provider Switching
 
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Line 126)**: "Filter results update within 100ms of keystroke for projects with up to 10,000 files"
-- **Question Candidate**: How should the 100ms threshold be measured - time to compute filter results or time until UI renders? What is expected behavior for projects exceeding 10,000 files?
-- **Impact Score**: 4
-- **Rationale**: Performance tests need clear measurement boundaries. Computation vs render can differ by 50-100ms. Degradation behavior above threshold is unspecified.
-
----
-
-### 6. User Success Rate Measurement (SC-003)
-
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Line 127)**: "95% of users successfully find their target file on first filter attempt"
-- **Question Candidate**: How will "95% user success rate" be measured and validated? Should this be replaced with a deterministic test criterion based on algorithmic accuracy?
-- **Impact Score**: 3
-- **Rationale**: This is a UX research metric, not a code testable criterion. Cannot be automated in CI/CD. Needs reframing or removal from acceptance criteria.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 131)**: "Provider switching takes effect immediately with no application restart required"
+**Question Candidates**:
+- Does "immediately" mean within 1 second, 5 seconds, or just "without restart"?
+- Does "takes effect" mean the UI updates, or that the next AI request uses the new provider?
+- What about in-flight requests when switching occurs - should they complete with old provider or be cancelled?
+**Impact Score**: 2
+**Rationale**: "Immediately" lacks measurable threshold. Tests need precise timing expectations.
 
 ---
 
-### 7. File Location Time (SC-001)
+### 4. SC-004: Usage Statistics Accuracy
 
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Line 125)**: "Users can locate a specific file in a 500+ file project within 5 seconds using the filter"
-- **Question Candidate**: Should SC-001 be reframed as a performance benchmark (filter UI responds in X ms) rather than a user behavior metric dependent on typing speed?
-- **Impact Score**: 3
-- **Rationale**: "Within 5 seconds" depends on user typing speed and familiarity. Not deterministically testable without specifying query length and expected keystrokes.
-
----
-
-### 8. Visual Highlighting Style
-
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Lines 52-54, 105)**: "visually highlighted" and "each matched character is individually highlighted"
-- **Question Candidate**: What visual style should be used for match highlighting (background color, text weight, text color, underline)? Should there be a specific color from the application theme?
-- **Impact Score**: 2
-- **Rationale**: "Visually highlighted" is ambiguous. Multiple valid implementations exist. Lower impact as any highlighting satisfies the requirement, but visual regression tests need specificity.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 132)**: "Usage statistics are accurate within 1% of actual provider-reported usage"
+**Question Candidates**:
+- How will "actual provider-reported usage" be obtained for verification? Manual comparison against provider dashboards?
+- What metrics are included in this 1% accuracy guarantee - token counts, request counts, costs, or all?
+- Over what time period is this accuracy measured (single request, daily aggregate, monthly)?
+- What happens when providers don't report certain metrics (e.g., local models)?
+**Impact Score**: 4
+**Rationale**: Verification methodology undefined. Cannot write automated tests without knowing how to obtain the "actual" reference value.
 
 ---
 
-### 9. Empty State Message Content
+### 5. SC-005: Multiple Provider Configurations
 
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Lines 92, 112)**: "Empty state with helpful message" and "clear empty state message"
-- **Question Candidate**: What should the empty state message say? Should it include suggestions (e.g., "No files match 'query'" or "Try a different search term")?
-- **Impact Score**: 2
-- **Rationale**: Tests can verify an empty state exists, but without exact text, implementation varies. Low impact as any message satisfies the requirement.
-
----
-
-### 10. Filter Input Length Limit
-
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Line 96)**: "Truncate or limit input length gracefully"
-- **Question Candidate**: What is the maximum character length for the filter input? Should truncation occur at input level or display level?
-- **Impact Score**: 2
-- **Rationale**: Edge case handling needs a specific limit for testing. 100 characters? 255? 1000? Affects both UX and performance testing.
+**Category**: Completion
+**Status**: Clear
+**Spec Text (Line 133)**: "System supports at least 5 different provider configurations simultaneously"
+**Question Candidate**: N/A
+**Impact Score**: 1
+**Rationale**: Directly testable by configuring 5 providers and verifying all remain accessible and functional.
 
 ---
 
-### 11. Project/Workspace Scope Identification
+### 6. SC-006: First-Time Configuration Success Rate
 
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Lines 86, 108, 117)**: "filter state is specific to that project" and "persist filter query across application sessions per project/workspace"
-- **Question Candidate**: How is a project/workspace uniquely identified for filter persistence (folder path hash, project config file, user-defined project ID)?
-- **Impact Score**: 3
-- **Rationale**: Persistence tests need to know how "project" boundaries are determined. Opening a subfolder vs root folder may behave differently.
-
----
-
-### 12. Keyboard Shortcut Discoverability Requirement
-
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Line 128)**: "Keyboard shortcut to focus filter is discoverable (documented in UI or command palette)"
-- **Question Candidate**: Must the keyboard shortcut be registered in the command palette, shown in a UI tooltip, or both? What counts as "discoverable"?
-- **Impact Score**: 2
-- **Rationale**: "Or" implies either satisfies the requirement. Tests need to know which documentation method is required for acceptance.
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 134)**: "95% of users can successfully configure their first provider without documentation"
+**Question Candidates**:
+- How will this 95% success rate be measured? User testing sessions? Analytics? Survey?
+- What sample size is required to validate this criterion?
+- What constitutes "without documentation" - no in-app help, no tooltips, or just no external docs?
+- What user population is being sampled - technical developers, general users, or a mix?
+- Is this criterion required for MVP/initial release, or is it a post-launch metric?
+**Impact Score**: 5
+**Rationale**: No measurement methodology defined. This criterion cannot be verified without defining the research methodology, sample size, and user population.
 
 ---
 
-### 13. Filter Input UI Placement
+## Acceptance Scenarios Analysis
 
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Line 102)**: "text input field in the file explorer sidebar"
-- **Question Candidate**: Where exactly should the filter input be positioned within the file explorer sidebar (top of sidebar, above file tree, collapsible header, floating)?
-- **Impact Score**: 2
-- **Rationale**: Layout verification tests need specific placement expectations. "In the sidebar" allows multiple valid positions.
+### 7. Story 1 - AS2: Valid API Key Storage and Connection
 
----
-
-### 14. Debounce Timing
-
-- **Category**: Completion
-- **Status**: Partial
-- **Spec Text (Lines 102, 111)**: "as the user types" and "without noticeable delay"
-- **Question Candidate**: Should filtering be immediate on each keystroke, or should there be a debounce delay (e.g., 50-150ms) to optimize performance?
-- **Impact Score**: 3
-- **Rationale**: Performance tests need to account for debounce. "As the user types" suggests real-time, but performance requirements may need debouncing. If debounced, timing affects test wait strategies.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Lines 21-22)**: "enter a valid API key, Then the key is stored securely and provider shows as 'Connected'"
+**Question Candidates**:
+- What validation is performed on API keys before storage - format check only, or actual API call?
+- How long should the system wait for validation before timing out?
+- How is "Connected" verified - just UI state or actual API ping?
+**Impact Score**: 3
+**Rationale**: "Valid" and "Connected" verification methods undefined. Tests need to know if this requires live API calls.
 
 ---
 
-### 15. Basic Filtering Mechanism
+### 8. Story 1 - AS3: Invalid Key Error Handling
 
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Lines 20-22)**: Given/When/Then for basic filter display
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: Acceptance scenarios are testable with clear inputs and expected outputs.
-
----
-
-### 16. Filter Clear Behavior
-
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Lines 21, 109, 113)**: "clear the filter input, Then the full file tree is restored"
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: Clear action and expected result are specified. Testable.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Lines 22-23)**: "enters an invalid API key, When they attempt to save, Then a clear validation error is displayed"
+**Question Candidates**:
+- What types of errors are considered "clear" - network errors, auth errors, format errors?
+- Should the error message include the specific failure reason from the provider?
+- Is there a distinction between "invalid format" and "invalid credentials"?
+**Impact Score**: 2
+**Rationale**: "Clear" is subjective. Need specific error message requirements for test assertions.
 
 ---
 
-### 17. Parent Folder Visibility
+### 9. Story 2 - AS2: Immediate Active Provider Change
 
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Lines 93, 104)**: "Parent folders of matching items remain visible" and FR-004
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: Explicitly defined behavior for tree structure preservation. Testable.
-
----
-
-### 18. Escape Key Behavior
-
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Lines 69-70)**: Two-step Escape behavior (clear text first, then blur)
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: Specific two-step behavior defined. Testable via keyboard simulation.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 38)**: "the selection is confirmed, Then the active provider changes immediately"
+**Question Candidate**: Same "immediately" ambiguity as SC-003.
+**Impact Score**: 2
+**Rationale**: Same timing ambiguity as SC-003.
 
 ---
 
-### 19. Real-time File System Updates
+### 10. Story 2 - AS3: Re-authentication Prompt
 
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Lines 94, 110)**: "Filter results update automatically when files are added, removed, or renamed"
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: FR-009 explicitly requires automatic updates. Testable via file system events.
-
----
-
-### 20. Special Characters Handling
-
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Line 95)**: "Treat as literal characters for matching"
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: Explicit handling specified. Regex special chars become literal. Testable.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 39)**: "API key becomes invalid, When user attempts to switch to it, Then a re-authentication prompt is displayed"
+**Question Candidates**:
+- Is provider validity re-checked on every switch, or only when an AI request fails?
+- What does "re-authentication prompt" look like - modal, inline form, or redirect to settings?
+**Impact Score**: 2
+**Rationale**: Trigger timing and UI treatment undefined.
 
 ---
 
-### 21. Persistence Reliability (SC-005)
+### 11. Story 3 - AS1: Usage Statistics Display
 
-- **Category**: Completion
-- **Status**: Clear
-- **Spec Text (Line 129)**: "Filter state persists correctly across 100% of application restart cycles"
-- **Question Candidate**: N/A
-- **Impact Score**: 1
-- **Rationale**: Deterministic 100% reliability criterion. Testable with repeated restart cycles.
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 53)**: "total requests and token usage are displayed per provider"
+**Question Candidates**:
+- What if a provider doesn't support token counting (e.g., some local models)?
+- What granularity is required (total only, or broken down by model)?
+**Impact Score**: 3
+**Rationale**: Edge case handling for providers without certain metrics undefined.
+
+---
+
+### 12. Story 3 - AS3: Estimated Costs Display
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 55)**: "provider pricing is available, When viewing statistics, Then estimated costs are calculated and displayed"
+**Question Candidates**:
+- How are estimated costs calculated when provider pricing changes during the time period?
+- What is displayed for providers without known pricing (local models)?
+- What currency is used for cost display?
+**Impact Score**: 3
+**Rationale**: Pricing data source and calculation methodology undefined.
+
+---
+
+### 13. Story 4 - AS2: Local Model Connection Test
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 70)**: "user enters a valid local endpoint, When they test connection, Then available models are listed"
+**Question Candidates**:
+- What if the endpoint is valid but returns no models?
+- What local model providers must be explicitly supported (Ollama, LM Studio, others)?
+**Impact Score**: 2
+**Rationale**: "Valid endpoint" with no models is an edge case not addressed.
+
+---
+
+### 14. Story 4 - AS3: Troubleshooting Hints
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Line 71)**: "appropriate error message is displayed with troubleshooting hints"
+**Question Candidate**: What specific troubleshooting hints are required? (check endpoint URL, verify service running, firewall settings, etc.)
+**Impact Score**: 3
+**Rationale**: "Troubleshooting hints" is vague. Tests cannot verify without knowing expected hint content.
+
+---
+
+### 15. Story 5 - AS2: Key Update Verification
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 86)**: "the old key is replaced in secure storage"
+**Question Candidates**:
+- How is "replaced" verified vs "added alongside"?
+- Is there a confirmation step before key replacement?
+**Impact Score**: 2
+**Rationale**: Secure storage verification method undefined for automated tests.
+
+---
+
+### 16. Story 5 - AS3: Credential Purging
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 87)**: "all associated credentials are purged from secure storage"
+**Question Candidates**:
+- How can secure storage purging be verified in automated tests without compromising security?
+- Is there a confirmation step before permanent credential deletion?
+**Impact Score**: 2
+**Rationale**: Verification method for secure deletion undefined.
+
+---
+
+## Independent Tests Analysis
+
+### 17. Test Strategy: Mock vs Real Providers
+
+**Category**: Completion
+**Status**: Missing
+**Spec Text (Lines 16, 33, 49)**: Independent test descriptions reference "valid API key" and provider configurations
+**Question Candidates**:
+- Will the test suite include mock providers/responses, or require real API keys?
+- What is the minimum number of requests needed to verify usage metric accuracy?
+**Impact Score**: 3
+**Rationale**: Test environment strategy undefined. CI/CD pipeline needs clarity on mock vs live testing.
+
+---
+
+### 18. Story 3 Independent Test: "Several AI Requests"
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 49)**: "making several AI requests and verifying usage metrics"
+**Question Candidate**: How many is "several"? What constitutes sufficient verification?
+**Impact Score**: 2
+**Rationale**: "Several" is imprecise for test case specification.
+
+---
+
+## Edge Cases Analysis
+
+### 19. Keychain Unavailable Handling
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 93, 115)**: "What happens when the system keychain is locked or unavailable?" and FR-013 "MUST gracefully handle keychain access failures"
+**Question Candidate**: What does "graceful" handling look like? Error message only, fallback storage, or prevent usage entirely?
+**Impact Score**: 3
+**Rationale**: FR-013 mandates handling but doesn't define the expected behavior.
 
 ---
 
@@ -254,59 +274,51 @@
 | Impact Score | Count |
 |--------------|-------|
 | 5 (Critical) | 1     |
-| 4 (High)     | 3     |
-| 3 (Medium)   | 5     |
-| 2 (Low)      | 5     |
-| 1 (Clear)    | 7     |
+| 4 (High)     | 1     |
+| 3 (Medium)   | 7     |
+| 2 (Low)      | 8     |
+| 1 (Clear)    | 2     |
 
 ---
 
 ## High-Impact Questions (Impact >= 4)
 
-1. **[Impact 5] Fuzzy Matching Algorithm**: What specific fuzzy matching algorithm should be used, and how is the matching threshold/scoring defined? The assumption mentions "fzf-style" but SC-006 describes "80% of characters in any order" which is inconsistent.
+1. **[Impact 5] SC-006 Measurement Methodology**: How will the 95% first-time configuration success rate be measured? What methodology, sample size, and user population are required?
 
-2. **[Impact 4] Match Quality Ranking**: How is "match quality" calculated for ranking results? What factors determine ordering (contiguity, position, exact match bonus)?
-
-3. **[Impact 4] Case Sensitivity**: Should filtering be case-sensitive, case-insensitive, or smart-case?
-
-4. **[Impact 4] Performance Measurement**: How is the 100ms threshold measured (computation time vs render time)? What happens with >10,000 files?
+2. **[Impact 4] SC-004 Verification Method**: How will usage statistics accuracy be verified against "actual provider-reported usage"? What is the reference data source and verification process?
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **[Impact 5]** What fuzzy matching algorithm should be implemented? Please specify: (a) exact algorithm (fzf, Levenshtein, custom), (b) minimum match threshold, and (c) scoring weights for ranking.
+1. **[Critical - Impact 5]** SC-006 requires 95% of users to successfully configure their first provider without documentation. How will this be measured (user testing, analytics, survey)? What sample size and user population are required? Is this a pre-release gate or post-launch metric?
 
-2. **[Impact 4]** Should filtering be case-sensitive, case-insensitive, or use smart-case matching (case-insensitive unless query contains uppercase)?
+2. **[High - Impact 4]** SC-004 states usage statistics must be accurate within 1% of actual provider-reported usage. How will this be verified? What is the source of "actual" usage data, and what metrics (tokens, requests, costs) are included?
 
-3. **[Impact 4]** How should match quality ranking work? Please specify factors in priority order (e.g., exact match > prefix match > contiguous > scattered).
+3. **[Medium - Impact 3]** SC-001 references "start using AI features." What specific action constitutes this milestone - seeing "Connected" status, or successfully completing an AI request?
 
-4. **[Impact 4]** For the 100ms performance criterion (SC-002): is this measured to filter computation completion or to UI render completion? What is the expected behavior for projects exceeding 10,000 files?
+4. **[Medium - Impact 3]** For automated testing, will the test suite use mock providers/responses or require real API keys? This affects CI/CD pipeline design.
 
-5. **[Impact 3]** What is the specific keyboard shortcut for focusing the filter input?
+5. **[Medium - Impact 3]** Story 4 AS3 mentions "troubleshooting hints" for unreachable local endpoints. What specific hints are required (e.g., "check if service is running", "verify firewall settings")?
+
+6. **[Low - Impact 2]** SC-003 states provider switching takes effect "immediately." What is the measurable threshold (e.g., within 500ms, within 1 second)?
 
 ---
 
 ## Overall Assessment
 
-The spec has **solid structural foundations** with Given/When/Then acceptance scenarios and explicit functional requirements. The edge cases section anticipates important behaviors.
+The spec provides a solid foundation with many testable criteria, but has **significant gaps in measurement methodology** for key success criteria.
 
 **Strengths:**
-- Clear acceptance scenarios for basic filtering workflow
-- Explicit persistence behavior per project
-- Well-defined Escape key two-step behavior
-- Real-time file system update requirement
+- Clear functional requirements with MUST/SHOULD language
+- Structured acceptance scenarios in Given/When/Then format
+- Specific entity definitions (Provider, Credential, UsageRecord, ProviderConfig)
+- Well-defined out-of-scope boundaries
 
-**Critical Gaps:**
-1. **Fuzzy matching algorithm undefined** - This is the core feature and cannot be tested without algorithmic specification
-2. **Case sensitivity unaddressed** - Fundamental behavior affecting all filtering tests
-3. **Ranking algorithm undefined** - "Match quality" has no testable definition
-4. **Performance measurement methodology** - Unclear what the 100ms measures
+**Gaps requiring clarification:**
+1. **SC-006 (95% success rate)** - No measurement methodology defined (Critical)
+2. **SC-004 (1% accuracy)** - No verification methodology defined (High)
+3. **Testing strategy** - Mock vs real providers undefined
+4. **Edge case behaviors** - Keychain failures, local model edge cases
 
-**Non-critical Gaps:**
-- Visual highlighting style
-- Exact keyboard shortcut
-- Empty state message text
-- Input length limit
-
-The spec is approximately **65% complete** from a testability standpoint. The core fuzzy matching functionality lacks sufficient detail for deterministic implementation and testing. Addressing the 4 high-impact clarifications would bring testability to production-ready levels.
+The spec is approximately **70% complete** from a Definition of Done perspective. The two critical success criteria (SC-004, SC-006) cannot be objectively verified without additional specification. Addressing the high-impact clarifications is essential before implementation begins.

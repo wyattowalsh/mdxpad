@@ -1,78 +1,85 @@
-# Ambiguity Analysis: Frontmatter Visual Editor (020-frontmatter-editor)
+# Ambiguity Analysis: AI Provider Abstraction Layer
 
+**Feature Branch**: `028-ai-provider-abstraction`
 **Analysis Date**: 2026-01-17
-**Files Analyzed**:
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/spec.md`
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/plan.md`
-- `/Users/ww/dev/projects/mdxpad-front/.specify/specs/020-frontmatter-editor/tasks.md`
-
----
-
-## Findings
-
-| ID | Severity | Location(s) | Summary | Recommendation |
-|----|----------|-------------|---------|----------------|
-| AMB-001 | Medium | spec.md line 149 (SC-004) | "95% of common frontmatter values" lacks definition of what constitutes "common" values | Define explicit list of common value patterns (e.g., ISO dates, numeric strings, boolean literals, arrays of primitives) or reference test fixtures with specific examples |
-| AMB-002 | Low | spec.md line 103 | "most recent change wins" conflict resolution lacks timing threshold | Define debounce window (e.g., 300ms) within which edits are consolidated, and specify behavior when edits occur within vs. outside that window |
-| AMB-003 | Low | spec.md line 131 (FR-016) | "preserve YAML formatting preferences when possible" - undefined success criteria for "when possible" | Define specific scenarios where preservation is guaranteed vs. best-effort (e.g., "preserve for top-level scalars; may normalize indentation for nested objects") |
-| AMB-004 | Low | spec.md line 98 | "collapsible tree structure with edit capability at each level" - maximum nesting depth undefined | Specify max supported depth (e.g., 3 levels) and fallback behavior for deeper structures (raw YAML mode only) |
-| AMB-005 | Low | plan.md line 119, tasks.md line 398 | "depth limit (2 levels)" mentioned in implementation but not specified in requirements | Add FR or assumption in spec.md stating nesting depth limit explicitly to align spec with planned implementation |
-| AMB-006 | Low | spec.md line 168 | "advanced formats may be added later" - unclear scope and timeline | Either remove or convert to explicit non-goal: "JSON Schema only; advanced formats (YAML Schema, custom validators) are out of scope for this spec" |
-| AMB-007 | Low | spec.md line 99 | "shows a warning" for unsupported YAML features - warning severity/appearance undefined | Specify warning UI (toast, inline banner, field-level icon) and whether it blocks editing or is informational only |
-| AMB-008 | Info | tasks.md lines 398-399 vs spec.md line 98 | Phase 8 depth limit "2 levels" inconsistent with spec.md edge case "each level" (implies unlimited) | Reconcile: either spec allows unlimited with graceful degradation, or tasks enforce hard limit matching spec |
+**Artifacts Analyzed**: spec.md, plan.md, tasks.md
 
 ---
 
 ## Summary
 
-**Total Issues Found**: 8
-- **Critical**: 0
-- **Medium**: 1
-- **Low**: 6
-- **Info**: 1
+| Metric | Value |
+|--------|-------|
+| Total Issues Found | 8 |
+| Critical (blocks implementation) | 1 |
+| High (may cause inconsistencies) | 3 |
+| Medium (clarification recommended) | 4 |
+| Vague Adjectives | 3 |
+| Unresolved Placeholders | 0 |
+| Unclear Scope | 3 |
+| Untestable Criteria | 2 |
 
 ---
 
-## Positive Observations
+## Ambiguity Issues
 
-The specification demonstrates strong clarity in several areas:
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|----------|-------------|---------|----------------|
+| AMB-001 | High | spec.md:104-108 (Edge Cases) | Three edge cases are phrased as open questions without resolution: "How does the system handle network connectivity loss during provider validation?", "What happens when a provider API changes or deprecates endpoints?", "What happens when usage tracking storage exceeds reasonable limits?" | Convert each question to a definitive FR or clarification answer. Define specific behaviors, error messages, and fallback strategies. |
+| AMB-002 | Medium | spec.md:107 | "reasonable limits" is vague - no measurable threshold defined for usage tracking storage limits | Define explicit limits (e.g., "100,000 records" or "50MB") and specify behavior when exceeded (e.g., FIFO pruning, warning threshold at 80%). Note: tasks.md:439 does specify "90-day retention, max 100K records" but this should be in spec.md as a formal requirement. |
+| AMB-003 | Critical | spec.md:148 (SC-006) | "95% of users can successfully configure their first provider without documentation" - measurement methodology is unclear. "Automated onboarding analytics tracking completion rate" doesn't specify what constitutes "without documentation" or how to distinguish users who consulted docs vs. those who didn't. | Define precisely: (1) what triggers a measurement attempt, (2) what constitutes success vs. failure, (3) how documentation access is tracked or excluded. Consider rephrasing to measurable metric like "95% first-attempt success rate" with clear start/end conditions. |
+| AMB-004 | Medium | spec.md:155 | "reasonably stable APIs" is subjective. No criteria for what constitutes acceptable API stability or how to handle instability. | Either remove this assumption or define fallback behavior when APIs are unstable (versioned SDK pinning, deprecation warning system, etc.). |
+| AMB-005 | High | spec.md:127 (FR-015) | "estimated wait time" lacks specification of how to determine this when providers return inconsistent or no retry-after headers. | Specify fallback estimation logic (e.g., exponential backoff starting at 60s, or provider-specific defaults). Define format for displaying time to user. |
+| AMB-006 | Medium | tasks.md:439 (P:3.6) | "90-day retention" and "max 100K records" are implementation details in tasks.md but not captured as formal requirements in spec.md. This creates ambiguity about whether these are firm requirements or implementation suggestions. | Elevate these to FR in spec.md to ensure they're treated as requirements, not arbitrary implementation choices. |
+| AMB-007 | High | spec.md:143 (SC-001) | "within 2 minutes" is testable but lacks definition of start/end points. Does timer start when user opens settings or when they decide to add a provider? Does it end at "Connected" status or first successful AI request? | Define precise measurement points: e.g., "From clicking 'Add Provider' to seeing 'Connected' status indicator." |
+| AMB-008 | Medium | plan.md:18 | "<16ms keystroke latency (unaffected)" is labeled as a performance goal but marked as "unaffected" without explanation. Unclear if this is a constraint to preserve or explicitly out of scope for this feature. | Clarify whether this is: (a) inherited from other specs to maintain, (b) explicitly not impacted by this feature, or (c) should be removed from this plan as irrelevant. |
 
-1. **Explicit Timing Requirements**: Performance metrics are well-defined with specific thresholds:
-   - 300ms sync latency (SC-003, FR-009)
-   - 100ms validation feedback (SC-005)
-   - 200ms panel open time (SC-006)
+---
 
-2. **No Unresolved Placeholders**: No TODO, TKTK, ???, or other placeholder markers found in any file.
+## Vague Adjectives Detected
 
-3. **No Vague Adjectives**: Terms like "fast," "scalable," "secure," "intuitive," or "robust" are either absent or consistently defined with measurable criteria.
+| Term | Location | Context | Issue |
+|------|----------|---------|-------|
+| "reasonably stable" | spec.md:155 | "AI providers maintain reasonably stable APIs" | No criteria for what constitutes "reasonably stable" |
+| "reasonable limits" | spec.md:107 | "usage tracking storage exceeds reasonable limits" | No numeric threshold defined |
+| "clear" | spec.md:32, 124 | "clear validation error", "clear error messages" | While commonly understood, could benefit from examples or format specification for consistency |
 
-4. **Clear Acceptance Scenarios**: All 5 user stories have well-structured Given/When/Then acceptance criteria.
+---
 
-5. **Explicit Field Type Enumeration**: FR-005 clearly lists all supported field types with no ambiguity.
+## Unresolved Placeholders
 
-6. **Schema Precedence Defined**: FR-012 explicitly states the precedence order for schema detection.
+**None detected.** All TODO, TKTK, ???, and placeholder patterns were searched and none were found.
+
+---
+
+## Requirements with Unclear Scope
+
+1. **FR-014** (spec.md:126): Lists capability types (text generation, embeddings, image generation, agents, multiagent systems, deep agents) but "agents", "multiagent systems", and "deep agents" are not defined elsewhere in the spec. These terms need definitions or references to where they're specified.
+
+2. **FR-016** (spec.md:128): "detect and expose provider capability matrix" - the term "matrix" implies a specific data structure but the format is not defined. tasks.md defines this as arrays but the spec doesn't commit to a format.
+
+3. **Local model support scope** (spec.md:69-82, 155): Mentions Ollama and LM Studio specifically, then assumes "OpenAI-compatible endpoints" as a common standard. The scope of "local model providers" is implicitly limited to OpenAI-compatible ones, but this isn't explicitly stated as a requirement or constraint.
+
+---
+
+## Acceptance Criteria Testability Issues
+
+1. **spec.md:148 (SC-006)**: "95% of users can successfully configure their first provider without documentation" - Cannot be objectively tested because "without documentation" cannot be measured in the system. The clarification mentions "automated onboarding analytics" but doesn't specify how documentation access would be tracked.
+
+2. **spec.md:146 (SC-004)**: "accurate within 1% of actual provider-reported usage" - Requires provider-reported usage as ground truth, but not all providers expose detailed usage APIs. Testing methodology for providers without usage APIs is undefined.
 
 ---
 
 ## Recommendations Priority
 
-### P1 (Resolve before implementation)
-- **AMB-001** (SC-004): Define "common frontmatter values" with test fixtures to enable accurate success criteria validation
-
-### P2 (Resolve before testing)
-- **AMB-005**: Align spec.md with planned 2-level depth limit in implementation
-- **AMB-003**: Define YAML formatting preservation boundaries
-
-### P3 (Resolve before production)
-- **AMB-002, AMB-004, AMB-006, AMB-007**: Edge case refinements that affect UX quality but not core functionality
+1. **Immediate (Critical)**: Resolve AMB-003 (SC-006 measurement methodology)
+2. **Before Implementation**: Resolve AMB-001 (unanswered edge cases), AMB-005 (rate limit wait time), AMB-007 (SC-001 timing boundaries)
+3. **During Implementation**: Address AMB-002, AMB-004, AMB-006, AMB-008 as they arise
 
 ---
 
-## Conclusion
+## Files Analyzed
 
-**Spec Quality: GOOD** - The specification is well-structured with minimal ambiguity. The primary issue (AMB-001) affects success criteria measurability but not implementation feasibility. The remaining issues are edge-case behaviors and scope boundaries that can be resolved through clarification without blocking development.
-
-### Recommended Actions
-1. Add explicit test fixtures or examples defining "common frontmatter values" for SC-004
-2. Add nesting depth limit (2 levels) as FR or assumption in spec.md
-3. Clarify YAML formatting preservation scope in FR-016
+- `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md` (165 lines)
+- `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/plan.md` (158 lines)
+- `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/tasks.md` (977 lines)

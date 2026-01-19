@@ -16,8 +16,11 @@ ALWAYS START BY READING ANY AND ALL PERTINENT `AGENTS.md` INSTRUCTION FILES FIRS
 - localStorage for filter query persistence per project/workspace (established pattern from specs 005/006) (014-smart-filtering)
 - TypeScript 5.9.x, strict: true (per Constitution Article II) + React 19.x, Zustand 5.x + Immer 11.x, zod 4.x, yaml (YAML parsing library) (020-frontmatter-editor)
 - localStorage for panel visibility state, electron-store for user schema defaults (020-frontmatter-editor)
+- TypeScript 5.9.x, strict: true + Electron 39.x (safeStorage), React 19.x, Zustand 5.x + Immer 11.x, Vercel AI SDK v6 (@ai-sdk/*) (028-ai-provider-abstraction)
+- electron-store for config/usage, safeStorage for credentials (macOS Keychain), memory for session fallback (028-ai-provider-abstraction)
 
 ## Recent Changes
 - 000-foundational-setup: Added TypeScript 5.9.x with `strict: true`
 - 006-application-shell: Planning complete - integrates editor, preview, file ops into cohesive shell
 - 007-mdx-content-outline: Specification complete - live document outline with headings, components, and frontmatter navigation
+- 028-ai-provider-abstraction: Planning complete - BYOK AI provider abstraction with Vercel AI SDK, safeStorage credentials, hybrid capability detection

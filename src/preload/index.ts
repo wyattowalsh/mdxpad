@@ -56,6 +56,7 @@ import type {
   RecoveryPreviewResponse,
   RecoveryRestoreResponse,
 } from '@shared/contracts/autosave-ipc';
+import { aiApi } from './ai-api';
 
 // ============================================================================
 // Schema for SecurityInfo (not in file-schemas.ts)
@@ -485,6 +486,9 @@ const api: MdxpadAPI = {
     os: 'darwin',
     arch: getArch(),
   },
+
+  // === AI Provider API (Spec 028) ===
+  ai: aiApi,
 };
 
 // Expose API to renderer via contextBridge

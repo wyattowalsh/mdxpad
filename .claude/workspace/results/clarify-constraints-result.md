@@ -1,179 +1,171 @@
 # Constraints Category Ambiguity Analysis
 
-**Spec**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
-**Feature**: Smart Filtering for File Tree
-**Analysis Date**: 2026-01-17
-**Category Focus**: Constraints & Tradeoffs
+**Spec**: 028-ai-provider-abstraction
+**Category**: Constraints (Technical constraints, storage, hosting, explicit tradeoffs/rejected alternatives)
+**Date**: 2026-01-17
 
 ---
 
 ## Summary
 
-The spec is notably **sparse on explicit constraints**. While functional requirements and success criteria are well-defined, the specification lacks a dedicated Constraints section and does not explicitly document tradeoffs or rejected alternatives.
+The spec has significant gaps in the CONSTRAINTS category. While assumptions and out-of-scope items are documented, explicit technical constraints (programming language, framework versions, storage mechanisms, hosting model) are largely missing from the spec itself. The project CLAUDE.md establishes patterns (TypeScript 5.9.x, Electron, Zustand, etc.) but the spec does not reference or confirm these constraints.
 
 ---
 
-## Ambiguity Analysis
+## Ambiguity Findings
 
-### 1. Fuzzy Matching Algorithm Selection
+### 1. Programming Language & Framework Constraints
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
-| **Status** | Partial |
-| **Location** | Assumptions section, line 138 |
-| **Current Text** | "Fuzzy matching uses a standard algorithm like fzf-style matching for consistency with developer expectations" |
-| **Question Candidate** | What specific fuzzy matching library or algorithm should be used (e.g., fzf, fuse.js, flexsearch, custom implementation)? Should we prioritize match quality, performance, or bundle size? |
+| **Status** | Missing |
+| **Question Candidate** | What programming language and framework versions are required for implementation? Should this feature follow the established pattern of TypeScript 5.9.x strict mode with Electron/React/Zustand, or are there alternative technology choices to evaluate? |
 | **Impact Score** | 4 |
-| **Rationale** | The spec says "like fzf-style" which is vague. Different libraries have different performance characteristics, match scoring algorithms, and bundle sizes. This affects both implementation and the 100ms performance target (SC-002). |
+| **Rationale** | The spec mentions "system keychain" and "OS-native secure storage" but never specifies the implementation language or framework. The project context suggests TypeScript/Electron, but this is not codified in the spec. Implementation could proceed with wrong assumptions. |
 
 ---
 
-### 2. Storage Mechanism for Persistence
+### 2. Secure Credential Storage Library/Approach
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
 | **Status** | Partial |
-| **Location** | Assumptions section, line 136 |
-| **Current Text** | "The application uses localStorage or similar mechanism for session persistence (established pattern)" |
-| **Question Candidate** | Should filter persistence use localStorage (renderer process), electron-store (main process), or another mechanism? Is there a size limit concern for storing per-project filter state? |
-| **Impact Score** | 3 |
-| **Rationale** | The "or similar mechanism" leaves ambiguity. The project already uses both localStorage (005, 006, 007 specs) and electron-store (004, 006 specs) for different purposes. The choice affects architecture and where state is managed. |
+| **Question Candidate** | Which specific library or Electron API should be used for secure credential storage (e.g., keytar, safeStorage, electron-keychain)? What are the tradeoffs between available options? |
+| **Impact Score** | 5 |
+| **Rationale** | FR-002 specifies "OS-native keychain" as a requirement, and the assumption states "functional secure credential storage mechanism," but no specific library or implementation approach is constrained. This is a critical security decision that affects architecture. Different libraries have different behaviors (e.g., keytar vs Electron's safeStorage API have different security models and cross-platform support). |
 
 ---
 
-### 3. Maximum Filter Query Length
+### 3. Usage Data Storage Mechanism
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
 | **Status** | Missing |
-| **Location** | Edge Cases section, line 96 |
-| **Current Text** | "What happens when the user pastes a very long string into the filter? (Truncate or limit input length gracefully)" |
-| **Question Candidate** | What is the maximum allowed filter query length? Should it be a hard limit (truncation) or soft limit (warning)? What is the specific character count? |
-| **Impact Score** | 2 |
-| **Rationale** | No specific limit is defined. While the edge case acknowledges this scenario, implementation needs a concrete number to enforce. This affects both UX and performance. |
-
----
-
-### 4. Keyboard Shortcut Binding
-
-| Field | Value |
-|-------|-------|
-| **Category** | constraints |
-| **Status** | Partial |
-| **Location** | Assumptions section, line 137 |
-| **Current Text** | "Standard keyboard shortcut conventions apply (e.g., Cmd/Ctrl+Shift+E or similar unassigned shortcut)" |
-| **Question Candidate** | What is the exact keyboard shortcut for focusing the filter input? Has conflict analysis been done with existing shortcuts in specs 005 (command palette) and 006 (application shell)? |
+| **Question Candidate** | What storage mechanism should be used for usage tracking data (localStorage, SQLite, electron-store, IndexedDB)? What are the storage limits and data retention policies? |
 | **Impact Score** | 3 |
-| **Rationale** | The shortcut is not definitively specified. Cmd/Ctrl+Shift+E is only suggested. Conflicts with existing shortcuts could cause UX issues or require refactoring. |
+| **Rationale** | FR-006/FR-007 require usage tracking and statistics, and Edge Cases mention "usage tracking storage exceeds reasonable limits," but no storage mechanism is specified. Project precedent shows mixed usage (localStorage for UI state, electron-store for main process, file system for documents). Usage data could grow significantly over time. |
 
 ---
 
-### 5. Performance Constraints for Large Projects
+### 4. Provider SDK/HTTP Client Constraints
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
-| **Status** | Partial |
-| **Location** | Success Criteria, lines 125-126 |
-| **Current Text** | "SC-001: Users can locate a specific file in a 500+ file project within 5 seconds" and "SC-002: Filter results update within 100ms of keystroke for projects with up to 10,000 files" |
-| **Question Candidate** | What is the expected behavior for projects exceeding 10,000 files? Should there be degradation strategies (debouncing, pagination, background indexing)? What is the upper bound for supported project size? |
-| **Impact Score** | 3 |
-| **Rationale** | The spec defines performance targets up to 10,000 files but does not address larger projects. Real-world monorepos can have 50,000+ files. Without guidance, implementation may fail silently or degrade unpredictably. |
-
----
-
-### 6. Case Sensitivity Behavior
-
-| Field | Value |
-|-------|-------|
-| **Category** | constraints |
 | **Status** | Missing |
-| **Location** | N/A - Not mentioned in spec |
-| **Current Text** | N/A |
-| **Question Candidate** | Should the filter be case-insensitive by default? Should there be an option to toggle case sensitivity (e.g., typing uppercase triggers case-sensitive mode like in some search tools)? |
-| **Impact Score** | 3 |
-| **Rationale** | Case sensitivity is not mentioned anywhere in the spec. This is a fundamental UX decision that affects fuzzy matching behavior and user expectations. Most developer tools default to case-insensitive with smart-case options. |
-
----
-
-### 7. Technology Stack / Dependencies
-
-| Field | Value |
-|-------|-------|
-| **Category** | constraints |
-| **Status** | Missing |
-| **Location** | N/A - No technology section |
-| **Current Text** | N/A |
-| **Question Candidate** | What are the allowed/preferred dependencies for this feature? Should we use an existing fuzzy search library (fuse.js, flexsearch, etc.) or implement custom matching? Are there bundle size constraints? |
+| **Question Candidate** | Should the implementation use official provider SDKs (e.g., openai npm package, @anthropic-ai/sdk), a generic HTTP client, or a unified AI client library (e.g., Vercel AI SDK)? What are the tradeoffs between these approaches? |
 | **Impact Score** | 4 |
-| **Rationale** | Unlike other specs in this project (see CLAUDE.md Active Technologies sections), this spec does not declare its technology stack. This leaves implementers to make independent choices that may conflict with project conventions. |
+| **Rationale** | FR-001/FR-014 require a "unified interface" and "provider abstraction layer," but there's no constraint on whether to use official SDKs (which add dependencies but provide type safety) vs raw HTTP (lighter but more maintenance) vs unified libraries like Vercel AI SDK. This significantly affects architecture and bundle size. |
 
 ---
 
-### 8. Rejected Alternatives / Tradeoffs
+### 5. Offline/Network Resilience Constraints
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
 | **Status** | Missing |
-| **Location** | N/A - No tradeoffs section |
-| **Current Text** | N/A |
-| **Question Candidate** | Were alternative approaches considered (e.g., glob patterns, regex search, tag-based filtering)? Why was fuzzy-only matching chosen? Should advanced users have access to more powerful search modes? |
-| **Impact Score** | 2 |
-| **Rationale** | The spec does not document why fuzzy matching was chosen over alternatives. This context helps implementers understand design intent and avoid re-introducing rejected patterns. |
+| **Question Candidate** | What are the network connectivity requirements and offline behavior expectations? Should the system cache provider configurations locally, and how should it handle intermittent connectivity? What timeout values apply? |
+| **Impact Score** | 3 |
+| **Rationale** | Edge Cases mention "network connectivity loss during provider validation" but there's no constraint on offline behavior, retry strategies, or timeout values. Local model support (User Story 4) implies some offline capability is valued, but constraints are not explicit. |
 
 ---
 
-### 9. Accessibility Constraints
+### 6. Rejected Alternatives Documentation
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
 | **Status** | Missing |
-| **Location** | N/A - Not mentioned |
-| **Current Text** | N/A |
-| **Question Candidate** | What accessibility requirements apply to the filter input and highlighted results? Should there be screen reader announcements for filter result counts? ARIA labels for the input field? |
+| **Question Candidate** | What alternative approaches were considered and rejected for: (a) credential storage (OS keychain vs encrypted local storage), (b) provider abstraction design (adapter pattern vs strategy pattern), (c) usage tracking architecture (local DB vs aggregated logs)? Document the tradeoffs. |
 | **Impact Score** | 2 |
-| **Rationale** | No accessibility requirements are specified. The application shell (006) likely has patterns to follow, but filter-specific accessibility (live regions for result counts, proper labeling) is not addressed. |
+| **Rationale** | The "Out of Scope" section lists excluded features but not rejected implementation alternatives. For example, why manual switching only vs automatic failover (mentioned in Out of Scope but rationale not given)? Documenting these prevents future re-evaluation of already-rejected paths. |
 
 ---
 
-### 10. Memory/Resource Constraints
+### 7. Concurrent Provider Request Constraints
 
 | Field | Value |
 |-------|-------|
-| **Category** | constraints |
 | **Status** | Missing |
-| **Location** | N/A |
-| **Current Text** | N/A |
-| **Question Candidate** | Are there memory constraints for indexing/caching file trees for filtering? Should the filter operate on-demand or maintain a pre-built index? What is acceptable memory overhead? |
+| **Question Candidate** | Are there constraints on concurrent AI requests? Should the system queue requests, allow parallel execution, or impose rate limiting? SC-005 allows 5 providers - can they be used simultaneously? |
 | **Impact Score** | 2 |
-| **Rationale** | For large projects (10,000+ files), caching strategies significantly impact memory usage. No guidance is provided on acceptable memory overhead or whether indexing is preferred over on-the-fly filtering. |
+| **Rationale** | SC-005 mentions "5 different provider configurations simultaneously," but it's unclear if this means concurrent usage or just configuration capacity. Rate limiting is mentioned in Edge Cases ("How are rate limits from providers surfaced to users?") but not constrained. |
 
 ---
 
-## Priority Summary
+### 8. Cross-Platform Keychain Behavior Constraints
 
-| Impact Score | Count | Items |
-|--------------|-------|-------|
-| **5** | 0 | - |
-| **4** | 2 | Fuzzy matching algorithm, Technology stack |
-| **3** | 4 | Storage mechanism, Keyboard shortcut, Performance for large projects, Case sensitivity |
-| **2** | 4 | Max query length, Rejected alternatives, Accessibility, Memory constraints |
+| Field | Value |
+|-------|-------|
+| **Status** | Partial |
+| **Question Candidate** | What are the minimum supported OS versions for keychain access? How should the system behave on Linux distributions without Secret Service (GNOME Keyring, KWallet) installed? |
+| **Impact Score** | 3 |
+| **Rationale** | FR-002 lists three OS-specific keychains (macOS Keychain, Windows Credential Manager, Linux Secret Service), but there's no constraint on minimum OS versions or fallback behavior when these services are unavailable. Edge Case mentions "keychain locked or unavailable" but doesn't constrain the response beyond "appropriate user guidance." |
 
 ---
 
-## Recommended Clarification Questions (Top 5 by Impact)
+### 9. Provider Configuration Storage Format
 
-1. **[Impact 4]** What specific fuzzy matching library or algorithm should be used, and what are the priorities: match quality, performance, or bundle size?
+| Field | Value |
+|-------|-------|
+| **Status** | Missing |
+| **Question Candidate** | What storage format/mechanism should be used for provider configurations (not credentials)? Should this use electron-store, JSON files, or another mechanism? How should it handle schema migrations? |
+| **Impact Score** | 2 |
+| **Rationale** | FR-010 requires "persist provider configurations across application restarts" but doesn't specify the storage mechanism. Credentials are specified as keychain-based (FR-002), but the non-sensitive configuration (provider type, display name, endpoint URL for local models) storage approach is not constrained. |
 
-2. **[Impact 4]** What technology stack/dependencies are allowed for this feature? Should this section be added to align with other specs in the project?
+---
 
-3. **[Impact 3]** What is the exact keyboard shortcut for focusing the filter, and has conflict analysis been done with existing shortcuts?
+### 10. Local Model Protocol Constraints
 
-4. **[Impact 3]** Should the filter be case-insensitive by default, and should there be a mechanism to toggle case sensitivity?
+| Field | Value |
+|-------|-------|
+| **Status** | Partial |
+| **Question Candidate** | The assumption states "Local model providers expose OpenAI-compatible endpoints." Should the system ONLY support OpenAI-compatible APIs, or should it also support native Ollama/LM Studio protocols? What happens if a local model doesn't follow the OpenAI API format? |
+| **Impact Score** | 3 |
+| **Rationale** | The assumption constrains to "OpenAI-compatible endpoints (common standard)" but doesn't specify behavior when local models don't conform. User Story 4 mentions Ollama and LM Studio specifically - both support OpenAI-compatible mode but also have native APIs with additional features. |
 
-5. **[Impact 3]** What is the expected behavior and degradation strategy for projects exceeding 10,000 files?
+---
+
+## Recommendations
+
+1. **Critical Priority (Score 5)**: Clarify secure credential storage library choice (keytar vs safeStorage vs other) before any implementation begins.
+
+2. **High Priority (Score 4)**: Add explicit constraints for programming language/framework (TypeScript 5.9.x, Electron 39.x per project standards) and provider SDK approach.
+
+3. **Medium Priority (Score 3)**: Clarify usage data storage mechanism, cross-platform keychain requirements, and local model protocol constraints.
+
+4. **Low Priority (Score 2)**: Document rejected alternatives; clarify concurrent request handling and configuration storage format.
+
+---
+
+## Impact Summary
+
+| Impact Score | Count |
+|--------------|-------|
+| 5 (Critical) | 1 |
+| 4 (High) | 2 |
+| 3 (Medium) | 4 |
+| 2 (Medium-Low) | 3 |
+| 1 (Low) | 0 |
+
+**Total Ambiguities**: 10
+**Requiring Clarification Before Implementation**: 3 (Critical + High impact)
+**Recommended for Clarification**: 4 (Medium impact)
+
+---
+
+## Suggested Questions for Clarification Session
+
+1. **[Critical]** Which secure credential storage library should be used? Options include:
+   - `keytar` (mature, cross-platform, but external dependency)
+   - Electron's `safeStorage` API (built-in, but different security model)
+   - Other approaches?
+
+2. **[High]** Should official provider SDKs be used, or a unified abstraction library, or raw HTTP? Consider:
+   - Official SDKs: Type safety, maintained by provider, but larger bundle
+   - Vercel AI SDK: Unified interface, popular, but adds abstraction layer
+   - Raw HTTP: Minimal dependencies, but more maintenance
+
+3. **[High]** Confirm TypeScript 5.9.x strict mode with Electron/React/Zustand should be explicitly stated as constraints (following project patterns)?
+
+4. **[Medium]** What storage mechanism should be used for usage tracking data? What are retention policies?
+
+5. **[Medium]** What are the minimum supported OS versions for keychain features? What's the fallback on unsupported systems?

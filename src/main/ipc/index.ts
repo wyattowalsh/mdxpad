@@ -11,6 +11,7 @@ import { IPC_CHANNELS } from '@shared/lib/ipc';
 import { registerFileHandlers } from './file-handlers';
 import { registerWindowHandlers } from './window-handlers';
 import { registerAutosaveHandlers } from './autosave-handlers';
+import { registerAIHandlers } from './ai-handlers';
 
 /** Track whether global handlers have been registered */
 let globalHandlersRegistered = false;
@@ -54,6 +55,9 @@ export function registerIpcHandlers(window: BrowserWindow): void {
 
     // Register autosave and recovery handlers (FR-001 to FR-021)
     registerAutosaveHandlers(ipcMain);
+
+    // Register AI provider handlers (Spec 028)
+    registerAIHandlers(window);
 
     globalHandlersRegistered = true;
   }

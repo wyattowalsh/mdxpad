@@ -1,159 +1,129 @@
-# Terminology Analysis: 014-smart-filtering
+# Terminology Ambiguity Analysis: AI Provider Abstraction Layer
 
-**Spec**: `/Users/ww/dev/projects/mdxpad-filter/.specify/specs/014-smart-filtering/spec.md`
+**Category**: Terminology
+**Spec**: `/Users/ww/dev/projects/mdxpad-ai/.specify/specs/028-ai-provider-abstraction/spec.md`
 **Analysis Date**: 2026-01-17
-**Category**: Terminology & Consistency
 
 ---
 
-## Summary
+## Glossary Terms Defined
 
-Analyzed the Smart Filtering specification for terminology consistency against:
-- Project Constitution glossary
-- Established terms from specs 004 (File System Shell) and 006 (Application Shell)
-- Internal consistency within the spec
+The spec provides explicit definitions in the "Key Entities" section:
 
----
-
-## Findings
-
-### 1. "File Tree" vs "File Explorer"
-
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Partial |
-| **Terms Used** | "file tree" (9 occurrences), "file explorer" (5 occurrences), "file explorer sidebar" (3 occurrences) |
-| **Issue** | The spec uses both "file tree" and "file explorer" interchangeably. Line 10: "file tree", Line 12: "file explorer sidebar", Line 20: "file explorer" |
-| **Question Candidate** | Should "file tree" and "file explorer" be distinguished (tree = data structure, explorer = UI component), or should one canonical term be chosen? If so, which term should be canonical: "file tree", "file explorer", or "file explorer sidebar"? |
-| **Impact Score** | 3 |
-| **Rationale** | Medium impact - could cause confusion during implementation about whether requirements refer to the data model or the UI component. Spec 006 does not define these terms in its glossary. |
+| Term | Definition | Status |
+|------|------------|--------|
+| Provider | AI service (OpenAI, Anthropic, local) with configuration, credentials, and connection status | Clear |
+| Credential | Securely stored API key or authentication token associated with a provider | Clear |
+| UsageRecord | Tracks individual AI requests including provider, tokens used, timestamp, and estimated cost | Clear |
+| ProviderConfig | User-facing configuration for a provider including display name, type, and settings | Clear |
 
 ---
 
-### 2. "Filter Query" vs "Query" vs "Filter Input" vs "Search Query"
+## Ambiguity Findings
 
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Partial |
-| **Terms Used** | "filter query" (Key Entity + 8 occurrences), "query" (standalone, 12 occurrences), "filter input" (7 occurrences), "search query" (line 12) |
-| **Issue** | Multiple related terms used: "filter query" (the string), "query" (shorthand), "filter input" (UI element), "search query" (line 12). Key Entities defines "Filter Query" but "search query" appears in User Story 1. |
-| **Question Candidate** | N/A - Recommend adding to glossary: "Filter Query" = the text string, "Filter Input" = the UI text field component. Avoid "search query" synonym. |
-| **Impact Score** | 2 |
-| **Rationale** | Low-medium impact. The context usually clarifies meaning, but formal glossary would improve precision. Key Entities partially addresses this but doesn't distinguish "filter input" (UI) from "filter query" (value). |
+### 1. "Active provider" vs "selected provider" vs "current provider"
 
----
-
-### 3. "Match" vs "Match Result" vs "Matching"
-
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Clear |
-| **Terms Used** | "Match Result" (Key Entity), "match" (verb), "matching" (adjective/gerund) |
-| **Issue** | None - well defined |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
-| **Rationale** | Key Entities defines "Match Result" clearly. Other uses are grammatical variations. No ambiguity. |
+- **Category**: Terminology
+- **Status**: Partial
+- **Observation**: The spec uses "active provider" in FR-005 and the glossary input, but User Story 2 also uses "active provider indicator" and "different provider as active". The term is mostly consistent but never explicitly defined in the Key Entities section. Additionally, "currently selected provider" could be used interchangeably.
+- **Question Candidate**: Should the glossary include an explicit definition for "Active provider" as the canonical term, and should synonyms like "selected provider" or "current provider" be listed as deprecated/avoided terms?
+- **Impact Score**: 2
+- **Rationale**: Low impact because usage is reasonably consistent throughout the spec, but explicit glossary inclusion would improve clarity.
 
 ---
 
-### 4. "File Tree Node" - Missing Definition Detail
+### 2. "API key" vs "Credential" vs "authentication token"
 
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Partial |
-| **Terms Used** | "File Tree Node" (Key Entity) |
-| **Issue** | Key Entity "File Tree Node" is defined but doesn't reference spec 004's "FileHandle" or other established types. Is a File Tree Node the same as a FileHandle, or a different abstraction? |
-| **Question Candidate** | Should "File Tree Node" align with or extend the existing `FileHandle` type from spec 004, or is it a distinct concept specific to the tree UI component? |
-| **Impact Score** | 3 |
-| **Rationale** | Medium impact - implementation needs to know whether to reuse existing file types or create new ones for the tree visualization. |
+- **Category**: Terminology
+- **Status**: Partial
+- **Observation**: The spec uses "Credential" as a formal entity but also uses "API key" extensively (16+ occurrences). The Key Entities section defines Credential as "API key or authentication token" but doesn't establish when to use which term. User scenarios consistently use "API key" while requirements use both.
+- **Question Candidate**: Should "API key" be the user-facing term and "Credential" the technical/storage term? Should the glossary clarify that "Credential" is the canonical term encompassing both API keys and authentication tokens?
+- **Impact Score**: 3
+- **Rationale**: Medium impact because this affects UI copy, error messages, and documentation consistency. Users may be confused if the UI says "Credential" when they're thinking "API key".
 
 ---
 
-### 5. "Fuzzy Matching" Algorithm Reference
+### 3. "Local model" vs "Local Model Provider" vs "Local endpoint"
 
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Partial |
-| **Terms Used** | "fuzzy matching" (8 occurrences), "fzf-style matching" (line 138) |
-| **Issue** | Line 138 mentions "fzf-style matching" as an assumption, but no formal definition exists. SC-006 specifies "80% of query characters present in any order" which may not match fzf algorithm behavior. |
-| **Question Candidate** | Should "fuzzy matching" be precisely defined in the glossary with specific algorithm characteristics, or should implementation be left to use standard fzf-like scoring (which prioritizes consecutive matches, not just presence)? |
-| **Impact Score** | 3 |
-| **Rationale** | Medium impact - different fuzzy matching algorithms produce different results. fzf prioritizes consecutive character sequences and path components, which differs from "characters present in any order" described in SC-006. |
+- **Category**: Terminology
+- **Status**: Partial
+- **Observation**: The spec uses multiple related terms:
+  - "local models" (general concept)
+  - "Local Model provider type" (User Story 4)
+  - "local endpoint" (acceptance scenarios)
+  - "Local model providers" (FR-009)
 
----
-
-### 6. "Project" vs "Workspace"
-
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Partial |
-| **Terms Used** | "project" (5 occurrences), "workspace" (4 occurrences), "project/workspace" (1 occurrence at line 108) |
-| **Issue** | Line 86: "different project/workspace", Line 108: "per project/workspace", Line 117: "persisted per project". Are these synonyms or distinct concepts? Constitution uses "Workspace" in Section 4.2 (plugin paths). |
-| **Question Candidate** | Should "project" and "workspace" be consolidated to one canonical term? The Constitution uses "Workspace root" (Section 4.2). Recommend standardizing on "workspace" for consistency. |
-| **Impact Score** | 2 |
-| **Rationale** | Low-medium impact. The meaning is clear in context, but formal distinction or consolidation would improve consistency with Constitution terminology. |
+  These terms are related but not explicitly distinguished.
+- **Question Candidate**: Should "Local provider" be the canonical term for this provider type, with "local model" and "local endpoint" being subsidiary terms? Or should all three be defined in the glossary with their relationships?
+- **Impact Score**: 2
+- **Rationale**: Low-medium impact. The context makes meaning clear, but explicit definitions would improve implementation consistency (e.g., what appears in the UI dropdown).
 
 ---
 
-### 7. "Session" - Ambiguous Scope
+### 4. "Provider configuration" vs "ProviderConfig" vs "provider settings"
 
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Partial |
-| **Terms Used** | "session" (2 occurrences), "sessions" (2 occurrences) |
-| **Issue** | User Story 5 title: "Filter Persistence" with text "persist across sessions". What defines a session boundary? App restart? Window close? Tab close (future)? |
-| **Question Candidate** | What constitutes a "session" for filter persistence purposes? Is it bounded by app restart, window close, or something else? |
-| **Impact Score** | 2 |
-| **Rationale** | Low-medium impact. Context implies app restart, but explicit definition would clarify implementation scope. Spec 006 uses "app launch" terminology which is clearer. |
+- **Category**: Terminology
+- **Status**: Partial
+- **Observation**: The spec defines "ProviderConfig" as a key entity but also uses:
+  - "provider configurations" (FR-010, Success Criteria)
+  - "provider settings" (User Story 1)
+  - "AI Provider Settings" (User Story 1 acceptance scenarios)
+  - "configuration UI" (User Story 4)
 
----
-
-### 8. "Items" - Generic Term
-
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Clear |
-| **Terms Used** | "items" (5 occurrences, always as "files and folders" or "matching items") |
-| **Issue** | None - always clarified in context |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
-| **Rationale** | "Items" is always qualified (e.g., "matching items", "files and folders"). No standalone ambiguous use. |
+  It's unclear if these all refer to the same thing or if "settings" is the UI and "configuration" is the data model.
+- **Question Candidate**: Should "ProviderConfig" be the data entity, "AI Provider Settings" the UI panel name, and "provider configuration" the general action/concept? Should these distinctions be explicit in the glossary?
+- **Impact Score**: 3
+- **Rationale**: Medium impact because this affects UI labeling, documentation, and code naming conventions.
 
 ---
 
-### 9. "Visual Highlighting" vs "Match Highlighting"
+### 5. "Keychain" terminology across platforms
 
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Clear |
-| **Terms Used** | "visual highlighting" (1), "visually highlighted" (2), "match highlighting" (0), "highlight" (verb, 3) |
-| **Issue** | None - consistent use of "visual highlighting" for the feature |
-| **Question Candidate** | N/A |
-| **Impact Score** | 1 |
-| **Rationale** | FR-005 uses "visually highlight" consistently. No conflicting terms. |
+- **Category**: Terminology
+- **Status**: Clear
+- **Observation**: The spec correctly lists all three platform-specific terms (macOS Keychain, Windows Credential Manager, Linux Secret Service) in FR-002. The glossary input lists only "Keychain" as a generic term.
+- **Question Candidate**: N/A - No question needed. The spec handles this well.
+- **Impact Score**: 1
+- **Rationale**: Minimal impact. Could add "Secure storage" as a platform-agnostic umbrella term in the glossary for consistency.
 
 ---
 
-### 10. Missing Glossary Section
+### 6. "BYOK" (Bring Your Own Key)
 
-| Field | Value |
-|-------|-------|
-| **Category** | terminology |
-| **Status** | Missing |
-| **Terms Used** | N/A |
-| **Issue** | Spec 006 (Application Shell) has a dedicated "Glossary" section defining key terms (Dirty, File Handle, Split Ratio, Untitled). Spec 014 lacks a glossary section despite introducing new domain terms. |
-| **Question Candidate** | Should spec 014 include a Glossary section defining: Filter Query, Filter Input, Match Result, File Tree Node, Fuzzy Matching, and potentially consolidating file tree/file explorer terminology? |
-| **Impact Score** | 4 |
-| **Rationale** | Higher impact - a glossary would resolve multiple partial findings above and establish canonical terminology for implementation. |
+- **Category**: Terminology
+- **Status**: Clear
+- **Observation**: Defined in the glossary input and used consistently in User Story 2 context. Only used twice in the spec (feature input and User Story 2 priority justification).
+- **Question Candidate**: N/A - Well defined and consistently used.
+- **Impact Score**: 1
+- **Rationale**: Minimal impact. Acronym is industry-standard and properly defined.
+
+---
+
+### 7. "Connection status" vs "connected" vs "connection state"
+
+- **Category**: Terminology
+- **Status**: Partial
+- **Observation**: The spec uses:
+  - "connection status" (Key Entities - Provider)
+  - "Connected" (User Story 1 acceptance)
+  - "connection status" (User Story 2)
+  - "connectivity" (User Story 1, Edge Cases)
+
+  These appear to be the same concept but without explicit definition of possible states.
+- **Question Candidate**: Should the glossary define "Connection status" with its possible states (e.g., Connected, Disconnected, Validating, Error)? This would clarify what "shows as Connected" means.
+- **Impact Score**: 2
+- **Rationale**: Low-medium impact. Affects UI design and status indicators but the general meaning is clear.
+
+---
+
+### 8. "Provider abstraction layer" vs "unified interface"
+
+- **Category**: Terminology
+- **Status**: Clear
+- **Observation**: FR-001 uses "unified interface" and FR-014 uses "provider abstraction layer". These refer to the same architectural concept but from different perspectives (user-facing vs technical).
+- **Question Candidate**: N/A - The distinction is appropriate (user-facing requirement vs architectural requirement).
+- **Impact Score**: 1
+- **Rationale**: Minimal impact. Both terms are appropriate in their contexts.
 
 ---
 
@@ -161,66 +131,45 @@ Analyzed the Smart Filtering specification for terminology consistency against:
 
 | # | Term/Issue | Status | Impact | Action Required |
 |---|------------|--------|--------|-----------------|
-| 1 | File Tree vs File Explorer | Partial | 3 | Distinguish or consolidate |
-| 2 | Filter Query vs Query vs Search Query | Partial | 2 | Add glossary entries |
-| 3 | Match vs Match Result | Clear | 1 | No action |
-| 4 | File Tree Node relationship to FileHandle | Partial | 3 | Clarify type relationship |
-| 5 | Fuzzy Matching algorithm undefined | Partial | 3 | Define algorithm or reference |
-| 6 | Project vs Workspace | Partial | 2 | Consolidate to "workspace" |
-| 7 | Session boundary undefined | Partial | 2 | Define session scope |
-| 8 | Items (generic term) | Clear | 1 | No action |
-| 9 | Visual Highlighting | Clear | 1 | No action |
-| 10 | Missing Glossary section | Missing | 4 | Add glossary to spec |
+| 1 | Active provider undefined | Partial | 2 | Add to Key Entities glossary |
+| 2 | API key vs Credential usage | Partial | 3 | Clarify user-facing vs technical terms |
+| 3 | Local model/provider/endpoint | Partial | 2 | Standardize canonical term |
+| 4 | ProviderConfig vs settings | Partial | 3 | Distinguish UI vs data model terms |
+| 5 | Keychain cross-platform | Clear | 1 | No action needed |
+| 6 | BYOK | Clear | 1 | No action needed |
+| 7 | Connection status states | Partial | 2 | Define valid states |
+| 8 | Abstraction layer vs unified interface | Clear | 1 | No action needed |
+
+---
+
+## Overall Assessment
+
+| Status | Count | Terms |
+|--------|-------|-------|
+| Clear | 4 | Provider, Credential (entity), UsageRecord, ProviderConfig, BYOK, Keychain, Provider abstraction layer |
+| Partial | 5 | Active provider, API key vs Credential (usage), Local model variants, Provider configuration variants, Connection status |
+| Missing | 0 | None |
 
 ---
 
 ## Recommendations
 
-1. **Add Glossary Section** (Impact: 4) - Define canonical terms for this feature domain
-2. **Standardize "File Tree" vs "File Explorer"** (Impact: 3) - Choose one or distinguish clearly
-3. **Clarify "File Tree Node" Relationship to FileHandle** (Impact: 3) - Connect to existing types
-4. **Define "Fuzzy Matching" Algorithm** (Impact: 3) - Reconcile SC-006 with fzf-style assumption
-5. **Consolidate "Project/Workspace"** (Impact: 2) - Align with Constitution's "Workspace" term
-6. **Define "Session" Boundary** (Impact: 2) - Clarify persistence scope
+1. **Add to glossary**: "Active provider" - The currently selected provider that will be used for AI features
+2. **Clarify usage pattern**: "API key" for user-facing contexts, "Credential" for technical/storage contexts
+3. **Standardize**: "Local provider" as the canonical provider type name
+4. **Distinguish**: "AI Provider Settings" (UI panel) vs "ProviderConfig" (data entity)
+5. **Consider defining**: Connection status states for UI consistency
 
 ---
 
-## Proposed Glossary Additions
+## Questions for Clarification (Priority Order)
 
-If a glossary is added, recommend these definitions:
+1. **(Impact 3)** **API key vs Credential**: When should each term be used? Is "API key" user-facing and "Credential" technical?
 
-| Term | Proposed Definition |
-|------|---------------------|
-| **File Explorer** | The UI sidebar component that displays the file tree and filter input |
-| **File Tree** | The hierarchical data structure representing files and folders in the workspace |
-| **Filter Query** | The text string entered by the user to filter the file tree |
-| **Filter Input** | The text field UI component where users enter the filter query |
-| **Match Result** | A file or folder node that matches the filter query, including match positions for highlighting |
-| **File Tree Node** | A node in the file tree representing a file or folder, with visibility state determined by filter matches |
-| **Fuzzy Matching** | An algorithm that matches filter queries against file names by finding query characters in order but not necessarily contiguous, scoring based on consecutive character matches and match positions |
+2. **(Impact 3)** **Provider configuration terminology**: What's the canonical UI panel name vs entity name vs action?
 
----
+3. **(Impact 2)** **Active provider**: Should this be added to the formal glossary as a Key Entity?
 
-## Cross-Reference: Constitution Glossary Terms
+4. **(Impact 2)** **Local provider terminology**: What's the canonical term for this provider type?
 
-The Constitution glossary (Section #glossary) defines:
-- Tier 1/2/3 Plugin
-- contextIsolation
-- IPC
-- MDX
-
-None of these directly apply to spec 014, but the spec should maintain consistency with the Constitution's language conventions (MUST/SHALL/SHOULD/MAY per Section #language-conventions), which it does correctly in the Requirements section.
-
----
-
-## Recommended Clarification Questions (Priority Order)
-
-1. **(Impact 4)** Should spec 014 include a Glossary section defining: Filter Query, Filter Input, Match Result, File Tree Node, Fuzzy Matching, and resolving file tree/file explorer terminology?
-
-2. **(Impact 3)** Should "file tree" (data structure) and "file explorer" (UI component) be formally distinguished, or should one canonical term be chosen for both?
-
-3. **(Impact 3)** Should "File Tree Node" align with or extend the existing `FileHandle` type from spec 004, or is it a distinct concept specific to the tree visualization?
-
-4. **(Impact 3)** Should "fuzzy matching" be precisely defined with specific algorithm characteristics (e.g., consecutive match scoring), or is "fzf-style" sufficient as a reference?
-
-5. **(Impact 2)** Should "project" and "workspace" be consolidated to the Constitution's canonical term "workspace"?
+5. **(Impact 2)** **Connection status states**: Should valid states be enumerated (e.g., Connected, Disconnected, Validating, Error)?
