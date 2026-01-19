@@ -301,6 +301,7 @@ replit.nix
 [Ii]nclude
 [Ll]ib
 !src/shared/lib/
+!src/renderer/lib/
 [Ll]ib64
 [Ll]ocal
 [Ss]cripts
