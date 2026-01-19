@@ -1,6 +1,6 @@
 # Data Model Ambiguity Analysis
 
-**Spec**: `specs/007-mdx-content-outline/spec.md`
+**Spec**: 008-bidirectional-sync
 **Category**: Data Model
 **Analyzed**: 2026-01-17
 
@@ -8,139 +8,139 @@
 
 ## Summary
 
-The spec defines three key entities (`OutlineItem`, `OutlineSection`, `OutlineState`) in the "Key Entities" section (lines 180-186). While the basic structure is provided, several important data model concerns remain underspecified.
+The spec defines 4 key entities (SyncMode, ScrollPosition, PositionMapping, SyncState) in the "Key Entities" section (lines 197-206). The data model is relatively straightforward but has several ambiguities around identity rules, lifecycle management, and scale assumptions.
 
 ---
 
 ## Ambiguity Findings
 
-### 1. OutlineItem Identity & Uniqueness
+### 1. PositionMapping Cardinality & Uniqueness
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
-| **Status** | Missing |
-| **Element** | OutlineItem identity/key |
-| **Question Candidate** | How should OutlineItems be uniquely identified? Is `(type, line, column)` sufficient, or do we need a generated ID? What happens when two headings have identical text on different lines? |
+| **Status** | Partial |
+| **Element** | PositionMapping identity/relationships |
+| **Question Candidate** | For PositionMapping, what is the cardinality between editor lines and preview positions? Can multiple editor lines map to the same preview scroll position? Can a single editor line map to multiple preview positions? What uniqueness constraints should be enforced on the position cache? |
 | **Impact Score** | 4 |
-| **Rationale** | React requires stable keys for list rendering. Without clear identity rules, outline updates may cause unnecessary re-renders or lose collapse/selection state. The spec mentions `line` and `column` but doesn't confirm these form a unique key. |
+| **Rationale** | The position mapping strategy is core to sync functionality. PositionMapping defines `editorLine` and `previewScrollTop` but doesn't clarify if mappings are 1:1, 1:many, or many:many. This affects cache key design and sync behavior for content like multi-line code blocks that render as single elements, or single lines that expand into multiple rendered elements. |
 
 ---
 
-### 2. Component Instance Attributes
+### 2. PositionMapping DOM Element Reference Lifecycle
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineItem for components |
-| **Question Candidate** | What attributes should a component OutlineItem have beyond type, label, line, column? Should it include: component props summary, opening/closing tag line range, self-closing indicator, nested children count? |
+| **Element** | PositionMapping.element lifecycle |
+| **Question Candidate** | When should DOM element references in PositionMapping be invalidated? Should they be WeakRefs to allow garbage collection? How should the system handle stale element references that no longer exist in the DOM after preview re-renders? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-013 says "show individual instances with line numbers" and FR-014 mentions "distinguish built-in vs custom components", but the OutlineItem entity doesn't have a field for built-in/custom classification or prop info. |
+| **Rationale** | PositionMapping includes `element (DOM element reference if available)`. DOM references become stale when preview re-renders or document is edited. FR-041 mentions cache invalidation on "document content changes" but doesn't specify DOM reference handling. Stale references could cause runtime errors or incorrect scroll positions. |
 
 ---
 
-### 3. Frontmatter Field Representation
+### 3. Position Cache Structure & Capacity
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
-| **Status** | Partial |
-| **Element** | Frontmatter OutlineItem structure |
-| **Question Candidate** | How are frontmatter fields modeled as OutlineItems? Should each field (title, date, tags) be a separate OutlineItem child, or is frontmatter a single item with metadata? How are complex values (arrays like `tags`, nested objects) represented? |
+| **Status** | Missing |
+| **Element** | SyncState.positionCache capacity and structure |
+| **Question Candidate** | What is the maximum number of entries the position cache should hold? For a 10,000-line document, should all line mappings be cached? What eviction policy should apply when the cache reaches capacity (beyond TTL expiration)? What is the Map key - editor line number, composite key, or something else? |
 | **Impact Score** | 3 |
-| **Rationale** | FR-016/FR-017 describe displaying frontmatter fields, but the OutlineItem entity uses a flat `label` field. The spec doesn't clarify if frontmatter is a single item or multiple items, or how to represent array/object values. |
+| **Rationale** | SyncState defines `positionCache (Map of PositionMapping)` but doesn't specify: Map key structure, maximum cache size, or eviction policy beyond TTL. The assumptions mention "Documents are typically under 10,000 lines" but this doesn't translate to cache bounds. Without limits, memory usage could grow unbounded. |
 
 ---
 
-### 4. Heading Nesting Algorithm
+### 4. SyncState Lifecycle Across Document Switches
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineItem children relationship |
-| **Question Candidate** | How exactly should heading nesting work? If document has `# A`, `### B`, `## C` (skipped h2), should B be a child of A or standalone? What about `## D`, `# E` - does E reset the hierarchy? |
+| **Element** | SyncState per-document vs global scope |
+| **Question Candidate** | When the user switches from Document A to Document B, should the SyncState (including position cache and lock state) be preserved for Document A and restored when returning? Or should SyncState be reset for each document switch? Is SyncState per-document or application-global? |
 | **Impact Score** | 4 |
-| **Rationale** | FR-007 says "hierarchical tree structure reflecting their nesting based on level" but doesn't specify how to handle level-skipping (h1 -> h3) or descending levels (h3 -> h1). This affects the `children` array population algorithm. |
+| **Rationale** | Assumption #4 states "Sync operates on the currently active document only" but doesn't clarify state management during document switching. SyncState includes `positionCache` which is document-specific, but also `mode` which appears to be a global preference. The lifecycle is ambiguous. |
 
 ---
 
-### 5. Data Volume / Scale Assumptions
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Missing |
-| **Element** | Scale limits and performance bounds |
-| **Question Candidate** | What are the expected upper bounds for: max headings per document, max components per document, max frontmatter fields, max nesting depth? Should there be virtualization for very large outlines (100+ items)? |
-| **Impact Score** | 3 |
-| **Rationale** | The spec mentions 500ms update requirement but doesn't specify data volume assumptions. A 10,000-line MDX document could have hundreds of headings/components. Without scale bounds, performance requirements are untestable. |
-
----
-
-### 6. OutlineState Lifecycle & Initialization
+### 5. ScrollPosition Timestamp Semantics
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineState transitions |
-| **Question Candidate** | What is the initial OutlineState when: (a) no document is open, (b) document is loading, (c) empty document is open? Should there be explicit loading/error states beyond `parseError`? |
+| **Element** | ScrollPosition.timestamp purpose and format |
+| **Question Candidate** | What is the purpose of the timestamp in ScrollPosition? Is it used for ordering events, calculating staleness, debugging, or something else? Should it be a high-resolution timestamp (performance.now()) or standard Date.now()? |
 | **Impact Score** | 2 |
-| **Rationale** | OutlineState has `parseError` for failures but no explicit loading state. The edge case mentions "no outline available" empty state but this isn't modeled in the entity. State transitions (loading -> parsed -> error) aren't defined. |
+| **Rationale** | ScrollPosition includes `timestamp` but the spec doesn't clarify its use beyond implicit staleness (TTL and debounce use constant durations, not timestamp comparisons). The timestamp type and precision aren't specified. |
 
 ---
 
-### 7. Section Collapse State Persistence Scope
+### 6. Confidence Level Definitions & Usage
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineSection.isCollapsed persistence |
-| **Question Candidate** | Is collapse state per-document or global? If I collapse "Components" in doc A, then switch to doc B and back to doc A, is "Components" still collapsed? FR-026 says "during the editing session" but doesn't clarify document scope. |
-| **Impact Score** | 2 |
-| **Rationale** | OutlineSection has `isCollapsed` but the spec doesn't clarify if this is document-specific or application-wide. FR-028 says "start expanded on app launch" but doesn't address document switching. |
+| **Element** | PositionMapping.confidence criteria and behavior |
+| **Question Candidate** | What criteria determine whether a PositionMapping has 'high', 'medium', or 'low' confidence? How should sync behavior differ based on confidence level? For example: AST source positions = high, DOM line mapping = medium, proportional ratio = low? |
+| **Impact Score** | 3 |
+| **Rationale** | PositionMapping has `confidence ('high' | 'medium' | 'low')` but the spec doesn't define threshold criteria or how confidence affects sync behavior. The Position Mapping Strategy (lines 143-146) mentions primary/secondary/fallback sources but doesn't map these to confidence levels explicitly. Without defined semantics, confidence values may be ignored or used inconsistently. |
 
 ---
 
-### 8. AST Node Position Precision
+### 7. SyncMode Persistence Format
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
 | **Status** | Partial |
-| **Element** | OutlineItem line/column source |
-| **Question Candidate** | Should `line` and `column` point to: (a) the start of the element syntax (e.g., `#` for heading), (b) the start of content (e.g., first letter of heading text), (c) the AST-reported position? Different MDX parsers may report positions differently. |
-| **Impact Score** | 3 |
-| **Rationale** | FR-032 says "extract source position information (line, column) from AST nodes" but AST parsers vary in position reporting (0-indexed vs 1-indexed, start of token vs start of content). This affects navigation accuracy. |
-
----
-
-### 9. Component Type Grouping Key
-
-| Field | Value |
-|-------|-------|
-| **Category** | Data Model |
-| **Status** | Missing |
-| **Element** | Component grouping/deduplication |
-| **Question Candidate** | How should component types be grouped? Is `<Callout>` the same as `<callout>` (case sensitivity)? Is `<Callout type="warning">` grouped with `<Callout type="info">`? Is `<components.Callout>` grouped with `<Callout>`? |
+| **Element** | SyncMode storage representation |
+| **Question Candidate** | What storage key should be used for sync mode persistence? Should the value be stored as the string enum value (e.g., 'bidirectional') or an integer? How should the system handle unrecognized persisted values from potential future version changes or corruption? |
 | **Impact Score** | 2 |
-| **Rationale** | FR-012 says "group components by type" but doesn't define what constitutes the same "type". JSX component names can include namespaces (`ns.Component`), and JSX is case-sensitive. Grouping rules affect the outline structure. |
+| **Rationale** | FR-003 states "System MUST persist sync mode preference across sessions using the existing settings store" but doesn't specify key name, data format, or migration/validation strategy. Minor issue but affects interoperability and forward compatibility. |
 
 ---
 
-### 10. Relationship to Document Store
+### 8. Large Document Scale Behavior
 
 | Field | Value |
 |-------|-------|
 | **Category** | Data Model |
-| **Status** | Missing |
-| **Element** | OutlineState relationship to DocumentState |
-| **Question Candidate** | Is OutlineState stored within the document store (as a derived field of DocumentState), in a separate outline store, or computed on-the-fly from AST? How does outline state relate to the document's dirty/saved state? |
-| **Impact Score** | 3 |
-| **Rationale** | The spec mentions "integrate with existing Zustand store pattern" but doesn't specify if outline is part of document state, a separate store, or a derived selector. This affects architecture and data flow. |
+| **Status** | Partial |
+| **Element** | Scale assumptions and degradation |
+| **Question Candidate** | For documents exceeding 10,000 lines, what specific degradation is acceptable? Should the position mapping strategy change at scale (e.g., sample every Nth line instead of mapping all lines)? What is the upper bound before sync should be disabled entirely? |
+| **Impact Score** | 2 |
+| **Rationale** | Assumptions state "Documents are typically under 10,000 lines; extreme documents may have degraded sync accuracy." This doesn't quantify "degraded" or specify whether data model changes occur at scale. Users with very large documents need predictable behavior. |
+
+---
+
+### 9. ScrollPosition Pane Value Constraints
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Clear |
+| **Element** | ScrollPosition.pane enum values |
+| **Question Candidate** | N/A - Clear |
+| **Impact Score** | N/A |
+| **Rationale** | ScrollPosition clearly defines `pane ('editor' | 'preview')` which aligns with the two-pane architecture. |
+
+---
+
+### 10. SyncState Lock State Transitions
+
+| Field | Value |
+|-------|-------|
+| **Category** | Data Model |
+| **Status** | Clear |
+| **Element** | isLocked and lockSource state machine |
+| **Question Candidate** | N/A - Clear |
+| **Impact Score** | N/A |
+| **Rationale** | The Scroll Lock Algorithm (lines 135-141) clearly defines state transitions: set lock on sync initiation, ignore events from lockSource, clear after debounce, break early on manual scroll. This is well-specified. |
 
 ---
 
@@ -148,29 +148,41 @@ The spec defines three key entities (`OutlineItem`, `OutlineSection`, `OutlineSt
 
 | Status | Count |
 |--------|-------|
-| Clear | 0 |
+| Clear | 2 |
 | Partial | 6 |
-| Missing | 4 |
-| **Total Ambiguities** | **10** |
+| Missing | 1 |
+| **Total Ambiguities** | **8** |
 
 | Impact Score | Count |
 |--------------|-------|
 | 5 (Critical) | 0 |
 | 4 (High) | 2 |
-| 3 (Medium) | 4 |
-| 2 (Low) | 4 |
+| 3 (Medium) | 3 |
+| 2 (Low) | 3 |
 
 ---
 
 ## Recommended Clarification Priority
 
-1. **OutlineItem Identity & Uniqueness** (Impact: 4) - Blocks stable React rendering
-2. **Heading Nesting Algorithm** (Impact: 4) - Core feature correctness
-3. **AST Node Position Precision** (Impact: 3) - Navigation accuracy
-4. **Component Instance Attributes** (Impact: 3) - Feature completeness
-5. **Relationship to Document Store** (Impact: 3) - Architecture decision
-6. **Data Volume / Scale Assumptions** (Impact: 3) - Performance testability
-7. **Frontmatter Field Representation** (Impact: 3) - Data structure clarity
-8. **OutlineState Lifecycle & Initialization** (Impact: 2) - State machine completeness
-9. **Section Collapse State Persistence Scope** (Impact: 2) - UX consistency
-10. **Component Type Grouping Key** (Impact: 2) - Grouping logic clarity
+1. **PositionMapping Cardinality & Uniqueness** (Impact: 4) - Core sync algorithm correctness
+2. **SyncState Lifecycle Across Document Switches** (Impact: 4) - User experience continuity
+3. **Position Cache Structure & Capacity** (Impact: 3) - Memory management
+4. **Confidence Level Definitions & Usage** (Impact: 3) - Mapping strategy implementation
+5. **PositionMapping DOM Element Reference Lifecycle** (Impact: 3) - Runtime stability
+6. **ScrollPosition Timestamp Semantics** (Impact: 2) - Implementation detail
+7. **SyncMode Persistence Format** (Impact: 2) - Settings compatibility
+8. **Large Document Scale Behavior** (Impact: 2) - Edge case handling
+
+---
+
+## Clear Aspects
+
+The following data model aspects are sufficiently clear:
+
+- **SyncMode enum values**: Explicitly defined as 4 options ('disabled' | 'editorToPreview' | 'previewToEditor' | 'bidirectional')
+- **ScrollPosition.pane values**: Explicitly defined as ('editor' | 'preview')
+- **SyncState.lockSource values**: Explicitly defined as ('editor' | 'preview' | null)
+- **Scroll lock state transitions**: Well-documented algorithm with clear conditions
+- **Cache TTL**: Explicitly defined as POSITION_CACHE_TTL_MS = 1000ms
+- **Cache invalidation trigger**: Document content changes (FR-041)
+- **Default sync mode**: Explicitly "bidirectional" for new installations (FR-002)

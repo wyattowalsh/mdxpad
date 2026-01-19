@@ -1,6 +1,6 @@
-# Completion Ambiguity Analysis: MDX Content Outline/Navigator (007)
+# Completion Ambiguity Analysis: Bidirectional Preview Sync (008)
 
-**Spec File**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec File**: `/Users/ww/dev/projects/mdxpad-sync/.specify/specs/008-bidirectional-sync/spec.md`
 **Analysis Date**: 2026-01-17
 **Focus Area**: Completion Signals (Acceptance Criteria Testability, Measurable Definition of Done)
 
@@ -11,241 +11,136 @@
 | Status | Count |
 |--------|-------|
 | Clear | 8 |
-| Partial | 9 |
-| Missing | 4 |
+| Partial | 6 |
+| Missing | 3 |
 
 ---
 
 ## Ambiguity Findings
 
-### 1. US1-AS1: Headings Tree Nesting Structure
+### 1. User Story 1 - Acceptance Scenario 2: Position Approximation
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 35)**: "Then all headings appear in a hierarchical tree reflecting their nesting structure"
-**Question Candidate**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a placeholder h2?
+**Spec Text (Lines 51-52)**: "the preview shows the rendered output of **approximately** those same lines"
+**Question Candidate**: What is the acceptable line deviation for position mapping accuracy? Should it be within 3 lines, 5 lines, or a percentage of visible viewport?
 **Impact Score**: 4
-**Rationale**: "Nesting structure" is ambiguous for non-sequential heading levels. Test cases cannot be written without knowing expected behavior for malformed heading hierarchies.
+**Rationale**: The word "approximately" is vague and not deterministically testable. Without a concrete tolerance, testers cannot write reliable assertions. Automated tests need a numeric threshold to pass/fail.
 
 ---
 
-### 2. US1-AS3: Brief Highlight Duration
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 37)**: "Then the heading line is briefly highlighted to help the user locate it"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: FR-022 specifies "flash highlight for 500ms" which makes this testable.
-
----
-
-### 3. US1-AS4: Outline Update Timing Reference Point
+### 2. Success Criteria SC-004: Position Mapping Accuracy Measurement
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 38)**: "outline updates within 500ms to reflect the changes"
-**Question Candidate**: Is the 500ms measured from when typing stops (debounce), from the last keystroke, or from when the AST becomes available?
+**Spec Text (Line 216)**: "Position mapping accuracy achieves 90%+ for documents with AST source positions (rendered content within 5 lines of source)"
+**Question Candidate**: How should the 90% position mapping accuracy be measured - per sync event, per document tested, or aggregated across a test suite? What sample size validates this metric?
+**Impact Score**: 4
+**Rationale**: The "within 5 lines" clarifies the tolerance, but "90%+" lacks measurement methodology. Is it 90% of individual sync events accurate, 90% of test documents pass, or 90% of mapped lines within tolerance? Without clear methodology, the success criterion cannot be objectively verified.
+
+---
+
+### 3. Success Criteria SC-003: Main Thread Performance Measurement
+
+**Category**: Completion
+**Status**: Partial
+**Spec Text (Line 215)**: "Scroll synchronization adds less than 5ms to the main thread during scroll events"
+**Question Candidate**: What test methodology should verify the 5ms main thread constraint? Should this be measured via Performance API, Chrome DevTools, or a specific testing framework? What constitutes the reference test environment (hardware, document size)?
 **Impact Score**: 3
-**Rationale**: The timing trigger is ambiguous. Tests need to know the exact start point of the 500ms window to write deterministic assertions.
+**Rationale**: Performance metrics without measurement methodology are not reliably testable. Different measurement approaches yield different results. CI environments may have different performance characteristics than developer machines.
 
 ---
 
-### 4. US2-AS1/AS2: Toggle Shortcut
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 52)**: "Cmd+Shift+O"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific shortcut is defined. Testable via keyboard simulation.
-
----
-
-### 5. US2-AS3: Persistence Verification Scope
+### 4. Success Criteria SC-001 & SC-002: Subjective Qualifier
 
 **Category**: Completion
 **Status**: Partial
-**Spec Text (Line 54)**: "restart the app, Then the outline remains hidden (persistence)"
-**Question Candidate**: What constitutes an "app restart" for testing purposes - full quit and relaunch, window close and reopen, or F5 refresh in dev mode?
+**Spec Text (Lines 213-214)**: "within SYNC_DEBOUNCE_MS + SCROLL_ANIMATION_MS (perceived as immediate)"
+**Question Candidate**: Should acceptance tests verify only the objective timing (< 200ms total) or also include user perception testing? If perception-based, what testing methodology validates "perceived as immediate"?
 **Impact Score**: 2
-**Rationale**: Different persistence mechanisms may be tested differently. Need clarity for automated test design and CI/CD.
+**Rationale**: The numeric values (50ms + 150ms = 200ms) provide concrete testable criteria, but the parenthetical "perceived as immediate" introduces subjectivity. The subjective qualifier could cause confusion in test acceptance reviews.
 
 ---
 
-### 6. FR-014: Component Visual Distinction Treatment
+### 5. User Story 5 - Acceptance Scenario 4: Notification Specification
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 146)**: "MUST distinguish between built-in components...and custom/unknown components visually"
-**Question Candidate**: What specific visual treatment differentiates built-in from custom components? Different icons, colors, labels, badges, or prefixes?
-**Impact Score**: 4
-**Rationale**: Cannot write visual regression tests or verify implementation without knowing the expected visual distinction. Implementers will make arbitrary choices.
+**Spec Text (Line 120)**: "a brief notification confirms the new state"
+**Question Candidate**: What should the sync toggle notification contain (text format, message content), how long should it display (duration in ms), and where should it appear in the UI (toast, status bar, inline)?
+**Impact Score**: 3
+**Rationale**: "Brief notification" is undefined. Testers cannot verify correct notification behavior without knowing expected appearance, content, position, and duration. Multiple valid implementations could exist.
 
 ---
 
-### 7. FR-014: Built-in Component List Definition
+### 6. FR-052: Notification Requirements
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 146)**: "built-in components (Callout, CodeBlock, etc.)"
-**Question Candidate**: What is the complete, exhaustive list of "built-in" components that should be recognized? The spec only gives examples with "etc."
-**Impact Score**: 4
-**Rationale**: Tests cannot verify correct classification without an authoritative list of built-in components. What about `<Note>`, `<Warning>`, `<Tip>`, `<Tabs>`?
-
----
-
-### 8. FR-016/FR-017: Frontmatter Fields Enumeration
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Lines 151-152)**: "display key fields (title, date, author, description, tags)" and "limit displayed frontmatter to common fields, with option to expand for all fields"
-**Question Candidate**: What is the exact list of "common fields" that are always shown vs expanded? Is the list in FR-016 exhaustive or just examples?
+**Spec Text (Line 193)**: "System MUST show a brief notification when sync is toggled via command or shortcut"
+**Question Candidate**: Define "brief notification" - what is the minimum/maximum display duration in milliseconds? What exact text content should the notification contain for each sync state transition?
 **Impact Score**: 3
-**Rationale**: Test cases need to know which fields are "common" (always shown) vs "other" (shown on expand). The word "key" suggests priority but doesn't enumerate.
+**Rationale**: Same issue as User Story 5 - AS4. The requirement uses vague language ("brief") and lacks concrete specification. Cannot be verified without notification duration, content, and styling specification.
 
 ---
 
-### 9. SC-001: Navigation Timing
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 196)**: "within 100ms (perceived instant)"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific, measurable timing provided. Testable with performance testing tools and assertions.
-
----
-
-### 10. SC-004: Parsing Overhead Measurement
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 197)**: "less than 50ms overhead to the existing preview compilation cycle"
-**Question Candidate**: How should this be measured? Delta between preview-only compilation vs preview+outline compilation? What document size is the baseline for testing?
-**Impact Score**: 3
-**Rationale**: Performance tests need baseline document specification and measurement methodology defined. Results vary dramatically by document complexity.
-
----
-
-### 11. SC-005: Heading Representation Scope
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 198)**: "100% of headings in the document are represented in the outline"
-**Question Candidate**: Does this include headings inside JSX components, code blocks (as examples), or markdown blocks within JSX? Only top-level markdown headings?
-**Impact Score**: 4
-**Rationale**: Edge cases around heading location affect what "100%" means. A heading inside `<CodeBlock>` is fundamentally different from a parsed heading.
-
----
-
-### 12. SC-006: Component Identification Scope
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 199)**: "100% of JSX component usages are identified"
-**Question Candidate**: Does this include components inside code blocks (shown as examples), MDX expressions like `{MyComponent}`, or only directly rendered `<Component>` tags?
-**Impact Score**: 3
-**Rationale**: False positives from code examples would fail this criterion if not scoped correctly. Need to define what counts as "usage" vs "reference."
-
----
-
-### 13. SC-007: Full Workflow Timing
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 200)**: "under 3 seconds"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific, measurable timing provided. End-to-end test can verify with stopwatch.
-
----
-
-### 14. Edge Case: Empty State Message
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 112)**: "Show an empty state message: 'No outline available. Add headings, components, or frontmatter to see the document structure.'"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Exact text specified makes this testable via DOM assertion.
-
----
-
-### 15. Edge Case: Syntax Error Warning Indicator
-
-**Category**: Completion
-**Status**: Partial
-**Spec Text (Line 113)**: "show the last valid outline with a warning indicator"
-**Question Candidate**: What does the "warning indicator" look like? Icon, color, text, tooltip, banner? How is "last valid outline" cached across parse failures?
-**Impact Score**: 3
-**Rationale**: Tests need to verify warning indicator appearance and outline caching behavior. Without visual spec, multiple implementations are valid.
-
----
-
-### 16. Edge Case/FR-004: Auto-hide Threshold
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Lines 117, 130)**: "below 600px with preview visible, or below 400px with preview hidden"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Exact pixel values make this testable via window resize assertions.
-
----
-
-### 17. NFR: Keyboard Navigation Keys
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 215)**: "arrow keys to move, Enter to select"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific keys defined. Testable via keyboard simulation.
-
----
-
-### 18. NFR: ARIA Roles
-
-**Category**: Completion
-**Status**: Clear
-**Spec Text (Line 216)**: "tree, treeitem"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific ARIA roles defined. Testable via DOM role assertions.
-
----
-
-### 19. FR-029: AST Reuse Verification Method
+### 7. NFR Accessibility: Screen Reader Announcement
 
 **Category**: Completion
 **Status**: Missing
-**Spec Text (Line 173)**: "MUST reuse AST data from the preview pane"
-**Question Candidate**: How do we verify AST is actually being reused vs re-parsed? What metric, assertion, or observable behavior proves reuse?
+**Spec Text (Line 234)**: "Sync state must be announced to screen readers when changed"
+**Question Candidate**: What exact text should be announced to screen readers when sync state changes? Should it announce the mode name (e.g., "Bidirectional sync enabled"), a descriptive message, or both? What ARIA live region politeness level?
 **Impact Score**: 3
-**Rationale**: Implementation detail that affects performance testing. Need observable verification method (e.g., parse count counter, shared reference check).
+**Rationale**: Accessibility requirements need concrete implementation details for verification. Screen reader testing requires knowing the expected announcement text and ARIA attributes.
 
 ---
 
-### 20. NFR: Debounce Configuration
+### 8. Edge Case: Simultaneous Scroll Precedence
 
 **Category**: Completion
-**Status**: Missing
-**Spec Text (Line 209)**: "Debounce outline updates to avoid excessive re-parsing"
-**Question Candidate**: What is the debounce duration? Is it the same as the 500ms update window, or a separate configuration?
+**Status**: Partial
+**Spec Text (Line 127)**: "The most recently scrolled pane takes precedence; a 'scroll lock' prevents feedback loops for SYNC_DEBOUNCE_MS after a sync scroll"
+**Question Candidate**: When both panes receive scroll events within SYNC_DEBOUNCE_MS of each other, which one takes precedence? Should the first event win, the last event win, or should both be ignored?
 **Impact Score**: 3
-**Rationale**: Tests need to know debounce timing to set appropriate wait times. If different from 500ms update target, could create race conditions.
+**Rationale**: "Most recently" is ambiguous given the 50ms debounce window. If events arrive 10ms apart, determining "most recent" depends on whether we use arrival time, debounce trigger time, or event timestamp. This affects edge case test design and could lead to flaky tests.
 
 ---
 
-### 21. Edge Case: Minimum Panel Width
+### 9. NFR Performance: 60fps Scroll Smoothness
 
 **Category**: Completion
-**Status**: Clear
-**Spec Text (Line 116)**: "Enforce minimum width of 150px"
-**Question Candidate**: N/A
-**Impact Score**: 1
-**Rationale**: Specific pixel value. Testable via CSS/DOM assertions during resize.
+**Status**: Partial
+**Spec Text (Line 227)**: "Scroll event handlers must complete within 5ms to maintain 60fps scroll smoothness"
+**Question Candidate**: What percentage of frames can drop below 60fps before the requirement is considered failed? How should frame rate be measured during scroll tests - average, P95, minimum sustained?
+**Impact Score**: 2
+**Rationale**: While the 5ms handler time provides a proxy metric (60fps = 16.67ms per frame), direct 60fps verification methodology is unclear. The 5ms target is testable, but "60fps scroll smoothness" as a direct metric lacks tolerance specification.
+
+---
+
+## Clear Criteria (No Issues)
+
+The following completion criteria are clear and testable:
+
+1. **FR-001 through FR-004** (Sync Mode Configuration): Four enumerated modes, explicit default, persistence via settings store, immediate application - all objectively verifiable via state inspection
+
+2. **SC-005**: "persists correctly across 100% of app restarts" - binary pass/fail criterion, testable via restart-and-verify automation
+
+3. **SC-006**: "No feedback loops occur during normal usage (sync does not trigger infinite scroll cycles)" - testable by monitoring scroll event counts and detecting oscillation patterns
+
+4. **SC-007**: "maintains <16ms keystroke-to-render per Constitution Article V" - references existing specification with concrete threshold, measurable via Performance API
+
+5. **User Story 3 - All Acceptance Scenarios**: Clear Given/When/Then format with specific mode values, immediate effect, and persistence verification
+
+6. **User Story 4 - Acceptance Scenario 3**: Debounce behavior testable via scroll event counting during rapid input
+
+7. **Performance Constants Table (Lines 28-34)**: All timing values are concrete and measurable:
+   - `SYNC_DEBOUNCE_MS` = 50ms
+   - `SCROLL_ANIMATION_MS` = 150ms
+   - `POSITION_CACHE_TTL_MS` = 1000ms
+   - `SYNC_THRESHOLD_LINES` = 3
+   - `SCROLL_MARGIN_PERCENT` = 10
+
+8. **Scroll Lock Algorithm (Lines 137-141)**: Steps 1-4 are implementation-specific but have clear verification criteria (lock state, timing windows, manual scroll break)
 
 ---
 
@@ -253,54 +148,58 @@
 
 | Impact Score | Count |
 |--------------|-------|
-| 5 (Critical) | 0     |
-| 4 (High)     | 4     |
-| 3 (Medium)   | 7     |
-| 2 (Low)      | 1     |
-| 1 (Clear)    | 9     |
+| 5 (Critical) | 0 |
+| 4 (High) | 2 |
+| 3 (Medium) | 5 |
+| 2 (Low) | 2 |
+| 1 (Clear) | 8 |
 
 ---
 
 ## High-Impact Questions (Impact >= 4)
 
-1. **[Impact 4] Heading Nesting for Skipped Levels**: What is the expected behavior when heading levels skip (e.g., h1 directly to h3)? Should h3 be nested under h1, shown flat, or create a phantom/placeholder h2?
+1. **[Impact 4] Position Approximation Tolerance (US1-AS2)**: What is the acceptable line deviation for "approximately" in position mapping? Should acceptance tests verify the preview is within N lines of the editor's visible content?
 
-2. **[Impact 4] Built-in Component Visual Distinction**: What specific visual treatment differentiates built-in from custom components? (icon, color, label, badge)
-
-3. **[Impact 4] Built-in Component List**: What is the complete, authoritative list of "built-in" components that should be recognized and classified specially?
-
-4. **[Impact 4] Heading Scope for 100% Coverage (SC-005)**: Does 100% heading representation include headings inside JSX components, code blocks, or only top-level markdown headings?
+2. **[Impact 4] 90% Accuracy Measurement Methodology (SC-004)**: How should the 90% position mapping accuracy be measured - per sync event, per test document, or aggregated across a test suite? What sample size and document corpus validates this metric?
 
 ---
 
 ## Recommended Clarification Questions (Priority Order)
 
-1. **[Impact 4]** Please enumerate the complete list of built-in MDX components that should be visually distinguished from custom components.
+1. **[Impact 4]** What concrete line tolerance defines "approximately those same lines" in US1-AS2? (e.g., within 5 lines, within 10% of viewport)
 
-2. **[Impact 4]** What visual treatment (icon, color, label) should differentiate built-in components from custom/unknown components in the outline?
+2. **[Impact 4]** How should the 90% position mapping accuracy success criterion be measured? Please specify:
+   - Unit of measurement (per-event, per-document, aggregate)
+   - Required sample size
+   - Test document characteristics (size, content types)
 
-3. **[Impact 4]** When heading levels skip (e.g., `# H1` followed by `### H3` with no H2), how should the outline tree represent this - nest H3 under H1, show H3 at root level, or create a placeholder?
+3. **[Impact 3]** What should the sync toggle notification display? Please specify:
+   - Text content for each state transition (enabled/disabled)
+   - Display duration in milliseconds
+   - UI location (toast, status bar, etc.)
 
-4. **[Impact 4]** Should headings inside JSX components or code blocks be included in the "100% of headings represented" success criterion?
+4. **[Impact 3]** What exact text should be announced to screen readers when sync mode changes?
 
-5. **[Impact 3]** What is the debounce duration for outline updates, and is it the same as or separate from the 500ms update window in SC-002?
+5. **[Impact 3]** When simultaneous scroll events occur in both panes within the debounce window, which pane takes precedence - first event or last event?
 
 ---
 
 ## Overall Assessment
 
-The spec has **strong measurable outcomes** in the Success Criteria section with specific timing targets (100ms navigation, 500ms update, 50ms overhead, 3s workflow). The acceptance scenarios follow Given/When/Then format and most have clear assertions.
+The spec has **strong measurable outcomes** in the Performance Constants table with specific timing values (50ms debounce, 150ms animation, 1000ms cache TTL). The success criteria section provides concrete metrics for most performance targets.
 
 **Strengths:**
-- Specific timing metrics for performance testing
-- Exact pixel thresholds for responsive behavior
-- Explicit ARIA roles for accessibility testing
-- Precise keyboard shortcuts defined
+- Explicit timing constants with named references throughout spec
+- Detailed scroll lock algorithm with clear state machine behavior
+- Given/When/Then acceptance scenarios for all user stories
+- Edge cases enumerated with explicit handling rules
+- FR requirements use testable MUST/MUST NOT language
 
 **Gaps requiring clarification:**
-1. **Visual specifications** - Component distinction treatment undefined
-2. **Data enumeration** - Built-in component list incomplete
-3. **Edge case handling** - Skipped heading levels behavior undefined
-4. **Scope boundaries** - What counts as "heading" or "component usage" in edge cases
+1. **Position tolerance** - "Approximately" needs numeric definition
+2. **Accuracy measurement** - 90% lacks methodology specification
+3. **Notification specification** - "Brief" undefined, content unspecified
+4. **Screen reader text** - Accessibility announcement content missing
+5. **Simultaneous scroll precedence** - Race condition handling unclear
 
-The spec is approximately **80% complete** from a testability standpoint. Addressing the 4 high-impact clarifications above would bring it to production-ready Definition of Done quality.
+The spec is approximately **75-80% complete** from a testability standpoint. The numeric timing constants are excellent, but the measurement methodology gaps for accuracy metrics and the missing notification/accessibility specifications prevent complete Definition of Done verification. Addressing the 2 high-impact clarifications would bring it to production-ready quality.

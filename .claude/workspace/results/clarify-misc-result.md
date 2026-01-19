@@ -1,6 +1,7 @@
 # Clarification Analysis: Misc / Placeholders
 
-**Spec**: `/Users/ww/dev/projects/mdxpad/specs/007-mdx-content-outline/spec.md`
+**Spec**: `/Users/ww/dev/projects/mdxpad-sync/.specify/specs/008-bidirectional-sync/spec.md`
+**Feature**: Bidirectional Preview Sync
 **Category**: Misc / Placeholders
 **Focus Areas**: TODO markers, unresolved decisions, ambiguous adjectives lacking quantification
 **Analyzed**: 2026-01-17
@@ -9,13 +10,13 @@
 
 ## Summary
 
-The spec is generally well-specified with most timing requirements quantified (500ms updates, 100ms navigation, etc.). However, several ambiguous adjectives and missing specifications were identified that require clarification before implementation.
+The specification is well-structured with explicit performance constants and measurable success criteria. Analysis focused on TODO markers, unresolved decisions, and ambiguous adjectives lacking quantification.
 
 | Status | Count |
 |--------|-------|
-| Clear | 3 |
+| Clear | 5 |
 | Partial | 4 |
-| Missing | 2 |
+| Missing | 1 |
 
 ---
 
@@ -24,158 +25,168 @@ The spec is generally well-specified with most timing requirements quantified (5
 ### 1. TODO Markers / Unresolved Decisions
 
 **Status**: Clear
-**Finding**: No explicit TODO markers, FIXME, or TBD annotations found in the spec.
+**Impact Score**: 0/5
+
+**Finding**: No explicit TODO markers, FIXME, TBD, or unresolved decision annotations found in the spec. All sections appear complete.
 
 ---
 
-### 2. Quantified Adjective: "briefly highlighted" (Line 160)
+### 2. Quantified Adjective: "Smooth scroll" (Lines 19, 52-53, 69)
 
-**Location**: FR-022
-**Text**: "System MUST briefly highlight the target line after navigation (flash highlight for 500ms)"
+**Location**: Executive Summary, User Stories 1 & 2
+**Text**: "Smooth scrolling - Synchronized scrolls animate smoothly without jarring jumps"
 **Status**: **Clear**
 **Impact Score**: 1/5
 
-**Note**: The adjective "briefly" is properly quantified with "500ms" in parentheses. No ambiguity.
+**Note**: The adjective "smooth" is properly quantified via SCROLL_ANIMATION_MS = 150ms in the Performance Constants table. No ambiguity.
 
 ---
 
-### 3. Ambiguous Adjective: "lightweight parser" (Line 174)
+### 3. Quantified Adjective: "instant sync" / "perceived as immediate" (Lines 213-214)
 
-**Location**: FR-030
-**Text**: "System MUST fall back to a lightweight parser if preview AST is unavailable"
-**Status**: **Partial**
-**Impact Score**: 3/5
-
-**Question Candidate**: What constitutes a "lightweight" parser? Should it be defined by: (a) parsing time budget (e.g., <20ms), (b) memory footprint (e.g., <5MB), (c) feature set (heading-only vs full MDX parsing), or (d) a specific library/implementation (e.g., remark-parse without MDX)?
-
-**Rationale**: Without a concrete definition, developers may choose different fallback parsers with varying performance characteristics. This affects consistency and testability. The parser choice also impacts what outline information is available in fallback mode.
-
----
-
-### 4. Ambiguous Adjective: "common fields" (Line 152)
-
-**Location**: FR-017
-**Text**: "System MUST limit displayed frontmatter to common fields, with option to expand for all fields"
-**Status**: **Partial**
-**Impact Score**: 2/5
-
-**Question Candidate**: What specific fields are considered "common"? FR-016 mentions title, date, author, description, tags - are these definitively the "common fields" referenced in FR-017? Should there be a configurable whitelist, or is this a fixed list?
-
-**Rationale**: Inconsistency between FR-016 (explicit list) and FR-017 (vague "common") could lead to implementation confusion. Low impact since FR-016 provides reasonable guidance.
-
----
-
-### 5. Quantified ARIA Roles: "appropriate ARIA roles" (Line 216)
-
-**Location**: NFR Accessibility
-**Text**: "All outline items must have appropriate ARIA roles (tree, treeitem)"
+**Location**: Success Criteria SC-001, SC-002
+**Text**: "perceived as immediate"
 **Status**: **Clear**
 **Impact Score**: 1/5
 
-**Note**: The parenthetical "(tree, treeitem)" provides specific roles. No ambiguity.
+**Note**: Properly quantified as SYNC_DEBOUNCE_MS + SCROLL_ANIMATION_MS = 200ms total. Clear definition of what constitutes "immediate" from user perception standpoint.
 
 ---
 
-### 6. Ambiguous Phrase: "distinguish...visually" (Line 146)
+### 4. Ambiguous Adjective: "brief notification" (Lines 120, 193)
 
-**Location**: FR-014
-**Text**: "System MUST distinguish between built-in components (Callout, CodeBlock, etc.) and custom/unknown components visually"
-**Status**: **Partial**
-**Impact Score**: 3/5
-
-**Question Candidate**: How should built-in components be visually distinguished from custom components? Options include: (a) different icons, (b) different text colors/styles, (c) grouping/sorting within the Components section, (d) badge/label indicators. Additionally, what is the exhaustive list of "built-in" components (the "etc." is undefined)?
-
-**Rationale**: Without visual design guidance, implementation requires additional design decisions. The incomplete list ("Callout, CodeBlock, etc.") leaves the built-in set undefined.
-
----
-
-### 7. Partially Specified: Window Width Thresholds (Lines 117, 130)
-
-**Location**: FR-004, Edge Cases
-**Text**: "System MUST auto-hide the outline when window width is insufficient (below 600px with preview visible, or below 400px with preview hidden)"
+**Location**: User Story 5 Acceptance Scenario 4, FR-052
+**Text**: "a brief notification confirms the new state" / "show a brief notification"
 **Status**: **Partial**
 **Impact Score**: 2/5
 
-**Question Candidate**: Are the thresholds (600px with preview, 400px without) final design decisions or placeholders? How do these interact with the existing preview auto-hide thresholds from spec-006 to ensure consistent responsive behavior?
+**Question Candidate**: What is the exact duration (in milliseconds) for the sync toggle notification, and what notification style should be used (toast, snackbar, status bar message)?
 
-**Rationale**: Thresholds are numerically specified, but the relationship to existing spec-006 preview behavior and whether these are configurable needs clarification.
+**Rationale**: "Brief" is not quantified. Unlike other timing values in this spec, notification duration is unspecified. Implementation could proceed with a reasonable default (e.g., 2000ms toast) but should be explicitly defined for consistency with other app notifications.
 
 ---
 
-### 8. Missing Specification: Debounce Timing (Line 210)
+### 5. Ambiguous Phrase: "approximately those same lines" (Line 51)
 
-**Location**: NFR Performance
-**Text**: "Debounce outline updates to avoid excessive re-parsing during rapid typing"
+**Location**: User Story 1, Acceptance Scenario 2
+**Text**: "the preview shows the rendered output of approximately those same lines"
+**Status**: **Partial**
+**Impact Score**: 2/5
+
+**Question Candidate**: Should acceptance scenario 2 be updated to reference the concrete tolerance defined in SC-004 (within 5 lines), or is there a different tolerance expected for this specific scenario?
+
+**Rationale**: "Approximately" is vague for testing purposes. SC-004 quantifies accuracy as "within 5 lines" for 90%+ cases, but the acceptance scenario language itself is imprecise. The disconnect between acceptance scenario language and success criteria could cause test ambiguity.
+
+---
+
+### 6. Ambiguous Phrase: "reasonable document sizes" (Line 251)
+
+**Location**: Assumptions, item 5
+**Text**: "Reasonable document sizes: Documents are typically under 10,000 lines; extreme documents may have degraded sync accuracy."
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: For documents exceeding 10,000 lines, what is the expected degradation behavior? Should sync accuracy targets be relaxed (e.g., from 5 lines to 10 lines tolerance), should sync be disabled with a user warning, or should sync continue with best-effort accuracy?
+
+**Rationale**: While 10,000 lines is quantified as the threshold, "degraded sync accuracy" is undefined. Without clear degradation behavior specification, implementation may vary and user experience for large documents becomes unpredictable.
+
+---
+
+### 7. Ambiguous Phrase: "most recently scrolled pane takes precedence" (Line 127)
+
+**Location**: Edge Cases
+**Text**: "The most recently scrolled pane takes precedence"
+**Status**: **Partial**
+**Impact Score**: 3/5
+
+**Question Candidate**: When scroll events occur in both panes within SYNC_DEBOUNCE_MS of each other, what is the tie-breaking mechanism? Should the first event win (oldest timestamp), the last event win (newest timestamp), or should both syncs be suppressed until only one pane is actively scrolling?
+
+**Rationale**: How is "most recently scrolled" determined when both panes receive scroll events within the same debounce window (50ms)? The scroll lock algorithm (lines 134-141) helps prevent feedback loops but doesn't fully address simultaneous scroll detection. Simultaneous scroll scenarios (e.g., multi-touch trackpad gestures) could cause unpredictable behavior if tie-breaking isn't explicit.
+
+---
+
+### 8. Missing Definition: "last non-disabled mode" (Line 119)
+
+**Location**: User Story 5, Acceptance Scenario 3
+**Text**: "sync is enabled (to the last non-disabled mode)"
 **Status**: **Missing**
 **Impact Score**: 4/5
 
-**Question Candidate**: What is the specific debounce interval for outline updates? The 500ms update requirement (FR-010, FR-015, FR-019) implies a maximum latency, but the debounce value itself is unspecified. Should it match the preview pane debounce timing for consistency?
+**Question Candidate**: Should the system persist a separate "last non-disabled mode" preference to restore when toggling sync back on, or should toggling sync on always default to "bidirectional" mode?
 
-**Rationale**: Without a specific debounce value, implementations may vary, affecting UX consistency and perceived responsiveness. This is a performance-critical parameter that needs specification.
-
----
-
-### 9. Missing Specification: Panel Width Constraints (Line 116)
-
-**Location**: Edge Cases
-**Text**: "Enforce minimum width of 150px"
-**Status**: **Missing**
-**Impact Score**: 3/5
-
-**Question Candidate**: What is the default width of the outline panel? What is the maximum width (if any)? Is the panel resizable by the user via drag handle, and if so, should the width be persisted across sessions?
-
-**Rationale**: Only minimum width is specified. Default width, maximum width, resize behavior, and persistence are unspecified but essential for layout implementation and consistency with spec-006 panel patterns.
+**Rationale**: There is no requirement or state definition for persisting the "last non-disabled mode." FR-003 only mentions persisting the sync mode preference, not a separate "last active mode" for toggle restoration. This affects implementation architecture (additional state to persist) and user expectation (will their preferred one-way mode be restored after toggling back on?).
 
 ---
 
-### 10. Quantified Timing: Success Criteria Metrics
+### 9. Quantified Performance Budgets
 
-**Location**: Success Criteria (Lines 194-201)
+**Location**: Performance Constants (Lines 28-34), Success Criteria (Lines 213-219), Non-Functional Requirements (Lines 227-229)
 **Status**: **Clear**
 **Impact Score**: 1/5
 
-**Note**: SC-001 through SC-008 all have specific quantified targets (100ms, 500ms, 50ms, etc.). No ambiguous adjectives found in success criteria.
+**Note**: All performance metrics are explicitly quantified:
+- SYNC_DEBOUNCE_MS: 50ms
+- SCROLL_ANIMATION_MS: 150ms
+- POSITION_CACHE_TTL_MS: 1000ms
+- SYNC_THRESHOLD_LINES: 3 lines
+- SCROLL_MARGIN_PERCENT: 10%
+- Scroll handler budget: 5ms
+- Position cache lookup: O(1)
+- Typing latency: <16ms
+
+---
+
+### 10. Quantified Accuracy Metrics
+
+**Location**: Success Criteria SC-004 (Line 216)
+**Text**: "Position mapping accuracy achieves 90%+ for documents with AST source positions (rendered content within 5 lines of source)"
+**Status**: **Clear**
+**Impact Score**: 1/5
+
+**Note**: Accuracy is properly quantified with both a percentage (90%+) and a tolerance (5 lines). Clear and testable.
 
 ---
 
 ## Summary Table
 
-| # | Ambiguity | Status | Impact | Line(s) |
-|---|-----------|--------|--------|---------|
+| # | Item | Status | Impact | Line(s) |
+|---|------|--------|--------|---------|
 | 1 | No TODO markers | Clear | 0/5 | - |
-| 2 | "briefly highlighted" | Clear | 1/5 | 160 |
-| 3 | "lightweight parser" | Partial | 3/5 | 174 |
-| 4 | "common fields" | Partial | 2/5 | 152 |
-| 5 | "appropriate ARIA roles" | Clear | 1/5 | 216 |
-| 6 | "visually" distinguish + "etc." list | Partial | 3/5 | 146 |
-| 7 | Window width threshold interaction | Partial | 2/5 | 117, 130 |
-| 8 | Debounce timing unspecified | Missing | 4/5 | 210 |
-| 9 | Panel width (default/max/resize) | Missing | 3/5 | 116 |
+| 2 | "Smooth scroll" | Clear | 1/5 | 19, 52-53, 69 |
+| 3 | "Immediate" perception | Clear | 1/5 | 213-214 |
+| 4 | "Brief notification" | Partial | 2/5 | 120, 193 |
+| 5 | "Approximately those same lines" | Partial | 2/5 | 51 |
+| 6 | "Reasonable document sizes" / "degraded accuracy" | Partial | 3/5 | 251 |
+| 7 | "Most recently scrolled" tie-breaking | Partial | 3/5 | 127 |
+| 8 | "Last non-disabled mode" state | Missing | 4/5 | 119 |
+| 9 | Performance budgets | Clear | 1/5 | 28-34, 213-219, 227-229 |
+| 10 | Accuracy metrics | Clear | 1/5 | 216 |
 
 ---
 
 ## Recommended Priority for Clarification
 
 **High Priority** (Impact 4-5):
-1. **Debounce timing** - What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing?
+1. **"Last non-disabled mode" persistence** - Should the system persist a separate "last non-disabled mode" preference for toggle restoration, or default to "bidirectional" when re-enabling sync?
 
 **Medium Priority** (Impact 3):
-2. **Lightweight parser definition** - What constitutes a "lightweight parser" for the fallback scenario - specific performance budget, feature constraints, or recommended library?
-3. **Visual distinction for components** - How should built-in components be visually distinguished from custom components, and what is the complete list of built-in components?
-4. **Panel width specification** - What are the default and maximum widths for the outline panel, and should the panel be user-resizable with persisted width?
+2. **Large document degradation behavior** - What is the expected degradation behavior for documents exceeding 10,000 lines?
+3. **Simultaneous scroll tie-breaking** - What is the tie-breaking mechanism when both panes receive scroll events within the debounce window?
 
-**Lower Priority** (Impact 1-2):
-5. **Common fields clarification** - Confirm whether FR-016's list (title, date, author, description, tags) is the definitive "common fields" list
-6. **Window threshold interaction** - Confirm thresholds are final and document interaction with spec-006 preview auto-hide
+**Lower Priority** (Impact 2):
+4. **Brief notification quantification** - Specify notification duration and style for sync toggle feedback
+5. **"Approximately" clarification** - Align acceptance scenario language with SC-004 tolerance definition
 
 ---
 
 ## Recommended Clarification Questions (Sorted by Impact)
 
-1. **[Impact 4]** What is the specific debounce interval (in ms) for outline updates during typing? Should it match the preview pane debounce timing for consistency?
+1. **[Impact 4]** Should the system persist a separate "last non-disabled mode" preference to restore when toggling sync back on via command/shortcut, or should toggling sync on always default to "bidirectional" mode?
 
-2. **[Impact 3]** What constitutes a "lightweight parser" for the fallback scenario - specific performance budget (e.g., <20ms), feature constraints (heading-only), or recommended library?
+2. **[Impact 3]** For documents exceeding 10,000 lines, what is the expected degradation behavior? Options: (a) relax accuracy targets, (b) show user warning but continue sync, (c) automatically disable sync, (d) best-effort with no special handling.
 
-3. **[Impact 3]** How should built-in components be visually distinguished from custom components (icons, colors, badges)? What is the complete list of built-in components beyond Callout and CodeBlock?
+3. **[Impact 3]** When scroll events occur in both panes within the 50ms debounce window (simultaneous scrolling), what is the tie-breaking mechanism: first event wins, last event wins, or suppress both syncs?
 
-4. **[Impact 3]** What are the default and maximum widths for the outline panel? Should the panel be user-resizable via drag handle, and if so, should width be persisted across sessions?
+4. **[Impact 2]** What is the exact duration for the sync toggle notification (FR-052), and what notification style should be used (toast, snackbar, status bar)?
+
+5. **[Impact 2]** Should User Story 1, Acceptance Scenario 2 be updated to reference the "within 5 lines" tolerance defined in SC-004 instead of using "approximately"?
