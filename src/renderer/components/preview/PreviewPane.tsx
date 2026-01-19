@@ -58,6 +58,7 @@ import { LoadingIndicator } from './LoadingIndicator';
 import { PreviewFrame } from './PreviewFrame';
 import { PreviewErrorBoundary } from './PreviewErrorBoundary';
 import type { CategorizedError } from '@shared/types/errors';
+import type { ScrollReportSignal } from '@shared/types/preview-iframe';
 
 // ============================================================================
 // Constants
@@ -117,7 +118,7 @@ export interface PreviewPaneProps {
    * The preview iframe will scroll to match this position.
    * Smooth scrolling is used unless user prefers reduced motion.
    */
-  readonly scrollRatio?: number;
+  readonly scrollRatio?: number | undefined;
 
   /**
    * Theme for preview rendering.
@@ -125,7 +126,7 @@ export interface PreviewPaneProps {
    * Sets the `data-theme` attribute on the iframe's document element.
    * CSS custom properties in the iframe respond to theme changes.
    */
-  readonly theme?: 'light' | 'dark';
+  readonly theme?: 'light' | 'dark' | undefined;
 
   /**
    * Callback when user clicks an error location.
@@ -144,14 +145,24 @@ export interface PreviewPaneProps {
    * }}
    * ```
    */
-  readonly onErrorClick?: (line: number, column?: number) => void;
+  readonly onErrorClick?: ((line: number, column?: number) => void) | undefined;
 
   /**
    * CSS class for additional styling.
    *
    * Applied to the root `.preview-pane` element.
    */
-  readonly className?: string;
+  readonly className?: string | undefined;
+
+  /**
+   * Callback when user scrolls in the preview iframe.
+   * Used for preview-to-editor scroll synchronization.
+   *
+   * Feature: 008-bidirectional-sync
+   *
+   * @param report - Scroll position data including ratio, scrollTop, and dimensions
+   */
+  readonly onScrollReport?: ((report: Omit<ScrollReportSignal, 'type'>) => void) | undefined;
 }
 
 // ============================================================================
@@ -290,6 +301,7 @@ export const PreviewPane = memo(function PreviewPane({
   scrollRatio,
   theme,
   onErrorClick,
+  onScrollReport,
   className = '',
 }: PreviewPaneProps): React.ReactNode {
   const { state, lastSuccessfulRender } = usePreview(source);
@@ -458,6 +470,7 @@ export const PreviewPane = memo(function PreviewPane({
               frontmatter={renderableContent.frontmatter}
               scrollRatio={scrollRatio}
               theme={theme}
+              onScrollReport={onScrollReport}
             />
           </PreviewErrorBoundary>
         )}

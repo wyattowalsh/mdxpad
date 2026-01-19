@@ -67,6 +67,7 @@ import {
   type RenderCommand,
   type ThemeCommand,
   type ScrollCommand,
+  type ScrollReportSignal,
   type IframeToParentMessage,
 } from '@shared/types/preview-iframe';
 import {
@@ -173,6 +174,24 @@ export interface PreviewFrameProps {
   readonly onRuntimeError?: ((message: string, componentStack?: string) => void) | undefined;
 
   /**
+   * Callback when user scrolls in the preview iframe.
+   * Used for preview-to-editor scroll synchronization.
+   *
+   * Feature: 008-bidirectional-sync
+   *
+   * @param report - Scroll position data including ratio, scrollTop, and dimensions
+   *
+   * @example
+   * ```tsx
+   * onScrollReport={(report) => {
+   *   console.log(`Preview scrolled to ${report.ratio * 100}%`);
+   *   syncEditorToPosition(report);
+   * }}
+   * ```
+   */
+  readonly onScrollReport?: ((report: Omit<ScrollReportSignal, 'type'>) => void) | undefined;
+
+  /**
    * CSS class for additional styling.
    *
    * Applied to the iframe element.
@@ -249,6 +268,7 @@ interface PreviewRefs {
   onReady: React.RefObject<(() => void) | undefined>;
   onSizeChange: React.RefObject<((height: number) => void) | undefined>;
   onRuntimeError: React.RefObject<((msg: string, stack?: string) => void) | undefined>;
+  onScrollReport: React.RefObject<((report: Omit<ScrollReportSignal, 'type'>) => void) | undefined>;
   code: React.RefObject<string | undefined>;
   frontmatter: React.RefObject<Record<string, unknown> | undefined>;
   theme: React.RefObject<'light' | 'dark' | undefined>;
@@ -260,6 +280,7 @@ function usePreviewRefs(props: PreviewFrameProps): PreviewRefs {
   const onReadyRef = useRef(props.onReady);
   const onSizeChangeRef = useRef(props.onSizeChange);
   const onRuntimeErrorRef = useRef(props.onRuntimeError);
+  const onScrollReportRef = useRef(props.onScrollReport);
   const codeRef = useRef(props.code);
   const frontmatterRef = useRef(props.frontmatter);
   const scrollRatioRef = useRef(props.scrollRatio);
@@ -268,13 +289,14 @@ function usePreviewRefs(props: PreviewFrameProps): PreviewRefs {
   onReadyRef.current = props.onReady;
   onSizeChangeRef.current = props.onSizeChange;
   onRuntimeErrorRef.current = props.onRuntimeError;
+  onScrollReportRef.current = props.onScrollReport;
   codeRef.current = props.code;
   frontmatterRef.current = props.frontmatter;
   scrollRatioRef.current = props.scrollRatio;
   themeRef.current = props.theme;
 
   return { onReady: onReadyRef, onSizeChange: onSizeChangeRef, onRuntimeError: onRuntimeErrorRef,
-    code: codeRef, frontmatter: frontmatterRef, theme: themeRef, scrollRatio: scrollRatioRef };
+    onScrollReport: onScrollReportRef, code: codeRef, frontmatter: frontmatterRef, theme: themeRef, scrollRatio: scrollRatioRef };
 }
 
 /**
@@ -332,6 +354,16 @@ function useIframeMessageHandler(
           case 'runtime-error':
             // Message and componentStack are already sanitized by validateIframeToParentMessage
             refs.onRuntimeError.current?.(msg.message, msg.componentStack);
+            break;
+          case 'scroll-report':
+            // Feature: 008-bidirectional-sync
+            // Forward scroll report to parent for preview-to-editor sync
+            refs.onScrollReport.current?.({
+              ratio: msg.ratio,
+              scrollTop: msg.scrollTop,
+              scrollHeight: msg.scrollHeight,
+              clientHeight: msg.clientHeight,
+            });
             break;
           default:
             assertNever(msg, 'Unhandled iframe-to-parent message type');
