@@ -34,6 +34,13 @@ import { StatusBar } from './components/shell/StatusBar';
 import { OutlinePanel } from './components/outline';
 import { useOutlineSync } from './hooks/useOutlineSync';
 import { useOutlineNavigation } from './hooks/useOutlineNavigation';
+import { useAutosave } from './hooks/use-autosave';
+import { useRecoveryCheck } from './hooks/use-recovery-check';
+import { useRecoveryRestore } from './hooks/use-recovery-restore';
+import { useRecoveryCleanup } from './hooks/use-recovery-cleanup';
+import { RecoveryDialog } from './components/recovery-dialog';
+import { SettingsPanel } from './components/settings-panel';
+import { useSettingsStore } from './stores/settings-store';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import type { CommandContext, CommandId, NormalizedShortcut, NotificationInput } from '@shared/types/commands';
 import type { CompilationError } from './components/shell/StatusBar/types';
@@ -140,6 +147,24 @@ export function App(): React.ReactElement {
   const { isOpen, toggle, executeCommand } = palette;
   useAppEvents(toggle);
   useBuiltInCommands(toggle);
+
+  // Autosave hook for automatic document saving (T008, T029, T030)
+  const autosave = useAutosave();
+
+  // Recovery restore hook for loading recovered documents (T013)
+  const { restoreDocuments } = useRecoveryRestore();
+
+  // Recovery check hook for startup recovery detection (T012)
+  const recovery = useRecoveryCheck({
+    onRestore: restoreDocuments,
+  });
+
+  // Recovery cleanup hook for cleaning up after manual saves (T014)
+  useRecoveryCleanup();
+
+  // Settings panel state (T019)
+  const settingsOpen = useSettingsStore((s) => s.isOpen);
+  const closeSettings = useSettingsStore((s) => s.close);
 
   // Sync outline store with preview AST
   useOutlineSync();
@@ -323,12 +348,21 @@ export function App(): React.ReactElement {
         column={cursorPosition.column}
         errors={errors}
         onErrorClick={handleErrorClick}
+        autosave={{
+          isSaving: autosave.isSaving,
+          lastSaveAt: autosave.lastSaveAt,
+          lastSaveResult: autosave.lastSaveResult,
+          lastError: autosave.lastError,
+          consecutiveFailures: autosave.consecutiveFailures,
+          onRetry: autosave.saveNow,
+          onDisable: autosave.disable,
+        }}
       />
 
       {/* Command Palette overlay */}
       <CommandPalette getContext={getCommandContext} palette={palette} />
 
-      {/* T027: Screen reader announcement region for accessibility */}
+{/* T027: Screen reader announcement region for accessibility */}
       <div
         role="status"
         aria-live="polite"
@@ -337,6 +371,16 @@ export function App(): React.ReactElement {
       >
         {announcement}
       </div>
+
+      {/* Recovery Dialog overlay (T011, T012) */}
+      <RecoveryDialog
+        isOpen={recovery.isDialogOpen}
+        entries={recovery.entries}
+        onDecision={recovery.handleDecision}
+      />
+
+      {/* Settings Panel overlay (T019) */}
+      <SettingsPanel isOpen={settingsOpen} onClose={closeSettings} />
     </div>
   );
 }

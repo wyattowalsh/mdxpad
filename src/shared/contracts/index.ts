@@ -10,3 +10,7 @@ export type { IpcPayloads, IpcRequest, IpcResponse, SecurityInfo } from '../lib/
 
 // File system contracts (Spec 004)
 export * from './file-schemas';
+
+// Autosave and recovery contracts (Spec 011)
+export * from './autosave-schemas';
+export * from './autosave-ipc';

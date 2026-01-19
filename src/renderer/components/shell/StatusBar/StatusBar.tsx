@@ -15,6 +15,7 @@ import { cn } from '@shared/lib/utils';
 import { FileInfo } from './FileInfo';
 import { CursorPosition } from './CursorPosition';
 import { ErrorCount } from './ErrorCount';
+import { AutosaveIndicator } from '../../autosave-indicator';
 import type { StatusBarProps } from './types';
 
 /**
@@ -41,6 +42,7 @@ function StatusBarComponent({
   column,
   errors,
   onErrorClick,
+  autosave,
 }: StatusBarProps) {
   return (
     <div
@@ -64,8 +66,19 @@ function StatusBarComponent({
         <CursorPosition line={line} column={column} />
       </div>
 
-      {/* Right: Error Count */}
-      <div className="flex-1 flex items-center justify-end">
+      {/* Right: Autosave Indicator + Error Count */}
+      <div className="flex-1 flex items-center justify-end gap-3">
+        {autosave && (
+          <AutosaveIndicator
+            isSaving={autosave.isSaving}
+            lastSaveAt={autosave.lastSaveAt}
+            lastSaveResult={autosave.lastSaveResult}
+            lastError={autosave.lastError}
+            consecutiveFailures={autosave.consecutiveFailures}
+            onRetry={autosave.onRetry}
+            onDisable={autosave.onDisable}
+          />
+        )}
         <ErrorCount errors={errors} onErrorClick={onErrorClick} />
       </div>
     </div>

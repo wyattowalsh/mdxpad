@@ -48,6 +48,27 @@ export interface ErrorCountProps {
 }
 
 /**
+ * Props for the AutosaveIndicator component (optional).
+ * Used when autosave feature is integrated.
+ */
+export interface AutosaveIndicatorProps {
+  /** Whether a save is in progress */
+  readonly isSaving: boolean;
+  /** Timestamp of last successful save */
+  readonly lastSaveAt: number | null;
+  /** Last save result */
+  readonly lastSaveResult: 'success' | 'error' | null;
+  /** Error message from last failed save */
+  readonly lastError: string | null;
+  /** Number of consecutive failures */
+  readonly consecutiveFailures: number;
+  /** Callback to retry save immediately */
+  readonly onRetry: () => void;
+  /** Callback to disable autosave */
+  readonly onDisable: () => void;
+}
+
+/**
  * Props for the StatusBar container component.
  * Combines all subcomponent props.
  */
@@ -66,4 +87,6 @@ export interface StatusBarProps {
   readonly errors: readonly CompilationError[];
   /** Callback when user clicks on an error to navigate */
   readonly onErrorClick: (error: CompilationError) => void;
+  /** Autosave indicator props (optional) */
+  readonly autosave?: AutosaveIndicatorProps;
 }

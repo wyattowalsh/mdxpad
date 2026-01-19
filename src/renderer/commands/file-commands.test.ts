@@ -85,6 +85,18 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     onMenuSaveFile: vi.fn(() => () => {}),
     onMenuSaveFileAs: vi.fn(() => () => {}),
     platform: { os: 'darwin', arch: 'arm64' },
+    // Autosave API (Spec 011)
+    recoveryCheck: vi.fn().mockResolvedValue({ hasRecoveryData: false, count: 0 }),
+    recoveryList: vi.fn().mockResolvedValue({ entries: [] }),
+    recoveryPreview: vi.fn().mockResolvedValue({ ok: true, content: '', conflict: null }),
+    recoveryRestore: vi.fn().mockResolvedValue({ ok: true, restored: [] }),
+    recoveryDiscard: vi.fn().mockResolvedValue({ discardedCount: 0 }),
+    autosaveTrigger: vi.fn().mockResolvedValue({ ok: true, savedAt: Date.now() }),
+    autosaveStatus: vi.fn().mockResolvedValue({ status: 'idle' }),
+    autosaveSettingsGet: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
+    autosaveSettingsSet: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
+    conflictResolve: vi.fn().mockResolvedValue({ ok: true }),
+    onAutosaveSettingsChange: vi.fn(() => () => {}),
     ...overrides,
   };
 }

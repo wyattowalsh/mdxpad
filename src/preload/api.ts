@@ -5,6 +5,21 @@
 
 import type { SecurityInfo } from '@shared/lib/ipc';
 import type { FileHandle, FileResult } from '@shared/types/file';
+import type {
+  RecoveryCheckResponse,
+  RecoveryListResponse,
+  RecoveryPreviewRequest,
+  RecoveryPreviewResponse,
+  RecoveryRestoreRequest,
+  RecoveryRestoreResponse,
+  RecoveryDiscardRequest,
+  RecoveryDiscardResponse,
+  AutosaveTriggerRequest,
+  AutosaveTriggerResponse,
+  ConflictResolveRequest,
+  ConflictResolveResponse,
+} from '@shared/contracts/autosave-ipc';
+import type { AutosaveSettings, AutosaveStatus } from '@shared/contracts/autosave-schemas';
 
 /** File change event received from main process */
 export interface FileChangeEvent {
@@ -158,4 +173,73 @@ export interface MdxpadAPI {
     os: 'darwin'; // macOS only per constitution
     arch: 'arm64' | 'x64';
   };
+
+  // === Autosave & Recovery (Spec 011) ===
+
+  /**
+   * Check if recovery data exists on startup.
+   * Per FR-003: detect recoverable documents.
+   */
+  recoveryCheck(): Promise<RecoveryCheckResponse>;
+
+  /**
+   * List all recoverable documents for recovery dialog.
+   * Per FR-004, FR-005: display list with previews.
+   */
+  recoveryList(): Promise<RecoveryListResponse>;
+
+  /**
+   * Get full content preview for a recoverable document.
+   * Per FR-005: preview content before recovery.
+   */
+  recoveryPreview(request: RecoveryPreviewRequest): Promise<RecoveryPreviewResponse>;
+
+  /**
+   * Restore selected documents based on user decision.
+   * Per FR-006: restore chosen documents to editor.
+   */
+  recoveryRestore(request: RecoveryRestoreRequest): Promise<RecoveryRestoreResponse>;
+
+  /**
+   * Discard recovery files for specified documents.
+   * Per FR-007, FR-008: explicit decline or post-save cleanup.
+   */
+  recoveryDiscard(request: RecoveryDiscardRequest): Promise<RecoveryDiscardResponse>;
+
+  /**
+   * Trigger autosave for a document.
+   * Per FR-001: save content to recovery location.
+   */
+  autosaveTrigger(request: AutosaveTriggerRequest): Promise<AutosaveTriggerResponse>;
+
+  /**
+   * Get current autosave status.
+   * Per FR-013: status for UI indicator.
+   */
+  autosaveStatus(): Promise<AutosaveStatus>;
+
+  /**
+   * Get current autosave settings.
+   * Per FR-009, FR-010, FR-011: user-configurable settings.
+   */
+  autosaveSettingsGet(): Promise<AutosaveSettings>;
+
+  /**
+   * Update autosave settings.
+   * Per FR-009, FR-010, FR-011: persist and apply immediately.
+   */
+  autosaveSettingsSet(settings: Partial<AutosaveSettings>): Promise<AutosaveSettings>;
+
+  /**
+   * Resolve a file conflict during recovery.
+   * Per FR-016: handle disk vs recovery version conflicts.
+   */
+  conflictResolve(request: ConflictResolveRequest): Promise<ConflictResolveResponse>;
+
+  /**
+   * Subscribe to autosave settings changes.
+   * @param callback - Called when settings are updated
+   * @returns Unsubscribe function
+   */
+  onAutosaveSettingsChange(callback: (settings: AutosaveSettings) => void): () => void;
 }
