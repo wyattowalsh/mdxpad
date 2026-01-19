@@ -24,13 +24,14 @@ import { CommandPalette } from './components/CommandPalette';
 import { useCommandPalette, buildCommandContext } from './hooks/useCommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useCommandRegistry } from './stores/command-registry-store';
-import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible } from './stores/ui-layout-store';
+import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible, selectFrontmatterVisible } from './stores/ui-layout-store';
 import { useDocumentStore, selectFileName, selectIsDirty } from './stores/document-store';
 import { registerAllCommands } from './commands';
 import { EditorPane, type CursorPosition } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
 import { StatusBar } from './components/shell/StatusBar';
 import { OutlinePanel } from './components/outline';
+import { FrontmatterPanel } from './components/frontmatter';
 import { useOutlineSync } from './hooks/useOutlineSync';
 import { useOutlineNavigation } from './hooks/useOutlineNavigation';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
@@ -144,6 +145,7 @@ export function App(): React.ReactElement {
   // UI layout state from store
   const previewVisible = useUILayoutStore(selectPreviewVisible);
   const outlineVisible = useUILayoutStore(selectOutlineVisible);
+  const frontmatterVisible = useUILayoutStore(selectFrontmatterVisible);
   const splitRatio = useUILayoutStore(selectSplitRatio);
   const setSplitRatio = useUILayoutStore((s) => s.setSplitRatio);
 
@@ -229,9 +231,18 @@ export function App(): React.ReactElement {
 
       {/* Main content area with split panes */}
       <main className="flex-1 min-h-0 overflow-hidden flex">
-        {/* Outline Panel - left sidebar */}
-        {outlineVisible && (
-          <OutlinePanel onNavigate={handleOutlineNavigate} />
+        {/* Left Sidebar - Frontmatter and Outline Panels */}
+        {(frontmatterVisible || outlineVisible) && (
+          <div className="flex flex-col w-64 border-r bg-muted/30 overflow-hidden">
+            {/* Frontmatter Panel */}
+            {frontmatterVisible && (
+              <FrontmatterPanel className="flex-shrink-0" />
+            )}
+            {/* Outline Panel */}
+            {outlineVisible && (
+              <OutlinePanel onNavigate={handleOutlineNavigate} className="flex-1 min-h-0" />
+            )}
+          </div>
         )}
 
         {/* Editor and Preview panels */}

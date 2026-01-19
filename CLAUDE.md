@@ -13,6 +13,8 @@ ALWAYS START BY READING ANY AND ALL PERTINENT `AGENTS.md` INSTRUCTION FILES FIRS
 - localStorage for UI state (splitRatio, previewVisible, zoomLevel), electron-store for main process data (006-application-shell)
 - TypeScript 5.9.x, strict: true + React 19.x, Zustand 5.x + Immer 11.x (007-mdx-content-outline)
 - Reuses preview AST, localStorage for outline visibility persistence (007-mdx-content-outline)
+- TypeScript 5.9.x, strict: true (per Constitution Article II) + React 19.x, Zustand 5.x + Immer 11.x, zod 4.x, yaml (YAML parsing library) (020-frontmatter-editor)
+- localStorage for panel visibility state, electron-store for user schema defaults (020-frontmatter-editor)
 
 ## Recent Changes
 - 000-foundational-setup: Added TypeScript 5.9.x with `strict: true`

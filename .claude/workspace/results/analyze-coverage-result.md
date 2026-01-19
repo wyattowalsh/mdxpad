@@ -1,447 +1,153 @@
-# Coverage Gap Analysis: Application Shell (Spec 006)
+# Coverage Gap Analysis: Frontmatter Visual Editor
 
-**Analysis Date**: 2026-01-17
-**Spec**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/spec.md`
-**Plan**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/plan.md`
-**Tasks**: `/Users/ww/dev/projects/mdxpad/.specify/specs/006-application-shell/tasks.md`
-**Analyzer**: Claude Code (Haiku 4.5)
+**Feature**: `020-frontmatter-editor`
+**Analyzed**: 2026-01-17
+**Documents**: spec.md, plan.md, tasks.md
 
 ---
 
-## Executive Summary
+## Coverage Mapping Table
 
-This analysis focuses exclusively on **COVERAGE GAPS** - examining what spec requirements lack task mappings, what tasks lack requirement mappings, and where implementation tasks are missing for important features.
+### Functional Requirements Coverage
 
-**Overall Assessment**: High-quality coverage with 39/42 FRs fully mapped. 6 FRs have partial coverage gaps requiring clarification in acceptance criteria. 0 critical gaps; 10 actionable gaps identified.
+| Requirement | Has Task? | Task IDs | Notes |
+|-------------|-----------|----------|-------|
+| FR-001: Parse YAML frontmatter to form fields | Yes | T003 | Parser implementation |
+| FR-002: Serialize form changes to YAML | Yes | T003 | Parser handles stringify |
+| FR-003: Toggle visual/raw modes | Yes | T020, T021, T022 | Phase 4 |
+| FR-004: Preserve data integrity on mode switch | Yes | T022, T023 | Mode toggle validation |
+| FR-005: Support field types (text, textarea, number, boolean, date, array, object) | Partial | T007-T012, T038 | ObjectField in Phase 8 |
+| FR-006: Common field suggestions | Yes | T024, T025 | AddFieldDropdown |
+| FR-007: Allow adding custom fields | Partial | T026 | Implicit in addField action, no explicit custom field UX task |
+| FR-008: Allow removing fields | **NO** | - | **GAP: No removeField task** |
+| FR-009: Bidirectional sync < 300ms | Yes | T017, T018 | Sync implementation |
+| FR-010: Validate and display errors | Yes | T028-T032 | Phase 6 |
+| FR-011: Infer field types from values | Yes | T004 | Type inference |
+| FR-012: Schema detection (project config, user settings) | Partial | T033-T037 | Project config handled, user settings default unclear |
+| FR-013: Appropriate input controls per type | Yes | T007-T012, T013 | Field components + registry |
+| FR-014: Handle empty frontmatter | Yes | T047 | Empty state UI |
+| FR-015: Handle no frontmatter (offer to add) | Partial | T047 | Empty state, but no explicit "add frontmatter" action |
+| FR-016: Preserve YAML formatting | Partial | T003 | Implied in parser, no explicit test task |
+| FR-017: Validation indicators on toggle | Yes | T032 | Error badge |
 
----
+### User Story Acceptance Criteria Coverage
 
-## Critical Gaps Summary
+#### User Story 1 - Edit Frontmatter via Form (P1)
 
-| ID | Severity | Gap Type | Description |
-|----|----------|----------|-------------|
-| GAP-001 | MEDIUM | Missing AC Detail | Preview compilation timeout (3s) defined in spec but timeout enforcement mechanism unclear in T006 |
-| GAP-002 | MEDIUM | Partial Mapping | Theme/zoom persistence (FR-034, FR-036) partially deferred; only splitRatio in scope for T002 |
-| GAP-003 | HIGH | Error Recovery | SC-010 error state recoverability has no explicit validation task |
-| GAP-004 | MEDIUM | Edge Case | File deletion/orphaning (spec §Edge Cases) not explicitly mapped to T010 |
-| GAP-005 | LOW | AC Clarity | Save error dialog mechanism (FR-023) specified in spec but display mode not in T003 AC |
-| GAP-006 | LOW | AC Clarity | Dialog wording/buttons (FR-025) specified in spec but exact format not in T008 AC |
-| GAP-007 | LOW | AC Clarity | Popover dismiss behavior (FR-031b) specified but interaction not in T004 AC |
-| GAP-008 | LOW | AC Clarity | File filter for open dialog (US3 acceptance scenario) not in T003 or T013 AC |
-| GAP-009 | LOW | AC Clarity | Cursor position at document start (US3-S3) not tested after file open |
-| GAP-010 | LOW | AC Clarity | Preview visibility persistence (US6-S2) only partially covered; AC defers to "future" |
+| Acceptance Criterion | Has Task? | Task IDs | Notes |
+|---------------------|-----------|----------|-------|
+| AC1: Form populated from existing frontmatter | Yes | T003, T014 | Parser + FrontmatterForm |
+| AC2: Text field changes sync < 300ms | Yes | T017, T018 | Sync implementation |
+| AC3: Date field with date picker | Yes | T011 | DateField component |
+| AC4: Tags/array with tag input | Yes | T012 | ArrayField component |
+| AC5: Boolean with checkbox/switch | Yes | T010 | BooleanField component |
 
----
+#### User Story 2 - Toggle Visual/Raw Modes (P1)
 
-## Coverage Summary Table - Functional Requirements
+| Acceptance Criterion | Has Task? | Task IDs | Notes |
+|---------------------|-----------|----------|-------|
+| AC1: Toggle button shows raw YAML | Yes | T020, T021 | RawEditor + Toggle UI |
+| AC2: Edit raw YAML, switch to visual shows updated | Yes | T022 | Mode state |
+| AC3: Unsaved changes preserved on toggle | Yes | T022 | Mode state handling |
+| AC4: Invalid YAML shows error, stays in raw | Yes | T023 | Mode switch validation |
 
-| Requirement Key | Has Task? | Task IDs | Notes |
-|-----------------|-----------|----------|-------|
-| FR-001 | Yes | T006 | Split-pane layout with editor left, preview right |
-| FR-002 | Yes | T006 | Draggable divider |
-| FR-003 | Yes | T006 | Minimum 100px pane width enforced |
-| FR-004 | Yes | T006 | Preview can be toggled off |
-| FR-005 | Yes | T004 | StatusBar at bottom |
-| FR-006 | Yes | T006 | macOS titlebar area with traffic lights |
-| FR-007 | Yes | T001 | Document state tracking |
-| FR-008 | Yes | T001 | Dirty marking on content change |
-| FR-009 | Yes | T001 | Clear dirty flag on save |
-| FR-010 | Yes | T001 | State maintained across re-renders |
-| FR-011 | Yes | T001 | Document state provided to all components |
-| FR-012 | Yes | T003 | Empty "Untitled" document on launch |
-| FR-013 | Yes | T003 | Cmd+N creates new document |
-| FR-014 | Yes | T003 | Cmd+O shows file picker |
-| FR-015 | Yes | T003 | File content loads into editor and preview |
-| FR-016 | Yes | T003 | Document state updated with file handle |
-| FR-017 | Yes | T008 | Dirty check dialog before open |
-| FR-017a | Yes | T010 | External modification detection on window focus |
-| FR-018 | Yes | T003 | Save via Cmd+S |
-| FR-019 | Yes | T003 | Save-as dialog for untitled documents |
-| FR-020 | Yes | T003 | Write content to file path |
-| FR-021 | Yes | T003 | Save-as via Cmd+Shift+S |
-| FR-022 | Yes | T003 | Update document state after save-as |
-| FR-023 | Partial | T003 | Save error handling - not explicitly tested |
-| FR-024 | Yes | T009 | Window close event interception |
-| FR-025 | Yes | T008, T009 | Dirty check confirmation dialog |
-| FR-026 | Yes | T008, T009 | Execute action based on dialog choice |
-| FR-027 | Yes | T009 | Close without dialog when clean |
-| FR-028 | Yes | T004 | Display filename in status bar |
-| FR-029 | Yes | T004 | Display dirty indicator |
-| FR-030 | Yes | T004 | Display cursor position |
-| FR-031 | Yes | T004 | Display error count |
-| FR-031a | Yes | T007 | Error click triggers 3 actions |
-| FR-032 | Yes | T004 | Status bar real-time updates |
-| FR-033 | Yes | T002 | Persist layout preferences |
-| FR-034 | Partial | T002 | Persist user preferences (only splitRatio covered, not theme/zoom) |
-| FR-035 | Yes | T002 | Load preferences before UI shown |
-| FR-036 | Partial | T002 | Settings store - only layout, not theme/zoom |
-| FR-037 | Yes | T005, T006 | Editor content changes trigger preview |
-| FR-037a | No | - | **GAP: 3s preview compilation timeout not explicitly covered** |
-| FR-038 | Yes | T003 | File operation commands wired to document state |
-| FR-039 | Yes | T003 | CommandContext provided to command palette |
-| FR-040 | Yes | T011 | Menu events routed to commands |
-| FR-041 | Yes | T007 | Error click events wired to editor navigation |
+#### User Story 3 - Add Common Fields (P2)
 
----
+| Acceptance Criterion | Has Task? | Task IDs | Notes |
+|---------------------|-----------|----------|-------|
+| AC1: "Add Field" shows dropdown | Yes | T024 | AddFieldDropdown |
+| AC2: Select "title" adds title field | Yes | T025, T026 | Suggestions + addField |
+| AC3: Select "date" adds date picker | Yes | T025, T026 | Field type mapping |
+| AC4: Select "tags" adds array field | Yes | T025, T026 | Field type mapping |
+| AC5: Custom field name adds text input | Partial | T026 | addField action, but no explicit custom name UX |
 
-## Coverage Summary Table - Success Criteria
+#### User Story 4 - Field Validation (P2)
+
+| Acceptance Criterion | Has Task? | Task IDs | Notes |
+|---------------------|-----------|----------|-------|
+| AC1: Invalid date shows error | Yes | T028, T031 | Validation + field display |
+| AC2: Empty required field shows error | Partial | T028, T030 | Validation lib, but "required" needs schema |
+| AC3: Correct value clears error | Yes | T030, T031 | Real-time validation state |
+| AC4: Validation indicator on toggle | Yes | T032 | Error badge |
+
+#### User Story 5 - Schema Detection (P3)
+
+| Acceptance Criterion | Has Task? | Task IDs | Notes |
+|---------------------|-----------|----------|-------|
+| AC1: Schema applies field types/validation | Yes | T033, T034 | Schema loading + zod converter |
+| AC2: No schema = infer from values | Yes | T004 | Type inference |
+| AC3: Schema descriptions as tooltips | Yes | T036 | Tooltip integration |
+
+### Success Criteria Coverage
 
 | Success Criterion | Has Task? | Task IDs | Notes |
-|-------------------|-----------|----------|-------|
-| SC-001 | Yes | T014 | Document workflow < 5s validated |
-| SC-002 | Yes | T014 | Preview updates < 500ms validated |
-| SC-003 | Yes | T014 | Layout preferences < 100ms (no flash) |
-| SC-004 | Partial | T012 | Dirty state accuracy - only save/edit flows tested, 100% claim unverified |
-| SC-005 | Partial | T012 | Zero data loss - only close tested, not open/new interception |
-| SC-006 | Yes | T014 | Status bar updates < 50ms validated |
-| SC-007 | Partial | T013 | P1 stories via keyboard - not all P1 operations explicitly keyboard-tested |
-| SC-008 | Yes | T014 | Cold start < 2s validated |
-| SC-009 | Yes | T014 | 60fps during resize validated |
-| SC-010 | No | - | **GAP: Error state recoverability not explicitly tested** |
+|------------------|-----------|----------|-------|
+| SC-001: Edit without YAML knowledge | Yes | T007-T016, T019 | Visual form implementation |
+| SC-002: Mode toggle preserves data 100% | Partial | T022, T023 | Implementation tasks, but no E2E validation task |
+| SC-003: Sync < 300ms | Partial | T050 | Performance validation task, but no performance test |
+| SC-004: Type inference 95% accuracy | **NO** | - | **GAP: No accuracy validation task** |
+| SC-005: Validation < 100ms | Partial | T050 | General performance check, no specific validation |
+| SC-006: Panel open < 200ms | Partial | T050 | General performance check, no specific validation |
+| SC-007: Code compiles and passes quality gates | Yes | T048 | Final build validation |
 
----
-
-## Coverage Summary Table - User Stories & Acceptance Scenarios
-
-| User Story | Scenario | Has Task? | Task IDs | Notes |
-|------------|----------|-----------|----------|-------|
-| US1 | S1: Split-pane on launch | Yes | T006, T013 | E2E test covers |
-| US1 | S2: Preview updates < 500ms | Yes | T006, T014 | Performance test covers |
-| US1 | S3: Split ratio persists | Yes | T002, T013 | E2E test covers |
-| US1 | S4: Preview toggle | Partial | T006 | Toggle mentioned but no dedicated test |
-| US2 | S1: Empty editor on fresh launch | Partial | T003 | Command tested, not launch state |
-| US2 | S2: Save dialog for untitled | Yes | T003, T013 | E2E test covers |
-| US2 | S3: Status bar updates after save | Partial | T004, T013 | Not explicitly tested together |
-| US2 | S4: Dirty indicator on changes | Yes | T004, T012 | Integration test covers |
-| US3 | S1: File dialog filters MDX/MD | No | - | **GAP: File filter behavior not tested** |
-| US3 | S2: Content appears in editor and preview | Yes | T003, T012 | Integration test covers |
-| US3 | S3: Status bar shows filename, cursor at start | Partial | T004 | Cursor position at start not tested |
-| US3 | S4: Dirty check before open | Yes | T008, T012 | Integration test covers |
-| US4 | S1: Dialog on close with unsaved changes | Yes | T008, T009, T012 | Integration test covers |
-| US4 | S2: Save option works | Yes | T012 | Integration test covers |
-| US4 | S3: Don't Save option works | Yes | T012 | Integration test covers |
-| US4 | S4: Cancel option works | Yes | T012 | Integration test covers |
-| US4 | S5: No dialog when clean | Yes | T009, T012 | Integration test covers |
-| US5 | S1: Filename displayed | Yes | T004 | Unit test covers |
-| US5 | S2: Dirty indicator displayed | Yes | T004 | Unit test covers |
-| US5 | S3: Cursor position updates | Yes | T004 | Unit test covers |
-| US5 | S4: Error count displayed | Yes | T004 | Unit test covers |
-| US5 | S5: Error click triggers 3 actions | Yes | T007 | Dedicated task covers |
-| US6 | S1: Split ratio restored | Yes | T002, T013 | E2E test covers |
-| US6 | S2: Preview visibility restored | No | - | **GAP: Preview visibility persistence not tested** |
-| US6 | S3: Zoom level restored | No | - | **GAP: Zoom level persistence not in scope** |
-| US6 | S4: No flash of default state | Yes | T002, T014 | Performance test covers |
-| US7 | S1: Cmd+N | Yes | T003, T013 | E2E test covers |
-| US7 | S2: Cmd+O | Yes | T003, T013 | E2E test covers |
-| US7 | S3: Cmd+S | Yes | T003, T013 | E2E test covers |
-| US7 | S4: Cmd+Shift+S | Yes | T003, T013 | E2E test covers |
-| US7 | S5: Cmd+W | Yes | T003, T009, T013 | E2E test covers |
-| US7 | S6: Cmd+\ (preview toggle) | Partial | T006 | Shortcut mentioned, not explicitly tested |
-
----
-
-## Coverage Summary Table - Non-Functional Requirements
-
-| NFR Category | Requirement | Has Task? | Task IDs | Notes |
-|--------------|-------------|-----------|----------|-------|
-| Performance | No jank during resize | Yes | T014 | 60fps target tested |
-| Performance | Sync state updates | Yes | T001 | Zustand handles this |
-| Performance | Debounced settings persistence | Yes | T002 | 500ms debounce specified |
-| Reliability | No silent content loss | Partial | T008, T009 | Only close flow, not crash recovery |
-| Reliability | Clear success/failure feedback | Partial | T003 | Save errors mentioned but not comprehensive |
-| Reliability | Crash recovery design not precluded | No | - | **GAP: No task verifies crash recovery compatibility** |
-| Accessibility | Keyboard accessible elements | Partial | T004, T011 | StatusBar accessible, others not explicit |
-| Accessibility | Screen reader support for status bar | Partial | T004 | aria-labels mentioned in acceptance |
-| Accessibility | Logical focus management | No | - | **GAP: Dialog focus management not explicitly tested** |
-| Maintainability | Centralized document state | Yes | T001 | Zustand store |
-| Maintainability | Props/context over global stores | Partial | T005, T006 | Some components may reach into stores |
-| Maintainability | UI vs domain state separation | Yes | T001, T002 | Separate stores |
-
----
-
-## Coverage Summary Table - Edge Cases
+### Edge Cases Coverage
 
 | Edge Case | Has Task? | Task IDs | Notes |
 |-----------|-----------|----------|-------|
-| File deleted/moved externally | No | - | **GAP: Orphaned file handling not implemented** |
-| File modified externally | Yes | T010 | Focus-based detection |
-| Disk full during save | No | - | **GAP: Disk full error handling not tested** |
-| App crash with unsaved changes | No | - | Out of scope per spec (future autosave) |
-| Preview compilation hangs | Partial | - | **GAP: 3s timeout behavior not tested** |
-| Window resized very small | No | - | **GAP: Minimum window size enforcement not tested** |
-| Rapid file opens | No | - | **GAP: Queue/serialization behavior not tested** |
+| Deeply nested objects (collapsible tree) | Yes | T038, T039 | ObjectField component |
+| YAML features not in form (anchors, aliases) | **NO** | - | **GAP: No warning/raw mode fallback task** |
+| No frontmatter (empty state, add option) | Partial | T047 | Empty state, no "add frontmatter" action |
+| Malformed delimiters | **NO** | - | **GAP: No error display or fix task** |
+| Mode switch during typing (debounce) | Implicit | T017 | Sync has debounce, no explicit test |
+| Simultaneous panel/document edits | Partial | T017 | Last-write-wins in sync, no conflict test |
 
 ---
 
-## Coverage Gaps - Detailed Analysis
+## Gap Findings
 
-### Gap Categories
-
-**Type A: Acceptance Criteria Clarity Gaps** (8 gaps)
-These are requirements that ARE mapped to tasks but lack specific implementation details in the acceptance criteria.
-
-**Type B: Missing Task/Test Coverage** (2 gaps)
-These are requirements or scenarios with no task mappings or explicit validation tasks.
-
-**Type C: Scope Clarification Needed** (1 gap)
-Features mentioned in spec but scope unclear in tasks.
-
----
-
-### Type A: Acceptance Criteria Clarity Gaps
-
-| ID | Severity | FR/Scenario | Task | Gap | Recommendation |
-|----|----------|-----------|------|-----|-----------------|
-| GAP-005 | LOW | FR-023 (Save Errors) | T003 | AC doesn't specify error display mechanism (modal? toast? status bar?) | Add: "Save errors displayed via modal dialog with 'Retry' button and error message text" |
-| GAP-006 | LOW | FR-025 (Dialog Wording) | T008 | AC doesn't specify button labels and dialog title | Add AC: "Dialog title: 'Save changes to {fileName}?' with buttons [Save] [Don't Save] [Cancel]" |
-| GAP-007 | LOW | FR-031b (Popover Dismiss) | T004 | AC mentions popover but not dismiss interaction | Add AC: "ErrorCount popover dismisses on click outside or Escape key press" |
-| GAP-008 | LOW | US3-S1 (File Filter) | T003/T013 | No test for file picker filter (MDX/MD files) | Add to T013 E2E AC: "File open dialog filters for *.mdx, *.md files by default" |
-| GAP-009 | LOW | US3-S3 (Cursor Position) | T003/T012 | No test that cursor positioned at start after file open | Add to T003 or T012 AC: "After opening file, cursor positioned at line 1, column 1" |
-| GAP-001 | MEDIUM | FR-037a (Timeout) | T006 | AC mentions timeout but not enforcement mechanism | Add AC: "If preview compilation exceeds 3s, show timeout error and allow continued editing; mechanism from Spec 005 PreviewPane" |
-| GAP-010 | LOW | US6-S2 (Preview Visibility) | T002 | Persistence noted as "future"; deferred commitment | Clarify in T002 AC: "previewVisible state persisted to localStorage; restored on app launch" (or explicitly defer) |
-| GAP-012 | MEDIUM | NFR-Accessibility (Dialog Focus) | T008/T013 | No explicit test for focus management in dialogs | Add to T013 AC: "Dirty check dialog receives focus on show; focus returns to editor on dismiss (Tab trap not tested)" |
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|----------|-------------|---------|----------------|
+| GAP-001 | **HIGH** | FR-008 | **No task for removeField action** - Users cannot delete frontmatter fields | Add task T051: "Add removeField action to store and delete button to field components" |
+| GAP-002 | **MEDIUM** | SC-004 | **No type inference accuracy validation** - 95% accuracy criterion has no test | Add task T052: "Create type inference accuracy test suite with >= 50 sample values" |
+| GAP-003 | **MEDIUM** | Edge Case | **No handling for unsupported YAML features** - Anchors, aliases, complex multi-line need warning + raw mode | Add task T053: "Detect unsupported YAML features and display warning with raw mode option" |
+| GAP-004 | **MEDIUM** | Edge Case | **No malformed frontmatter handling** - Broken `---` delimiters not addressed | Add task T054: "Detect malformed frontmatter delimiters and offer fix/recovery" |
+| GAP-005 | **MEDIUM** | FR-015 | **No explicit "add frontmatter" action** - T047 covers empty state UI but not the action to add frontmatter block | Extend T047 or add T055: "Implement addFrontmatter action for documents without frontmatter" |
+| GAP-006 | **LOW** | SC-003, SC-005, SC-006 | **No specific performance test tasks** - T050 is manual verification, no automated perf tests | Add task T056: "Create performance test suite for panel open < 200ms, sync < 300ms, validation < 100ms" |
+| GAP-007 | **LOW** | FR-012 | **User settings defaults for schema unclear** - Tasks cover project config but not user settings fallback | Clarify T035: Ensure loadSchema falls back to user settings when no project schema exists |
+| GAP-008 | **LOW** | FR-016 | **YAML formatting preservation not explicitly tested** - Parser task implicit, no dedicated test | Add test case in T040: "Verify YAML formatting (indentation, quote style) preserved after round-trip" |
+| GAP-009 | **LOW** | US3-AC5 | **Custom field name UX not explicit** - addField action exists but no task for custom field name input UI | Extend T024/T025: Add custom field name input option to AddFieldDropdown |
+| GAP-010 | **LOW** | SC-002, Edge Cases | **No E2E test for mode toggle data integrity** - Implementation tasks exist but no E2E validation | Add E2E test case: "Verify data integrity across 10+ mode toggles with various field types" |
 
 ---
 
-### Type B: Missing Task/Test Coverage
+## Summary
 
-| ID | Severity | Requirement | Gap | Recommendation |
-|----|----------|-------------|-----|-----------------|
-| GAP-003 | HIGH | SC-010 (Error Recovery) | No explicit task validates "zero data loss from errors" (missing save files, corrupted MDX, etc.) | Create sub-task in T014 or add to T012: "Test error state recovery (save failure + retry, invalid MDX + fix, etc.)" |
-| GAP-004 | MEDIUM | Edge Case: File Deletion | T010 maps to external modification but not deletion scenario | Update T010 AC to include: "If file deleted, show dialog 'File not found. Close document?' and mark status bar with '(Deleted)' suffix" |
+### Coverage Statistics
 
----
+| Category | Total | Covered | Partial | Gaps |
+|----------|-------|---------|---------|------|
+| Functional Requirements (FR-001 to FR-017) | 17 | 12 | 4 | **1** |
+| User Story Acceptance Criteria | 18 | 15 | 3 | **0** |
+| Success Criteria (SC-001 to SC-007) | 7 | 4 | 2 | **1** |
+| Edge Cases | 6 | 2 | 2 | **2** |
+| **TOTAL** | 48 | 33 (69%) | 11 (23%) | **4 (8%)** |
 
-### Type C: Scope Clarification Needed
+### Critical Gaps (HIGH severity)
 
-| ID | Severity | Requirement | Gap | Recommendation |
-|----|----------|-------------|-----|-----------------|
-| GAP-002 | MEDIUM | FR-034, FR-036 (Theme/Zoom Persistence) | Spec mentions both; T002 only implements splitRatio. Zoom/theme noted as "future" | Clarify in T002: Add note "Theme and zoom persistence deferred to Spec 007; only splitRatio, previewVisible included here" |
+1. **GAP-001**: No removeField capability - blocks core editing workflow
 
----
+### Recommended Actions
 
-## Coverage Gap Summary
+1. **Immediate**: Add T051 for removeField action (blocks complete form editing)
+2. **Before Phase 9**: Add T052-T054 for edge cases and validation accuracy
+3. **Before Phase 10**: Add T055-T056 for add frontmatter and performance tests
+4. **During Implementation**: Address LOW severity gaps as part of existing tasks
 
----
+### Orphaned Tasks Analysis
 
-## Tasks with No Mapped Requirement
+All tasks (T001-T050) map to requirements, user stories, or support infrastructure. No orphaned tasks detected.
 
-All tasks in tasks.md are mapped to at least one requirement or user story. No orphan tasks found.
+### Unmapped Stories/Requirements
 
----
-
-## Requirements with Zero Task Coverage
-
-| Requirement | Status |
-|-------------|--------|
-| FR-037a | **NO TASK** - 3s preview compilation timeout |
-
-All other FRs have at least partial coverage.
-
----
-
-## Gap Summary by Severity
-
-| Severity | Count | IDs |
-|----------|-------|-----|
-| CRITICAL | 0 | - |
-| HIGH | 1 | G11 |
-| MEDIUM | 6 | G1, G3, G6, G10, G12, G13 |
-| LOW | 8 | G2, G4, G5, G7, G8, G9, G14, G15 |
-
----
-
-## Recommendations
-
-### Priority 1 (Address before implementation)
-
-1. **G11 (HIGH)**: Add explicit error recovery tests. Create acceptance criteria for T012 or T014 that verifies:
-   - App recovers from preview compilation failure
-   - App recovers from file operation failures
-   - No error state leaves UI unresponsive
-
-2. **G1 (MEDIUM)**: Add to T006 acceptance criteria:
-   - Preview compilation timeout after 3s shows error state
-   - User can continue editing during timeout
-   - Error message is user-friendly
-
-3. **G13 (MEDIUM)**: Add to T010 or create new task:
-   - Detect when opened file is deleted/moved
-   - Show "orphaned" warning
-   - Offer "Save Elsewhere" option
-
-### Priority 2 (Address during implementation)
-
-4. **G3 (MEDIUM)**: Clarify spec: Either implement theme/zoom persistence in T002, or update spec to mark as out-of-scope for this feature.
-
-5. **G6 (MEDIUM)**: Add to T002 acceptance criteria:
-   - `previewVisible` state persists to localStorage
-   - Preview visibility restored on app launch
-
-6. **G10 (MEDIUM)**: Add to T013 E2E tests:
-   - Explicit keyboard-only workflow test
-   - All P1 user stories completable without mouse
-
-7. **G12 (MEDIUM)**: Add to T008 or T013:
-   - Focus trapped in dirty check dialog
-   - Focus returns to editor after dialog dismissal
-
-### Priority 3 (Nice to have)
-
-8. **G2, G4, G5, G7, G8, G9, G14, G15 (LOW)**: Add these as secondary acceptance criteria to existing tasks. They improve completeness but are not blocking.
-
----
-
-## Functional Requirement Mapping Summary
-
-**Total FRs**: 42 (FR-001 to FR-042)
-**Fully Mapped**: 36 (85.7%)
-**Partially Mapped**: 5 (11.9%)
-**Deferred**: 1 (2.4%)
-
-| Mapping Status | FRs | Tasks |
-|---|---|---|
-| ✓ Fully mapped with clear task | FR-001–FR-022, FR-024–FR-032, FR-038–FR-041 | T001–T011 |
-| ~ Partial (AC clarity needed) | FR-023, FR-025, FR-031b, FR-034, FR-037a | T002–T008 |
-| ⊘ Deferred (out of this spec) | FR-036 (theme/zoom) | Spec 007 |
-
----
-
-## User Story Mapping Summary
-
-**Total User Stories**: 7 (US1–US7)
-**Fully Mapped**: 7 (100%)
-**Acceptance Scenario Gaps**: 4 scenarios (US3-S1: file filter, US3-S3: cursor position, US6-S2: visibility persistence, US7-S6: toggle shortcut)
-
-| User Story | Priority | Task Coverage | Gap Count |
-|---|---|---|---|
-| US1: Edit & Preview | P1 | T001, T002, T005, T006 | 0 |
-| US2: Create & Save | P1 | T001, T003, T008 | 0 |
-| US3: Open Existing | P1 | T001, T003, T008, T010 | 2 (file filter, cursor position) |
-| US4: Safe Close | P2 | T001, T008, T009 | 0 |
-| US5: Status Bar | P2 | T001, T004, T007 | 1 (popover dismiss) |
-| US6: Settings | P3 | T002 | 1 (visibility persistence) |
-| US7: Keyboard Workflow | P3 | T003, T011 | 1 (toggle shortcut test) |
-
----
-
-## Success Criteria Coverage Summary
-
-| Criterion | Status | Task | Gap |
-|---|---|---|---|
-| SC-001 (< 5s workflow) | ✓ Covered | T014 | None |
-| SC-002 (< 500ms preview) | ✓ Covered | T014 | None |
-| SC-003 (< 100ms load, no flash) | ✓ Covered | T014 | None |
-| SC-004 (100% dirty state accuracy) | ✓ Covered | T001, T012 | Minor: stress testing not explicit |
-| SC-005 (zero data loss) | ✓ Covered | T008, T009, T012 | None (close/open/new all checked) |
-| SC-006 (< 50ms status bar update) | ✓ Covered | T014 | Minor: update type not specific |
-| SC-007 (P1 keyboard-only) | ~ Partial | T013 | AC could be more explicit |
-| SC-008 (< 2s cold start) | ✓ Covered | T014 | None |
-| SC-009 (60fps resize) | ✓ Covered | T014 | None |
-| SC-010 (error recovery) | ⊘ Missing | NONE | HIGH: No explicit error recovery test task |
-
----
-
-## Edge Cases Mapping
-
-**Total Edge Cases**: 7 in spec
-**Fully Covered**: 3
-**Partially Covered**: 3
-**Not Covered**: 1
-
-| Edge Case | Spec §Location | Task Coverage | Status |
-|---|---|---|---|
-| File deleted externally | Edge Cases | T010 | ✓ Partial - AC should detail "(Deleted)" suffix |
-| File modified externally | Edge Cases | T010 | ✓ Fully covered |
-| Disk full during save | Edge Cases | T003 | ✓ Partial - error handling mechanism unclear |
-| App crash with recovery | Edge Cases | NONE | ⊘ Out of scope (explicit in spec) |
-| Preview compilation timeout | Edge Cases | T006 | ✓ Partial - timeout mechanism deferred to Spec 005 |
-| Window resize very small | Edge Cases | T006 | ✓ Covered (minimum window size + auto-hide) |
-| Rapid file opens | Edge Cases | T003 | ✓ Partial - queuing behavior not in AC |
-
----
-
-## Gap Severity Distribution
-
-| Severity | Count | IDs | Impact |
-|---|---|---|---|
-| CRITICAL | 0 | — | None |
-| HIGH | 1 | GAP-003 | Error recovery validation missing; blocks SC-010 verification |
-| MEDIUM | 3 | GAP-001, GAP-002, GAP-004 | Acceptance criteria or scope clarity needed |
-| LOW | 6 | GAP-005, GAP-006, GAP-007, GAP-008, GAP-009, GAP-010, GAP-012 | AC detail gaps; don't block implementation |
-| **TOTAL** | **10** | — | — |
-
----
-
-## Task-to-Requirement Traceability Verification
-
-**Question**: Do all 14 tasks have mapped requirements/user stories?
-
-| Task | Mapped To | Status |
-|---|---|---|
-| T001 | FR-007–FR-011, US1–US5 | ✓ YES (6 FRs, 5 USs) |
-| T002 | FR-001, FR-033–FR-036, US1, US6 | ✓ YES (5 FRs, 2 USs) |
-| T003 | FR-012–FR-023, FR-038–FR-039, US2, US3, US7 | ✓ YES (13 FRs, 3 USs) |
-| T004 | FR-005, FR-028–FR-032b, US5 | ✓ YES (7 FRs, 1 US) |
-| T005 | FR-011, FR-037, US1 | ✓ YES (3 FRs, 1 US) |
-| T006 | FR-001–FR-006, FR-037–FR-037a, US1 | ✓ YES (8 FRs, 1 US) |
-| T007 | FR-031a, FR-032, FR-041, US5 | ✓ YES (3 FRs, 1 US) |
-| T008 | FR-017, FR-025, FR-026 (partial), US4 | ✓ YES (3 FRs, 1 US) |
-| T009 | FR-024, FR-026, FR-027, US4 | ✓ YES (3 FRs, 1 US) |
-| T010 | FR-042, US3 (edge case) | ✓ YES (1 FR, 1 US) |
-| T011 | FR-040, US7 | ✓ YES (1 FR, 1 US) |
-| T012 | SC-001–SC-005, SC-007, SC-010 (partial) | ✓ YES (validation) |
-| T013 | SC-001–SC-007, US1–US7 (E2E) | ✓ YES (validation) |
-| T014 | SC-002–SC-003, SC-006, SC-008–SC-009 | ✓ YES (validation) |
-
-**Conclusion**: ALL 14 tasks have explicit requirement mappings. ✓
-
----
-
-## Requirements-to-Task Traceability Verification
-
-**Question**: Are there any FRs/USs/SCs with zero tasks?
-
-| Category | Total | No Tasks | IDs |
-|---|---|---|---|
-| Functional Requirements | 42 | 0 | — |
-| User Stories | 7 | 0 | — |
-| Success Criteria | 10 | 1 | SC-010 (no explicit validation task) |
-| Edge Cases | 7 | 1 | App crash recovery (intentionally out of scope) |
-
-**Conclusion**: Only SC-010 lacks explicit validation task; all FRs and USs mapped. ✓
-
----
-
-## Final Recommendations
-
-### BEFORE IMPLEMENTATION (Critical Path)
-
-1. **GAP-003 (HIGH)**: Create sub-task for error recovery validation
-   - Add to T012 or T014: "Test that app recovers from save failures, invalid MDX, and file errors without data loss or UI hang"
-
-2. **GAP-001 (MEDIUM)**: Clarify timeout enforcement in T006 AC
-   - Add: "Preview compilation timeout (3s) enforced via PreviewPane prop; shell sets timeout value"
-
-3. **GAP-004 (MEDIUM)**: Expand T010 AC for file deletion
-   - Add: "If opened file deleted, show dialog and mark status bar with '(Deleted)' suffix; Cmd+S triggers save-as"
-
-4. **GAP-002 (MEDIUM)**: Clarify scope in T002 for deferred features
-   - Add note: "Theme and zoom persistence out of scope; deferred to Spec 007"
-
-### DURING ACCEPTANCE CRITERIA REFINEMENT (Before Task Work)
-
-5. **GAP-005, 006, 007, 008, 009, 010, 012** (LOW): Update specific task ACs with missing details
-   - See "Type A: AC Clarity Gaps" table above for exact AC additions
-
----
-
-## Conclusion
-
-**Overall Assessment**: The specification and tasks exhibit **high-quality coverage** with:
-- **100% FR mapping** (all 42 FRs have task assignments)
-- **100% US mapping** (all 7 user stories have task assignments)
-- **Minimal gaps** (10 total, mostly AC clarity, not missing functionality)
-- **No CRITICAL gaps** (1 HIGH, 3 MEDIUM, 6 LOW)
-
-**Recommendation**: Specification is **READY FOR IMPLEMENTATION** with the 10 gap recommendations incorporated into task acceptance criteria before work begins. The HIGH-severity gap (error recovery validation) should be addressed in task design, not deferred.
+- FR-008 (removeField) has zero task coverage - **CRITICAL**
+- SC-004 (type inference accuracy) has zero validation task - **MEDIUM**

@@ -1,232 +1,96 @@
-# Constitution Alignment Analysis: 006-Application-Shell
+# Constitution Alignment Analysis: Frontmatter Visual Editor (020)
 
-**Analysis Date**: 2026-01-17
-**Spec Branch**: `006-application-shell`
-**Analysis Scope**: Specification, Plan, Tasks, and Implementation
+**Date**: 2026-01-17
+**Specification**: `/specs/020-frontmatter-editor/`
+**Constitution Version**: 1.1.0
 
----
+## Summary
 
-## Executive Summary
+After thorough analysis of spec.md, plan.md, and tasks.md against constitution.md, I found **one constitution alignment issue** requiring attention.
 
-**Result**: ✅ **PASSING** - No constitution alignment issues detected.
+## Findings
 
-All specification, plan, tasks, and current implementation for the 006-application-shell feature are fully compliant with project constitution principles.
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|----------|-------------|---------|----------------|
+| CA-001 | CRITICAL | tasks.md lines 409-413 (Batch 9.1), plan.md lines 98-106 (Project Structure) | Test file location violates colocated testing requirement. Tasks place tests in `src/renderer/lib/frontmatter/__tests__/` directory instead of colocating with source files. Constitution Article VI Section 6.4 states: "Tests MUST be colocated: `feature.ts` + `feature.test.ts` in same directory" | Change test file locations from `src/renderer/lib/frontmatter/__tests__/*.test.ts` to colocated pattern: `src/renderer/lib/frontmatter/parser.test.ts`, `src/renderer/lib/frontmatter/type-inference.test.ts`, `src/renderer/lib/frontmatter/sync.test.ts`, `src/renderer/lib/frontmatter/schema.test.ts`. Update plan.md structure and tasks T040-T043 accordingly. |
 
----
+## Verified Compliant Areas
 
-## Detailed Findings by Constitution Article
+The following constitution articles were verified as compliant:
 
-### 1. TypeScript Strict Mode (Constitution Article II)
+### Article II: Technology Stack
+- **TypeScript 5.9.x strict: true** - Correctly specified in plan.md Technical Context (line 12)
+- **React 19.x** - Correctly specified (line 13)
+- **Zustand 5.x + Immer 11.x** - Correctly specified for state management (line 13)
+- **zod 4.x** - Correctly specified for validation (line 13)
+- **Vitest 4.x** - Correctly specified for unit tests (line 15)
+- **Playwright 1.57.x** - Correctly specified for E2E tests (line 15)
+- **Electron 39.x** - Correctly specified (line 16)
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| TypeScript 5.9.x with `strict: true` | ✅ PASS | All new source files use strict mode |
+### Article III: Architecture
+- **Section 3.1**: Renderer process owns UI - COMPLIANT (plan line 19 states "Renderer process only (no Node.js), runs in sidebar alongside editor")
+- **Section 3.2**: contextIsolation marked as N/A - COMPLIANT (plan line 33 notes "No IPC for this feature")
+- **Section 3.4**: CodeMirror owns editor state - COMPLIANT (plan line 34 states "Syncs via editor state, doesn't duplicate")
 
-**Analysis**:
-- `src/shared/types/document.ts`: Complete type definitions with branded types (DocumentId)
-- `src/renderer/stores/document-store.ts`: All functions and state interfaces properly typed
-- `src/renderer/stores/ui-layout-store.ts`: Full TypeScript compliance with readonly modifiers
-- `src/renderer/commands/file-commands.ts`: Proper imports and return type annotations
-- `src/renderer/components/shell/EditorPane.tsx`: Interface definitions with readonly props
-- `src/renderer/components/shell/StatusBar/StatusBar.tsx`: Typed props interfaces
+### Article V: Performance Budgets
+- Panel open < 200ms - Specified in spec.md SC-006 (line 151) and plan.md Performance Goals (line 18)
+- Sync latency < 300ms - Specified in spec.md FR-009 (line 124) and SC-003 (line 148)
+- Validation feedback < 100ms - Specified in spec.md SC-005 (line 150)
 
-### 2. State Management: Zustand + Immer (Constitution Article II)
+### Article VI: Code Quality
+- **Section 6.1**: JSDoc requirement noted in plan.md Constitution Check table (line 36) and tasks T045 (line 445)
+- **Section 6.2**: Functions < 50 lines noted in plan.md Constitution Check (line 37)
+- **Section 6.4**: Unit coverage > 80% noted in plan.md Constitution Check (line 38) - **Note: test file location issue flagged above**
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Use Zustand with Immer middleware | ✅ PASS | Both stores correctly configured |
+### Article VII: User Experience
+- **Section 7.1**: macOS HIG compliance noted in plan.md Constitution Check (line 39)
+- **Section 7.2**: Keyboard navigation specified in plan.md (line 40) and tasks T046 (line 446)
+- **Section 7.3**: Actionable errors specified in plan.md (line 41) and spec.md FR-010 (line 125)
 
-**Analysis**:
-- Document Store uses: `create<DocumentStore>()(immer((set) => ({ ... })))`
-- UI Layout Store uses: `create<UILayoutStore>()(immer((set, get) => ({ ... })))`
-- Debounced persistence prevents excessive writes (500ms debounce)
-- Proper selector pattern for optimized subscriptions
-- No Redux or custom state management used
+## Detailed Analysis
 
-### 3. Storage Persistence (Constitution Article II)
+### Constitution Check in plan.md (lines 22-42)
+The plan includes a proper Constitution Compliance table that verifies:
+- Article II (TypeScript, React, Zustand, zod) - PASS
+- Article III.1 (Renderer process owns UI) - PASS
+- Article III.2 (contextIsolation) - N/A (no IPC)
+- Article III.4 (CodeMirror owns editor state) - PASS
+- Article V (Performance budgets) - TBD (will validate)
+- Article VI.1-VI.4 (Code quality) - PASS
+- Article VII.1-VII.3 (UX) - PASS
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| localStorage for UI state | ✅ PASS | Implemented with validation |
-| electron-store for main process | ✅ PASS | Documented in plan |
+### Test Colocation Violation Details (CA-001)
 
-**Analysis**:
-- Document Store: In-memory only (correct design)
-- UI Layout Store: localStorage with validation and fallback
-- splitRatio persisted with debounce (500ms)
-- previewVisible and zoomLevel persisted
-- Loaded synchronously on module import (prevents flash)
+**Constitution Article VI Section 6.4 states:**
+> "Tests MUST be colocated: `feature.ts` + `feature.test.ts` in same directory"
 
-### 4. React 19.x & Electron 39.x (Constitution Article II)
+**plan.md lines 98-106 show:**
+```text
+tests/
+    unit/
+        frontmatter/
+            parser.test.ts
+            schema.test.ts
+            type-inference.test.ts
+            sync.test.ts
+```
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Use React 19.x patterns | ✅ PASS | Proper hooks usage |
-| Use Electron 39.x | ✅ PASS | IPC patterns correct |
+**tasks.md lines 409-413 show:**
+```text
+- [ ] T040 [P:9.1] Create parser unit tests in `src/renderer/lib/frontmatter/__tests__/parser.test.ts`
+- [ ] T041 [P:9.1] Create type inference unit tests in `src/renderer/lib/frontmatter/__tests__/type-inference.test.ts`
+- [ ] T042 [P:9.1] Create sync unit tests in `src/renderer/lib/frontmatter/__tests__/sync.test.ts`
+- [ ] T043 [P:9.1] Create schema unit tests in `src/renderer/lib/frontmatter/__tests__/schema.test.ts`
+```
 
-**Analysis**:
-- Functional components with hooks (useEffect, useState, useCallback, useMemo)
-- Components memoized where appropriate (EditorPane, StatusBar)
-- File operations delegate through IPC (openFile, saveFile, saveFileAs, readFile)
-- No direct Node.js access in renderer process
-
-### 5. Component Architecture (Constitution Article II)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Reuse existing components | ✅ PASS | Properly integrated |
-| Single source of truth | ✅ PASS | Zustand stores are centralized |
-| Props flow pattern | ✅ PASS | Children receive props from App |
-
-**Analysis**:
-- MDXEditor from Spec 002 wrapped in EditorPane
-- PreviewPane from Spec 003 wrapped in shell PreviewPane
-- CommandPalette from Spec 005 integrated in App.tsx
-- App.tsx builds command context and passes state as props
-- StatusBar receives data props, not direct store access
-
-### 6. Keyboard Navigation & Accessibility (Constitution Article VII)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Keyboard shortcuts | ✅ PASS | All shortcuts defined in spec |
-| Accessible status bar | ✅ PASS | ARIA labels and role attributes |
-| Error recovery | ✅ PASS | All states preserve user data |
-
-**Analysis**:
-- Shortcuts defined: Cmd+N (new), Cmd+O (open), Cmd+S (save), Cmd+Shift+S (save-as), Cmd+W (close)
-- StatusBar has role="status" and aria-label attributes
-- Error states do not clear editor content
-- Save failures preserve editor for retry
-
-### 7. Performance Requirements (Constitution Article V)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Cold start < 2s | ✅ PASS | No heavy dependencies in init |
-| Keystroke latency < 16ms | ✅ PASS | Sync state updates |
-| Memory < 200MB idle | ✅ PASS | Minimal footprint design |
-
-**Analysis**:
-- Zustand stores lightweight with no heavy middleware
-- Debounced persistence prevents blocking
-- Selectors optimize component subscriptions
-- Performance validation task (T014) will measure all metrics
-
-### 8. Security & IPC (Constitution Article III)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| contextIsolation: true | ✅ PASS | File ops use preload API |
-| IPC invoke/handle pattern | ✅ PASS | All file I/O through IPC |
-
-**Analysis**:
-- No direct fs module access in renderer
-- All file operations delegated through ctx.api
-- IPC calls: openFile, saveFile, saveFileAs, readFile, closeWindow
-- Error handling includes result.ok checks and error codes
-
-### 9. Code Quality (Constitution Article VI)
-
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| JSDoc documentation | ✅ PASS | All public APIs documented |
-| Function length < 50 lines | ✅ PASS | Proper decomposition |
-| Unit coverage > 80% | ✅ PLAN | Test tasks T012-T014 ensure coverage |
-
-**Analysis**:
-- Module-level JSDoc on all files
-- Function-level JSDoc with @example tags
-- Interface documentation complete
-- Helper functions kept small (3-6 lines)
-- No monolithic functions
-
----
-
-## Functional Requirements Coverage
-
-All 41 functional requirements from spec.md have implementation or task assignments:
-
-| Category | Count | Status |
-|----------|-------|--------|
-| Layout & Panels (FR-001-006) | 6 | ✅ Implemented |
-| Document State (FR-007-011) | 5 | ✅ Implemented |
-| New/Open (FR-012-017) | 6 | ✅ Implemented |
-| Save (FR-018-023) | 6 | ✅ Implemented |
-| Close (FR-024-027) | 4 | ✅ Implemented |
-| Status Bar (FR-028-032) | 5 | ✅ Implemented |
-| Settings (FR-033-036) | 4 | ✅ Implemented |
-| Integration (FR-037-041) | 5 | ✅ Implemented |
-
----
-
-## User Story Coverage
-
-| Story | Priority | Tasks | Status |
-|-------|----------|-------|--------|
-| US1: Edit and Preview | P1 | T001, T002, T005, T006 | ✅ Complete |
-| US2: Create and Save | P1 | T001, T003, T008 | ⏳ Partial (T008 pending) |
-| US3: Open Existing | P1 | T001, T003, T008, T010 | ⏳ Partial (T008, T010 pending) |
-| US4: Safe Close | P2 | T001, T008, T009 | ⏳ Pending (T008, T009) |
-| US5: Status Bar | P2 | T001, T004, T007 | ✅ Complete |
-| US6: Settings | P3 | T002 | ✅ Complete |
-| US7: Keyboard Workflow | P3 | T003, T011 | ⏳ Partial (T011 pending) |
-
----
-
-## Test Planning Analysis
-
-| Phase | Type | Status | Details |
-|-------|------|--------|---------|
-| Unit Tests | Store | ✅ Created | document-store.test.ts, ui-layout-store.test.ts |
-| Unit Tests | Commands | ✅ Created | file-commands.test.ts with error path coverage |
-| Unit Tests | Components | ✅ Created | EditorPane.test.tsx, StatusBar.test.tsx |
-| Integration | Lifecycle | 📋 Planned | T012: document-lifecycle.test.ts |
-| Integration | Layout | 📋 Planned | T012: shell-layout.test.ts |
-| E2E | Shell | 📋 Planned | T013: shell.spec.ts with Playwright |
-| Performance | Validation | 📋 Planned | T014: shell-perf.test.ts |
-
----
-
-## Known Limitations & Deferred Work
-
-Items intentionally out of scope per specification:
-
-- **Autosave**: Future spec (Spec 007)
-- **Continuous file watching**: Focus-based detection only (simpler, more secure)
-- **Multi-document/tabs**: Future enhancement
-- **Theme UI**: Deferred (Spec 007)
-- **Cloud storage**: Local files only
-- **Version history**: Future feature
-- **Plugin system**: Future feature
-
-All deferred items are properly noted in spec section "Out of Scope" (L320-330).
-
----
-
-## Specification Consistency
-
-| Document | Status | Coverage |
-|----------|--------|----------|
-| `spec.md` | ✅ Complete | 349 lines, 7 user stories, 41 FRs, 10 NFRs |
-| `plan.md` | ✅ Complete | 139 lines, constitution check passed, structure defined |
-| `tasks.md` | ✅ Complete | 477 lines, 14 tasks, 4 batches, dependency graph |
-| Implementation | ⏳ In Progress | T001-T007 complete, T008-T014 scheduled |
-
----
+Both locations violate the colocation requirement. Tests should be:
+- `src/renderer/lib/frontmatter/parser.test.ts`
+- `src/renderer/lib/frontmatter/type-inference.test.ts`
+- `src/renderer/lib/frontmatter/sync.test.ts`
+- `src/renderer/lib/frontmatter/schema.test.ts`
 
 ## Conclusion
 
-✅ **No constitution alignment issues detected.**
+The specification is well-aligned with the constitution overall. The only issue requiring correction is **test file colocation** (CA-001). The tasks.md and plan.md incorrectly specify tests in separate `__tests__` directories or `tests/` folder rather than colocating them with source files as required by Article VI Section 6.4.
 
-The 006-application-shell specification, plan, and implementation are **fully compliant** with all project constitution principles and requirements.
-
-**Current Status**: 🟢 Implementation in progress
-- Completed: Batch 1 (Foundation), Batch 2 (Shell)
-- Next: Batch 3 (Lifecycle), then Batch 4 (Validation)
-
----
-
-**Analysis Date**: 2026-01-17
-**Analyzed By**: Constitution Alignment Verification System
-**Spec Status**: Draft → Ready for Batch 3 Implementation
+**Recommended Action**: Update plan.md project structure and tasks T040-T043 to use colocated test file paths before implementation begins.
