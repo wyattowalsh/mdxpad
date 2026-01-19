@@ -1,49 +1,64 @@
-# Inconsistency Analysis: AI Provider Abstraction Layer
+# Inconsistency Analysis: Template Library Specification
 
-**Feature Branch**: `028-ai-provider-abstraction`
 **Analysis Date**: 2026-01-17
-**Files Analyzed**: 6
+**Documents Analyzed**: spec.md, plan.md, tasks.md, data-model.md, template-schemas.ts
+**Focus**: Terminology drift, entity mismatches, task ordering, conflicting requirements, schema violations
 
 ---
 
-## Inconsistency Issues Detected
+## Findings
 
 | ID | Severity | Location(s) | Summary | Recommendation |
-|----|----------|-------------|---------|----------------|
-| INC-001 | Medium | plan.md (line 37), tasks.md (Phase 2.3, line 190-204) | **IPC channel count mismatch**: plan.md states "5 channels: provider, credential, generate, usage, capability" but also includes streaming event channels (`mdxpad:ai:stream:chunk`, `mdxpad:ai:stream:complete`, `mdxpad:ai:stream:error`) in ipc-channels.md (lines 352-376). These are send/on channels, not invoke/handle, but they still count against the channel namespace. | Clarify whether streaming event channels are counted separately or update plan.md to reflect the actual channel structure (5 invoke/handle domains + 3 streaming event channels). |
-| INC-002 | Low | data-model.md (line 51), ipc-channels.md (line 549) | **ProviderType values alignment**: Both files define the same 5 provider types (`openai`, `anthropic`, `ollama`, `lmstudio`, `openai-compatible`), which is consistent. However, plan.md (line 8) and spec.md (line 71) reference "local models like Ollama/LM Studio" without mentioning `openai-compatible`. | Add `openai-compatible` to the user-facing documentation in spec.md for completeness. |
-| INC-003 | Medium | tasks.md (line 86-87), tasks.md (line 966-975) | **Task count discrepancy**: The Parallelism Metrics section states "Total Tasks: 24" but the Summary table shows "Total: 30 tasks across 6 phases". Manual count confirms 30 distinct task entries ([P:1.1] through [P:6.3]). | Update Parallelism Metrics to show "Total Tasks: 30". |
-| INC-004 | Low | data-model.md (line 219-227), ipc-channels.md (line 564-572) | **ProviderCapability representation inconsistency**: data-model.md defines `ProviderCapability` as a TypeScript enum, while ipc-channels.md defines `ProviderCapabilitySchema` as a Zod enum with the same values. The values are consistent, but the runtime representation differs (TypeScript enum vs. string literal union). | Ensure the implementation uses Zod schema inference (`z.infer<typeof ProviderCapabilitySchema>`) rather than the TypeScript enum to maintain consistency, or explicitly note that both exist for different purposes. |
-| INC-005 | High | tasks.md (line 57-74), tasks.md (Phase 3 dependencies) | **Dependency graph inconsistency**: The Mermaid diagram shows `T2_1 & T2_4 --> T3_1 & T3_2` but [P:3.2] ProviderService (line 312) lists dependencies as `[P:2.1], [P:2.4], [P:3.1]`, meaning it depends on CredentialService. The diagram shows T3_1 and T3_2 as parallel, but the task description indicates T3_2 depends on T3_1. | Update the Mermaid diagram to correctly show `T2_1 & T2_4 --> T3_1` and `T3_1 --> T3_2`, reflecting the actual dependency chain. |
-| INC-006 | Low | service-interfaces.md (line 400), data-model.md (line 156) | **UsageRecord method signature alignment**: `IUsageService.recordUsage()` accepts `Omit<UsageRecord, 'id'>` but data-model.md shows `UsageRecord` with `readonly id`, `readonly providerId`, `readonly modelId`, etc. The `Omit` is correct, but the interface should also omit `timestamp` since it's `readonly`. | Update service-interfaces.md to use `Omit<UsageRecord, 'id' | 'timestamp'>` or clarify that timestamp is set by the service. |
-| INC-007 | Medium | spec.md (line 148), tasks.md (line 309) | **Maximum provider count variance**: SC-005 states "at least 5 different provider configurations simultaneously" but tasks.md [P:3.2] says "Enforces max 10 providers" and data-model.md (line 100) says "Maximum 10 providers (SC-005 requires at least 5, cap at 10 for UX)". The spec says "at least 5" as a minimum requirement, which is consistent, but the phrasing could be clearer. | This is actually consistent upon closer reading (5 minimum per SC-005, 10 maximum per implementation). No change needed, but consider adding clarification to spec.md if desired. |
-| INC-008 | Low | tasks.md (line 330-338), Anthropic model naming | **Anthropic model naming convention**: Tasks.md lists `claude-opus-4-5-20250929` and `claude-sonnet-4-5-20250929` but the actual Anthropic model naming pattern uses dates like `20241022` or `20240229`. The dates `20250929` appear to be future dates (September 2025). | Verify and update model IDs to match current Anthropic model naming conventions, or note these are placeholder/anticipated model names. |
-| INC-009 | Medium | ipc-channels.md (line 337), tasks.md (line 580-584) | **Stream channel naming inconsistency**: ipc-channels.md defines `mdxpad:ai:stream:chunk`, `mdxpad:ai:stream:complete`, `mdxpad:ai:stream:error` but tasks.md [P:4.3] references the pattern as `webContents.send('mdxpad:ai:stream:chunk', ...)` without listing these in the IPC channel definitions file ([P:2.3]). | Add the streaming event channels to [P:2.3] task scope, or clarify they are renderer-only receive channels defined separately. |
-| INC-010 | Low | spec.md (line 14), plan.md, tasks.md | **Feature scope terminology**: spec.md FR-014 lists "text generation, embeddings, image generation, agents, multiagent systems, and deep agents" but the data model's `OperationType` (data-model.md line 147-152) only includes `agent-execution`, not separate types for multiagent/deep agents. | Either add `multiagent-execution` and `deep-agent-execution` to OperationType, or clarify that all agent-related operations use the single `agent-execution` type. |
+|---|---|---|---|---|
+| INC-001 | Medium | tasks.md (T004), plan.md (Project Structure) | IPC channel naming inconsistency: T004 asks to add `TEMPLATE_IPC_CHANNEL` and `TEMPLATE_CREATE_CHANNEL` exports to `src/shared/ipc-channels.ts`, but these are already defined in `template-schemas.ts` lines 336-341 | Move IPC channel constants to `ipc-channels.ts` per plan.md structure, or remove T004's instruction to duplicate them. Update template-schemas.ts to import from ipc-channels.ts |
+| INC-002 | High | spec.md (FR-020), tasks.md (T012), plan.md (components) | Inconsistency in placeholder terminology: spec.md FR-020 refers to "template placeholder markers" but never explicitly separates static vs. dynamic placeholders in requirements. Spec.md clarifications session (line 165) discusses both `{{title}}` (dynamic) and static markers, but FR-020 and FR-025 don't clearly distinguish them | Clarify FR-020 and FR-025 to explicitly state static placeholders are visually distinguished in editor (separate from dynamic variables which prompt user). Update spec.md edge cases section |
+| INC-003 | Medium | plan.md (Project Structure), tasks.md (T008, Phase 2.1) | Task T004 references `src/shared/ipc-channels.ts` in Phase 2.1, but plan.md Project Structure shows `src/shared/` contains only `ipc-channels.ts` with a comment to "Add template IPC channels". This is contradictory—either the file exists or doesn't | Clarify: does `src/shared/ipc-channels.ts` already exist in the project? If yes, T004 should say "add exports to existing". If no, T003 should create it, not just copy contracts |
+| INC-004 | Medium | data-model.md (File System Layout, lines 199-211), plan.md (plan.md line 14, Technical Context) | Discrepancy in validation of custom template location: data-model.md specifies custom templates at `~/.mdxpad/templates/` and built-in at app resources. However, no validation rule in data-model.md (V-T007) specifies what "allowed directories" means—conflicts with contract security requirements | Add explicit validation rule in data-model.md: "Custom templates must be in ~/.mdxpad/templates/; built-in templates must be in app resources directory; reject templates outside these paths" |
+| INC-005 | Low | spec.md (Requirements FR-018), tasks.md (Phase 7.1, T026-T030), data-model.md (Data Volume Estimates) | Inconsistency in built-in template count: spec.md FR-018 says "minimum set of built-in templates covering common document types" (no specific count). SC-006 specifies "at least 5 common document types". tasks.md Phase 7.1 creates exactly 5 templates (blog, docs, presentation, notes, tutorial). data-model.md Data Volume Estimates lists 5 templates. This is consistent overall but FR-018 is vague | Update FR-018 to explicitly state "System MUST provide at least 5 built-in templates" to match SC-006 |
+| INC-006 | Medium | template-schemas.ts (line 81), data-model.md (Template entity, line 21) | Version field required vs. optional mismatch: template-schemas.ts line 81 requires strict semver format `/^\d+\.\d+\.\d+$/` with default "1.0.0" (making it effectively required). data-model.md line 21 says version is "No" (not required). These conflict in requirement status | Update data-model.md line 21 to mark version as "Yes" (required) with default "1.0.0", aligning with template-schemas.ts behavior |
+| INC-007 | Low | plan.md (line 14), tasks.md (Phase 7 built-in template tasks), data-model.md (line 210) | Built-in template path clarity: plan.md Technical Context mentions "built-in templates bundled in app resources" but doesn't specify macOS app bundle path. data-model.md line 210 shows `/Applications/mdxpad.app/Contents/Resources/templates/` explicitly. plan.md should match this specificity | Update plan.md Technical Context to specify: "built-in templates bundled in `/Applications/mdxpad.app/Contents/Resources/templates/` per Constitution Article X (macOS target)" |
+| INC-008 | High | tasks.md (T005 description, line 121), template-schemas.ts (exports), plan.md (line 80-82) | Preload API bindings mismatch: T005 says expose "list, get, save, delete, import, export, validate, createFromTemplate" (8 operations). template-schemas.ts defines TemplateRequestSchema with 7 action types (lines 265-272: list, get, save, delete, import, export, validate) but CreateFromTemplateRequest is separate (line 308), NOT in the discriminated union. This creates inconsistency | Either add `CreateFromTemplate` action to TemplateRequestSchema discriminated union, or remove "createFromTemplate" from T005 description and handle via separate TEMPLATE_CREATE_CHANNEL |
+| INC-009 | Medium | spec.md (FR-024, FR-026), template-schemas.ts (TemplateVariable), tasks.md (T014 description) | Variable substitution flow unclear: FR-024 says "support dynamic template variables that prompt user for values during document creation". FR-026 says "substitute all dynamic variables before opening document". But VariableDialog (T014) description doesn't specify handling of optional vs. required variables. Template-schemas.ts TemplateVariable.required defaults to false, implying optional variables exist, but spec doesn't explain user experience for optional ones | Clarify in spec.md: are optional variables skipped if user leaves blank, or must all variables be provided? Update VariableDialog implementation note with validation rules for required vs. optional |
+| INC-010 | Low | data-model.md (Storage Schema example, line 182), template-schemas.ts (TemplateVariableSchema, line 46) | Example default value suggests special date handling: data-model.md shows `default: ""` with comment "Empty = use current date". But template-schemas.ts allows any string as default with no special parsing. This suggests built-in logic for date substitution that isn't reflected in schema or T007 | Either (1) clarify that empty string defaults are literal and template authors handle date logic, or (2) add special case handling for date variables in template-variables.ts (T007) implementation |
+| INC-011 | High | plan.md (line 102 "Structure Decision"), spec.md (Clarifications line 167), data-model.md (File System Layout) | Built-in template update mechanism undefined: Clarifications session says "Automatic - built-in templates update silently with the application". But plan.md and data-model.md provide no implementation mechanism. Are templates hard-coded, fetched from remote, or bundled in app? | Add design decision to plan.md: specify whether built-in templates are (A) included in app bundle and update on app version upgrade, (B) cached locally from remote on startup, or (C) bundled and immutable. Current spec assumes (A) but provides no implementation path |
+| INC-012 | High | tasks.md (Batch 3.6, T015 description), plan.md (Project Structure, no integration section) | Integration task T015 is underspecified: "Wire up template browser in application shell, connect store to components, handle template selection and document creation flow" lacks concrete acceptance criteria. Missing: (1) where to place browser modal, (2) how new file dialog triggers browser (moved to T024), (3) editor support for static placeholder highlighting (FR-020) | Break T015 into subtasks with clear acceptance criteria: "TemplateBrowser modal renders in application shell, search/filters functional, preview updates on template selection, document creation opens new document in editor with populated content" |
+| INC-013 | Low | spec.md (FR-019), tasks.md (T013 description) | Keyboard navigation requirement vague: FR-019 specifies "keyboard navigation within the template browser" but doesn't detail implementation (arrow keys? tab order? Enter to select?). T013 includes "(FR-019)" but provides no implementation guidance. No design document provided | Add keyboard navigation spec to FR-019: "System MUST support arrow keys to navigate templates, Enter to select, Escape to close, Tab/Shift-Tab to move between filters/search/results" |
+| INC-014 | Medium | tasks.md (Phase 3.6, T016), plan.md (line 18), spec.md (SC-004 line 153) | Search performance validation gap: spec.md SC-004 targets "200 milliseconds for libraries with up to 100 templates". T016 specifies "Fuse.js search integration" but no performance testing task exists. plan.md includes no benchmark validation | Add performance validation task to Phase 7 (Polish): benchmark Fuse.js with 100-template library, verify < 200ms latency. If threshold not met, add fallback optimization task |
+| INC-015 | Medium | data-model.md (Validation Rules V-T006, line 150), template-schemas.ts (TemplateSchema), plan.md | ID uniqueness validation not expressible in schema: data-model.md V-T006 requires "id must be unique within template collection". template-schemas.ts TemplateSchema only validates format (lines 59), not uniqueness. Zod can't express collection-level uniqueness; runtime validation required but no task specifies this | Add implementation note to T008 (template-service.ts): "Validate template ID uniqueness against existing collection on save; return ALREADY_EXISTS error if duplicate; treat name as secondary uniqueness check per FR-010" |
 
 ---
 
 ## Summary Statistics
 
-| Metric | Value |
-|--------|-------|
-| Total Inconsistencies Found | 10 |
-| High Severity | 1 |
-| Medium Severity | 4 |
-| Low Severity | 5 |
-| Files with Issues | 5/6 |
+- **Total Inconsistencies Found**: 15
+- **High Severity**: 4 (INC-001, INC-008, INC-011, INC-012)
+- **Medium Severity**: 7 (INC-002, INC-003, INC-004, INC-006, INC-007, INC-014, INC-015)
+- **Low Severity**: 4 (INC-005, INC-010, INC-013)
 
 ---
 
-## Critical Path Impact
+## Categories
 
-The most significant inconsistency is **INC-005** (High Severity), which affects task dependency ordering. If developers follow the Mermaid diagram, they may attempt to implement ProviderService in parallel with CredentialService, when the task description indicates ProviderService depends on CredentialService. This could cause integration failures.
+**Terminology/Naming Drift**: INC-001, INC-007
+**Data Model/Schema Mismatches**: INC-006, INC-010, INC-015
+**Task Specification Gaps**: INC-002, INC-008, INC-012, INC-013, INC-014
+**Conflicting Assumptions/Requirements**: INC-003, INC-004, INC-009, INC-011
 
 ---
 
-## Recommendations
+## Recommended Remediation Priority
 
-1. **Immediate**: Fix INC-005 by correcting the Mermaid dependency graph to show `T3_1 --> T3_2`
-2. **Before Implementation**: Fix INC-003 (task count) and INC-009 (streaming channel scope) for accurate tracking
-3. **During Implementation**: Address INC-001 and INC-004 to ensure consistent type handling
-4. **Optional**: Address low-severity items (INC-002, INC-006, INC-008, INC-010) for documentation clarity
+**Critical (Block Implementation)**:
+1. INC-001: Resolve IPC channel location before Phase 2
+2. INC-008: Align preload API bindings with contract before Phase 2
+3. INC-003: Clarify ipc-channels.ts existence before Phase 1 setup
+4. INC-011: Document built-in template update mechanism before Phase 1
+
+**High (Before Phase 3 User Story Work)**:
+5. INC-012: Expand T015 acceptance criteria
+6. INC-006: Align version field requirement
+7. INC-002: Clarify static vs. dynamic placeholder handling
+
+**Medium (Before Polish Phase)**:
+8. INC-004, INC-009, INC-014, INC-015
+9. INC-005, INC-007, INC-010, INC-013

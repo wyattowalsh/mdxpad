@@ -1,87 +1,66 @@
-# Constitution Alignment Analysis: AI Provider Abstraction Layer (028)
+# Constitution Alignment Analysis: Template Library (016)
 
-**Feature Branch**: `028-ai-provider-abstraction`
 **Analysis Date**: 2026-01-17
-**Constitution Version**: 1.1.0
+**Artifacts Analyzed**:
+- `/Users/ww/dev/projects/mdxpad-template/.specify/memory/constitution.md` (v1.1.0)
+- `/Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/spec.md`
+- `/Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/plan.md`
+- `/Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/tasks.md`
+
+---
+
+## Findings
+
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|-----------|-----------|---------| --------------|
+| ALN-001 | **CRITICAL** | plan.md line 13; tasks.md T006 | **Article II Violation**: Plan specifies use of `gray-matter` library for template parsing, which is NOT in the pinned technology stack (Article II). New dependencies require constitution amendment. | Add `gray-matter` (or specify version) to Article II Technology Stack table, OR choose an alternative parsing approach using only approved technologies (e.g., manual YAML/frontmatter parsing with `zod` validation). Escalate to user for decision. |
+| ALN-002 | **CRITICAL** | plan.md lines 22-41 (Constitution Check section) | **Article IX.1 Violation**: Constitution Compliance table mixes MUST/SHOULD/conditional ("WILL COMPLY", "TBD") without distinguishing mandatory gates from optional considerations. Per Article IX.1, status MUST clearly mark PASS/FAIL for MUST requirements. | Revise Constitution Check table to explicitly separate MUST requirements (must show PASS/FAIL with no TBD) from SHOULD requirements (may show conditional status). Mark any TBD MUST items as blockers requiring resolution before Phase 0 completion. |
+| ALN-003 | **CRITICAL** | spec.md FR-015; plan.md line 34; tasks.md T008, T019 | **Article V Violation**: FR-015 requires "System MUST validate template MDX syntax before saving custom templates." This validation (compilation) is not explicitly budgeted in Article V performance budgets. If validation triggers MDX compile, it must meet Article V's 500ms budget OR have separate documented budget. | Add explicit performance budget for template validation/MDX compilation in plan.md. Test and verify validation completes within Article V's 500ms MDX compile budget. If exceeding, document rationale and escalate for architecture review per Article V escalation clause. |
+| ALN-004 | **CRITICAL** | plan.md line 35 (Gate 3.2: Service Validation); tasks.md T008 | **Article III.3 Violation**: Plan lists IPC handlers but does not explicitly document that all template IPC payloads MUST be validated with zod on both ends (Article III.3 requirement: "All payloads MUST be validated with zod on both ends"). | Explicitly confirm in plan.md that all template IPC channels will use zod schema validation. Add to contracts/template-schemas.ts validation assertions. Include zod validation examples in T008 implementation. |
+| ALN-005 | HIGH | spec.md edge cases; plan.md line 39 | **Article VII.3 Partial Alignment**: Edge cases state "display error indicator for affected items" but don't specify error message format. Article VII.3 requires "User-facing errors MUST be actionable and clear (no stack traces, no jargon)." | Define specific, actionable error messages for each edge case (corrupted template, invalid MDX, missing components). Add to spec's edge cases section or data-model.md with examples. Validate against Article VII.3 accessibility and clarity requirements. |
+| ALN-006 | HIGH | spec.md SC-005; plan.md line 18 | **Article V Cross-Check**: SC-005 specifies "Custom template save operation completes within 2 seconds including validation." This is user-facing performance but not in Article V's hard budget table. Article V lists only MDX compile budget (500ms); template save with validation may exceed this if MDX validation required. | Clarify in plan.md: Does "save including validation" trigger MDX compilation? If yes, ensure total operation <= 500ms per Article V or document separate budget. If no, SC-005's 2s is acceptable (user-facing, not listed in Article V). Validate empirically during implementation. |
+| ALN-007 | HIGH | tasks.md lines 361-367 (Batch 7.2: Tests) | **Article VI.4 Partial Clarity**: Tests are planned (T031-T033) but unit test file doesn't show target coverage >= 80% requirement per Article VI.4. Gate only checks TypeScript compilation, not coverage. | Add coverage target assertion to Gate 7.2 validation: `npx vitest run --coverage --reporter=v8`. Set minimum threshold to 80% for `src/renderer/lib/` per Article VI.4. Make gate fail if coverage below threshold. Document in plan.md. |
+| ALN-008 | MEDIUM | plan.md line 102; spec.md lines 141-144 | **Article X Deferred Feature Risk**: Spec defines template import/export (FR-021, FR-022) and dynamic variables (FR-024) as core features, but these are not mentioned in Article X Deferred Decisions. However, Article X defers "Plugin system" and "Cloud sync" which could relate to template distribution. Clarify scope boundaries. | Confirm that FR-021 (import/export) and FR-024 (dynamic variables) are local-only features for v1.0 (not cloud/plugin sync). Update plan.md "Technical Context" section to explicitly state these are client-side only and do not attempt deferred plugin/cloud features. |
 
 ---
 
 ## Summary
 
-**No Critical Constitution Violations Detected**
+**Total Issues**: 8
+**Critical**: 4 (ALN-001, ALN-002, ALN-003, ALN-004)
+**High**: 2 (ALN-005, ALN-006, ALN-007)
+**Medium**: 1 (ALN-008)
 
-All specification, plan, and tasks documents for the AI Provider Abstraction Layer feature are fully compliant with the mdxpad Constitution. The artifacts include proactive compliance verification and appropriate technology choices.
+### Critical Path Blockers
 
----
+1. **ALN-001 (gray-matter dependency)**: Must resolve before T006 implementation. Requires constitution amendment OR technology substitution.
+2. **ALN-002 (Constitution Check clarity)**: Must resolve before Phase 0 gate. Revise compliance table to distinguish MUST from SHOULD.
+3. **ALN-003 (Performance budget missing)**: Must resolve before Phase 2 gate. Add explicit validation performance budget or confirm within Article V limits.
+4. **ALN-004 (zod validation)**: Must resolve before T008 implementation. Ensure all IPC payloads have explicit zod validation per Article III.3.
 
-## Constitution Alignment Verification
+### Recommended Actions
 
-| Article | Requirement | Status | Notes |
-|---------|-------------|--------|-------|
-| II | TypeScript 5.9.x strict: true | PASS | Explicitly stated in plan.md |
-| II | React 19.x | PASS | UI uses React 19 per plan |
-| II | Zustand 5.x + Immer 11.x | PASS | Store uses zustand/immer middleware |
-| II | zod 4.x | PASS | All IPC schemas use zod validation |
-| III.1 | Main process owns file/native APIs | PASS | Credentials in main process only |
-| III.2 | contextIsolation: true | PASS | No changes to security settings |
-| III.2 | sandbox: true | PASS | No changes to security settings |
-| III.3 | invoke/handle IPC pattern | PASS | All channels use invoke/handle |
-| III.3 | zod validation both ends | PASS | Schemas defined in shared/ |
-| III.3 | Max 10 top-level channels | PASS | 5 domains: provider, credential, generate, usage, capability |
-| III.3 | Channel naming mdxpad:\<domain\>:\<action\> | PASS | e.g., mdxpad:ai:provider:add |
-| V | Cold start < 2s | TBD | Marked for post-implementation verification |
-| V | Renderer bundle < 5MB | PASS | AI SDK in main process, ~67KB only |
-| VI.1 | No `any` without comment | PASS | Explicitly stated in plan |
-| VI.2 | Functions max 50 lines | PASS | Design follows limit |
-| VI.2 | Files max 400 lines | PASS | Services split appropriately |
-| VI.4 | >80% unit coverage | TBD | Enforced during implementation |
+1. **Immediate** (before Phase 1 starts):
+   - Resolve ALN-001: Approve gray-matter OR remove from plan
+   - Resolve ALN-002: Revise Constitution Check table
+   - Resolve ALN-003: Document template validation performance budget
+
+2. **Before Phase 2 complete**:
+   - Resolve ALN-004: Verify zod validation on all IPC channels
+   - Resolve ALN-005: Finalize error message specifications
+
+3. **Before Phase 7 (Testing)**:
+   - Resolve ALN-007: Add coverage threshold to Gate 7.2
 
 ---
 
-## Detailed Findings
+## Constitution Articles Referenced
 
-| ID | Severity | Location(s) | Summary | Recommendation |
-|----|----------|-------------|---------|----------------|
-| - | - | - | No constitution alignment issues detected | - |
-
----
-
-## Positive Observations
-
-1. **Comprehensive Constitution Check**: The plan.md includes a full Constitution Check table (lines 22-44) verifying all relevant articles before implementation.
-
-2. **IPC Channel Compliance**: The feature uses exactly 5 top-level domains (`provider`, `credential`, `generate`, `usage`, `capability`) which is well under the 10-channel limit per Article III.3.
-
-3. **Security-First Approach**: The feature correctly places credential handling in the main process only, using Electron's `safeStorage` API which leverages macOS Keychain - aligning with Article I's security-first value hierarchy.
-
-4. **Code Quality Gates**: Tasks include explicit acceptance criteria for:
-   - No `any` types (Constitution VI.1)
-   - >80% unit coverage (Constitution VI.4)
-   - TypeScript compiles with strict: true
-
-5. **Proper Process Separation**: All AI operations (credential storage, API calls, usage tracking) execute in main process; renderer contains only UI components and Zustand store synchronized via IPC - per Article III.1.
-
-6. **Bundle Size Management**: AI SDK is loaded in main process only (~67KB), keeping renderer bundle well under the 5MB limit per Article V.
-
----
-
-## Metrics
-
-| Metric | Value |
-|--------|-------|
-| Constitution Articles Referenced | 12 |
-| Explicit Compliance Checks | 15 |
-| Critical Violations | 0 |
-| Non-Critical Concerns | 0 |
-| TBD Items (Post-Implementation) | 2 |
-
----
-
-## Conclusion
-
-The AI Provider Abstraction Layer feature demonstrates exemplary constitution alignment. No changes are required before implementation proceeds.
-
----
-
-**Analysis Date**: 2026-01-17
-**Constitution Location**: `/Users/ww/dev/projects/mdxpad-ai/.specify/memory/constitution.md`
+- **Article II**: Technology Stack (pinned versions, no unlisted dependencies)
+- **Article III.3**: IPC Contract Pattern (zod validation required)
+- **Article V**: Performance Budgets (hard limits, >10% regression blocks merge)
+- **Article VI.4**: Testing Requirements (>80% coverage for business logic)
+- **Article VII.3**: Error Handling (actionable, clear, no jargon)
+- **Article IX.1**: Plan Verification (Constitution Compliance section structure)
+- **Article IX.3**: Conflict Resolution (halt if constitution violated)
+- **Article X**: Deferred Decisions (clarify scope boundaries)

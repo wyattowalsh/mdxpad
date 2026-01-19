@@ -1,0 +1,49 @@
+---
+name: "Blog Post"
+description: "A standard blog post template with title, author, date, and content sections"
+category: "blog"
+tags: ["blog", "article", "content", "writing"]
+author: "mdxpad"
+version: "1.0.0"
+isBuiltIn: true
+variables:
+  - name: "title"
+    description: "Post title"
+    default: "Untitled Post"
+  - name: "author"
+    description: "Author name"
+    required: true
+  - name: "date"
+    description: "Publication date"
+    default: "{{today}}"
+---
+
+# {{title}}
+
+**By {{author}}** | _{{date}}_
+
+---
+
+## Introduction
+
+[Write your introduction here. Hook your readers with an engaging opening that explains what they'll learn or discover in this post...]
+
+## Main Content
+
+[Develop your main points here. Break down complex ideas into digestible sections...]
+
+### Key Point 1
+
+[Elaborate on your first key point...]
+
+### Key Point 2
+
+[Elaborate on your second key point...]
+
+## Conclusion
+
+[Summarize your key takeaways and provide a call to action or closing thought...]
+
+---
+
+_Thanks for reading! If you found this helpful, [share your thoughts]._

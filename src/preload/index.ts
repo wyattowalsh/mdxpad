@@ -48,6 +48,31 @@ import {
   ConflictResolveResponseSchema,
 } from '@shared/contracts/autosave-ipc';
 import { AutosaveSettingsSchema } from '@shared/contracts/autosave-schemas';
+import {
+  // Template request schemas
+  TemplateListRequestSchema,
+  TemplateGetRequestSchema,
+  TemplateSaveRequestSchema,
+  TemplateDeleteRequestSchema,
+  TemplateImportRequestSchema,
+  TemplateExportRequestSchema,
+  TemplateValidateRequestSchema,
+  CreateFromTemplateRequestSchema,
+  TemplateOpenDialogRequestSchema,
+  TemplateSaveDialogRequestSchema,
+  // Template response schemas
+  TemplateListResponseSchema,
+  TemplateGetResponseSchema,
+  TemplateSaveResponseSchema,
+  TemplateDeleteResponseSchema,
+  TemplateImportResponseSchema,
+  TemplateExportResponseSchema,
+  TemplateValidateResponseSchema,
+  CreateFromTemplateResponseSchema,
+  TemplateOpenDialogResponseSchema,
+  TemplateSaveDialogResponseSchema,
+  TemplateErrorResponseSchema,
+} from '@shared/contracts/template-schemas';
 import type { MdxpadAPI } from './api';
 import type { FileResult, FileHandle } from '@shared/types/file';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
@@ -489,6 +514,203 @@ const api: MdxpadAPI = {
 
   // === AI Provider API (Spec 028) ===
   ai: aiApi,
+
+  // === Template Operations (Spec 016) ===
+  template: {
+    list: async (source = 'all') => {
+      const request = { action: 'list' as const, source };
+      const reqParsed = TemplateListRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.list, request);
+      const resParsed = TemplateListResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: resParsed.data.templates };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    get: async (id) => {
+      const request = { action: 'get' as const, id };
+      const reqParsed = TemplateGetRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.get, request);
+      const resParsed = TemplateGetResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: resParsed.data.template };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    save: async (template, replace = false) => {
+      const request = { action: 'save' as const, template, replace };
+      const reqParsed = TemplateSaveRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.save, request);
+      const resParsed = TemplateSaveResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: resParsed.data.template };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    delete: async (id) => {
+      const request = { action: 'delete' as const, id };
+      const reqParsed = TemplateDeleteRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.delete, request);
+      const resParsed = TemplateDeleteResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { id: resParsed.data.id } };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    import: async (path, replace = false) => {
+      const request = { action: 'import' as const, path, replace };
+      const reqParsed = TemplateImportRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.import, request);
+      const resParsed = TemplateImportResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: resParsed.data.template };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    export: async (id, path) => {
+      const request = { action: 'export' as const, id, path };
+      const reqParsed = TemplateExportRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.export, request);
+      const resParsed = TemplateExportResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { path: resParsed.data.path } };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    validate: async (content) => {
+      const request = { action: 'validate' as const, content };
+      const reqParsed = TemplateValidateRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.validate, request);
+      const resParsed = TemplateValidateResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { valid: resParsed.data.valid, errors: resParsed.data.errors } };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    createFromTemplate: async (templateId, variables, savePath) => {
+      const request = { templateId, variables, savePath };
+      const reqParsed = CreateFromTemplateRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.createFromTemplate, request);
+      const resParsed = CreateFromTemplateResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        const data: { content: string; path?: string } = { content: resParsed.data.content };
+        if (resParsed.data.path !== undefined) {
+          data.path = resParsed.data.path;
+        }
+        return { success: true, data };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    showOpenDialog: async () => {
+      const request = { action: 'showOpenDialog' as const };
+      const reqParsed = TemplateOpenDialogRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.showOpenDialog, request);
+      const resParsed = TemplateOpenDialogResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { path: resParsed.data.path, canceled: resParsed.data.canceled } };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+
+    showSaveDialog: async (defaultName) => {
+      const request = { action: 'showSaveDialog' as const, defaultName };
+      const reqParsed = TemplateSaveDialogRequestSchema.safeParse(request);
+      if (!reqParsed.success) {
+        return { success: false, error: reqParsed.error.message, code: 'VALIDATION_ERROR' as const };
+      }
+
+      const response: unknown = await ipcRenderer.invoke(IPC_CHANNELS.template.showSaveDialog, request);
+      const resParsed = TemplateSaveDialogResponseSchema.safeParse(response);
+      if (resParsed.success) {
+        return { success: true, data: { path: resParsed.data.path, canceled: resParsed.data.canceled } };
+      }
+      const errParsed = TemplateErrorResponseSchema.safeParse(response);
+      if (errParsed.success) {
+        return errParsed.data;
+      }
+      return { success: false, error: 'Invalid response from main process', code: 'VALIDATION_ERROR' as const };
+    },
+  },
 };
 
 // Expose API to renderer via contextBridge

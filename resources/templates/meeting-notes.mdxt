@@ -1,0 +1,108 @@
+---
+name: "Meeting Notes"
+description: "Meeting notes template with attendees, agenda, discussion points, and action items"
+category: "notes"
+tags: ["meeting", "notes", "agenda", "action-items"]
+author: "mdxpad"
+version: "1.0.0"
+isBuiltIn: true
+variables:
+  - name: "date"
+    description: "Meeting date"
+    default: "{{today}}"
+  - name: "meeting_title"
+    description: "Meeting title or topic"
+    default: "Team Meeting"
+  - name: "attendees"
+    description: "List of attendees"
+    default: "Team Members"
+---
+
+# {{meeting_title}}
+
+**Date:** {{date}}
+**Attendees:** {{attendees}}
+**Duration:** [Meeting duration]
+**Location:** [Meeting room/Video call link]
+
+---
+
+## Agenda
+
+1. [Agenda item 1]
+2. [Agenda item 2]
+3. [Agenda item 3]
+4. [Open discussion]
+
+---
+
+## Discussion Points
+
+### Topic 1: [Topic Name]
+
+**Presenter:** [Name]
+
+[Summary of discussion...]
+
+**Key Points:**
+- [Point 1]
+- [Point 2]
+- [Point 3]
+
+**Decision:** [Any decisions made]
+
+---
+
+### Topic 2: [Topic Name]
+
+**Presenter:** [Name]
+
+[Summary of discussion...]
+
+**Key Points:**
+- [Point 1]
+- [Point 2]
+
+**Decision:** [Any decisions made]
+
+---
+
+### Topic 3: [Topic Name]
+
+**Presenter:** [Name]
+
+[Summary of discussion...]
+
+---
+
+## Action Items
+
+| Task | Owner | Due Date | Status |
+|------|-------|----------|--------|
+| [Task 1] | [Name] | [Date] | ⬜ Not Started |
+| [Task 2] | [Name] | [Date] | ⬜ Not Started |
+| [Task 3] | [Name] | [Date] | ⬜ Not Started |
+
+---
+
+## Open Questions
+
+- [ ] [Question 1 - to be addressed in next meeting]
+- [ ] [Question 2 - needs research]
+- [ ] [Question 3 - pending decision]
+
+---
+
+## Next Meeting
+
+**Date:** [Next meeting date]
+**Time:** [Time]
+**Topics to Cover:**
+- [Carryover topic]
+- [New topic]
+
+---
+
+## Notes
+
+[Any additional notes or observations from the meeting...]

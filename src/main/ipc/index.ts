@@ -12,6 +12,7 @@ import { registerFileHandlers } from './file-handlers';
 import { registerWindowHandlers } from './window-handlers';
 import { registerAutosaveHandlers } from './autosave-handlers';
 import { registerAIHandlers } from './ai-handlers';
+import { registerTemplateHandlers } from '@main/services/template-service';
 
 /** Track whether global handlers have been registered */
 let globalHandlersRegistered = false;
@@ -58,6 +59,9 @@ export function registerIpcHandlers(window: BrowserWindow): void {
 
     // Register AI provider handlers (Spec 028)
     registerAIHandlers(window);
+
+    // Register template operation handlers (list, get, save, delete, import, export, validate, createFromTemplate)
+    registerTemplateHandlers(ipcMain);
 
     globalHandlersRegistered = true;
   }

@@ -137,6 +137,19 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     onAutosaveSettingsChange: vi.fn(() => () => {}),
     // AI API (Spec 028)
     ai: createMockAIApi(),
+    // Template API (Spec 016)
+    template: {
+      list: vi.fn().mockResolvedValue({ success: true, data: [] }),
+      get: vi.fn().mockResolvedValue({ success: true, data: {} }),
+      save: vi.fn().mockResolvedValue({ success: true, data: {} }),
+      delete: vi.fn().mockResolvedValue({ success: true, data: { id: 'test' } }),
+      import: vi.fn().mockResolvedValue({ success: true, data: {} }),
+      export: vi.fn().mockResolvedValue({ success: true, data: { path: '/test/path' } }),
+      validate: vi.fn().mockResolvedValue({ success: true, data: { valid: true, errors: [] } }),
+      createFromTemplate: vi.fn().mockResolvedValue({ success: true, data: { content: '' } }),
+      showOpenDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+      showSaveDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+    },
     ...overrides,
   };
 }

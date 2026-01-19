@@ -1,159 +1,215 @@
-# Coverage Gap Analysis: AI Provider Abstraction Layer
+# Coverage Gap Analysis: Template Library (016)
 
-**Feature Branch**: `028-ai-provider-abstraction`
 **Analysis Date**: 2026-01-17
-**Artifacts Analyzed**: spec.md, plan.md, tasks.md
+**Analyzed Files**:
+- /Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/spec.md
+- /Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/plan.md
+- /Users/ww/dev/projects/mdxpad-template/.specify/specs/016-template-library/tasks.md
 
 ---
 
-## A. Issues Table
-
-| ID | Severity | Location(s) | Summary | Recommendation |
-|----|----------|-------------|---------|----------------|
-| GAP-001 | Medium | FR-012 | FR-012 (clear error messages when provider connections fail) has no dedicated task | Add acceptance criteria to P:3.2 (ProviderService) or P:5.3 (ProviderForm) covering error message quality |
-| GAP-002 | Low | FR-015 | FR-015 (rate limit with wait time + alternate provider suggestion) only partially covered in P:4.3 acceptance criteria | Add explicit UI component task or acceptance criteria in ProviderSettings for rate limit banner display |
-| GAP-003 | Low | SC-002 | SC-002 (credentials never stored in plain text/logged) has no explicit security audit task | Add security audit step to P:6.3 with specific credential storage verification |
-| GAP-004 | Low | SC-004 | SC-004 (usage stats accurate within 1%) referenced in P:3.6 but no comparison test task exists | Add acceptance criterion to P:6.1 or P:6.2 with mock provider comparison test |
-| GAP-005 | Medium | US1 Scenario 3 | US1-3 (invalid API key shows error without storing) has no explicit test task | Add E2E test case in P:6.2 configure-provider.test.ts |
-| GAP-006 | Low | US2 Scenario 3 | US2-3 (re-authentication prompt for invalid provider) has no task or test | Add acceptance criteria to P:5.4 ProviderList or P:5.5 ProviderSettings |
-| GAP-007 | Medium | US3 Scenario 2 | US3-2 (time period filtering in usage view) implicit in P:5.6 but not explicit acceptance criterion | Add acceptance criterion "[ ] Time period filter updates displayed statistics" to P:5.6 |
-| GAP-008 | Low | US3 Scenario 3 | US3-3 (estimated costs displayed) covered by FR-008 but no explicit UI test | Add E2E test for cost display in P:6.2 |
-| GAP-009 | Low | US4 Scenario 2 | US4-2 (local endpoint lists available models) covered by P:3.4 but no UI test | Add E2E test for local provider model listing |
-| GAP-010 | Low | US4 Scenario 3 | US4-3 (troubleshooting hints for unreachable endpoint) has no task | Add acceptance criterion to P:5.3 ProviderForm for local endpoint error messages |
-| GAP-011 | Low | US5 Scenario 2 | US5-2 (update key replaces old in secure storage) covered by P:3.1 but no explicit UI flow test | Add acceptance criterion to P:5.3 for key update flow |
-| GAP-012 | Low | US5 Scenario 3 | US5-3 (remove provider purges credentials) covered by P:3.2 but no explicit verification test | Add integration test assertion in P:6.1 |
-| GAP-013 | Medium | Edge Case | Edge case "network connectivity loss during validation" has no handling task | Add network error handling to P:3.2 validateProvider method |
-| GAP-014 | Low | Edge Case | Edge case "provider API deprecation" has no monitoring/handling task | Document as out-of-scope or add future task placeholder |
-| GAP-015 | Low | Edge Case | Edge case "usage tracking storage limits" has no explicit handling | Add acceptance criterion to P:3.6 for storage pruning behavior |
-| GAP-016 | Low | Tasks Summary | tasks.md summary says "30 tasks" but Parallelism Metrics says "24 tasks" | Reconcile task count (actual count is 30 per detailed list) |
-
----
-
-## B. Coverage Summary Table
-
-### Functional Requirements Coverage
+## Coverage Summary Table
 
 | Requirement Key | Has Task? | Task IDs | Notes |
 |-----------------|-----------|----------|-------|
-| FR-001 | Yes | P:1.1, P:2.1, P:2.2, P:2.3, P:3.2, P:3.8, P:4.1, P:5.1, P:5.2, P:5.3, P:5.5, P:5.8 | Well covered across all phases |
-| FR-002 | Yes | P:3.1, P:4.2, P:6.1 | Credential security covered |
-| FR-003 | Yes | P:3.2, P:4.1, P:6.1 | Validation before storage covered |
-| FR-004 | Yes | P:3.2, P:4.1, P:5.4 | CRUD operations covered |
-| FR-005 | Yes | P:3.2, P:4.1, P:5.4 | Active provider designation covered |
-| FR-006 | Yes | P:3.6, P:4.4, P:5.6 | Usage metrics tracking covered |
-| FR-007 | Yes | P:3.6, P:4.4, P:5.6 | Time period statistics covered |
-| FR-008 | Yes | P:3.6, P:4.4, P:5.6 | Cost estimation covered |
-| FR-009 | Yes | P:5.3 | Local model support covered |
-| FR-010 | Yes | P:3.2, P:6.1 | Config persistence covered |
-| FR-011 | Yes | P:3.1, P:4.2, P:5.3 | Key masking covered |
-| FR-012 | Partial | P:2.4 | Error types defined; no UI error display task |
-| FR-013 | Yes | P:3.1, P:5.5 | Keychain fallback covered |
-| FR-014 | Yes | P:1.1, P:3.5, P:4.3 | AI operations covered |
-| FR-015 | Partial | P:4.3 | Rate limit handling in IPC; no UI display task |
-| FR-016 | Yes | P:3.3, P:3.4, P:4.5, P:5.7 | Capability matrix covered |
-| FR-017 | Yes | P:3.5, P:4.3 | Streaming with fallback covered |
-| FR-018 | Yes | P:3.7 | Onboarding analytics covered |
+| FR-001 | ✅ Yes | T013 | Template browser interface |
+| FR-002 | ✅ Yes | T010, T013 | Categories in TemplateCard and TemplateBrowser |
+| FR-003 | ✅ Yes | T010 | Template metadata display in TemplateCard |
+| FR-004 | ✅ Yes | T012 | Live preview via TemplatePreview |
+| FR-005 | ✅ Yes | T015 | Document creation from template |
+| FR-006 | ✅ Yes | T016 | Fuse.js search integration |
+| FR-007 | ✅ Yes | T011 | Category filtering in TemplateFilters |
+| FR-008 | ✅ Yes | T011 | Tag filtering in TemplateFilters |
+| FR-009 | ✅ Yes | T019 | Save document as template |
+| FR-010 | ✅ Yes | T017, T019 | Metadata capture in SaveTemplateDialog |
+| FR-011 | ✅ Yes | T008 | Persistence via template-service |
+| FR-012 | ✅ Yes | T020 | Edit template metadata |
+| FR-013 | ✅ Yes | T021 | Delete custom templates |
+| FR-014 | ✅ Yes | T021 | Prevent built-in template deletion |
+| FR-015 | ✅ Yes | T019 | MDX validation before save |
+| FR-016 | ✅ Yes | T024 | New file workflow integration |
+| FR-017 | ✅ Yes | T010 | Visual distinction (built-in indicator) |
+| FR-018 | ✅ Yes | T026-T030 | 5 built-in templates |
+| FR-019 | ✅ Yes | T013 | Keyboard navigation in TemplateBrowser |
+| FR-020 | ❌ No | — | **No task for preserving placeholder markers** |
+| FR-021 | ✅ Yes | T023 | Export templates |
+| FR-022 | ✅ Yes | T022 | Import templates |
+| FR-023 | ✅ Yes | T008, T022, T023 | .mdxt format handling |
+| FR-024 | ✅ Yes | T007, T014 | Dynamic variables support |
+| FR-025 | ❌ No | — | **No task for static placeholder visual distinction** |
+| FR-026 | ✅ Yes | T014, T015 | Variable substitution before opening |
 
-### Success Criteria Coverage
+| Success Criteria | Has Task? | Task IDs | Notes |
+|------------------|-----------|----------|-------|
+| SC-001 | ⚠️ Partial | T035 | Quickstart validation, but no specific 30-second performance task |
+| SC-002 | ⚠️ Partial | T035 | Quickstart validation, but no specific 1-second preview task |
+| SC-003 | ❌ No | — | **No usability success rate validation task** |
+| SC-004 | ✅ Yes | T016 | Fuse.js search with < 200ms requirement |
+| SC-005 | ❌ No | — | **No custom template save performance validation** |
+| SC-006 | ✅ Yes | T026-T030 | 5 built-in templates created |
+| SC-007 | ✅ Yes | T013, T035 | Keyboard navigation implementation and validation |
+| SC-008 | ❌ No | — | **No persistence stress test (100 restart cycles)** |
 
-| Success Criterion | Has Task? | Task IDs | Notes |
-|-------------------|-----------|----------|-------|
-| SC-001 | Yes | P:6.2 | E2E test with <2 min requirement |
-| SC-002 | Partial | P:3.1, P:6.3 | Referenced in verify but no explicit audit step |
-| SC-003 | Yes | P:6.1, P:6.2 | Integration and E2E tests |
-| SC-004 | Partial | P:3.6 | Mentioned in acceptance but no comparison test |
-| SC-005 | Yes | P:3.2 | Max 10 providers enforcement |
-| SC-006 | Yes | P:3.7, P:6.2 | Onboarding analytics + E2E |
-
-### User Stories Coverage
-
-| User Story | Has Task? | Task IDs | Notes |
-|------------|-----------|----------|-------|
-| US1 (Configure First Provider) | Yes | P:5.3, P:5.4, P:5.5, P:6.2 | All scenarios covered except explicit invalid key test |
-| US2 (Switch Between Providers) | Yes | P:5.4, P:5.5, P:6.2 | Missing re-auth prompt scenario |
-| US3 (View Usage Statistics) | Yes | P:5.6, P:6.2 | Missing explicit time filter test |
-| US4 (Configure Local Model) | Partial | P:3.4, P:5.3 | Missing troubleshooting hints UI |
-| US5 (Manage API Key Security) | Yes | P:3.1, P:5.3, P:5.4, P:5.5 | Missing explicit key update flow test |
-
-### Edge Cases Coverage
-
-| Edge Case | Has Task? | Task IDs | Notes |
-|-----------|-----------|----------|-------|
-| Keychain locked/unavailable | Yes | P:3.1, P:5.5 | Session fallback implemented |
-| Network loss during validation | No | - | No explicit handling |
-| Provider API changes/deprecation | No | - | No handling defined |
-| Rate limit errors | Yes | P:4.3 | Handler implemented |
-| Usage storage limits | Partial | P:3.6 | Pruning mentioned but not explicit acceptance |
-
----
-
-## C. Metrics Summary
-
-| Metric | Count |
-|--------|-------|
-| **Total Functional Requirements** | 18 |
-| **FR with Full Task Coverage** | 16 |
-| **FR with Partial Coverage** | 2 |
-| **FR with No Coverage** | 0 |
-| **FR Coverage Rate** | 88.9% (full) / 100% (partial+full) |
-| | |
-| **Total Success Criteria** | 6 |
-| **SC with Full Task Coverage** | 4 |
-| **SC with Partial Coverage** | 2 |
-| **SC with No Coverage** | 0 |
-| **SC Coverage Rate** | 66.7% (full) / 100% (partial+full) |
-| | |
-| **Total User Stories** | 5 |
-| **US with Full Task Coverage** | 3 |
-| **US with Partial Coverage** | 2 |
-| **US with No Coverage** | 0 |
-| **US Coverage Rate** | 60.0% (full) / 100% (partial+full) |
-| | |
-| **Total Tasks in tasks.md** | 30 |
-| **Tasks with FR Mapping** | 28 |
-| **Orphan Tasks (no FR mapping)** | 2 (P:3.8, P:4.6 - infrastructure tasks) |
-| | |
-| **Total Acceptance Scenarios** | 16 |
-| **Scenarios with Explicit Tests** | 10 |
-| **Scenarios Needing Test Coverage** | 6 |
+| User Story Acceptance | Has Task? | Task IDs | Notes |
+|-----------------------|-----------|----------|-------|
+| US1-1 | ✅ Yes | T013 | Browser displays templates by category |
+| US1-2 | ✅ Yes | T012 | Live preview on selection |
+| US1-3 | ✅ Yes | T015 | Document creation with template content |
+| US1-4 | ❌ No | — | **No task for highlighting static placeholders** |
+| US1-5 | ✅ Yes | T007, T014 | Variable prompting dialog |
+| US2-1 | ✅ Yes | T011 | Category filter |
+| US2-2 | ✅ Yes | T016 | Text search |
+| US2-3 | ✅ Yes | T011 | Clear filters |
+| US2-4 | ⚠️ Partial | T016 | Search implementation, but no explicit "no results" message task |
+| US3-1 | ✅ Yes | T017 | SaveTemplateDialog with metadata |
+| US3-2 | ✅ Yes | T019 | Template added to custom section |
+| US3-3 | ✅ Yes | T010 | Visual distinction for custom templates |
+| US3-4 | ✅ Yes | T019 | Duplicate name detection |
+| US4-1 | ✅ Yes | T020 | Edit template metadata |
+| US4-2 | ✅ Yes | T020 | Metadata changes persist |
+| US4-3 | ✅ Yes | T021 | Delete custom template |
+| US4-4 | ✅ Yes | T021 | Prevent built-in deletion |
+| US5-1 | ✅ Yes | T024 | "Start from Template" in New File |
+| US5-2 | ✅ Yes | T024 | Template browser opens from New File |
+| US5-3 | ✅ Yes | T024 | New file workflow continues with template |
 
 ---
 
-## D. Recommendations Summary
+## Coverage Gap Issues
 
-### High Priority (Address Before Implementation)
-
-1. **GAP-001/GAP-002**: Add explicit UI error handling acceptance criteria to ProviderForm and ProviderSettings for connection failures and rate limits
-2. **GAP-005**: Add E2E test case for invalid API key rejection scenario
-3. **GAP-013**: Define network error handling behavior for provider validation
-
-### Medium Priority (Address During Implementation)
-
-4. **GAP-003/SC-002**: Add security audit checklist item verifying no plain-text credential storage
-5. **GAP-004/SC-004**: Add usage accuracy comparison test against mock provider
-6. **GAP-006**: Define re-authentication flow for providers with invalid credentials
-
-### Low Priority (Address During Testing Phase)
-
-7. **GAP-007 through GAP-012**: Add explicit acceptance criteria or test cases for remaining user story scenarios
-8. **GAP-014/GAP-015**: Document edge case handling decisions (defer vs implement)
-9. **GAP-016**: Fix task count discrepancy in tasks.md summary
+| ID | Severity | Location(s) | Summary | Recommendation |
+|----|----------|-------------|---------|----------------|
+| CG-001 | **HIGH** | FR-020, US1-4 | No task addresses preserving and highlighting static placeholder markers in the editor | Add task to Phase 3.6: "Implement placeholder marker preservation and visual highlighting in editor (FR-020, US1-4)" |
+| CG-002 | **HIGH** | FR-025 | No task implements visual distinction for static placeholders in the editor | Merge with CG-001 — same implementation requirement |
+| CG-003 | **MEDIUM** | SC-003 | No usability validation task for 90% first-attempt success rate | Add task to Phase 7.3: "Conduct usability testing: validate 90% first-attempt success for template document creation (SC-003)" |
+| CG-004 | **MEDIUM** | SC-005 | No performance validation for custom template save (< 2 seconds) | Add task to Phase 7.3: "Validate custom template save performance < 2 seconds including MDX validation (SC-005)" |
+| CG-005 | **MEDIUM** | SC-008 | No persistence stress test for 100 restart cycles | Add task to Phase 7.2: "Create integration test for custom template persistence across 100 app restart cycles (SC-008)" |
+| CG-006 | **LOW** | SC-001 | No explicit 30-second browsing performance task | T035 covers validation checklist but lacks specific 30-second browsing metric — add to T035 validation criteria |
+| CG-007 | **LOW** | SC-002 | No explicit 1-second preview rendering task | T035 covers preview validation but lacks specific 1-second metric — add to T035 validation criteria |
+| CG-008 | **LOW** | US2-4 | No explicit task for "no results" help message | T016 implements search but doesn't explicitly address empty results messaging — add to T016 acceptance criteria |
 
 ---
 
-## E. Coverage Visualization
+## Non-Functional Requirements Analysis
 
+### Performance Requirements
+- ✅ **SC-004**: Search < 200ms covered by T016
+- ⚠️ **SC-001**: 30-second browsing partially covered by T035 (missing explicit metric)
+- ⚠️ **SC-002**: 1-second preview partially covered by T035 (missing explicit metric)
+- ❌ **SC-005**: 2-second save performance **NOT COVERED**
+
+### Accessibility Requirements
+- ✅ **FR-019**: Keyboard navigation covered by T013
+- ✅ **SC-007**: Keyboard-only navigation validated by T035
+- ✅ **Plan Article VII.2**: WCAG AA compliance acknowledged
+
+### Security Requirements
+- ✅ **FR-015**: MDX validation before save covered by T019
+- ✅ **Edge case**: Invalid MDX syntax handled via validation
+- ✅ **Plan Article III.2**: contextIsolation/sandbox inherited from Spec 000
+
+### Data Integrity Requirements
+- ✅ **FR-011**: Persistence covered by T008
+- ⚠️ **SC-008**: 100-cycle persistence stress test **NOT COVERED**
+- ✅ **Edge case**: Corrupted templates handled by service
+
+### Usability Requirements
+- ✅ **FR-006-008**: Search and filtering covered
+- ❌ **SC-003**: 90% first-attempt success **NOT VALIDATED**
+- ⚠️ **US2-4**: Empty results messaging partially covered
+
+---
+
+## Critical Missing Coverage
+
+### 1. Static Placeholder Support (HIGH PRIORITY)
+**Gap**: FR-020 and FR-025 require static placeholder markers to be preserved and visually distinguished in the editor, but no task addresses this.
+
+**Impact**: Users cannot distinguish between template boilerplate and editable placeholders after document creation.
+
+**Recommended Tasks**:
 ```
-Functional Requirements (18 total)
-[================||] 88.9% Full / 100% Any
-
-Success Criteria (6 total)
-[============|---] 66.7% Full / 100% Any
-
-User Stories (5 total)
-[============|---] 60.0% Full / 100% Any
-
-Legend: [=] Full coverage  [|] Partial  [-] None
+T036 [P:3.6] [US1] Implement static placeholder marker preservation when creating document from template (FR-020)
+T037 [P:3.6] [US1] Add visual styling for static placeholder markers in editor (e.g., highlight or badge) (FR-025)
 ```
 
-**Overall Assessment**: The task list provides good coverage of core requirements. Primary gaps are in edge case handling, explicit UI error scenarios, and verification tests for success criteria. No functional requirements are completely uncovered.
+**Dependencies**: T015 (integration), likely requires editor integration work
+
+### 2. Performance Validation (MEDIUM PRIORITY)
+**Gap**: SC-005 requires validation that custom template save completes in < 2 seconds, but no task validates this.
+
+**Impact**: Unclear if performance requirements are met; no acceptance gate.
+
+**Recommended Task**:
+```
+T038 [P:7.2] Create performance test for custom template save operation, validate < 2s completion including MDX validation (SC-005)
+```
+
+**Dependencies**: T019 (save implementation)
+
+### 3. Persistence Stress Test (MEDIUM PRIORITY)
+**Gap**: SC-008 requires 100-cycle restart test, but only basic integration tests are planned.
+
+**Impact**: No validation of long-term persistence reliability.
+
+**Recommended Task**:
+```
+T039 [P:7.2] Create integration test that saves custom template and validates retrieval across 100 simulated app restart cycles (SC-008)
+```
+
+**Dependencies**: T008 (template service), T033 (integration test infrastructure)
+
+### 4. Usability Success Rate (MEDIUM PRIORITY)
+**Gap**: SC-003 requires 90% first-attempt success validation, but no usability testing task exists.
+
+**Impact**: No quantitative measure of feature learnability.
+
+**Recommended Task**:
+```
+T040 [P:7.3] Conduct usability testing session with 5+ users, measure first-attempt success rate for template document creation, validate >= 90% (SC-003)
+```
+
+**Dependencies**: T034 (E2E tests provide test scenarios)
+
+---
+
+## Orphaned Tasks Analysis
+
+**Finding**: No orphaned tasks detected. All 35 tasks map to at least one requirement, user story, or success criterion.
+
+---
+
+## Recommendations
+
+### Immediate Actions (Before Implementation)
+1. **Add T036-T037** for static placeholder support (FR-020, FR-025) — required for US1-4 acceptance
+2. **Enhance T035** validation checklist to include explicit SC-001 and SC-002 metrics
+3. **Enhance T016** acceptance criteria to explicitly cover US2-4 empty results messaging
+
+### Phase 7 Enhancements (Quality Assurance)
+1. **Add T038** for custom template save performance validation (SC-005)
+2. **Add T039** for persistence stress testing (SC-008)
+3. **Add T040** for usability success rate validation (SC-003)
+
+### Task Distribution After Additions
+- **Phase 3**: +2 tasks (T036, T037) for placeholder support
+- **Phase 7**: +3 tasks (T038, T039, T040) for validation
+- **Total**: 40 tasks (was 35)
+
+---
+
+## Severity Definitions
+
+- **HIGH**: Core functional requirement with zero task coverage; blocks user story acceptance
+- **MEDIUM**: Success criteria or non-functional requirement without validation task; feature works but quality unmeasured
+- **LOW**: Partial coverage where task exists but lacks explicit acceptance criteria for specific requirement
+
+---
+
+## Conclusion
+
+**Overall Coverage**: 23/26 functional requirements (88.5%) and 4/8 success criteria (50%) have direct task coverage.
+
+**Critical Gaps**: 2 high-priority gaps (static placeholder support) and 4 medium-priority gaps (performance/usability validation).
+
+**Recommendation**: Address CG-001 and CG-002 immediately (static placeholders) as they block US1-4 acceptance. Consider adding SC validation tasks (CG-003, CG-004, CG-005) to Phase 7 for comprehensive quality assurance.

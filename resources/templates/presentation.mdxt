@@ -1,0 +1,128 @@
+---
+name: "Presentation"
+description: "Presentation or slide deck template with title slide, agenda, content slides, and conclusion"
+category: "presentation"
+tags: ["slides", "presentation", "deck", "talk"]
+author: "mdxpad"
+version: "1.0.0"
+isBuiltIn: true
+variables:
+  - name: "title"
+    description: "Presentation title"
+    default: "Presentation Title"
+  - name: "subtitle"
+    description: "Presentation subtitle or tagline"
+    default: "A compelling subtitle"
+  - name: "presenter"
+    description: "Presenter name"
+    required: true
+---
+
+# {{title}}
+
+## {{subtitle}}
+
+**Presented by:** {{presenter}}
+
+---
+
+## Agenda
+
+1. Introduction
+2. Background & Context
+3. Main Topic
+4. Key Insights
+5. Conclusion & Next Steps
+6. Q&A
+
+---
+
+## Introduction
+
+[Hook your audience with a compelling opening]
+
+- Why this topic matters
+- What you'll cover today
+- What the audience will take away
+
+---
+
+## Background & Context
+
+[Set the stage for your main content]
+
+### The Current State
+
+[Describe the current situation or problem...]
+
+### Why It Matters
+
+[Explain the significance...]
+
+---
+
+## Main Topic
+
+### Key Point 1
+
+[First major point with supporting details...]
+
+- Supporting detail A
+- Supporting detail B
+- Supporting detail C
+
+### Key Point 2
+
+[Second major point with supporting details...]
+
+### Key Point 3
+
+[Third major point with supporting details...]
+
+---
+
+## Key Insights
+
+### Insight 1
+
+> [Memorable quote or key takeaway]
+
+### Insight 2
+
+[Another important insight from your presentation...]
+
+### Insight 3
+
+[Final key insight...]
+
+---
+
+## Conclusion
+
+### Summary
+
+- [Key takeaway 1]
+- [Key takeaway 2]
+- [Key takeaway 3]
+
+### Next Steps
+
+1. [Action item 1]
+2. [Action item 2]
+3. [Action item 3]
+
+---
+
+## Q&A
+
+**Questions?**
+
+[Contact information or follow-up resources...]
+
+---
+
+## Thank You!
+
+{{presenter}}
+
+[Email/Contact Info]

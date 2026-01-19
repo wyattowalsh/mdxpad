@@ -14,6 +14,8 @@ ALWAYS START BY READING ANY AND ALL PERTINENT `AGENTS.md` INSTRUCTION FILES FIRS
 - TypeScript 5.9.x, strict: true + React 19.x, Zustand 5.x + Immer 11.x (007-mdx-content-outline)
 - Reuses preview AST, localStorage for outline visibility persistence (007-mdx-content-outline)
 - localStorage for filter query persistence per project/workspace (established pattern from specs 005/006) (014-smart-filtering)
+- TypeScript 5.9.x, strict: true (per Constitution Article II) + React 19.x, Zustand 5.x + Immer 11.x, zod 4.x, @mdx-js/mdx 3.x (for template validation) (016-template-library)
+- File system via Spec 004 infrastructure; custom templates in `~/.mdxpad/templates/`; built-in templates bundled in app resources (016-template-library)
 - TypeScript 5.9.x, strict: true (per Constitution Article II) + React 19.x, Zustand 5.x + Immer 11.x, zod 4.x, yaml (YAML parsing library) (020-frontmatter-editor)
 - localStorage for panel visibility state, electron-store for user schema defaults (020-frontmatter-editor)
 - TypeScript 5.9.x, strict: true + Electron 39.x (safeStorage), React 19.x, Zustand 5.x + Immer 11.x, Vercel AI SDK v6 (@ai-sdk/*) (028-ai-provider-abstraction)

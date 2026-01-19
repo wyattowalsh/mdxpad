@@ -1,0 +1,101 @@
+---
+name: "Documentation"
+description: "Technical documentation template with overview, installation, usage, and API reference sections"
+category: "documentation"
+tags: ["docs", "technical", "api", "reference"]
+author: "mdxpad"
+version: "1.0.0"
+isBuiltIn: true
+variables:
+  - name: "title"
+    description: "Documentation title"
+    default: "Project Documentation"
+  - name: "description"
+    description: "Brief project description"
+    default: "A brief description of what this project does"
+---
+
+# {{title}}
+
+{{description}}
+
+## Overview
+
+[Provide a high-level overview of the project. What problem does it solve? Who is it for?...]
+
+## Getting Started
+
+### Prerequisites
+
+- [Prerequisite 1]
+- [Prerequisite 2]
+- [Prerequisite 3]
+
+### Installation
+
+```bash
+# Installation commands here
+npm install your-package
+```
+
+### Quick Start
+
+```javascript
+// Quick start example code
+import { something } from 'your-package';
+
+// Basic usage
+const result = something();
+```
+
+## Usage
+
+### Basic Usage
+
+[Explain the most common use case with examples...]
+
+### Advanced Usage
+
+[Cover more advanced scenarios and configurations...]
+
+## API Reference
+
+### `functionName(params)`
+
+[Description of what this function does]
+
+**Parameters:**
+| Name | Type | Description |
+|------|------|-------------|
+| param1 | `string` | [Description] |
+| param2 | `number` | [Description] |
+
+**Returns:** `ReturnType` - [Description of return value]
+
+**Example:**
+```javascript
+const result = functionName('value', 42);
+```
+
+## Configuration
+
+[Document configuration options here...]
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| option1 | `string` | `'default'` | [Description] |
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue:** [Describe common issue]
+**Solution:** [How to fix it]
+
+## Contributing
+
+[Guidelines for contributing to the project...]
+
+## License
+
+[License information]

@@ -26,13 +26,27 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useScrollSync } from './hooks/useScrollSync';
 import { useCommandRegistry } from './stores/command-registry-store';
 import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible, selectFrontmatterVisible } from './stores/ui-layout-store';
-import { useDocumentStore, selectFileName, selectIsDirty } from './stores/document-store';
+import { useDocumentStore, selectFileName, selectIsDirty, selectContent } from './stores/document-store';
+import {
+  useTemplateBrowserModalStore,
+  selectIsTemplateBrowserOpen,
+  selectIsVariableDialogOpen,
+  selectPendingTemplate,
+  selectIsSaveTemplateDialogOpen,
+  selectIsSaving,
+  selectSaveError,
+} from './stores/template-browser-store';
+import { useTemplateStore, selectTemplates } from './stores/template-store';
 import { registerAllCommands } from './commands';
 import { EditorPane, type CursorPosition } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
 import { StatusBar } from './components/shell/StatusBar';
 import { OutlinePanel } from './components/outline';
 import { FrontmatterPanel } from './components/frontmatter';
+import { TemplateBrowser } from './components/template-browser/TemplateBrowser';
+import { VariableDialog } from './components/template-browser/VariableDialog';
+import { SaveTemplateDialog } from './components/template-browser/SaveTemplateDialog';
+import type { SaveTemplateFormData } from './components/template-browser/SaveTemplateDialog';
 import { useOutlineSync } from './hooks/useOutlineSync';
 import { useOutlineNavigation } from './hooks/useOutlineNavigation';
 import { useAutosave } from './hooks/use-autosave';
@@ -43,10 +57,12 @@ import { RecoveryDialog } from './components/recovery-dialog';
 import { SettingsPanel } from './components/settings-panel';
 import { useSettingsStore } from './stores/settings-store';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
+import { substituteVariables, buildVariableValues } from './lib/template-variables';
 import type { CommandContext, CommandId, NormalizedShortcut, NotificationInput } from '@shared/types/commands';
 import type { CompilationError } from './components/shell/StatusBar/types';
 import type { OutlineItem } from '@shared/types/outline';
 import type { ScrollReportSignal } from '@shared/types/preview-iframe';
+import type { Template } from '@shared/contracts/template-schemas';
 
 // =============================================================================
 // CONSTANTS
@@ -190,6 +206,34 @@ export function App(): React.ReactElement {
   // Document state for StatusBar
   const fileName = useDocumentStore(selectFileName);
   const isDirty = useDocumentStore(selectIsDirty);
+  const setContent = useDocumentStore((s) => s.setContent);
+  const newDocument = useDocumentStore((s) => s.newDocument);
+
+  // Template browser modal state
+  const isTemplateBrowserOpen = useTemplateBrowserModalStore(selectIsTemplateBrowserOpen);
+  const isVariableDialogOpen = useTemplateBrowserModalStore(selectIsVariableDialogOpen);
+  const pendingTemplate = useTemplateBrowserModalStore(selectPendingTemplate);
+  const openTemplateBrowser = useTemplateBrowserModalStore((s) => s.openTemplateBrowser);
+  const closeTemplateBrowser = useTemplateBrowserModalStore((s) => s.closeTemplateBrowser);
+  const startVariableDialog = useTemplateBrowserModalStore((s) => s.startVariableDialog);
+  const closeVariableDialog = useTemplateBrowserModalStore((s) => s.closeVariableDialog);
+  const clearPendingTemplate = useTemplateBrowserModalStore((s) => s.clearPendingTemplate);
+
+  // Save template dialog state
+  const isSaveTemplateDialogOpen = useTemplateBrowserModalStore(selectIsSaveTemplateDialogOpen);
+  const isSaving = useTemplateBrowserModalStore(selectIsSaving);
+  const saveError = useTemplateBrowserModalStore(selectSaveError);
+  const openSaveTemplateDialog = useTemplateBrowserModalStore((s) => s.openSaveTemplateDialog);
+  const closeSaveTemplateDialog = useTemplateBrowserModalStore((s) => s.closeSaveTemplateDialog);
+  const setSaving = useTemplateBrowserModalStore((s) => s.setSaving);
+  const setSaveError = useTemplateBrowserModalStore((s) => s.setSaveError);
+
+  // Template store for saving and getting existing names
+  const templates = useTemplateStore(selectTemplates);
+  const saveTemplate = useTemplateStore((s) => s.saveTemplate);
+
+  // Get current document content for saving as template
+  const documentContent = useDocumentStore(selectContent);
 
   // Local state for cursor position and errors
   const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
@@ -243,6 +287,134 @@ export function App(): React.ReactElement {
       void report; // Currently handled internally by useScrollSync
     },
     []
+  );
+
+  // ==========================================================================
+  // Template Browser Handlers (US1: Create from Template)
+  // ==========================================================================
+
+  /**
+   * Check if a template requires variable input from the user.
+   * Returns false if template has no variables or all variables have defaults.
+   */
+  const templateNeedsVariables = useCallback((template: Template): boolean => {
+    const { variables } = template;
+    if (!variables || variables.length === 0) {
+      return false;
+    }
+    // Check if all variables have defaults (and required ones have defaults too)
+    return variables.some(
+      (v) => v.required && (v.default === undefined || v.default === '')
+    );
+  }, []);
+
+  /**
+   * Create a new document from a template with the given variable values.
+   */
+  const createDocumentFromTemplate = useCallback(
+    (template: Template, variableValues: Record<string, string>): void => {
+      // Build complete variable values with defaults applied
+      const completeValues = buildVariableValues(template.variables ?? [], variableValues);
+
+      // Substitute variables in the template content
+      const substitutedContent = substituteVariables(template.content, completeValues);
+
+      // Create a new document and set its content
+      newDocument();
+      setContent(substitutedContent);
+
+      // Clear the pending template
+      clearPendingTemplate();
+
+      console.log(`Created new document from template: ${template.name}`);
+    },
+    [newDocument, setContent, clearPendingTemplate]
+  );
+
+  /**
+   * Handle template selection from the browser.
+   * Opens variable dialog if needed, otherwise creates document directly.
+   */
+  const handleTemplateSelect = useCallback(
+    (template: Template): void => {
+      if (templateNeedsVariables(template)) {
+        // Template has required variables without defaults - show dialog
+        startVariableDialog(template);
+      } else {
+        // No variables needed - create document directly
+        createDocumentFromTemplate(template, {});
+        closeTemplateBrowser();
+      }
+    },
+    [templateNeedsVariables, startVariableDialog, createDocumentFromTemplate, closeTemplateBrowser]
+  );
+
+  /**
+   * Handle variable dialog submission.
+   */
+  const handleVariableSubmit = useCallback(
+    (values: Record<string, string>): void => {
+      if (pendingTemplate) {
+        createDocumentFromTemplate(pendingTemplate, values);
+        closeVariableDialog();
+      }
+    },
+    [pendingTemplate, createDocumentFromTemplate, closeVariableDialog]
+  );
+
+  /**
+   * Handle variable dialog cancel.
+   */
+  const handleVariableCancel = useCallback((): void => {
+    closeVariableDialog();
+    clearPendingTemplate();
+    // Re-open template browser so user can pick another template
+    openTemplateBrowser();
+  }, [closeVariableDialog, clearPendingTemplate, openTemplateBrowser]);
+
+  // ==========================================================================
+  // Save Template Dialog Handlers (US3: Create Custom Template)
+  // ==========================================================================
+
+  /**
+   * Get existing template names for duplicate detection.
+   */
+  const existingTemplateNames = useMemo(
+    () => templates.map((t) => t.name.toLowerCase()),
+    [templates]
+  );
+
+  /**
+   * Handle save template form submission.
+   * Validates MDX content and saves the template via IPC.
+   */
+  const handleSaveTemplate = useCallback(
+    async (data: SaveTemplateFormData): Promise<void> => {
+      setSaving(true);
+      setSaveError(null);
+
+      try {
+        await saveTemplate(
+          {
+            name: data.name,
+            description: data.description,
+            category: data.category,
+            tags: data.tags,
+            variables: data.variables,
+            content: data.content,
+          },
+          false // Don't replace existing
+        );
+
+        // Success - close dialog
+        closeSaveTemplateDialog();
+        console.log(`Saved template: ${data.name}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to save template';
+        setSaveError(errorMessage);
+      }
+    },
+    [saveTemplate, setSaving, setSaveError, closeSaveTemplateDialog]
   );
 
   // Build command context
@@ -373,7 +545,7 @@ export function App(): React.ReactElement {
       {/* Command Palette overlay */}
       <CommandPalette getContext={getCommandContext} palette={palette} />
 
-{/* T027: Screen reader announcement region for accessibility */}
+      {/* T027: Screen reader announcement region for accessibility */}
       <div
         role="status"
         aria-live="polite"
@@ -392,6 +564,35 @@ export function App(): React.ReactElement {
 
       {/* Settings Panel overlay (T019) */}
       <SettingsPanel isOpen={settingsOpen} onClose={closeSettings} />
+
+      {/* Template Browser Modal (US1: Create from Template) */}
+      <TemplateBrowser
+        isOpen={isTemplateBrowserOpen}
+        onClose={closeTemplateBrowser}
+        onSelect={handleTemplateSelect}
+      />
+
+      {/* Variable Dialog Modal (for templates with dynamic variables) */}
+      {pendingTemplate && (
+        <VariableDialog
+          isOpen={isVariableDialogOpen}
+          onClose={handleVariableCancel}
+          onSubmit={handleVariableSubmit}
+          variables={pendingTemplate.variables ?? []}
+          templateName={pendingTemplate.name}
+        />
+      )}
+
+      {/* Save Template Dialog Modal (US3: Create Custom Template) */}
+      <SaveTemplateDialog
+        isOpen={isSaveTemplateDialogOpen}
+        onClose={closeSaveTemplateDialog}
+        onSave={handleSaveTemplate}
+        content={documentContent}
+        isSaving={isSaving}
+        error={saveError}
+        existingNames={existingTemplateNames}
+      />
     </div>
   );
 }

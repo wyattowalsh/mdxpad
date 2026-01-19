@@ -16,6 +16,7 @@ import { useCodeMirror, type UseCodeMirrorOptions, type EditorTheme } from '../.
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
 import type { EditorError } from '../../lib/editor/errors';
 import { lineHighlightExtension } from '../../lib/editor/line-highlight';
+import { placeholderMarkerExtension } from '../../lib/editor/placeholder-markers';
 
 // Re-export for consumer convenience
 export type { EditorTheme } from '../../hooks/useCodeMirror';
@@ -259,10 +260,10 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         closeBrackets,
         indentationGuides,
         ...(onSelectionChange !== undefined && { onSelectionChange }),
-        // Always include lineHighlightExtension, plus any user extensions
+        // Always include built-in extensions (line highlight, placeholder markers), plus any user extensions
         extensions: extensions !== undefined
-          ? [lineHighlightExtension, ...extensions]
-          : [lineHighlightExtension],
+          ? [lineHighlightExtension, placeholderMarkerExtension, ...extensions]
+          : [lineHighlightExtension, placeholderMarkerExtension],
       }),
     [
       value,

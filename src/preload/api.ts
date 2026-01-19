@@ -21,6 +21,14 @@ import type {
 } from '@shared/contracts/autosave-ipc';
 import type { AutosaveSettings, AutosaveStatus } from '@shared/contracts/autosave-schemas';
 import type { AIApi } from './ai-api';
+import type {
+  TemplateMetadata,
+  Template,
+  TemplateSource,
+  TemplateCategory,
+  TemplateVariable,
+  VariableValues,
+} from '@shared/contracts/template-schemas';
 
 /** File change event received from main process */
 export interface FileChangeEvent {
@@ -249,4 +257,119 @@ export interface MdxpadAPI {
    * Provides access to AI provider configuration, generation, and usage tracking.
    */
   ai: AIApi;
+
+  // === Template Operations (Spec 016) ===
+  /**
+   * Template API namespace.
+   * All template operations are grouped here.
+   */
+  template: {
+    /**
+     * List available templates.
+     * @param source - Filter by source: 'all', 'builtin', or 'custom'
+     * @returns Array of template metadata
+     */
+    list(source?: TemplateSource): Promise<TemplateResult<TemplateMetadata[]>>;
+
+    /**
+     * Get a single template by ID.
+     * @param id - Template identifier
+     * @returns Full template including content
+     */
+    get(id: string): Promise<TemplateResult<Template>>;
+
+    /**
+     * Save a new or update an existing template.
+     * @param template - Template data to save
+     * @param replace - If true, replace existing template with same name
+     * @returns Saved template metadata
+     */
+    save(
+      template: {
+        id?: string;
+        name: string;
+        description: string;
+        category: TemplateCategory;
+        tags?: string[];
+        variables?: TemplateVariable[];
+        content: string;
+      },
+      replace?: boolean
+    ): Promise<TemplateResult<TemplateMetadata>>;
+
+    /**
+     * Delete a custom template.
+     * @param id - Template identifier
+     * @returns Deleted template ID
+     */
+    delete(id: string): Promise<TemplateResult<{ id: string }>>;
+
+    /**
+     * Import a template from a .mdxt file.
+     * @param path - Absolute path to .mdxt file
+     * @param replace - If true, replace existing template with same name
+     * @returns Imported template metadata
+     */
+    import(path: string, replace?: boolean): Promise<TemplateResult<TemplateMetadata>>;
+
+    /**
+     * Export a template to a .mdxt file.
+     * @param id - Template identifier
+     * @param path - Absolute path to save .mdxt file
+     * @returns Export file path
+     */
+    export(id: string, path: string): Promise<TemplateResult<{ path: string }>>;
+
+    /**
+     * Validate template content (MDX syntax check).
+     * @param content - Template content to validate
+     * @returns Validation result with any errors
+     */
+    validate(content: string): Promise<TemplateResult<{ valid: boolean; errors: string[] }>>;
+
+    /**
+     * Create a new document from a template.
+     * @param templateId - Template identifier
+     * @param variables - Variable values for substitution
+     * @param savePath - Optional path to save the document
+     * @returns Generated content and optional save path
+     */
+    createFromTemplate(
+      templateId: string,
+      variables: VariableValues,
+      savePath?: string
+    ): Promise<TemplateResult<{ content: string; path?: string }>>;
+
+    /**
+     * Show native file open dialog for importing .mdxt files.
+     * @returns Selected file path or null if canceled
+     */
+    showOpenDialog(): Promise<TemplateResult<{ path: string | null; canceled: boolean }>>;
+
+    /**
+     * Show native file save dialog for exporting .mdxt files.
+     * @param defaultName - Suggested file name (without extension)
+     * @returns Selected file path or null if canceled
+     */
+    showSaveDialog(defaultName?: string): Promise<TemplateResult<{ path: string | null; canceled: boolean }>>;
+  };
 }
+
+/**
+ * Template operation result type.
+ * All template operations return this discriminated union.
+ */
+export type TemplateResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; code: TemplateErrorCode };
+
+/**
+ * Template error codes.
+ */
+export type TemplateErrorCode =
+  | 'NOT_FOUND'
+  | 'ALREADY_EXISTS'
+  | 'VALIDATION_ERROR'
+  | 'PERMISSION_DENIED'
+  | 'FILE_ERROR'
+  | 'PARSE_ERROR';

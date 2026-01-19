@@ -38,6 +38,19 @@ export const IPC_CHANNELS = {
     isDirty: 'mdxpad:editor:is-dirty',
     save: 'mdxpad:editor:save',
   },
+  /** Template operations (Spec 016) */
+  template: {
+    list: 'mdxpad:template:list',
+    get: 'mdxpad:template:get',
+    save: 'mdxpad:template:save',
+    delete: 'mdxpad:template:delete',
+    import: 'mdxpad:template:import',
+    export: 'mdxpad:template:export',
+    validate: 'mdxpad:template:validate',
+    createFromTemplate: 'mdxpad:template:create',
+    showOpenDialog: 'mdxpad:template:show-open-dialog',
+    showSaveDialog: 'mdxpad:template:show-save-dialog',
+  },
 } as const;
 
 /**
@@ -75,7 +88,8 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.file)[keyof typeof IPC_CHANNELS.file]
   | (typeof IPC_CHANNELS.window)[keyof typeof IPC_CHANNELS.window]
   | (typeof IPC_CHANNELS.app)[keyof typeof IPC_CHANNELS.app]
-  | (typeof IPC_CHANNELS.editor)[keyof typeof IPC_CHANNELS.editor];
+  | (typeof IPC_CHANNELS.editor)[keyof typeof IPC_CHANNELS.editor]
+  | (typeof IPC_CHANNELS.template)[keyof typeof IPC_CHANNELS.template];
 
 /**
  * Type helper for event channels.

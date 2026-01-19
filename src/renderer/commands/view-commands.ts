@@ -88,7 +88,6 @@ const resetZoomCommand: Command = {
   },
 };
 
-<<<<<<< HEAD
 /**
  * Toggle preview scroll synchronization command.
  * Feature: 008-bidirectional-sync (T020, T021)

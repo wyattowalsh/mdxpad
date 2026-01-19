@@ -1,0 +1,188 @@
+---
+name: "Tutorial"
+description: "Step-by-step tutorial template with prerequisites, steps, examples, and troubleshooting"
+category: "documentation"
+tags: ["tutorial", "guide", "how-to", "learning"]
+author: "mdxpad"
+version: "1.0.0"
+isBuiltIn: true
+variables:
+  - name: "title"
+    description: "Tutorial title"
+    default: "How to Do Something"
+  - name: "topic"
+    description: "Topic or technology covered"
+    default: "This Topic"
+  - name: "difficulty"
+    description: "Difficulty level"
+    default: "Beginner"
+---
+
+# {{title}}
+
+Learn how to work with {{topic}} in this step-by-step tutorial.
+
+**Difficulty:** {{difficulty}}
+**Time Required:** [Estimated time]
+**Last Updated:** [Date]
+
+---
+
+## What You'll Learn
+
+By the end of this tutorial, you will be able to:
+
+- [ ] [Learning objective 1]
+- [ ] [Learning objective 2]
+- [ ] [Learning objective 3]
+
+---
+
+## Prerequisites
+
+Before starting, make sure you have:
+
+- [ ] [Prerequisite 1]
+- [ ] [Prerequisite 2]
+- [ ] [Prerequisite 3]
+
+---
+
+## Step 1: [First Step Title]
+
+[Introduction to this step...]
+
+### What We're Doing
+
+[Explain the purpose of this step...]
+
+### Instructions
+
+1. [First instruction]
+2. [Second instruction]
+3. [Third instruction]
+
+### Code Example
+
+```javascript
+// Example code for Step 1
+const example = 'Hello, World!';
+console.log(example);
+```
+
+### Expected Result
+
+[Describe what the user should see after completing this step...]
+
+---
+
+## Step 2: [Second Step Title]
+
+[Introduction to this step...]
+
+### Instructions
+
+1. [First instruction]
+2. [Second instruction]
+
+### Code Example
+
+```javascript
+// Example code for Step 2
+function doSomething() {
+  // Your code here
+}
+```
+
+### Expected Result
+
+[Describe what the user should see...]
+
+---
+
+## Step 3: [Third Step Title]
+
+[Introduction to this step...]
+
+### Instructions
+
+1. [First instruction]
+2. [Second instruction]
+
+### Code Example
+
+```javascript
+// Example code for Step 3
+```
+
+### Expected Result
+
+[Describe what the user should see...]
+
+---
+
+## Complete Example
+
+Here's the complete code from this tutorial:
+
+```javascript
+// Complete working example
+// Combines all the steps above
+
+// Step 1
+const example = 'Hello, World!';
+
+// Step 2
+function doSomething() {
+  // Implementation
+}
+
+// Step 3
+// Final touches
+```
+
+---
+
+## Troubleshooting
+
+### Common Issue 1
+
+**Problem:** [Describe the issue]
+
+**Solution:** [How to fix it]
+
+### Common Issue 2
+
+**Problem:** [Describe the issue]
+
+**Solution:** [How to fix it]
+
+---
+
+## Next Steps
+
+Now that you've completed this tutorial, you can:
+
+- [Suggested next tutorial]
+- [Additional resource]
+- [Practice exercise]
+
+---
+
+## Additional Resources
+
+- [Resource 1 - Link and description]
+- [Resource 2 - Link and description]
+- [Official Documentation]
+
+---
+
+## Summary
+
+In this tutorial, you learned:
+
+1. [Key learning 1]
+2. [Key learning 2]
+3. [Key learning 3]
+
+[Congratulations message and encouragement to continue learning...]
