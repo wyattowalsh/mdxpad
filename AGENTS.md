@@ -68,6 +68,8 @@ YOU MUST FOLLOW ALL OF THE RULES BELOW (7/7 total rules) AT ALL TIMES!!!
 - localStorage for recent commands and UI state persistence (005-command-palette)
 - TypeScript 5.9.x, strict: true (per Constitution Article II) (014-smart-filtering)
 - localStorage for filter query persistence per project/workspace (established pattern from specs 005/006) (014-smart-filtering)
+- TypeScript 5.9.x, strict: true (per Constitution Article II) + React 19.x, Zustand 5.x + Immer 11.x, zod 4.x, yaml (YAML parsing library) (020-frontmatter-editor)
+- localStorage for panel visibility state, electron-store for user schema defaults (020-frontmatter-editor)
 
 ## Recent Changes
 - 003-preview-pane: Added TypeScript 5.9.x with `strict: true` + @mdx-js/mdx 3.x, @mdx-js/react 3.x, React 19.x, Zustand 5.x, Immer 11.x, remark-gfm 4.x, remark-frontmatter 5.x, rehype-highlight 7.x, zod 4.x

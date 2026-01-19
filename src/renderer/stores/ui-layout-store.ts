@@ -23,6 +23,8 @@ export interface UILayoutStoreState {
   readonly sidebarVisible: boolean;
   /** Whether outline panel is visible */
   readonly outlineVisible: boolean;
+  /** Whether frontmatter panel is visible */
+  readonly frontmatterVisible: boolean;
   /** Current zoom level (50-200) */
   readonly zoomLevel: number;
   /** Split pane ratio (0.1 to 0.9, where 0.5 = 50% editor / 50% preview) */
@@ -49,6 +51,10 @@ export interface UILayoutStoreActions {
   toggleOutline: () => void;
   /** Set outline panel visibility */
   setOutlineVisible: (visible: boolean) => void;
+  /** Toggle frontmatter panel visibility */
+  toggleFrontmatter: () => void;
+  /** Set frontmatter panel visibility */
+  setFrontmatterVisible: (visible: boolean) => void;
   /** Set zoom level (clamped to 50-200) */
   setZoomLevel: (level: number) => void;
   /** Increase zoom by 10 (max 200) */
@@ -108,6 +114,7 @@ const initialState: UILayoutStoreState = {
   previewVisible: true,
   sidebarVisible: true,
   outlineVisible: false,
+  frontmatterVisible: true,
   zoomLevel: DEFAULT_ZOOM,
   splitRatio: DEFAULT_SPLIT_RATIO,
 };
@@ -320,6 +327,16 @@ export const useUILayoutStore = create<UILayoutStore>()(
         draft.outlineVisible = visible;
       }),
 
+    toggleFrontmatter: () =>
+      set((draft) => {
+        draft.frontmatterVisible = !draft.frontmatterVisible;
+      }),
+
+    setFrontmatterVisible: (visible) =>
+      set((draft) => {
+        draft.frontmatterVisible = visible;
+      }),
+
     setZoomLevel: (level) =>
       set((draft) => {
         draft.zoomLevel = clampZoom(level);
@@ -454,3 +471,12 @@ export const selectSplitRatio = (state: UILayoutStore): number =>
  */
 export const selectOutlineVisible = (state: UILayoutStore): boolean =>
   state.outlineVisible;
+
+/**
+ * Selector for frontmatter panel visibility.
+ *
+ * @param state - UI layout store state
+ * @returns Whether frontmatter panel is visible
+ */
+export const selectFrontmatterVisible = (state: UILayoutStore): boolean =>
+  state.frontmatterVisible;
