@@ -6,7 +6,7 @@
  */
 
 import React, { memo, useMemo } from 'react';
-import type { Command, FuzzyMatchResult, NormalizedShortcut, ShortcutBinding } from '@shared/types/commands';
+import type { Command, FuzzyMatchResult, HighlightSegment, NormalizedShortcut, ShortcutBinding } from '@shared/types/commands';
 import { highlightMatches } from '../../lib/fuzzy-search';
 import { formatShortcut } from '../../hooks/useKeyboardShortcuts';
 
@@ -85,7 +85,7 @@ export const CommandItem = memo(function CommandItem({
 
         {/* Command name with match highlighting */}
         <span className="command-item__name">
-          {highlightedSegments.map((segment, i) => (
+          {highlightedSegments.map((segment: HighlightSegment, i: number) => (
             <span
               key={i}
               className={segment.isMatch ? 'command-item__highlight' : undefined}
