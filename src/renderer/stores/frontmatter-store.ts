@@ -187,17 +187,18 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/prefer-nullish-coalescing
         if (draft.data === null) draft.data = { ...EMPTY_FRONTMATTER_DATA, exists: true, fields: [] } as any;
 
-        // data is now guaranteed to be non-null
-        const data = draft.data;
+        // data is now guaranteed to be non-null after the above assignment
+        // Add explicit null check to satisfy TypeScript strict mode
+        if (!draft.data) return;
 
         // Check if field already exists
-        const existing = data.fields.find((f) => f.name === name);
+        const existing = draft.data.fields.find((f) => f.name === name);
         if (existing) return;
 
         // Add new field at the end
-        const order = data.fields.length;
+        const order = draft.data.fields.length;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-        data.fields.push(createField(name, type, order) as any);
+        draft.data.fields.push(createField(name, type, order) as any);
         draft.isDirty = true;
         draft.lastChangeSource = 'panel';
       }),
@@ -352,7 +353,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     // SCHEMA OPERATIONS
     // =========================================================================
 
-    loadSchema: async (_filePath: string | null): Promise<void> => {
+    loadSchema: async (): Promise<void> => {
       set((draft) => {
         draft.isLoadingSchema = true;
         draft.schemaError = null;

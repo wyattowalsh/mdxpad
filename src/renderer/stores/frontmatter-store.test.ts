@@ -531,26 +531,27 @@ describe('useFrontmatterStore', () => {
 
     it('should remove field with nested path', () => {
       // Add a field with nested path for testing
-      useFrontmatterStore.setState((state) => ({
-        ...state,
-        data: state.data
-          ? {
-              ...state.data,
-              fields: [
-                ...state.data.fields,
-                {
-                  name: 'nested',
-                  value: 'value',
-                  type: 'text' as const,
-                  validation: VALID_RESULT,
-                  path: ['parent', 'nested'],
-                  isFromSchema: false,
-                  order: 99,
-                },
-              ],
-            }
-          : null,
-      }));
+      // Use type assertion to avoid deep type instantiation issues
+      const currentState = useFrontmatterStore.getState();
+      if (!currentState.data) return;
+
+      const newField: FrontmatterField = {
+        name: 'nested',
+        value: 'value',
+        type: 'text',
+        validation: VALID_RESULT,
+        path: ['parent', 'nested'],
+        isFromSchema: false,
+        order: 99,
+      };
+
+      useFrontmatterStore.setState({
+        ...currentState,
+        data: {
+          ...currentState.data,
+          fields: [...currentState.data.fields, newField],
+        },
+      });
 
       const initialFieldCount = useFrontmatterStore.getState().data?.fields.length ?? 0;
 
@@ -1083,26 +1084,30 @@ describe('selectors', () => {
       useFrontmatterStore.getState().parseFromDocument(SAMPLE_DOCUMENT_WITH_FRONTMATTER);
 
       // Manually set a validation error
-      useFrontmatterStore.setState((state) => ({
-        ...state,
-        data: state.data
+      // Simplified to avoid deep type instantiation
+      const currentState = useFrontmatterStore.getState();
+      if (!currentState.data) return;
+
+      const updatedFields = currentState.data.fields.map((f, i) =>
+        i === 0
           ? {
-              ...state.data,
-              fields: state.data.fields.map((f, i) =>
-                i === 0
-                  ? {
-                      ...f,
-                      validation: {
-                        valid: false,
-                        errors: [{ code: 'REQUIRED' as const, message: 'Required' }],
-                        warnings: [],
-                      },
-                    }
-                  : f
-              ),
+              ...f,
+              validation: {
+                valid: false,
+                errors: [{ code: 'REQUIRED' as const, message: 'Required' }],
+                warnings: [],
+              },
             }
-          : null,
-      }));
+          : f
+      );
+
+      useFrontmatterStore.setState({
+        ...currentState,
+        data: {
+          ...currentState.data,
+          fields: updatedFields,
+        },
+      });
 
       expect(selectHasValidationErrors(useFrontmatterStore.getState())).toBe(true);
     });
@@ -1123,26 +1128,30 @@ describe('selectors', () => {
       useFrontmatterStore.getState().parseFromDocument(SAMPLE_DOCUMENT_WITH_FRONTMATTER);
 
       // Manually set validation errors on first two fields
-      useFrontmatterStore.setState((state) => ({
-        ...state,
-        data: state.data
+      // Simplified to avoid deep type instantiation
+      const currentState = useFrontmatterStore.getState();
+      if (!currentState.data) return;
+
+      const updatedFields = currentState.data.fields.map((f, i) =>
+        i < 2
           ? {
-              ...state.data,
-              fields: state.data.fields.map((f, i) =>
-                i < 2
-                  ? {
-                      ...f,
-                      validation: {
-                        valid: false,
-                        errors: [{ code: 'REQUIRED' as const, message: 'Required' }],
-                        warnings: [],
-                      },
-                    }
-                  : f
-              ),
+              ...f,
+              validation: {
+                valid: false,
+                errors: [{ code: 'REQUIRED' as const, message: 'Required' }],
+                warnings: [],
+              },
             }
-          : null,
-      }));
+          : f
+      );
+
+      useFrontmatterStore.setState({
+        ...currentState,
+        data: {
+          ...currentState.data,
+          fields: updatedFields,
+        },
+      });
 
       expect(selectValidationErrorCount(useFrontmatterStore.getState())).toBe(2);
     });
