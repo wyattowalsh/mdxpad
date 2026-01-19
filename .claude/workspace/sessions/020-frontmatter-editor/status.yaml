@@ -1,0 +1,18 @@
+spec: 020-frontmatter-editor
+branch: 020-frontmatter-editor
+worktree: /Users/ww/dev/projects/mdxpad-front
+phase: pending  # pending|specifying|planning|tasking|implementing|validating|ready-to-merge
+started: null
+last_update: null
+progress:
+  tasks_total: 0
+  tasks_complete: 0
+  current_wave: 0
+blocked_by: []
+exports: []
+description: |
+  Frontmatter Visual Editor - Form-based editing of YAML frontmatter.
+  Schema detection and validation.
+  Common field suggestions (title, date, tags, categories).
+  Toggle between visual and raw YAML editing.
+  Real-time sync with document content.

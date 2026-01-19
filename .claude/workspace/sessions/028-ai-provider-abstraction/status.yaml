@@ -1,0 +1,18 @@
+spec: 028-ai-provider-abstraction
+branch: 028-ai-provider-abstraction
+worktree: /Users/ww/dev/projects/mdxpad-ai
+phase: pending  # pending|specifying|planning|tasking|implementing|validating|ready-to-merge
+started: null
+last_update: null
+progress:
+  tasks_total: 0
+  tasks_complete: 0
+  current_wave: 0
+blocked_by: []
+exports: []
+description: |
+  AI Provider Abstraction Layer - BYOK (Bring Your Own Key) architecture for AI features.
+  Support for multiple providers (OpenAI, Anthropic, local models).
+  Provider configuration UI with API key management.
+  Usage tracking and cost estimation.
+  Secure credential storage using system keychain.

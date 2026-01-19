@@ -1,0 +1,17 @@
+spec: 008-bidirectional-sync
+branch: 008-bidirectional-sync
+worktree: /Users/ww/dev/projects/mdxpad-sync
+phase: pending  # pending|specifying|planning|tasking|implementing|validating|ready-to-merge
+started: null
+last_update: null
+progress:
+  tasks_total: 0
+  tasks_complete: 0
+  current_wave: 0
+blocked_by: []
+exports: []
+description: |
+  Bidirectional Preview Sync - Scroll position syncing between editor and preview.
+  Editor scroll position reflected in preview panel and vice versa.
+  Configurable sync behavior (disabled, editor-to-preview, preview-to-editor, bidirectional).
+  Smooth scroll with position caching.

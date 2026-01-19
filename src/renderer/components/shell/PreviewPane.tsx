@@ -105,6 +105,7 @@ function ShellPreviewPaneComponent({
             {
               message: 'Preview compilation timed out after 3 seconds',
               line: 1,
+              column: 1,
             },
           ]);
         }
@@ -142,7 +143,7 @@ function ShellPreviewPaneComponent({
       const errors: CompilationError[] = previewState.errors.map((e) => ({
         message: e.message,
         line: e.line ?? 1,
-        column: e.column,
+        column: e.column ?? 1,
       }));
       onErrorsChange?.(errors);
     } else if (previewState.status === 'success' && !isTimedOut) {
@@ -159,9 +160,9 @@ function ShellPreviewPaneComponent({
   );
 
   // Build className conditionally to satisfy exactOptionalPropertyTypes
-  const previewProps = {
+  const previewProps: Omit<React.ComponentProps<typeof BasePreviewPane>, 'source' | 'onErrorClick'> & { source: string; onErrorClick: (line: number, column?: number) => void } = {
     source: content,
-    theme,
+    theme: theme ?? 'light',
     onErrorClick: handleErrorClick,
     ...(className !== undefined && { className }),
   };

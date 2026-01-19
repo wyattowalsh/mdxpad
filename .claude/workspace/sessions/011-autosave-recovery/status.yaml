@@ -1,0 +1,17 @@
+spec: 011-autosave-recovery
+branch: 011-autosave-recovery
+worktree: /Users/ww/dev/projects/mdxpad-persist
+phase: pending  # pending|specifying|planning|tasking|implementing|validating|ready-to-merge
+started: null
+last_update: null
+progress:
+  tasks_total: 0
+  tasks_complete: 0
+  current_wave: 0
+blocked_by: []
+exports: []
+description: |
+  Autosave & Crash Recovery - Automatic saving of document changes at configurable intervals.
+  Crash recovery that restores unsaved work on application restart.
+  Recovery dialog showing recoverable documents with preview.
+  Integration with document store for dirty state tracking.

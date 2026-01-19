@@ -300,6 +300,7 @@ replit.nix
 [Bb]in
 [Ii]nclude
 [Ll]ib
+!src/shared/lib/
 [Ll]ib64
 [Ll]ocal
 [Ss]cripts

@@ -127,10 +127,10 @@ const lineHighlightTheme = EditorView.baseTheme({
  * });
  * ```
  */
-export const lineHighlightExtension: Extension = [
+export const lineHighlightExtension = [
   lineHighlightField,
   lineHighlightTheme,
-];
+] as const satisfies Extension[];
 
 // =============================================================================
 // Helper Functions

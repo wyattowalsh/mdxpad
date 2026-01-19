@@ -9,10 +9,10 @@ import {
 
 import { cn } from '@shared/lib/utils';
 
-const ResizablePanelGroup = ({ className, ...props }: GroupProps) => (
+const ResizablePanelGroup = ({ className, ...props }: GroupProps & { direction?: 'horizontal' | 'vertical'; onLayout?: (sizes: number[]) => void }) => (
   <ResizableGroup
     className={cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', className)}
-    {...props}
+    {...(props as GroupProps)}
   />
 );
 

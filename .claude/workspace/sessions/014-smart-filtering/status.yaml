@@ -1,0 +1,18 @@
+spec: 014-smart-filtering
+branch: 014-smart-filtering
+worktree: /Users/ww/dev/projects/mdxpad-filter
+phase: pending  # pending|specifying|planning|tasking|implementing|validating|ready-to-merge
+started: null
+last_update: null
+progress:
+  tasks_total: 0
+  tasks_complete: 0
+  current_wave: 0
+blocked_by: []
+exports: []
+description: |
+  Smart Filtering for File Tree - Quick filter/search in file explorer sidebar.
+  Fuzzy matching for file and folder names.
+  Filter persistence across sessions.
+  Visual highlighting of matched portions.
+  Keyboard shortcut to focus filter input.

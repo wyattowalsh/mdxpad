@@ -1,0 +1,18 @@
+spec: 016-template-library
+branch: 016-template-library
+worktree: /Users/ww/dev/projects/mdxpad-template
+phase: pending  # pending|specifying|planning|tasking|implementing|validating|ready-to-merge
+started: null
+last_update: null
+progress:
+  tasks_total: 0
+  tasks_complete: 0
+  current_wave: 0
+blocked_by: []
+exports: []
+description: |
+  Template Library - Collection of MDX document templates (blog post, documentation, presentation, etc).
+  Template browser with preview.
+  Custom template creation and management.
+  Template metadata (description, tags, author).
+  Integration with new file creation flow.
