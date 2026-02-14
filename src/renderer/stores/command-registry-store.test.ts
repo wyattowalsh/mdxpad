@@ -662,6 +662,38 @@ describe('CommandRegistryStore', () => {
       // Should have filtered out invalid entries (implementation dependent)
       expect(Array.isArray(state.recentCommands)).toBe(true);
     });
+
+    it('should migrate legacy camelCase command IDs from storage', () => {
+      const now = Date.now();
+      const testData = [
+        {
+          commandId: 'file.saveAs',
+          lastUsed: now,
+          useCount: 2,
+        },
+        {
+          commandId: 'file.newFromTemplate',
+          lastUsed: now - 1000,
+          useCount: 1,
+        },
+        {
+          commandId: 'template.saveAsTemplate',
+          lastUsed: now - 2000,
+          useCount: 4,
+        },
+      ];
+
+      mockStorage.set('mdxpad:recent-commands', JSON.stringify(testData));
+      useCommandRegistry.getState().loadRecentFromStorage();
+
+      const state = useCommandRegistry.getState();
+      expect(state.recentCommands).toHaveLength(3);
+      expect(state.recentCommands.map((entry) => entry.commandId)).toEqual([
+        'file.save-as',
+        'file.new-from-template',
+        'template.save-as-template',
+      ]);
+    });
   });
 
   // ===========================================================================

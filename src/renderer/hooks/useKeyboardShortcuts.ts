@@ -98,7 +98,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
 
   const lastExecutionRef = useRef<number>(0);
   const getCommandByShortcut = useCommandRegistry((state) => state.getCommandByShortcut);
-  const getCommand = useCommandRegistry((state) => state.getCommand);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -111,17 +110,19 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
       ) {
+        const isMac = navigator.platform.includes('Mac');
+        const modPressed = isMac ? event.metaKey : event.ctrlKey;
+        const isPKey = event.key.toLowerCase() === 'p';
+        const isAllowedPaletteOrFilterShortcut =
+          isPKey && modPressed && !event.altKey;
+
         // Allow Escape key
         if (event.key === 'Escape') {
           // Allow through
         }
         // Allow Mod+P for filter focus (per FR-012)
-        else if (
-          event.key.toLowerCase() === 'p' &&
-          (navigator.platform.includes('Mac') ? event.metaKey : event.ctrlKey) &&
-          !event.shiftKey &&
-          !event.altKey
-        ) {
+        // and Mod+Shift+P for command palette toggle (FR-005)
+        else if (isAllowedPaletteOrFilterShortcut) {
           // Allow through
         } else {
           return;

@@ -26,7 +26,14 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useScrollSync } from './hooks/useScrollSync';
 import { useCommandRegistry } from './stores/command-registry-store';
 import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible, selectFrontmatterVisible } from './stores/ui-layout-store';
-import { useDocumentStore, selectFileName, selectIsDirty, selectContent } from './stores/document-store';
+import {
+  useDocumentStore,
+  selectFileId,
+  selectFileName,
+  selectFilePath,
+  selectIsDirty,
+  selectContent,
+} from './stores/document-store';
 import {
   useTemplateBrowserModalStore,
   selectIsTemplateBrowserOpen,
@@ -123,7 +130,8 @@ function useBuiltInCommands(toggle: () => void): void {
   useEffect(() => {
     const { register } = useCommandRegistry.getState();
     register({
-      id: 'command-palette.toggle' as CommandId,
+      // CommandId must follow category.action format.
+      id: 'view.command-palette' as CommandId,
       name: 'Toggle Command Palette',
       category: 'view',
       shortcut: { key: 'p', modifiers: ['Mod', 'Shift'] },
@@ -204,6 +212,8 @@ export function App(): React.ReactElement {
   const setSplitRatio = useUILayoutStore((s) => s.setSplitRatio);
 
   // Document state for StatusBar
+  const fileId = useDocumentStore(selectFileId);
+  const filePath = useDocumentStore(selectFilePath);
   const fileName = useDocumentStore(selectFileName);
   const isDirty = useDocumentStore(selectIsDirty);
   const setContent = useDocumentStore((s) => s.setContent);
@@ -428,17 +438,22 @@ export function App(): React.ReactElement {
   }, []);
 
   const getCommandContext = useCallback((): CommandContext => buildCommandContext(
-    null, getMdxpadApi(),
-    { fileId: null, filePath: null, content: '', isDirty: false },
+    editorRef.current,
+    getMdxpadApi(),
+    { fileId, filePath, content: documentContent, isDirty },
     handleNotification
-  ), [handleNotification]);
+  ), [fileId, filePath, documentContent, isDirty, handleNotification]);
 
   // Handle keyboard shortcuts
   const handleShortcut = useCallback(
     (_: NormalizedShortcut, cmdId: string) => {
+      if (cmdId === 'view.command-palette') {
+        toggle();
+        return;
+      }
       void executeCommand(cmdId as CommandId, getCommandContext());
     },
-    [executeCommand, getCommandContext]
+    [executeCommand, getCommandContext, toggle]
   );
 
   useKeyboardShortcuts({ enabled: !isOpen, onShortcutExecuted: handleShortcut });

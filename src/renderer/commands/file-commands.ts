@@ -30,7 +30,7 @@ export const FILE_COMMAND_IDS = {
   new: 'file.new' as CommandId,
   open: 'file.open' as CommandId,
   save: 'file.save' as CommandId,
-  saveAs: 'file.saveAs' as CommandId,
+  saveAs: 'file.save-as' as CommandId,
   close: 'file.close' as CommandId,
 } as const;
 

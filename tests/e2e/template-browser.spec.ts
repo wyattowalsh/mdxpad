@@ -22,6 +22,7 @@
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
+import { safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
@@ -45,7 +46,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await electronApp.close();
+  await safeCloseElectronApp(electronApp);
 });
 
 test.describe('Template Browser E2E', () => {
