@@ -20,7 +20,9 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    // Keep preload self-contained for sandboxed renderers.
+    // Externalized runtime deps (e.g. zod) are not available via sandboxed preload require.
+    plugins: [],
     build: {
       outDir: 'dist/preload',
       lib: {

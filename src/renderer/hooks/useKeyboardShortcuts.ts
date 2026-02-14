@@ -103,6 +103,10 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
+      // Build normalized shortcut from event and resolve command once per event.
+      const normalized = normalizeEventToShortcut(event);
+      const command = getCommandByShortcut(normalized);
+
       // Ignore if typing in input/textarea (unless it's allowed)
       const target = event.target as HTMLElement;
       if (
@@ -112,28 +116,14 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
       ) {
         const isMac = navigator.platform.includes('Mac');
         const modPressed = isMac ? event.metaKey : event.ctrlKey;
-        const isPKey = event.key.toLowerCase() === 'p';
-        const isAllowedPaletteOrFilterShortcut =
-          isPKey && modPressed && !event.altKey;
+        const isRegisteredModShortcut = modPressed && !!command;
 
-        // Allow Escape key
-        if (event.key === 'Escape') {
-          // Allow through
-        }
-        // Allow Mod+P for filter focus (per FR-012)
-        // and Mod+Shift+P for command palette toggle (FR-005)
-        else if (isAllowedPaletteOrFilterShortcut) {
-          // Allow through
-        } else {
+        // Allow Escape for native dismiss behavior, and registered Mod shortcuts.
+        if (event.key !== 'Escape' && !isRegisteredModShortcut) {
           return;
         }
       }
 
-      // Build normalized shortcut from event
-      const normalized = normalizeEventToShortcut(event);
-
-      // Look up command in registry
-      const command = getCommandByShortcut(normalized);
       if (!command) return;
 
       // Debounce rapid key presses
