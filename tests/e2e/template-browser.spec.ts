@@ -19,34 +19,26 @@
  * @module tests/e2e/template-browser
  */
 
-import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import type { ElectronApplication, Page } from 'playwright';
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
-import { safeCloseElectronApp } from './utils/electron-lifecycle';
+import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
+let userDataDir: string | null = null;
 
 test.beforeAll(async () => {
-  // Launch Electron app
-  const electronPath = join(process.cwd(), 'node_modules', '.bin', 'electron');
-  const appPath = join(process.cwd(), 'dist', 'main', 'index.js');
-
-  electronApp = await electron.launch({
-    args: [appPath],
-    executablePath: electronPath,
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-    } as Record<string, string>,
-  });
+  const launched = await launchMdxpad({ userDataDirSuffix: 'template-browser' });
+  electronApp = launched.app;
+  userDataDir = launched.userDataDir;
 
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
 });
 
 test.afterAll(async () => {
-  await safeCloseElectronApp(electronApp);
+  await safeCloseElectronApp(electronApp, userDataDir);
+  userDataDir = null;
 });
 
 test.describe('Template Browser E2E', () => {
