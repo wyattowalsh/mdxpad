@@ -1,6 +1,6 @@
 /**
  * Tests for useKeyboardShortcuts hook.
- * Validates editable-field shortcut allowances for global palette/filter actions.
+ * Validates editable-field shortcut allowances for registered global actions.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -86,8 +86,33 @@ describe('useKeyboardShortcuts', () => {
     );
   });
 
-  it('blocks unrelated shortcuts in contentEditable', () => {
-    registerShortcutCommand('view.zoom-in', '=', false);
+  it('allows other registered Mod shortcuts in contentEditable', () => {
+    registerShortcutCommand('file.open', 'o', false);
+    const onShortcutExecuted = vi.fn();
+
+    renderHook(() => useKeyboardShortcuts({ onShortcutExecuted }));
+
+    const editable = document.createElement('textarea');
+    document.body.appendChild(editable);
+    editable.focus();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'o',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    editable.dispatchEvent(event);
+
+    expect(onShortcutExecuted).toHaveBeenCalledTimes(1);
+    expect(onShortcutExecuted).toHaveBeenCalledWith(
+      'Mod+o',
+      'file.open'
+    );
+  });
+
+  it('blocks unregistered shortcuts in contentEditable', () => {
     const onShortcutExecuted = vi.fn();
 
     renderHook(() => useKeyboardShortcuts({ onShortcutExecuted }));

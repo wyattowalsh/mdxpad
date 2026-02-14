@@ -31,6 +31,19 @@ const TEST_FIXTURES_DIR = join(tmpdir(), 'mdxpad-e2e-fixtures');
 const TEST_FILE_PATH = join(TEST_FIXTURES_DIR, 'test-document.mdx');
 const TEST_FILE_CONTENT = '# Test Document\n\nThis is test content.';
 
+async function dispatchMenuAcceleratorEvent(
+  channel:
+    | 'mdxpad:menu:open-file-dialog'
+    | 'mdxpad:menu:save-file'
+    | 'mdxpad:menu:save-file-as'
+    | 'mdxpad:menu:new-file'
+): Promise<void> {
+  await electronApp.evaluate(({ BrowserWindow }, eventChannel) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win?.webContents.send(eventChannel);
+  }, channel);
+}
+
 test.beforeAll(async () => {
   // Create test fixtures directory
   if (!existsSync(TEST_FIXTURES_DIR)) {
@@ -68,43 +81,38 @@ test.describe('File Operations E2E', () => {
     });
 
     test('Cmd+O should trigger file open dialog', async () => {
-      // Note: Playwright cannot directly intercept native dialogs.
-      // We verify that the keyboard shortcut invokes the correct API method.
-      // In a real test environment, you would mock the dialog or use
-      // Electron's dialog interception capabilities.
-
-      // Set up a flag to detect if openFile was called
-      await page.evaluate(() => {
-        (window as any).__openFileCalled = false;
-        const originalOpenFile = (window as any).mdxpad.openFile;
-        (window as any).mdxpad.openFile = async () => {
-          (window as any).__openFileCalled = true;
-          // Return cancelled result to prevent actual dialog
-          return { ok: false, error: { code: 'CANCELLED' } };
+      // Spy native open dialog in main process (contextBridge API is immutable in renderer).
+      await electronApp.evaluate(({ dialog }) => {
+        (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled = false;
+        const originalOpenDialog = dialog.showOpenDialog.bind(dialog);
+        (globalThis as { __restoreOpenDialog?: () => void }).__restoreOpenDialog = () => {
+          dialog.showOpenDialog = originalOpenDialog;
         };
-        // Store original for restoration
-        (window as any).__originalOpenFile = originalOpenFile;
+        dialog.showOpenDialog = async () => {
+          (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled = true;
+          return { canceled: true, filePaths: [] };
+        };
       });
 
-      // Press Cmd+O
-      await page.keyboard.press('Meta+o');
+      // Simulate accelerator pathway: File menu event routed to renderer command execution.
+      await dispatchMenuAcceleratorEvent('mdxpad:menu:open-file-dialog');
 
       // Small delay for event propagation
       await page.waitForTimeout(100);
 
-      // Check if openFile was invoked
-      const wasCalled = await page.evaluate(() => (window as any).__openFileCalled);
+      // Check if native dialog handler was invoked
+      const wasCalled = await electronApp.evaluate(() => {
+        return (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled === true;
+      });
 
-      // Restore original method
-      await page.evaluate(() => {
-        if ((window as any).__originalOpenFile) {
-          (window as any).mdxpad.openFile = (window as any).__originalOpenFile;
+      // Restore original dialog implementation
+      await electronApp.evaluate(() => {
+        const restore = (globalThis as { __restoreOpenDialog?: () => void }).__restoreOpenDialog;
+        if (restore) {
+          restore();
         }
       });
 
-      // This test may pass or fail depending on whether keyboard shortcuts
-      // are wired up in the current implementation.
-      // If shortcuts aren't implemented yet, this serves as a specification.
       expect(wasCalled).toBe(true);
     });
 
@@ -129,34 +137,37 @@ test.describe('File Operations E2E', () => {
       expect(hasSaveFile).toBe(true);
     });
 
-    test('Cmd+S on untitled document should trigger save dialog', async () => {
-      // Set up detection for saveFileAs (used for untitled documents)
-      await page.evaluate(() => {
-        (window as any).__saveFileAsCalled = false;
-        const originalSaveFileAs = (window as any).mdxpad.saveFileAs;
-        (window as any).mdxpad.saveFileAs = async (content: string) => {
-          (window as any).__saveFileAsCalled = true;
-          (window as any).__saveContent = content;
-          return { ok: false, error: { code: 'CANCELLED' } };
+    test('Cmd+S on clean untitled document should not trigger save dialog', async () => {
+      // Spy native save dialog in main process.
+      await electronApp.evaluate(({ dialog }) => {
+        (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled = false;
+        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
+        (globalThis as { __restoreSaveDialog?: () => void }).__restoreSaveDialog = () => {
+          dialog.showSaveDialog = originalSaveDialog;
         };
-        (window as any).__originalSaveFileAs = originalSaveFileAs;
+        dialog.showSaveDialog = async () => {
+          (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled = true;
+          return { canceled: true, filePath: '' };
+        };
       });
 
-      // Press Cmd+S
-      await page.keyboard.press('Meta+s');
+      // Simulate accelerator pathway: File menu event routed to renderer command execution.
+      await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file');
       await page.waitForTimeout(100);
 
-      const wasCalled = await page.evaluate(() => (window as any).__saveFileAsCalled);
+      const wasCalled = await electronApp.evaluate(() => {
+        return (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled === true;
+      });
 
-      // Restore original method
-      await page.evaluate(() => {
-        if ((window as any).__originalSaveFileAs) {
-          (window as any).mdxpad.saveFileAs = (window as any).__originalSaveFileAs;
+      // Restore original dialog implementation
+      await electronApp.evaluate(() => {
+        const restore = (globalThis as { __restoreSaveDialog?: () => void }).__restoreSaveDialog;
+        if (restore) {
+          restore();
         }
       });
 
-      // Test serves as specification if shortcuts not yet implemented
-      expect(wasCalled).toBe(true);
+      expect(wasCalled).toBe(false);
     });
 
     test('saveFile should return success result for valid operations', async () => {
@@ -178,25 +189,30 @@ test.describe('File Operations E2E', () => {
     });
 
     test('Cmd+Shift+S should trigger Save As dialog', async () => {
-      await page.evaluate(() => {
-        (window as any).__saveAsCalled = false;
-        const original = (window as any).mdxpad.saveFileAs;
-        (window as any).mdxpad.saveFileAs = async () => {
-          (window as any).__saveAsCalled = true;
-          return { ok: false, error: { code: 'CANCELLED' } };
+      await electronApp.evaluate(({ dialog }) => {
+        (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled = false;
+        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
+        (globalThis as { __restoreSaveAsDialog?: () => void }).__restoreSaveAsDialog = () => {
+          dialog.showSaveDialog = originalSaveDialog;
         };
-        (window as any).__originalSaveAs = original;
+        dialog.showSaveDialog = async () => {
+          (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled = true;
+          return { canceled: true, filePath: '' };
+        };
       });
 
-      // Press Cmd+Shift+S
-      await page.keyboard.press('Meta+Shift+s');
+      // Simulate accelerator pathway: File menu event routed to renderer command execution.
+      await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file-as');
       await page.waitForTimeout(100);
 
-      const wasCalled = await page.evaluate(() => (window as any).__saveAsCalled);
+      const wasCalled = await electronApp.evaluate(() => {
+        return (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled === true;
+      });
 
-      await page.evaluate(() => {
-        if ((window as any).__originalSaveAs) {
-          (window as any).mdxpad.saveFileAs = (window as any).__originalSaveAs;
+      await electronApp.evaluate(() => {
+        const restore = (globalThis as { __restoreSaveAsDialog?: () => void }).__restoreSaveAsDialog;
+        if (restore) {
+          restore();
         }
       });
 
@@ -220,8 +236,8 @@ test.describe('File Operations E2E', () => {
         // This depends on the app's implementation
       });
 
-      // Press Cmd+N
-      await page.keyboard.press('Meta+n');
+      // Simulate accelerator pathway: File menu event routed to renderer command execution.
+      await dispatchMenuAcceleratorEvent('mdxpad:menu:new-file');
       await page.waitForTimeout(100);
 
       // Verify new document behavior

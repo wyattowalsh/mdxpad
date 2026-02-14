@@ -45,6 +45,7 @@ import {
 } from './stores/template-browser-store';
 import { useTemplateStore, selectTemplates } from './stores/template-store';
 import { registerAllCommands } from './commands';
+import { FILE_COMMAND_IDS } from './commands/file-commands';
 import { EditorPane, type CursorPosition } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
 import { StatusBar } from './components/shell/StatusBar';
@@ -457,6 +458,48 @@ export function App(): React.ReactElement {
   );
 
   useKeyboardShortcuts({ enabled: !isOpen, onShortcutExecuted: handleShortcut });
+
+  // Bridge native menu accelerators (Cmd/Ctrl+N/O/S/Shift+S) to command execution.
+  useEffect(() => {
+    let unsubscribers: (() => void)[] = [];
+    let pollId: number | undefined;
+
+    const bindMenuHandlers = (): boolean => {
+      if (!window.mdxpad) {
+        return false;
+      }
+
+      const runCommandFromMenu = (commandId: CommandId): void => {
+        void executeCommand(commandId, getCommandContext());
+      };
+
+      unsubscribers = [
+        window.mdxpad.onMenuNewFile(() => runCommandFromMenu(FILE_COMMAND_IDS.new)),
+        window.mdxpad.onMenuOpenFileDialog(() => runCommandFromMenu(FILE_COMMAND_IDS.open)),
+        window.mdxpad.onMenuSaveFile(() => runCommandFromMenu(FILE_COMMAND_IDS.save)),
+        window.mdxpad.onMenuSaveFileAs(() => runCommandFromMenu(FILE_COMMAND_IDS.saveAs)),
+      ];
+      return true;
+    };
+
+    if (!bindMenuHandlers()) {
+      pollId = window.setInterval(() => {
+        if (bindMenuHandlers() && pollId !== undefined) {
+          window.clearInterval(pollId);
+          pollId = undefined;
+        }
+      }, 50);
+    }
+
+    return () => {
+      if (pollId !== undefined) {
+        window.clearInterval(pollId);
+      }
+      for (const unsub of unsubscribers) {
+        unsub();
+      }
+    };
+  }, [executeCommand, getCommandContext]);
 
   // Calculate panel sizes based on split ratio and preview visibility
   const editorSize = useMemo(() => {
