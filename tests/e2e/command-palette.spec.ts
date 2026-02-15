@@ -15,27 +15,18 @@
  * @module tests/e2e/command-palette
  */
 
-import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import type { ElectronApplication, Page } from 'playwright';
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
-import { safeCloseElectronApp } from './utils/electron-lifecycle';
+import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
+let userDataDir: string | null = null;
 
 test.beforeAll(async () => {
-  // Launch Electron app
-  const electronPath = join(process.cwd(), 'node_modules', '.bin', 'electron');
-  const appPath = join(process.cwd(), 'dist', 'main', 'index.js');
-
-  electronApp = await electron.launch({
-    args: [appPath],
-    executablePath: electronPath,
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-    } as Record<string, string>,
-  });
+  const launched = await launchMdxpad({ userDataDirSuffix: 'command-palette' });
+  electronApp = launched.app;
+  userDataDir = launched.userDataDir;
 
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
@@ -43,7 +34,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await safeCloseElectronApp(electronApp);
+  await safeCloseElectronApp(electronApp, userDataDir);
+  userDataDir = null;
 });
 
 test.describe('Command Palette E2E', () => {
@@ -98,8 +90,10 @@ test.describe('Command Palette E2E', () => {
 
       // Click outside palette (on the overlay backdrop)
       const clicked = await page.evaluate(() => {
-        const overlay = document.querySelector('[data-overlay]') ||
-                       document.querySelector('.fixed.inset-0');
+        const overlay =
+          document.querySelector('[data-testid="command-palette-backdrop"]') ??
+          document.querySelector('[data-overlay]') ??
+          document.querySelector('.fixed.inset-0');
         if (overlay) {
           (overlay as HTMLElement).click();
           return true;
@@ -132,9 +126,7 @@ test.describe('Command Palette E2E', () => {
 
       // Check if filtered results appear
       const hasFilteredResults = await page.evaluate(() => {
-        const items = document.querySelectorAll('[data-command-item]') ||
-                     document.querySelectorAll('[role="option"]') ||
-                     document.querySelectorAll('.command-item');
+        const items = document.querySelectorAll('[data-testid="command-item"], [role="option"]');
         return items.length > 0;
       });
 
@@ -156,7 +148,7 @@ test.describe('Command Palette E2E', () => {
 
       // Should still find "Bold" command
       const foundCommand = await page.evaluate(() => {
-        const items = document.querySelectorAll('[data-command-item], [role="option"]');
+        const items = document.querySelectorAll('[data-testid="command-item"], [role="option"]');
         for (const item of items) {
           if (item.textContent?.toLowerCase().includes('bold')) {
             return true;
@@ -252,8 +244,7 @@ test.describe('Command Palette E2E', () => {
 
       // Palette should close after execution
       const paletteOpen = await page.evaluate(() => {
-        const palette = document.querySelector('[role="dialog"]') ||
-                       document.querySelector('[data-command-palette]');
+        const palette = document.querySelector('[data-testid="command-palette"]');
         return palette !== null;
       });
 
@@ -277,7 +268,7 @@ test.describe('Command Palette E2E', () => {
 
       // Command should have executed (palette closes)
       const paletteOpen = await page.evaluate(() => {
-        const palette = document.querySelector('[role="dialog"]');
+        const palette = document.querySelector('[data-testid="command-palette"]');
         return palette !== null;
       });
 
@@ -430,9 +421,9 @@ test.describe('Accessibility', () => {
 
     // Check for ARIA attributes
     const hasAriaAttributes = await page.evaluate(() => {
-      const dialog = document.querySelector('[role="dialog"]');
-      const listbox = document.querySelector('[role="listbox"]');
-      const searchInput = document.querySelector('input[type="text"]');
+      const dialog = document.querySelector('[data-testid="command-palette"]');
+      const listbox = document.querySelector('[data-testid="command-list"]');
+      const searchInput = document.querySelector('[data-testid="command-palette-input"]');
 
       return {
         hasDialog: dialog !== null,
@@ -457,12 +448,11 @@ test.describe('Accessibility', () => {
     // Check if focus is within the palette
     const focusInPalette = await page.evaluate(() => {
       const activeElement = document.activeElement;
-      const palette = document.querySelector('[role="dialog"]') ||
-                     document.querySelector('[data-command-palette]');
+      const palette = document.querySelector('[data-testid="command-palette"]');
 
       if (!palette) {
         // Try to find input that might be focused
-        return activeElement?.tagName === 'INPUT';
+        return activeElement?.getAttribute('data-testid') === 'command-palette-input';
       }
 
       return palette.contains(activeElement);

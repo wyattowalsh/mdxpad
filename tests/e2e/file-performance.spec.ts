@@ -8,7 +8,6 @@
  */
 
 import {
-  _electron as electron,
   type ElectronApplication,
   type Page,
 } from 'playwright';
@@ -16,7 +15,7 @@ import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { safeCloseElectronApp } from './utils/electron-lifecycle';
+import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
 
 // Test configuration
 const TEMP_DIR = join(tmpdir(), 'mdxpad-perf-test');
@@ -33,6 +32,7 @@ const SIZE_10MB = 10 * 1024 * 1024; // 10 MB
 
 let electronApp: ElectronApplication;
 let page: Page;
+let userDataDir: string | null = null;
 
 /**
  * Generate a test file of the specified size.
@@ -76,14 +76,9 @@ test.beforeAll(async () => {
   console.log('Generating 10MB test file...');
   generateTestFile(FILE_10MB, SIZE_10MB);
 
-  // Launch Electron app
-  const electronPath = join(process.cwd(), 'node_modules', '.bin', 'electron');
-  const appPath = join(process.cwd(), 'dist', 'main', 'index.js');
-
-  electronApp = await electron.launch({
-    args: [appPath],
-    executablePath: electronPath,
-  });
+  const launched = await launchMdxpad({ userDataDirSuffix: 'file-performance' });
+  electronApp = launched.app;
+  userDataDir = launched.userDataDir;
 
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
@@ -91,7 +86,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   // Close Electron app
-  await safeCloseElectronApp(electronApp);
+  await safeCloseElectronApp(electronApp, userDataDir);
+  userDataDir = null;
 
   // Clean up test files
   if (existsSync(TEMP_DIR)) {

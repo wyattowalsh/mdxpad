@@ -15,15 +15,16 @@
  * - Run tests: `pnpm test:e2e tests/e2e/file-operations.spec.ts`
  */
 
-import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
+import type { ElectronApplication, Page } from 'playwright';
 import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
 import { writeFileSync, unlinkSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { safeCloseElectronApp } from './utils/electron-lifecycle';
+import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
+let userDataDir: string | null = null;
 
 // Test fixtures directory
 const TEST_FIXTURES_DIR = join(tmpdir(), 'mdxpad-e2e-fixtures');
@@ -39,25 +40,17 @@ test.beforeAll(async () => {
   // Create test file
   writeFileSync(TEST_FILE_PATH, TEST_FILE_CONTENT, 'utf-8');
 
-  // Launch Electron app
-  const electronPath = join(process.cwd(), 'node_modules', '.bin', 'electron');
-  const appPath = join(process.cwd(), 'dist', 'main', 'index.js');
-
-  electronApp = await electron.launch({
-    args: [appPath],
-    executablePath: electronPath,
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-    } as Record<string, string>,
-  });
+  const launched = await launchMdxpad({ userDataDirSuffix: 'file-operations' });
+  electronApp = launched.app;
+  userDataDir = launched.userDataDir;
 
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
 });
 
 test.afterAll(async () => {
-  await safeCloseElectronApp(electronApp);
+  await safeCloseElectronApp(electronApp, userDataDir);
+  userDataDir = null;
 
   // Cleanup test fixtures
   if (existsSync(TEST_FIXTURES_DIR)) {
