@@ -257,27 +257,28 @@ function buildEditMenu(window: BrowserWindow): MenuItemConstructorOptions {
             { type: 'separator' as const },
             { role: 'selectAll' as const },
           ]),
-      { type: 'separator' },
-      {
-        label: 'Command Palette...',
-        accelerator: 'CmdOrCtrl+Shift+P',
-        click: () => window.webContents.send('mdxpad:menu:command-palette'),
-      },
     ],
   };
 }
 
 /**
- * Builds the View menu with reload, devtools, and zoom options.
+ * Builds the View menu with reload, devtools, command palette, and zoom options.
+ * @param window - The main BrowserWindow for IPC communication
  * @returns The View menu configuration
  */
-function buildViewMenu(): MenuItemConstructorOptions {
+function buildViewMenu(window: BrowserWindow): MenuItemConstructorOptions {
   return {
     label: 'View',
     submenu: [
       { role: 'reload' },
       { role: 'forceReload' },
       { role: 'toggleDevTools' },
+      { type: 'separator' },
+      {
+        label: 'Command Palette...',
+        accelerator: 'CmdOrCtrl+Shift+P',
+        click: () => window.webContents.send('mdxpad:menu:command-palette'),
+      },
       { type: 'separator' },
       { role: 'resetZoom' },
       { role: 'zoomIn' },
@@ -353,7 +354,7 @@ function buildMenuTemplate(window: BrowserWindow): MenuItemConstructorOptions[] 
   template.push(
     buildFileMenu(window),
     buildEditMenu(window),
-    buildViewMenu(),
+    buildViewMenu(window),
     buildWindowMenu(),
     buildHelpMenu()
   );
