@@ -14,16 +14,33 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 
 /**
- * Gets the path to built-in templates directory.
- * In development: ./resources/templates/
- * In production: process.resourcesPath/templates/
+ * Gets ordered candidate paths for built-in templates.
+ *
+ * In packaged builds, only process.resourcesPath/templates is valid.
+ * In dev/dist launches, we probe appPath-relative candidates and cwd fallback.
+ */
+export function getBuiltinTemplatesPathCandidates(): string[] {
+  if (app.isPackaged) {
+    return [path.join(process.resourcesPath, 'templates')];
+  }
+
+  const appPath = app.getAppPath();
+
+  return Array.from(new Set([
+    path.resolve(appPath, 'resources', 'templates'),
+    path.resolve(appPath, '..', 'resources', 'templates'),
+    path.resolve(appPath, '..', '..', 'resources', 'templates'),
+    path.resolve(process.cwd(), 'resources', 'templates'),
+  ]));
+}
+
+/**
+ * Gets the primary built-in templates path.
+ * For non-packaged runs this is the first candidate path.
  */
 export function getBuiltinTemplatesPath(): string {
-  const isDev = !app.isPackaged;
-  if (isDev) {
-    return path.join(app.getAppPath(), 'resources', 'templates');
-  }
-  return path.join(process.resourcesPath, 'templates');
+  const [primaryPath] = getBuiltinTemplatesPathCandidates();
+  return primaryPath ?? path.resolve(process.cwd(), 'resources', 'templates');
 }
 
 /**
