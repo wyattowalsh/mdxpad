@@ -64,7 +64,7 @@ export function registerWindowHandlers(
     WindowMaximizeRequestSchema,
     (): Promise<void> => {
       if (window.isMaximized()) {
-        window.restore();
+        window.unmaximize();
       } else {
         window.maximize();
       }

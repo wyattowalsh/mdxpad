@@ -40,7 +40,7 @@ describe('window-handlers', () => {
     close: Mock;
     minimize: Mock;
     maximize: Mock;
-    restore: Mock;
+    unmaximize: Mock;
     isMaximized: Mock;
   };
 
@@ -60,14 +60,14 @@ describe('window-handlers', () => {
       close: vi.fn(),
       minimize: vi.fn(),
       maximize: vi.fn(),
-      restore: vi.fn(),
+      unmaximize: vi.fn(),
       isMaximized: vi.fn(() => false),
       webContents: { send: vi.fn() },
     } as unknown as BrowserWindow & {
       close: Mock;
       minimize: Mock;
       maximize: Mock;
-      restore: Mock;
+      unmaximize: Mock;
       isMaximized: Mock;
     };
 
@@ -150,10 +150,10 @@ describe('window-handlers', () => {
 
       expect(mockBrowserWindow.isMaximized).toHaveBeenCalledTimes(1);
       expect(mockBrowserWindow.maximize).toHaveBeenCalledTimes(1);
-      expect(mockBrowserWindow.restore).not.toHaveBeenCalled();
+      expect(mockBrowserWindow.unmaximize).not.toHaveBeenCalled();
     });
 
-    it('should call window.restore() when already maximized', async () => {
+    it('should call window.unmaximize() when already maximized', async () => {
       mockBrowserWindow.isMaximized.mockReturnValue(true);
 
       const handler = registeredHandlers.get('mdxpad:window:maximize');
@@ -162,7 +162,7 @@ describe('window-handlers', () => {
       await handler!(mockInvokeEvent);
 
       expect(mockBrowserWindow.isMaximized).toHaveBeenCalledTimes(1);
-      expect(mockBrowserWindow.restore).toHaveBeenCalledTimes(1);
+      expect(mockBrowserWindow.unmaximize).toHaveBeenCalledTimes(1);
       expect(mockBrowserWindow.maximize).not.toHaveBeenCalled();
     });
 
@@ -251,7 +251,7 @@ describe('window handler integration scenarios', () => {
     close: Mock;
     minimize: Mock;
     maximize: Mock;
-    restore: Mock;
+    unmaximize: Mock;
     isMaximized: Mock;
   };
 
@@ -262,14 +262,14 @@ describe('window handler integration scenarios', () => {
       close: vi.fn(),
       minimize: vi.fn(),
       maximize: vi.fn(),
-      restore: vi.fn(),
+      unmaximize: vi.fn(),
       isMaximized: vi.fn(),
       webContents: { send: vi.fn() },
     } as unknown as BrowserWindow & {
       close: Mock;
       minimize: Mock;
       maximize: Mock;
-      restore: Mock;
+      unmaximize: Mock;
       isMaximized: Mock;
     };
   });
@@ -290,15 +290,15 @@ describe('window handler integration scenarios', () => {
     mockBrowserWindow.isMaximized.mockReturnValue(false);
     await handler!(mockInvokeEvent);
     expect(mockBrowserWindow.maximize).toHaveBeenCalledTimes(1);
-    expect(mockBrowserWindow.restore).not.toHaveBeenCalled();
+    expect(mockBrowserWindow.unmaximize).not.toHaveBeenCalled();
 
     // Clear mock calls
     vi.clearAllMocks();
 
-    // Second call - now maximized, should restore
+    // Second call - now maximized, should unmaximize
     mockBrowserWindow.isMaximized.mockReturnValue(true);
     await handler!(mockInvokeEvent);
-    expect(mockBrowserWindow.restore).toHaveBeenCalledTimes(1);
+    expect(mockBrowserWindow.unmaximize).toHaveBeenCalledTimes(1);
     expect(mockBrowserWindow.maximize).not.toHaveBeenCalled();
   });
 

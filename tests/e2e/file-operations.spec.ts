@@ -47,7 +47,7 @@ async function dispatchMenuAcceleratorEvent(
 type WindowOperationMetrics = {
   minimizeCalls: number;
   maximizeCalls: number;
-  restoreCalls: number;
+  unmaximizeCalls: number;
   isMinimized: boolean;
   isMaximized: boolean;
 };
@@ -65,12 +65,14 @@ async function installWindowOperationTracker(): Promise<boolean> {
 
     const originalMinimize = win.minimize.bind(win) as (...args: unknown[]) => unknown;
     const originalMaximize = win.maximize.bind(win) as (...args: unknown[]) => unknown;
-    const originalRestore = win.restore.bind(win) as (...args: unknown[]) => unknown;
+    const originalUnmaximize = win.unmaximize.bind(win) as (...args: unknown[]) => unknown;
+    const originalIsMaximized = win.isMaximized.bind(win) as () => boolean;
+    let syntheticIsMaximized = originalIsMaximized();
 
     state.__windowOperationMetrics = {
       minimizeCalls: 0,
       maximizeCalls: 0,
-      restoreCalls: 0,
+      unmaximizeCalls: 0,
     };
 
     win.minimize = (...innerArgs: unknown[]) => {
@@ -80,18 +82,23 @@ async function installWindowOperationTracker(): Promise<boolean> {
 
     win.maximize = (...innerArgs: unknown[]) => {
       state.__windowOperationMetrics.maximizeCalls += 1;
+      syntheticIsMaximized = true;
       return originalMaximize(...innerArgs);
     };
 
-    win.restore = (...innerArgs: unknown[]) => {
-      state.__windowOperationMetrics.restoreCalls += 1;
-      return originalRestore(...innerArgs);
+    win.unmaximize = (...innerArgs: unknown[]) => {
+      state.__windowOperationMetrics.unmaximizeCalls += 1;
+      syntheticIsMaximized = false;
+      return originalUnmaximize(...innerArgs);
     };
+
+    win.isMaximized = () => syntheticIsMaximized;
 
     state.__restoreWindowOperationTracker = () => {
       win.minimize = originalMinimize;
       win.maximize = originalMaximize;
-      win.restore = originalRestore;
+      win.unmaximize = originalUnmaximize;
+      win.isMaximized = originalIsMaximized;
       delete state.__windowOperationMetrics;
       delete state.__restoreWindowOperationTracker;
     };
@@ -107,13 +114,13 @@ async function getWindowOperationMetrics(): Promise<WindowOperationMetrics> {
     const metrics = state.__windowOperationMetrics ?? {
       minimizeCalls: 0,
       maximizeCalls: 0,
-      restoreCalls: 0,
+      unmaximizeCalls: 0,
     };
 
     return {
       minimizeCalls: metrics.minimizeCalls,
       maximizeCalls: metrics.maximizeCalls,
-      restoreCalls: metrics.restoreCalls,
+      unmaximizeCalls: metrics.unmaximizeCalls,
       isMinimized: Boolean(win?.isMinimized?.()),
       isMaximized: Boolean(win?.isMaximized?.()),
     };
@@ -621,7 +628,7 @@ test.describe('Window Operations E2E', () => {
         await expect
           .poll(async () => {
             const metrics = await getWindowOperationMetrics();
-            return metrics.restoreCalls;
+            return metrics.unmaximizeCalls;
           })
           .toBeGreaterThan(0);
       } else {
@@ -632,6 +639,14 @@ test.describe('Window Operations E2E', () => {
           })
           .toBeGreaterThan(0);
       }
+
+      // Wait for the first toggle to settle before issuing the second toggle.
+      await expect
+        .poll(async () => {
+          const metrics = await getWindowOperationMetrics();
+          return metrics.isMaximized;
+        })
+        .toBe(!initial.isMaximized);
 
       const afterFirst = await getWindowOperationMetrics();
 
@@ -651,10 +666,17 @@ test.describe('Window Operations E2E', () => {
         await expect
           .poll(async () => {
             const metrics = await getWindowOperationMetrics();
-            return metrics.restoreCalls;
+            return metrics.unmaximizeCalls;
           })
-          .toBeGreaterThan(afterFirst.restoreCalls);
+          .toBeGreaterThan(afterFirst.unmaximizeCalls);
       }
+
+      await expect
+        .poll(async () => {
+          const metrics = await getWindowOperationMetrics();
+          return metrics.isMaximized;
+        })
+        .toBe(initial.isMaximized);
     } finally {
       await uninstallWindowOperationTracker();
       await electronApp.evaluate(({ BrowserWindow }) => {
@@ -663,7 +685,7 @@ test.describe('Window Operations E2E', () => {
           win.restore();
         }
         if (win?.isMaximized()) {
-          win.restore();
+          win.unmaximize();
         }
       });
     }
