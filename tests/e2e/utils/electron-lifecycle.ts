@@ -12,6 +12,7 @@ export interface LaunchedMdxpadApp {
 export interface LaunchMdxpadOptions {
   env?: Record<string, string>;
   userDataDirSuffix?: string;
+  userDataDir?: string;
 }
 
 function buildIsolatedUserDataDir(suffix = 'session'): string {
@@ -23,6 +24,10 @@ function buildIsolatedUserDataDir(suffix = 'session'): string {
   );
 }
 
+export function createIsolatedUserDataDir(suffix = 'session'): string {
+  return buildIsolatedUserDataDir(suffix);
+}
+
 /**
  * Launch mdxpad Electron app with an isolated profile directory.
  * Isolating user data avoids Chromium SingletonLock collisions between runs.
@@ -32,7 +37,8 @@ export async function launchMdxpad(
 ): Promise<LaunchedMdxpadApp> {
   const electronPath = join(process.cwd(), 'node_modules', '.bin', 'electron');
   const appPath = join(process.cwd(), 'dist', 'main', 'index.js');
-  const userDataDir = buildIsolatedUserDataDir(options.userDataDirSuffix);
+  const userDataDir =
+    options.userDataDir ?? buildIsolatedUserDataDir(options.userDataDirSuffix);
   mkdirSync(userDataDir, { recursive: true });
 
   const app = await electron.launch({
