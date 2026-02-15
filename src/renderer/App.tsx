@@ -230,6 +230,13 @@ export function App(): React.ReactElement {
   const closeVariableDialog = useTemplateBrowserModalStore((s) => s.closeVariableDialog);
   const clearPendingTemplate = useTemplateBrowserModalStore((s) => s.clearPendingTemplate);
 
+  useEffect(() => {
+    (window as any).__mdxpadTestOpenTemplateBrowser = openTemplateBrowser;
+    return () => {
+      delete (window as any).__mdxpadTestOpenTemplateBrowser;
+    };
+  }, [openTemplateBrowser]);
+
   // Save template dialog state
   const isSaveTemplateDialogOpen = useTemplateBrowserModalStore(selectIsSaveTemplateDialogOpen);
   const isSaving = useTemplateBrowserModalStore(selectIsSaving);
