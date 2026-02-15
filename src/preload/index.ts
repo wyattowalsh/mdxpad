@@ -506,6 +506,29 @@ const api: MdxpadAPI = {
     };
   },
 
+  // Canonical settings facade (backward-compatible with autosaveSettings* APIs)
+  settings: {
+    get: () =>
+      validatedInvoke(
+        AutosaveChannels.SETTINGS_GET,
+        null,
+        SettingsGetResponseSchema
+      ),
+    set: (settings) =>
+      validatedInvoke(
+        AutosaveChannels.SETTINGS_SET,
+        SettingsSetRequestSchema,
+        SettingsSetResponseSchema,
+        settings
+      ),
+    onChange: (callback) => {
+      autosaveSettingsChangeListeners.add(callback);
+      return () => {
+        autosaveSettingsChangeListeners.delete(callback);
+      };
+    },
+  },
+
   // === Platform Info ===
   platform: {
     os: 'darwin',

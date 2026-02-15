@@ -71,6 +71,27 @@ function createMockMdxpadApi() {
       }),
     conflictResolve: vi.fn().mockResolvedValue({ ok: true }),
     onAutosaveSettingsChange: vi.fn(() => () => {}),
+    settings: {
+      get: vi
+        .fn()
+        .mockResolvedValue({
+          enabled: true,
+          intervalMs: 30000,
+          retentionDays: 30,
+          maxFiles: 50,
+          maxStorageMB: 100,
+        }),
+      set: vi
+        .fn()
+        .mockResolvedValue({
+          enabled: true,
+          intervalMs: 30000,
+          retentionDays: 30,
+          maxFiles: 50,
+          maxStorageMB: 100,
+        }),
+      onChange: vi.fn(() => () => {}),
+    },
     ai: {
       listProviders: vi.fn().mockResolvedValue({ providers: [], activeProviderId: null }),
       addProvider: vi.fn().mockResolvedValue({ success: true, providerId: 'test-provider' }),

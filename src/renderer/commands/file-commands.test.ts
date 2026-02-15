@@ -135,6 +135,11 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     autosaveSettingsSet: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
     conflictResolve: vi.fn().mockResolvedValue({ ok: true }),
     onAutosaveSettingsChange: vi.fn(() => () => {}),
+    settings: {
+      get: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
+      set: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
+      onChange: vi.fn(() => () => {}),
+    },
     // AI API (Spec 028)
     ai: createMockAIApi(),
     // Template API (Spec 016)
