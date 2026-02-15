@@ -253,6 +253,25 @@ export interface MdxpadAPI {
   onAutosaveSettingsChange(callback: (settings: AutosaveSettings) => void): () => void;
 
   /**
+   * Canonical settings namespace.
+   * Backward-compatible facade over autosave settings operations.
+   */
+  settings: {
+    /**
+     * Get current settings.
+     */
+    get(): Promise<AutosaveSettings>;
+    /**
+     * Persist updated settings.
+     */
+    set(settings: Partial<AutosaveSettings>): Promise<AutosaveSettings>;
+    /**
+     * Subscribe to settings changes.
+     */
+    onChange(callback: (settings: AutosaveSettings) => void): () => void;
+  };
+
+  /**
    * AI Provider API (Spec 028).
    * Provides access to AI provider configuration, generation, and usage tracking.
    */

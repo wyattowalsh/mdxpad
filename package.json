@@ -28,7 +28,14 @@
     "test:e2e": "playwright test",
     "bench": "tsx scripts/bench.ts",
     "verify-security": "tsx scripts/verify-security.ts",
-    "check": "pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "wave4:bootstrap": "bash scripts/wave4/bootstrap.sh",
+    "wave4:rebase": "bash scripts/wave4/rebase-session.sh",
+    "wave4:ownership": "bash scripts/wave4/validate-ownership.sh",
+    "wave4:session-gates": "bash scripts/wave4/session-fast-gates.sh",
+    "wave4:integration-gates": "bash scripts/wave4/integration-full-gates.sh",
+    "wave4:reconcile": "bash scripts/wave4/reconcile.sh",
+    "wave4:cleanup": "bash scripts/wave4/cleanup.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.15",
