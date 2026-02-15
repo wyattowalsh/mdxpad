@@ -365,51 +365,65 @@ test.describe('Command Palette E2E', () => {
 });
 
 test.describe('Menu Integration', () => {
-  test('Command Palette menu item should exist in View menu', async () => {
-    const hasMenuItem = await electronApp.evaluate(({ Menu }) => {
+  test('Command Palette menu item should exist only in View menu', async () => {
+    const menuPlacement = await electronApp.evaluate(({ Menu }) => {
       const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) return false;
-
-      // Find View menu
-      const viewMenu = appMenu.items.find(
-        (item) => item.label === 'View' || item.role === 'viewMenu'
-      );
-      if (!viewMenu?.submenu) return false;
-
-      // Find Command Palette item
-      const paletteItem = viewMenu.submenu.items.find(
-        (item) =>
-          item.label?.includes('Command Palette') ||
-          item.accelerator === 'CmdOrCtrl+Shift+P'
-      );
-      return !!paletteItem;
-    });
-
-    expect(hasMenuItem).toBe(true);
-  });
-
-  test('Cmd+Shift+P should be registered for Command Palette', async () => {
-    const hasShortcut = await electronApp.evaluate(({ Menu }) => {
-      const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) return false;
-
-      // Check all menu items for the accelerator
-      function findAccelerator(items: Electron.MenuItem[]): boolean {
-        for (const item of items) {
-          if (item.accelerator === 'CmdOrCtrl+Shift+P') {
-            return true;
-          }
-          if (item.submenu && findAccelerator(item.submenu.items)) {
-            return true;
-          }
-        }
-        return false;
+      if (!appMenu) {
+        return { totalCount: 0, viewCount: 0 };
       }
 
-      return findAccelerator(appMenu.items);
+      let totalCount = 0;
+      let viewCount = 0;
+
+      for (const topLevelItem of appMenu.items) {
+        if (!topLevelItem.submenu) continue;
+
+        const isViewMenu = topLevelItem.label === 'View' || topLevelItem.role === 'viewMenu';
+        for (const subItem of topLevelItem.submenu.items) {
+          if (!subItem.label?.includes('Command Palette')) continue;
+          totalCount += 1;
+          if (isViewMenu) {
+            viewCount += 1;
+          }
+        }
+      }
+
+      return { totalCount, viewCount };
     });
 
-    expect(hasShortcut).toBe(true);
+    expect(menuPlacement.totalCount).toBe(1);
+    expect(menuPlacement.viewCount).toBe(1);
+  });
+
+  test('Cmd+Shift+P should be registered once for Command Palette in View', async () => {
+    const shortcutPlacement = await electronApp.evaluate(({ Menu }) => {
+      const appMenu = Menu.getApplicationMenu();
+      if (!appMenu) {
+        return { acceleratorCount: 0, viewCommandPaletteAcceleratorCount: 0 };
+      }
+
+      let acceleratorCount = 0;
+      let viewCommandPaletteAcceleratorCount = 0;
+
+      for (const topLevelItem of appMenu.items) {
+        if (!topLevelItem.submenu) continue;
+
+        const isViewMenu = topLevelItem.label === 'View' || topLevelItem.role === 'viewMenu';
+        for (const subItem of topLevelItem.submenu.items) {
+          if (subItem.accelerator !== 'CmdOrCtrl+Shift+P') continue;
+          acceleratorCount += 1;
+
+          if (isViewMenu && subItem.label?.includes('Command Palette')) {
+            viewCommandPaletteAcceleratorCount += 1;
+          }
+        }
+      }
+
+      return { acceleratorCount, viewCommandPaletteAcceleratorCount };
+    });
+
+    expect(shortcutPlacement.acceleratorCount).toBe(1);
+    expect(shortcutPlacement.viewCommandPaletteAcceleratorCount).toBe(1);
   });
 });
 
