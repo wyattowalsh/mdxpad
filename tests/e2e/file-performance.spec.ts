@@ -16,6 +16,7 @@ import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { safeCloseElectronApp } from './utils/electron-lifecycle';
 
 // Test configuration
 const TEMP_DIR = join(tmpdir(), 'mdxpad-perf-test');
@@ -90,7 +91,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   // Close Electron app
-  await electronApp.close();
+  await safeCloseElectronApp(electronApp);
 
   // Clean up test files
   if (existsSync(TEMP_DIR)) {

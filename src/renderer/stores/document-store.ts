@@ -153,6 +153,15 @@ export const useDocumentStore = create<DocumentStore>()(
 // =============================================================================
 
 /**
+ * Selector for file ID.
+ *
+ * @param state - Document store state
+ * @returns File ID or null for untitled documents
+ */
+export const selectFileId = (state: DocumentStore): string | null =>
+  state.fileId;
+
+/**
  * Selector for file path.
  *
  * @param state - Document store state

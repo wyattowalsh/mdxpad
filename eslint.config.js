@@ -81,6 +81,14 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '*.config.js', '*.config.ts', '.specify/**'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'node_modules/**',
+      '*.config.js',
+      '*.config.ts',
+      'electron.vite.config.*.mjs',
+      '.specify/**',
+    ],
   }
 );

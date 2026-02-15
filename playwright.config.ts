@@ -6,7 +6,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
   timeout: 60000, // Electron tests can be slow
   expect: {
     timeout: 10000,

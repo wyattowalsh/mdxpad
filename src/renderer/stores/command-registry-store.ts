@@ -38,6 +38,16 @@ const MAX_RECENT_COMMANDS = 10;
 /** Default limit for getRecentCommands */
 const DEFAULT_RECENT_LIMIT = 5;
 
+/**
+ * Legacy command ID mappings for backward compatibility with older persisted data.
+ * These IDs were used before the CommandId schema was enforced for kebab-case actions.
+ */
+const LEGACY_COMMAND_ID_MIGRATIONS: Record<string, CommandId> = {
+  'file.saveAs': 'file.save-as' as CommandId,
+  'file.newFromTemplate': 'file.new-from-template' as CommandId,
+  'template.saveAsTemplate': 'template.save-as-template' as CommandId,
+};
+
 // =============================================================================
 // STATE INTERFACE
 // =============================================================================
@@ -141,6 +151,40 @@ function sortRecentByLastUsed(entries: RecentCommandEntry[]): void {
  */
 function findRecentIndex(entries: readonly RecentCommandEntry[], id: CommandId): number {
   return entries.findIndex((entry) => entry.commandId === id);
+}
+
+/**
+ * Migrate legacy recent-command entries to current command IDs before validation.
+ *
+ * @param value - Parsed value from localStorage
+ * @returns Value with legacy command IDs remapped when possible
+ */
+function migrateLegacyRecentCommands(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return entry;
+    }
+
+    const entryRecord = entry as Record<string, unknown>;
+    const commandId = entryRecord.commandId;
+    if (typeof commandId !== 'string') {
+      return entry;
+    }
+
+    const migratedId = LEGACY_COMMAND_ID_MIGRATIONS[commandId];
+    if (!migratedId) {
+      return entry;
+    }
+
+    return {
+      ...entryRecord,
+      commandId: migratedId,
+    };
+  });
 }
 
 // =============================================================================
@@ -326,7 +370,8 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
         const stored = localStorage.getItem(STORAGE_KEYS.recentCommands);
         if (stored) {
           const parsed = JSON.parse(stored);
-          const validated = parseRecentCommands(parsed);
+          const migrated = migrateLegacyRecentCommands(parsed);
+          const validated = parseRecentCommands(migrated);
           set((draft) => {
             draft.recentCommands = validated;
             sortRecentByLastUsed(draft.recentCommands);

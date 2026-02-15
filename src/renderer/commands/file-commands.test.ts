@@ -192,7 +192,7 @@ describe('FILE_COMMAND_IDS', () => {
     expect(FILE_COMMAND_IDS.new).toBe('file.new');
     expect(FILE_COMMAND_IDS.open).toBe('file.open');
     expect(FILE_COMMAND_IDS.save).toBe('file.save');
-    expect(FILE_COMMAND_IDS.saveAs).toBe('file.saveAs');
+    expect(FILE_COMMAND_IDS.saveAs).toBe('file.save-as');
     expect(FILE_COMMAND_IDS.close).toBe('file.close');
   });
 });
@@ -488,7 +488,7 @@ describe('Keyboard Shortcuts', () => {
     expect(saveFileCommand.shortcut).toEqual({ key: 's', modifiers: ['Mod'] });
   });
 
-  it('file.saveAs should have Cmd+Shift+S shortcut', () => {
+  it('file.save-as should have Cmd+Shift+S shortcut', () => {
     expect(saveFileAsCommand.shortcut).toEqual({ key: 's', modifiers: ['Mod', 'Shift'] });
   });
 

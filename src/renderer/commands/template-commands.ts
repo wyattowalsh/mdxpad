@@ -29,9 +29,9 @@ import { useTemplateStore } from '../stores/template-store';
  * Use these constants when executing commands programmatically.
  */
 export const TEMPLATE_COMMAND_IDS = {
-  newFromTemplate: 'file.newFromTemplate' as CommandId,
+  newFromTemplate: 'file.new-from-template' as CommandId,
   browseTemplates: 'template.browse' as CommandId,
-  saveAsTemplate: 'template.saveAsTemplate' as CommandId,
+  saveAsTemplate: 'template.save-as-template' as CommandId,
   importTemplate: 'template.import' as CommandId,
 } as const;
 

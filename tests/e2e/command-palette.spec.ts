@@ -18,6 +18,7 @@
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
+import { safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
@@ -38,10 +39,11 @@ test.beforeAll(async () => {
 
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('[data-testid="status-bar"]');
 });
 
 test.afterAll(async () => {
-  await electronApp.close();
+  await safeCloseElectronApp(electronApp);
 });
 
 test.describe('Command Palette E2E', () => {
@@ -53,10 +55,7 @@ test.describe('Command Palette E2E', () => {
 
       // Look for command palette elements
       const paletteVisible = await page.evaluate(() => {
-        // Look for command palette container by role or data attribute
-        const palette = document.querySelector('[role="dialog"]') ||
-                       document.querySelector('[data-command-palette]') ||
-                       document.querySelector('[data-state="open"]');
+        const palette = document.querySelector('[data-testid="command-palette"]');
         return palette !== null;
       });
 
@@ -74,9 +73,7 @@ test.describe('Command Palette E2E', () => {
 
       // Verify it's open
       const openBefore = await page.evaluate(() => {
-        const palette = document.querySelector('[role="dialog"]') ||
-                       document.querySelector('[data-command-palette]') ||
-                       document.querySelector('[data-state="open"]');
+        const palette = document.querySelector('[data-testid="command-palette"]');
         return palette !== null;
       });
 
@@ -86,9 +83,7 @@ test.describe('Command Palette E2E', () => {
 
       // Verify it's closed
       const openAfter = await page.evaluate(() => {
-        const palette = document.querySelector('[role="dialog"]') ||
-                       document.querySelector('[data-command-palette]') ||
-                       document.querySelector('[data-state="open"]');
+        const palette = document.querySelector('[data-testid="command-palette"]');
         return palette !== null;
       });
 
@@ -116,8 +111,7 @@ test.describe('Command Palette E2E', () => {
         await page.waitForTimeout(100);
 
         const openAfter = await page.evaluate(() => {
-          const palette = document.querySelector('[role="dialog"]') ||
-                         document.querySelector('[data-command-palette]');
+          const palette = document.querySelector('[data-testid="command-palette"]');
           return palette !== null;
         });
 

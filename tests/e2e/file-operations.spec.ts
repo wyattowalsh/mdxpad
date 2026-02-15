@@ -20,6 +20,7 @@ import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
 import { writeFileSync, unlinkSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
@@ -56,7 +57,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await electronApp.close();
+  await safeCloseElectronApp(electronApp);
 
   // Cleanup test fixtures
   if (existsSync(TEST_FIXTURES_DIR)) {

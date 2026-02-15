@@ -35,6 +35,7 @@ import {
 import { tmpdir, homedir, platform } from 'node:os';
 import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
+import { safeCloseElectronApp } from './utils/electron-lifecycle';
 
 // ============================================================================
 // Test Configuration
@@ -273,9 +274,9 @@ test.describe('Autosave and Recovery', () => {
     });
 
     test.afterAll(async () => {
-      if (electronApp) {
-        await electronApp.close();
-      }
+      await safeCloseElectronApp(electronApp);
+      electronApp = null;
+      page = null;
     });
 
     test('should have autosave API methods exposed via preload', async () => {
@@ -421,9 +422,9 @@ Special chars: <>&"'\`\\n\\t
     });
 
     test.afterEach(async () => {
-      if (electronApp) {
-        await electronApp.close();
-      }
+      await safeCloseElectronApp(electronApp);
+      electronApp = null;
+      page = null;
     });
 
     test('should show recovery dialog on restart with recovery data', async () => {
@@ -617,7 +618,7 @@ Special chars: <>&"'\`\\n\\t
         }
       } else {
         // Even without button, closing app should preserve files
-        await electronApp.close();
+        await safeCloseElectronApp(electronApp);
 
         // Verify files are preserved
         const recoveryData = getRecoveryFileContent(docId);
@@ -627,7 +628,8 @@ Special chars: <>&"'\`\\n\\t
         }
 
         // Prevent afterEach from trying to close already closed app
-        electronApp = null as unknown as ElectronApplication;
+        electronApp = null;
+        page = null;
       }
     });
   });
@@ -710,7 +712,7 @@ Special chars: <>&"'\`\\n\\t
       }
 
       // Cleanup
-      await app.close();
+      await safeCloseElectronApp(app);
     });
 
     test('should handle app restart without recovery data gracefully', async () => {
@@ -740,7 +742,7 @@ Special chars: <>&"'\`\\n\\t
 
       expect(dialogVisible).toBe(false);
 
-      await app.close();
+      await safeCloseElectronApp(app);
     });
   });
 
