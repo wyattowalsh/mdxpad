@@ -32,6 +32,7 @@ import {
 
 // Type assertion helpers for mocks
 const mockIpcMain = ipcMain as unknown as { handle: Mock };
+const mockInvokeEvent = { sender: 'renderer' };
 
 describe('window-handlers', () => {
   let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
@@ -39,7 +40,7 @@ describe('window-handlers', () => {
     close: Mock;
     minimize: Mock;
     maximize: Mock;
-    restore: Mock;
+    unmaximize: Mock;
     isMaximized: Mock;
   };
 
@@ -59,14 +60,14 @@ describe('window-handlers', () => {
       close: vi.fn(),
       minimize: vi.fn(),
       maximize: vi.fn(),
-      restore: vi.fn(),
+      unmaximize: vi.fn(),
       isMaximized: vi.fn(() => false),
       webContents: { send: vi.fn() },
     } as unknown as BrowserWindow & {
       close: Mock;
       minimize: Mock;
       maximize: Mock;
-      restore: Mock;
+      unmaximize: Mock;
       isMaximized: Mock;
     };
 
@@ -100,7 +101,7 @@ describe('window-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:window:close');
       expect(handler).toBeDefined();
 
-      await handler!(undefined);
+      await handler!(mockInvokeEvent);
 
       expect(mockBrowserWindow.close).toHaveBeenCalledTimes(1);
     });
@@ -109,7 +110,15 @@ describe('window-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:window:close');
 
       // Should not throw with undefined args
-      await expect(handler!(undefined)).resolves.toBeUndefined();
+      await expect(handler!(mockInvokeEvent, undefined)).resolves.toBeUndefined();
+    });
+
+    it('should reject invalid invoke args', async () => {
+      const handler = registeredHandlers.get('mdxpad:window:close');
+
+      await expect(handler!(mockInvokeEvent, { unexpected: true })).rejects.toThrow(
+        'Validation failed'
+      );
     });
   });
 
@@ -118,7 +127,7 @@ describe('window-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:window:minimize');
       expect(handler).toBeDefined();
 
-      await handler!(undefined);
+      await handler!(mockInvokeEvent);
 
       expect(mockBrowserWindow.minimize).toHaveBeenCalledTimes(1);
     });
@@ -126,7 +135,7 @@ describe('window-handlers', () => {
     it('should accept void request (no arguments)', async () => {
       const handler = registeredHandlers.get('mdxpad:window:minimize');
 
-      await expect(handler!(undefined)).resolves.toBeUndefined();
+      await expect(handler!(mockInvokeEvent, undefined)).resolves.toBeUndefined();
     });
   });
 
@@ -137,30 +146,30 @@ describe('window-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:window:maximize');
       expect(handler).toBeDefined();
 
-      await handler!(undefined);
+      await handler!(mockInvokeEvent);
 
       expect(mockBrowserWindow.isMaximized).toHaveBeenCalledTimes(1);
       expect(mockBrowserWindow.maximize).toHaveBeenCalledTimes(1);
-      expect(mockBrowserWindow.restore).not.toHaveBeenCalled();
+      expect(mockBrowserWindow.unmaximize).not.toHaveBeenCalled();
     });
 
-    it('should call window.restore() when already maximized', async () => {
+    it('should call window.unmaximize() when already maximized', async () => {
       mockBrowserWindow.isMaximized.mockReturnValue(true);
 
       const handler = registeredHandlers.get('mdxpad:window:maximize');
       expect(handler).toBeDefined();
 
-      await handler!(undefined);
+      await handler!(mockInvokeEvent);
 
       expect(mockBrowserWindow.isMaximized).toHaveBeenCalledTimes(1);
-      expect(mockBrowserWindow.restore).toHaveBeenCalledTimes(1);
+      expect(mockBrowserWindow.unmaximize).toHaveBeenCalledTimes(1);
       expect(mockBrowserWindow.maximize).not.toHaveBeenCalled();
     });
 
     it('should accept void request (no arguments)', async () => {
       const handler = registeredHandlers.get('mdxpad:window:maximize');
 
-      await expect(handler!(undefined)).resolves.toBeUndefined();
+      await expect(handler!(mockInvokeEvent, undefined)).resolves.toBeUndefined();
     });
   });
 });
@@ -226,6 +235,14 @@ describe('window zod validation (Constitution Section 3.3 compliance)', () => {
 
       await expect(handler([])).rejects.toThrow('Validation failed');
     });
+
+    it('should reject invoke event-like objects when treated as payload', async () => {
+      const handler = createValidatedHandler(WindowCloseRequestSchema, async () => {
+        return 'closed';
+      });
+
+      await expect(handler(mockInvokeEvent)).rejects.toThrow('Validation failed');
+    });
   });
 });
 
@@ -234,7 +251,7 @@ describe('window handler integration scenarios', () => {
     close: Mock;
     minimize: Mock;
     maximize: Mock;
-    restore: Mock;
+    unmaximize: Mock;
     isMaximized: Mock;
   };
 
@@ -245,14 +262,14 @@ describe('window handler integration scenarios', () => {
       close: vi.fn(),
       minimize: vi.fn(),
       maximize: vi.fn(),
-      restore: vi.fn(),
+      unmaximize: vi.fn(),
       isMaximized: vi.fn(),
       webContents: { send: vi.fn() },
     } as unknown as BrowserWindow & {
       close: Mock;
       minimize: Mock;
       maximize: Mock;
-      restore: Mock;
+      unmaximize: Mock;
       isMaximized: Mock;
     };
   });
@@ -271,17 +288,17 @@ describe('window handler integration scenarios', () => {
 
     // First call - not maximized, should maximize
     mockBrowserWindow.isMaximized.mockReturnValue(false);
-    await handler!(undefined);
+    await handler!(mockInvokeEvent);
     expect(mockBrowserWindow.maximize).toHaveBeenCalledTimes(1);
-    expect(mockBrowserWindow.restore).not.toHaveBeenCalled();
+    expect(mockBrowserWindow.unmaximize).not.toHaveBeenCalled();
 
     // Clear mock calls
     vi.clearAllMocks();
 
-    // Second call - now maximized, should restore
+    // Second call - now maximized, should unmaximize
     mockBrowserWindow.isMaximized.mockReturnValue(true);
-    await handler!(undefined);
-    expect(mockBrowserWindow.restore).toHaveBeenCalledTimes(1);
+    await handler!(mockInvokeEvent);
+    expect(mockBrowserWindow.unmaximize).toHaveBeenCalledTimes(1);
     expect(mockBrowserWindow.maximize).not.toHaveBeenCalled();
   });
 
@@ -302,15 +319,15 @@ describe('window handler integration scenarios', () => {
     mockBrowserWindow.isMaximized.mockReturnValue(false);
 
     // Minimize
-    await minimizeHandler!(undefined);
+    await minimizeHandler!(mockInvokeEvent);
     expect(mockBrowserWindow.minimize).toHaveBeenCalledTimes(1);
 
     // Maximize
-    await maximizeHandler!(undefined);
+    await maximizeHandler!(mockInvokeEvent);
     expect(mockBrowserWindow.maximize).toHaveBeenCalledTimes(1);
 
     // Close
-    await closeHandler!(undefined);
+    await closeHandler!(mockInvokeEvent);
     expect(mockBrowserWindow.close).toHaveBeenCalledTimes(1);
   });
 });

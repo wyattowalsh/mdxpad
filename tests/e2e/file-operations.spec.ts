@@ -44,6 +44,97 @@ async function dispatchMenuAcceleratorEvent(
   }, channel);
 }
 
+type WindowOperationMetrics = {
+  minimizeCalls: number;
+  maximizeCalls: number;
+  unmaximizeCalls: number;
+  isMinimized: boolean;
+  isMaximized: boolean;
+};
+
+async function installWindowOperationTracker(): Promise<boolean> {
+  return electronApp.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0] as any;
+    if (!win) {
+      return false;
+    }
+
+    const state = globalThis as any;
+    const previousRestore = state.__restoreWindowOperationTracker as (() => void) | undefined;
+    previousRestore?.();
+
+    const originalMinimize = win.minimize.bind(win) as (...args: unknown[]) => unknown;
+    const originalMaximize = win.maximize.bind(win) as (...args: unknown[]) => unknown;
+    const originalUnmaximize = win.unmaximize.bind(win) as (...args: unknown[]) => unknown;
+    const originalIsMaximized = win.isMaximized.bind(win) as () => boolean;
+    let syntheticIsMaximized = originalIsMaximized();
+
+    state.__windowOperationMetrics = {
+      minimizeCalls: 0,
+      maximizeCalls: 0,
+      unmaximizeCalls: 0,
+    };
+
+    win.minimize = (...innerArgs: unknown[]) => {
+      state.__windowOperationMetrics.minimizeCalls += 1;
+      return originalMinimize(...innerArgs);
+    };
+
+    win.maximize = (...innerArgs: unknown[]) => {
+      state.__windowOperationMetrics.maximizeCalls += 1;
+      syntheticIsMaximized = true;
+      return originalMaximize(...innerArgs);
+    };
+
+    win.unmaximize = (...innerArgs: unknown[]) => {
+      state.__windowOperationMetrics.unmaximizeCalls += 1;
+      syntheticIsMaximized = false;
+      return originalUnmaximize(...innerArgs);
+    };
+
+    win.isMaximized = () => syntheticIsMaximized;
+
+    state.__restoreWindowOperationTracker = () => {
+      win.minimize = originalMinimize;
+      win.maximize = originalMaximize;
+      win.unmaximize = originalUnmaximize;
+      win.isMaximized = originalIsMaximized;
+      delete state.__windowOperationMetrics;
+      delete state.__restoreWindowOperationTracker;
+    };
+
+    return true;
+  });
+}
+
+async function getWindowOperationMetrics(): Promise<WindowOperationMetrics> {
+  return electronApp.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0] as any;
+    const state = globalThis as any;
+    const metrics = state.__windowOperationMetrics ?? {
+      minimizeCalls: 0,
+      maximizeCalls: 0,
+      unmaximizeCalls: 0,
+    };
+
+    return {
+      minimizeCalls: metrics.minimizeCalls,
+      maximizeCalls: metrics.maximizeCalls,
+      unmaximizeCalls: metrics.unmaximizeCalls,
+      isMinimized: Boolean(win?.isMinimized?.()),
+      isMaximized: Boolean(win?.isMaximized?.()),
+    };
+  });
+}
+
+async function uninstallWindowOperationTracker(): Promise<void> {
+  await electronApp.evaluate(() => {
+    const state = globalThis as any;
+    const restore = state.__restoreWindowOperationTracker as (() => void) | undefined;
+    restore?.();
+  });
+}
+
 test.beforeAll(async () => {
   // Create test fixtures directory
   if (!existsSync(TEST_FIXTURES_DIR)) {
@@ -495,59 +586,109 @@ test.describe('Window Operations E2E', () => {
   });
 
   test('minimizeWindow should minimize the window', async () => {
-    // Skip if running in CI without display
-    if (process.env.CI) {
-      test.skip();
-      return;
+    const trackerInstalled = await installWindowOperationTracker();
+    expect(trackerInstalled).toBe(true);
+
+    try {
+      const result = await page.evaluate(async () => {
+        return await (window as any).mdxpad.minimizeWindow();
+      });
+      expect(result).toBeUndefined();
+
+      await expect
+        .poll(async () => {
+          const metrics = await getWindowOperationMetrics();
+          return metrics.minimizeCalls;
+        })
+        .toBeGreaterThan(0);
+    } finally {
+      await uninstallWindowOperationTracker();
+      await electronApp.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win?.isMinimized()) {
+          win.restore();
+        }
+      });
     }
-
-    const initialState = await electronApp.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getFocusedWindow();
-      return win?.isMinimized() ?? false;
-    });
-
-    await page.evaluate(() => (window as any).mdxpad.minimizeWindow());
-    await page.waitForTimeout(200);
-
-    const isMinimized = await electronApp.evaluate(({ BrowserWindow }) => {
-      const windows = BrowserWindow.getAllWindows();
-      return windows[0]?.isMinimized() ?? false;
-    });
-
-    // Restore window for subsequent tests
-    await electronApp.evaluate(({ BrowserWindow }) => {
-      const windows = BrowserWindow.getAllWindows();
-      windows[0]?.restore();
-    });
-
-    expect(isMinimized).toBe(true);
   });
 
   test('maximizeWindow should toggle maximize state', async () => {
-    // Skip if running in CI without display
-    if (process.env.CI) {
-      test.skip();
-      return;
+    const trackerInstalled = await installWindowOperationTracker();
+    expect(trackerInstalled).toBe(true);
+
+    try {
+      const initial = await getWindowOperationMetrics();
+
+      const firstResult = await page.evaluate(async () => {
+        return await (window as any).mdxpad.maximizeWindow();
+      });
+      expect(firstResult).toBeUndefined();
+
+      if (initial.isMaximized) {
+        await expect
+          .poll(async () => {
+            const metrics = await getWindowOperationMetrics();
+            return metrics.unmaximizeCalls;
+          })
+          .toBeGreaterThan(0);
+      } else {
+        await expect
+          .poll(async () => {
+            const metrics = await getWindowOperationMetrics();
+            return metrics.maximizeCalls;
+          })
+          .toBeGreaterThan(0);
+      }
+
+      // Wait for the first toggle to settle before issuing the second toggle.
+      await expect
+        .poll(async () => {
+          const metrics = await getWindowOperationMetrics();
+          return metrics.isMaximized;
+        })
+        .toBe(!initial.isMaximized);
+
+      const afterFirst = await getWindowOperationMetrics();
+
+      const secondResult = await page.evaluate(async () => {
+        return await (window as any).mdxpad.maximizeWindow();
+      });
+      expect(secondResult).toBeUndefined();
+
+      if (initial.isMaximized) {
+        await expect
+          .poll(async () => {
+            const metrics = await getWindowOperationMetrics();
+            return metrics.maximizeCalls;
+          })
+          .toBeGreaterThan(afterFirst.maximizeCalls);
+      } else {
+        await expect
+          .poll(async () => {
+            const metrics = await getWindowOperationMetrics();
+            return metrics.unmaximizeCalls;
+          })
+          .toBeGreaterThan(afterFirst.unmaximizeCalls);
+      }
+
+      await expect
+        .poll(async () => {
+          const metrics = await getWindowOperationMetrics();
+          return metrics.isMaximized;
+        })
+        .toBe(initial.isMaximized);
+    } finally {
+      await uninstallWindowOperationTracker();
+      await electronApp.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win?.isMinimized()) {
+          win.restore();
+        }
+        if (win?.isMaximized()) {
+          win.unmaximize();
+        }
+      });
     }
-
-    const initialMaximized = await electronApp.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getFocusedWindow();
-      return win?.isMaximized() ?? false;
-    });
-
-    await page.evaluate(() => (window as any).mdxpad.maximizeWindow());
-    await page.waitForTimeout(200);
-
-    const afterToggle = await electronApp.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getFocusedWindow();
-      return win?.isMaximized() ?? false;
-    });
-
-    // Should toggle the state
-    expect(afterToggle).not.toBe(initialMaximized);
-
-    // Restore to original state
-    await page.evaluate(() => (window as any).mdxpad.maximizeWindow());
   });
 });
 

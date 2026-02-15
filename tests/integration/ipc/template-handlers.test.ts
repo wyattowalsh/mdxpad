@@ -61,7 +61,7 @@ vi.mock('@mdx-js/mdx', () => ({
 // Import after mocks are set up
 import { registerTemplateHandlers } from '@main/services/template';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
-import { dialog, ipcMain } from 'electron';
+import { app, dialog, ipcMain } from 'electron';
 import * as fs from 'fs/promises';
 import { compile } from '@mdx-js/mdx';
 
@@ -71,6 +71,10 @@ const mockDialog = dialog as unknown as {
   showSaveDialog: Mock;
 };
 const mockIpcMain = ipcMain as unknown as { handle: Mock };
+const mockApp = app as unknown as {
+  getAppPath: Mock;
+  isPackaged: boolean;
+};
 const mockFs = fs as unknown as {
   readdir: Mock;
   readFile: Mock;
@@ -110,6 +114,17 @@ category: "custom"
 Content
 `;
 
+const BUILTIN_TEMPLATE_CONTENT = `---
+name: "Blog Post"
+description: "Built-in blog post template"
+category: "blog"
+tags:
+  - blog
+---
+
+# {{title}}
+`;
+
 describe('template-handlers', () => {
   let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
 
@@ -133,6 +148,8 @@ describe('template-handlers', () => {
     mockFs.access.mockRejectedValue(new Error('ENOENT'));
     mockFs.stat.mockResolvedValue({ isFile: () => true, isDirectory: () => false });
     mockCompile.mockResolvedValue({ toString: () => 'compiled' });
+    mockApp.getAppPath.mockReturnValue('/mock/app');
+    mockApp.isPackaged = false;
 
     // Register handlers
     registerTemplateHandlers(ipcMain);
@@ -203,6 +220,44 @@ describe('template-handlers', () => {
       const result = await handler!({}, { invalid: 'payload' });
       expect(result).toHaveProperty('success', false);
       expect(result).toHaveProperty('code', 'VALIDATION_ERROR');
+    });
+
+    it('should include built-ins from dist launch fallback path', async () => {
+      const handler = registeredHandlers.get(IPC_CHANNELS.template.list);
+      expect(handler).toBeDefined();
+
+      const distMainPath = '/Users/ww/dev/projects/mdxpad/dist/main';
+      const fallbackBuiltinPath = '/Users/ww/dev/projects/mdxpad/resources/templates';
+      mockApp.getAppPath.mockReturnValue(distMainPath);
+      mockApp.isPackaged = false;
+
+      mockFs.readdir.mockImplementation(async (dirPath: string) => {
+        if (dirPath === fallbackBuiltinPath) {
+          return ['blog-post.mdxt'];
+        }
+        throw new Error('ENOENT');
+      });
+      mockFs.readFile.mockImplementation(async (filePath: string) => {
+        if (filePath === `${fallbackBuiltinPath}/blog-post.mdxt`) {
+          return BUILTIN_TEMPLATE_CONTENT;
+        }
+        throw new Error('ENOENT');
+      });
+
+      const result = await handler!({}, { action: 'list', source: 'builtin' });
+
+      expect(result).toHaveProperty('success', true);
+      const typedResult = result as {
+        success: boolean;
+        templates: Array<{ id: string; name: string; isBuiltIn: boolean }>;
+      };
+      expect(typedResult.templates).toHaveLength(1);
+      expect(typedResult.templates[0]).toMatchObject({
+        id: 'blog-post',
+        name: 'Blog Post',
+        isBuiltIn: true,
+      });
+      expect(mockFs.readdir).toHaveBeenCalledWith(fallbackBuiltinPath);
     });
   });
 

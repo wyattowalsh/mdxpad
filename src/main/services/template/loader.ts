@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import matter from 'gray-matter';
 
 import type { TemplateMetadata } from '@shared/contracts/template-schemas';
-import { getBuiltinTemplatesPath, getCustomTemplatesPath } from './paths';
+import { getBuiltinTemplatesPathCandidates, getCustomTemplatesPath } from './paths';
 import { parseTemplateMetadataFile, slugify } from './parser';
 
 /**
@@ -48,8 +48,14 @@ export async function loadTemplatesFromDir(
  * Loads all built-in templates.
  */
 export async function loadBuiltinTemplates(): Promise<TemplateMetadata[]> {
-  const builtinPath = getBuiltinTemplatesPath();
-  return loadTemplatesFromDir(builtinPath, true);
+  for (const builtinPath of getBuiltinTemplatesPathCandidates()) {
+    const templates = await loadTemplatesFromDir(builtinPath, true);
+    if (templates.length > 0) {
+      return templates;
+    }
+  }
+
+  return [];
 }
 
 /**
@@ -97,11 +103,12 @@ async function findTemplateInDir(
 export async function findTemplateById(
   id: string
 ): Promise<{ filePath: string; isBuiltIn: boolean } | null> {
-  // Check built-in templates
-  const builtinPath = getBuiltinTemplatesPath();
-  const builtinResult = await findTemplateInDir(builtinPath, id);
-  if (builtinResult) {
-    return { filePath: builtinResult, isBuiltIn: true };
+  // Check built-in templates across all candidate locations.
+  for (const builtinPath of getBuiltinTemplatesPathCandidates()) {
+    const builtinResult = await findTemplateInDir(builtinPath, id);
+    if (builtinResult) {
+      return { filePath: builtinResult, isBuiltIn: true };
+    }
   }
 
   // Check custom templates
