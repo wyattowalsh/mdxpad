@@ -25,10 +25,9 @@ export function registerWindowHandlers(
   ipcMain: IpcMain,
   window: BrowserWindow
 ): void {
-  // mdxpad:window:close - Close window (with dirty check in Phase 3)
-  ipcMain.handle(
-    IPC_CHANNELS.window.close,
-    createValidatedHandler(WindowCloseRequestSchema, (): Promise<void> => {
+  const handleWindowClose = createValidatedHandler(
+    WindowCloseRequestSchema,
+    (): Promise<void> => {
       // TODO: Phase 3 - Check dirty state via IPC before closing
       // For now, just close the window
       // Future implementation:
@@ -50,28 +49,35 @@ export function registerWindowHandlers(
 
       window.close();
       return Promise.resolve();
-    })
+    }
   );
 
-  // mdxpad:window:minimize - Minimize window
-  ipcMain.handle(
-    IPC_CHANNELS.window.minimize,
-    createValidatedHandler(WindowMinimizeRequestSchema, (): Promise<void> => {
+  const handleWindowMinimize = createValidatedHandler(
+    WindowMinimizeRequestSchema,
+    (): Promise<void> => {
       window.minimize();
       return Promise.resolve();
-    })
+    }
   );
 
-  // mdxpad:window:maximize - Toggle maximize/restore
-  ipcMain.handle(
-    IPC_CHANNELS.window.maximize,
-    createValidatedHandler(WindowMaximizeRequestSchema, (): Promise<void> => {
+  const handleWindowMaximize = createValidatedHandler(
+    WindowMaximizeRequestSchema,
+    (): Promise<void> => {
       if (window.isMaximized()) {
         window.restore();
       } else {
         window.maximize();
       }
       return Promise.resolve();
-    })
+    }
   );
+
+  // mdxpad:window:close - Close window (with dirty check in Phase 3)
+  ipcMain.handle(IPC_CHANNELS.window.close, (_event, args) => handleWindowClose(args));
+
+  // mdxpad:window:minimize - Minimize window
+  ipcMain.handle(IPC_CHANNELS.window.minimize, (_event, args) => handleWindowMinimize(args));
+
+  // mdxpad:window:maximize - Toggle maximize/restore
+  ipcMain.handle(IPC_CHANNELS.window.maximize, (_event, args) => handleWindowMaximize(args));
 }
