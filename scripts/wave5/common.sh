@@ -50,6 +50,8 @@ electron.vite.config.ts
 .github/workflows/ci.yml
 scripts/bench.ts
 src/renderer/App.tsx
+src/renderer/components/ui/resizable.tsx
+scripts/verify-security.ts
 docs/wave5
 scripts/wave5
 EOF
