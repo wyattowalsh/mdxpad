@@ -109,10 +109,10 @@ export class CredentialService implements ICredentialService {
   private readonly store: Store<CredentialStoreSchema>;
 
   /** In-memory fallback for session-only storage */
-  private readonly sessionStore: Map<string, string> = new Map();
+  private readonly sessionStore = new Map<string, string>();
 
   /** In-memory metadata for session credentials */
-  private readonly sessionMetadata: Map<string, CredentialMetadata> = new Map();
+  private readonly sessionMetadata = new Map<string, CredentialMetadata>();
 
   /** Whether safeStorage encryption is available */
   private readonly encryptionAvailable: boolean;
@@ -166,6 +166,7 @@ export class CredentialService implements ICredentialService {
    * @returns Result containing success status, storage type, and metadata
    * @throws CredentialStorageError if encryption fails
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async setCredential(
     providerId: string,
     apiKey: string
@@ -186,6 +187,7 @@ export class CredentialService implements ICredentialService {
    * @returns The decrypted API key, or null if not found
    * @throws CredentialStorageError if decryption fails
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getCredential(providerId: string): Promise<string | null> {
     if (this.encryptionAvailable) {
       return this.getCredentialPersistent(providerId);
@@ -200,6 +202,7 @@ export class CredentialService implements ICredentialService {
    * @param providerId - Unique identifier for the provider
    * @returns Credential metadata if exists, null otherwise
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async hasCredential(providerId: string): Promise<CredentialMetadata | null> {
     if (this.encryptionAvailable) {
       const credentials = this.store.get('credentials');
@@ -216,6 +219,7 @@ export class CredentialService implements ICredentialService {
    * @param providerId - Unique identifier for the provider
    * @returns True if a credential was removed, false if none existed
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async clearCredential(providerId: string): Promise<boolean> {
     if (this.encryptionAvailable) {
       return this.clearCredentialPersistent(providerId);
@@ -290,6 +294,7 @@ export class CredentialService implements ICredentialService {
       return false;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete credentials[providerId];
     this.store.set('credentials', credentials);
     return true;
