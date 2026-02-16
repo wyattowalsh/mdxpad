@@ -79,7 +79,8 @@ import type { Template } from '@shared/contracts/template-schemas';
 /** Minimum pane size as percentage (10% = ~100px at 1000px width) */
 const MIN_PANE_SIZE = 10;
 
-/** Default split ratio (50% editor / 50% preview) */
+/** Default split ratio (50% editor / 50% preview) - used by tests */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const DEFAULT_SPLIT_RATIO = 0.5;
 
 // =============================================================================
@@ -88,25 +89,26 @@ const DEFAULT_SPLIT_RATIO = 0.5;
 
 /** Get mdxpad API with fallback for non-Electron environments */
 function getMdxpadApi() {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   return window.mdxpad ?? {
-    getVersion: async () => 'dev',
-    getSecurityInfo: async () => ({ contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true }),
-    openFile: async () => ({ ok: false, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    saveFile: async () => ({ ok: false, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    saveFileAs: async () => ({ ok: false, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    readFile: async () => ({ ok: false, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    writeFile: async () => ({ ok: false, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    closeWindow: async () => {},
-    minimizeWindow: async () => {},
-    maximizeWindow: async () => {},
-    signalReady: async () => {},
-    onFileChange: () => () => {},
-    onMenuCommandPalette: () => () => {},
-    onMenuNewFile: () => () => {},
-    onMenuOpenFileDialog: () => () => {},
-    onMenuOpenFile: () => () => {},
-    onMenuSaveFile: () => () => {},
-    onMenuSaveFileAs: () => () => {},
+    getVersion: () => Promise.resolve('dev'),
+    getSecurityInfo: () => Promise.resolve({ contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true }),
+    openFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
+    saveFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
+    saveFileAs: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
+    readFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
+    writeFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
+    closeWindow: () => Promise.resolve(),
+    minimizeWindow: () => Promise.resolve(),
+    maximizeWindow: () => Promise.resolve(),
+    signalReady: () => Promise.resolve(),
+    onFileChange: () => () => { /* noop */ },
+    onMenuCommandPalette: () => () => { /* noop */ },
+    onMenuNewFile: () => () => { /* noop */ },
+    onMenuOpenFileDialog: () => () => { /* noop */ },
+    onMenuOpenFile: () => () => { /* noop */ },
+    onMenuSaveFile: () => () => { /* noop */ },
+    onMenuSaveFileAs: () => () => { /* noop */ },
     platform: { os: 'browser' as const, arch: 'unknown' as const },
   };
 }
@@ -160,6 +162,7 @@ function useAppEvents(toggle: () => void): { version: string; platform: { os: st
 // =============================================================================
 
 /** Main App component with split-pane layout. */
+// eslint-disable-next-line max-lines-per-function
 export function App(): React.ReactElement {
   // Ref to the CodeMirror EditorView for navigation
   const editorRef = useRef<EditorView | null>(null);
@@ -200,6 +203,7 @@ export function App(): React.ReactElement {
 
   // Bidirectional scroll synchronization between editor and preview
   // Feature: 008-bidirectional-sync
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { syncEditorToPreview } = useScrollSync({
     editorRef,
     previewRef: previewIframeRef,
@@ -231,9 +235,9 @@ export function App(): React.ReactElement {
   const clearPendingTemplate = useTemplateBrowserModalStore((s) => s.clearPendingTemplate);
 
   useEffect(() => {
-    (window as any).__mdxpadTestOpenTemplateBrowser = openTemplateBrowser;
+    (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser = openTemplateBrowser;
     return () => {
-      delete (window as any).__mdxpadTestOpenTemplateBrowser;
+      delete (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser;
     };
   }, [openTemplateBrowser]);
 
@@ -241,6 +245,7 @@ export function App(): React.ReactElement {
   const isSaveTemplateDialogOpen = useTemplateBrowserModalStore(selectIsSaveTemplateDialogOpen);
   const isSaving = useTemplateBrowserModalStore(selectIsSaving);
   const saveError = useTemplateBrowserModalStore(selectSaveError);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openSaveTemplateDialog = useTemplateBrowserModalStore((s) => s.openSaveTemplateDialog);
   const closeSaveTemplateDialog = useTemplateBrowserModalStore((s) => s.closeSaveTemplateDialog);
   const setSaving = useTemplateBrowserModalStore((s) => s.setSaving);
@@ -317,12 +322,12 @@ export function App(): React.ReactElement {
    */
   const templateNeedsVariables = useCallback((template: Template): boolean => {
     const { variables } = template;
-    if (!variables || variables.length === 0) {
+    if (variables.length === 0) {
       return false;
     }
     // Check if all variables have defaults (and required ones have defaults too)
     return variables.some(
-      (v) => v.required && (v.default === undefined || v.default === '')
+      (v) => v.required && (!v.default || v.default === '')
     );
   }, []);
 
@@ -332,7 +337,7 @@ export function App(): React.ReactElement {
   const createDocumentFromTemplate = useCallback(
     (template: Template, variableValues: Record<string, string>): void => {
       // Build complete variable values with defaults applied
-      const completeValues = buildVariableValues(template.variables ?? [], variableValues);
+      const completeValues = buildVariableValues(template.variables, variableValues);
 
       // Substitute variables in the template content
       const substitutedContent = substituteVariables(template.content, completeValues);
@@ -472,6 +477,7 @@ export function App(): React.ReactElement {
     let pollId: number | undefined;
 
     const bindMenuHandlers = (): boolean => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!window.mdxpad) {
         return false;
       }
@@ -602,8 +608,8 @@ export function App(): React.ReactElement {
           lastSaveResult: autosave.lastSaveResult,
           lastError: autosave.lastError,
           consecutiveFailures: autosave.consecutiveFailures,
-          onRetry: autosave.saveNow,
-          onDisable: autosave.disable,
+          onRetry: () => { void autosave.saveNow(); },
+          onDisable: () => { autosave.disable(); },
         }}
       />
 
@@ -624,7 +630,7 @@ export function App(): React.ReactElement {
       <RecoveryDialog
         isOpen={recovery.isDialogOpen}
         entries={recovery.entries}
-        onDecision={recovery.handleDecision}
+        onDecision={(d) => { void recovery.handleDecision(d); }}
       />
 
       {/* Settings Panel overlay (T019) */}
@@ -643,7 +649,7 @@ export function App(): React.ReactElement {
           isOpen={isVariableDialogOpen}
           onClose={handleVariableCancel}
           onSubmit={handleVariableSubmit}
-          variables={pendingTemplate.variables ?? []}
+          variables={pendingTemplate.variables}
           templateName={pendingTemplate.name}
         />
       )}
@@ -652,7 +658,7 @@ export function App(): React.ReactElement {
       <SaveTemplateDialog
         isOpen={isSaveTemplateDialogOpen}
         onClose={closeSaveTemplateDialog}
-        onSave={handleSaveTemplate}
+        onSave={(data) => { void handleSaveTemplate(data); }}
         content={documentContent}
         isSaving={isSaving}
         error={saveError}

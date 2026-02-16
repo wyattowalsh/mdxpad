@@ -4,17 +4,41 @@ import {
   Panel,
   Separator,
   type GroupProps,
+  type Layout,
   type SeparatorProps,
 } from 'react-resizable-panels';
 
 import { cn } from '@shared/lib/utils';
 
-const ResizablePanelGroup = ({ className, ...props }: GroupProps & { direction?: 'horizontal' | 'vertical'; onLayout?: (sizes: number[]) => void }) => (
-  <ResizableGroup
-    className={cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', className)}
-    {...(props as GroupProps)}
-  />
-);
+type ResizablePanelGroupProps = Omit<GroupProps, 'onLayout' | 'onLayoutChange' | 'orientation'> & {
+  direction?: GroupProps['orientation'];
+  orientation?: GroupProps['orientation'];
+  onLayout?: (sizes: number[]) => void;
+  onLayoutChange?: GroupProps['onLayoutChange'];
+};
+
+const ResizablePanelGroup = ({
+  className,
+  direction,
+  orientation,
+  onLayout,
+  onLayoutChange,
+  ...props
+}: ResizablePanelGroupProps) => {
+  const handleLayoutChange = (layout: Layout): void => {
+    onLayoutChange?.(layout);
+    onLayout?.(Object.values(layout));
+  };
+
+  return (
+    <ResizableGroup
+      className={cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', className)}
+      orientation={orientation ?? direction}
+      {...(onLayout || onLayoutChange ? { onLayoutChange: handleLayoutChange } : {})}
+      {...props}
+    />
+  );
+};
 
 const ResizablePanel = Panel;
 

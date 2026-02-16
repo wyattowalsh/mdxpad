@@ -119,6 +119,7 @@ runBenchmark()
     if (!result.passed) {
       process.exit(1);
     }
+    process.exit(0);
   })
   .catch((error: unknown) => {
     console.error('Benchmark failed with error:', error);
