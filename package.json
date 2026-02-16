@@ -35,14 +35,7 @@
     "wave4:session-gates": "bash scripts/wave4/session-fast-gates.sh",
     "wave4:integration-gates": "bash scripts/wave4/integration-full-gates.sh",
     "wave4:reconcile": "bash scripts/wave4/reconcile.sh",
-    "wave4:cleanup": "bash scripts/wave4/cleanup.sh",
-    "wave5:bootstrap": "bash scripts/wave5/bootstrap.sh",
-    "wave5:rebase": "bash scripts/wave5/rebase-session.sh",
-    "wave5:ownership": "bash scripts/wave5/validate-ownership.sh",
-    "wave5:session-gates": "bash scripts/wave5/session-fast-gates.sh",
-    "wave5:integration-gates": "bash scripts/wave5/integration-full-gates.sh",
-    "wave5:reconcile": "bash scripts/wave5/reconcile.sh",
-    "wave5:cleanup": "bash scripts/wave5/cleanup.sh"
+    "wave4:cleanup": "bash scripts/wave4/cleanup.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.15",
