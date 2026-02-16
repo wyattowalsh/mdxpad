@@ -82,7 +82,7 @@ vi.mock('@renderer/stores/autosave-store', () => ({
 }));
 
 // Import after mocks
-import { useAutosave, dispatchSettingsChange } from './use-autosave';
+import { useAutosave } from './use-autosave';
 
 // =============================================================================
 // TEST HELPERS
@@ -151,6 +151,15 @@ describe('useAutosave', () => {
     vi.stubGlobal('crypto', {
       randomUUID: vi.fn(() => 'mock-uuid-1234'),
     });
+
+    // Mock window.mdxpad IPC API
+    (window as unknown as Record<string, unknown>).mdxpad = {
+      autosaveTrigger: vi.fn().mockResolvedValue({ ok: true, savedAt: Date.now() }),
+      settings: {
+        get: vi.fn().mockResolvedValue(DEFAULT_AUTOSAVE_SETTINGS),
+        onChange: vi.fn().mockReturnValue(() => {}),
+      },
+    };
   });
 
   afterEach(() => {
@@ -375,6 +384,12 @@ describe('useAutosave', () => {
     it('should call failSave on IPC error', async () => {
       setDirtyDocument();
 
+      // Make autosaveTrigger reject to simulate IPC error
+      (window as unknown as Record<string, unknown>).mdxpad = {
+        ...(window as unknown as Record<string, Record<string, unknown>>).mdxpad,
+        autosaveTrigger: vi.fn().mockRejectedValue(new Error('IPC error')),
+      };
+
       renderHook(() => useAutosave({ debounceMs: 100 }));
 
       await act(async () => {
@@ -383,7 +398,7 @@ describe('useAutosave', () => {
         await vi.runAllTimersAsync();
       });
 
-      // The IPC stub throws an error, which should trigger failSave
+      // The IPC call rejects, which should trigger failSave
       expect(mockAutosaveActions.failSave).toHaveBeenCalled();
     });
   });
@@ -488,12 +503,18 @@ describe('useAutosave', () => {
     it('should track consecutive failures', async () => {
       setDirtyDocument();
 
+      // Make autosaveTrigger reject to simulate failure
+      (window as unknown as Record<string, unknown>).mdxpad = {
+        ...(window as unknown as Record<string, Record<string, unknown>>).mdxpad,
+        autosaveTrigger: vi.fn().mockRejectedValue(new Error('IPC error')),
+      };
+
       const { result } = renderHook(() => useAutosave({ debounceMs: 100 }));
 
       // Initial state
       expect(result.current.consecutiveFailures).toBe(0);
 
-      // Trigger save (will fail due to IPC stub)
+      // Trigger save (will fail due to IPC rejection)
       await act(async () => {
         vi.advanceTimersByTime(100);
         await vi.runAllTimersAsync();
@@ -505,6 +526,12 @@ describe('useAutosave', () => {
 
     it('should call failSave with error message on failure', async () => {
       setDirtyDocument();
+
+      // Make autosaveTrigger reject to simulate failure
+      (window as unknown as Record<string, unknown>).mdxpad = {
+        ...(window as unknown as Record<string, Record<string, unknown>>).mdxpad,
+        autosaveTrigger: vi.fn().mockRejectedValue(new Error('Save failed')),
+      };
 
       renderHook(() => useAutosave({ debounceMs: 100 }));
 
@@ -643,32 +670,24 @@ describe('useAutosave', () => {
   // ===========================================================================
 
   describe('settings change (T020)', () => {
-    it('should listen for settings change events', () => {
-      const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+    it('should subscribe to settings changes via IPC', () => {
+      const onChangeMock = (window as unknown as { mdxpad: { settings: { onChange: ReturnType<typeof vi.fn> } } }).mdxpad.settings.onChange;
 
       renderHook(() => useAutosave());
 
-      expect(addEventListenerSpy).toHaveBeenCalledWith(
-        'mdxpad:settings:change',
-        expect.any(Function)
-      );
-
-      addEventListenerSpy.mockRestore();
+      expect(onChangeMock).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should remove event listener on unmount', () => {
-      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+    it('should unsubscribe from settings changes on unmount', () => {
+      const unsubscribe = vi.fn();
+      const onChangeMock = (window as unknown as { mdxpad: { settings: { onChange: ReturnType<typeof vi.fn> } } }).mdxpad.settings.onChange;
+      onChangeMock.mockReturnValue(unsubscribe);
 
       const { unmount } = renderHook(() => useAutosave());
 
       unmount();
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith(
-        'mdxpad:settings:change',
-        expect.any(Function)
-      );
-
-      removeEventListenerSpy.mockRestore();
+      expect(unsubscribe).toHaveBeenCalled();
     });
   });
 
@@ -834,46 +853,3 @@ describe('useAutosave', () => {
   });
 });
 
-// =============================================================================
-// DISPATCH SETTINGS CHANGE TESTS
-// =============================================================================
-
-describe('dispatchSettingsChange', () => {
-  it('should dispatch custom event with settings', () => {
-    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
-
-    const settings: AutosaveSettings = {
-      enabled: true,
-      intervalMs: 5000,
-      retentionDays: 30,
-      maxFiles: 50,
-      maxStorageMB: 100,
-    };
-
-    dispatchSettingsChange(settings);
-
-    expect(dispatchEventSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'mdxpad:settings:change',
-        detail: { settings },
-      })
-    );
-
-    dispatchEventSpy.mockRestore();
-  });
-
-  it('should dispatch event with default settings', () => {
-    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
-
-    dispatchSettingsChange(DEFAULT_AUTOSAVE_SETTINGS);
-
-    expect(dispatchEventSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'mdxpad:settings:change',
-        detail: { settings: DEFAULT_AUTOSAVE_SETTINGS },
-      })
-    );
-
-    dispatchEventSpy.mockRestore();
-  });
-});
