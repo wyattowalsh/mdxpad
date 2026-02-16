@@ -307,9 +307,11 @@ export class UsageService implements IUsageService {
     };
 
     const records = this.store.get('records');
-    records.push(fullRecord);
 
+    // Prune BEFORE push to ensure bounded size
     const pruned = this.pruneRecords(records);
+    pruned.push(fullRecord);
+
     this.store.set('records', pruned);
   }
 

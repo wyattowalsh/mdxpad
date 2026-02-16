@@ -87,6 +87,8 @@ const TEMP_SUFFIX = '.tmp';
 export class AutosaveService {
   private readonly settingsService: AutosaveSettingsService;
   private recoveryDirPath: string | null = null;
+  private savingDocuments = new Set<string>();
+  private diskSpaceCache: { available: boolean; timestamp: number } | null = null;
 
   /**
    * Creates a new AutosaveService instance.
@@ -117,18 +119,27 @@ export class AutosaveService {
    * @returns Promise resolving to success with timestamp or error response
    */
   async saveDocument(request: AutosaveTriggerRequest): Promise<AutosaveTriggerResponse> {
-    const recoveryDir = await this.getRecoveryDir();
-
-    // FR-017: Check disk space before write
-    const diskSpaceCheck = await this.checkDiskSpace(recoveryDir);
-    if (!diskSpaceCheck.ok) {
-      console.warn(`[AutosaveService] Skipping autosave: ${diskSpaceCheck.message}`);
-      return diskSpaceCheck;
-    }
-
     const { documentId, filePath, fileName, content } = request;
 
+    // Skip duplicate saves for the same document
+    if (this.savingDocuments.has(documentId)) {
+      return {
+        ok: true,
+        savedAt: Date.now(),
+      };
+    }
+
+    this.savingDocuments.add(documentId);
+
     try {
+      const recoveryDir = await this.getRecoveryDir();
+
+      // FR-017: Check disk space before write
+      const diskSpaceCheck = await this.checkDiskSpace(recoveryDir);
+      if (!diskSpaceCheck.ok) {
+        console.warn(`[AutosaveService] Skipping autosave: ${diskSpaceCheck.message}`);
+        return diskSpaceCheck;
+      }
       // Generate checksum for content integrity verification (FR-019)
       const checksum = this.computeChecksum(content);
       const savedAt = Date.now();
@@ -172,6 +183,8 @@ export class AutosaveService {
       };
     } catch (error) {
       return this.mapWriteError(error);
+    } finally {
+      this.savingDocuments.delete(documentId);
     }
   }
 
@@ -386,12 +399,28 @@ export class AutosaveService {
   private async checkDiskSpace(
     recoveryDir: string
   ): Promise<{ ok: true } | Extract<AutosaveTriggerResponse, { ok: false }>> {
+    const now = Date.now();
+    const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+    // Return cached result if less than 5 minutes old
+    if (this.diskSpaceCache && now - this.diskSpaceCache.timestamp < CACHE_DURATION_MS) {
+      if (!this.diskSpaceCache.available) {
+        return {
+          ok: false,
+          error: 'DISK_FULL',
+          message: 'Insufficient disk space. Less than 100MB available.',
+        };
+      }
+      return { ok: true };
+    }
+
     try {
       const stats = await statfs(recoveryDir);
       const availableBytes = stats.bfree * stats.bsize;
 
       if (availableBytes < MIN_DISK_SPACE_BYTES) {
         const availableMB = Math.floor(availableBytes / (1024 * 1024));
+        this.diskSpaceCache = { available: false, timestamp: now };
         return {
           ok: false,
           error: 'DISK_FULL',
@@ -399,6 +428,7 @@ export class AutosaveService {
         };
       }
 
+      this.diskSpaceCache = { available: true, timestamp: now };
       return { ok: true };
     } catch (error) {
       // If we can't check disk space, log warning but allow the save attempt

@@ -31,6 +31,10 @@ export interface AutosaveStatus {
   isSaving: boolean;
   /** Document ID for which a save is pending/in progress */
   pendingSaveDocumentId: string | null;
+  /** Whether autosave is paused (e.g., due to failures) */
+  isPaused: boolean;
+  /** Reason why autosave is paused, null if not paused */
+  pauseReason: string | null;
 }
 
 /**
@@ -44,6 +48,8 @@ const INITIAL_AUTOSAVE_STATUS: AutosaveStatus = {
   lastError: null,
   isSaving: false,
   pendingSaveDocumentId: null,
+  isPaused: false,
+  pauseReason: null,
 };
 
 // =============================================================================
@@ -62,6 +68,10 @@ export interface AutosaveStoreActions {
   completeSave: (savedAt: number) => void;
   /** Mark a save operation as failed with an error */
   failSave: (error: string) => void;
+  /** Clear error state */
+  clearError: () => void;
+  /** Pause or unpause autosave with optional reason */
+  setPaused: (paused: boolean, reason?: string) => void;
   /** Reset to initial state */
   reset: () => void;
 }
@@ -131,6 +141,18 @@ export const useAutosaveStore = create<AutosaveStore>()(
         draft.lastError = error;
       }),
 
+    clearError: () =>
+      set((draft) => {
+        draft.lastError = null;
+        draft.lastSaveResult = null;
+      }),
+
+    setPaused: (paused, reason) =>
+      set((draft) => {
+        draft.isPaused = paused;
+        draft.pauseReason = paused ? (reason ?? null) : null;
+      }),
+
     reset: () =>
       set((draft) => {
         draft.enabled = INITIAL_AUTOSAVE_STATUS.enabled;
@@ -139,6 +161,8 @@ export const useAutosaveStore = create<AutosaveStore>()(
         draft.lastError = INITIAL_AUTOSAVE_STATUS.lastError;
         draft.isSaving = INITIAL_AUTOSAVE_STATUS.isSaving;
         draft.pendingSaveDocumentId = INITIAL_AUTOSAVE_STATUS.pendingSaveDocumentId;
+        draft.isPaused = INITIAL_AUTOSAVE_STATUS.isPaused;
+        draft.pauseReason = INITIAL_AUTOSAVE_STATUS.pauseReason;
       }),
   }))
 );
@@ -190,3 +214,39 @@ export const selectLastSaveResult = (
  */
 export const selectLastError = (state: AutosaveStore): string | null =>
   state.lastError;
+
+/**
+ * Selector for clearError action.
+ *
+ * @param state - Autosave store state
+ * @returns clearError action
+ */
+export const selectClearError = (state: AutosaveStore): () => void =>
+  state.clearError;
+
+/**
+ * Selector for paused state.
+ *
+ * @param state - Autosave store state
+ * @returns Whether autosave is paused
+ */
+export const selectIsPaused = (state: AutosaveStore): boolean => state.isPaused;
+
+/**
+ * Selector for pause reason.
+ *
+ * @param state - Autosave store state
+ * @returns Reason why autosave is paused, or null if not paused
+ */
+export const selectPauseReason = (state: AutosaveStore): string | null =>
+  state.pauseReason;
+
+/**
+ * Selector for setPaused action.
+ *
+ * @param state - Autosave store state
+ * @returns setPaused action
+ */
+export const selectSetPaused = (
+  state: AutosaveStore
+): ((paused: boolean, reason?: string) => void) => state.setPaused;

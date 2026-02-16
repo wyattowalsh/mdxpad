@@ -137,6 +137,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const completeSave = useAutosaveStore((s) => s.completeSave);
   const failSave = useAutosaveStore((s) => s.failSave);
   const setEnabled = useAutosaveStore((s) => s.setEnabled);
+  const setPaused = useAutosaveStore((s) => s.setPaused);
 
   // State for consecutive failures (exposed to UI)
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
@@ -244,6 +245,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
     // Skip if too many consecutive failures (FR-013)
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       console.warn('[useAutosave] Autosave paused after consecutive failures');
+      useAutosaveStore.getState().setPaused(true, 'Max consecutive failures reached');
       return;
     }
 
@@ -335,6 +337,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
 
     // Skip if too many consecutive failures
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      setPaused(true, 'Max consecutive failures reached');
       return;
     }
 
@@ -352,7 +355,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
       debounceTimeoutRef.current = null;
       void performSave();
     }, debounceMs);
-  }, [isDirty, enabled, storeEnabled, consecutiveFailures, optDebounceMs, performSave]);
+  }, [isDirty, enabled, storeEnabled, consecutiveFailures, optDebounceMs, performSave, setPaused]);
 
   // Subscribe to settings changes (T020)
   useEffect(() => {

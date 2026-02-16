@@ -157,6 +157,9 @@ export class CapabilityService implements ICapabilityService {
   /** Cache for dynamically detected capabilities */
   private readonly capabilityCache = new Map<string, CachedCapabilities>();
 
+  /** Counter for cache writes to trigger eviction */
+  private cacheWriteCount = 0;
+
   /**
    * Creates a new CapabilityService instance.
    * @param providerService - Service for managing provider configurations
@@ -582,6 +585,24 @@ export class CapabilityService implements ICapabilityService {
       this.capabilityCache.set(providerId, cached);
     }
     cached.capabilities.set(modelId, capabilities);
+
+    // Increment write counter and evict expired entries every 10 writes
+    this.cacheWriteCount++;
+    if (this.cacheWriteCount % 10 === 0) {
+      this.evictExpiredCacheEntries();
+    }
+  }
+
+  /**
+   * Evicts expired cache entries.
+   */
+  private evictExpiredCacheEntries(): void {
+    const now = Date.now();
+    for (const [providerId, cached] of this.capabilityCache.entries()) {
+      if (now > cached.expiresAt) {
+        this.capabilityCache.delete(providerId);
+      }
+    }
   }
 
   // ===========================================================================

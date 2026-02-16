@@ -115,6 +115,12 @@ export async function handleTemplateGet(
   }
 
   const { id } = result.data;
+
+  // SEC-3: Validate template ID to prevent path traversal
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+  }
+
   const found = await findTemplateById(id);
 
   if (!found) {
@@ -145,8 +151,15 @@ export async function handleTemplateSave(
   await ensureCustomTemplatesDir();
 
   const id = template.id ?? slugify(template.name);
+
+  // SEC-3: Validate template ID to prevent path traversal
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+  }
+
   const customPath = getCustomTemplatesPath();
-  const filePath = path.join(customPath, `${id}.mdxt`);
+  // Apply path.basename() as defense-in-depth
+  const filePath = path.join(customPath, `${path.basename(id)}.mdxt`);
 
   const exists = await fileExists(filePath);
   if (exists && !replace) {
@@ -186,6 +199,12 @@ export async function handleTemplateDelete(
   }
 
   const { id } = result.data;
+
+  // SEC-3: Validate template ID to prevent path traversal
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+  }
+
   const found = await findTemplateById(id);
 
   if (!found) {
@@ -231,8 +250,15 @@ export async function handleTemplateImport(
   }
 
   await ensureCustomTemplatesDir();
+
+  // SEC-3: Validate template ID to prevent path traversal
+  if (!/^[a-zA-Z0-9_-]+$/.test(template.id)) {
+    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+  }
+
   const customPath = getCustomTemplatesPath();
-  const destPath = path.join(customPath, `${template.id}.mdxt`);
+  // Apply path.basename() as defense-in-depth
+  const destPath = path.join(customPath, `${path.basename(template.id)}.mdxt`);
 
   const exists = await fileExists(destPath);
   if (exists && !replace) {

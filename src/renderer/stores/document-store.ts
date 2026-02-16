@@ -49,6 +49,12 @@ export interface DocumentStoreActions {
   reset: () => void;
   /** Update mtime after external check */
   updateMtime: (mtime: number) => void;
+  /** Handle external file change detection */
+  handleExternalChange: (content: string, mtime: number) => void;
+  /** Dismiss external change notification */
+  dismissExternalChange: () => void;
+  /** Accept external change and update content */
+  acceptExternalChange: () => void;
 }
 
 // =============================================================================
@@ -95,6 +101,9 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.savedContent = '';
         draft.isDirty = false;
         draft.lastKnownMtime = null;
+        draft.externalChangeDetected = false;
+        draft.externalContent = null;
+        draft.externalMtime = null;
       }),
 
     openDocument: (handle, content) =>
@@ -106,6 +115,9 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.savedContent = content;
         draft.isDirty = false;
         draft.lastKnownMtime = handle.mtime;
+        draft.externalChangeDetected = false;
+        draft.externalContent = null;
+        draft.externalMtime = null;
       }),
 
     setContent: (content) =>
@@ -139,11 +151,49 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.savedContent = '';
         draft.isDirty = false;
         draft.lastKnownMtime = null;
+        draft.externalChangeDetected = false;
+        draft.externalContent = null;
+        draft.externalMtime = null;
       }),
 
     updateMtime: (mtime) =>
       set((draft) => {
         draft.lastKnownMtime = mtime;
+      }),
+
+    handleExternalChange: (content, mtime) =>
+      set((draft) => {
+        // If document is not dirty, just update content directly
+        if (!draft.isDirty) {
+          draft.content = content;
+          draft.savedContent = content;
+          draft.lastKnownMtime = mtime;
+        } else {
+          // If document is dirty, flag the external change for user decision
+          draft.externalChangeDetected = true;
+          draft.externalContent = content;
+          draft.externalMtime = mtime;
+        }
+      }),
+
+    dismissExternalChange: () =>
+      set((draft) => {
+        draft.externalChangeDetected = false;
+        draft.externalContent = null;
+        draft.externalMtime = null;
+      }),
+
+    acceptExternalChange: () =>
+      set((draft) => {
+        if (draft.externalContent !== null && draft.externalMtime !== null) {
+          draft.content = draft.externalContent;
+          draft.savedContent = draft.externalContent;
+          draft.lastKnownMtime = draft.externalMtime;
+          draft.isDirty = false;
+          draft.externalChangeDetected = false;
+          draft.externalContent = null;
+          draft.externalMtime = null;
+        }
       }),
   }))
 );
@@ -211,3 +261,12 @@ export const selectIsUntitled = (state: DocumentStore): boolean =>
  */
 export const selectLastKnownMtime = (state: DocumentStore): number | null =>
   state.lastKnownMtime;
+
+/**
+ * Selector for external change detection state.
+ *
+ * @param state - Document store state
+ * @returns Whether an external change has been detected
+ */
+export const selectExternalChangeDetected = (state: DocumentStore): boolean =>
+  state.externalChangeDetected;

@@ -20,9 +20,6 @@ import type {
 // WINDOW TYPE DECLARATION
 // =============================================================================
 
-// Window type is already declared in preload/api.ts, import the AIApi type here
-type AIApi = import('../../../preload/ai-api').AIApi;
-
 // =============================================================================
 // STORE STATE INTERFACE
 // =============================================================================
@@ -96,7 +93,7 @@ export interface AIProviderActions {
 }
 
 // =============================================================================
-// HELPER
+// HELPERS
 // =============================================================================
 
 /**
@@ -104,6 +101,32 @@ export interface AIProviderActions {
  */
 function getAIApi() {
   return window.mdxpad.ai;
+}
+
+/**
+ * Normalize provider config from IPC response to ensure optional fields are properly typed.
+ * This converts null values to undefined for optional fields.
+ *
+ * @param provider - Provider config from IPC
+ * @returns Normalized provider config
+ */
+function normalizeProviderConfig(provider: any): ProviderConfig {
+  const result: ProviderConfig = {
+    ...provider,
+  };
+
+  // Handle optional fields - only include if they have values
+  if (provider.baseUrl) {
+    result.baseUrl = provider.baseUrl;
+  }
+  if (provider.lastConnectedAt) {
+    result.lastConnectedAt = provider.lastConnectedAt;
+  }
+  if (provider.errorMessage) {
+    result.errorMessage = provider.errorMessage;
+  }
+
+  return result;
 }
 
 // =============================================================================
@@ -140,15 +163,11 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const result = await getAIApi().listProviders();
+        const providers = result.providers.map((p) => normalizeProviderConfig(p));
+        const activeProviderId = result.activeProviderId;
         set((state) => {
-          // Map providers to ensure optional fields are properly typed
-          state.providers = result.providers.map((p) => ({
-            ...p,
-            baseUrl: p.baseUrl ?? undefined,
-            lastConnectedAt: p.lastConnectedAt ?? undefined,
-            errorMessage: p.errorMessage ?? undefined,
-          })) as ProviderConfig[];
-          state.activeProviderId = result.activeProviderId;
+          state.providers = providers;
+          state.activeProviderId = activeProviderId;
           state.isLoading = false;
         });
       } catch (error) {
@@ -174,22 +193,18 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         });
 
         if (result.success && result.provider) {
+          const provider = normalizeProviderConfig(result.provider);
           set((state) => {
-            const provider = result.provider!;
-            state.providers.push({
-              ...provider,
-              baseUrl: provider.baseUrl ?? undefined,
-              lastConnectedAt: provider.lastConnectedAt ?? undefined,
-              errorMessage: provider.errorMessage ?? undefined,
-            } as ProviderConfig);
+            state.providers.push(provider);
             state.isLoading = false;
           });
         } else if (result.error) {
+          const errorMessage = result.error.message;
           set((state) => {
             state.isLoading = false;
-            state.error = result.error!.message;
+            state.error = errorMessage;
           });
-          throw new Error(result.error.message);
+          throw new Error(errorMessage);
         }
       } catch (error) {
         set((state) => {
@@ -210,25 +225,21 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         const result = await getAIApi().updateProvider({ id, updates });
 
         if (result.success && result.provider) {
+          const provider = normalizeProviderConfig(result.provider);
           set((state) => {
             const index = state.providers.findIndex((p) => p.id === id);
             if (index !== -1) {
-              const provider = result.provider!;
-              state.providers[index] = {
-                ...provider,
-                baseUrl: provider.baseUrl ?? undefined,
-                lastConnectedAt: provider.lastConnectedAt ?? undefined,
-                errorMessage: provider.errorMessage ?? undefined,
-              } as ProviderConfig;
+              state.providers[index] = provider;
             }
             state.isLoading = false;
           });
         } else if (result.error) {
+          const errorMessage = result.error.message;
           set((state) => {
             state.isLoading = false;
-            state.error = result.error!.message;
+            state.error = errorMessage;
           });
-          throw new Error(result.error.message);
+          throw new Error(errorMessage);
         }
       } catch (error) {
         set((state) => {
@@ -260,11 +271,12 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
             state.isLoading = false;
           });
         } else if (result.error) {
+          const errorMessage = result.error.message;
           set((state) => {
             state.isLoading = false;
-            state.error = result.error!.message;
+            state.error = errorMessage;
           });
-          throw new Error(result.error.message);
+          throw new Error(errorMessage);
         }
       } catch (error) {
         set((state) => {
@@ -285,20 +297,22 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         const result = await getAIApi().setActiveProvider(id);
 
         if (result.success) {
+          const activeProviderId = result.activeProviderId ?? id;
           set((state) => {
             // Update all providers to reflect new active state
             state.providers.forEach((p) => {
               p.isActive = p.id === id;
             });
-            state.activeProviderId = result.activeProviderId ?? id;
+            state.activeProviderId = activeProviderId;
             state.isLoading = false;
           });
         } else if (result.error) {
+          const errorMessage = result.error.message;
           set((state) => {
             state.isLoading = false;
-            state.error = result.error!.message;
+            state.error = errorMessage;
           });
-          throw new Error(result.error.message);
+          throw new Error(errorMessage);
         }
       } catch (error) {
         set((state) => {
@@ -336,6 +350,12 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         return result.success;
       } catch (error) {
         set((state) => {
+          // Set provider error state on validation failure
+          const provider = state.providers.find((p) => p.id === id);
+          if (provider) {
+            provider.status = 'error';
+            provider.errorMessage = error instanceof Error ? error.message : 'Failed to validate provider';
+          }
           state.isValidating = false;
           state.error = error instanceof Error ? error.message : 'Failed to validate provider';
         });
@@ -357,28 +377,30 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         const result = await getAIApi().queryUsage({ timeRange });
 
         if (result.success && result.stats) {
-          set((state) => {
-            const stats = result.stats!;
-            // Compute avg duration from operation stats
-            const avgDurationMs =
-              stats.byOperation && stats.byOperation.length > 0
-                ? stats.byOperation.reduce((sum, op) => sum + op.avgDurationMs, 0) /
-                  stats.byOperation.length
-                : 0;
+          const stats = result.stats;
+          // Compute avg duration from operation stats
+          const avgDurationMs =
+            stats.byOperation.length > 0
+              ? stats.byOperation.reduce((sum, op) => sum + op.avgDurationMs, 0) /
+                stats.byOperation.length
+              : 0;
 
-            state.usageStats = {
-              timeRange,
-              totalRequests: stats.totalRequests,
-              successfulRequests: stats.successfulRequests,
-              failedRequests: stats.failedRequests,
-              totalTokens: stats.totalTokens,
-              inputTokens: stats.inputTokens,
-              outputTokens: stats.outputTokens,
-              estimatedCostUsd: stats.estimatedCostUsd,
-              avgDurationMs,
-              byProvider: {},
-              byModel: {},
-            };
+          const usageStats = {
+            timeRange,
+            totalRequests: stats.totalRequests,
+            successfulRequests: stats.successfulRequests,
+            failedRequests: stats.failedRequests,
+            totalTokens: stats.totalTokens,
+            inputTokens: stats.inputTokens,
+            outputTokens: stats.outputTokens,
+            estimatedCostUsd: stats.estimatedCostUsd,
+            avgDurationMs,
+            byProvider: {},
+            byModel: {},
+          };
+
+          set((state) => {
+            state.usageStats = usageStats;
             state.usageStatsTimeRange = timeRange;
             state.isLoading = false;
           });

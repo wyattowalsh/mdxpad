@@ -147,23 +147,18 @@ async function handleCloseWithDirtyCheck(window: BrowserWindow): Promise<boolean
 
   switch (response) {
     case DIALOG_BUTTON.SAVE:
-      // TODO: Save file via file service, then close
-      // Once file service integration is complete:
-      //   const saveResult = await saveCurrentFile(dirtyState.content);
-      //   return saveResult.ok;
-      //
-      // For now, just close (save logic added later)
-      console.log('[Window] Save requested before close');
+      // TODO: Renderer integration required - send IPC to renderer to save current file
+      // The renderer has the document store with isDirty state and content.
+      // Once integrated, send 'mdxpad:window:save-before-close' IPC to renderer
+      // and wait for save completion response before closing.
       return true;
 
     case DIALOG_BUTTON.DISCARD:
       // Close without saving
-      console.log('[Window] Discard changes, closing');
       return true;
 
     case DIALOG_BUTTON.CANCEL:
       // User cancelled, keep window open
-      console.log('[Window] Close cancelled by user');
       return false;
 
     default:

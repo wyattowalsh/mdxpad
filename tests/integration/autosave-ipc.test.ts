@@ -163,6 +163,15 @@ function createDocumentId(uuid: string): DocumentId {
   return uuid as unknown as DocumentId;
 }
 
+// Helper to safely get a handler and assert it exists
+function getHandler(channel: string, handlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>): (event: unknown, args?: unknown) => Promise<unknown> {
+  const handler = handlers.get(channel);
+  if (!handler) {
+    throw new Error(`Handler not found for channel: ${channel}`);
+  }
+  return handler;
+}
+
 describe('Autosave IPC Integration', () => {
   let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
   let mockSettingsService: InstanceType<typeof AutosaveSettingsService>;
@@ -181,16 +190,20 @@ describe('Autosave IPC Integration', () => {
     );
 
     // Get fresh mock instances
-    mockSettingsService = new AutosaveSettingsService() as InstanceType<typeof AutosaveSettingsService>;
-    mockAutosaveService = new AutosaveService(mockSettingsService) as InstanceType<typeof AutosaveService>;
-    mockRecoveryService = new RecoveryService(mockSettingsService, mockAutosaveService) as InstanceType<typeof RecoveryService>;
+    mockSettingsService = new AutosaveSettingsService();
+    mockAutosaveService = new AutosaveService(mockSettingsService);
+    mockRecoveryService = new RecoveryService(mockSettingsService, mockAutosaveService);
 
-    // Register handlers
-    registerAutosaveHandlers(ipcMain);
+    // Register handlers with services
+    registerAutosaveHandlers(ipcMain, {
+      settingsService: mockSettingsService,
+      autosaveService: mockAutosaveService,
+      recoveryService: mockRecoveryService,
+    });
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('registerAutosaveHandlers', () => {
@@ -253,22 +266,20 @@ describe('Autosave IPC Integration', () => {
     describe('mdxpad:recovery:check', () => {
       it('should return hasRecoveryData true when manifest has entries', async () => {
         // Get the handler that was registered
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_CHECK);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_CHECK, registeredHandlers);
 
         // The handler internally calls recoveryService.checkForRecovery()
         // The result depends on the service mock
-        const result = await handler!({});
+        const result = await handler({});
 
         expect(result).toHaveProperty('hasRecoveryData');
         expect(result).toHaveProperty('count');
       });
 
       it('should return hasRecoveryData false when manifest is empty', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_CHECK);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_CHECK, registeredHandlers);
 
-        const result = await handler!({});
+        const result = await handler({});
 
         // Default mock returns empty recovery
         expect(result).toHaveProperty('hasRecoveryData');
@@ -276,79 +287,71 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should accept void request (no arguments)', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_CHECK);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_CHECK, registeredHandlers);
 
         // Should not throw with no arguments
-        await expect(handler!({})).resolves.toBeDefined();
+        await expect(handler({})).resolves.toBeDefined();
       });
     });
 
     describe('mdxpad:recovery:list', () => {
       it('should return array of recovery dialog entries', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_LIST);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_LIST, registeredHandlers);
 
-        const result = await handler!({});
+        const result = await handler({});
 
         expect(result).toHaveProperty('entries');
         expect(Array.isArray((result as { entries: unknown[] }).entries)).toBe(true);
       });
 
       it('should include conflict status in entries', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_LIST);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_LIST, registeredHandlers);
 
-        const result = await handler!({});
+        const result = await handler({});
 
         // The result shape should be RecoveryListResponse
         expect(result).toHaveProperty('entries');
       });
 
       it('should accept void request (no arguments)', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_LIST);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_LIST, registeredHandlers);
 
-        await expect(handler!({})).resolves.toBeDefined();
+        await expect(handler({})).resolves.toBeDefined();
       });
     });
 
     describe('mdxpad:recovery:preview', () => {
       it('should return content for valid document', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_PREVIEW);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_PREVIEW, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, { documentId: validDocId });
+        const result = await handler({}, { documentId: validDocId });
 
         // Result should have ok property (discriminated union)
         expect(result).toBeDefined();
       });
 
       it('should handle missing documentId parameter', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_PREVIEW);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_PREVIEW, registeredHandlers);
 
         // Should handle gracefully or throw validation error
-        await expect(handler!({}, {})).rejects.toThrow();
+        await expect(handler({}, {})).rejects.toThrow();
       });
 
       it('should validate documentId format', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_PREVIEW);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_PREVIEW, registeredHandlers);
 
         // Invalid UUID format
-        await expect(handler!({}, { documentId: 'not-a-uuid' })).rejects.toThrow();
+        await expect(handler({}, { documentId: 'not-a-uuid' })).rejects.toThrow();
       });
     });
 
     describe('mdxpad:recovery:restore', () => {
       it('should restore selected documents', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_RESTORE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_RESTORE, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, {
+        const result = await handler({}, {
           decision: {
             action: 'accept',
             selectedIds: [validDocId],
@@ -359,10 +362,9 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should handle decline action', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_RESTORE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_RESTORE, registeredHandlers);
 
-        const result = await handler!({}, {
+        const result = await handler({}, {
           decision: {
             action: 'decline',
           },
@@ -372,10 +374,9 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should handle dismiss action', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_RESTORE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_RESTORE, registeredHandlers);
 
-        const result = await handler!({}, {
+        const result = await handler({}, {
           decision: {
             action: 'dismiss',
           },
@@ -385,44 +386,40 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should reject invalid decision schema', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_RESTORE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_RESTORE, registeredHandlers);
 
         // Invalid action type
         await expect(
-          handler!({}, { decision: { action: 'invalid' } })
+          handler({}, { decision: { action: 'invalid' } })
         ).rejects.toThrow();
       });
     });
 
     describe('mdxpad:recovery:discard', () => {
       it('should delete recovery files', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_DISCARD);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_DISCARD, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, { documentIds: [validDocId] });
+        const result = await handler({}, { documentIds: [validDocId] });
 
         expect(result).toHaveProperty('discardedCount');
       });
 
       it('should handle empty documentIds array', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_DISCARD);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_DISCARD, registeredHandlers);
 
-        const result = await handler!({}, { documentIds: [] });
+        const result = await handler({}, { documentIds: [] });
 
         expect(result).toHaveProperty('discardedCount');
         expect((result as { discardedCount: number }).discardedCount).toBe(0);
       });
 
       it('should validate documentIds format', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_DISCARD);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.RECOVERY_DISCARD, registeredHandlers);
 
         // Invalid UUID format
         await expect(
-          handler!({}, { documentIds: ['not-a-uuid'] })
+          handler({}, { documentIds: ['not-a-uuid'] })
         ).rejects.toThrow();
       });
     });
@@ -435,11 +432,10 @@ describe('Autosave IPC Integration', () => {
   describe('Autosave Channels', () => {
     describe('mdxpad:autosave:trigger', () => {
       it('should create recovery file on trigger', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_TRIGGER);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.AUTOSAVE_TRIGGER, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, {
+        const result = await handler({}, {
           documentId: validDocId,
           filePath: '/path/to/file.mdx',
           fileName: 'test.mdx',
@@ -450,11 +446,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should handle untitled documents (null filePath)', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_TRIGGER);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.AUTOSAVE_TRIGGER, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, {
+        const result = await handler({}, {
           documentId: validDocId,
           filePath: null,
           fileName: 'Untitled',
@@ -465,12 +460,11 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should reject missing required fields', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_TRIGGER);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.AUTOSAVE_TRIGGER, registeredHandlers);
 
         // Missing content
         await expect(
-          handler!({}, {
+          handler({}, {
             documentId: '123e4567-e89b-12d3-a456-426614174000',
             filePath: '/path/to/file.mdx',
             fileName: 'test.mdx',
@@ -479,11 +473,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should validate documentId format', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_TRIGGER);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.AUTOSAVE_TRIGGER, registeredHandlers);
 
         await expect(
-          handler!({}, {
+          handler({}, {
             documentId: 'invalid-uuid',
             filePath: '/path/to/file.mdx',
             fileName: 'test.mdx',
@@ -495,19 +488,17 @@ describe('Autosave IPC Integration', () => {
 
     describe('mdxpad:autosave:status', () => {
       it('should return current autosave status', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_STATUS);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.AUTOSAVE_STATUS, registeredHandlers);
 
-        const result = await handler!({});
+        const result = await handler({});
 
         expect(result).toHaveProperty('status');
       });
 
       it('should accept void request (no arguments)', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_STATUS);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.AUTOSAVE_STATUS, registeredHandlers);
 
-        await expect(handler!({})).resolves.toBeDefined();
+        await expect(handler({})).resolves.toBeDefined();
       });
     });
   });
@@ -519,10 +510,9 @@ describe('Autosave IPC Integration', () => {
   describe('Settings Channels', () => {
     describe('mdxpad:autosave:settings:get', () => {
       it('should return current settings', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_GET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_GET, registeredHandlers);
 
-        const result = await handler!({});
+        const result = await handler({});
 
         expect(result).toHaveProperty('enabled');
         expect(result).toHaveProperty('intervalMs');
@@ -532,10 +522,9 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should return defaults when no settings saved', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_GET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_GET, registeredHandlers);
 
-        const result = await handler!({}) as typeof DEFAULT_AUTOSAVE_SETTINGS;
+        const result = await handler({}) as typeof DEFAULT_AUTOSAVE_SETTINGS;
 
         // Should have all required properties
         expect(typeof result.enabled).toBe('boolean');
@@ -546,56 +535,50 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should accept void request (no arguments)', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_GET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_GET, registeredHandlers);
 
-        await expect(handler!({})).resolves.toBeDefined();
+        await expect(handler({})).resolves.toBeDefined();
       });
     });
 
     describe('mdxpad:autosave:settings:set', () => {
       it('should persist settings changes', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_SET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_SET, registeredHandlers);
 
-        const result = await handler!({}, { intervalMs: 15000 });
+        const result = await handler({}, { intervalMs: 15000 });
 
         expect(result).toHaveProperty('intervalMs');
       });
 
       it('should accept partial settings update', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_SET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_SET, registeredHandlers);
 
         // Only update enabled field
-        const result = await handler!({}, { enabled: false });
+        const result = await handler({}, { enabled: false });
 
         expect(result).toHaveProperty('enabled');
       });
 
       it('should validate settings schema - intervalMs range', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_SET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_SET, registeredHandlers);
 
         // Per FR-009: intervalMs must be between 5000 and 600000
-        await expect(handler!({}, { intervalMs: 1000 })).rejects.toThrow();
-        await expect(handler!({}, { intervalMs: 700000 })).rejects.toThrow();
+        await expect(handler({}, { intervalMs: 1000 })).rejects.toThrow();
+        await expect(handler({}, { intervalMs: 700000 })).rejects.toThrow();
       });
 
       it('should validate settings schema - retentionDays range', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_SET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_SET, registeredHandlers);
 
         // retentionDays must be between 1 and 365
-        await expect(handler!({}, { retentionDays: 0 })).rejects.toThrow();
-        await expect(handler!({}, { retentionDays: 400 })).rejects.toThrow();
+        await expect(handler({}, { retentionDays: 0 })).rejects.toThrow();
+        await expect(handler({}, { retentionDays: 400 })).rejects.toThrow();
       });
 
       it('should accept valid settings within range', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.SETTINGS_SET);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.SETTINGS_SET, registeredHandlers);
 
-        const result = await handler!({}, {
+        const result = await handler({}, {
           enabled: true,
           intervalMs: 60000,
           retentionDays: 7,
@@ -615,11 +598,10 @@ describe('Autosave IPC Integration', () => {
   describe('Conflict Channels', () => {
     describe('mdxpad:recovery:conflict:resolve', () => {
       it('should handle recovery choice', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.CONFLICT_RESOLVE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.CONFLICT_RESOLVE, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, {
+        const result = await handler({}, {
           resolution: {
             choice: 'recovery',
             documentId: validDocId,
@@ -631,11 +613,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should handle disk choice', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.CONFLICT_RESOLVE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.CONFLICT_RESOLVE, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, {
+        const result = await handler({}, {
           resolution: {
             choice: 'disk',
             documentId: validDocId,
@@ -647,11 +628,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should handle save-as choice', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.CONFLICT_RESOLVE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.CONFLICT_RESOLVE, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
-        const result = await handler!({}, {
+        const result = await handler({}, {
           resolution: {
             choice: 'save-as',
             documentId: validDocId,
@@ -664,11 +644,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should reject invalid choice', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.CONFLICT_RESOLVE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.CONFLICT_RESOLVE, registeredHandlers);
 
         await expect(
-          handler!({}, {
+          handler({}, {
             resolution: {
               choice: 'invalid',
               documentId: '123e4567-e89b-12d3-a456-426614174000',
@@ -678,11 +657,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should reject save-as without newPath', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.CONFLICT_RESOLVE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.CONFLICT_RESOLVE, registeredHandlers);
 
         await expect(
-          handler!({}, {
+          handler({}, {
             resolution: {
               choice: 'save-as',
               documentId: '123e4567-e89b-12d3-a456-426614174000',
@@ -693,11 +671,10 @@ describe('Autosave IPC Integration', () => {
       });
 
       it('should validate documentId format', async () => {
-        const handler = registeredHandlers.get(AutosaveChannels.CONFLICT_RESOLVE);
-        expect(handler).toBeDefined();
+        const handler = getHandler(AutosaveChannels.CONFLICT_RESOLVE, registeredHandlers);
 
         await expect(
-          handler!({}, {
+          handler({}, {
             resolution: {
               choice: 'recovery',
               documentId: 'not-a-valid-uuid',

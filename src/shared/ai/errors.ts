@@ -24,9 +24,7 @@ export class AIProviderError extends Error {
     super(message);
     this.name = 'AIProviderError';
     // Maintains proper stack trace for where error was thrown (V8 engines)
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AIProviderError);
-    }
+    Error.captureStackTrace(this, AIProviderError);
   }
 }
 
@@ -38,9 +36,7 @@ export class NoActiveProviderError extends AIProviderError {
   constructor() {
     super('No active AI provider configured', 'NO_ACTIVE_PROVIDER');
     this.name = 'NoActiveProviderError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, NoActiveProviderError);
-    }
+    Error.captureStackTrace(this, NoActiveProviderError);
   }
 }
 
@@ -52,9 +48,7 @@ export class ProviderNotFoundError extends AIProviderError {
   constructor(providerId: string) {
     super(`Provider not found: ${providerId}`, 'PROVIDER_NOT_FOUND', providerId);
     this.name = 'ProviderNotFoundError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ProviderNotFoundError);
-    }
+    Error.captureStackTrace(this, ProviderNotFoundError);
   }
 }
 
@@ -66,9 +60,7 @@ export class ProviderDisconnectedError extends AIProviderError {
   constructor(providerId: string) {
     super(`Provider is disconnected: ${providerId}`, 'PROVIDER_DISCONNECTED', providerId);
     this.name = 'ProviderDisconnectedError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ProviderDisconnectedError);
-    }
+    Error.captureStackTrace(this, ProviderDisconnectedError);
   }
 }
 
@@ -90,9 +82,7 @@ export class CapabilityNotSupportedError extends AIProviderError {
       providerId
     );
     this.name = 'CapabilityNotSupportedError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, CapabilityNotSupportedError);
-    }
+    Error.captureStackTrace(this, CapabilityNotSupportedError);
   }
 }
 
@@ -114,9 +104,7 @@ export class RateLimitError extends AIProviderError {
       providerId
     );
     this.name = 'RateLimitError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, RateLimitError);
-    }
+    Error.captureStackTrace(this, RateLimitError);
   }
 }
 
@@ -128,9 +116,7 @@ export class CredentialStorageError extends AIProviderError {
   constructor(message: string, providerId?: string) {
     super(message, 'CREDENTIAL_STORAGE_ERROR', providerId);
     this.name = 'CredentialStorageError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, CredentialStorageError);
-    }
+    Error.captureStackTrace(this, CredentialStorageError);
   }
 }
 
@@ -142,9 +128,7 @@ export class InvalidApiKeyError extends AIProviderError {
   constructor(providerId: string) {
     super('Invalid API key', 'INVALID_API_KEY', providerId);
     this.name = 'InvalidApiKeyError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, InvalidApiKeyError);
-    }
+    Error.captureStackTrace(this, InvalidApiKeyError);
   }
 }
 
@@ -169,3 +153,89 @@ export const AIErrorCodes = {
 } as const;
 
 export type AIErrorCode = (typeof AIErrorCodes)[keyof typeof AIErrorCodes];
+
+/**
+ * Serialized AI error for IPC transmission.
+ * Contains all error properties in a plain object format.
+ */
+export interface SerializedAIError {
+  type: string;
+  code: string;
+  message: string;
+  providerId?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Serializes an AIProviderError for IPC transmission.
+ * Converts error instances to plain objects that can be sent across process boundaries.
+ *
+ * @param error - The AIProviderError to serialize
+ * @returns A plain object representation of the error
+ */
+export function serializeAIError(error: AIProviderError): SerializedAIError {
+  const base: SerializedAIError = {
+    type: error.name,
+    code: error.code,
+    message: error.message,
+  };
+
+  if (error.providerId) {
+    base.providerId = error.providerId;
+  }
+
+  // Add type-specific fields
+  if (error instanceof RateLimitError) {
+    base.retryAfterSeconds = error.retryAfterSeconds;
+    base.alternateProviders = error.alternateProviders;
+  } else if (error instanceof CapabilityNotSupportedError) {
+    base.capability = error.capability;
+    base.modelId = error.modelId;
+  }
+
+  return base;
+}
+
+/**
+ * Deserializes a SerializedAIError back into an AIProviderError instance.
+ * Reconstructs the proper error class based on the type field.
+ *
+ * @param json - The serialized error object
+ * @returns The reconstructed AIProviderError instance
+ */
+export function deserializeAIError(json: SerializedAIError): AIProviderError {
+  switch (json.type) {
+    case 'NoActiveProviderError':
+      return new NoActiveProviderError();
+
+    case 'ProviderNotFoundError':
+      return new ProviderNotFoundError(json.providerId ?? 'unknown');
+
+    case 'ProviderDisconnectedError':
+      return new ProviderDisconnectedError(json.providerId ?? 'unknown');
+
+    case 'CapabilityNotSupportedError':
+      return new CapabilityNotSupportedError(
+        json.capability as ProviderCapability,
+        json.modelId as string,
+        json.providerId ?? 'unknown'
+      );
+
+    case 'RateLimitError':
+      return new RateLimitError(
+        json.providerId ?? 'unknown',
+        (json.retryAfterSeconds as number | undefined) ?? 60,
+        (json.alternateProviders as string[] | undefined) ?? []
+      );
+
+    case 'CredentialStorageError':
+      return new CredentialStorageError(json.message, json.providerId);
+
+    case 'InvalidApiKeyError':
+      return new InvalidApiKeyError(json.providerId ?? 'unknown');
+
+    default:
+      // Fallback to base AIProviderError for unknown types
+      return new AIProviderError(json.message, json.code, json.providerId);
+  }
+}

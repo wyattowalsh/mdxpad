@@ -47,7 +47,8 @@ export async function readFile(filePath: string): Promise<FileResult<string>> {
     return { ok: true, value: content };
   } catch (error: unknown) {
     const fileError = mapFsError(error, filePath);
-    console.error(`[FileService] Failed to read file "${filePath}":`, fileError);
+    // SEC-2: Only log basename to avoid exposing full paths in logs
+    console.error(`[FileService] Failed to read file "${path.basename(filePath)}":`, fileError);
     return { ok: false, error: fileError };
   }
 }
@@ -67,7 +68,8 @@ export async function writeFile(
     return { ok: true, value: undefined };
   } catch (error: unknown) {
     const fileError = mapFsError(error, filePath);
-    console.error(`[FileService] Failed to write file "${filePath}":`, fileError);
+    // SEC-2: Only log basename to avoid exposing full paths in logs
+    console.error(`[FileService] Failed to write file "${path.basename(filePath)}":`, fileError);
     return { ok: false, error: fileError };
   }
 }
@@ -145,6 +147,12 @@ export class FileServiceIntegration {
   private readonly openFiles = new Map<string, FileHandle>();
 
   /**
+   * Save lock to prevent concurrent save cleanup operations.
+   * Maps fileId to a Promise representing the ongoing save operation.
+   */
+  private readonly saveLock = new Map<string, Promise<void>>();
+
+  /**
    * Creates a new FileServiceIntegration instance.
    *
    * All services are optional - if not provided, corresponding functionality
@@ -200,8 +208,10 @@ export class FileServiceIntegration {
    * @param fileId - The unique identifier of the closed file
    */
   onFileClosed(fileId: FileId): void {
-    // Stop watching for external changes
-    this.fileWatcher?.unwatch(fileId);
+    // Stop watching for external changes (intentionally fire-and-forget)
+    if (this.fileWatcher) {
+      void this.fileWatcher.unwatch(fileId);
+    }
 
     // Stop auto-save tracking
     this.autoSaveManager?.unregister(fileId);
@@ -240,12 +250,31 @@ export class FileServiceIntegration {
    *
    * @param fileId - The unique identifier of the saved file
    */
-  onFileSaved(fileId: FileId): void {
-    // Clean up auto-save temp file (async, fire and forget)
-    void this.autoSaveManager?.cleanupEntry(fileId);
+  async onFileSaved(fileId: FileId): Promise<void> {
+    // Wait for any existing save operation to complete
+    const existingLock = this.saveLock.get(fileId);
+    if (existingLock) {
+      await existingLock;
+    }
 
-    // Unregister from auto-save tracking since file is no longer dirty
-    this.autoSaveManager?.unregister(fileId);
+    // Create new save operation promise
+    const saveOperation = (async () => {
+      // Clean up auto-save temp file
+      await this.autoSaveManager?.cleanupEntry(fileId);
+
+      // Unregister from auto-save tracking since file is no longer dirty
+      this.autoSaveManager?.unregister(fileId);
+    })();
+
+    // Store the lock
+    this.saveLock.set(fileId, saveOperation);
+
+    try {
+      await saveOperation;
+    } finally {
+      // Release the lock
+      this.saveLock.delete(fileId);
+    }
   }
 
   /**
@@ -260,8 +289,10 @@ export class FileServiceIntegration {
    * @param newHandle - The new FileHandle with updated path
    */
   onFilePathChanged(oldHandle: FileHandle, newHandle: FileHandle): void {
-    // Stop watching old path
-    this.fileWatcher?.unwatch(oldHandle.id);
+    // Stop watching old path (void return intentionally ignored)
+    if (this.fileWatcher) {
+      void this.fileWatcher.unwatch(oldHandle.id);
+    }
 
     // Update internal tracking
     this.openFiles.delete(oldHandle.id);
@@ -323,8 +354,10 @@ export class FileServiceIntegration {
    * file watchers and stop auto-save timers.
    */
   close(): void {
-    // Close all file watchers
-    this.fileWatcher?.close();
+    // Close all file watchers (void return intentionally ignored)
+    if (this.fileWatcher) {
+      void this.fileWatcher.close();
+    }
 
     // Stop auto-save timer (but don't clear dirty files - let them persist for recovery)
     this.autoSaveManager?.stop();

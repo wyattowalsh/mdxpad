@@ -31,7 +31,6 @@ import {
   type RecoveryFile,
   RecoveryFileSchema,
   type RecoveryManifest,
-  type ManifestEntry,
   type RecoveryDialogEntry,
   EMPTY_RECOVERY_MANIFEST,
   RecoveryManifestSchema,
@@ -171,15 +170,16 @@ export class RecoveryService {
   async listRecoverable(): Promise<RecoveryListResponse> {
     try {
       const manifest = await this.readManifest();
-      const entries: RecoveryDialogEntry[] = [];
 
-      const manifestEntries = Object.values(manifest.entries) as ManifestEntry[];
-      for (const entry of manifestEntries) {
-        const dialogEntry = await this.createDialogEntry(entry.documentId);
-        if (dialogEntry) {
-          entries.push(dialogEntry);
-        }
-      }
+      const manifestEntries = Object.values(manifest.entries);
+
+      // Process all entries in parallel
+      const results = await Promise.all(
+        manifestEntries.map(entry => this.createDialogEntry(entry.documentId))
+      );
+
+      // Filter out null results
+      const entries = results.filter((r): r is RecoveryDialogEntry => r !== null);
 
       // Sort by most recent first
       entries.sort((a, b) => b.savedAt - a.savedAt);
@@ -371,62 +371,97 @@ export class RecoveryService {
    *
    * Per FR-021: Automatically deletes recovery files older than retentionDays.
    *
+   * @returns Object with deletedCount and errors array
+   *
    * @example
    * ```typescript
    * // Run cleanup on startup
-   * await recoveryService.runRetentionCleanup();
+   * const result = await recoveryService.runRetentionCleanup();
+   * console.log(`Deleted ${result.deletedCount} files, ${result.errors.length} errors`);
    * ```
    */
-  async runRetentionCleanup(): Promise<void> {
+  async runRetentionCleanup(): Promise<{ deletedCount: number; errors: string[] }> {
+    const errors: string[] = [];
+    let deletedCount = 0;
+
     try {
       const settings = this.settingsService.getSettings();
       const manifest = await this.readManifest();
 
-      // Get all entries sorted by savedAt (oldest first)
-      const manifestEntries = Object.values(manifest.entries) as ManifestEntry[];
-      const entries = manifestEntries.sort((a, b) => a.savedAt - b.savedAt);
+      const { idsToDelete, deletedCount: newDeletedCount } = this.calculateFilesToDelete(manifest, settings);
+      deletedCount = newDeletedCount;
 
-      const now = Date.now();
-      const maxAgeMs = settings.retentionDays * 24 * 60 * 60 * 1000;
-      const cutoffTime = now - maxAgeMs;
-
-      const idsToDelete: DocumentId[] = [];
-
-      // Step 1: Mark files older than retentionDays for deletion
-      for (const entry of entries) {
-        if (entry.savedAt < cutoffTime) {
-          idsToDelete.push(entry.documentId);
-        }
-      }
-
-      // Step 2: Calculate remaining entries after age-based deletion
-      const remainingEntries = entries.filter(
-        (e) => !idsToDelete.includes(e.documentId)
-      );
-
-      // Step 3: If still over maxFiles, mark oldest for deletion
-      if (remainingEntries.length > settings.maxFiles) {
-        const excessCount = remainingEntries.length - settings.maxFiles;
-        // remainingEntries is already sorted oldest-first
-        for (let i = 0; i < excessCount; i++) {
-          const entry = remainingEntries[i];
-          if (entry && !idsToDelete.includes(entry.documentId)) {
-            idsToDelete.push(entry.documentId);
-          }
-        }
-      }
-
-      // Delete identified files
+      // Delete identified files individually to collect per-file errors
       if (idsToDelete.length > 0) {
         console.log(
           `[RecoveryService] Cleaning up ${idsToDelete.length} recovery files`
         );
-        await this.discardRecovery(idsToDelete);
+        for (const documentId of idsToDelete) {
+          try {
+            await this.deleteRecoveryFileAndUpdateManifest(documentId);
+            deletedCount++;
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            errors.push(`Failed to delete ${documentId}: ${msg}`);
+            console.error(`[RecoveryService] Failed to delete ${documentId}:`, error);
+          }
+        }
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      errors.push(`Cleanup failed: ${msg}`);
       console.error('[RecoveryService] Cleanup failed:', error);
-      // Non-fatal error - don't throw
     }
+
+    return { deletedCount, errors };
+  }
+
+  /**
+   * Calculates which recovery files should be deleted based on retention policy.
+   *
+   * @param manifest - The recovery manifest
+   * @param settings - The autosave settings with retention configuration
+   * @returns IDs to delete and initial deleted count
+   */
+  private calculateFilesToDelete(
+    manifest: RecoveryManifest,
+    settings: { retentionDays: number; maxFiles: number }
+  ): { idsToDelete: DocumentId[]; deletedCount: number } {
+    // Get all entries sorted by savedAt (oldest first)
+    const manifestEntries = Object.values(manifest.entries);
+    const entries = manifestEntries.sort((a, b) => a.savedAt - b.savedAt);
+
+    const now = Date.now();
+    const maxAgeMs = settings.retentionDays * 24 * 60 * 60 * 1000;
+    const cutoffTime = now - maxAgeMs;
+
+    const idsToDelete: DocumentId[] = [];
+
+    // Step 1: Mark files older than retentionDays for deletion
+    for (const entry of entries) {
+      if (entry.savedAt < cutoffTime) {
+        idsToDelete.push(entry.documentId);
+      }
+    }
+
+    // Step 2: Calculate remaining entries after age-based deletion
+    const remainingEntries = entries.filter(
+      (e) => !idsToDelete.includes(e.documentId)
+    );
+
+    // Step 3: If still over maxFiles, mark oldest for deletion
+    if (remainingEntries.length > settings.maxFiles) {
+      const excessCount = remainingEntries.length - settings.maxFiles;
+      // remainingEntries is already sorted oldest-first
+      for (let i = 0; i < excessCount; i++) {
+        const entry = remainingEntries[i];
+        if (entry && !idsToDelete.includes(entry.documentId)) {
+          idsToDelete.push(entry.documentId);
+        }
+      }
+    }
+
+    return { idsToDelete, deletedCount: 0 };
   }
 
   /**
@@ -625,6 +660,8 @@ export class RecoveryService {
           `[RecoveryService] Invalid recovery file schema for ${documentId}:`,
           result.error
         );
+        // Delete corrupted file
+        await fs.unlink(filePath).catch(() => undefined);
         return null;
       }
 

@@ -13,6 +13,9 @@ import { AutoSaveManager } from './services/auto-save';
 /** Global AutoSaveManager instance for crash recovery and auto-saving */
 const autoSaveManager = new AutoSaveManager();
 
+/** Stores recovered file entries to be sent to renderer after window creation */
+let pendingRecoveryEntries: { displayName: string; content: string; savedAt: number }[] = [];
+
 /**
  * Formats a Unix timestamp to a human-readable time string.
  *
@@ -57,32 +60,24 @@ async function checkCrashRecovery(): Promise<void> {
   });
 
   if (response === 0) {
-    // User chose "Recover" - read temp files and log content
-    // Full restoration with window creation is deferred to future enhancement
-    console.log('User chose to recover files. Reading temp file contents...');
+    // User chose "Recover" - read temp files and store for window creation
     for (const entry of entries) {
       try {
         const content = await fs.readFile(entry.tempPath, 'utf-8');
-        console.log(
-          `Recovered "${entry.displayName}" (${content.length} chars)`
-        );
-        // TODO: Create new window/document with recovered content
-        // For now, keep the temp files for manual recovery
+        pendingRecoveryEntries.push({
+          displayName: entry.displayName,
+          content,
+          savedAt: entry.savedAt,
+        });
       } catch (err) {
         console.error(`Failed to read recovered file ${entry.tempPath}:`, err);
       }
     }
-    console.log(
-      'Recovery complete. Temp files preserved for manual inspection.'
-    );
   } else {
     // User chose "Discard" - clean up all temp files
-    console.log('User chose to discard recovered files. Cleaning up...');
     for (const entry of entries) {
       await autoSaveManager.cleanupEntry(entry.fileId);
-      console.log(`Cleaned up: ${entry.displayName}`);
     }
-    console.log('Cleanup complete.');
   }
 }
 
@@ -103,6 +98,17 @@ function createMainWindow(): void {
   registerIpcHandlers(mainWindow);
   initializeApplicationMenu(mainWindow);
   loadContent(mainWindow);
+
+  // Send pending recovery entries to renderer after window is ready
+  if (pendingRecoveryEntries.length > 0) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('mdxpad:recovery:restore', pendingRecoveryEntries);
+        // Clear the pending entries after sending
+        pendingRecoveryEntries = [];
+      }
+    });
+  }
 }
 
 // App ready - check for crash recovery, then create window

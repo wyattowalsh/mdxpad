@@ -22,6 +22,8 @@ export interface PreviewStoreState {
   readonly state: PreviewState;
   /** Cached last successful render for error recovery */
   readonly lastSuccessfulRender: CompileSuccess | null;
+  /** Timestamp of last successful render (for staleness detection) */
+  readonly lastSuccessfulRenderAt: number | null;
   /** Current scroll ratio (0-1) */
   readonly scrollRatio: number;
 }
@@ -53,6 +55,7 @@ export type PreviewStore = PreviewStoreState & PreviewStoreActions;
 const initialState: PreviewStoreState = {
   state: { status: 'idle' },
   lastSuccessfulRender: null,
+  lastSuccessfulRenderAt: null,
   scrollRatio: 0,
 };
 
@@ -88,6 +91,7 @@ export const usePreviewStore = create<PreviewStore>()(
         // Use castDraft for readonly OutlineAST compatibility with Immer
         draft.state = { status: 'success', result: castDraft(result) };
         draft.lastSuccessfulRender = castDraft(result);
+        draft.lastSuccessfulRenderAt = Date.now();
       }),
 
     setError: (errors) =>
@@ -101,6 +105,7 @@ export const usePreviewStore = create<PreviewStore>()(
       set((draft) => {
         draft.state = { status: 'idle' };
         draft.lastSuccessfulRender = null;
+        draft.lastSuccessfulRenderAt = null;
         draft.scrollRatio = 0;
       }),
 
@@ -221,3 +226,37 @@ export const selectOutlineAST = (
   const content = selectRenderableContent(state);
   return content?.outline ?? null;
 };
+
+/**
+ * Selector for last successful render timestamp.
+ *
+ * @param state - Preview store state
+ * @returns Timestamp of last successful render, or null if none exists
+ */
+export const selectLastSuccessfulRenderAt = (
+  state: PreviewStore
+): number | null => state.lastSuccessfulRenderAt;
+
+/**
+ * Selector for staleness indicator.
+ * Returns true if the last successful render is older than 30 seconds.
+ *
+ * @param state - Preview store state
+ * @returns True if last render is stale (older than 30 seconds), false otherwise
+ */
+export const selectIsStale = (state: PreviewStore): boolean => {
+  const lastRenderAt = state.lastSuccessfulRenderAt;
+  if (lastRenderAt === null) return false;
+  return Date.now() - lastRenderAt > 30000; // 30 seconds
+};
+
+/**
+ * Selector for preview staleness.
+ * Preview is considered stale if older than 30 seconds.
+ *
+ * @param state - Preview store state
+ * @returns True if preview is stale (older than 30 seconds)
+ */
+export const selectIsPreviewStale = (state: PreviewStore): boolean =>
+  state.lastSuccessfulRenderAt !== null &&
+  Date.now() - state.lastSuccessfulRenderAt > 30000;

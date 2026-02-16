@@ -32,7 +32,6 @@ import type {
 import type {
   RecoveryDialogEntry,
   RecoveryDecision,
-  DocumentId,
 } from '@shared/contracts/autosave-schemas';
 
 // =============================================================================
@@ -53,12 +52,11 @@ import type {
  *
  * @returns Promise resolving to recovery check response
  */
-const checkRecovery = async (): Promise<RecoveryCheckResponse> => {
+const checkRecovery = (): Promise<RecoveryCheckResponse> => {
   // TODO: Replace with actual IPC call after preload update
   // return window.mdxpad.recovery.check();
-  console.debug('[useRecoveryCheck] Checking for recovery data (stub)');
   // Return no recovery data for stub implementation
-  return { hasRecoveryData: false, count: 0 };
+  return Promise.resolve({ hasRecoveryData: false, count: 0 });
 };
 
 /**
@@ -75,11 +73,10 @@ const checkRecovery = async (): Promise<RecoveryCheckResponse> => {
  *
  * @returns Promise resolving to list of recovery entries
  */
-const listRecovery = async (): Promise<RecoveryListResponse> => {
+const listRecovery = (): Promise<RecoveryListResponse> => {
   // TODO: Replace with actual IPC call after preload update
   // return window.mdxpad.recovery.list();
-  console.debug('[useRecoveryCheck] Listing recovery entries (stub)');
-  return { entries: [] };
+  return Promise.resolve({ entries: [] });
 };
 
 /**
@@ -94,16 +91,14 @@ const listRecovery = async (): Promise<RecoveryListResponse> => {
  *     restore: (request: RecoveryRestoreRequest) => Promise<RecoveryRestoreResponse>
  *   }
  *
- * @param request - Restore request with decision
  * @returns Promise resolving to restore response with recovered documents
  */
-const restoreRecovery = async (
-  request: RecoveryRestoreRequest
+const restoreRecovery = (
+  _request: RecoveryRestoreRequest
 ): Promise<RecoveryRestoreResponse> => {
   // TODO: Replace with actual IPC call after preload update
   // return window.mdxpad.recovery.restore(request);
-  console.debug('[useRecoveryCheck] Restoring recovery data (stub):', request);
-  return { ok: false, error: 'Recovery API not available - preload needs update' };
+  return Promise.resolve({ ok: false, error: 'Recovery API not available - preload needs update' });
 };
 
 /**
@@ -118,16 +113,14 @@ const restoreRecovery = async (
  *     discard: (request: RecoveryDiscardRequest) => Promise<RecoveryDiscardResponse>
  *   }
  *
- * @param request - Discard request with document IDs
  * @returns Promise resolving to discard response
  */
-const discardRecovery = async (
-  request: RecoveryDiscardRequest
+const discardRecovery = (
+  _request: RecoveryDiscardRequest
 ): Promise<RecoveryDiscardResponse> => {
   // TODO: Replace with actual IPC call after preload update
   // return window.mdxpad.recovery.discard(request);
-  console.debug('[useRecoveryCheck] Discarding recovery data (stub):', request);
-  return { discardedCount: 0 };
+  return Promise.resolve({ discardedCount: 0 });
 };
 
 // =============================================================================
@@ -307,37 +300,32 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
     hasCheckedRef.current = true;
 
     const performCheck = async (): Promise<void> => {
-      console.debug('[useRecoveryCheck] Starting recovery check');
       setIsChecking(true);
       setError(null);
 
       try {
         // Step 1: Check if recovery data exists
         const checkResponse = await checkRecovery();
-        console.debug('[useRecoveryCheck] Check response:', checkResponse);
 
         if (!mounted) return;
 
         setHasRecoveryData(checkResponse.hasRecoveryData);
 
         if (!checkResponse.hasRecoveryData || checkResponse.count === 0) {
-          console.debug('[useRecoveryCheck] No recovery data found');
           setIsChecking(false);
           return;
         }
 
         // Step 2: Fetch recovery entries for dialog
-        console.debug('[useRecoveryCheck] Fetching recovery entries');
         const listResponse = await listRecovery();
-        console.debug('[useRecoveryCheck] List response:', listResponse);
 
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- needed for real IPC
         if (!mounted) return;
 
         setEntries(listResponse.entries);
 
         // Step 3: Open recovery dialog if there are entries
         if (listResponse.entries.length > 0) {
-          console.debug('[useRecoveryCheck] Opening recovery dialog with', listResponse.entries.length, 'entries');
           setIsDialogOpen(true);
         }
       } catch (err) {
@@ -374,7 +362,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
    * @param decision - User's recovery decision
    */
   const handleDecision = useCallback(async (decision: RecoveryDecision): Promise<void> => {
-    console.debug('[useRecoveryCheck] Processing decision:', decision.action);
     setIsProcessing(true);
     setError(null);
 
@@ -382,7 +369,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
       switch (decision.action) {
         case 'accept': {
           // User wants to restore selected documents
-          console.debug('[useRecoveryCheck] Restoring documents:', decision.selectedIds);
 
           const restoreRequest: RecoveryRestoreRequest = {
             decision: decision,
@@ -391,7 +377,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
           const response = await restoreRecovery(restoreRequest);
 
           if (response.ok) {
-            console.debug('[useRecoveryCheck] Restore successful:', response.restored.length, 'documents');
             setRestoredDocuments(response.restored);
             setIsDialogOpen(false);
             setHasRecoveryData(false);
@@ -408,7 +393,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
 
         case 'decline': {
           // User explicitly declined - discard all recovery data
-          console.debug('[useRecoveryCheck] Discarding all recovery data');
 
           // Collect all document IDs from entries
           const allDocumentIds = entries.map((entry) => entry.documentId);
@@ -419,7 +403,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
 
           const response = await discardRecovery(discardRequest);
 
-          console.debug('[useRecoveryCheck] Discard complete:', response.discardedCount, 'documents');
           setIsDialogOpen(false);
           setHasRecoveryData(false);
           setEntries([]);
@@ -431,7 +414,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
 
         case 'dismiss': {
           // User dismissed dialog - preserve data for next startup (FR-007)
-          console.debug('[useRecoveryCheck] Dialog dismissed - preserving recovery data');
           setIsDialogOpen(false);
           // Keep entries and hasRecoveryData as-is for potential re-open
 

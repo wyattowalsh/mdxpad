@@ -14,10 +14,10 @@ import { ZodError } from 'zod';
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
 import {
-  RateLimitError,
+  serializeAIError,
   isAIProviderError,
 } from '@shared/ai/errors';
-import { getAIServices, type AIServices } from '@main/services/ai';
+import type { AIServices } from '@main/services/ai';
 
 // =============================================================================
 // TYPES
@@ -44,6 +44,20 @@ import type { UsageQuery } from '@main/services/ai';
 import type { ProviderConfig } from '@shared/ai/types';
 
 /**
+ * Generic utility to filter undefined values from an object.
+ * Returns a new object with only defined properties.
+ */
+function filterUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+}
+
+/**
  * Builds a text generation request filtering out undefined values.
  */
 function buildTextRequest(request: {
@@ -53,20 +67,7 @@ function buildTextRequest(request: {
   temperature?: number | undefined;
   systemPrompt?: string | undefined;
 }): TextGenerationRequest {
-  const result: TextGenerationRequest = { prompt: request.prompt };
-  if (request.modelId !== undefined) {
-    result.modelId = request.modelId;
-  }
-  if (request.maxTokens !== undefined) {
-    result.maxTokens = request.maxTokens;
-  }
-  if (request.temperature !== undefined) {
-    result.temperature = request.temperature;
-  }
-  if (request.systemPrompt !== undefined) {
-    result.systemPrompt = request.systemPrompt;
-  }
-  return result;
+  return filterUndefined(request) as TextGenerationRequest;
 }
 
 /**
@@ -76,11 +77,7 @@ function buildEmbedRequest(request: {
   texts: string[];
   modelId?: string | undefined;
 }): EmbeddingRequest {
-  const result: EmbeddingRequest = { texts: request.texts };
-  if (request.modelId !== undefined) {
-    result.modelId = request.modelId;
-  }
-  return result;
+  return filterUndefined(request) as EmbeddingRequest;
 }
 
 /**
@@ -92,17 +89,7 @@ function buildImageRequest(request: {
   quality?: 'standard' | 'hd' | undefined;
   style?: 'natural' | 'vivid' | undefined;
 }): ImageGenerationRequest {
-  const result: ImageGenerationRequest = { prompt: request.prompt };
-  if (request.size !== undefined) {
-    result.size = request.size;
-  }
-  if (request.quality !== undefined) {
-    result.quality = request.quality;
-  }
-  if (request.style !== undefined) {
-    result.style = request.style;
-  }
-  return result;
+  return filterUndefined(request) as ImageGenerationRequest;
 }
 
 /**
@@ -113,14 +100,7 @@ function buildUsageQuery(request: {
   providerId?: string | undefined;
   operationType?: 'text-generation' | 'streaming-generation' | 'embedding' | 'image-generation' | 'agent-execution' | undefined;
 }): UsageQuery {
-  const result: UsageQuery = { timeRange: request.timeRange };
-  if (request.providerId !== undefined) {
-    result.providerId = request.providerId;
-  }
-  if (request.operationType !== undefined) {
-    result.operationType = request.operationType;
-  }
-  return result;
+  return filterUndefined(request) as UsageQuery;
 }
 
 /**
@@ -152,27 +132,22 @@ function buildProviderUpdates(updates: {
  * Converts an error to a standard error response object.
  */
 function toErrorResponse(error: unknown): ErrorResponse {
-  if (error instanceof RateLimitError) {
-    return {
-      code: error.code,
-      message: error.message,
-      retryAfterSeconds: error.retryAfterSeconds,
-      alternateProviders: error.alternateProviders,
-    };
-  }
-
+  // Handle AIProviderError with serialization
   if (isAIProviderError(error)) {
-    return { code: error.code, message: error.message };
+    return serializeAIError(error);
   }
 
+  // Handle ZodError
   if (error instanceof ZodError) {
     return { code: 'VALIDATION_ERROR', message: error.message };
   }
 
+  // Handle generic Error
   if (error instanceof Error) {
     return { code: 'UNKNOWN_ERROR', message: error.message };
   }
 
+  // Fallback for unknown error types
   return { code: 'UNKNOWN_ERROR', message: String(error) };
 }
 
@@ -436,15 +411,42 @@ async function handleGenerateStream(
     const streamId = randomUUID();
     const sender = event.sender;
 
+    // Batch streaming chunks with backpressure control
+    const chunkBuffer: string[] = [];
+    let flushIntervalId: NodeJS.Timeout | null = null;
+
+    const flushChunks = () => {
+      if (chunkBuffer.length > 0 && !sender.isDestroyed()) {
+        sender.send(AIChannels.STREAM_CHUNK, {
+          streamId,
+          chunk: chunkBuffer.join(''),
+          isComplete: false,
+        });
+        chunkBuffer.length = 0;
+      }
+    };
+
+    // Set up flush interval (50ms batching)
+    flushIntervalId = setInterval(flushChunks, 50);
+
     const controller = await services.aiService.streamText(
       buildTextRequest(request),
       (chunk) => {
-        sender.send(AIChannels.STREAM_CHUNK, { streamId, chunk, isComplete: false });
+        // Check if sender is still valid before buffering
+        if (!sender.isDestroyed()) {
+          chunkBuffer.push(chunk);
+        }
       }
     );
 
     // Handle completion in background (don't await)
-    handleStreamCompletion(controller.completion, streamId, sender);
+    handleStreamCompletion(controller.completion, streamId, sender, () => {
+      if (flushIntervalId) {
+        clearInterval(flushIntervalId);
+        flushIntervalId = null;
+        flushChunks(); // Final flush
+      }
+    });
 
     return schemas.StreamInitResponseSchema.parse({
       success: true,
@@ -464,20 +466,27 @@ async function handleGenerateStream(
 function handleStreamCompletion(
   completion: Promise<{ text: string; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }>,
   streamId: string,
-  sender: Electron.WebContents
+  sender: Electron.WebContents,
+  onComplete?: () => void
 ): void {
   completion
     .then((result) => {
-      sender.send(AIChannels.STREAM_COMPLETE, {
-        streamId,
-        usage: result.usage,
-      });
+      if (onComplete) onComplete();
+      if (!sender.isDestroyed()) {
+        sender.send(AIChannels.STREAM_COMPLETE, {
+          streamId,
+          usage: result.usage,
+        });
+      }
     })
     .catch((error: unknown) => {
-      sender.send(AIChannels.STREAM_ERROR, {
-        streamId,
-        error: toErrorResponse(error),
-      });
+      if (onComplete) onComplete();
+      if (!sender.isDestroyed()) {
+        sender.send(AIChannels.STREAM_ERROR, {
+          streamId,
+          error: toErrorResponse(error),
+        });
+      }
     });
 }
 
@@ -817,10 +826,9 @@ function registerCapabilityHandlers(services: AIServices): void {
  * Call this once during app initialization.
  *
  * @param window - The main BrowserWindow instance (used for streaming events)
+ * @param services - The AIServices instance to use for all handlers
  */
-export function registerAIHandlers(window: BrowserWindow): void {
-  const services = getAIServices();
-
+export function registerAIHandlers(window: BrowserWindow, services: AIServices): void {
   registerProviderHandlers(services);
   registerCredentialHandlers(services);
   registerGenerationHandlers(services);

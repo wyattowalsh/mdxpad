@@ -8,7 +8,7 @@
  * @module renderer/components/shell/EditorPane
  */
 
-import { useCallback, memo } from 'react';
+import { useCallback, memo, useRef, useEffect } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
@@ -112,6 +112,14 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const content = useDocumentStore(selectContent);
   const setContent = useDocumentStore((state) => state.setContent);
 
+  // Use ref to track content for stable callback dependency
+  const contentRef = useRef(content);
+
+  // Update ref when content changes
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
+
   /**
    * Handle content changes from the editor.
    * Updates the document store with the new content.
@@ -133,10 +141,10 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
 
       // Use the 'from' position (start of selection) for cursor display
       // This represents where the cursor visually appears
-      const position = offsetToLineColumn(content, selection.from);
+      const position = offsetToLineColumn(contentRef.current, selection.from);
       onCursorChange(position);
     },
-    [onCursorChange, content]
+    [onCursorChange]
   );
 
   // Build props object, only including optional props when defined

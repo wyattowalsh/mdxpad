@@ -437,14 +437,18 @@ function useContentChangeListener(
   cacheRef: React.RefObject<PositionCache | null>
 ): void {
   // Track last document version to detect changes
-  const lastDocVersionRef = useRef<number | null>(null);
+  // Use both length and content sample to catch same-length edits
+  const lastDocVersionRef = useRef<{ length: number; sample: string } | null>(null);
 
   useEffect(() => {
     const view = editorRef.current;
     if (!view) return;
 
-    // Initialize version
-    lastDocVersionRef.current = view.state.doc.length;
+    // Initialize version with both length and content sample
+    lastDocVersionRef.current = {
+      length: view.state.doc.length,
+      sample: view.state.doc.sliceString(0, 100),
+    };
 
     // Listen for input events which indicate content changes
     const scrollElement = view.scrollDOM;
@@ -453,11 +457,15 @@ function useContentChangeListener(
       const currentView = editorRef.current;
       if (!currentView) return;
 
-      const currentVersion = currentView.state.doc.length;
-      if (lastDocVersionRef.current !== null && currentVersion !== lastDocVersionRef.current) {
+      const currentLength = currentView.state.doc.length;
+      const currentSample = currentView.state.doc.sliceString(0, 100);
+
+      if (lastDocVersionRef.current !== null &&
+          (currentLength !== lastDocVersionRef.current.length ||
+           currentSample !== lastDocVersionRef.current.sample)) {
         // Content changed - invalidate cache
         cacheRef.current?.clear();
-        lastDocVersionRef.current = currentVersion;
+        lastDocVersionRef.current = { length: currentLength, sample: currentSample };
       }
     };
 

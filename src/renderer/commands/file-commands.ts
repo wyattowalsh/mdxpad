@@ -173,6 +173,14 @@ const openFileCommand: Command = {
       ctx.notify({ type: 'success', message: `Opened: ${result.value.name}` });
       return { ok: true };
     } catch (error) {
+      // Check if error has FileError shape (with code property)
+      if (error && typeof error === 'object' && 'code' in error) {
+        const fileError = error as FileError;
+        const message = formatFileError(fileError);
+        ctx.notify({ type: 'error', message: `Failed to open file: ${message}` });
+        return { ok: false, error: message };
+      }
+      // Fallback for non-FileError errors
       const message = error instanceof Error ? error.message : String(error);
       ctx.notify({ type: 'error', message: `Failed to open file: ${message}` });
       return { ok: false, error: message };
@@ -228,6 +236,17 @@ const saveFileCommand: Command = {
       });
       return { ok: true };
     } catch (error) {
+      // Check if error has FileError shape (with code property)
+      if (error && typeof error === 'object' && 'code' in error) {
+        const fileError = error as FileError;
+        const message = formatFileError(fileError);
+        ctx.notify({
+          type: 'error',
+          message: `Failed to save: ${message}`,
+        });
+        return { ok: false, error: message };
+      }
+      // Fallback for non-FileError errors
       const message = error instanceof Error ? error.message : String(error);
       ctx.notify({
         type: 'error',
@@ -291,6 +310,17 @@ const saveFileAsCommand: Command = {
       });
       return { ok: true };
     } catch (error) {
+      // Check if error has FileError shape (with code property)
+      if (error && typeof error === 'object' && 'code' in error) {
+        const fileError = error as FileError;
+        const message = formatFileError(fileError);
+        ctx.notify({
+          type: 'error',
+          message: `Failed to save: ${message}`,
+        });
+        return { ok: false, error: message };
+      }
+      // Fallback for non-FileError errors
       const message = error instanceof Error ? error.message : String(error);
       ctx.notify({
         type: 'error',
@@ -323,6 +353,17 @@ const closeWindowCommand: Command = {
       await ctx.api.closeWindow();
       return { ok: true };
     } catch (error) {
+      // Check if error has FileError shape (with code property)
+      if (error && typeof error === 'object' && 'code' in error) {
+        const fileError = error as FileError;
+        const message = formatFileError(fileError);
+        ctx.notify({
+          type: 'error',
+          message: `Failed to close: ${message}`,
+        });
+        return { ok: false, error: message };
+      }
+      // Fallback for non-FileError errors
       const message = error instanceof Error ? error.message : String(error);
       ctx.notify({
         type: 'error',

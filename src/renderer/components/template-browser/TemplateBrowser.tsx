@@ -270,9 +270,8 @@ export function TemplateBrowser({
       await deleteTemplate(deletingTemplate.id);
       setIsDeleteDialogOpen(false);
       setDeletingTemplate(null);
-    } catch (err) {
-      // Error is handled in the store
-      console.error('Failed to delete template:', err);
+    } catch {
+      // Error is handled in the store and displayed via ErrorState
     } finally {
       setIsDeleting(false);
     }
@@ -285,7 +284,7 @@ export function TemplateBrowser({
     try {
       const dialogResult = await window.mdxpad.template.showOpenDialog();
       if (!dialogResult.success) {
-        console.error('Failed to show open dialog:', dialogResult.error);
+        // Dialog error is handled in the store
         return;
       }
 
@@ -294,8 +293,8 @@ export function TemplateBrowser({
       }
 
       await importTemplate(dialogResult.data.path, false);
-    } catch (err) {
-      console.error('Failed to import template:', err);
+    } catch {
+      // Error is handled in the store and displayed via ErrorState
     } finally {
       setIsImporting(false);
     }
@@ -310,7 +309,7 @@ export function TemplateBrowser({
     try {
       const dialogResult = await window.mdxpad.template.showSaveDialog(selectedTemplate.name);
       if (!dialogResult.success) {
-        console.error('Failed to show save dialog:', dialogResult.error);
+        // Dialog error is handled in the store
         return;
       }
 
@@ -319,8 +318,8 @@ export function TemplateBrowser({
       }
 
       await exportTemplate(selectedTemplate.id, dialogResult.data.path);
-    } catch (err) {
-      console.error('Failed to export template:', err);
+    } catch {
+      // Error is handled in the store and displayed via ErrorState
     } finally {
       setIsExporting(false);
     }
@@ -426,7 +425,7 @@ export function TemplateBrowser({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleImport}
+                onClick={() => void handleImport()}
                 disabled={isImporting}
               >
                 <Upload className="h-4 w-4 mr-1.5" />
@@ -435,7 +434,7 @@ export function TemplateBrowser({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleExport}
+                onClick={() => void handleExport()}
                 disabled={!selectedTemplate || isExporting}
               >
                 <Download className="h-4 w-4 mr-1.5" />
@@ -481,7 +480,7 @@ export function TemplateBrowser({
                       key={template.id}
                       template={template}
                       isSelected={selectedId === template.id}
-                      onSelect={handleTemplateSelect}
+                      onSelect={(id) => void handleTemplateSelect(id)}
                       onEdit={handleEditRequest}
                       onDelete={handleDeleteRequest}
                     />
@@ -515,7 +514,7 @@ export function TemplateBrowser({
       <EditTemplateDialog
         isOpen={isEditDialogOpen}
         onClose={handleEditDialogClose}
-        onSave={handleEditSave}
+        onSave={(data) => void handleEditSave(data)}
         template={editingTemplate}
         isSaving={isEditSaving}
         error={editError}
@@ -526,7 +525,7 @@ export function TemplateBrowser({
       <ConfirmDeleteDialog
         isOpen={isDeleteDialogOpen}
         onClose={handleDeleteDialogClose}
-        onConfirm={handleDeleteConfirm}
+        onConfirm={() => void handleDeleteConfirm()}
         templateName={deletingTemplate?.name ?? ''}
         isDeleting={isDeleting}
       />

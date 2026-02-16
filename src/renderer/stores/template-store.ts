@@ -110,6 +110,8 @@ export interface TemplateStoreActions {
   importTemplate: (path: string, replace?: boolean) => Promise<void>;
   /** Export a template to a file path via IPC */
   exportTemplate: (id: string, path: string) => Promise<void>;
+  /** Clear any error state */
+  clearError: () => void;
   /** Reset the store to initial state */
   reset: () => void;
 }
@@ -200,8 +202,13 @@ export const useTemplateStore = create<TemplateStore>()(
 
       try {
         const result = await window.mdxpad.template.list();
+
+        // Check staleness BEFORE processing result
         if (requestId !== loadTemplatesRequestId) {
-          set((draft) => { draft.isLoading = false; });
+          set((draft) => {
+            draft.isLoading = false;
+            draft.error = null; // Clear error on stale request
+          });
           return;
         }
 
@@ -227,8 +234,12 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
+        // Check staleness BEFORE processing error
         if (requestId !== loadTemplatesRequestId) {
-          set((draft) => { draft.isLoading = false; });
+          set((draft) => {
+            draft.isLoading = false;
+            draft.error = null; // Clear error on stale request
+          });
           return;
         }
 
@@ -251,8 +262,13 @@ export const useTemplateStore = create<TemplateStore>()(
 
       try {
         const result = await window.mdxpad.template.get(id);
+
+        // Check staleness BEFORE processing result
         if (requestId !== selectTemplateRequestId) {
-          set((draft) => { draft.isLoading = false; });
+          set((draft) => {
+            draft.isLoading = false;
+            draft.error = null; // Clear error on stale request
+          });
           return;
         }
 
@@ -271,8 +287,12 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
+        // Check staleness BEFORE processing error
         if (requestId !== selectTemplateRequestId) {
-          set((draft) => { draft.isLoading = false; });
+          set((draft) => {
+            draft.isLoading = false;
+            draft.error = null; // Clear error on stale request
+          });
           return;
         }
 
@@ -411,6 +431,11 @@ export const useTemplateStore = create<TemplateStore>()(
       }
     },
 
+    clearError: () =>
+      set((draft) => {
+        draft.error = null;
+      }),
+
     reset: () =>
       set((draft) => {
         loadTemplatesRequestId += 1;
@@ -493,6 +518,15 @@ export const selectIsLoading = (state: TemplateStore): boolean =>
  */
 export const selectError = (state: TemplateStore): string | null =>
   state.error;
+
+/**
+ * Selector for clearError action.
+ *
+ * @param state - Template store state
+ * @returns clearError action
+ */
+export const selectClearError = (state: TemplateStore): () => void =>
+  state.clearError;
 
 /**
  * Computed selector for filtered templates.

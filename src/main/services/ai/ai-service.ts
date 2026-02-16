@@ -479,6 +479,16 @@ export class AIService implements IAIService {
     return this.cachedModel !== null;
   }
 
+  /**
+   * Invalidates the cached model and state.
+   * Should be called when credentials change or provider is updated.
+   */
+  invalidateCache(): void {
+    this.cachedModel = null;
+    this.cachedProviderId = null;
+    this.cachedModelId = null;
+  }
+
   // ===========================================================================
   // PRIVATE: Provider and Model Creation
   // ===========================================================================

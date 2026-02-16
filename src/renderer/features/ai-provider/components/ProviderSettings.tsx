@@ -19,11 +19,22 @@ import {
 import { ProviderList } from './ProviderList';
 import { ProviderForm } from './ProviderForm';
 import { UsageStats } from './UsageStats';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog';
+import { Button } from '@ui/button';
+import { AlertTriangle } from 'lucide-react';
 
 type ViewMode = 'list' | 'add' | 'edit';
 
 export function ProviderSettings() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
 
   // Initialize providers on mount
   useInitializeAIProviders();
@@ -85,15 +96,25 @@ export function ProviderSettings() {
     [selectedProvider, updateProvider, select]
   );
 
-  // Handle remove provider
-  const handleRemove = useCallback(async () => {
+  // Handle remove provider request
+  const handleRemoveRequest = useCallback(() => {
     if (!selectedProvider) return;
-    if (confirm(`Remove provider "${selectedProvider.displayName}"?`)) {
-      await removeProvider(selectedProvider.id);
-      setViewMode('list');
-      select(null);
-    }
+    setIsRemoveDialogOpen(true);
+  }, [selectedProvider]);
+
+  // Handle remove confirm
+  const handleRemoveConfirm = useCallback(async () => {
+    if (!selectedProvider) return;
+    await removeProvider(selectedProvider.id);
+    setIsRemoveDialogOpen(false);
+    setViewMode('list');
+    select(null);
   }, [selectedProvider, removeProvider, select]);
+
+  // Handle remove cancel
+  const handleRemoveCancel = useCallback(() => {
+    setIsRemoveDialogOpen(false);
+  }, []);
 
   // Handle validate provider
   const handleValidate = useCallback(async () => {
@@ -145,7 +166,7 @@ export function ProviderSettings() {
                 activeProviderId={activeProviderId}
                 selectedProviderId={selectedProvider?.id ?? null}
                 onSelect={handleSelectProvider}
-                onSetActive={setActiveProvider}
+                onSetActive={(id) => void setActiveProvider(id)}
                 isLoading={isLoading}
               />
             </div>
@@ -155,7 +176,7 @@ export function ProviderSettings() {
               <UsageStats
                 stats={stats}
                 timeRange={timeRange}
-                onTimeRangeChange={refreshStats}
+                onTimeRangeChange={(range) => void refreshStats(range)}
                 isLoading={isLoading}
               />
             </div>
@@ -190,14 +211,14 @@ export function ProviderSettings() {
                 {/* Additional actions */}
                 <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                   <button
-                    onClick={handleValidate}
+                    onClick={() => void handleValidate()}
                     disabled={isValidating}
                     className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   >
                     {isValidating ? 'Validating...' : 'Test Connection'}
                   </button>
                   <button
-                    onClick={handleRemove}
+                    onClick={handleRemoveRequest}
                     disabled={isLoading}
                     className="w-full px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
                   >
@@ -209,6 +230,34 @@ export function ProviderSettings() {
           </div>
         )}
       </div>
+
+      {/* Remove Confirmation Dialog */}
+      <Dialog open={isRemoveDialogOpen} onOpenChange={(open) => !open && handleRemoveCancel()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              Remove Provider
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove{' '}
+              <span className="font-semibold text-foreground">
+                &ldquo;{selectedProvider?.displayName}&rdquo;
+              </span>
+              ? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleRemoveCancel} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleRemoveConfirm()} disabled={isLoading}>
+              {isLoading ? 'Removing...' : 'Remove'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

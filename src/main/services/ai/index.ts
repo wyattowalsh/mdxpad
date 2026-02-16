@@ -136,34 +136,3 @@ export interface AIServices {
   usageService: UsageService;
   onboardingService: OnboardingService;
 }
-
-// =============================================================================
-// SINGLETON INSTANCE (optional, for simple usage)
-// =============================================================================
-
-let _services: AIServices | null = null;
-
-/**
- * Gets the singleton AI services instance.
- * Creates the services on first call.
- *
- * @example
- * ```typescript
- * const { aiService } = getAIServices();
- * const result = await aiService.generateText({ prompt: 'Hello' });
- * ```
- */
-export function getAIServices(): AIServices {
-  if (!_services) {
-    _services = createAIServices();
-  }
-  return _services;
-}
-
-/**
- * Resets the singleton services instance.
- * Useful for testing or when reinitializing the application.
- */
-export function resetAIServices(): void {
-  _services = null;
-}

@@ -11,6 +11,8 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { castDraft, current } from 'immer';
+import type { WritableDraft } from 'immer';
 import type {
   FrontmatterData,
   FrontmatterSchema,
@@ -77,18 +79,16 @@ function createField(
 
 /**
  * Updates a field's value by mutating in-place (for use inside Immer drafts)
- * Uses type assertion to work around Immer's WritableDraft deep instantiation issues
+ * Note: value assignment uses any to avoid WritableDraft deep instantiation issues
  */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access -- Immer WritableDraft workaround */
 function updateFieldInPlace(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  field: any,
+  field: WritableDraft<FrontmatterField>,
   value: FieldValue
 ): void {
   // Direct mutation is safe inside Immer's set() callback
-  field.value = value;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (field as any).value = value;
 }
-/* eslint-enable @typescript-eslint/no-unsafe-member-access */
 
 /**
  * Validates a single field and updates its validation result in-place.
@@ -97,23 +97,24 @@ function updateFieldInPlace(
  * @param field - The field to validate (Immer draft)
  * @param schema - Optional schema for additional validation rules
  */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-condition */
 function validateFieldInPlace(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  field: any,
+  field: WritableDraft<FrontmatterField>,
   schema?: FrontmatterSchema
 ): void {
-  const schemaProperty = schema?.properties?.[field.name];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const schemaProperty = schema?.properties?.[(field as any).name];
   const validationResult = validateFieldValue(
-    field.value,
-    field.type,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (field as any).value,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (field as any).type,
     schemaProperty
   );
 
   // Update validation result in-place
-  field.validation = validationResult;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (field as any).validation = validationResult;
 }
-/* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-condition */
 
 // =============================================================================
 // STORE CREATION
@@ -148,9 +149,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     parseFromDocument: (content: string) =>
       set((draft) => {
         const parsed = parseFrontmatter(content);
-        // Use type assertion to work around Immer's WritableDraft deep instantiation issues
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-        draft.data = parsed as any;
+        draft.data = castDraft(parsed);
         draft.rawYamlDraft = parsed.rawYaml;
         draft.isDirty = false;
         draft.lastChangeSource = 'document';
@@ -183,9 +182,10 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     addField: (name: string, type: FieldType) =>
       set((draft) => {
         // Create new frontmatter data if it doesn't exist
-        // Use type assertion to work around Immer's WritableDraft deep instantiation issues
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/prefer-nullish-coalescing
-        if (draft.data === null) draft.data = { ...EMPTY_FRONTMATTER_DATA, exists: true, fields: [] } as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (draft.data === null) {
+          draft.data = { ...EMPTY_FRONTMATTER_DATA, exists: true, fields: [] } as any;
+        }
 
         // data is now guaranteed to be non-null after the above assignment
         // Add explicit null check to satisfy TypeScript strict mode
@@ -197,7 +197,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
 
         // Add new field at the end
         const order = draft.data.fields.length;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         draft.data.fields.push(createField(name, type, order) as any);
         draft.isDirty = true;
         draft.lastChangeSource = 'panel';
@@ -253,9 +253,9 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
       set((draft) => {
         // If switching to raw, update rawYamlDraft from current data
         if (mode === 'raw' && draft.data) {
-          // Cast to FrontmatterData to work around Immer's WritableDraft issues
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-          draft.rawYamlDraft = serializeFrontmatter(draft.data as any);
+          draft.rawYamlDraft = serializeFrontmatter(
+            current(draft.data) as unknown as FrontmatterData
+          );
         }
         draft.mode = mode;
       });
@@ -308,9 +308,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
       }
 
       set((draft) => {
-        // Use type assertion to work around Immer's WritableDraft deep instantiation issues
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-        draft.data = parsed as any;
+        draft.data = castDraft(parsed);
         draft.isDirty = true;
         draft.lastChangeSource = 'panel';
       });
@@ -364,16 +362,13 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
         // For now, use empty schema with simulated async operation
         await Promise.resolve();
         set((draft) => {
-          // Use type assertion to work around Immer's WritableDraft deep instantiation issues
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-          draft.schema = EMPTY_SCHEMA as any;
+          draft.schema = castDraft(EMPTY_SCHEMA);
           draft.isLoadingSchema = false;
         });
       } catch (error) {
         set((draft) => {
           // On error, fall back to empty schema
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-          draft.schema = EMPTY_SCHEMA as any;
+          draft.schema = castDraft(EMPTY_SCHEMA);
           draft.schemaError =
             error instanceof Error ? error.message : 'Failed to load schema';
           draft.isLoadingSchema = false;

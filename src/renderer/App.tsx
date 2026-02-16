@@ -223,6 +223,7 @@ export function App(): React.ReactElement {
   const isDirty = useDocumentStore(selectIsDirty);
   const setContent = useDocumentStore((s) => s.setContent);
   const newDocument = useDocumentStore((s) => s.newDocument);
+  const handleExternalChange = useDocumentStore((s) => s.handleExternalChange);
 
   // Template browser modal state
   const isTemplateBrowserOpen = useTemplateBrowserModalStore(selectIsTemplateBrowserOpen);
@@ -287,13 +288,14 @@ export function App(): React.ReactElement {
   // Handle error click - navigate to error location in editor
   const handleErrorClick = useCallback((error: CompilationError): void => {
     // TODO: Implement editor navigation to error location
-    console.log('Navigate to error:', error.line, error.column);
+    void error;
   }, []);
 
   // Handle error click from preview
   const handlePreviewErrorClick = useCallback((line: number, column?: number): void => {
     // TODO: Implement editor navigation to error location
-    console.log('Navigate to error from preview:', line, column);
+    void line;
+    void column;
   }, []);
 
   // Handle outline item navigation (FR-020, FR-021, FR-022, FR-024)
@@ -348,8 +350,6 @@ export function App(): React.ReactElement {
 
       // Clear the pending template
       clearPendingTemplate();
-
-      console.log(`Created new document from template: ${template.name}`);
     },
     [newDocument, setContent, clearPendingTemplate]
   );
@@ -431,7 +431,6 @@ export function App(): React.ReactElement {
 
         // Success - close dialog
         closeSaveTemplateDialog();
-        console.log(`Saved template: ${data.name}`);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to save template';
         setSaveError(errorMessage);
@@ -443,7 +442,6 @@ export function App(): React.ReactElement {
   // Build command context
   // T027: Notification callback announces to screen readers via aria-live region
   const handleNotification = useCallback((n: NotificationInput) => {
-    console.log(`[${n.type}] ${n.message}`);
     // Update aria-live region for screen readers
     setAnnouncement(n.message);
     // Clear announcement after duration (or 3 seconds default) to allow future announcements
@@ -513,6 +511,33 @@ export function App(): React.ReactElement {
       }
     };
   }, [executeCommand, getCommandContext]);
+
+  // Handle external file changes from the file watcher
+  useEffect(() => {
+    const mdxpad = getMdxpadApi();
+
+    const unsubscribe = mdxpad.onFileChange((event) => {
+      // Only handle changes for the currently open file
+      if (!fileId || event.fileId !== fileId || event.type !== 'change') {
+        return;
+      }
+
+      // Read the updated file content
+      void (async () => {
+        const result = await mdxpad.readFile(event.path);
+
+        if (result.ok) {
+          // Call the store's handleExternalChange with content and current timestamp
+          // Note: Using Date.now() as the mtime since readFile doesn't return file metadata
+          handleExternalChange(result.value, Date.now());
+        }
+      })();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [fileId, handleExternalChange]);
 
   // Calculate panel sizes based on split ratio and preview visibility
   const editorSize = useMemo(() => {

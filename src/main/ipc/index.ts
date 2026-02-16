@@ -13,9 +13,18 @@ import { registerWindowHandlers } from './window-handlers';
 import { registerAutosaveHandlers } from './autosave-handlers';
 import { registerAIHandlers } from './ai-handlers';
 import { registerTemplateHandlers } from '@main/services/template-service';
+import { AutosaveSettingsService } from '@main/services/autosave-settings';
+import { AutosaveService } from '@main/services/autosave-service';
+import { RecoveryService } from '@main/services/recovery-service';
+import { createAIServices } from '@main/services/ai';
 
 /** Track whether global handlers have been registered */
 let globalHandlersRegistered = false;
+
+/** Singleton autosave service instances */
+const settingsService = new AutosaveSettingsService();
+const autosaveService = new AutosaveService(settingsService);
+const recoveryService = new RecoveryService(settingsService, autosaveService);
 
 /**
  * Register all IPC handlers.
@@ -55,10 +64,14 @@ export function registerIpcHandlers(window: BrowserWindow): void {
     registerWindowHandlers(ipcMain, window);
 
     // Register autosave and recovery handlers (FR-001 to FR-021)
-    registerAutosaveHandlers(ipcMain);
+    registerAutosaveHandlers(ipcMain, {
+      settingsService,
+      autosaveService,
+      recoveryService,
+    });
 
     // Register AI provider handlers (Spec 028)
-    registerAIHandlers(window);
+    registerAIHandlers(window, createAIServices());
 
     // Register template operation handlers (list, get, save, delete, import, export, validate, createFromTemplate)
     registerTemplateHandlers(ipcMain);

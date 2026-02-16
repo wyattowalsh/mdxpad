@@ -60,6 +60,12 @@ export interface DocumentState {
   readonly isDirty: boolean;
   /** Last known modification time of the file (for external change detection) */
   readonly lastKnownMtime: number | null;
+  /** Whether an external change has been detected while document is dirty */
+  readonly externalChangeDetected: boolean;
+  /** Content from external change */
+  readonly externalContent: string | null;
+  /** Mtime from external change */
+  readonly externalMtime: number | null;
 }
 
 // =============================================================================
@@ -78,4 +84,7 @@ export const INITIAL_DOCUMENT_STATE: DocumentState = {
   savedContent: '',
   isDirty: false,
   lastKnownMtime: null,
+  externalChangeDetected: false,
+  externalContent: null,
+  externalMtime: null,
 } as const;

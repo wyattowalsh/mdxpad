@@ -30,141 +30,190 @@ import {
 } from '@shared/contracts/autosave-ipc';
 import type { AutosaveSettings, AutosaveStatus } from '@shared/contracts/autosave-schemas';
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
-import { AutosaveService } from '@main/services/autosave-service';
-import { RecoveryService } from '@main/services/recovery-service';
-import { AutosaveSettingsService } from '@main/services/autosave-settings';
+import type { AutosaveService } from '@main/services/autosave-service';
+import type { RecoveryService } from '@main/services/recovery-service';
+import type { AutosaveSettingsService } from '@main/services/autosave-settings';
 
-// Service instances (shared across all handlers)
-const settingsService = new AutosaveSettingsService();
-const autosaveService = new AutosaveService(settingsService);
-const recoveryService = new RecoveryService(settingsService, autosaveService);
+/**
+ * Services container for dependency injection.
+ * Holds instances of services required by autosave handlers.
+ */
+interface AutosaveHandlerServices {
+  readonly settingsService: AutosaveSettingsService;
+  readonly autosaveService: AutosaveService;
+  readonly recoveryService: RecoveryService;
+}
 
-// Autosave status state
+/**
+ * Autosave status state.
+ * Tracks the current status across handler invocations.
+ */
 let currentStatus: AutosaveStatus = { status: 'idle' };
 
 // ============================================================================
 // Recovery Handlers (FR-003 to FR-007)
 // ============================================================================
 
-/** Handler for mdxpad:recovery:check - Checks if recovery data exists on startup. */
-const handleRecoveryCheck = createValidatedHandler(
-  RecoveryCheckRequestSchema,
-  async (): Promise<RecoveryCheckResponse> => recoveryService.checkForRecovery()
-);
+/**
+ * Creates recovery handlers with injected services.
+ * @param services - Service container with required dependencies
+ * @returns Object containing all recovery handler functions
+ */
+function createRecoveryHandlers(services: AutosaveHandlerServices) {
+  return {
+    handleRecoveryCheck: createValidatedHandler(
+      RecoveryCheckRequestSchema,
+      async (): Promise<RecoveryCheckResponse> => services.recoveryService.checkForRecovery()
+    ),
 
-/** Handler for mdxpad:recovery:list - Lists all recoverable documents. */
-const handleRecoveryList = createValidatedHandler(
-  RecoveryListRequestSchema,
-  async (): Promise<RecoveryListResponse> => recoveryService.listRecoverable()
-);
+    handleRecoveryList: createValidatedHandler(
+      RecoveryListRequestSchema,
+      async (): Promise<RecoveryListResponse> => services.recoveryService.listRecoverable()
+    ),
 
-/** Handler for mdxpad:recovery:preview - Gets full content for preview. */
-const handleRecoveryPreview = createValidatedHandler(
-  RecoveryPreviewRequestSchema,
-  async (args): Promise<RecoveryPreviewResponse> => recoveryService.getPreview(args.documentId)
-);
+    handleRecoveryPreview: createValidatedHandler(
+      RecoveryPreviewRequestSchema,
+      async (args): Promise<RecoveryPreviewResponse> => services.recoveryService.getPreview(args.documentId)
+    ),
 
-/** Handler for mdxpad:recovery:restore - Restores selected documents. */
-const handleRecoveryRestore = createValidatedHandler(
-  RecoveryRestoreRequestSchema,
-  async (args): Promise<RecoveryRestoreResponse> => recoveryService.restore(args)
-);
+    handleRecoveryRestore: createValidatedHandler(
+      RecoveryRestoreRequestSchema,
+      async (args): Promise<RecoveryRestoreResponse> => services.recoveryService.restore(args)
+    ),
 
-/** Handler for mdxpad:recovery:discard - Discards recovery data. */
-const handleRecoveryDiscard = createValidatedHandler(
-  RecoveryDiscardRequestSchema,
-  async (args): Promise<RecoveryDiscardResponse> => recoveryService.discardRecovery(args.documentIds)
-);
+    handleRecoveryDiscard: createValidatedHandler(
+      RecoveryDiscardRequestSchema,
+      async (args): Promise<RecoveryDiscardResponse> => services.recoveryService.discardRecovery(args.documentIds)
+    ),
+  };
+}
 
 // ============================================================================
 // Autosave Handlers (FR-001, FR-013)
 // ============================================================================
 
-/** Handler for mdxpad:autosave:trigger - Triggers autosave for a document. */
-const handleAutosaveTrigger = createValidatedHandler(
-  AutosaveTriggerRequestSchema,
-  async (args): Promise<AutosaveTriggerResponse> => {
-    currentStatus = { status: 'saving' };
-    const result = await autosaveService.saveDocument(args);
-    if (result.ok) {
-      currentStatus = { status: 'saved', savedAt: result.savedAt };
-    } else {
-      currentStatus = { status: 'failed', consecutiveFailures: 1, lastError: result.message };
-    }
-    return result;
-  }
-);
+/**
+ * Creates autosave handlers with injected services.
+ * @param services - Service container with required dependencies
+ * @returns Object containing all autosave handler functions
+ */
+function createAutosaveHandlers(services: AutosaveHandlerServices) {
+  return {
+    handleAutosaveTrigger: createValidatedHandler(
+      AutosaveTriggerRequestSchema,
+      async (args): Promise<AutosaveTriggerResponse> => {
+        currentStatus = { status: 'saving' };
+        const result = await services.autosaveService.saveDocument(args);
+        if (result.ok) {
+          currentStatus = { status: 'saved', savedAt: result.savedAt };
+        } else {
+          currentStatus = { status: 'failed', consecutiveFailures: 1, lastError: result.message };
+        }
+        return result;
+      }
+    ),
 
-/** Handler for mdxpad:autosave:status - Gets current autosave status. */
-const handleAutosaveStatus = createValidatedHandler(
-  AutosaveStatusRequestSchema,
-  (): Promise<AutosaveStatus> => Promise.resolve(currentStatus)
-);
+    handleAutosaveStatus: createValidatedHandler(
+      AutosaveStatusRequestSchema,
+      (): Promise<AutosaveStatus> => Promise.resolve(currentStatus)
+    ),
+  };
+}
 
 // ============================================================================
 // Settings Handlers (FR-009, FR-010, FR-011)
 // ============================================================================
 
-/** Handler for mdxpad:autosave:settings:get - Gets current autosave settings. */
-const handleSettingsGet = createValidatedHandler(
-  SettingsGetRequestSchema,
-  (): Promise<AutosaveSettings> => Promise.resolve(settingsService.getSettings())
-);
+/**
+ * Creates settings handlers with injected services.
+ * @param services - Service container with required dependencies
+ * @returns Object containing all settings handler functions
+ */
+function createSettingsHandlers(services: AutosaveHandlerServices) {
+  return {
+    handleSettingsGet: createValidatedHandler(
+      SettingsGetRequestSchema,
+      (): Promise<AutosaveSettings> => Promise.resolve(services.settingsService.getSettings())
+    ),
 
-/** Handler for mdxpad:autosave:settings:set - Updates autosave settings. */
-const handleSettingsSet = createValidatedHandler(
-  SettingsSetRequestSchema,
-  (args): Promise<AutosaveSettings> => {
-    // Filter out undefined values for exactOptionalPropertyTypes compatibility
-    const filtered: Partial<AutosaveSettings> = {};
-    if (args.enabled !== undefined) filtered.enabled = args.enabled;
-    if (args.intervalMs !== undefined) filtered.intervalMs = args.intervalMs;
-    if (args.retentionDays !== undefined) filtered.retentionDays = args.retentionDays;
-    if (args.maxFiles !== undefined) filtered.maxFiles = args.maxFiles;
-    if (args.maxStorageMB !== undefined) filtered.maxStorageMB = args.maxStorageMB;
-    return Promise.resolve(settingsService.setSettings(filtered));
-  }
-);
+    handleSettingsSet: createValidatedHandler(
+      SettingsSetRequestSchema,
+      (args): Promise<AutosaveSettings> => {
+        // Filter out undefined values for exactOptionalPropertyTypes compatibility
+        const filtered: Partial<AutosaveSettings> = {};
+        if (args.enabled !== undefined) filtered.enabled = args.enabled;
+        if (args.intervalMs !== undefined) filtered.intervalMs = args.intervalMs;
+        if (args.retentionDays !== undefined) filtered.retentionDays = args.retentionDays;
+        if (args.maxFiles !== undefined) filtered.maxFiles = args.maxFiles;
+        if (args.maxStorageMB !== undefined) filtered.maxStorageMB = args.maxStorageMB;
+        return Promise.resolve(services.settingsService.setSettings(filtered));
+      }
+    ),
+  };
+}
 
 // ============================================================================
 // Conflict Resolution Handler (FR-016)
 // ============================================================================
 
-/** Handler for mdxpad:recovery:conflict:resolve - Resolves file conflict. */
-const handleConflictResolve = createValidatedHandler(
-  ConflictResolveRequestSchema,
-  (args): Promise<ConflictResolveResponse> => {
-    console.log('[AutosaveHandlers] Conflict resolution:', args.resolution);
-    return Promise.resolve({ ok: true });
-  }
-);
+/**
+ * Creates conflict resolution handler.
+ * @returns Conflict resolution handler function
+ */
+function createConflictHandler() {
+  return {
+    handleConflictResolve: createValidatedHandler(
+      ConflictResolveRequestSchema,
+      (args): Promise<ConflictResolveResponse> => {
+        console.log('[AutosaveHandlers] Conflict resolution:', args.resolution);
+        return Promise.resolve({ ok: true });
+      }
+    ),
+  };
+}
 
 // ============================================================================
 // Handler Registration
 // ============================================================================
 
 /**
- * Registers all autosave and recovery IPC handlers.
+ * Registers all autosave and recovery IPC handlers with dependency injection.
+ *
  * @param ipcMainInstance - The Electron IpcMain instance
+ * @param services - Service container with required dependencies
  */
-export function registerAutosaveHandlers(ipcMainInstance: IpcMain): void {
+export function registerAutosaveHandlers(
+  ipcMainInstance: IpcMain,
+  services: AutosaveHandlerServices
+): void {
+  // Create handlers with injected services
+  const recoveryHandlers = createRecoveryHandlers(services);
+  const autosaveHandlers = createAutosaveHandlers(services);
+  const settingsHandlers = createSettingsHandlers(services);
+  const conflictHandler = createConflictHandler();
+
   // Recovery handlers
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_CHECK, () => handleRecoveryCheck(undefined));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_LIST, () => handleRecoveryList(undefined));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_PREVIEW, (_, args) => handleRecoveryPreview(args));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_RESTORE, (_, args) => handleRecoveryRestore(args));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_DISCARD, (_, args) => handleRecoveryDiscard(args));
+  ipcMainInstance.handle(AutosaveChannels.RECOVERY_CHECK, () => recoveryHandlers.handleRecoveryCheck(undefined));
+  ipcMainInstance.handle(AutosaveChannels.RECOVERY_LIST, () => recoveryHandlers.handleRecoveryList(undefined));
+  ipcMainInstance.handle(AutosaveChannels.RECOVERY_PREVIEW, (_, args) => recoveryHandlers.handleRecoveryPreview(args));
+  ipcMainInstance.handle(AutosaveChannels.RECOVERY_RESTORE, (_, args) => recoveryHandlers.handleRecoveryRestore(args));
+  ipcMainInstance.handle(AutosaveChannels.RECOVERY_DISCARD, (_, args) => recoveryHandlers.handleRecoveryDiscard(args));
 
   // Autosave handlers
-  ipcMainInstance.handle(AutosaveChannels.AUTOSAVE_TRIGGER, (_, args) => handleAutosaveTrigger(args));
-  ipcMainInstance.handle(AutosaveChannels.AUTOSAVE_STATUS, () => handleAutosaveStatus(undefined));
+  ipcMainInstance.handle(AutosaveChannels.AUTOSAVE_TRIGGER, (_, args) => autosaveHandlers.handleAutosaveTrigger(args));
+  ipcMainInstance.handle(AutosaveChannels.AUTOSAVE_STATUS, () => autosaveHandlers.handleAutosaveStatus(undefined));
 
   // Settings handlers
-  ipcMainInstance.handle(AutosaveChannels.SETTINGS_GET, () => handleSettingsGet(undefined));
-  ipcMainInstance.handle(AutosaveChannels.SETTINGS_SET, (_, args) => handleSettingsSet(args));
+  ipcMainInstance.handle(AutosaveChannels.SETTINGS_GET, () => settingsHandlers.handleSettingsGet(undefined));
+  ipcMainInstance.handle(AutosaveChannels.SETTINGS_SET, (_, args) => settingsHandlers.handleSettingsSet(args));
 
   // Conflict resolution handler
-  ipcMainInstance.handle(AutosaveChannels.CONFLICT_RESOLVE, (_, args) => handleConflictResolve(args));
+  ipcMainInstance.handle(AutosaveChannels.CONFLICT_RESOLVE, (_, args) => conflictHandler.handleConflictResolve(args));
 
   console.log('[AutosaveHandlers] All autosave and recovery handlers registered');
 }
+
+/**
+ * Export AutosaveHandlerServices interface for use by callers.
+ */
+export type { AutosaveHandlerServices };

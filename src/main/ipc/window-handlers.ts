@@ -5,7 +5,7 @@
  * @module window-handlers
  */
 
-import { type IpcMain, type BrowserWindow, dialog } from 'electron';
+import { type IpcMain, type BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import {
   createValidatedHandler,
@@ -28,25 +28,6 @@ export function registerWindowHandlers(
   const handleWindowClose = createValidatedHandler(
     WindowCloseRequestSchema,
     (): Promise<void> => {
-      // TODO: Phase 3 - Check dirty state via IPC before closing
-      // For now, just close the window
-      // Future implementation:
-      // 1. Query renderer for dirty state
-      // 2. If dirty, show confirmation dialog:
-      //    const { response } = await dialog.showMessageBox(window, {
-      //      type: 'question',
-      //      buttons: ['Save', 'Discard', 'Cancel'],
-      //      defaultId: 0,
-      //      cancelId: 2,
-      //      title: 'Unsaved Changes',
-      //      message: 'Do you want to save your changes?',
-      //    });
-      //    // response: 0=Save, 1=Discard, 2=Cancel
-      // 3. Handle response accordingly
-
-      // Suppress unused import warning - dialog will be used in Phase 3
-      void dialog;
-
       window.close();
       return Promise.resolve();
     }

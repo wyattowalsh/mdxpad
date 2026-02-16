@@ -45,17 +45,16 @@ import type { DocumentId as DocumentStoreId } from '@shared/types/document';
  * @param request - Contains array of documentIds to discard
  * @returns Promise resolving to discard count
  */
-const discardRecovery = async (
+const discardRecovery = (
   request: RecoveryDiscardRequest
 ): Promise<RecoveryDiscardResponse> => {
   // TODO: Replace with actual IPC call after preload update
   // return window.mdxpad.recovery.discard(request);
-  console.debug('[useRecoveryCleanup] Discarding recovery for:', request.documentIds);
 
   // Stub: Return success with count matching request
-  return {
+  return Promise.resolve({
     discardedCount: request.documentIds.length,
-  };
+  });
 };
 
 // =============================================================================
@@ -101,7 +100,7 @@ export function useRecoveryCleanup(): void {
 
   // Subscribe to document store state
   const isDirty = useDocumentStore((s) => s.isDirty);
-  const fileId = useDocumentStore((s) => s.fileId) as DocumentStoreId | null;
+  const fileId = useDocumentStore((s) => s.fileId);
 
   /**
    * Perform the recovery discard operation.
@@ -120,17 +119,7 @@ export function useRecoveryCleanup(): void {
         documentIds: [documentId as unknown as AutosaveDocumentId],
       };
 
-      const response = await discardRecovery(request);
-
-      if (response.discardedCount > 0) {
-        console.debug(
-          `[useRecoveryCleanup] Successfully discarded ${response.discardedCount} recovery file(s)`
-        );
-      } else {
-        // No recovery file existed - this is normal for documents that were
-        // never autosaved or for new documents
-        console.debug('[useRecoveryCleanup] No recovery file to discard');
-      }
+      await discardRecovery(request);
     } catch (error) {
       // Log error but don't disrupt user experience
       // Recovery files will be cleaned up by retention policy if discard fails
@@ -150,7 +139,7 @@ export function useRecoveryCleanup(): void {
     }
 
     // Detect transition: dirty (true) -> clean (false) indicates manual save
-    if (prevIsDirtyRef.current === true && isDirty === false) {
+    if (prevIsDirtyRef.current === true && !isDirty) {
       // Get the document ID to discard
       // Priority: use the tracked dirty document ID, fall back to current fileId
       const documentIdToDiscard = dirtyDocumentIdRef.current ?? fileId;

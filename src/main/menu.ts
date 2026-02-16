@@ -29,12 +29,36 @@ let recentFilesService: RecentFilesService | null = null;
 let mainWindow: BrowserWindow | null = null;
 
 /**
+ * SEC-1: URL allowlist for external links.
+ * Only URLs in this list are allowed to be opened via shell.openExternal.
+ */
+const ALLOWED_EXTERNAL_URLS = [
+  'https://mdxjs.com/',
+  'https://mdxjs.com/docs/',
+  'https://github.com/mdxpad/mdxpad/issues',
+] as const;
+
+/**
  * Gets or creates the RecentFilesService singleton.
  * @returns The RecentFilesService instance
  */
 function getRecentFilesService(): RecentFilesService {
   recentFilesService ??= new RecentFilesService();
   return recentFilesService;
+}
+
+/**
+ * SEC-1: Safely opens an external URL after validating against allowlist.
+ * Only URLs in ALLOWED_EXTERNAL_URLS are permitted.
+ *
+ * @param url - The URL to open
+ */
+function safeOpenExternal(url: string): void {
+  if (!ALLOWED_EXTERNAL_URLS.includes(url as typeof ALLOWED_EXTERNAL_URLS[number])) {
+    console.error(`[Menu] Blocked attempt to open disallowed URL: ${url}`);
+    return;
+  }
+  void shell.openExternal(url);
 }
 
 /**
@@ -224,10 +248,10 @@ function buildFileMenu(window: BrowserWindow): MenuItemConstructorOptions {
 
 /**
  * Builds the Edit menu with standard editing operations.
- * @param window - The main BrowserWindow for IPC communication
+ * @param _window - The main BrowserWindow for IPC communication
  * @returns The Edit menu configuration
  */
-function buildEditMenu(window: BrowserWindow): MenuItemConstructorOptions {
+function buildEditMenu(_window: BrowserWindow): MenuItemConstructorOptions {
   const isMac = process.platform === 'darwin';
   return {
     label: 'Edit',
@@ -322,16 +346,16 @@ function buildHelpMenu(): MenuItemConstructorOptions {
     submenu: [
       {
         label: 'Learn More',
-        click: () => void shell.openExternal('https://mdxjs.com/'),
+        click: () => safeOpenExternal('https://mdxjs.com/'),
       },
       {
         label: 'Documentation',
-        click: () => void shell.openExternal('https://mdxjs.com/docs/'),
+        click: () => safeOpenExternal('https://mdxjs.com/docs/'),
       },
       { type: 'separator' },
       {
         label: 'Report Issue',
-        click: () => void shell.openExternal('https://github.com/mdxpad/mdxpad/issues'),
+        click: () => safeOpenExternal('https://github.com/mdxpad/mdxpad/issues'),
       },
     ],
   };

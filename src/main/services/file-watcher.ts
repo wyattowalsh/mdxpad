@@ -114,10 +114,10 @@ export class FileWatcher {
    *
    * @param fileId - Unique identifier of the file to stop watching
    */
-  unwatch(fileId: FileId): void {
+  async unwatch(fileId: FileId): Promise<void> {
     const entry = this.watched.get(fileId);
     if (entry) {
-      void entry.watcher.close();
+      await entry.watcher.close();
       this.watched.delete(fileId);
     }
   }
@@ -128,10 +128,10 @@ export class FileWatcher {
    * Should be called when the application is shutting down to
    * release all file system resources.
    */
-  close(): void {
-    for (const entry of this.watched.values()) {
-      void entry.watcher.close();
-    }
+  async close(): Promise<void> {
+    await Promise.all(
+      Array.from(this.watched.values()).map((entry) => entry.watcher.close())
+    );
     this.watched.clear();
   }
 
