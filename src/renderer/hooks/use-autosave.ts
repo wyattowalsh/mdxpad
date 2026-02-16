@@ -31,54 +31,33 @@ const DEFAULT_DEBOUNCE_MS = 2000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 // =============================================================================
-// IPC STUB
+// IPC HELPERS
 // =============================================================================
 
 /**
  * Trigger autosave via IPC.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.autosave.trigger(request)
- *
- * The preload.ts needs to expose:
- *   autosave: {
- *     trigger: (request: AutosaveTriggerRequest) => Promise<AutosaveTriggerResponse>
- *   }
  */
 const triggerAutosave = async (
   request: AutosaveTriggerRequest
 ): Promise<AutosaveTriggerResponse> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.autosave.trigger(request);
-  console.debug('[useAutosave] Autosave triggered (stub):', request.documentId);
-  throw new Error('Autosave API not available - preload needs update');
+  return window.mdxpad.autosaveTrigger(request);
 };
 
 /**
  * Get autosave settings via IPC.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.settings.get()
  */
 const getAutosaveSettings = async (): Promise<AutosaveSettings> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.autosave.settingsGet();
-  console.debug('[useAutosave] Getting settings (stub - using defaults)');
-  return DEFAULT_AUTOSAVE_SETTINGS;
+  return window.mdxpad.settings.get();
 };
 
 /**
  * Check if a file path is writable.
  *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should check file system permissions via IPC.
+ * No dedicated writability IPC exists today. Autosave permission failures are
+ * handled via autosave trigger error responses, so this is an optimistic check.
  */
-const checkFileWritable = async (_filePath: string): Promise<boolean> => {
-  // TODO: Replace with actual IPC call after preload update
-  // For now, assume all files are writable
-  return true;
+const checkFileWritable = (_filePath: string): Promise<boolean> => {
+  return Promise.resolve(true);
 };
 
 // =============================================================================
@@ -136,6 +115,7 @@ export interface UseAutosaveResult {
  * const result = useAutosave({ debounceMs: 5000 });
  * ```
  */
+// eslint-disable-next-line max-lines-per-function
 export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const optDebounceMs = options?.debounceMs;
   const enabled = options?.enabled ?? true;
@@ -173,6 +153,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   useEffect(() => {
     if (fileId) {
       documentIdRef.current = fileId;
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     } else if (!documentIdRef.current) {
       // Generate a new ID for untitled documents
       documentIdRef.current = crypto.randomUUID();
@@ -240,12 +221,11 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   /**
    * Perform the actual autosave operation.
    */
+  // eslint-disable-next-line max-lines-per-function
   const performSave = useCallback(async (): Promise<void> => {
     // Generate document ID if needed
-    const documentId = documentIdRef.current ?? crypto.randomUUID();
-    if (!documentIdRef.current) {
-      documentIdRef.current = documentId;
-    }
+    documentIdRef.current ??= crypto.randomUUID();
+    const documentId = documentIdRef.current;
 
     // Skip if read-only (T029)
     if (isReadOnlyRef.current) {
@@ -310,7 +290,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
         void performSave();
       }
     }
-  }, [filePath, fileName, content, startSave, completeSave, failSave]);
+  }, [filePath, fileName, content, consecutiveFailures, startSave, completeSave, failSave]);
 
   /**
    * Public method to trigger immediate save.
@@ -364,6 +344,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
     }
 
     // Determine debounce delay: option overrides settings
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const debounceMs = optDebounceMs ?? settingsRef.current.intervalMs ?? DEFAULT_DEBOUNCE_MS;
 
     // Start debounce timer
@@ -371,48 +352,30 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
       debounceTimeoutRef.current = null;
       void performSave();
     }, debounceMs);
-  }, [isDirty, enabled, storeEnabled, optDebounceMs, performSave]);
+  }, [isDirty, enabled, storeEnabled, consecutiveFailures, optDebounceMs, performSave]);
 
-  // Subscribe to settings changes from other windows/IPC (T020)
+  // Subscribe to settings changes (T020)
   useEffect(() => {
-    // TODO: Replace with actual IPC subscription when preload is updated
-    // const unsubscribe = window.mdxpad.settings.onChange((newSettings) => {
-    //   settingsRef.current = newSettings;
-    //   // Reset debounce timer if dirty and enabled
-    //   if (isDirty && enabled && storeEnabled) {
-    //     if (debounceTimeoutRef.current !== null) {
-    //       clearTimeout(debounceTimeoutRef.current);
-    //     }
-    //     debounceTimeoutRef.current = setTimeout(() => {
-    //       debounceTimeoutRef.current = null;
-    //       void performSave();
-    //     }, newSettings.intervalMs);
-    //   }
-    // });
-    // return () => { unsubscribe(); };
-
-    // Stub: Listen for custom event as placeholder
-    const handleSettingsChange = (event: CustomEvent<{ settings: AutosaveSettings }>): void => {
-      settingsRef.current = event.detail.settings;
-      console.debug('[useAutosave] Settings changed:', event.detail.settings);
+    const unsubscribe = window.mdxpad.settings.onChange((newSettings) => {
+      settingsRef.current = newSettings;
+      console.debug('[useAutosave] Settings changed:', newSettings);
 
       // Reset debounce timer if dirty and enabled
       if (isDirty && enabled && storeEnabled) {
         if (debounceTimeoutRef.current !== null) {
           clearTimeout(debounceTimeoutRef.current);
         }
-        const debounceMs = optDebounceMs ?? event.detail.settings.intervalMs ?? DEFAULT_DEBOUNCE_MS;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        const debounceMs = optDebounceMs ?? newSettings.intervalMs ?? DEFAULT_DEBOUNCE_MS;
         debounceTimeoutRef.current = setTimeout(() => {
           debounceTimeoutRef.current = null;
           void performSave();
         }, debounceMs);
       }
-    };
-
-    window.addEventListener('mdxpad:settings:change', handleSettingsChange as EventListener);
+    });
 
     return () => {
-      window.removeEventListener('mdxpad:settings:change', handleSettingsChange as EventListener);
+      unsubscribe();
     };
   }, [isDirty, enabled, storeEnabled, optDebounceMs, performSave]);
 
@@ -440,24 +403,6 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
     saveNow,
     disable,
   };
-}
-
-// =============================================================================
-// SETTINGS CHANGE HELPER
-// =============================================================================
-
-/**
- * Dispatch a settings change event for live update.
- *
- * This is a temporary mechanism until the preload IPC is implemented.
- * The settings panel can call this after successfully saving settings.
- *
- * @param settings - The new settings to broadcast
- */
-export function dispatchSettingsChange(settings: AutosaveSettings): void {
-  window.dispatchEvent(new CustomEvent('mdxpad:settings:change', {
-    detail: { settings },
-  }));
 }
 
 // Default export for convenience
