@@ -50,9 +50,7 @@ export interface VariableDialogProps {
 /**
  * Form validation error state.
  */
-interface FormErrors {
-  [variableName: string]: string | undefined;
-}
+type FormErrors = Record<string, string | undefined>;
 
 // =============================================================================
 // Helper Functions
@@ -125,6 +123,7 @@ function getAutoPreview(varName: string): string | null {
  * - Validates required fields
  * - Focuses first input on open
  */
+// eslint-disable-next-line max-lines-per-function
 export function VariableDialog({
   isOpen,
   onClose,
@@ -204,7 +203,7 @@ export function VariableDialog({
         const newErrors: FormErrors = {};
         for (const errorMsg of result.errors) {
           // Extract variable name from error message
-          const match = errorMsg.match(/Required variable "(\w+)"/);
+          const match = /Required variable "(\w+)"/.exec(errorMsg);
           if (match?.[1]) {
             newErrors[match[1]] = 'This field is required';
           }
@@ -247,6 +246,7 @@ export function VariableDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          {/* eslint-disable-next-line max-lines-per-function */}
           {variables.map((variable, index) => {
             const inputId = `var-${variable.name}`;
             const errorId = `${inputId}-error`;
