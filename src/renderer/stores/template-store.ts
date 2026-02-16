@@ -8,6 +8,8 @@
  * @module renderer/stores/template-store
  */
 
+/* eslint-disable max-lines-per-function */
+
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import Fuse, { type IFuseOptions } from 'fuse.js';
@@ -136,6 +138,13 @@ const INITIAL_TEMPLATE_STATE: TemplateState = {
 };
 
 /**
+ * Request counters used to ignore stale async responses.
+ * This prevents out-of-order list/get responses from overwriting newer state.
+ */
+let loadTemplatesRequestId = 0;
+let selectTemplateRequestId = 0;
+
+/**
  * Creates a new Fuse.js search index from template metadata.
  * Called when templates are loaded or modified.
  *
@@ -182,6 +191,8 @@ export const useTemplateStore = create<TemplateStore>()(
     ...INITIAL_TEMPLATE_STATE,
 
     loadTemplates: async () => {
+      const requestId = ++loadTemplatesRequestId;
+
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -189,6 +200,9 @@ export const useTemplateStore = create<TemplateStore>()(
 
       try {
         const result = await window.mdxpad.template.list();
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
 
         if (result.success) {
           // Create Fuse index outside of immer draft (Fuse instances aren't draft-safe)
@@ -196,6 +210,13 @@ export const useTemplateStore = create<TemplateStore>()(
           set((draft) => {
             draft.templates = result.data;
             draft._fuseIndex = fuseIndex;
+            if (
+              draft.selectedId !== null &&
+              !result.data.some((template) => template.id === draft.selectedId)
+            ) {
+              draft.selectedId = null;
+              draft.selectedTemplate = null;
+            }
             draft.isLoading = false;
           });
         } else {
@@ -205,6 +226,10 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
+
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to load templates';
           draft.isLoading = false;
@@ -213,18 +238,26 @@ export const useTemplateStore = create<TemplateStore>()(
     },
 
     selectTemplate: async (id: string) => {
+      const requestId = ++selectTemplateRequestId;
+
       set((draft) => {
         draft.selectedId = id;
+        draft.selectedTemplate = null;
         draft.isLoading = true;
         draft.error = null;
       });
 
       try {
         const result = await window.mdxpad.template.get(id);
+        if (requestId !== selectTemplateRequestId) {
+          return;
+        }
 
         if (result.success) {
           set((draft) => {
-            draft.selectedTemplate = result.data;
+            if (draft.selectedId === id) {
+              draft.selectedTemplate = result.data;
+            }
             draft.isLoading = false;
           });
         } else {
@@ -235,6 +268,10 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
+        if (requestId !== selectTemplateRequestId) {
+          return;
+        }
+
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to load template';
           draft.selectedTemplate = null;
@@ -245,8 +282,10 @@ export const useTemplateStore = create<TemplateStore>()(
 
     clearSelection: () =>
       set((draft) => {
+        selectTemplateRequestId += 1;
         draft.selectedId = null;
         draft.selectedTemplate = null;
+        draft.isLoading = false;
       }),
 
     setSearchQuery: (query: string) =>
@@ -269,21 +308,7 @@ export const useTemplateStore = create<TemplateStore>()(
         const result = await window.mdxpad.template.save(template, replace);
 
         if (result.success) {
-          // Reload templates to get updated list
-          const listResult = await window.mdxpad.template.list();
-          if (listResult.success) {
-            // Create Fuse index outside of immer draft
-            const fuseIndex = createFuseIndex(listResult.data);
-            set((draft) => {
-              draft.templates = listResult.data;
-              draft._fuseIndex = fuseIndex;
-              draft.isLoading = false;
-            });
-          } else {
-            set((draft) => {
-              draft.isLoading = false;
-            });
-          }
+          await get().loadTemplates();
         } else {
           set((draft) => {
             draft.error = result.error;
@@ -308,23 +333,14 @@ export const useTemplateStore = create<TemplateStore>()(
         const result = await window.mdxpad.template.delete(id);
 
         if (result.success) {
-          // Get current templates and remove the deleted one
-          const currentTemplates = get().templates;
-          const updatedTemplates = currentTemplates.filter((t) => t.id !== id);
-          // Create new Fuse index outside of immer draft
-          const fuseIndex = createFuseIndex(updatedTemplates);
-
           set((draft) => {
-            // Remove from local list
-            draft.templates = updatedTemplates;
-            draft._fuseIndex = fuseIndex;
-            // Clear selection if deleted template was selected
             if (draft.selectedId === id) {
               draft.selectedId = null;
               draft.selectedTemplate = null;
             }
-            draft.isLoading = false;
           });
+
+          await get().loadTemplates();
         } else {
           set((draft) => {
             draft.error = result.error;
@@ -349,21 +365,7 @@ export const useTemplateStore = create<TemplateStore>()(
         const result = await window.mdxpad.template.import(path, replace);
 
         if (result.success) {
-          // Reload templates to get updated list
-          const listResult = await window.mdxpad.template.list();
-          if (listResult.success) {
-            // Create Fuse index outside of immer draft
-            const fuseIndex = createFuseIndex(listResult.data);
-            set((draft) => {
-              draft.templates = listResult.data;
-              draft._fuseIndex = fuseIndex;
-              draft.isLoading = false;
-            });
-          } else {
-            set((draft) => {
-              draft.isLoading = false;
-            });
-          }
+          await get().loadTemplates();
         } else {
           set((draft) => {
             draft.error = result.error;
@@ -407,6 +409,8 @@ export const useTemplateStore = create<TemplateStore>()(
 
     reset: () =>
       set((draft) => {
+        loadTemplatesRequestId += 1;
+        selectTemplateRequestId += 1;
         draft.templates = [];
         draft._fuseIndex = null;
         draft.selectedId = null;
@@ -521,7 +525,7 @@ export const selectFilteredTemplates = (state: TemplateStore): TemplateMetadata[
     filtered = templates.filter((t) => {
       if (t.name.toLowerCase().includes(lowerQuery)) return true;
       if (t.description.toLowerCase().includes(lowerQuery)) return true;
-      if (t.tags?.some((tag) => tag.toLowerCase().includes(lowerQuery))) return true;
+      if (t.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))) return true;
       if (t.author?.toLowerCase().includes(lowerQuery)) return true;
       return false;
     });
