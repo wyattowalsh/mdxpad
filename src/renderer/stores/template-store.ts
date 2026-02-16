@@ -201,6 +201,7 @@ export const useTemplateStore = create<TemplateStore>()(
       try {
         const result = await window.mdxpad.template.list();
         if (requestId !== loadTemplatesRequestId) {
+          set((draft) => { draft.isLoading = false; });
           return;
         }
 
@@ -227,6 +228,7 @@ export const useTemplateStore = create<TemplateStore>()(
         }
       } catch (err) {
         if (requestId !== loadTemplatesRequestId) {
+          set((draft) => { draft.isLoading = false; });
           return;
         }
 
@@ -250,6 +252,7 @@ export const useTemplateStore = create<TemplateStore>()(
       try {
         const result = await window.mdxpad.template.get(id);
         if (requestId !== selectTemplateRequestId) {
+          set((draft) => { draft.isLoading = false; });
           return;
         }
 
@@ -269,6 +272,7 @@ export const useTemplateStore = create<TemplateStore>()(
         }
       } catch (err) {
         if (requestId !== selectTemplateRequestId) {
+          set((draft) => { draft.isLoading = false; });
           return;
         }
 
