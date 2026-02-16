@@ -150,6 +150,7 @@ export class ProviderService implements IProviderService {
    * Retrieves all configured providers.
    * @returns Array of provider configurations sorted by creation date
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getProviders(): Promise<ProviderConfig[]> {
     const providers = this.store.get('providers');
     return Object.values(providers).sort(
@@ -162,6 +163,7 @@ export class ProviderService implements IProviderService {
    * @param id - Provider ID to look up
    * @returns Provider configuration or null if not found
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getProvider(id: string): Promise<ProviderConfig | null> {
     const providers = this.store.get('providers');
     return providers[id] ?? null;
@@ -284,6 +286,7 @@ export class ProviderService implements IProviderService {
     await this.credentialService.clearCredential(id);
 
     const providers = this.store.get('providers');
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete providers[id];
     this.store.set('providers', providers);
 
@@ -339,6 +342,7 @@ export class ProviderService implements IProviderService {
    * Gets the count of configured providers.
    * @returns Number of configured providers
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getProviderCount(): Promise<number> {
     const providers = this.store.get('providers');
     return Object.keys(providers).length;
@@ -456,7 +460,7 @@ export class ProviderService implements IProviderService {
 
     const headers: Record<string, string> = {};
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      headers.Authorization = `Bearer ${apiKey}`;
     }
 
     const response = await this.fetchWithTimeout(`${baseUrl}/v1/models`, {
@@ -488,7 +492,7 @@ export class ProviderService implements IProviderService {
       return { valid: false, status: 'error', error: { code: 'API_ERROR', message: `API error: ${response.status}` } };
     }
 
-    const data = (await response.json()) as { data?: Array<{ id: string }> };
+    const data = (await response.json()) as { data?: { id: string }[] };
     const models = data.data?.map((m) => m.id) ?? [];
     return { valid: true, status: 'connected', models };
   }
@@ -496,6 +500,7 @@ export class ProviderService implements IProviderService {
   /**
    * Parses Anthropic API response.
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async parseAnthropicResponse(response: Response): Promise<ProviderValidationResult> {
     if (response.status === 401) {
       return { valid: false, status: 'error', error: { code: 'INVALID_API_KEY', message: 'Invalid API key' } };
@@ -523,7 +528,7 @@ export class ProviderService implements IProviderService {
       return { valid: false, status: 'error', error: { code: 'CONNECTION_ERROR', message: 'Failed to connect to Ollama' } };
     }
 
-    const data = (await response.json()) as { models?: Array<{ name: string }> };
+    const data = (await response.json()) as { models?: { name: string }[] };
     const models = data.models?.map((m) => m.name) ?? [];
     return { valid: true, status: 'connected', models };
   }
@@ -540,7 +545,7 @@ export class ProviderService implements IProviderService {
       return { valid: false, status: 'error', error: { code: 'CONNECTION_ERROR', message: `Connection error: ${response.status}` } };
     }
 
-    const data = (await response.json()) as { data?: Array<{ id: string }> };
+    const data = (await response.json()) as { data?: { id: string }[] };
     const models = data.data?.map((m) => m.id) ?? [];
     return { valid: true, status: 'connected', models };
   }
@@ -598,6 +603,7 @@ export class ProviderService implements IProviderService {
   /**
    * Deactivates the current active provider.
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async deactivateCurrentProvider(): Promise<void> {
     const activeId = this.store.get('activeProviderId');
     if (activeId) {

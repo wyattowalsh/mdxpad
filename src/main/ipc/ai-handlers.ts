@@ -14,9 +14,7 @@ import { ZodError } from 'zod';
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
 import {
-  AIProviderError,
   RateLimitError,
-  ProviderNotFoundError,
   isAIProviderError,
 } from '@shared/ai/errors';
 import { getAIServices, type AIServices } from '@main/services/ai';
@@ -574,7 +572,7 @@ async function handleUsageQuery(
           : [],
       },
     });
-  } catch (error) {
+  } catch {
     return schemas.QueryUsageResponseSchema.parse({ success: false });
   }
 }
@@ -742,16 +740,7 @@ async function handleCapabilityRefresh(
 // REGISTRATION
 // =============================================================================
 
-/**
- * Registers all AI-related IPC handlers.
- * Call this once during app initialization.
- *
- * @param window - The main BrowserWindow instance (used for streaming events)
- */
-export function registerAIHandlers(window: BrowserWindow): void {
-  const services = getAIServices();
-
-  // Provider Management (6 handlers)
+function registerProviderHandlers(services: AIServices): void {
   ipcMain.handle(AIChannels.PROVIDER_LIST, () =>
     handleProviderList(services)
   );
@@ -770,8 +759,9 @@ export function registerAIHandlers(window: BrowserWindow): void {
   ipcMain.handle(AIChannels.PROVIDER_VALIDATE, (_, request) =>
     handleProviderValidate(services, request)
   );
+}
 
-  // Credential Management (3 handlers)
+function registerCredentialHandlers(services: AIServices): void {
   ipcMain.handle(AIChannels.CREDENTIAL_SET, (_, request) =>
     handleCredentialSet(services, request)
   );
@@ -781,8 +771,9 @@ export function registerAIHandlers(window: BrowserWindow): void {
   ipcMain.handle(AIChannels.CREDENTIAL_CLEAR, (_, request) =>
     handleCredentialClear(services, request)
   );
+}
 
-  // AI Generation (4 handlers)
+function registerGenerationHandlers(services: AIServices): void {
   ipcMain.handle(AIChannels.GENERATE_TEXT, (_, request) =>
     handleGenerateText(services, request)
   );
@@ -795,8 +786,9 @@ export function registerAIHandlers(window: BrowserWindow): void {
   ipcMain.handle(AIChannels.GENERATE_IMAGE, (_, request) =>
     handleGenerateImage(services, request)
   );
+}
 
-  // Usage Statistics (3 handlers)
+function registerUsageHandlers(services: AIServices): void {
   ipcMain.handle(AIChannels.USAGE_QUERY, (_, request) =>
     handleUsageQuery(services, request)
   );
@@ -806,8 +798,9 @@ export function registerAIHandlers(window: BrowserWindow): void {
   ipcMain.handle(AIChannels.USAGE_CLEAR, (_, request) =>
     handleUsageClear(services, request)
   );
+}
 
-  // Capability Detection (3 handlers)
+function registerCapabilityHandlers(services: AIServices): void {
   ipcMain.handle(AIChannels.CAPABILITY_GET, (_, request) =>
     handleCapabilityGet(services, request)
   );
@@ -817,6 +810,22 @@ export function registerAIHandlers(window: BrowserWindow): void {
   ipcMain.handle(AIChannels.CAPABILITY_REFRESH, (_, request) =>
     handleCapabilityRefresh(services, request)
   );
+}
+
+/**
+ * Registers all AI-related IPC handlers.
+ * Call this once during app initialization.
+ *
+ * @param window - The main BrowserWindow instance (used for streaming events)
+ */
+export function registerAIHandlers(window: BrowserWindow): void {
+  const services = getAIServices();
+
+  registerProviderHandlers(services);
+  registerCredentialHandlers(services);
+  registerGenerationHandlers(services);
+  registerUsageHandlers(services);
+  registerCapabilityHandlers(services);
 
   // Reference window for streaming events
   void window;
