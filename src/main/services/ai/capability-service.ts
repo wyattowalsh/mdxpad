@@ -96,22 +96,22 @@ interface OllamaShowResponse {
  * Ollama tags response structure.
  */
 interface OllamaTagsResponse {
-  models?: Array<{
+  models?: {
     name: string;
     modified_at?: string;
     size?: number;
-  }>;
+  }[];
 }
 
 /**
  * OpenAI-compatible models response structure.
  */
 interface OpenAIModelsResponse {
-  data?: Array<{
+  data?: {
     id: string;
     object?: string;
     owned_by?: string;
-  }>;
+  }[];
 }
 
 // =============================================================================
@@ -333,7 +333,7 @@ export class CapabilityService implements ICapabilityService {
       return cached;
     }
 
-    const capabilities = await this.probeOllamaModel(provider.baseUrl!, modelId);
+    const capabilities = await this.probeOllamaModel(provider.baseUrl ?? '', modelId);
     this.cacheCapabilities(provider.id, modelId, capabilities);
     return capabilities;
   }
@@ -341,6 +341,7 @@ export class CapabilityService implements ICapabilityService {
   /**
    * Gets capabilities for a local provider model.
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async getLocalCapabilities(
     provider: ProviderConfig,
     modelId: string
@@ -638,6 +639,7 @@ export class CapabilityService implements ICapabilityService {
    * Checks if local provider has capability (basic text only).
    */
   private localHasCapability(capability: ProviderCapability): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     return capability === 'text-generation' || capability === 'streaming';
   }
 

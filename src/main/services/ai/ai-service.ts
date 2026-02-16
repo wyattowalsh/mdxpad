@@ -535,7 +535,7 @@ export class AIService implements IAIService {
         });
       default:
         throw new AIProviderError(
-          `Unsupported provider type: ${config.type}`,
+          `Unsupported provider type: ${String(config.type)}`,
           'UNSUPPORTED_PROVIDER',
           config.id
         );
@@ -668,6 +668,7 @@ export class AIService implements IAIService {
   /**
    * Generates an image using OpenAI's image generation API.
    */
+  // eslint-disable-next-line max-lines-per-function
   private async generateOpenAIImage(
     apiKey: string,
     provider: ProviderConfig,
@@ -704,7 +705,7 @@ export class AIService implements IAIService {
     }
 
     const data = (await response.json()) as {
-      data?: Array<{ url?: string; b64_json?: string }>;
+      data?: { url?: string; b64_json?: string }[];
     };
     const imageData = data.data?.[0];
 

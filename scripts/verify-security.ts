@@ -153,6 +153,7 @@ verifySecuritySettings()
       process.exit(1);
     }
     console.log('\nSecurity verification complete.');
+    process.exit(0);
   })
   .catch((error: unknown) => {
     console.error('Security verification failed with error:', error);
