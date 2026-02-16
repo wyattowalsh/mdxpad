@@ -10,6 +10,8 @@
  * @module renderer/hooks/useScrollSync
  */
 
+/* eslint-disable max-lines-per-function */
+
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { EditorView } from '@codemirror/view';
 import type { SyncMode } from '@shared/types/sync';
@@ -20,6 +22,7 @@ import {
 import {
   useSyncStore,
   selectIsSyncEnabled,
+  selectPreviewPosition,
 } from '@renderer/stores/sync-store';
 import {
   createScrollLock,
@@ -78,14 +81,14 @@ interface PreviewScrollReport {
 }
 
 interface SyncRefs {
-  readonly scrollLock: React.MutableRefObject<ScrollLockController | null>;
-  readonly positionCache: React.MutableRefObject<PositionCache | null>;
-  readonly positionMapper: React.MutableRefObject<PositionMapper | null>;
-  readonly debounceTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
+  readonly scrollLock: React.RefObject<ScrollLockController | null>;
+  readonly positionCache: React.RefObject<PositionCache | null>;
+  readonly positionMapper: React.RefObject<PositionMapper | null>;
+  readonly debounceTimer: React.RefObject<ReturnType<typeof setTimeout> | null>;
   /** Last cursor line for threshold tracking (T024) */
-  readonly lastCursorLine: React.MutableRefObject<number>;
+  readonly lastCursorLine: React.RefObject<number>;
   /** Last synced line for threshold comparison (T024) */
-  readonly lastSyncedLine: React.MutableRefObject<number>;
+  readonly lastSyncedLine: React.RefObject<number>;
 }
 
 // =============================================================================
@@ -152,31 +155,25 @@ function useSyncRefs(): SyncRefs {
 }
 
 function useScrollLockGetter(
-  ref: React.MutableRefObject<ScrollLockController | null>,
+  ref: React.RefObject<ScrollLockController | null>,
   setIsSyncing: (syncing: boolean) => void
 ): () => ScrollLockController {
   return useCallback(() => {
-    if (!ref.current) {
-      ref.current = createScrollLock({
-        lockDuration: SYNC_CONSTANTS.SYNC_DEBOUNCE_MS * 2,
-        onLockReleased: () => setIsSyncing(false),
-      });
-    }
+    ref.current ??= createScrollLock({
+      lockDuration: SYNC_CONSTANTS.SYNC_DEBOUNCE_MS * 2,
+      onLockReleased: () => setIsSyncing(false),
+    });
     return ref.current;
   }, [ref, setIsSyncing]);
 }
 
 function usePositionMapperGetter(
-  cacheRef: React.MutableRefObject<PositionCache | null>,
-  mapperRef: React.MutableRefObject<PositionMapper | null>
+  cacheRef: React.RefObject<PositionCache | null>,
+  mapperRef: React.RefObject<PositionMapper | null>
 ): () => PositionMapper {
   return useCallback(() => {
-    if (!cacheRef.current) {
-      cacheRef.current = createPositionCache({ ttl: SYNC_CONSTANTS.POSITION_CACHE_TTL_MS });
-    }
-    if (!mapperRef.current) {
-      mapperRef.current = createPositionMapper({ cache: cacheRef.current });
-    }
+    cacheRef.current ??= createPositionCache({ ttl: SYNC_CONSTANTS.POSITION_CACHE_TTL_MS });
+    mapperRef.current ??= createPositionMapper({ cache: cacheRef.current });
     return mapperRef.current;
   }, [cacheRef, mapperRef]);
 }
@@ -236,6 +233,13 @@ function usePreviewToEditorSync(
   isPreviewToEditorEnabled: boolean,
   getScrollLock: () => ScrollLockController,
   getPositionMapper: () => PositionMapper,
+  onPreviewScroll: (position: {
+    pane: 'preview';
+    line: null;
+    scrollTop: number;
+    ratio: number;
+    timestamp: number;
+  }) => void,
   setIsSyncing: (syncing: boolean) => void
 ): (report: PreviewScrollReport) => void {
   return useCallback((report: PreviewScrollReport) => {
@@ -259,7 +263,7 @@ function usePreviewToEditorSync(
 
     view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
 
-    useSyncStore.getState().handlePreviewScroll({
+    onPreviewScroll({
       pane: 'preview',
       line: null,
       scrollTop: report.scrollTop,
@@ -271,7 +275,7 @@ function usePreviewToEditorSync(
       () => setIsSyncing(false),
       prefersReducedMotion ? 0 : SYNC_CONSTANTS.SCROLL_ANIMATION_MS
     );
-  }, [editorRef, isEnabled, isPaused, isPreviewToEditorEnabled, getScrollLock, getPositionMapper, setIsSyncing]);
+  }, [editorRef, isEnabled, isPaused, isPreviewToEditorEnabled, getScrollLock, getPositionMapper, onPreviewScroll, setIsSyncing]);
 }
 
 // =============================================================================
@@ -294,7 +298,7 @@ function useEditorScrollListener(
   isPaused: boolean,
   isEditorToPreviewEnabled: boolean,
   syncEditorToPreview: () => void,
-  debounceTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>
+  debounceTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>
 ): void {
   useEffect(() => {
     const view = editorRef.current;
@@ -340,9 +344,9 @@ function useCursorTrackingListener(
   isEditorToPreviewEnabled: boolean,
   enableCursorTracking: boolean,
   syncEditorToPreview: () => void,
-  lastCursorLineRef: React.MutableRefObject<number>,
-  lastSyncedLineRef: React.MutableRefObject<number>,
-  debounceTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>
+  lastCursorLineRef: React.RefObject<number>,
+  lastSyncedLineRef: React.RefObject<number>,
+  debounceTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>
 ): void {
   useEffect(() => {
     const view = editorRef.current;
@@ -430,7 +434,7 @@ function useCursorTrackingListener(
  */
 function useContentChangeListener(
   editorRef: React.RefObject<EditorView | null>,
-  cacheRef: React.MutableRefObject<PositionCache | null>
+  cacheRef: React.RefObject<PositionCache | null>
 ): void {
   // Track last document version to detect changes
   const lastDocVersionRef = useRef<number | null>(null);
@@ -555,6 +559,8 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   const refs = useSyncRefs();
   const getScrollLock = useScrollLockGetter(refs.scrollLock, setIsSyncing);
   const getPositionMapper = usePositionMapperGetter(refs.positionCache, refs.positionMapper);
+  const previewPosition = useSyncStore(selectPreviewPosition);
+  const handlePreviewScroll = useSyncStore((state) => state.handlePreviewScroll);
 
   useEffect(() => { onSyncStateChange?.(isSyncing); }, [isSyncing, onSyncStateChange]);
 
@@ -565,7 +571,7 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
 
   const handlePreviewScrollReport = usePreviewToEditorSync(
     editorRef, isEnabled, isPaused, isPreviewToEditorEnabled,
-    getScrollLock, getPositionMapper, setIsSyncing
+    getScrollLock, getPositionMapper, handlePreviewScroll, setIsSyncing
   );
 
   usePreviewMessageListener(handlePreviewScrollReport);
@@ -590,14 +596,13 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   useSyncCleanup(refs);
 
   const syncPreviewToEditor = useCallback(() => {
-    const pos = useSyncStore.getState().previewPosition;
-    if (pos?.scrollTop != null) {
+    if (previewPosition?.scrollTop != null) {
       handlePreviewScrollReport({
-        type: 'scroll-report', ratio: pos.ratio, scrollTop: pos.scrollTop,
+        type: 'scroll-report', ratio: previewPosition.ratio, scrollTop: previewPosition.scrollTop,
         scrollHeight: 0, clientHeight: 0,
       });
     }
-  }, [handlePreviewScrollReport]);
+  }, [previewPosition, handlePreviewScrollReport]);
 
   return {
     isSyncing, syncEditorToPreview, syncPreviewToEditor,

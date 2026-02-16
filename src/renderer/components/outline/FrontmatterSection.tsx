@@ -65,6 +65,7 @@ function FieldRow({
  * @param props - Component props
  * @returns JSX element
  */
+// eslint-disable-next-line max-lines-per-function
 function FrontmatterSectionComponent(props: FrontmatterSectionProps): React.JSX.Element {
   const {
     fields,
@@ -115,7 +116,7 @@ function FrontmatterSectionComponent(props: FrontmatterSectionProps): React.JSX.
       ))}
 
       {/* Additional fields (when expanded) */}
-      {isExpanded && additionalFields && additionalFields.map((field) => (
+      {isExpanded && additionalFields?.map((field) => (
         <FieldRow key={field.key} field={field} onClick={onNavigate} />
       ))}
 
