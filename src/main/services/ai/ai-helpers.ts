@@ -80,18 +80,28 @@ export function isRateLimitError(error: unknown): boolean {
 }
 
 /**
- * Extracts retry-after seconds from an error.
+ * Extracts retry-after seconds from an error or Response object.
  */
-export function extractRetryAfter(error: unknown): number {
-  if (error instanceof Error && 'headers' in error) {
-    const headers = (error as { headers?: Record<string, string> }).headers;
+export function extractRetryAfter(errorOrResponse: unknown, fallbackSeconds = 60): number {
+  // Handle Response objects (from fetch API)
+  if (errorOrResponse instanceof Response) {
+    const retryAfter = errorOrResponse.headers.get('Retry-After');
+    if (retryAfter) {
+      const seconds = Number(retryAfter);
+      if (!Number.isNaN(seconds) && seconds > 0) return seconds;
+    }
+    return fallbackSeconds;
+  }
+  // Handle Error objects with headers property
+  if (errorOrResponse instanceof Error && 'headers' in errorOrResponse) {
+    const headers = (errorOrResponse as { headers?: Record<string, string> }).headers;
     const retryAfter = headers?.['retry-after'];
     if (retryAfter) {
       const parsed = parseInt(retryAfter, 10);
-      return isNaN(parsed) ? 60 : parsed;
+      return isNaN(parsed) ? fallbackSeconds : parsed;
     }
   }
-  return 60;
+  return fallbackSeconds;
 }
 
 /**

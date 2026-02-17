@@ -77,59 +77,44 @@ export const appInfo = {
 // ============================================================================
 
 export const fileOperations = {
-  openFile: async (): Promise<FileResult<FileHandle>> => {
-    const result = await validatedInvoke(
+  openFile: (): Promise<FileResult<FileHandle>> =>
+    validatedInvoke(
       IPC_CHANNELS.file.open,
       null, // void request
       FileOpenResponseSchema
-    );
-    // Cast validated result to expected type (structurally equivalent)
-    return result as unknown as FileResult<FileHandle>;
-  },
+    ) as Promise<FileResult<FileHandle>>,
 
-  saveFile: async (handle: unknown, content: string): Promise<FileResult<void>> => {
-    const result = await validatedInvoke(
+  saveFile: (handle: unknown, content: string): Promise<FileResult<void>> =>
+    validatedInvoke(
       IPC_CHANNELS.file.save,
       FileSaveRequestSchema,
       FileSaveResponseSchema,
       { handle, content }
-    );
-    // Cast validated result to expected type (structurally equivalent)
-    return result as unknown as FileResult<void>;
-  },
+    ) as Promise<FileResult<void>>,
 
-  saveFileAs: async (content: string): Promise<FileResult<FileHandle>> => {
-    const result = await validatedInvoke(
+  saveFileAs: (content: string): Promise<FileResult<FileHandle>> =>
+    validatedInvoke(
       IPC_CHANNELS.file.saveAs,
       FileSaveAsRequestSchema,
       FileSaveAsResponseSchema,
       { content }
-    );
-    // Cast validated result to expected type (structurally equivalent)
-    return result as unknown as FileResult<FileHandle>;
-  },
+    ) as Promise<FileResult<FileHandle>>,
 
-  readFile: async (path: string): Promise<FileResult<string>> => {
-    const result = await validatedInvoke(
+  readFile: (path: string): Promise<FileResult<string>> =>
+    validatedInvoke(
       IPC_CHANNELS.file.read,
       FileReadRequestSchema,
       FileReadResponseSchema,
       { path }
-    );
-    // Cast validated result to expected type (structurally equivalent)
-    return result as unknown as FileResult<string>;
-  },
+    ) as Promise<FileResult<string>>,
 
-  writeFile: async (path: string, content: string): Promise<FileResult<void>> => {
-    const result = await validatedInvoke(
+  writeFile: (path: string, content: string): Promise<FileResult<void>> =>
+    validatedInvoke(
       IPC_CHANNELS.file.write,
       FileWriteRequestSchema,
       FileWriteResponseSchema,
       { path, content }
-    );
-    // Cast validated result to expected type (structurally equivalent)
-    return result as unknown as FileResult<void>;
-  },
+    ) as Promise<FileResult<void>>,
 };
 
 // ============================================================================

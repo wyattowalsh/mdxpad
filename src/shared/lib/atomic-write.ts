@@ -28,6 +28,12 @@ export async function atomicWrite(
   tempSuffix: string = TEMP_SUFFIX,
 ): Promise<void> {
   const tempPath = `${targetPath}${tempSuffix}`;
-  await fs.writeFile(tempPath, content, 'utf-8');
-  await fs.rename(tempPath, targetPath);
+  try {
+    await fs.writeFile(tempPath, content, 'utf-8');
+    await fs.rename(tempPath, targetPath);
+  } catch (err) {
+    // Best-effort cleanup — ignore errors (file may not exist)
+    await fs.unlink(tempPath).catch(() => { /* intentional noop */ });
+    throw err;
+  }
 }

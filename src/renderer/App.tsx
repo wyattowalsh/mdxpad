@@ -42,10 +42,6 @@ import { useMenuEvents } from './hooks/useMenuEvents';
 /** Minimum pane size as percentage (10% = ~100px at 1000px width) */
 const MIN_PANE_SIZE = 10;
 
-/** Default split ratio (50% editor / 50% preview) - used by tests */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const DEFAULT_SPLIT_RATIO = 0.5;
-
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -139,7 +135,6 @@ export function App(): React.ReactElement {
                   theme="dark"
                   onErrorClick={state.handlePreviewErrorClick}
                   onErrorsChange={state.handleErrorsChange}
-                  onScrollReport={state.handleScrollReport}
                 />
               </ResizablePanel>
             </>

@@ -143,18 +143,23 @@ export function calculateTelemetryStats(
     };
   }
 
-  const successful = history.filter(t => t.success);
-  const failed = history.filter(t => !t.success);
-  const durations = history.map(t => t.durationMs).sort((a, b) => a - b);
-  const totalRetries = history.reduce((sum, t) => sum + t.retryCount, 0);
+  let successCount = 0;
+  let totalRetries = 0;
+  const durations: number[] = [];
+  for (const entry of history) {
+    if (entry.success) successCount++;
+    totalRetries += entry.retryCount;
+    durations.push(entry.durationMs);
+  }
+  durations.sort((a, b) => a - b);
 
   const p95Index = Math.floor(durations.length * 0.95);
   const p95Duration = durations[p95Index] ?? 0;
 
   return {
     totalCompilations: history.length,
-    successfulCompilations: successful.length,
-    failedCompilations: failed.length,
+    successfulCompilations: successCount,
+    failedCompilations: history.length - successCount,
     averageDurationMs: durations.reduce((a, b) => a + b, 0) / durations.length,
     p95DurationMs: p95Duration,
     totalRetries,

@@ -8,7 +8,7 @@
  * @module renderer/hooks/useAppState
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible, selectFrontmatterVisible } from '../stores/ui-layout-store';
 import {
@@ -42,7 +42,6 @@ import { substituteVariables, buildVariableValues } from '../lib/template-variab
 import type { CursorPosition } from '../components/shell/EditorPane';
 import type { CompilationError } from '../components/shell/StatusBar/types';
 import type { OutlineItem } from '@shared/types/outline';
-import type { ScrollReportSignal } from '@shared/types/preview-iframe';
 import type { NotificationInput } from '@shared/types/commands';
 import type { Template } from '@shared/contracts/template-schemas';
 import type { SaveTemplateFormData } from '../components/template-browser/SaveTemplateDialog';
@@ -107,7 +106,6 @@ export interface AppState {
   readonly handleErrorClick: (error: CompilationError) => void;
   readonly handlePreviewErrorClick: (line: number, column?: number) => void;
   readonly handleOutlineNavigate: (item: OutlineItem) => void;
-  readonly handleScrollReport: (report: Omit<ScrollReportSignal, 'type'>) => void;
   readonly handleTemplateSelect: (template: Template) => void;
   readonly handleVariableSubmit: (values: Record<string, string>) => void;
   readonly handleVariableCancel: () => void;
@@ -127,7 +125,8 @@ export function useAppState(): AppState {
   const outlineVisible = useUILayoutStore(selectOutlineVisible);
   const frontmatterVisible = useUILayoutStore(selectFrontmatterVisible);
   const splitRatio = useUILayoutStore(selectSplitRatio);
-  const setSplitRatio = useUILayoutStore((s) => s.setSplitRatio);
+  // Actions are stable references — use getState() to avoid inline lambda churn
+  const setSplitRatio = useUILayoutStore.getState().setSplitRatio;
 
   // Store subscriptions - Document
   const fileId = useDocumentStore(selectFileId);
@@ -135,34 +134,34 @@ export function useAppState(): AppState {
   const fileName = useDocumentStore(selectFileName);
   const isDirty = useDocumentStore(selectIsDirty);
   const documentContent = useDocumentStore(selectContent);
-  const setContent = useDocumentStore((s) => s.setContent);
-  const newDocument = useDocumentStore((s) => s.newDocument);
+  const setContent = useDocumentStore.getState().setContent;
+  const newDocument = useDocumentStore.getState().newDocument;
 
   // Store subscriptions - Template browser modal
   const isTemplateBrowserOpen = useTemplateBrowserModalStore(selectIsTemplateBrowserOpen);
   const isVariableDialogOpen = useTemplateBrowserModalStore(selectIsVariableDialogOpen);
   const pendingTemplate = useTemplateBrowserModalStore(selectPendingTemplate);
-  const openTemplateBrowser = useTemplateBrowserModalStore((s) => s.openTemplateBrowser);
-  const closeTemplateBrowser = useTemplateBrowserModalStore((s) => s.closeTemplateBrowser);
-  const startVariableDialog = useTemplateBrowserModalStore((s) => s.startVariableDialog);
-  const closeVariableDialog = useTemplateBrowserModalStore((s) => s.closeVariableDialog);
-  const clearPendingTemplate = useTemplateBrowserModalStore((s) => s.clearPendingTemplate);
+  const openTemplateBrowser = useTemplateBrowserModalStore.getState().openTemplateBrowser;
+  const closeTemplateBrowser = useTemplateBrowserModalStore.getState().closeTemplateBrowser;
+  const startVariableDialog = useTemplateBrowserModalStore.getState().startVariableDialog;
+  const closeVariableDialog = useTemplateBrowserModalStore.getState().closeVariableDialog;
+  const clearPendingTemplate = useTemplateBrowserModalStore.getState().clearPendingTemplate;
 
   // Save template dialog state
   const isSaveTemplateDialogOpen = useTemplateBrowserModalStore(selectIsSaveTemplateDialogOpen);
   const isSaving = useTemplateBrowserModalStore(selectIsSaving);
   const saveError = useTemplateBrowserModalStore(selectSaveError);
-  const closeSaveTemplateDialog = useTemplateBrowserModalStore((s) => s.closeSaveTemplateDialog);
-  const setSaving = useTemplateBrowserModalStore((s) => s.setSaving);
-  const setSaveError = useTemplateBrowserModalStore((s) => s.setSaveError);
+  const closeSaveTemplateDialog = useTemplateBrowserModalStore.getState().closeSaveTemplateDialog;
+  const setSaving = useTemplateBrowserModalStore.getState().setSaving;
+  const setSaveError = useTemplateBrowserModalStore.getState().setSaveError;
 
   // Template store for saving and getting existing names
   const templates = useTemplateStore(selectTemplates);
-  const saveTemplate = useTemplateStore((s) => s.saveTemplate);
+  const saveTemplate = useTemplateStore.getState().saveTemplate;
 
   // Settings
   const settingsOpen = useSettingsStore((s) => s.isOpen);
-  const closeSettings = useSettingsStore((s) => s.close);
+  const closeSettings = useSettingsStore.getState().close;
 
   // Autosave & Recovery
   const autosave = useAutosave();
@@ -188,6 +187,7 @@ export function useAppState(): AppState {
   const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
   const [errors, setErrors] = useState<readonly CompilationError[]>([]);
   const [announcement, setAnnouncement] = useState<string>('');
+  const announcementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Computed values
   const editorSize = useMemo(() => {
@@ -242,15 +242,6 @@ export function useAppState(): AppState {
       navigateToItem(item);
     },
     [navigateToItem]
-  );
-
-  // Handlers - Scroll sync
-  const handleScrollReport = useCallback(
-    (report: Omit<ScrollReportSignal, 'type'>): void => {
-      // The useScrollSync hook handles this via its internal message listener
-      void report;
-    },
-    []
   );
 
   // Handlers - Templates
@@ -329,7 +320,21 @@ export function useAppState(): AppState {
   // Handlers - Notification (T027 screen reader)
   const handleNotification = useCallback((n: NotificationInput) => {
     setAnnouncement(n.message);
-    setTimeout(() => setAnnouncement(''), n.duration ?? 3000);
+    if (announcementTimerRef.current) {
+      clearTimeout(announcementTimerRef.current);
+    }
+    announcementTimerRef.current = setTimeout(() => {
+      setAnnouncement('');
+      announcementTimerRef.current = null;
+    }, n.duration ?? 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (announcementTimerRef.current) {
+        clearTimeout(announcementTimerRef.current);
+      }
+    };
   }, []);
 
   return {
@@ -367,7 +372,6 @@ export function useAppState(): AppState {
     handleErrorClick,
     handlePreviewErrorClick,
     handleOutlineNavigate,
-    handleScrollReport,
     handleTemplateSelect,
     handleVariableSubmit,
     handleVariableCancel,

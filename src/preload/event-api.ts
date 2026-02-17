@@ -9,23 +9,31 @@
  */
 
 import { ipcRenderer } from 'electron';
+import { z } from 'zod';
 import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
 import { AutosaveSettingsSchema } from '@shared/contracts/autosave-schemas';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
-import type { FileHandle } from '@shared/types/file';
+import { FileChangeEventSchema, FileHandleSchema, type FileChangeEvent } from '@shared/contracts/file-schemas';
+
+// ============================================================================
+// Event Data Schemas
+// ============================================================================
+
+/** Zod schema for MenuFileOpenEvent */
+const MenuFileOpenEventSchema = z.object({
+  handle: FileHandleSchema,
+  content: z.string(),
+});
 
 /** Menu file open event data */
-export interface MenuFileOpenEvent {
-  handle: FileHandle;
-  content: string;
-}
+export type MenuFileOpenEvent = z.infer<typeof MenuFileOpenEventSchema>;
 
 // ============================================================================
 // Event Listener Registries
 // ============================================================================
 
 /** File change event listeners registry */
-const fileChangeListeners = new Set<(event: { fileId: string; path: string; type: 'change' | 'unlink' }) => void>();
+const fileChangeListeners = new Set<(event: FileChangeEvent) => void>();
 
 /** Menu event listeners registries */
 const menuCommandPaletteListeners = new Set<() => void>();
@@ -44,9 +52,13 @@ const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => 
 
 // File change listener
 ipcRenderer.on(IPC_CHANNELS.file.change, (_event, data: unknown) => {
-  const validData = data as { fileId: string; path: string; type: 'change' | 'unlink' };
+  const parsed = FileChangeEventSchema.safeParse(data);
+  if (!parsed.success) {
+    console.warn('[Preload] Invalid file change event data:', parsed.error.message);
+    return;
+  }
   for (const listener of fileChangeListeners) {
-    listener(validData);
+    listener(parsed.data);
   }
 });
 
@@ -70,9 +82,13 @@ ipcRenderer.on(IPC_EVENTS.menuOpenFileDialog, () => {
 });
 
 ipcRenderer.on(IPC_EVENTS.menuOpenFile, (_event, data: unknown) => {
-  const validData = data as MenuFileOpenEvent;
+  const parsed = MenuFileOpenEventSchema.safeParse(data);
+  if (!parsed.success) {
+    console.warn('[Preload] Invalid menu open file event data:', parsed.error.message);
+    return;
+  }
   for (const listener of menuOpenFileListeners) {
-    listener(validData);
+    listener(parsed.data);
   }
 });
 
@@ -104,7 +120,7 @@ ipcRenderer.on('mdxpad:autosave:settings:changed', (_event, data: unknown) => {
 
 export const eventSubscriptions = {
   /** Subscribe to file change events */
-  onFileChange: (callback: (event: { fileId: string; path: string; type: 'change' | 'unlink' }) => void) => {
+  onFileChange: (callback: (event: FileChangeEvent) => void) => {
     fileChangeListeners.add(callback);
     return () => {
       fileChangeListeners.delete(callback);

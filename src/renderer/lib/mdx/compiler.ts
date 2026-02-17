@@ -262,10 +262,15 @@ function doCompile(
     ...options?.retryConfig,
   };
 
+  const queueOverflowRef = {
+    get count() { return state.queueOverflows; },
+    set count(v: number) { state.queueOverflows = v; },
+  };
+
   void compileWithRetry(
     state.workers,
     state.pendingRequests,
-    { count: state.queueOverflows },
+    queueOverflowRef,
     state.isShuttingDown,
     source,
     id,

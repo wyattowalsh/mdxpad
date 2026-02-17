@@ -282,22 +282,28 @@ export async function prewarmAllWorkers(workers: WorkerInstance[]): Promise<void
         return;
       }
 
+      let resolved = false;
+
       const timeoutId = setTimeout(() => {
-        console.warn(`[MDX Compiler] Worker ${index} prewarm timeout`);
-        resolve();
+        if (!resolved) {
+          resolved = true;
+          console.warn(`[MDX Compiler] Worker ${index} prewarm timeout`);
+          workerInstance.worker.removeEventListener('message', handler);
+          resolve();
+        }
       }, PREWARM_TIMEOUT_MS);
 
-      const originalOnMessage = workerInstance.worker.onmessage;
-      workerInstance.worker.onmessage = (event: MessageEvent) => {
-        if (isPrewarmResponse(event.data)) {
+      const handler = (event: MessageEvent): void => {
+        if (isPrewarmResponse(event.data) && !resolved) {
+          resolved = true;
           clearTimeout(timeoutId);
+          workerInstance.worker.removeEventListener('message', handler);
           workerInstance.prewarmed = true;
-          workerInstance.worker.onmessage = originalOnMessage;
           resolve();
-        } else if (originalOnMessage) {
-          originalOnMessage.call(workerInstance.worker, event);
         }
       };
+
+      workerInstance.worker.addEventListener('message', handler);
 
       const request: PrewarmRequest = { type: 'prewarm' };
       workerInstance.worker.postMessage(request);
@@ -330,20 +336,26 @@ export async function getAllMemoryUsage(workers: WorkerInstance[]): Promise<Work
         return;
       }
 
+      let resolved = false;
+
       const timeoutId = setTimeout(() => {
-        resolve(undefined);
+        if (!resolved) {
+          resolved = true;
+          workerInstance.worker.removeEventListener('message', handler);
+          resolve(undefined);
+        }
       }, MEMORY_FETCH_TIMEOUT_MS);
 
-      const originalOnMessage = workerInstance.worker.onmessage;
-      workerInstance.worker.onmessage = (event: MessageEvent) => {
-        if (isHeartbeatPong(event.data)) {
+      const handler = (event: MessageEvent): void => {
+        if (isHeartbeatPong(event.data) && !resolved) {
+          resolved = true;
           clearTimeout(timeoutId);
-          workerInstance.worker.onmessage = originalOnMessage;
+          workerInstance.worker.removeEventListener('message', handler);
           resolve(event.data.memoryUsage);
-        } else if (originalOnMessage) {
-          originalOnMessage.call(workerInstance.worker, event);
         }
       };
+
+      workerInstance.worker.addEventListener('message', handler);
 
       const ping: HeartbeatPing = { type: 'heartbeat-ping', timestamp: Date.now() };
       workerInstance.worker.postMessage(ping);

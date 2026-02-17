@@ -53,37 +53,28 @@ export const recoveryOperations = {
       RecoveryCheckResponseSchema
     ),
 
-  recoveryList: async (): Promise<RecoveryListResponse> => {
-    const result = await validatedInvoke(
+  recoveryList: (): Promise<RecoveryListResponse> =>
+    validatedInvoke(
       AutosaveChannels.RECOVERY_LIST,
       null,
       RecoveryListResponseSchema
-    );
-    // Cast validated result to expected type (structurally equivalent, branded types)
-    return result as unknown as RecoveryListResponse;
-  },
+    ) as Promise<RecoveryListResponse>,
 
-  recoveryPreview: async (request: RecoveryPreviewRequest): Promise<RecoveryPreviewResponse> => {
-    const result = await validatedInvoke(
+  recoveryPreview: (request: RecoveryPreviewRequest): Promise<RecoveryPreviewResponse> =>
+    validatedInvoke(
       AutosaveChannels.RECOVERY_PREVIEW,
       RecoveryPreviewRequestSchema,
       RecoveryPreviewResponseSchema,
       request
-    );
-    // Cast validated result to expected type (structurally equivalent, branded types)
-    return result as unknown as RecoveryPreviewResponse;
-  },
+    ) as Promise<RecoveryPreviewResponse>,
 
-  recoveryRestore: async (request: RecoveryRestoreRequest): Promise<RecoveryRestoreResponse> => {
-    const result = await validatedInvoke(
+  recoveryRestore: (request: RecoveryRestoreRequest): Promise<RecoveryRestoreResponse> =>
+    validatedInvoke(
       AutosaveChannels.RECOVERY_RESTORE,
       RecoveryRestoreRequestSchema,
       RecoveryRestoreResponseSchema,
       request
-    );
-    // Cast validated result to expected type (structurally equivalent, branded types)
-    return result as unknown as RecoveryRestoreResponse;
-  },
+    ) as Promise<RecoveryRestoreResponse>,
 
   recoveryDiscard: (request: RecoveryDiscardRequest) =>
     validatedInvoke(

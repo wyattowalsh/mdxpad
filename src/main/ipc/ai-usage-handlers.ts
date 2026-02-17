@@ -64,31 +64,21 @@ async function handleUsageQuery(
           tokenCount: p.totalTokens,
           estimatedCostUsd: p.estimatedCostUsd,
         })),
-        byOperation: Object.keys(stats.byModel).length > 0
-          ? buildOperationStats(stats)
-          : [],
+        byOperation: buildOperationStats(),
       },
     });
-  } catch {
+  } catch (error) {
+    console.error('[AI] Failed to query usage stats:', error);
     return schemas.QueryUsageResponseSchema.parse({ success: false });
   }
 }
 
 /**
  * Builds operation stats from usage stats.
+ * TODO: Implement real operation stats aggregation when usage data model supports it
  */
-function buildOperationStats(
-  stats: { avgDurationMs: number }
-): schemas.OperationUsageStatSchemaType[] {
-  // Simplified: return empty array for now
-  // Full implementation would aggregate by operationType
-  return [
-    {
-      operationType: 'text-generation',
-      requestCount: 0,
-      avgDurationMs: stats.avgDurationMs,
-    },
-  ];
+function buildOperationStats(): schemas.OperationUsageStatSchemaType[] {
+  return [];
 }
 
 /**

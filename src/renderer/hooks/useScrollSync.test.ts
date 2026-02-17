@@ -506,14 +506,14 @@ describe('useScrollSync', () => {
       const editorRef = { current: editor };
       const previewRef = { current: iframe };
 
-      const { unmount } = renderHook(() =>
+      const { unmount, result } = renderHook(() =>
         useScrollSync({ editorRef, previewRef })
       );
 
-      unmount();
+      // Verify hook is functional before unmount
+      expect(result.current.isSyncing).toBe(false);
 
-      // Should not throw
-      expect(true).toBe(true);
+      unmount();
 
       cleanupEditor(editor);
     });
@@ -522,14 +522,15 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { unmount } = renderHook(() =>
+      const { unmount, result } = renderHook(() =>
         useScrollSync({ editorRef, previewRef })
       );
 
-      unmount();
+      // Verify hook returned valid state before unmount
+      expect(result.current.isSyncing).toBe(false);
+      expect(typeof result.current.pauseSync).toBe('function');
 
-      // Message listener should be removed
-      expect(true).toBe(true);
+      unmount();
     });
   });
 
@@ -540,15 +541,16 @@ describe('useScrollSync', () => {
 
       type ModeType = 'disabled' | 'editorToPreview' | 'previewToEditor' | 'bidirectional';
 
-      const { rerender } = renderHook(
+      const { rerender, result } = renderHook(
         ({ mode }: { mode: ModeType }) => useScrollSync({ editorRef, previewRef, mode }),
         { initialProps: { mode: 'bidirectional' as ModeType } }
       );
 
       rerender({ mode: 'editorToPreview' as ModeType });
 
-      // Should update mode
-      expect(true).toBe(true);
+      // Hook should remain functional after mode change
+      expect(result.current.isSyncing).toBe(false);
+      expect(typeof result.current.syncEditorToPreview).toBe('function');
     });
 
     it('should handle mode change from both to preview-only', () => {
@@ -557,14 +559,16 @@ describe('useScrollSync', () => {
 
       type ModeType = 'disabled' | 'editorToPreview' | 'previewToEditor' | 'bidirectional';
 
-      const { rerender } = renderHook(
+      const { rerender, result } = renderHook(
         ({ mode }: { mode: ModeType }) => useScrollSync({ editorRef, previewRef, mode }),
         { initialProps: { mode: 'bidirectional' as ModeType } }
       );
 
       rerender({ mode: 'previewToEditor' as ModeType });
 
-      expect(true).toBe(true);
+      // Hook should remain functional and not be syncing after mode change
+      expect(result.current.isSyncing).toBe(false);
+      expect(typeof result.current.syncPreviewToEditor).toBe('function');
     });
 
     it('should handle mode change to none', () => {
@@ -573,14 +577,15 @@ describe('useScrollSync', () => {
 
       type ModeType = 'disabled' | 'editorToPreview' | 'previewToEditor' | 'bidirectional';
 
-      const { rerender } = renderHook(
+      const { rerender, result } = renderHook(
         ({ mode }: { mode: ModeType }) => useScrollSync({ editorRef, previewRef, mode }),
         { initialProps: { mode: 'bidirectional' as ModeType } }
       );
 
       rerender({ mode: 'disabled' as ModeType });
 
-      expect(true).toBe(true);
+      // Disabled mode — isSyncing should remain false
+      expect(result.current.isSyncing).toBe(false);
     });
   });
 
@@ -589,28 +594,31 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { rerender } = renderHook(
+      const { rerender, result } = renderHook(
         ({ isEnabled }) => useScrollSync({ editorRef, previewRef, isEnabled }),
         { initialProps: { isEnabled: true } }
       );
 
       rerender({ isEnabled: false });
 
-      expect(true).toBe(true);
+      // After disabling, sync should not be active
+      expect(result.current.isSyncing).toBe(false);
     });
 
     it('should handle disable to enable transition', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { rerender } = renderHook(
+      const { rerender, result } = renderHook(
         ({ isEnabled }) => useScrollSync({ editorRef, previewRef, isEnabled }),
         { initialProps: { isEnabled: false } }
       );
 
       rerender({ isEnabled: true });
 
-      expect(true).toBe(true);
+      // After enabling, hook should be functional
+      expect(typeof result.current.syncEditorToPreview).toBe('function');
+      expect(result.current.isSyncing).toBe(false);
     });
   });
 
@@ -619,7 +627,7 @@ describe('useScrollSync', () => {
       const editorRef: { current: EditorView | null } = { current: null };
       const previewRef = { current: null };
 
-      const { rerender } = renderHook(() =>
+      const { rerender, result } = renderHook(() =>
         useScrollSync({ editorRef, previewRef })
       );
 
@@ -629,7 +637,9 @@ describe('useScrollSync', () => {
 
       rerender();
 
-      expect(true).toBe(true);
+      // Hook remains stable after ref becomes available
+      expect(result.current.isSyncing).toBe(false);
+      expect(typeof result.current.syncEditorToPreview).toBe('function');
 
       cleanupEditor(editor);
     });
@@ -638,7 +648,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef: { current: HTMLIFrameElement | null } = { current: null };
 
-      const { rerender } = renderHook(() =>
+      const { rerender, result } = renderHook(() =>
         useScrollSync({ editorRef, previewRef })
       );
 
@@ -648,7 +658,9 @@ describe('useScrollSync', () => {
 
       rerender();
 
-      expect(true).toBe(true);
+      // Hook remains stable after ref becomes available
+      expect(result.current.isSyncing).toBe(false);
+      expect(typeof result.current.syncPreviewToEditor).toBe('function');
     });
   });
 

@@ -228,20 +228,24 @@ async function handleCredentialHas(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.HasCredentialResponseSchemaType> {
-  const request = schemas.HasCredentialRequestSchema.parse(rawRequest);
-  const metadata = await services.credentialService.hasCredential(
-    request.providerId
-  );
+  try {
+    const request = schemas.HasCredentialRequestSchema.parse(rawRequest);
+    const metadata = await services.credentialService.hasCredential(
+      request.providerId
+    );
 
-  if (!metadata) {
+    if (!metadata) {
+      return schemas.HasCredentialResponseSchema.parse({ exists: false });
+    }
+
+    return schemas.HasCredentialResponseSchema.parse({
+      exists: true,
+      storageType: metadata.storageType,
+      keyPreview: metadata.keyPreview,
+    });
+  } catch {
     return schemas.HasCredentialResponseSchema.parse({ exists: false });
   }
-
-  return schemas.HasCredentialResponseSchema.parse({
-    exists: true,
-    storageType: metadata.storageType,
-    keyPreview: metadata.keyPreview,
-  });
 }
 
 /**
@@ -251,10 +255,17 @@ async function handleCredentialClear(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.ClearCredentialResponseSchemaType> {
-  const request = schemas.ClearCredentialRequestSchema.parse(rawRequest);
-  await services.credentialService.clearCredential(request.providerId);
+  try {
+    const request = schemas.ClearCredentialRequestSchema.parse(rawRequest);
+    await services.credentialService.clearCredential(request.providerId);
 
-  return schemas.ClearCredentialResponseSchema.parse({ success: true });
+    return schemas.ClearCredentialResponseSchema.parse({ success: true });
+  } catch (error) {
+    return schemas.ClearCredentialResponseSchema.parse({
+      success: false,
+      error: toErrorResponse(error),
+    });
+  }
 }
 
 // =============================================================================

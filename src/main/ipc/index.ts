@@ -62,7 +62,7 @@ export function registerIpcHandlers(window: BrowserWindow): void {
     });
 
     // Register AI provider handlers (Spec 028)
-    registerAIHandlers(window, createAIServices());
+    registerAIHandlers(createAIServices());
 
     // Register template operation handlers (list, get, save, delete, import, export, validate, createFromTemplate)
     registerTemplateHandlers(ipcMain);

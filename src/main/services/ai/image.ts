@@ -82,22 +82,33 @@ async function generateOpenAIImage(
   getAlternates: AlternateProvidersFn
 ): Promise<ImageGenerationResponse> {
   const startTime = Date.now();
+  const baseUrl = provider.baseUrl ?? 'https://api.openai.com';
+  const url = `${baseUrl}/v1/images/generations`;
 
-  const response = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: modelId,
-      prompt: request.prompt,
-      size: request.size ?? '1024x1024',
-      quality: request.quality ?? 'standard',
-      style: request.style ?? 'vivid',
-      response_format: 'url',
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60_000);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        prompt: request.prompt,
+        size: request.size ?? '1024x1024',
+        quality: request.quality ?? 'standard',
+        style: request.style ?? 'vivid',
+        response_format: 'url',
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     await recordImageUsage(

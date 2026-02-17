@@ -65,8 +65,8 @@ export async function performTextGeneration(
     await recordTextUsage(usageService, provider.id, modelId, 'text-generation', response, true);
     return response;
   } catch (error) {
-    await handleGenerationError(error, provider, modelId, startTime, usageService, getAlternates);
-    throw error; // Re-throw after handling
+    // handleGenerationError always throws; the await is typed as Promise<never>
+    return await handleGenerationError(error, provider, modelId, startTime, usageService, getAlternates);
   }
 }
 
@@ -180,8 +180,8 @@ async function processStream(
     );
     return response;
   } catch (error) {
-    await handleGenerationError(error, provider, modelId, startTime, usageService, getAlternates);
-    throw error;
+    // handleGenerationError always throws; the await is typed as Promise<never>
+    return await handleGenerationError(error, provider, modelId, startTime, usageService, getAlternates);
   }
 }
 
@@ -218,17 +218,21 @@ async function handleGenerationError(
   startTime: number,
   usageService: IUsageService,
   getAlternates: AlternateProvidersFn
-): Promise<void> {
+): Promise<never> {
   const durationMs = Date.now() - startTime;
 
-  await usageService.recordUsage({
-    providerId: provider.id,
-    modelId,
-    operationType: 'text-generation',
-    durationMs,
-    success: false,
-    errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
-  });
+  try {
+    await usageService.recordUsage({
+      providerId: provider.id,
+      modelId,
+      operationType: 'text-generation',
+      durationMs,
+      success: false,
+      errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+    });
+  } catch (recordError) {
+    console.error('[AI] Failed to record usage:', recordError);
+  }
 
   if (isRateLimitError(error)) {
     const alternates = await getAlternates(provider.id);

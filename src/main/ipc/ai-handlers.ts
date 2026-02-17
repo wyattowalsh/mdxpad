@@ -13,8 +13,6 @@
  * @module src/main/ipc/ai-handlers
  */
 
-import type { BrowserWindow } from 'electron';
-
 import type { AIServices } from '@main/services/ai';
 
 import { registerProviderHandlers } from './ai-provider-handlers';
@@ -29,16 +27,12 @@ export type { ErrorResponse } from './ai-handler-utils';
  * Registers all AI-related IPC handlers.
  * Call this once during app initialization.
  *
- * @param window - The main BrowserWindow instance (used for streaming events)
  * @param services - The AIServices instance to use for all handlers
  */
-export function registerAIHandlers(window: BrowserWindow, services: AIServices): void {
+export function registerAIHandlers(services: AIServices): void {
   registerProviderHandlers(services);
   registerGenerationHandlers(services);
   registerUsageHandlers(services);
-
-  // Reference window for streaming events
-  void window;
 
   console.log('[AIHandlers] All AI handlers registered (19 channels)');
 }
