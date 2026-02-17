@@ -36,7 +36,7 @@ interface BlockquoteProps extends React.BlockquoteHTMLAttributes<HTMLQuoteElemen
   children?: React.ReactNode;
 }
 
-interface HorizontalRuleProps extends React.HTMLAttributes<HTMLHRElement> {}
+type HorizontalRuleProps = React.HTMLAttributes<HTMLHRElement>;
 
 interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {
   children?: React.ReactNode;

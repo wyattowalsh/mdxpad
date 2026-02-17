@@ -41,7 +41,7 @@ function createMockCommand(overrides: Partial<Command> = {}): Command {
 
 function createMockResult(
   command: Command,
-  score: number = 100,
+  score = 100,
   matches: number[] = []
 ): FuzzyMatchResult<Command> {
   return {
@@ -103,8 +103,8 @@ describe('SearchInput', () => {
   it('renders with value prop', () => {
     render(<SearchInput {...defaultProps} value="test query" />);
 
-    const input = screen.getByTestId('command-palette-input') as HTMLInputElement;
-    expect(input.value).toBe('test query');
+    const input = screen.getByTestId('command-palette-input');
+    expect((input as HTMLInputElement).value).toBe('test query');
   });
 
   it('calls onChange when input value changes', () => {

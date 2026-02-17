@@ -112,7 +112,7 @@ function TreeNode({ node, depth }: TreeNodeProps): React.ReactElement {
       </div>
       {hasChildren && expanded && (
         <ul className="file-tree-children" role="group">
-          {node.children!.map((child, index) => (
+          {node.children.map((child, index) => (
             <TreeNode key={`${child.name}-${index}`} node={child} depth={depth + 1} />
           ))}
         </ul>

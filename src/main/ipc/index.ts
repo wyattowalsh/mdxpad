@@ -36,19 +36,10 @@ const recoveryService = new RecoveryService(settingsService, autosaveService);
 export function registerIpcHandlers(window: BrowserWindow): void {
   // Only register global handlers once
   if (!globalHandlersRegistered) {
-    // App security info handler (uses dynamic window lookup from event)
-    ipcMain.handle(IPC_CHANNELS.app.getSecurityInfo, (event) => {
-      const webContents = event.sender;
-      const win = BrowserWindow.fromWebContents(webContents);
-
-      if (!win) {
-        throw new Error('No window found for webContents');
-      }
-
-      // Return the security settings we configured in window.ts
-      // These values match the BrowserWindow webPreferences in window.ts
-      // and are verified by the security verification script
-      void win; // Reference window to prevent unused variable warning
+    // App security info handler
+    ipcMain.handle(IPC_CHANNELS.app.getSecurityInfo, () => {
+      // Return security configuration matching window.ts BrowserWindow webPreferences
+      // These values are verified by scripts/verify-security.ts
       return {
         contextIsolation: true,
         sandbox: true,

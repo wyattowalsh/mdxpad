@@ -3,50 +3,22 @@
  *
  * Zustand store with Immer middleware for template state management.
  * Manages template list, selection, filtering, and IPC operations.
- * Uses Fuse.js for performant fuzzy search (< 200ms per SC-004).
+ * Uses fzf for performant fuzzy search (< 200ms per SC-004).
  *
  * @module renderer/stores/template-store
  */
 
-/* eslint-disable max-lines-per-function */
+ 
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import Fuse, { type IFuseOptions } from 'fuse.js';
+import { Fzf, byStartAsc } from 'fzf';
 import type {
   Template,
   TemplateMetadata,
   TemplateCategory,
   TemplateVariable,
 } from '@shared/contracts/template-schemas';
-
-// =============================================================================
-// FUSE.JS CONFIGURATION
-// =============================================================================
-
-/**
- * Fuse.js configuration for template search.
- * Configured per SC-004 requirements for < 200ms search performance.
- *
- * Key weights:
- * - name: 0.4 (highest priority - users typically search by template name)
- * - description: 0.3 (second priority - describes the template purpose)
- * - tags: 0.2 (third priority - keywords for categorization)
- * - author: 0.1 (lowest priority - occasionally useful for filtering)
- */
-const FUSE_OPTIONS: IFuseOptions<TemplateMetadata> = {
-  keys: [
-    { name: 'name', weight: 0.4 },
-    { name: 'description', weight: 0.3 },
-    { name: 'tags', weight: 0.2 },
-    { name: 'author', weight: 0.1 },
-  ],
-  threshold: 0.4, // Allow fuzzy matches (0 = exact, 1 = match anything)
-  includeScore: true,
-  // Performance optimizations
-  ignoreLocation: true, // Don't penalize matches that appear later in string
-  minMatchCharLength: 2, // Require at least 2 characters to match
-};
 
 // =============================================================================
 // TYPES
@@ -72,8 +44,8 @@ export interface TemplateSaveData {
 export interface TemplateState {
   /** List of all available template metadata */
   templates: TemplateMetadata[];
-  /** Fuse.js search index (rebuilt when templates change) */
-  _fuseIndex: Fuse<TemplateMetadata> | null;
+  /** fzf search index (rebuilt when templates change) */
+  _fzfIndex: Fzf<TemplateMetadata[]> | null;
   /** Currently selected template ID */
   selectedId: string | null;
   /** Full template data for the selected template */
@@ -130,7 +102,7 @@ export type TemplateStore = TemplateState & TemplateStoreActions;
  */
 const INITIAL_TEMPLATE_STATE: TemplateState = {
   templates: [],
-  _fuseIndex: null,
+  _fzfIndex: null,
   selectedId: null,
   selectedTemplate: null,
   searchQuery: '',
@@ -147,14 +119,21 @@ let loadTemplatesRequestId = 0;
 let selectTemplateRequestId = 0;
 
 /**
- * Creates a new Fuse.js search index from template metadata.
+ * Creates a new fzf search index from template metadata.
  * Called when templates are loaded or modified.
  *
  * @param templates - Array of template metadata to index
- * @returns Fuse search index
+ * @returns fzf search index
  */
-function createFuseIndex(templates: TemplateMetadata[]): Fuse<TemplateMetadata> {
-  return new Fuse(templates, FUSE_OPTIONS);
+function createFzfIndex(templates: TemplateMetadata[]): Fzf<TemplateMetadata[]> {
+  return new Fzf(templates, {
+    selector: (item: TemplateMetadata) => {
+      // Concatenate searchable fields with weighted priority
+      // Name appears first (highest priority), then description, tags, and author
+      return `${item.name} ${item.description} ${item.tags.join(' ')} ${item.author ?? ''}`;
+    },
+    tiebreakers: [byStartAsc],
+  });
 }
 
 // =============================================================================
@@ -213,11 +192,11 @@ export const useTemplateStore = create<TemplateStore>()(
         }
 
         if (result.success) {
-          // Create Fuse index outside of immer draft (Fuse instances aren't draft-safe)
-          const fuseIndex = createFuseIndex(result.data);
+          // Create fzf index outside of immer draft (fzf instances aren't draft-safe)
+          const fzfIndex = createFzfIndex(result.data);
           set((draft) => {
             draft.templates = result.data;
-            draft._fuseIndex = fuseIndex;
+            draft._fzfIndex = fzfIndex;
             if (
               draft.selectedId !== null &&
               !result.data.some((template) => template.id === draft.selectedId)
@@ -441,7 +420,7 @@ export const useTemplateStore = create<TemplateStore>()(
         loadTemplatesRequestId += 1;
         selectTemplateRequestId += 1;
         draft.templates = [];
-        draft._fuseIndex = null;
+        draft._fzfIndex = null;
         draft.selectedId = null;
         draft.selectedTemplate = null;
         draft.searchQuery = '';
@@ -530,34 +509,34 @@ export const selectClearError = (state: TemplateStore): () => void =>
 
 /**
  * Computed selector for filtered templates.
- * Uses Fuse.js for fuzzy search with configurable weights.
+ * Uses fzf for fuzzy search with FZF algorithm.
  * Performance target: < 200ms search (per SC-004).
  *
- * Search priority (by weight):
- * 1. name (0.4) - highest priority
- * 2. description (0.3)
- * 3. tags (0.2)
- * 4. author (0.1) - lowest priority
+ * Search priority:
+ * 1. name - highest priority (appears first in selector string)
+ * 2. description
+ * 3. tags
+ * 4. author - lowest priority
  *
  * @param state - Template store state
  * @returns Filtered templates array
  */
 export const selectFilteredTemplates = (state: TemplateStore): TemplateMetadata[] => {
-  const { templates, _fuseIndex, searchQuery, categoryFilter } = state;
+  const { templates, _fzfIndex, searchQuery, categoryFilter } = state;
   const query = searchQuery.trim();
 
   let filtered: TemplateMetadata[];
 
   // If no search query, start with all templates
-  // If search query exists, use Fuse.js fuzzy search
+  // If search query exists, use fzf fuzzy search
   if (!query) {
     filtered = templates;
-  } else if (_fuseIndex) {
-    // Use Fuse.js for fuzzy search
-    const fuseResults = _fuseIndex.search(query);
-    filtered = fuseResults.map((result) => result.item);
+  } else if (_fzfIndex) {
+    // Use fzf for fuzzy search
+    const fzfResults = _fzfIndex.find(query);
+    filtered = fzfResults.map((result) => result.item);
   } else {
-    // Fallback to simple substring matching if Fuse index not built yet
+    // Fallback to simple substring matching if fzf index not built yet
     // (This should rarely happen - only on first render before loadTemplates completes)
     const lowerQuery = query.toLowerCase();
     filtered = templates.filter((t) => {

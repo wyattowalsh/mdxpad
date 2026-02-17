@@ -128,7 +128,7 @@ const toggleSettingsCommand: Command = {
   shortcut: { key: ',', modifiers: ['Mod'] },
   execute: (): CommandResult => {
     // Dynamic import to avoid circular dependencies
-    import('../stores/settings-store').then(({ useSettingsStore }) => {
+    void import('../stores/settings-store').then(({ useSettingsStore }) => {
       useSettingsStore.getState().toggle();
     });
     return { ok: true };

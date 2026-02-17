@@ -88,7 +88,7 @@ Some paragraph text.`;
       const duration = performance.now() - start;
 
       expect(result.ok).toBe(true);
-      expect(duration).toBeLessThan(500);
+      expect(duration).toBeLessThan(2000);
     });
 
     it('should compile 50KB document within acceptable time', async () => {

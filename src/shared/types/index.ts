@@ -14,7 +14,6 @@ export * from './errors';
 export * from './file';
 export * from './preview';
 export * from './preview-iframe';
-export * from './ipc';
 export * from './ui';
 export * from './document';
 

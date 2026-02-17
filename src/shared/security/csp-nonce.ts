@@ -32,7 +32,7 @@ export interface NonceCSPResult {
  */
 export function generateNonce(byteLength: number = SECURITY_CONSTANTS.nonceByteLength): string {
   // Use Web Crypto API if available (preferred)
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+  if (typeof crypto !== 'undefined') {
     const bytes = new Uint8Array(byteLength);
     crypto.getRandomValues(bytes);
     return bytesToBase64(bytes);
@@ -62,8 +62,8 @@ export function generateNonce(byteLength: number = SECURITY_CONSTANTS.nonceByteL
 function bytesToBase64(bytes: Uint8Array): string {
   // Convert to regular base64
   let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!);
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
 
   // In browser/DOM environment

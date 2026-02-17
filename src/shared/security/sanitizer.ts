@@ -36,6 +36,7 @@ const HTML_ENTITIES: Readonly<Record<string, string>> = {
 /**
  * Control characters that should be removed (except whitespace)
  */
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
 /**
@@ -68,7 +69,7 @@ function escapeHtml(str: string): string {
  * @param allowNewlines - Whether to preserve newlines
  * @returns Cleaned string
  */
-function removeControlChars(str: string, allowNewlines: boolean = true): string {
+function removeControlChars(str: string, allowNewlines = true): string {
   let result = str.replace(CONTROL_CHAR_REGEX, '');
 
   // Remove dangerous sequences
@@ -194,7 +195,7 @@ export function sanitizeErrorMessage(message: string): string {
   // Remove file paths that might expose system structure
   // Match common path patterns but preserve the filename
   result = result.replace(
-    /(?:\/(?:Users|home|var|tmp|private)[^\s:]*\/)?([^\/\s:]+\.(ts|tsx|js|jsx|mjs|cjs))/gi,
+    /(?:\/(?:Users|home|var|tmp|private)[^\s:]*\/)?([^/\s:]+\.(ts|tsx|js|jsx|mjs|cjs))/gi,
     '$1'
   );
 

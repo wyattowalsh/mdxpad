@@ -120,7 +120,10 @@ export const CommandList = memo(function CommandList({
       if (!grouped.has(category)) {
         grouped.set(category, []);
       }
-      grouped.get(category)!.push({ result, index });
+      const categoryItems = grouped.get(category);
+      if (categoryItems) {
+        categoryItems.push({ result, index });
+      }
     });
 
     const elements: React.ReactNode[] = [];

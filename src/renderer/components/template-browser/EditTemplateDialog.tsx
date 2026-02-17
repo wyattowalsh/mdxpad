@@ -106,9 +106,10 @@ const CATEGORY_LABELS: Record<TemplateCategory, string> = {
  */
 function clearErrorField<K extends keyof FormErrors>(
   errors: FormErrors,
-  field: K
+  _field: K
 ): FormErrors {
-  const { [field]: _, ...rest } = errors;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { [_field]: _, ...rest } = errors;
   return rest as FormErrors;
 }
 
@@ -153,7 +154,7 @@ export function EditTemplateDialog({
       setName(template.name);
       setDescription(template.description);
       setCategory(template.category);
-      setTags(template.tags ? [...template.tags] : []);
+      setTags(template.tags.length > 0 ? [...template.tags] : []);
       setTagInput('');
       setErrors({ name: undefined, description: undefined });
     }

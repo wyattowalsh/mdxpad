@@ -15,7 +15,6 @@ import {
   useAIProviderStore,
   selectActiveProvider,
   selectSelectedProvider,
-  selectConnectedProviders,
 } from './store';
 
 // =============================================================================

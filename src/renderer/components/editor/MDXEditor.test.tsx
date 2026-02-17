@@ -80,8 +80,8 @@ function createControlledWrapper(
 
 describe('MDXEditor', () => {
   // Track manually created containers for cleanup
-  const manualContainers: Set<HTMLElement> = new Set();
-  const manualRoots: Set<Root> = new Set();
+  const manualContainers = new Set<HTMLElement>();
+  const manualRoots = new Set<Root>();
 
   // Helper to create and track a manual container
   function createTrackedContainer(): { container: HTMLElement; root: Root } {
@@ -276,7 +276,7 @@ describe('MDXEditor', () => {
       const cmContent = await waitForCodeMirror(container);
       expect(cmContent).not.toBeNull();
       // Empty content or just newline
-      expect(cmContent!.textContent!.trim()).toBe('');
+      expect(cmContent!.textContent.trim()).toBe('');
     });
 
     it('should handle value with multiple lines', async () => {

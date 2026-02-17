@@ -92,9 +92,10 @@ interface FormErrors {
  */
 function clearErrorField<K extends keyof FormErrors>(
   errors: FormErrors,
-  field: K
+  _field: K
 ): FormErrors {
-  const { [field]: _, ...rest } = errors;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { [_field]: _, ...rest } = errors;
   return rest;
 }
 
@@ -564,14 +565,16 @@ export function SaveTemplateDialog({
       }
 
       // Submit form data
-      onSave({
-        name: name.trim(),
-        description: description.trim(),
-        category: category!,
-        tags,
-        variables,
-        content,
-      });
+      if (category) {
+        onSave({
+          name: name.trim(),
+          description: description.trim(),
+          category,
+          tags,
+          variables,
+          content,
+        });
+      }
     },
     [name, description, category, tags, variables, content, validateForm, onSave]
   );

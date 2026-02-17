@@ -32,6 +32,12 @@ export {
 // Utility functions
 export { cn, debounce, throttle, uid } from './utils';
 
+// Atomic file operations
+export { atomicWrite } from './atomic-write';
+
+// Content integrity
+export { computeChecksum } from './checksum';
+
 // IPC
 export {
   IPC_CHANNELS,

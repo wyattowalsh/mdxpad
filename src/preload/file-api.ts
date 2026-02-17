@@ -1,0 +1,160 @@
+/**
+ * File Operations API Module
+ *
+ * Provides file operation bridge functions for the renderer process.
+ * All methods use validated invoke with schema validation on both ends.
+ *
+ * @security Uses invoke/handle pattern for all file operations
+ * @security All payloads validated with zod on both ends per Constitution III.3
+ * @module src/preload/file-api
+ */
+
+import { IPC_CHANNELS } from '@shared/lib/ipc';
+import {
+  FileSaveRequestSchema,
+  FileSaveAsRequestSchema,
+  FileReadRequestSchema,
+  FileWriteRequestSchema,
+  FileOpenResponseSchema,
+  FileSaveResponseSchema,
+  FileSaveAsResponseSchema,
+  FileReadResponseSchema,
+  FileWriteResponseSchema,
+  WindowCloseResponseSchema,
+  WindowMinimizeResponseSchema,
+  WindowMaximizeResponseSchema,
+  AppVersionResponseSchema,
+  AppReadyResponseSchema,
+} from '@shared/contracts/file-schemas';
+import { validatedInvoke } from './validated-invoke';
+import type { FileResult, FileHandle } from '@shared/types/file';
+import { z } from 'zod';
+
+// ============================================================================
+// Security Info Schema
+// ============================================================================
+
+/**
+ * SecurityInfo response schema.
+ * Validates the security configuration returned by getSecurityInfo.
+ */
+const SecurityInfoResponseSchema = z.object({
+  contextIsolation: z.boolean(),
+  sandbox: z.boolean(),
+  nodeIntegration: z.boolean(),
+  webSecurity: z.boolean(),
+});
+
+// ============================================================================
+// App Info Operations
+// ============================================================================
+
+export const appInfo = {
+  getVersion: () =>
+    validatedInvoke(
+      IPC_CHANNELS.app.getVersion,
+      null, // void request
+      AppVersionResponseSchema
+    ),
+
+  getSecurityInfo: () =>
+    validatedInvoke(
+      IPC_CHANNELS.app.getSecurityInfo,
+      null, // void request
+      SecurityInfoResponseSchema
+    ),
+
+  signalReady: () =>
+    validatedInvoke(
+      IPC_CHANNELS.app.ready,
+      null, // void request
+      AppReadyResponseSchema
+    ),
+};
+
+// ============================================================================
+// File Operations
+// ============================================================================
+
+export const fileOperations = {
+  openFile: async (): Promise<FileResult<FileHandle>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.open,
+      null, // void request
+      FileOpenResponseSchema
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<FileHandle>;
+  },
+
+  saveFile: async (handle: unknown, content: string): Promise<FileResult<void>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.save,
+      FileSaveRequestSchema,
+      FileSaveResponseSchema,
+      { handle, content }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<void>;
+  },
+
+  saveFileAs: async (content: string): Promise<FileResult<FileHandle>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.saveAs,
+      FileSaveAsRequestSchema,
+      FileSaveAsResponseSchema,
+      { content }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<FileHandle>;
+  },
+
+  readFile: async (path: string): Promise<FileResult<string>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.read,
+      FileReadRequestSchema,
+      FileReadResponseSchema,
+      { path }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<string>;
+  },
+
+  writeFile: async (path: string, content: string): Promise<FileResult<void>> => {
+    const result = await validatedInvoke(
+      IPC_CHANNELS.file.write,
+      FileWriteRequestSchema,
+      FileWriteResponseSchema,
+      { path, content }
+    );
+    // Cast validated result to expected type (structurally equivalent)
+    return result as unknown as FileResult<void>;
+  },
+};
+
+// ============================================================================
+// Window Operations
+// ============================================================================
+
+export const windowOperations = {
+  closeWindow: () =>
+    validatedInvoke(
+      IPC_CHANNELS.window.close,
+      null, // void request
+      WindowCloseResponseSchema
+    ),
+
+  minimizeWindow: () =>
+    validatedInvoke(
+      IPC_CHANNELS.window.minimize,
+      null, // void request
+      WindowMinimizeResponseSchema
+    ),
+
+  maximizeWindow: () =>
+    validatedInvoke(
+      IPC_CHANNELS.window.maximize,
+      null, // void request
+      WindowMaximizeResponseSchema
+    ),
+};

@@ -113,7 +113,7 @@ function ComponentGroupComponent(props: ComponentGroupProps): React.JSX.Element 
       {/* Instance list (when expanded and multiple instances) */}
       {isExpanded && instanceCount > 1 && (
         <div role="group" className="pl-6">
-          {instances.map((instance, index) => (
+          {instances.map((instance, _index) => (
             <div
               key={`${instance.line}-${instance.column}`}
               role="treeitem"

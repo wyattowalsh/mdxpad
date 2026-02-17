@@ -52,7 +52,7 @@ const INTERVAL_STEPS = [5000, 10000, 15000, 20000, 30000] as const;
 // ============================================================================
 
 // Type guard for settings API availability
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function hasSettingsApi(api: unknown): api is { settings: { get: () => Promise<AutosaveSettings>; set: (s: Partial<AutosaveSettings>) => Promise<AutosaveSettings> } } {
   return (
     typeof api === 'object' &&
@@ -169,7 +169,7 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
       .then((s) => {
         if (mounted) setLocalSettings(s);
       })
-      .catch((err) => console.error('[SettingsPanel] Failed to load settings:', err))
+      .catch((err: unknown) => console.error('[SettingsPanel] Failed to load settings:', err))
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
@@ -264,7 +264,7 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                 <Switch
                   id="autosave-enabled"
                   checked={settings.enabled}
-                  onCheckedChange={handleEnabledChange}
+                  onCheckedChange={(checked) => { void handleEnabledChange(checked); }}
                   disabled={isSaving}
                   data-testid="autosave-enabled-switch"
                 />
@@ -288,7 +288,7 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                   max={INTERVAL_STEPS.length - 1}
                   step={1}
                   onValueChange={handleIntervalChange}
-                  onValueCommit={handleIntervalCommit}
+                  onValueCommit={(value) => { void handleIntervalCommit(value); }}
                   disabled={!settings.enabled || isSaving}
                   data-testid="autosave-interval-slider"
                 />

@@ -63,6 +63,38 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-definitions': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
       '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/restrict-plus-operands': 'off',
+      'max-lines-per-function': 'off',
+    },
+  },
+  // Relaxed rules for React components (UI files are naturally longer)
+  {
+    files: ['src/renderer/components/**/*.tsx', 'src/renderer/features/**/*.tsx', 'src/renderer/features/**/*.ts'],
+    rules: {
+      'max-lines-per-function': 'off',
+    },
+  },
+  // Relaxed rules for Zustand stores (creator functions are inherently large)
+  {
+    files: ['src/renderer/stores/**/*.ts'],
+    rules: {
+      'max-lines-per-function': 'off',
+    },
+  },
+  // Relaxed rules for hooks (complex state management hooks are naturally longer)
+  {
+    files: ['src/renderer/hooks/**/*.ts'],
+    ignores: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'max-lines-per-function': ['error', { max: 150, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  // Relaxed rules for preview-frame components
+  {
+    files: ['src/renderer/preview-frame/**/*.tsx'],
+    rules: {
       'max-lines-per-function': 'off',
     },
   },

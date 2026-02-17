@@ -14,32 +14,21 @@ import { randomUUID } from 'node:crypto';
 import type {
   ProviderConfig,
   ProviderType,
-  ConnectionStatus,
 } from '../../../shared/ai/types';
 import { ProviderNotFoundError } from '../../../shared/ai/errors';
 import type { ICredentialService } from './credential-service';
+import {
+  performValidation,
+  createErrorResult,
+  type ProviderValidationResult,
+} from './provider-validation';
+
+// Re-export for backwards compatibility
+export type { ProviderValidationResult } from './provider-validation';
 
 // =============================================================================
 // TYPES
 // =============================================================================
-
-/**
- * Result of validating a provider's connection.
- */
-export interface ProviderValidationResult {
-  /** Whether validation succeeded */
-  valid: boolean;
-  /** Connection status after validation */
-  status: ConnectionStatus;
-  /** List of available models (if validation succeeded) */
-  models?: string[];
-  /** Error details (if validation failed) */
-  error?: {
-    code: string;
-    message: string;
-    retryAfterSeconds?: number;
-  };
-}
 
 /**
  * Interface for provider service operations.
@@ -86,7 +75,6 @@ interface ProviderStoreSchema {
 
 const STORE_NAME = 'mdxpad-providers';
 const MAX_PROVIDERS = 10;
-const VALIDATION_TIMEOUT_MS = 10_000;
 
 /** Provider types that require a baseUrl */
 const BASE_URL_REQUIRED_TYPES: readonly ProviderType[] = [
@@ -101,40 +89,13 @@ const BASE_URL_REQUIRED_TYPES: readonly ProviderType[] = [
 
 /**
  * Service for managing AI provider configurations.
- *
- * Handles CRUD operations for provider configs, coordinates with CredentialService
- * for credential storage, enforces business constraints (max providers, single active),
- * and provides connection validation.
- *
- * @example
- * ```typescript
- * const providerService = new ProviderService(credentialService);
- *
- * // Add a new provider
- * const provider = await providerService.addProvider({
- *   displayName: 'My OpenAI',
- *   type: 'openai',
- *   isActive: true,
- * }, 'sk-...');
- *
- * // Validate the connection
- * const result = await providerService.validateProvider(provider.id);
- *
- * // Get all providers
- * const providers = await providerService.getProviders();
- * ```
+ * Handles CRUD operations, credential coordination, business constraints,
+ * and connection validation.
  */
 export class ProviderService implements IProviderService {
-  /** Persistent store for provider configurations */
   private readonly store: Store<ProviderStoreSchema>;
-
-  /** Credential service for API key management */
   private readonly credentialService: ICredentialService;
 
-  /**
-   * Creates a new ProviderService instance.
-   * @param credentialService - Service for managing API credentials
-   */
   constructor(credentialService: ICredentialService) {
     this.credentialService = credentialService;
     this.store = new Store<ProviderStoreSchema>({
@@ -146,10 +107,6 @@ export class ProviderService implements IProviderService {
     });
   }
 
-  /**
-   * Retrieves all configured providers.
-   * @returns Array of provider configurations sorted by creation date
-   */
   // eslint-disable-next-line @typescript-eslint/require-await
   async getProviders(): Promise<ProviderConfig[]> {
     const providers = this.store.get('providers');
@@ -158,21 +115,12 @@ export class ProviderService implements IProviderService {
     );
   }
 
-  /**
-   * Retrieves a specific provider by ID.
-   * @param id - Provider ID to look up
-   * @returns Provider configuration or null if not found
-   */
   // eslint-disable-next-line @typescript-eslint/require-await
   async getProvider(id: string): Promise<ProviderConfig | null> {
     const providers = this.store.get('providers');
     return providers[id] ?? null;
   }
 
-  /**
-   * Retrieves the currently active provider.
-   * @returns Active provider configuration or null if none active
-   */
   async getActiveProvider(): Promise<ProviderConfig | null> {
     const activeId = this.store.get('activeProviderId');
     if (!activeId) {
@@ -181,15 +129,6 @@ export class ProviderService implements IProviderService {
     return this.getProvider(activeId);
   }
 
-  /**
-   * Adds a new provider configuration.
-   *
-   * @param config - Provider configuration (without auto-generated fields)
-   * @param apiKey - Optional API key to store with the provider
-   * @returns The created provider configuration
-   * @throws Error if max providers limit reached
-   * @throws Error if baseUrl required but not provided
-   */
   async addProvider(
     config: Omit<ProviderConfig, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
     apiKey?: string
@@ -226,15 +165,6 @@ export class ProviderService implements IProviderService {
     return provider;
   }
 
-  /**
-   * Updates an existing provider configuration.
-   *
-   * @param id - Provider ID to update
-   * @param updates - Partial provider configuration to apply
-   * @returns The updated provider configuration
-   * @throws ProviderNotFoundError if provider doesn't exist
-   * @throws Error if baseUrl required but not provided
-   */
   async updateProvider(
     id: string,
     updates: Partial<ProviderConfig>
@@ -271,12 +201,6 @@ export class ProviderService implements IProviderService {
     return updated;
   }
 
-  /**
-   * Removes a provider and its associated credential.
-   *
-   * @param id - Provider ID to remove
-   * @throws ProviderNotFoundError if provider doesn't exist
-   */
   async removeProvider(id: string): Promise<void> {
     const existing = await this.getProvider(id);
     if (!existing) {
@@ -295,12 +219,6 @@ export class ProviderService implements IProviderService {
     }
   }
 
-  /**
-   * Sets the active provider.
-   *
-   * @param id - Provider ID to activate
-   * @throws ProviderNotFoundError if provider doesn't exist
-   */
   async setActiveProvider(id: string): Promise<void> {
     const provider = await this.getProvider(id);
     if (!provider) {
@@ -312,13 +230,6 @@ export class ProviderService implements IProviderService {
     this.store.set('activeProviderId', id);
   }
 
-  /**
-   * Validates a provider's connection by testing the API.
-   *
-   * @param id - Provider ID to validate
-   * @returns Validation result with status and optional models list
-   * @throws ProviderNotFoundError if provider doesn't exist
-   */
   async validateProvider(id: string): Promise<ProviderValidationResult> {
     const provider = await this.getProvider(id);
     if (!provider) {
@@ -328,262 +239,25 @@ export class ProviderService implements IProviderService {
     await this.updateProvider(id, { status: 'validating' });
 
     try {
-      const result = await this.performValidation(provider);
+      const apiKey = await this.credentialService.getCredential(provider.id);
+      const result = await performValidation(provider, apiKey);
       await this.handleValidationResult(id, result);
       return result;
     } catch (error) {
-      const result = this.createErrorResult(error);
+      const result = createErrorResult(error);
       await this.handleValidationResult(id, result);
       return result;
     }
   }
 
-  /**
-   * Gets the count of configured providers.
-   * @returns Number of configured providers
-   */
   // eslint-disable-next-line @typescript-eslint/require-await
   async getProviderCount(): Promise<number> {
     const providers = this.store.get('providers');
     return Object.keys(providers).length;
   }
 
-  // ===========================================================================
-  // PRIVATE: Validation Methods
-  // ===========================================================================
+  // --- Private: Business Rule Validation ---
 
-  /**
-   * Performs the actual validation based on provider type.
-   */
-  private async performValidation(
-    provider: ProviderConfig
-  ): Promise<ProviderValidationResult> {
-    const apiKey = await this.credentialService.getCredential(provider.id);
-
-    switch (provider.type) {
-      case 'openai':
-        return this.validateOpenAI(apiKey);
-      case 'anthropic':
-        return this.validateAnthropic(apiKey);
-      case 'ollama':
-        return this.validateOllama(provider.baseUrl);
-      case 'lmstudio':
-        return this.validateLMStudio(provider.baseUrl);
-      case 'openai-compatible':
-        return this.validateOpenAICompatible(provider.baseUrl, apiKey);
-      default:
-        return { valid: false, status: 'error', error: { code: 'UNKNOWN_TYPE', message: 'Unknown provider type' } };
-    }
-  }
-
-  /**
-   * Validates an OpenAI provider.
-   */
-  private async validateOpenAI(apiKey: string | null): Promise<ProviderValidationResult> {
-    if (!apiKey) {
-      return this.createMissingKeyResult();
-    }
-
-    const response = await this.fetchWithTimeout('https://api.openai.com/v1/models', {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    return this.parseOpenAIResponse(response);
-  }
-
-  /**
-   * Validates an Anthropic provider.
-   */
-  private async validateAnthropic(apiKey: string | null): Promise<ProviderValidationResult> {
-    if (!apiKey) {
-      return this.createMissingKeyResult();
-    }
-
-    const response = await this.fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'test' }],
-      }),
-    });
-
-    return this.parseAnthropicResponse(response);
-  }
-
-  /**
-   * Validates an Ollama provider.
-   */
-  private async validateOllama(baseUrl?: string): Promise<ProviderValidationResult> {
-    if (!baseUrl) {
-      return this.createMissingUrlResult();
-    }
-
-    const response = await this.fetchWithTimeout(`${baseUrl}/api/tags`, {
-      method: 'GET',
-    });
-
-    return this.parseOllamaResponse(response);
-  }
-
-  /**
-   * Validates an LM Studio provider.
-   */
-  private async validateLMStudio(baseUrl?: string): Promise<ProviderValidationResult> {
-    if (!baseUrl) {
-      return this.createMissingUrlResult();
-    }
-
-    const response = await this.fetchWithTimeout(`${baseUrl}/v1/models`, {
-      method: 'GET',
-    });
-
-    return this.parseOpenAICompatibleResponse(response);
-  }
-
-  /**
-   * Validates an OpenAI-compatible provider.
-   */
-  private async validateOpenAICompatible(
-    baseUrl?: string,
-    apiKey?: string | null
-  ): Promise<ProviderValidationResult> {
-    if (!baseUrl) {
-      return this.createMissingUrlResult();
-    }
-
-    const headers: Record<string, string> = {};
-    if (apiKey) {
-      headers.Authorization = `Bearer ${apiKey}`;
-    }
-
-    const response = await this.fetchWithTimeout(`${baseUrl}/v1/models`, {
-      method: 'GET',
-      headers,
-    });
-
-    return this.parseOpenAICompatibleResponse(response);
-  }
-
-  // ===========================================================================
-  // PRIVATE: Response Parsing Methods
-  // ===========================================================================
-
-  /**
-   * Parses OpenAI API response.
-   */
-  private async parseOpenAIResponse(response: Response): Promise<ProviderValidationResult> {
-    if (response.status === 401) {
-      return { valid: false, status: 'error', error: { code: 'INVALID_API_KEY', message: 'Invalid API key' } };
-    }
-
-    if (response.status === 429) {
-      const retryAfter = this.parseRetryAfter(response);
-      return { valid: false, status: 'error', error: { code: 'RATE_LIMITED', message: 'Rate limited', retryAfterSeconds: retryAfter } };
-    }
-
-    if (!response.ok) {
-      return { valid: false, status: 'error', error: { code: 'API_ERROR', message: `API error: ${response.status}` } };
-    }
-
-    const data = (await response.json()) as { data?: { id: string }[] };
-    const models = data.data?.map((m) => m.id) ?? [];
-    return { valid: true, status: 'connected', models };
-  }
-
-  /**
-   * Parses Anthropic API response.
-   */
-  // eslint-disable-next-line @typescript-eslint/require-await
-  private async parseAnthropicResponse(response: Response): Promise<ProviderValidationResult> {
-    if (response.status === 401) {
-      return { valid: false, status: 'error', error: { code: 'INVALID_API_KEY', message: 'Invalid API key' } };
-    }
-
-    if (response.status === 429) {
-      const retryAfter = this.parseRetryAfter(response);
-      return { valid: false, status: 'error', error: { code: 'RATE_LIMITED', message: 'Rate limited', retryAfterSeconds: retryAfter } };
-    }
-
-    // Anthropic returns 200 for valid key (we made a valid request)
-    // or 400 for invalid request structure (but valid key)
-    if (response.ok || response.status === 400) {
-      return { valid: true, status: 'connected' };
-    }
-
-    return { valid: false, status: 'error', error: { code: 'API_ERROR', message: `API error: ${response.status}` } };
-  }
-
-  /**
-   * Parses Ollama API response.
-   */
-  private async parseOllamaResponse(response: Response): Promise<ProviderValidationResult> {
-    if (!response.ok) {
-      return { valid: false, status: 'error', error: { code: 'CONNECTION_ERROR', message: 'Failed to connect to Ollama' } };
-    }
-
-    const data = (await response.json()) as { models?: { name: string }[] };
-    const models = data.models?.map((m) => m.name) ?? [];
-    return { valid: true, status: 'connected', models };
-  }
-
-  /**
-   * Parses OpenAI-compatible API response (LM Studio, etc.).
-   */
-  private async parseOpenAICompatibleResponse(response: Response): Promise<ProviderValidationResult> {
-    if (response.status === 401) {
-      return { valid: false, status: 'error', error: { code: 'INVALID_API_KEY', message: 'Invalid API key' } };
-    }
-
-    if (!response.ok) {
-      return { valid: false, status: 'error', error: { code: 'CONNECTION_ERROR', message: `Connection error: ${response.status}` } };
-    }
-
-    const data = (await response.json()) as { data?: { id: string }[] };
-    const models = data.data?.map((m) => m.id) ?? [];
-    return { valid: true, status: 'connected', models };
-  }
-
-  // ===========================================================================
-  // PRIVATE: Utility Methods
-  // ===========================================================================
-
-  /**
-   * Fetches a URL with timeout.
-   */
-  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(url, { ...options, signal: controller.signal });
-      return response;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  /**
-   * Parses Retry-After header.
-   */
-  private parseRetryAfter(response: Response): number {
-    const header = response.headers.get('Retry-After');
-    if (!header) {
-      return 60;
-    }
-    const parsed = parseInt(header, 10);
-    return isNaN(parsed) ? 60 : parsed;
-  }
-
-  /**
-   * Validates provider limit hasn't been exceeded.
-   */
   private async validateProviderLimit(): Promise<void> {
     const count = await this.getProviderCount();
     if (count >= MAX_PROVIDERS) {
@@ -591,18 +265,14 @@ export class ProviderService implements IProviderService {
     }
   }
 
-  /**
-   * Validates baseUrl requirement for specific provider types.
-   */
   private validateBaseUrlRequirement(type: ProviderType, baseUrl?: string): void {
     if (BASE_URL_REQUIRED_TYPES.includes(type) && !baseUrl) {
       throw new Error(`baseUrl is required for provider type: ${type}`);
     }
   }
 
-  /**
-   * Deactivates the current active provider.
-   */
+  // --- Private: State Management ---
+
   // eslint-disable-next-line @typescript-eslint/require-await
   private async deactivateCurrentProvider(): Promise<void> {
     const activeId = this.store.get('activeProviderId');
@@ -617,18 +287,12 @@ export class ProviderService implements IProviderService {
     }
   }
 
-  /**
-   * Saves a provider to the store.
-   */
   private saveProvider(provider: ProviderConfig): void {
     const providers = this.store.get('providers');
     providers[provider.id] = provider;
     this.store.set('providers', providers);
   }
 
-  /**
-   * Handles validation result by updating provider status.
-   */
   private async handleValidationResult(
     id: string,
     result: ProviderValidationResult
@@ -651,31 +315,5 @@ export class ProviderService implements IProviderService {
       }
       await this.updateProvider(id, updates);
     }
-  }
-
-  /**
-   * Creates a validation result for missing API key.
-   */
-  private createMissingKeyResult(): ProviderValidationResult {
-    return { valid: false, status: 'error', error: { code: 'MISSING_API_KEY', message: 'API key not configured' } };
-  }
-
-  /**
-   * Creates a validation result for missing baseUrl.
-   */
-  private createMissingUrlResult(): ProviderValidationResult {
-    return { valid: false, status: 'error', error: { code: 'MISSING_BASE_URL', message: 'Base URL not configured' } };
-  }
-
-  /**
-   * Creates an error validation result from an unknown error.
-   */
-  private createErrorResult(error: unknown): ProviderValidationResult {
-    if (error instanceof Error && error.name === 'AbortError') {
-      return { valid: false, status: 'error', error: { code: 'TIMEOUT', message: 'Connection timed out' } };
-    }
-
-    const message = error instanceof Error ? error.message : String(error);
-    return { valid: false, status: 'error', error: { code: 'UNKNOWN_ERROR', message } };
   }
 }

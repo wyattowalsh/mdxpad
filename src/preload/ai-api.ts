@@ -12,6 +12,7 @@
 import { ipcRenderer } from 'electron';
 import { z } from 'zod';
 import { AIChannels } from '@shared/ai/ipc-channels';
+import { validatedInvoke } from './validated-invoke';
 import {
   // Provider Management Schemas
   ProviderListResponseSchema,
@@ -116,46 +117,8 @@ export type {
   ModelInfoSchemaType as ModelInfo,
 } from '@shared/ai/schemas';
 
-// =============================================================================
-// VALIDATED IPC INVOKE HELPER
-// =============================================================================
-
-/**
- * Performs a validated AI IPC invoke with schema validation on both ends.
- * Per Constitution III.3: All payloads validated with zod on both ends.
- *
- * @param channel - AI IPC channel name
- * @param requestSchema - Zod schema for request validation (null for void requests)
- * @param responseSchema - Zod schema for response validation
- * @param args - Arguments to pass to the handler (undefined for void requests)
- * @returns Validated response data
- * @throws Error if request or response validation fails
- */
-async function validatedAIInvoke<TReq, TRes>(
-  channel: string,
-  requestSchema: z.ZodType<TReq> | null,
-  responseSchema: z.ZodType<TRes>,
-  args?: unknown
-): Promise<TRes> {
-  // Validate request if schema provided (sender-side validation)
-  if (requestSchema && args !== undefined) {
-    const reqParsed = requestSchema.safeParse(args);
-    if (!reqParsed.success) {
-      throw new Error(`AI Request validation failed: ${reqParsed.error.message}`);
-    }
-  }
-
-  // Invoke IPC - cast to unknown since Electron returns any
-  const response: unknown = await ipcRenderer.invoke(channel, args);
-
-  // Validate response (receiver-side validation)
-  const resParsed = responseSchema.safeParse(response);
-  if (!resParsed.success) {
-    throw new Error(`AI Response validation failed: ${resParsed.error.message}`);
-  }
-
-  return resParsed.data;
-}
+// Note: validatedInvoke is imported from ./validated-invoke
+// S1-25: Deduplicated validatedInvoke to use shared utility
 
 // =============================================================================
 // STREAMING EVENT LISTENERS
@@ -259,7 +222,7 @@ export interface AIApi {
 
 /**
  * AI API implementation exposed to renderer.
- * All methods use validatedAIInvoke for schema validation on both ends.
+ * All methods use validatedInvoke for schema validation on both ends.
  */
 export const aiApi: AIApi = {
   // =========================================================================
@@ -267,14 +230,14 @@ export const aiApi: AIApi = {
   // =========================================================================
 
   listProviders: () =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.PROVIDER_LIST,
       null,
       ProviderListResponseSchema
     ),
 
   addProvider: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.PROVIDER_ADD,
       AddProviderRequestSchema,
       AddProviderResponseSchema,
@@ -282,7 +245,7 @@ export const aiApi: AIApi = {
     ),
 
   updateProvider: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.PROVIDER_UPDATE,
       UpdateProviderRequestSchema,
       UpdateProviderResponseSchema,
@@ -290,7 +253,7 @@ export const aiApi: AIApi = {
     ),
 
   removeProvider: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.PROVIDER_REMOVE,
       RemoveProviderRequestSchema,
       RemoveProviderResponseSchema,
@@ -298,7 +261,7 @@ export const aiApi: AIApi = {
     ),
 
   setActiveProvider: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.PROVIDER_SET_ACTIVE,
       SetActiveProviderRequestSchema,
       SetActiveProviderResponseSchema,
@@ -306,7 +269,7 @@ export const aiApi: AIApi = {
     ),
 
   validateProvider: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.PROVIDER_VALIDATE,
       ValidateProviderRequestSchema,
       ValidateProviderResponseSchema,
@@ -318,7 +281,7 @@ export const aiApi: AIApi = {
   // =========================================================================
 
   setCredential: (providerId, apiKey) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.CREDENTIAL_SET,
       SetCredentialRequestSchema,
       SetCredentialResponseSchema,
@@ -326,7 +289,7 @@ export const aiApi: AIApi = {
     ),
 
   hasCredential: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.CREDENTIAL_HAS,
       HasCredentialRequestSchema,
       HasCredentialResponseSchema,
@@ -334,7 +297,7 @@ export const aiApi: AIApi = {
     ),
 
   clearCredential: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.CREDENTIAL_CLEAR,
       ClearCredentialRequestSchema,
       ClearCredentialResponseSchema,
@@ -346,7 +309,7 @@ export const aiApi: AIApi = {
   // =========================================================================
 
   generateText: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.GENERATE_TEXT,
       GenerateTextRequestSchema,
       GenerateTextResponseSchema,
@@ -354,7 +317,7 @@ export const aiApi: AIApi = {
     ),
 
   generateStream: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.GENERATE_STREAM,
       GenerateStreamRequestSchema,
       StreamInitResponseSchema,
@@ -362,7 +325,7 @@ export const aiApi: AIApi = {
     ),
 
   generateEmbed: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.GENERATE_EMBED,
       GenerateEmbedRequestSchema,
       GenerateEmbedResponseSchema,
@@ -370,7 +333,7 @@ export const aiApi: AIApi = {
     ),
 
   generateImage: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.GENERATE_IMAGE,
       GenerateImageRequestSchema,
       GenerateImageResponseSchema,
@@ -382,7 +345,7 @@ export const aiApi: AIApi = {
   // =========================================================================
 
   queryUsage: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.USAGE_QUERY,
       QueryUsageRequestSchema,
       QueryUsageResponseSchema,
@@ -390,7 +353,7 @@ export const aiApi: AIApi = {
     ),
 
   exportUsage: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.USAGE_EXPORT,
       ExportUsageRequestSchema,
       ExportUsageResponseSchema,
@@ -398,7 +361,7 @@ export const aiApi: AIApi = {
     ),
 
   clearUsage: (request) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.USAGE_CLEAR,
       ClearUsageRequestSchema,
       ClearUsageResponseSchema,
@@ -410,7 +373,7 @@ export const aiApi: AIApi = {
   // =========================================================================
 
   getCapability: (providerId, modelId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.CAPABILITY_GET,
       GetCapabilityRequestSchema,
       GetCapabilityResponseSchema,
@@ -418,7 +381,7 @@ export const aiApi: AIApi = {
     ),
 
   listModels: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.CAPABILITY_LIST_MODELS,
       ListModelsRequestSchema,
       ListModelsResponseSchema,
@@ -426,7 +389,7 @@ export const aiApi: AIApi = {
     ),
 
   refreshCapabilities: (providerId) =>
-    validatedAIInvoke(
+    validatedInvoke(
       AIChannels.CAPABILITY_REFRESH,
       RefreshCapabilityRequestSchema,
       RefreshCapabilityResponseSchema,

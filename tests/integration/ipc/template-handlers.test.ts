@@ -249,7 +249,7 @@ describe('template-handlers', () => {
       expect(result).toHaveProperty('success', true);
       const typedResult = result as {
         success: boolean;
-        templates: Array<{ id: string; name: string; isBuiltIn: boolean }>;
+        templates: { id: string; name: string; isBuiltIn: boolean }[];
       };
       expect(typedResult.templates).toHaveLength(1);
       expect(typedResult.templates[0]).toMatchObject({

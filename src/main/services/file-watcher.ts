@@ -96,11 +96,19 @@ export class FileWatcher {
     });
 
     watcher.on('change', () => {
-      this.emitChange(fileId, filePath, 'change');
+      try {
+        this.emitChange(fileId, filePath, 'change');
+      } catch (error) {
+        console.error('[FileWatcher] Error in change handler:', error);
+      }
     });
 
     watcher.on('unlink', () => {
-      this.emitChange(fileId, filePath, 'unlink');
+      try {
+        this.emitChange(fileId, filePath, 'unlink');
+      } catch (error) {
+        console.error('[FileWatcher] Error in unlink handler:', error);
+      }
     });
 
     this.watched.set(fileId, { fileId, path: filePath, watcher });

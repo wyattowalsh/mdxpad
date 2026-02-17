@@ -212,7 +212,7 @@ describe('debounce', () => {
 describe('createSourceAwareHandler', () => {
   it('should process update when source does not match ignore source', () => {
     const processUpdate = vi.fn();
-    let lastSource: ChangeSource = 'document';
+    const lastSource: ChangeSource = 'document';
 
     const handler = createSourceAwareHandler(
       processUpdate,
@@ -226,7 +226,7 @@ describe('createSourceAwareHandler', () => {
 
   it('should skip update when source matches ignore source', () => {
     const processUpdate = vi.fn();
-    let lastSource: ChangeSource = 'panel';
+    const lastSource: ChangeSource = 'panel';
 
     const handler = createSourceAwareHandler(
       processUpdate,
@@ -240,7 +240,7 @@ describe('createSourceAwareHandler', () => {
 
   it('should process update when source is null', () => {
     const processUpdate = vi.fn();
-    let lastSource: ChangeSource = null;
+    const lastSource: ChangeSource = null;
 
     const handler = createSourceAwareHandler(
       processUpdate,
@@ -495,7 +495,7 @@ describe('createSubscription', () => {
   it('should call callback when selected state changes', () => {
     type State = { content: string; other: number };
     let currentState: State = { content: 'initial', other: 1 };
-    const listeners: Array<(state: State) => void> = [];
+    const listeners: ((state: State) => void)[] = [];
 
     const subscribe = (listener: (state: State) => void): (() => void) => {
       listeners.push(listener);
@@ -522,7 +522,7 @@ describe('createSubscription', () => {
   it('should skip callback when selected state is same', () => {
     type State = { content: string; other: number };
     let currentState: State = { content: 'initial', other: 1 };
-    const listeners: Array<(state: State) => void> = [];
+    const listeners: ((state: State) => void)[] = [];
 
     const subscribe = (listener: (state: State) => void): (() => void) => {
       listeners.push(listener);
@@ -553,7 +553,7 @@ describe('createSubscription', () => {
   it('should return unsubscribe function', () => {
     type State = { value: number };
     let currentState: State = { value: 0 };
-    const listeners: Array<(state: State) => void> = [];
+    const listeners: ((state: State) => void)[] = [];
 
     const subscribe = (listener: (state: State) => void): (() => void) => {
       listeners.push(listener);
@@ -587,7 +587,7 @@ describe('createSubscription', () => {
   it('should track changes across multiple updates', () => {
     type State = { count: number };
     let currentState: State = { count: 0 };
-    const listeners: Array<(state: State) => void> = [];
+    const listeners: ((state: State) => void)[] = [];
 
     const subscribe = (listener: (state: State) => void): (() => void) => {
       listeners.push(listener);
@@ -618,7 +618,7 @@ describe('createSubscription', () => {
     const obj1 = { value: 1 };
     const obj2 = { value: 1 }; // Same content, different reference
     let currentState: State = { obj: obj1 };
-    const listeners: Array<(state: State) => void> = [];
+    const listeners: ((state: State) => void)[] = [];
 
     const subscribe = (listener: (state: State) => void): (() => void) => {
       listeners.push(listener);

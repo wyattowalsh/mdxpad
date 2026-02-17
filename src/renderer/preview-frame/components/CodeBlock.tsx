@@ -105,7 +105,7 @@ function extractLanguage(className?: string, explicitLanguage?: string): string 
   if (!className) {
     return undefined;
   }
-  const match = className.match(/language-(\w+)/);
+  const match = /language-(\w+)/.exec(className);
   return match ? match[1] : undefined;
 }
 
@@ -176,7 +176,9 @@ function CopyButton({ code }: CopyButtonProps): React.JSX.Element {
       <button
         type="button"
         className="code-block-copy"
-        onClick={copyToClipboard}
+        onClick={() => {
+          void copyToClipboard();
+        }}
         data-copied={copied ? 'true' : 'false'}
         aria-label={copied ? 'Copied to clipboard' : 'Copy code to clipboard'}
         aria-pressed={copied}

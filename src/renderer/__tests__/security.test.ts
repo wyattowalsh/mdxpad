@@ -432,6 +432,7 @@ describe('Security - Compilation Output', () => {
         // Output should be valid JavaScript
         expect(() => {
           // This would throw if the output has syntax errors
+          // eslint-disable-next-line @typescript-eslint/no-implied-eval
           new Function(result.code);
         }).not.toThrow();
       }

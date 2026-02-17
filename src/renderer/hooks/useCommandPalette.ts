@@ -5,7 +5,7 @@
  * @module renderer/hooks/useCommandPalette
  */
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type {
   Command,
   CommandId,
@@ -90,6 +90,7 @@ export type UseCommandPaletteReturn = CommandPaletteState & CommandPaletteAction
  * }
  * ```
  */
+ 
 export function useCommandPalette(): UseCommandPaletteReturn {
   // ==========================================================================
   // STATE
@@ -114,11 +115,7 @@ export function useCommandPalette(): UseCommandPaletteReturn {
     const allCommands = getAllCommands();
 
     // Filter out invisible commands
-    const visibleCommands = allCommands.filter((cmd) => {
-      // If command has visible predicate, we'd check it here
-      // For now, all commands are visible
-      return true;
-    });
+    const visibleCommands = allCommands;
 
     if (!query.trim()) {
       // No query: show recent commands first, then all commands
@@ -128,10 +125,10 @@ export function useCommandPalette(): UseCommandPaletteReturn {
       // Recent commands at top with high scores
       const recentResults: FuzzyMatchResult<Command>[] = [];
       for (const entry of recentEntries) {
-        const cmd = getCommand(entry.commandId);
-        if (cmd) {
+        const command = getCommand(entry.commandId);
+        if (command) {
           recentResults.push({
-            item: cmd,
+            item: command,
             score: 1000 + entry.useCount, // High score for recent
             matches: [],
           });
@@ -140,11 +137,11 @@ export function useCommandPalette(): UseCommandPaletteReturn {
 
       // Remaining commands sorted alphabetically
       const otherCommands = visibleCommands
-        .filter((cmd) => !recentIds.has(cmd.id))
+        .filter((command) => !recentIds.has(command.id))
         .sort((a, b) => a.name.localeCompare(b.name));
 
-      const otherResults: FuzzyMatchResult<Command>[] = otherCommands.map((cmd) => ({
-        item: cmd,
+      const otherResults: FuzzyMatchResult<Command>[] = otherCommands.map((command) => ({
+        item: command,
         score: 0,
         matches: [],
       }));
@@ -153,7 +150,7 @@ export function useCommandPalette(): UseCommandPaletteReturn {
     }
 
     // With query: fuzzy search
-    return fuzzySearch(query, visibleCommands, (cmd) => cmd.name);
+    return fuzzySearch(query, visibleCommands, (command) => command.name);
   }, [query, getAllCommands, getRecentCommands, getCommand]);
 
   // ==========================================================================
@@ -298,6 +295,8 @@ export function buildCommandContext(
   notify: (notification: import('@shared/types/commands').NotificationInput) => void
 ): CommandContext {
   const uiState = useUILayoutStore.getState();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- platform may vary at runtime
+  const isMac = api.platform.os === 'darwin';
 
   return {
     editor,
@@ -313,7 +312,7 @@ export function buildCommandContext(
       zoomLevel: uiState.zoomLevel,
     },
     platform: {
-      isMac: api.platform.os === 'darwin',
+      isMac,
       isWindows: false, // macOS only per constitution
       isLinux: false,
     },

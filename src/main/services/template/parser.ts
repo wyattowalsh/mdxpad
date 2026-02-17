@@ -9,7 +9,6 @@
  */
 
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import matter from 'gray-matter';
 
 import {
@@ -81,12 +80,12 @@ export function buildTemplateFile(template: {
   description: string;
   category: string;
   tags: string[];
-  variables?: Array<{
+  variables?: {
     name: string;
     description?: string | undefined;
     default?: string | undefined;
     required?: boolean;
-  }>;
+  }[];
   content: string;
 }): string {
   const frontmatter: Record<string, unknown> = {

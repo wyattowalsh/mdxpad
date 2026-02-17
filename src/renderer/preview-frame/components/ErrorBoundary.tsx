@@ -47,20 +47,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       lastResetKey: props.resetKey,
     };
     this.containerRef = createRef<HTMLDivElement>();
-    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   /**
    * Handle keyboard events for accessibility.
    * Escape key dismisses/resets the error state.
    */
-  private handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+  private handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       this.props.onDismiss?.();
     }
-  }
+  };
 
   /**
    * Reset error state when resetKey prop changes.

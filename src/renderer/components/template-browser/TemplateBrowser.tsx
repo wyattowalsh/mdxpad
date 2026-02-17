@@ -225,7 +225,7 @@ export function TemplateBrowser({
             description: data.description,
             category: data.category,
             tags: data.tags,
-            variables: fullTemplateResult.data.variables ?? [],
+            variables: fullTemplateResult.data.variables.length > 0 ? fullTemplateResult.data.variables : [],
             content: fullTemplateResult.data.content,
           },
           true // replace existing

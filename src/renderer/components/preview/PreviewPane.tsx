@@ -178,7 +178,7 @@ const PerformanceWarning = memo(function PerformanceWarning({
   onDismiss,
 }: PerformanceWarningProps): React.ReactNode {
   // Memoize the formatted size string
-  const sizeDisplay = useMemo(
+  const sizeDisplay: string = useMemo(
     () => `${Math.round(sourceLength / CHARS_TO_THOUSANDS_DIVISOR)}k`,
     [sourceLength]
   );
@@ -268,13 +268,13 @@ const SuccessIndicator = memo(function SuccessIndicator({
 // ============================================================================
 
 /** Static warning message - extracted to prevent re-creation */
-const StaticSecurityWarning = memo(function StaticSecurityWarning(): React.ReactNode {
-  return (
-    <div className="preview-warning" role="status" aria-live="polite">
-      Preview executes code from your MDX
-    </div>
-  );
-});
+// const StaticSecurityWarning = memo(function StaticSecurityWarning(): React.ReactNode {
+//   return (
+//     <div className="preview-warning" role="status" aria-live="polite">
+//       Preview executes code from your MDX
+//     </div>
+//   );
+// });
 
 /**
  * Main preview container that orchestrates MDX compilation and rendering.
@@ -309,7 +309,7 @@ export const PreviewPane = memo(function PreviewPane({
   const [isWarningDismissed, setIsWarningDismissed] = useState(false);
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [runtimeError, setRuntimeError] = useState<CategorizedError | null>(null);
+  const [, setRuntimeError] = useState<CategorizedError | null>(null);
   const [errorBoundaryKey, setErrorBoundaryKey] = useState(0);
   const previewContentRef = useRef<HTMLDivElement>(null);
   const previousStatusRef = useRef<string>(state.status);

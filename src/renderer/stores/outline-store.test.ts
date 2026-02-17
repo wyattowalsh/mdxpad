@@ -30,8 +30,8 @@ import { INITIAL_OUTLINE_STATE, buildHeadingHierarchy } from '@shared/types/outl
  * Create a mock OutlineAST for testing.
  */
 function createMockAST(options: {
-  headings?: Array<{ depth: 1 | 2 | 3 | 4 | 5 | 6; text: string; line?: number }>;
-  components?: Array<{ name: string; line?: number }>;
+  headings?: { depth: 1 | 2 | 3 | 4 | 5 | 6; text: string; line?: number }[];
+  components?: { name: string; line?: number }[];
   frontmatter?: Record<string, unknown> | null;
 } = {}): OutlineAST {
   const { headings = [], components = [], frontmatter = null } = options;

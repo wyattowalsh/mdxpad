@@ -58,8 +58,9 @@ function isUpperCase(char: string): boolean {
  */
 function isWordBoundary(target: string, index: number): boolean {
   if (index === 0) return true;
-  const prev = target[index - 1]!;
-  const curr = target[index]!;
+  const prev = target[index - 1];
+  const curr = target[index];
+  if (!prev || !curr) return false;
   // After separator
   if (prev === ' ' || prev === '-' || prev === '_') return true;
   // CamelCase: lowercase followed by uppercase
@@ -72,8 +73,9 @@ function isWordBoundary(target: string, index: number): boolean {
  */
 function isCamelCaseBoundary(target: string, index: number): boolean {
   if (index === 0) return false;
-  const prev = target[index - 1]!;
-  const curr = target[index]!;
+  const prev = target[index - 1];
+  const curr = target[index];
+  if (!prev || !curr) return false;
   return !isUpperCase(prev) && isUpperCase(curr);
 }
 
@@ -202,7 +204,8 @@ export function highlightMatches(text: string, matches: readonly number[]): High
 
   for (let i = 0; i < text.length; i++) {
     const isMatch = matchSet.has(i);
-    const char = text[i]!;
+    const char = text[i];
+    if (!char) continue;
 
     if (isMatch !== currentIsMatch) {
       if (currentSegment) {

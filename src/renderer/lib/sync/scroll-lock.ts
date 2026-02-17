@@ -139,7 +139,6 @@ export function createScrollLock(options?: Partial<ScrollLockOptions>): ScrollLo
   // Internal state
   let isLocked = false;
   let lockSource: SyncPane | null = null;
-  let lockTimestamp = 0;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -155,7 +154,6 @@ export function createScrollLock(options?: Partial<ScrollLockOptions>): ScrollLo
     // Reset lock state
     isLocked = false;
     lockSource = null;
-    lockTimestamp = 0;
 
     // Notify callback
     options?.onLockReleased?.();
@@ -179,7 +177,6 @@ export function createScrollLock(options?: Partial<ScrollLockOptions>): ScrollLo
     // Acquire the lock
     isLocked = true;
     lockSource = source;
-    lockTimestamp = Date.now();
 
     // Notify callback
     options?.onLockAcquired?.(source);

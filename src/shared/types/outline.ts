@@ -503,8 +503,11 @@ export const selectSections = (state: OutlineStore): readonly OutlineSection[] =
  * @param state - Outline store state
  * @returns Headings section (never undefined due to fixed structure)
  */
-export const selectHeadingsSection = (state: OutlineStore): OutlineSection =>
-  state.sections.find((s) => s.id === 'headings')!;
+export const selectHeadingsSection = (state: OutlineStore): OutlineSection => {
+  const section = state.sections.find((s) => s.id === 'headings');
+  if (!section) throw new Error('Headings section not found in fixed structure');
+  return section;
+};
 
 /**
  * Selector for components section.
@@ -512,8 +515,11 @@ export const selectHeadingsSection = (state: OutlineStore): OutlineSection =>
  * @param state - Outline store state
  * @returns Components section (never undefined due to fixed structure)
  */
-export const selectComponentsSection = (state: OutlineStore): OutlineSection =>
-  state.sections.find((s) => s.id === 'components')!;
+export const selectComponentsSection = (state: OutlineStore): OutlineSection => {
+  const section = state.sections.find((s) => s.id === 'components');
+  if (!section) throw new Error('Components section not found in fixed structure');
+  return section;
+};
 
 /**
  * Selector for frontmatter section.
@@ -521,8 +527,11 @@ export const selectComponentsSection = (state: OutlineStore): OutlineSection =>
  * @param state - Outline store state
  * @returns Frontmatter section (never undefined due to fixed structure)
  */
-export const selectFrontmatterSection = (state: OutlineStore): OutlineSection =>
-  state.sections.find((s) => s.id === 'frontmatter')!;
+export const selectFrontmatterSection = (state: OutlineStore): OutlineSection => {
+  const section = state.sections.find((s) => s.id === 'frontmatter');
+  if (!section) throw new Error('Frontmatter section not found in fixed structure');
+  return section;
+};
 
 /**
  * Selector for parsing state.
@@ -675,15 +684,21 @@ function formatFrontmatterDisplayValue(value: unknown): string {
     return `${value.slice(0, 3).join(', ')}... (+${value.length - 3})`;
   }
   if (typeof value === 'object' && value !== null) {
-    return '{...}';
+    return `{${Object.keys(value).length} keys}`;
   }
-  if (typeof value === 'string' && value.length > 50) {
-    return value.slice(0, 47) + '...';
+  if (typeof value === 'string') {
+    if (value.length > 50) {
+      return value.slice(0, 47) + '...';
+    }
+    return value;
   }
   if (value === null || value === undefined) {
     return '—';
   }
-  return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
 }
 
 /**
@@ -843,6 +858,5 @@ export function buildHeadingHierarchy(
   return result;
 }
 
-// Type augmentation for React ref types
-import type { RefObject } from 'react';
+// Type augmentation for React ref types and CodeMirror
 import type { EditorView } from '@codemirror/view';

@@ -98,14 +98,14 @@ describe('PreviewFrame', () => {
    * Helper to get the iframe element and set up mock contentWindow.
    */
   function getIframeWithMockWindow(): HTMLIFrameElement {
-    const iframe = screen.getByTitle(IFRAME_TITLE) as HTMLIFrameElement;
+    const iframe = screen.getByTitle(IFRAME_TITLE);
     // Mock the contentWindow property
-    Object.defineProperty(iframe, 'contentWindow', {
+    Object.defineProperty(iframe as HTMLIFrameElement, 'contentWindow', {
       value: mockContentWindow,
       writable: true,
       configurable: true,
     });
-    return iframe;
+    return iframe as HTMLIFrameElement;
   }
 
   /**
@@ -157,7 +157,7 @@ describe('PreviewFrame', () => {
 
     it('renders iframe with correct styles', () => {
       render(<PreviewFrame />);
-      const iframe = screen.getByTitle(IFRAME_TITLE) as HTMLIFrameElement;
+      const iframe = screen.getByTitle(IFRAME_TITLE);
 
       expect(iframe.style.width).toBe('100%');
       expect(iframe.style.height).toBe('100%');
@@ -375,7 +375,7 @@ describe('PreviewFrame', () => {
 
     it('handleIframeError handler exists on iframe element', () => {
       render(<PreviewFrame />);
-      const iframe = screen.getByTitle(IFRAME_TITLE) as HTMLIFrameElement;
+      const iframe = screen.getByTitle(IFRAME_TITLE);
 
       // Verify that onError handler is attached by checking the element has the handler prop
       // The actual onError behavior is verified through the timeout test above

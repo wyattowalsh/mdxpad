@@ -19,10 +19,11 @@
  */
 
 import { app } from 'electron';
-import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { statfs } from 'node:fs/promises';
 import path from 'node:path';
+import { atomicWrite } from '@shared/lib/atomic-write';
+import { computeChecksum } from '@shared/lib/checksum';
 
 import type { AutosaveSettingsService } from './autosave-settings';
 import {
@@ -48,8 +49,6 @@ const RECOVERY_DIR_NAME = 'recovery';
 /** Manifest file name */
 const MANIFEST_FILE = 'manifest.json';
 
-/** Temp file suffix for atomic writes */
-const TEMP_SUFFIX = '.tmp';
 
 /**
  * Service for managing automatic document saving to recovery location.
@@ -141,7 +140,7 @@ export class AutosaveService {
         return diskSpaceCheck;
       }
       // Generate checksum for content integrity verification (FR-019)
-      const checksum = this.computeChecksum(content);
+      const checksum = computeChecksum(content);
       const savedAt = Date.now();
 
       // Build recovery file structure
@@ -161,10 +160,9 @@ export class AutosaveService {
       // Compute file paths
       const recoveryFilePath = `${documentId}.json`;
       const fullRecoveryPath = path.join(recoveryDir, recoveryFilePath);
-      const tempRecoveryPath = `${fullRecoveryPath}${TEMP_SUFFIX}`;
 
       // Write recovery file using atomic pattern (FR-015)
-      await this.atomicWrite(tempRecoveryPath, fullRecoveryPath, JSON.stringify(validated, null, 2));
+      await atomicWrite(fullRecoveryPath, JSON.stringify(validated, null, 2));
 
       // Update manifest entry
       const manifestEntry: ManifestEntry = {
@@ -296,42 +294,11 @@ export class AutosaveService {
   }
 
   /**
-   * Computes the SHA-256 checksum of content.
-   *
-   * Used for content integrity verification per FR-019.
-   *
-   * @param content - The string content to hash
-   * @returns The SHA-256 hash as a 64-character hexadecimal string
-   *
-   * @example
-   * ```typescript
-   * const checksum = autosaveService.computeChecksum('Hello, World!');
-   * // Returns: "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f"
-   * ```
+   * Computes SHA-256 checksum of content.
+   * Delegates to shared utility for consistency with recovery-service.
    */
   computeChecksum(content: string): string {
-    return createHash('sha256').update(content, 'utf-8').digest('hex');
-  }
-
-  /**
-   * Performs an atomic write operation.
-   *
-   * Writes content to a temporary file, then renames it to the target path.
-   * This pattern ensures that the target file is either fully written or
-   * doesn't exist, preventing partial writes that could corrupt data.
-   *
-   * Per FR-015: Atomic write pattern to prevent corruption during crashes.
-   *
-   * @param tempPath - Path to write temporary file
-   * @param targetPath - Final destination path
-   * @param content - Content to write
-   */
-  private async atomicWrite(tempPath: string, targetPath: string, content: string): Promise<void> {
-    // Write to temp file
-    await fs.writeFile(tempPath, content, 'utf-8');
-
-    // Rename to target (atomic on most file systems)
-    await fs.rename(tempPath, targetPath);
+    return computeChecksum(content);
   }
 
   /**
@@ -354,10 +321,9 @@ export class AutosaveService {
 
     const recoveryDir = await this.getRecoveryDir();
     const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
-    const tempManifestPath = `${manifestPath}${TEMP_SUFFIX}`;
 
     // Atomic write for manifest
-    await this.atomicWrite(tempManifestPath, manifestPath, JSON.stringify(updatedManifest, null, 2));
+    await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
   }
 
   /**
@@ -381,10 +347,9 @@ export class AutosaveService {
 
     const recoveryDir = await this.getRecoveryDir();
     const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
-    const tempManifestPath = `${manifestPath}${TEMP_SUFFIX}`;
 
     // Atomic write for manifest
-    await this.atomicWrite(tempManifestPath, manifestPath, JSON.stringify(updatedManifest, null, 2));
+    await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
   }
 
   /**

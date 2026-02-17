@@ -248,6 +248,7 @@ function calculateLineFromRatio(ratio: number, totalLines: number): number {
  * const editorPos = mapper.previewToEditor(1000);
  * ```
  */
+// eslint-disable-next-line max-lines-per-function
 export function createPositionMapper(options: PositionMapperOptions): PositionMapper {
   const { cache, tolerance = DEFAULT_POSITION_TOLERANCE } = options;
 
@@ -260,6 +261,7 @@ export function createPositionMapper(options: PositionMapperOptions): PositionMa
   /**
    * Map editor line to preview scroll position.
    */
+  // eslint-disable-next-line max-lines-per-function
   const editorToPreview = (editorLine: number): PositionMapping => {
     const timestamp = Date.now();
 
@@ -294,9 +296,8 @@ export function createPositionMapper(options: PositionMapperOptions): PositionMa
         );
 
         // Calculate ratio based on heading position in document
-        const ratio = headings.length > 1
-          ? headingIndex / (headings.length - 1)
-          : 0;
+        const ratio =
+          headings.length > 1 ? headingIndex / (headings.length - 1) : 0;
 
         const scrollTop = clamp(ratio * maxScrollTop, 0, maxScrollTop);
 
@@ -323,9 +324,12 @@ export function createPositionMapper(options: PositionMapperOptions): PositionMa
       for (const h of sortedHeadings) {
         if (h.position.line <= editorLine) {
           prevHeading = h;
-        } else if (!nextHeading) {
-          nextHeading = h;
-          break;
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- set in loop
+          if (!nextHeading) {
+            nextHeading = h;
+            break;
+          }
         }
       }
 

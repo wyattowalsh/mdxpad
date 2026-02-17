@@ -13,37 +13,11 @@ import { useCommandRegistry } from '../stores/command-registry-store';
 const DEBOUNCE_MS = 200;
 
 /**
- * Check if a keyboard event matches a normalized shortcut.
- */
-function eventMatchesShortcut(event: KeyboardEvent, shortcut: NormalizedShortcut): boolean {
-  const parts = shortcut.split('+');
-  const key = parts[parts.length - 1]?.toLowerCase();
-  const modifiers = new Set(parts.slice(0, -1));
-
-  // Check key match
-  if (event.key.toLowerCase() !== key) return false;
-
-  // Check Mod (Cmd on macOS, Ctrl on Windows/Linux)
-  const isMac = navigator.platform.includes('Mac');
-  const modKey = isMac ? event.metaKey : event.ctrlKey;
-
-  if (modifiers.has('Mod') && !modKey) return false;
-  if (!modifiers.has('Mod') && modKey) return false;
-
-  // Check explicit modifiers
-  if (modifiers.has('Ctrl') !== event.ctrlKey && !modifiers.has('Mod')) return false;
-  if (modifiers.has('Shift') !== event.shiftKey) return false;
-  if (modifiers.has('Alt') !== event.altKey) return false;
-  if (modifiers.has('Meta') !== event.metaKey && !modifiers.has('Mod')) return false;
-
-  return true;
-}
-
-/**
  * Normalize keyboard event modifiers to an array.
  */
 function getModifiersFromEvent(event: KeyboardEvent): ModifierKey[] {
   const modifiers: ModifierKey[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
   const isMac = navigator.platform.includes('Mac');
 
   if (isMac && event.metaKey) modifiers.push('Mod');
@@ -94,7 +68,7 @@ export interface UseKeyboardShortcutsOptions {
  * ```
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}): void {
-  const { enabled = true, onShortcutExecuted, onShortcutFailed } = options;
+  const { enabled = true, onShortcutExecuted } = options;
 
   const lastExecutionRef = useRef<number>(0);
   const getCommandByShortcut = useCommandRegistry((state) => state.getCommandByShortcut);
@@ -114,6 +88,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
       ) {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         const isMac = navigator.platform.includes('Mac');
         const modPressed = isMac ? event.metaKey : event.ctrlKey;
         const isRegisteredModShortcut = modPressed && !!command;
@@ -154,6 +129,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
  * Check if the current platform is macOS.
  */
 export function isMacOS(): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
   return navigator.platform.includes('Mac');
 }
 

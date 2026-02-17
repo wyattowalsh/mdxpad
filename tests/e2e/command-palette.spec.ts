@@ -196,8 +196,8 @@ test.describe('Command Palette E2E', () => {
 
       // Get initial selected item
       const initialSelected = await page.evaluate(() => {
-        const selected = document.querySelector('[aria-selected="true"]') ||
-                        document.querySelector('[data-selected]') ||
+        const selected = document.querySelector('[aria-selected="true"]') ??
+                        document.querySelector('[data-selected]') ??
                         document.querySelector('.selected');
         return selected?.textContent ?? '';
       });
@@ -208,8 +208,8 @@ test.describe('Command Palette E2E', () => {
 
       // Get new selected item
       const afterDown = await page.evaluate(() => {
-        const selected = document.querySelector('[aria-selected="true"]') ||
-                        document.querySelector('[data-selected]') ||
+        const selected = document.querySelector('[aria-selected="true"]') ??
+                        document.querySelector('[data-selected]') ??
                         document.querySelector('.selected');
         return selected?.textContent ?? '';
       });

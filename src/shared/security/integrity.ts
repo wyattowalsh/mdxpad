@@ -53,8 +53,8 @@ export async function computeHash(
   // Convert to base64
   const hashArray = new Uint8Array(hashBuffer);
   let binary = '';
-  for (let i = 0; i < hashArray.length; i++) {
-    binary += String.fromCharCode(hashArray[i]!);
+  for (const byte of hashArray) {
+    binary += String.fromCharCode(byte);
   }
   const base64Hash = btoa(binary);
 
@@ -75,7 +75,7 @@ export async function verifyIntegrity(
 ): Promise<IntegrityCheckResult> {
   try {
     // Parse expected hash to get algorithm
-    const match = expectedHash.match(/^(sha256|sha384|sha512)-(.+)$/);
+    const match = /^(sha256|sha384|sha512)-(.+)$/.exec(expectedHash);
     if (!match) {
       return {
         valid: false,
@@ -150,7 +150,7 @@ export async function verifyBlobIntegrity(
     }
 
     const content = await response.arrayBuffer();
-    return verifyIntegrity(content, expectedHash);
+    return await verifyIntegrity(content, expectedHash);
   } catch (error) {
     return {
       valid: false,

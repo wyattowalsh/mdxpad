@@ -6,7 +6,7 @@
  * @module src/renderer/features/ai-provider/components/UsageStats
  */
 
-import { useCallback } from 'react';
+import React from 'react';
 import type { UsageStats as UsageStatsType, TimeRange } from '@shared/ai/types';
 
 interface UsageStatsProps {

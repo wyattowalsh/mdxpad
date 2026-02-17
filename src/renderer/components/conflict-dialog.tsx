@@ -32,8 +32,7 @@ import {
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
-import type { FileConflict, ConflictResolution, DocumentId } from '@shared/contracts/autosave-schemas';
-import type { ConflictResolveResponse } from '@shared/contracts/autosave-ipc';
+import type { FileConflict, ConflictResolution } from '@shared/contracts/autosave-schemas';
 
 // =============================================================================
 // TYPES
@@ -66,7 +65,7 @@ type ResolutionChoice = 'recovery' | 'disk' | 'save-as';
 const MAX_PREVIEW_LINES = 500;
 
 /** Line numbers to show context around differences */
-const DIFF_CONTEXT_LINES = 3;
+// const DIFF_CONTEXT_LINES = 3; // TODO: implement diff context highlighting
 
 // =============================================================================
 // IPC STUB
@@ -75,7 +74,7 @@ const DIFF_CONTEXT_LINES = 3;
 /**
  * Resolve a file conflict via IPC.
  *
- * @param resolution - The conflict resolution decision
+ * @param _resolution - The conflict resolution decision (unused until IPC is ready)
  * @returns Promise resolving to the IPC response
  *
  * @remarks
@@ -83,11 +82,11 @@ const DIFF_CONTEXT_LINES = 3;
  * This stub allows the component to be developed and tested before
  * the main process handlers are fully implemented.
  */
-const resolveConflict = async (resolution: ConflictResolution): Promise<ConflictResolveResponse> => {
-  // TODO: Replace with actual IPC call
-  console.debug('[ConflictDialog] Resolving conflict:', resolution);
-  throw new Error('Conflict resolve API not available - preload needs update');
-};
+// const resolveConflict = async (_resolution: ConflictResolution): Promise<ConflictResolveResponse> => {
+//   // TODO: Replace with actual IPC call
+//   console.debug('[ConflictDialog] Resolving conflict:', _resolution);
+//   throw new Error('Conflict resolve API not available - preload needs update');
+// };
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -160,8 +159,8 @@ function computeSimpleDiff(
   recoveryContent: string,
   diskContent: string
 ): {
-  recoveryLines: Array<{ text: string; type: 'added' | 'removed' | 'unchanged' }>;
-  diskLines: Array<{ text: string; type: 'added' | 'removed' | 'unchanged' }>;
+  recoveryLines: { text: string; type: 'added' | 'removed' | 'unchanged' }[];
+  diskLines: { text: string; type: 'added' | 'removed' | 'unchanged' }[];
 } {
   const recoveryArr = splitLines(recoveryContent);
   const diskArr = splitLines(diskContent);
@@ -171,8 +170,8 @@ function computeSimpleDiff(
   // For different lines: mark as changed
   const maxLen = Math.max(recoveryArr.length, diskArr.length);
 
-  const recoveryLines: Array<{ text: string; type: 'added' | 'removed' | 'unchanged' }> = [];
-  const diskLines: Array<{ text: string; type: 'added' | 'removed' | 'unchanged' }> = [];
+  const recoveryLines: { text: string; type: 'added' | 'removed' | 'unchanged' }[] = [];
+  const diskLines: { text: string; type: 'added' | 'removed' | 'unchanged' }[] = [];
 
   for (let i = 0; i < maxLen; i++) {
     const recoveryLine = recoveryArr[i];
@@ -208,7 +207,7 @@ function computeSimpleDiff(
  */
 function getFileName(filePath: string): string {
   const parts = filePath.split(/[/\\]/);
-  return parts[parts.length - 1] || filePath;
+  return parts[parts.length - 1] ?? filePath;
 }
 
 // =============================================================================
@@ -224,7 +223,7 @@ interface DiffPaneProps {
   /** Timestamp for this version */
   readonly timestamp: number;
   /** Lines to display with their diff type */
-  readonly lines: ReadonlyArray<{ text: string; type: 'added' | 'removed' | 'unchanged' }>;
+  readonly lines: readonly { text: string; type: 'added' | 'removed' | 'unchanged' }[];
   /** CSS class for the background highlight color */
   readonly highlightClass: string;
   /** Icon to display in the header */
@@ -355,7 +354,7 @@ function ConflictDialogComponent({
    * @param choice - The resolution choice made by the user
    */
   const handleResolve = useCallback(
-    async (choice: ResolutionChoice) => {
+    (choice: ResolutionChoice) => {
       if (!conflict) {
         return;
       }

@@ -175,7 +175,7 @@ export interface CompileResponseFailure {
 export function isCompileSuccess(
   response: CompileResponse
 ): response is CompileResponseSuccess {
-  return response.ok === true;
+  return response.ok;
 }
 
 /**
@@ -187,7 +187,7 @@ export function isCompileSuccess(
 export function isCompileFailure(
   response: CompileResponse
 ): response is CompileResponseFailure {
-  return response.ok === false;
+  return !response.ok;
 }
 
 /**

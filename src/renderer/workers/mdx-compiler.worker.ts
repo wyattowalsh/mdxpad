@@ -16,7 +16,7 @@
  */
 
 import { compileMdx, prewarmCompiler } from '@renderer/lib/mdx/compile';
-import type { CompileRequest, HeartbeatPong, PrewarmResponse, WorkerMemoryUsage } from '@shared/types/preview-worker';
+import type { HeartbeatPong, PrewarmResponse, WorkerMemoryUsage } from '@shared/types/preview-worker';
 import { isCompileRequest, isHeartbeatPing, isPrewarmRequest } from '@shared/types/preview-worker';
 
 /** Web Worker global scope type assertion */
@@ -111,6 +111,7 @@ workerSelf.addEventListener(
  * Supports compilation requests, heartbeat pings, and prewarm requests.
  */
 workerSelf.onmessage = async (event: MessageEvent): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const data = event.data;
 
   // Handle heartbeat ping
@@ -131,7 +132,7 @@ workerSelf.onmessage = async (event: MessageEvent): Promise<void> => {
     return;
   }
 
-  const { id, source } = data as CompileRequest;
+  const { id, source } = data;
   const response = await compileMdx(id, source);
   workerSelf.postMessage(response);
 };

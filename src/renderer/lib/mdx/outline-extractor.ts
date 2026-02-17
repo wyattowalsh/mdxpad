@@ -176,6 +176,7 @@ function parseYamlContent(yaml: string): Record<string, unknown> {
  * console.log(outline.headings); // [{ depth: 1, text: 'Title', position: { line: 1, column: 1 } }]
  * ```
  */
+// eslint-disable-next-line max-lines-per-function
 export function extractOutline(
   tree: Root,
   frontmatterData?: Record<string, unknown>
@@ -189,7 +190,7 @@ export function extractOutline(
   visit(tree, (node) => {
     // Extract headings
     if (node.type === 'heading') {
-      const heading = node as Heading;
+      const heading = node;
       const text = extractHeadingText(heading);
 
       // Only add headings with text content
@@ -205,7 +206,7 @@ export function extractOutline(
 
     // Extract MDX JSX elements
     if (isMdxJsxElement(node)) {
-      const jsxNode = node as MdxJsxElement;
+      const jsxNode = node;
 
       // Only capture named elements (not fragments)
       if (jsxNode.name) {
@@ -219,7 +220,7 @@ export function extractOutline(
 
     // Extract YAML frontmatter
     if (isYamlNode(node)) {
-      const yamlNode = node as YamlNode;
+      const yamlNode = node;
       const parsedData = parseYamlContent(yamlNode.value);
       frontmatterEndLine = yamlNode.position?.end.line ?? 0;
 
@@ -234,6 +235,7 @@ export function extractOutline(
   });
 
   // If frontmatter was provided but not found in tree, use it directly
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- frontmatter may not be set by visitor
   if (!frontmatter && frontmatterData && Object.keys(frontmatterData).length > 0) {
     frontmatter = {
       data: frontmatterData,

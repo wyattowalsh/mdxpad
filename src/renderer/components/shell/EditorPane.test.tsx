@@ -63,8 +63,8 @@ function setStoreContent(content: string): void {
 
 describe('EditorPane', () => {
   // Track manually created containers for cleanup
-  const manualContainers: Set<HTMLElement> = new Set();
-  const manualRoots: Set<Root> = new Set();
+  const manualContainers = new Set<HTMLElement>();
+  const manualRoots = new Set<Root>();
 
   function createTrackedContainer(): { container: HTMLElement; root: Root } {
     const container = document.createElement('div');
@@ -218,7 +218,7 @@ describe('EditorPane', () => {
       const cmContent = await waitForCodeMirror(container);
       expect(cmContent).not.toBeNull();
       // Empty content should result in minimal text
-      expect(cmContent!.textContent!.trim()).toBe('');
+      expect(cmContent!.textContent.trim()).toBe('');
     });
 
     it('should display multi-line content from store', async () => {

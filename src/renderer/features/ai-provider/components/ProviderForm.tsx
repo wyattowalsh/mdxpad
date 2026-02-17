@@ -88,7 +88,7 @@ export function ProviderForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
       {/* Display Name */}
       <div>
         <label

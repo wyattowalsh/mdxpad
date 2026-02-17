@@ -214,7 +214,7 @@ function loadPersistedState(): Partial<UILayoutStoreState> {
     // Load and validate previewVisible
     const previewVisibleRaw = localStorage.getItem(STORAGE_KEYS.previewVisible);
     if (previewVisibleRaw !== null) {
-      const parsed = JSON.parse(previewVisibleRaw);
+      const parsed = JSON.parse(previewVisibleRaw) as unknown;
       if (typeof parsed === 'boolean') {
         result.previewVisible = parsed;
       }
@@ -227,7 +227,7 @@ function loadPersistedState(): Partial<UILayoutStoreState> {
     // Load and validate outlineVisible
     const outlineVisibleRaw = localStorage.getItem(STORAGE_KEYS.outlineVisible);
     if (outlineVisibleRaw !== null) {
-      const parsed = JSON.parse(outlineVisibleRaw);
+      const parsed = JSON.parse(outlineVisibleRaw) as unknown;
       if (typeof parsed === 'boolean') {
         result.outlineVisible = parsed;
       }
@@ -240,7 +240,7 @@ function loadPersistedState(): Partial<UILayoutStoreState> {
     // Load and validate zoomLevel
     const zoomLevelRaw = localStorage.getItem(STORAGE_KEYS.zoomLevel);
     if (zoomLevelRaw !== null) {
-      const parsed = JSON.parse(zoomLevelRaw);
+      const parsed = JSON.parse(zoomLevelRaw) as unknown;
       if (typeof parsed === 'number' && parsed >= MIN_ZOOM && parsed <= MAX_ZOOM) {
         result.zoomLevel = parsed;
       } else if (typeof parsed === 'number') {
@@ -256,7 +256,7 @@ function loadPersistedState(): Partial<UILayoutStoreState> {
     // Load and validate splitRatio
     const splitRatioRaw = localStorage.getItem(SHELL_STORAGE_KEYS.splitRatio);
     if (splitRatioRaw !== null) {
-      const parsed = JSON.parse(splitRatioRaw);
+      const parsed = JSON.parse(splitRatioRaw) as unknown;
       if (typeof parsed === 'number' && parsed >= MIN_SPLIT_RATIO && parsed <= MAX_SPLIT_RATIO) {
         result.splitRatio = parsed;
       } else if (typeof parsed === 'number') {

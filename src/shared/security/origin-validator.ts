@@ -28,7 +28,7 @@ export interface OriginValidationResult {
  * @param isDev - Whether running in development mode
  * @returns Array of allowed origins
  */
-export function getAllowedOrigins(isDev: boolean = false): readonly string[] {
+export function getAllowedOrigins(isDev = false): readonly string[] {
   const baseOrigins = [...SECURITY_CONSTANTS.allowedOrigins];
 
   // In dev mode, allow localhost for dev server
@@ -86,7 +86,7 @@ function isLocalhostOrigin(origin: string): boolean {
 export function validateOrigin(
   origin: string,
   currentOrigin: string,
-  isDev: boolean = false
+  isDev = false
 ): OriginValidationResult {
   // Same-origin is always allowed
   if (origin === currentOrigin) {
@@ -135,7 +135,7 @@ export function validateOrigin(
 export function isAllowedOrigin(
   origin: string,
   currentOrigin: string,
-  isDev: boolean = false
+  isDev = false
 ): boolean {
   return validateOrigin(origin, currentOrigin, isDev).allowed;
 }

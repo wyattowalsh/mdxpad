@@ -71,7 +71,7 @@ const DEFAULT_CONFIG: Required<ErrorReporterConfig> = {
 let globalErrorHistory: CategorizedError[] = [];
 
 /** Global error handlers */
-let globalHandlers: Set<ErrorHandler> = new Set();
+let globalHandlers = new Set<ErrorHandler>();
 
 /**
  * Reset global state (for testing)
@@ -175,7 +175,7 @@ export function useErrorReporting(
    * Reports an error
    */
   const reportError = useCallback(
-    (error: Error | string, context?: Partial<ErrorContext>): CategorizedError => {
+    (error: Error | string, _context?: Partial<ErrorContext>): CategorizedError => {
       const categorizedError = createCategorizedError(error);
 
       // Add to history (with size limit)

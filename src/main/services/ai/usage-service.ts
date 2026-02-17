@@ -298,7 +298,7 @@ export class UsageService implements IUsageService {
    * Automatically generates ID and timestamp, calculates cost,
    * and prunes old records if limits are exceeded.
    */
-  async recordUsage(record: Omit<UsageRecord, 'id' | 'timestamp'>): Promise<void> {
+  recordUsage(record: Omit<UsageRecord, 'id' | 'timestamp'>): Promise<void> {
     const fullRecord: UsageRecord = {
       ...record,
       id: randomUUID(),
@@ -313,58 +313,60 @@ export class UsageService implements IUsageService {
     pruned.push(fullRecord);
 
     this.store.set('records', pruned);
+    return Promise.resolve();
   }
 
   /**
    * Queries usage statistics based on time range and optional filters.
    */
-  async queryStats(query: UsageQuery): Promise<UsageStats> {
+  queryStats(query: UsageQuery): Promise<UsageStats> {
     const records = this.store.get('records');
     const filtered = filterByQuery(records, query);
 
-    return this.buildStats(filtered, query.timeRange);
+    return Promise.resolve(this.buildStats(filtered, query.timeRange));
   }
 
   /**
    * Exports raw usage data as JSON or CSV.
    */
-  async exportData(timeRange: TimeRange, format: 'json' | 'csv'): Promise<string> {
+  exportData(timeRange: TimeRange, format: 'json' | 'csv'): Promise<string> {
     const records = this.store.get('records');
     const filtered = filterByTimeRange(records, timeRange);
 
     if (format === 'json') {
-      return JSON.stringify(filtered, null, 2);
+      return Promise.resolve(JSON.stringify(filtered, null, 2));
     }
-    return recordsToCSV(filtered);
+    return Promise.resolve(recordsToCSV(filtered));
   }
 
   /**
    * Clears usage history. If beforeDate is provided, only clears older records.
    */
-  async clearHistory(beforeDate?: Date): Promise<void> {
+  clearHistory(beforeDate?: Date): Promise<void> {
     if (!beforeDate) {
       this.store.set('records', []);
-      return;
+      return Promise.resolve();
     }
 
     const records = this.store.get('records');
     const filtered = records.filter((r) => new Date(r.timestamp) >= beforeDate);
     this.store.set('records', filtered);
+    return Promise.resolve();
   }
 
   /**
    * Gets estimated cost for a specific provider within a time range.
    */
-  async getEstimatedCost(providerId: string, timeRange: TimeRange): Promise<number> {
+  getEstimatedCost(providerId: string, timeRange: TimeRange): Promise<number> {
     const records = this.store.get('records');
     const filtered = filterByTimeRange(records, timeRange).filter(
       (r) => r.providerId === providerId
     );
 
-    return filtered.reduce(
+    return Promise.resolve(filtered.reduce(
       (sum, r) => sum + (r.estimatedCostUsd ?? calculateRecordCost(r)),
       0
-    );
+    ));
   }
 
   /**

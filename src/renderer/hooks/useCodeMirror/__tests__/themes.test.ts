@@ -712,7 +712,7 @@ describe('themes module', () => {
     it('should add theme-specific CSS classes to editor DOM', () => {
       view = createEditorWithTheme(darkTheme);
 
-      const cmEditor = container.querySelector('.cm-editor') as HTMLElement;
+      const cmEditor = container.querySelector('.cm-editor')!;
       expect(cmEditor).not.toBeNull();
 
       // CodeMirror adds unique class names for theme scoping
@@ -732,7 +732,7 @@ describe('themes module', () => {
         parent: container,
       });
 
-      const cmEditor = container.querySelector('.cm-editor') as HTMLElement;
+      const cmEditor = container.querySelector('.cm-editor')!;
       const initialClasses = cmEditor.className;
 
       // Reconfigure to dark theme
@@ -809,7 +809,7 @@ describe('themes module', () => {
     it('should have contenteditable attribute on content DOM', () => {
       view = createEditorWithTheme(lightTheme);
 
-      const cmContent = container.querySelector('.cm-content') as HTMLElement;
+      const cmContent = container.querySelector('.cm-content')!;
       expect(cmContent).not.toBeNull();
       expect(cmContent.getAttribute('contenteditable')).toBe('true');
     });
@@ -817,7 +817,7 @@ describe('themes module', () => {
     it('should render with role="textbox" for accessibility', () => {
       view = createEditorWithTheme(lightTheme);
 
-      const cmContent = container.querySelector('.cm-content') as HTMLElement;
+      const cmContent = container.querySelector('.cm-content')!;
       expect(cmContent).not.toBeNull();
       expect(cmContent.getAttribute('role')).toBe('textbox');
     });

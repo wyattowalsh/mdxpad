@@ -29,6 +29,7 @@ class MockWorker {
   constructor() {
     this.postMessage = vi.fn();
     this.terminate = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     mockWorkerInstance = this;
     mockWorkerInstances.push(this);
   }

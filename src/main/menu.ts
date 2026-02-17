@@ -164,7 +164,9 @@ function buildRecentFilesSubmenu(): MenuItemConstructorOptions[] {
     toolTip: entry.path,
     click: () => {
       if (mainWindow) {
-        void openRecentFile(entry, mainWindow);
+        void openRecentFile(entry, mainWindow).catch((error: unknown) => {
+          console.error('[Menu] Failed to open recent file:', error);
+        });
       }
     },
   }));

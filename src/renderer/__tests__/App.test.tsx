@@ -195,6 +195,7 @@ describe('App', () => {
       ).toBeDefined();
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const isMac = navigator.platform.includes('Mac');
     fireEvent.keyDown(window, {
       key: 'p',

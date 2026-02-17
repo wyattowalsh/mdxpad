@@ -262,6 +262,7 @@ const saveFileCommand: Command = {
  * Save file as command.
  * Shows native save dialog and saves to new location.
  */
+ 
 const saveFileAsCommand: Command = {
   id: FILE_COMMAND_IDS.saveAs,
   name: 'Save As...',
@@ -269,6 +270,7 @@ const saveFileAsCommand: Command = {
   category: 'file',
   shortcut: { key: 's', modifiers: ['Mod', 'Shift'] },
   icon: '💾',
+  // eslint-disable-next-line max-lines-per-function
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
       const result = await ctx.api.saveFileAs(ctx.document.content);

@@ -65,7 +65,6 @@ function FieldRow({
  * @param props - Component props
  * @returns JSX element
  */
-// eslint-disable-next-line max-lines-per-function
 function FrontmatterSectionComponent(props: FrontmatterSectionProps): React.JSX.Element {
   const {
     fields,

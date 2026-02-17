@@ -289,7 +289,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
   useEffect(() => {
     if (editorRef) {
       // Update editorRef to point to current view
-      (editorRef as React.MutableRefObject<EditorView | null>).current = getView();
+      (editorRef as React.RefObject<EditorView | null> & { current: EditorView | null }).current = getView();
     }
   }, [editorRef, getView]);
 

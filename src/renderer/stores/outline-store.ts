@@ -16,8 +16,6 @@ import { enableMapSet, castDraft } from 'immer';
 enableMapSet();
 import type {
   OutlineStore,
-  OutlineStoreState,
-  OutlineSection,
   OutlineSectionId,
   OutlineItem,
   OutlineAST,
@@ -81,11 +79,11 @@ function transformFrontmatter(frontmatter: FrontmatterData | null): OutlineItem[
   if (!frontmatter) return [];
 
   const items: OutlineItem[] = [];
-  const { data, endLine } = frontmatter;
+  const { data } = frontmatter;
 
   // Create a single item for the frontmatter section that navigates to line 1
   // Individual field items can be added if needed in the future
-  Object.entries(data).forEach(([key, value], index) => {
+  Object.entries(data).forEach(([key, value]) => {
     const displayValue = formatFrontmatterValue(value);
     items.push({
       id: `fm-${key}`,
@@ -143,7 +141,7 @@ function formatFrontmatterValue(value: unknown): string {
  * ```
  */
 export const useOutlineStore = create<OutlineStore>()(
-  immer((set, get) => ({
+  immer((set) => ({
     ...INITIAL_OUTLINE_STATE,
 
     updateFromAST: (ast: OutlineAST) =>

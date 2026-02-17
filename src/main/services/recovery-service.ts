@@ -22,9 +22,10 @@
  */
 
 import { app } from 'electron';
-import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { atomicWrite } from '@shared/lib/atomic-write';
+import { computeChecksum } from '@shared/lib/checksum';
 
 import {
   type DocumentId,
@@ -58,8 +59,6 @@ const RECOVERY_DIR_NAME = 'recovery';
 /** Manifest file name */
 const MANIFEST_FILE = 'manifest.json';
 
-/** Temp file suffix for atomic writes */
-const TEMP_SUFFIX = '.tmp';
 
 /**
  * Service for managing crash recovery operations.
@@ -474,19 +473,10 @@ export class RecoveryService {
    * @returns True if checksum matches, false otherwise
    */
   validateChecksum(file: RecoveryFile): boolean {
-    const computedChecksum = this.computeChecksum(file.content);
+    const computedChecksum = computeChecksum(file.content);
     return computedChecksum === file.checksum;
   }
 
-  /**
-   * Computes SHA-256 checksum of content.
-   *
-   * @param content - The content to hash
-   * @returns Hex-encoded SHA-256 hash (64 characters)
-   */
-  private computeChecksum(content: string): string {
-    return createHash('sha256').update(content, 'utf-8').digest('hex');
-  }
 
   /**
    * Creates a dialog entry for a document ID.
@@ -724,27 +714,9 @@ export class RecoveryService {
 
     const recoveryDir = await this.getRecoveryDirPath();
     const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
-    const tempManifestPath = `${manifestPath}${TEMP_SUFFIX}`;
 
     // Atomic write for manifest
-    await this.atomicWrite(tempManifestPath, manifestPath, JSON.stringify(updatedManifest, null, 2));
-  }
-
-  /**
-   * Performs an atomic write operation.
-   *
-   * Writes content to a temporary file, then renames it to the target path.
-   *
-   * @param tempPath - Path to write temporary file
-   * @param targetPath - Final destination path
-   * @param content - Content to write
-   */
-  private async atomicWrite(tempPath: string, targetPath: string, content: string): Promise<void> {
-    // Write to temp file
-    await fs.writeFile(tempPath, content, 'utf-8');
-
-    // Rename to target (atomic on most file systems)
-    await fs.rename(tempPath, targetPath);
+    await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
   }
 
   /**

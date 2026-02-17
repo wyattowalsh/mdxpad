@@ -208,7 +208,7 @@ export const useSyncStore = create<SyncStore>()(
           // Parse and validate mode
           if (modeStr !== null) {
             try {
-              const parsed = JSON.parse(modeStr);
+              const parsed = JSON.parse(modeStr) as unknown;
               if (isSyncMode(parsed)) {
                 draft.mode = parsed;
               }
@@ -220,7 +220,7 @@ export const useSyncStore = create<SyncStore>()(
           // Parse and validate lastActiveMode
           if (lastActiveStr !== null) {
             try {
-              const parsed = JSON.parse(lastActiveStr);
+              const parsed = JSON.parse(lastActiveStr) as unknown;
               if (isSyncMode(parsed) && parsed !== 'disabled') {
                 draft.lastActiveMode = parsed;
               }

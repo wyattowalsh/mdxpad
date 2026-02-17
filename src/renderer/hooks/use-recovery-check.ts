@@ -230,6 +230,7 @@ export interface UseRecoveryCheckOptions {
  * }
  * ```
  */
+ 
 export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecoveryCheckResult {
   const {
     onRestore,
@@ -299,6 +300,7 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
     let mounted = true;
     hasCheckedRef.current = true;
 
+     
     const performCheck = async (): Promise<void> => {
       setIsChecking(true);
       setError(null);
@@ -319,7 +321,7 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
         // Step 2: Fetch recovery entries for dialog
         const listResponse = await listRecovery();
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- needed for real IPC
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mounted can change during async
         if (!mounted) return;
 
         setEntries(listResponse.entries);

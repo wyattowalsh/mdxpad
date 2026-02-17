@@ -164,26 +164,26 @@ function migrateLegacyRecentCommands(value: unknown): unknown {
     return value;
   }
 
-  return value.map((entry) => {
+  return value.map((entry): unknown => {
     if (!entry || typeof entry !== 'object') {
-      return entry;
+      return entry as unknown;
     }
 
     const entryRecord = entry as Record<string, unknown>;
     const commandId = entryRecord.commandId;
     if (typeof commandId !== 'string') {
-      return entry;
+      return entry as unknown;
     }
 
     const migratedId = LEGACY_COMMAND_ID_MIGRATIONS[commandId];
     if (!migratedId) {
-      return entry;
+      return entry as unknown;
     }
 
     return {
       ...entryRecord,
       commandId: migratedId,
-    };
+    } as unknown;
   });
 }
 
@@ -218,7 +218,7 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
     register: (command: CommandInput): CommandRegistrationResult => {
       // Validate CommandId format
       if (!isValidCommandId(command.id)) {
-        return { ok: false, error: `Invalid CommandId format: ${command.id}` };
+        return { ok: false, error: `Invalid CommandId format: ${String(command.id)}` };
       }
 
       const state = get();
@@ -329,10 +329,12 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
         const now = Date.now();
 
         if (existingIndex >= 0) {
-          // Update existing entry (non-null assertion safe due to index check)
-          const entry = draft.recentCommands[existingIndex]!;
-          entry.lastUsed = now;
-          entry.useCount += 1;
+          // Update existing entry (null check done via index check)
+          const entry = draft.recentCommands[existingIndex];
+          if (entry) {
+            entry.lastUsed = now;
+            entry.useCount += 1;
+          }
         } else {
           // Add new entry
           draft.recentCommands.push({
@@ -369,7 +371,7 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
       try {
         const stored = localStorage.getItem(STORAGE_KEYS.recentCommands);
         if (stored) {
-          const parsed = JSON.parse(stored);
+          const parsed = JSON.parse(stored) as unknown;
           const migrated = migrateLegacyRecentCommands(parsed);
           const validated = parseRecentCommands(migrated);
           set((draft) => {

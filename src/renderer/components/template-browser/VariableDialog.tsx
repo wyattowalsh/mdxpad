@@ -123,7 +123,6 @@ function getAutoPreview(varName: string): string | null {
  * - Validates required fields
  * - Focuses first input on open
  */
-// eslint-disable-next-line max-lines-per-function
 export function VariableDialog({
   isOpen,
   onClose,
@@ -246,7 +245,6 @@ export function VariableDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          {/* eslint-disable-next-line max-lines-per-function */}
           {variables.map((variable, index) => {
             const inputId = `var-${variable.name}`;
             const errorId = `${inputId}-error`;

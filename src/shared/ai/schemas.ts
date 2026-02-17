@@ -759,6 +759,7 @@ export function validateRequest<T extends z.ZodTypeAny>(
   schema: T,
   data: unknown
 ): z.infer<T> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return schema.parse(data);
 }
 
@@ -778,6 +779,7 @@ export function validateResponse<T extends z.ZodTypeAny>(
  */
 export function createValidator<T extends z.ZodTypeAny>(schema: T) {
   return {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     parse: (data: unknown): z.infer<T> => schema.parse(data),
     safeParse: (data: unknown): z.SafeParseReturnType<unknown, z.infer<T>> =>
       schema.safeParse(data),

@@ -76,6 +76,7 @@ const BLOCK_SCALAR_REGEX = /^[|>][+-]?\s*$/;
  * @param rawYaml - Raw YAML string for regex-based detection
  * @returns Object with hasUnsupported flag and list of affected field names
  */
+// eslint-disable-next-line max-lines-per-function
 function detectUnsupportedFeatures(
   doc: Document,
   rawYaml: string
@@ -287,6 +288,7 @@ function checkDelimiterErrors(content: string): FrontmatterDelimiterError | null
  * @param content - Full document content
  * @returns Parsed frontmatter data with fields, validation, and format options
  */
+// eslint-disable-next-line max-lines-per-function
 export function parseFrontmatter(content: string): FrontmatterData {
   // Check for delimiter errors first
   const delimiterError = checkDelimiterErrors(content);
@@ -370,9 +372,13 @@ export function parseFrontmatter(content: string): FrontmatterData {
     };
   } catch (error) {
     const yamlError = error as YAMLParseError;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive against unknown error shapes
+    const message = yamlError.message ?? 'Unknown parse error';
     const parseError: FrontmatterParseError = {
-      message: yamlError.message ?? 'Unknown parse error',
+      message,
+       
       line: yamlError.linePos?.[0]?.line ?? 1,
+       
       column: yamlError.linePos?.[0]?.col ?? 1,
     };
 
@@ -503,8 +509,11 @@ export function validateYamlSyntax(yaml: string): FrontmatterParseError | null {
     return null;
   } catch (error) {
     const yamlError = error as YAMLParseError;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive against unknown error shapes
+    const message = yamlError.message ?? 'Unknown parse error';
     return {
-      message: yamlError.message ?? 'Unknown parse error',
+      message,
+       
       line: yamlError.linePos?.[0]?.line ?? 1,
       column: yamlError.linePos?.[0]?.col ?? 1,
     };

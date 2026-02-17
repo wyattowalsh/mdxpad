@@ -57,6 +57,10 @@ export interface OutlineSectionProps {
 function OutlineSectionComponent(props: OutlineSectionProps): React.JSX.Element | null {
   const { section, onToggleCollapse, onItemClick, onItemToggleCollapse } = props;
 
+  // =========================================================================
+  // ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP
+  // =========================================================================
+
   // Track expanded component groups (by component name)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -71,11 +75,6 @@ function OutlineSectionComponent(props: OutlineSectionProps): React.JSX.Element 
     if (section.id !== 'headings') return null;
     return buildHeadingHierarchy(section.items);
   }, [section.id, section.items]);
-
-  // Don't render empty sections
-  if (section.isEmpty) {
-    return null;
-  }
 
   // Group components by name for the components section
   const groupedComponents = useMemo(() => {
@@ -185,6 +184,15 @@ function OutlineSectionComponent(props: OutlineSectionProps): React.JSX.Element 
     };
     onItemClick(item);
   }, [onItemClick]);
+
+  // =========================================================================
+  // CONDITIONAL RENDERING (AFTER ALL HOOKS)
+  // =========================================================================
+
+  // Don't render empty sections
+  if (section.isEmpty) {
+    return null;
+  }
 
   // Compute item count for display
   const itemCount = section.id === 'components' && groupedComponents

@@ -12,7 +12,6 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   type CategorizedError,
   type ErrorCategory,
-  categorizeError,
   createCategorizedError,
   isRetryable,
   isResettable,

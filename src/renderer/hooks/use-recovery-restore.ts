@@ -100,7 +100,7 @@ export function useRecoveryRestore(): UseRecoveryRestoreResult {
   const restoreDocuments = useCallback(
     (documents: readonly RestoredDocument[]): void => {
       // Validate input
-      if (!documents || documents.length === 0) {
+      if (documents.length === 0) {
         console.debug('[useRecoveryRestore] No documents to restore');
         return;
       }
@@ -111,9 +111,8 @@ export function useRecoveryRestore(): UseRecoveryRestoreResult {
         // For single-document app, restore only the first document
         const doc = documents[0];
 
-        // Guard against empty array (should not happen after length check, but TypeScript requires this)
         if (!doc) {
-          console.error('[useRecoveryRestore] Document array was empty after length check');
+          // This should never happen after the length check above
           return;
         }
 

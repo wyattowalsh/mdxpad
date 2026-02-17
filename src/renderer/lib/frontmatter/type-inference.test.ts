@@ -802,7 +802,7 @@ describe('SC-004: Type Inference Accuracy Test Suite', () => {
    * - 5 object variations
    * - 1 null case
    */
-  const testSamples: Array<{ value: unknown; expected: FieldType; description: string }> = [
+  const testSamples: { value: unknown; expected: FieldType; description: string }[] = [
     // String variations (15)
     { value: '', expected: 'text', description: 'empty string' },
     { value: 'hello', expected: 'text', description: 'single word' },
@@ -878,7 +878,7 @@ describe('SC-004: Type Inference Accuracy Test Suite', () => {
   // Run all samples and count accuracy
   it('should achieve >= 95% accuracy (48/50 correct)', () => {
     let correctCount = 0;
-    const failures: Array<{ description: string; expected: FieldType; actual: FieldType }> = [];
+    const failures: { description: string; expected: FieldType; actual: FieldType }[] = [];
 
     for (const sample of testSamples) {
       const actual = inferFieldType(sample.value);

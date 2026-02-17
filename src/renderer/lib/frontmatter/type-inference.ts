@@ -5,6 +5,7 @@
  * @description Infers field types from YAML values using pattern-based heuristics.
  * Follows priority order: boolean > number > date > array > object > textarea > text
  */
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- defensive type checks for runtime safety */
 
 import type { FieldType, FieldValue } from '@shared/types/frontmatter';
 
@@ -103,6 +104,7 @@ function inferStringType(value: string): FieldType {
  * @returns True if value matches the type
  */
 export function valueMatchesType(value: FieldValue, type: FieldType): boolean {
+   
   if (value === null || value === undefined) {
     return type === 'text';
   }
@@ -115,13 +117,13 @@ export function valueMatchesType(value: FieldValue, type: FieldType): boolean {
       return typeof value === 'number' && !Number.isNaN(value);
 
     case 'date':
-      if (typeof value !== 'string') return false;
-      return ISO_DATE_REGEX.test(value) || ISO_DATETIME_REGEX.test(value);
+      return typeof value === 'string' && (ISO_DATE_REGEX.test(value) || ISO_DATETIME_REGEX.test(value));
 
     case 'array':
       return Array.isArray(value);
 
     case 'object':
+       
       return typeof value === 'object' && !Array.isArray(value) && value !== null;
 
     case 'textarea':
@@ -142,13 +144,15 @@ export function valueMatchesType(value: FieldValue, type: FieldType): boolean {
  * @param targetType - Target field type
  * @returns Converted value or null if conversion fails
  */
+// eslint-disable-next-line max-lines-per-function
 export function convertToType(value: FieldValue, targetType: FieldType): FieldValue | null {
+   
   if (value === null || value === undefined) {
     return getDefaultValue(targetType);
   }
 
   switch (targetType) {
-    case 'boolean':
+    case 'boolean': {
       if (typeof value === 'boolean') return value;
       if (typeof value === 'string') {
         const lower = value.toLowerCase();
@@ -157,8 +161,9 @@ export function convertToType(value: FieldValue, targetType: FieldType): FieldVa
       }
       if (typeof value === 'number') return value !== 0;
       return null;
+    }
 
-    case 'number':
+    case 'number': {
       if (typeof value === 'number') return value;
       if (typeof value === 'string') {
         const num = Number(value);
@@ -166,8 +171,9 @@ export function convertToType(value: FieldValue, targetType: FieldType): FieldVa
       }
       if (typeof value === 'boolean') return value ? 1 : 0;
       return null;
+    }
 
-    case 'date':
+    case 'date': {
       if (typeof value === 'string') {
         if (ISO_DATE_REGEX.test(value) || ISO_DATETIME_REGEX.test(value)) {
           return value;
@@ -175,40 +181,47 @@ export function convertToType(value: FieldValue, targetType: FieldType): FieldVa
         // Try to parse as date
         const date = new Date(value);
         if (!Number.isNaN(date.getTime())) {
+           
           const dateStr = date.toISOString().split('T')[0];
           return dateStr ?? '';
         }
       }
       if (value instanceof Date) {
+         
         const dateStr = value.toISOString().split('T')[0];
         return dateStr ?? '';
       }
       return null;
+    }
 
-    case 'array':
+    case 'array': {
       if (Array.isArray(value)) return value;
       if (typeof value === 'string') {
         // Split comma-separated string
         return value.split(',').map((s) => s.trim()).filter(Boolean);
       }
       return [value];
+    }
 
-    case 'object':
+    case 'object': {
+       
       if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
         return value;
       }
       return null;
+    }
 
     case 'textarea':
-    case 'text':
+    case 'text': {
       if (typeof value === 'string') return value;
       if (typeof value === 'number' || typeof value === 'boolean') {
         return String(value);
       }
       if (Array.isArray(value)) {
-        return value.join(', ');
+        return value.map(String).join(', ');
       }
       return null;
+    }
 
     default:
       return null;
@@ -268,6 +281,7 @@ export function inferTypesForObject(
  * @returns True if value is empty
  */
 export function isEmptyValue(value: FieldValue, type: FieldType): boolean {
+   
   if (value === null || value === undefined) {
     return true;
   }
@@ -281,10 +295,13 @@ export function isEmptyValue(value: FieldValue, type: FieldType): boolean {
       return Array.isArray(value) && value.length === 0;
 
     case 'object':
-      return typeof value === 'object' &&
+      return (
+        typeof value === 'object' &&
         !Array.isArray(value) &&
+         
         value !== null &&
-        Object.keys(value).length === 0;
+        Object.keys(value).length === 0
+      );
 
     case 'boolean':
     case 'number':

@@ -10,7 +10,7 @@
  * @module renderer/hooks/useScrollSync
  */
 
-/* eslint-disable max-lines-per-function */
+ 
 
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { EditorView } from '@codemirror/view';

@@ -50,6 +50,7 @@ class MockWorker {
   constructor() {
     this.postMessage = vi.fn();
     this.terminate = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     mockWorkerInstance = this;
     mockWorkerInstances.push(this);
   }
@@ -223,7 +224,7 @@ describe('Integration - Full Compilation Flow', () => {
     });
 
     it('should handle interleaved success and error responses', async () => {
-      const results: Array<{ type: 'success' | 'error'; index: number }> = [];
+      const results: { type: 'success' | 'error'; index: number }[] = [];
 
       for (let i = 0; i < 4; i++) {
         const requestId = compiler.compile(`# Doc ${i}`, {
@@ -328,7 +329,7 @@ describe('Integration - Iframe Communication', () => {
 
   describe('message flow simulation', () => {
     it('should simulate complete render cycle', async () => {
-      const messageLog: Array<{ direction: string; type: string }> = [];
+      const messageLog: { direction: string; type: string }[] = [];
 
       // Simulate iframe ready
       const readySignal: ReadySignal = { type: 'ready' };
@@ -365,7 +366,7 @@ describe('Integration - Iframe Communication', () => {
     });
 
     it('should simulate error recovery flow', async () => {
-      const messageLog: Array<{ direction: string; type: string; error?: string | undefined }> = [];
+      const messageLog: { direction: string; type: string; error?: string | undefined }[] = [];
 
       // First successful render
       const result1 = await compileMdx('test-1' as RequestId, '# Valid');
@@ -407,7 +408,7 @@ describe('Integration - Iframe Communication', () => {
     });
 
     it('should simulate theme synchronization', () => {
-      const themeChanges: Array<'light' | 'dark'> = [];
+      const themeChanges: ('light' | 'dark')[] = [];
 
       // Initial theme
       const lightTheme: ThemeCommand = { type: 'theme', value: 'light' };

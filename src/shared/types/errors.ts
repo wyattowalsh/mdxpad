@@ -207,14 +207,14 @@ export function createUserFriendlyMessage(
   // For runtime errors, simplify technical messages
   if (category === 'runtime') {
     if (originalMessage.includes('is not defined')) {
-      const match = originalMessage.match(/(\w+) is not defined/);
-      if (match !== null && match[1] !== undefined) {
+      const match = /(\w+) is not defined/.exec(originalMessage);
+      if (match?.[1] !== undefined) {
         return `${prefix}: "${match[1]}" is not defined. Make sure it is imported or declared.`;
       }
     }
     if (originalMessage.includes('is not a function')) {
-      const match = originalMessage.match(/(\w+) is not a function/);
-      if (match !== null && match[1] !== undefined) {
+      const match = /(\w+) is not a function/.exec(originalMessage);
+      if (match?.[1] !== undefined) {
         return `${prefix}: "${match[1]}" cannot be called as a function.`;
       }
     }

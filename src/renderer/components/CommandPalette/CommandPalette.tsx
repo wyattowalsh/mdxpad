@@ -99,21 +99,21 @@ export function CommandPalette({ getContext, palette }: CommandPaletteProps) {
   );
 
   // Handle item selection (Enter key or click)
-  const handleSelect = useCallback(async () => {
+  const handleSelect = useCallback(() => {
     if (results.length === 0) return;
 
     const ctx = getContext();
-    await executeSelected(ctx);
+    void executeSelected(ctx);
   }, [results.length, getContext, executeSelected]);
 
   // Handle item click
   const handleItemSelect = useCallback(
-    async (index: number) => {
+    (index: number) => {
       selectIndex(index);
       const ctx = getContext();
       const selected = results[index];
       if (selected) {
-        await executeSelected(ctx);
+        void executeSelected(ctx);
       }
     },
     [selectIndex, getContext, results, executeSelected]

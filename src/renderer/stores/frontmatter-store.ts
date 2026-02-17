@@ -7,7 +7,7 @@
  * @module renderer/stores/frontmatter-store
  */
 
-/* eslint-disable max-lines-per-function -- Zustand store definitions are necessarily large */
+ 
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -81,12 +81,13 @@ function createField(
  * Updates a field's value by mutating in-place (for use inside Immer drafts)
  * Note: value assignment uses any to avoid WritableDraft deep instantiation issues
  */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unnecessary-condition */
 function updateFieldInPlace(
   field: WritableDraft<FrontmatterField>,
   value: FieldValue
 ): void {
   // Direct mutation is safe inside Immer's set() callback
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (field as any).value = value;
 }
 
@@ -101,20 +102,21 @@ function validateFieldInPlace(
   field: WritableDraft<FrontmatterField>,
   schema?: FrontmatterSchema
 ): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const schemaProperty = schema?.properties?.[(field as any).name];
   const validationResult = validateFieldValue(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (field as any).value,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (field as any).type,
     schemaProperty
   );
 
   // Update validation result in-place
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (field as any).validation = validationResult;
 }
+/* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unnecessary-condition */
 
 // =============================================================================
 // STORE CREATION
@@ -182,13 +184,10 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     addField: (name: string, type: FieldType) =>
       set((draft) => {
         // Create new frontmatter data if it doesn't exist
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (draft.data === null) {
-          draft.data = { ...EMPTY_FRONTMATTER_DATA, exists: true, fields: [] } as any;
-        }
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- if/assign pattern required for TypeScript narrowing (??= doesn't narrow)
+        if (draft.data === null) { draft.data = { ...EMPTY_FRONTMATTER_DATA, exists: true, fields: [] } as any; }
 
-        // data is now guaranteed to be non-null after the above assignment
-        // Add explicit null check to satisfy TypeScript strict mode
+        // data is guaranteed non-null after above assignment
         if (!draft.data) return;
 
         // Check if field already exists
@@ -197,7 +196,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
 
         // Add new field at the end
         const order = draft.data.fields.length;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- Immer WritableDraft deep instantiation workaround
         draft.data.fields.push(createField(name, type, order) as any);
         draft.isDirty = true;
         draft.lastChangeSource = 'panel';

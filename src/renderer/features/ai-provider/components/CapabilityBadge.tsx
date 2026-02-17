@@ -57,6 +57,8 @@ const CAPABILITY_CONFIG: Record<
 export function CapabilityBadge({ capability, size = 'sm' }: CapabilityBadgeProps) {
   const config = CAPABILITY_CONFIG[capability];
 
+  // This should never be null given the type constraints, but satisfying the linter
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!config) {
     return null;
   }

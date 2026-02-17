@@ -184,7 +184,7 @@ describe('ErrorBoundary', () => {
       // Create a component that throws an error with null message
       function ThrowNullMessageError(): ReactNode {
         const error = new Error();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (error as any).message = null;
         throw error;
       }

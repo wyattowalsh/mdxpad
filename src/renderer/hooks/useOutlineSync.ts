@@ -34,7 +34,7 @@ import { useOutlineStore } from '@renderer/stores/outline-store';
 export function useOutlineSync(): void {
   const outlineAST = usePreviewStore(selectOutlineAST);
   const isCompiling = usePreviewStore(selectIsCompiling);
-  const { updateFromAST, setIsParsing, setParseError } = useOutlineStore();
+  const { updateFromAST, setIsParsing } = useOutlineStore();
 
   // Track compilation state
   useEffect(() => {

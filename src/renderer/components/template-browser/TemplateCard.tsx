@@ -312,7 +312,7 @@ function TemplateCardComponent({
       </p>
 
       {/* Tags */}
-      {template.tags && template.tags.length > 0 && <TagList tags={template.tags} />}
+      {template.tags.length > 0 && <TagList tags={template.tags} />}
 
       {/* Author attribution (if available) */}
       {template.author && (

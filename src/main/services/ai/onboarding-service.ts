@@ -219,8 +219,8 @@ export class OnboardingService implements IOnboardingService {
    *
    * @returns Promise resolving to the current metrics
    */
-  async getMetrics(): Promise<OnboardingMetrics> {
-    return this.store.get('metrics');
+  getMetrics(): Promise<OnboardingMetrics> {
+    return Promise.resolve(this.store.get('metrics'));
   }
 
   /**
@@ -231,10 +231,11 @@ export class OnboardingService implements IOnboardingService {
    *
    * @returns Promise resolving when reset is complete
    */
-  async resetMetrics(): Promise<void> {
+  resetMetrics(): Promise<void> {
     this.store.set('attempts', []);
     this.store.set('metrics', this.createEmptyMetrics());
     this.inProgressAttempts.clear();
+    return Promise.resolve();
   }
 
   // ===========================================================================
@@ -265,7 +266,7 @@ export class OnboardingService implements IOnboardingService {
    *
    * @param attempt - The attempt record to persist
    */
-  private async persistAttempt(attempt: OnboardingAttempt): Promise<void> {
+  private persistAttempt(attempt: OnboardingAttempt): Promise<void> {
     // Get current attempts and prune old ones
     const attempts = this.pruneOldAttempts(this.store.get('attempts'));
 
@@ -276,6 +277,8 @@ export class OnboardingService implements IOnboardingService {
     // Recalculate and update metrics
     const metrics = this.calculateMetrics(attempts);
     this.store.set('metrics', metrics);
+
+    return Promise.resolve();
   }
 
   /**

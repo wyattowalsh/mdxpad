@@ -175,7 +175,7 @@ function truncatePreview(content: string, maxLength: number = MAX_PREVIEW_LENGTH
  * @param documentId - The document ID to fetch preview for
  * @returns Promise resolving to preview response
  */
-async function fetchPreview(documentId: DocumentId): Promise<RecoveryPreviewResponse> {
+function fetchPreview(documentId: DocumentId): Promise<RecoveryPreviewResponse> {
   // TODO: Replace with actual IPC call
   // return window.mdxpad.recovery.preview({ documentId });
   console.debug('[RecoveryDialog] Fetching preview for:', documentId);
@@ -231,7 +231,7 @@ const ContentPreview = memo(function ContentPreviewComponent({
   }
 
   // Content available - show preview
-  const content = previewState?.content ?? entry.contentPreview ?? '';
+  const content = previewState?.content ?? entry.contentPreview;
 
   return (
     <div className="flex flex-col h-full">
@@ -273,7 +273,6 @@ ContentPreview.displayName = 'ContentPreview';
 /**
  * Individual recovery entry item with checkbox.
  */
-// eslint-disable-next-line max-lines-per-function -- Complex UI component with multiple visual elements
 const RecoveryEntryItem = memo(function RecoveryEntryItemComponent({
   entry,
   isSelected,
@@ -362,15 +361,14 @@ const RecoveryEntryItem = memo(function RecoveryEntryItemComponent({
         </div>
 
         {/* File path */}
-        {entry.filePath && (
+        {entry.filePath ? (
           <p
             className="text-xs text-muted-foreground truncate mt-0.5"
             title={entry.filePath}
           >
             {entry.filePath}
           </p>
-        )}
-        {!entry.filePath && (
+        ) : (
           <p className="text-xs text-muted-foreground/70 italic mt-0.5">
             Untitled document
           </p>
@@ -421,7 +419,6 @@ RecoveryEntryItem.displayName = 'RecoveryEntryItem';
  * />
  * ```
  */
-// eslint-disable-next-line max-lines-per-function -- Complex modal dialog with keyboard navigation and state management
 function RecoveryDialogComponent({
   isOpen,
   entries,
@@ -470,8 +467,9 @@ function RecoveryDialogComponent({
   const fetchPreviewForDocument = useCallback(async (documentId: DocumentId) => {
     // Check cache first
     const cached = previewCache.get(documentId);
-    if (cached && cached.content !== null && cached.fetchedAt !== null) {
-      const age = Date.now() - cached.fetchedAt;
+    const cachedFetchedAt = cached?.fetchedAt;
+    if (cached?.content !== null && cachedFetchedAt !== null && cachedFetchedAt !== undefined) {
+      const age = Date.now() - cachedFetchedAt;
       if (age < PREVIEW_CACHE_DURATION_MS) {
         // Cache is still valid, no need to fetch
         return;
@@ -549,8 +547,9 @@ function RecoveryDialogComponent({
 
     // Check if we already have a valid cached preview
     const cached = previewCache.get(focusedEntry.documentId);
-    if (cached && cached.content !== null && cached.fetchedAt !== null) {
-      const age = Date.now() - cached.fetchedAt;
+    const cachedFetchedAt = cached?.fetchedAt;
+    if (cached?.content !== null && cachedFetchedAt !== null && cachedFetchedAt !== undefined) {
+      const age = Date.now() - cachedFetchedAt;
       if (age < PREVIEW_CACHE_DURATION_MS) {
         return; // Already have valid cache
       }
@@ -558,7 +557,9 @@ function RecoveryDialogComponent({
 
     // Debounce the fetch
     previewDebounceRef.current = setTimeout(() => {
-      fetchPreviewForDocument(focusedEntry.documentId);
+      fetchPreviewForDocument(focusedEntry.documentId).catch((err: unknown) => {
+        console.error('[RecoveryDialog] Failed to fetch preview:', err);
+      });
     }, PREVIEW_FETCH_DEBOUNCE_MS);
 
     return () => {

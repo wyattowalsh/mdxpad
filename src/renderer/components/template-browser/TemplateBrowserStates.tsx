@@ -199,7 +199,7 @@ export function TemplatePreviewPanel({
       <div className="flex-shrink-0 p-4 border-b border-border">
         <h3 className="text-lg font-semibold text-foreground mb-1">{template.name}</h3>
         <p className="text-sm text-muted-foreground">{template.description}</p>
-        {template.variables && template.variables.length > 0 && (
+        {template.variables.length > 0 && (
           <p className="text-xs text-muted-foreground mt-2">
             {template.variables.length} variable{template.variables.length !== 1 ? 's' : ''} to fill
             in
