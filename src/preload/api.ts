@@ -176,6 +176,16 @@ export interface MdxpadAPI {
   onMenuSaveFileAs(callback: () => void): () => void;
 
   /**
+   * Subscribe to main-process dirty-state queries.
+   * Used by close-window flow to determine whether unsaved changes exist.
+   * Optional for compatibility in non-Electron test environments.
+   *
+   * @param callback - Returns true when current document is dirty
+   * @returns Unsubscribe function
+   */
+  onEditorDirtyCheck?(callback: () => boolean): () => void;
+
+  /**
    * Platform information.
    */
   platform: {

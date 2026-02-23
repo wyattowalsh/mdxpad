@@ -3,7 +3,7 @@
  * Handles app lifecycle, window creation, and IPC registration.
  */
 
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, session } from 'electron';
 import { promises as fs } from 'node:fs';
 import { createWindow, loadContent } from './window';
 import { registerIpcHandlers } from './ipc';

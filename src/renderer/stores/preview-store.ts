@@ -213,9 +213,8 @@ export const selectScrollRatio = (state: PreviewStore): number =>
   state.scrollRatio;
 
 /**
- * Selector for outline AST from renderable content.
- * Returns outline from current success result or falls back to last successful render.
- * Used by outline panel for graceful degradation during compilation errors.
+ * Selector for outline AST from current successful compile result.
+ * Does not fall back to cached renders to avoid emitting stale outlines.
  *
  * @param state - Preview store state
  * @returns OutlineAST if available, otherwise null
@@ -223,8 +222,10 @@ export const selectScrollRatio = (state: PreviewStore): number =>
 export const selectOutlineAST = (
   state: PreviewStore
 ): OutlineAST | null => {
-  const content = selectRenderableContent(state);
-  return content?.outline ?? null;
+  if (state.state.status !== 'success') {
+    return null;
+  }
+  return state.state.result.outline ?? null;
 };
 
 /**

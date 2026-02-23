@@ -20,6 +20,7 @@ import type { ICredentialService } from './credential-service';
 import {
   performValidation,
   createErrorResult,
+  resolveTrustedProviderBaseUrl,
   type ProviderValidationResult,
 } from './provider-validation';
 
@@ -135,13 +136,14 @@ export class ProviderService implements IProviderService {
   ): Promise<ProviderConfig> {
     await this.validateProviderLimit();
     this.validateBaseUrlRequirement(config.type, config.baseUrl);
+    const trustedBaseUrl = resolveTrustedProviderBaseUrl(config.type, config.baseUrl);
 
     const now = new Date().toISOString();
     const provider: ProviderConfig = {
       id: randomUUID(),
       displayName: config.displayName,
       type: config.type,
-      ...(config.baseUrl !== undefined && { baseUrl: config.baseUrl }),
+      ...(trustedBaseUrl !== undefined && { baseUrl: trustedBaseUrl }),
       isActive: config.isActive,
       status: 'disconnected',
       createdAt: now,
@@ -175,8 +177,10 @@ export class ProviderService implements IProviderService {
     }
 
     const newType = updates.type ?? existing.type;
-    const newBaseUrl = updates.baseUrl ?? existing.baseUrl;
+    const hasBaseUrlUpdate = Object.prototype.hasOwnProperty.call(updates, 'baseUrl');
+    const newBaseUrl = hasBaseUrlUpdate ? updates.baseUrl : existing.baseUrl;
     this.validateBaseUrlRequirement(newType, newBaseUrl);
+    const trustedBaseUrl = resolveTrustedProviderBaseUrl(newType, newBaseUrl);
 
     if (updates.isActive === true && !existing.isActive) {
       await this.deactivateCurrentProvider();
@@ -189,6 +193,11 @@ export class ProviderService implements IProviderService {
       createdAt: existing.createdAt,
       updatedAt: new Date().toISOString(),
     };
+    if (trustedBaseUrl === undefined) {
+      delete updated.baseUrl;
+    } else {
+      updated.baseUrl = trustedBaseUrl;
+    }
 
     this.saveProvider(updated);
 

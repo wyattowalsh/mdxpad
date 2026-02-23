@@ -26,14 +26,44 @@ import {
   readFile,
   writeFile,
   createFileHandle,
+  createFileServiceIntegration,
+  type FileServiceIntegration,
 } from '@main/services/file-service';
 import { addToRecentFiles } from '@main/menu';
 import type { FileHandle as SchemaFileHandle } from '@shared/contracts/file-schemas';
+import type { FileId } from '@shared/types/file';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 /** File dialog filters for MDX and Markdown files */
 const MDX_FILTERS = [
   { name: 'MDX/Markdown', extensions: ['mdx', 'md'] },
 ];
+
+/** File lifecycle integration for watcher/recent-file wiring. */
+let fileIntegration: FileServiceIntegration | null = null;
+let integrationWindow: BrowserWindow | null = null;
+
+/**
+ * Ensure file integration is initialized for the active BrowserWindow.
+ */
+function ensureFileIntegration(window: BrowserWindow): FileServiceIntegration {
+  if (
+    fileIntegration === null ||
+    integrationWindow?.webContents.id !== window.webContents.id
+  ) {
+    fileIntegration?.close();
+    fileIntegration = createFileServiceIntegration(window);
+    integrationWindow = window;
+  }
+  return fileIntegration;
+}
+
+/**
+ * Get currently active file integration (if initialized).
+ */
+function getFileIntegration(): FileServiceIntegration | null {
+  return integrationWindow ? ensureFileIntegration(integrationWindow) : null;
+}
 
 /**
  * Handler for mdxpad:file:open.
@@ -63,6 +93,7 @@ const handleFileOpen = createValidatedHandler(
     addToRecentFiles(filePath);
 
     const handle = createFileHandle(filePath);
+    getFileIntegration()?.onFileOpened(handle);
     // Cast to schema FileHandle type (FileId branded types are compatible at runtime)
     return { ok: true, value: handle as unknown as SchemaFileHandle };
   }
@@ -87,7 +118,21 @@ const handleFileSave = createValidatedHandler(
       };
     }
 
-    return writeFile(handle.path, content);
+    const result = await writeFile(handle.path, content);
+    if (!result.ok) {
+      return result;
+    }
+
+    const integration = getFileIntegration();
+    if (integration) {
+      try {
+        await integration.onFileSaved(handle.id as unknown as FileId);
+      } catch (error) {
+        console.error('[FileHandlers] File save lifecycle hook failed:', error);
+      }
+    }
+
+    return result;
   }
 );
 
@@ -122,6 +167,7 @@ const handleFileSaveAs = createValidatedHandler(
     addToRecentFiles(saveFilePath);
 
     const handle = createFileHandle(saveFilePath);
+    getFileIntegration()?.onFileOpened(handle);
     // Cast to schema FileHandle type (FileId branded types are compatible at runtime)
     return { ok: true, value: handle as unknown as SchemaFileHandle };
   }
@@ -185,36 +231,45 @@ const handleAppReady = createValidatedHandler(
  * Called during app initialization.
  *
  * @param ipcMainInstance - The Electron IpcMain instance
- * @param _window - The main BrowserWindow (for future use)
+ * @param window - The authorized BrowserWindow for privileged handlers
  */
 export function registerFileHandlers(
   ipcMainInstance: IpcMain,
-  _window: BrowserWindow
+  window: BrowserWindow
 ): void {
+  ensureFileIntegration(window);
+
   // File operation handlers
-  ipcMainInstance.handle(IPC_CHANNELS.file.open, (_event) =>
-    handleFileOpen(undefined)
-  );
-  ipcMainInstance.handle(IPC_CHANNELS.file.save, (_event, args) =>
-    handleFileSave(args)
-  );
-  ipcMainInstance.handle(IPC_CHANNELS.file.saveAs, (_event, args) =>
-    handleFileSaveAs(args)
-  );
-  ipcMainInstance.handle(IPC_CHANNELS.file.read, (_event, args) =>
-    handleFileRead(args)
-  );
-  ipcMainInstance.handle(IPC_CHANNELS.file.write, (_event, args) =>
-    handleFileWrite(args)
-  );
+  ipcMainInstance.handle(IPC_CHANNELS.file.open, (event) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.open);
+    return handleFileOpen(undefined);
+  });
+  ipcMainInstance.handle(IPC_CHANNELS.file.save, (event, args) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.save);
+    return handleFileSave(args);
+  });
+  ipcMainInstance.handle(IPC_CHANNELS.file.saveAs, (event, args) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.saveAs);
+    return handleFileSaveAs(args);
+  });
+  ipcMainInstance.handle(IPC_CHANNELS.file.read, (event, args) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.read);
+    return handleFileRead(args);
+  });
+  ipcMainInstance.handle(IPC_CHANNELS.file.write, (event, args) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.write);
+    return handleFileWrite(args);
+  });
 
   // App lifecycle handlers
-  ipcMainInstance.handle(IPC_CHANNELS.app.getVersion, (_event) =>
-    handleAppVersion(undefined)
-  );
-  ipcMainInstance.handle(IPC_CHANNELS.app.ready, (_event) =>
-    handleAppReady(undefined)
-  );
+  ipcMainInstance.handle(IPC_CHANNELS.app.getVersion, (event) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.app.getVersion);
+    return handleAppVersion(undefined);
+  });
+  ipcMainInstance.handle(IPC_CHANNELS.app.ready, (event) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.app.ready);
+    return handleAppReady(undefined);
+  });
 
   console.log('[FileHandlers] All file and app handlers registered');
 }

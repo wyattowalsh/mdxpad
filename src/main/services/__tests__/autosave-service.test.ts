@@ -425,7 +425,7 @@ describe('AutosaveService', () => {
       expect(updatedManifest.entries[documentId]).toBeUndefined();
     });
 
-    it('should handle concurrent manifest updates', async () => {
+    it('should serialize concurrent manifest updates to prevent drift', async () => {
       const request1 = createTestRequest({
         documentId: '550e8400-e29b-41d4-a716-446655440001' as DocumentId,
         fileName: 'Document 1',
@@ -435,15 +435,58 @@ describe('AutosaveService', () => {
         fileName: 'Document 2',
       });
 
-      // Simulate concurrent saves
-      const result1 = await service.saveDocument(request1);
-      const result2 = await service.saveDocument(request2);
+      const tempWrites = new Map<string, string>();
+      let manifestOnDisk = {
+        version: 1,
+        entries: {},
+      } as {
+        version: number;
+        entries: Record<string, unknown>;
+      };
+      let manifestReadCount = 0;
+      let releaseFirstManifestRead: () => void = () => {};
+      const firstManifestReadGate = new Promise<void>((resolve) => {
+        releaseFirstManifestRead = resolve;
+      });
+
+      mockReadFile.mockImplementation(async (filePath: string) => {
+        if (filePath.endsWith('manifest.json')) {
+          manifestReadCount++;
+          const snapshot = JSON.stringify(manifestOnDisk);
+          if (manifestReadCount === 1) {
+            await firstManifestReadGate;
+          }
+          return snapshot;
+        }
+        return JSON.stringify(EMPTY_RECOVERY_MANIFEST);
+      });
+
+      mockWriteFile.mockImplementation(async (filePath: string, content: string) => {
+        tempWrites.set(filePath, content);
+      });
+
+      mockRename.mockImplementation(async (fromPath: string, toPath: string) => {
+        const content = tempWrites.get(fromPath);
+        if (content && toPath.endsWith('manifest.json')) {
+          manifestOnDisk = JSON.parse(content) as typeof manifestOnDisk;
+        }
+      });
+
+      const save1Promise = service.saveDocument(request1);
+      const save2Promise = service.saveDocument(request2);
+
+      // Let both saves race into manifest reads, then unblock first read.
+      await Promise.resolve();
+      releaseFirstManifestRead();
+
+      const [result1, result2] = await Promise.all([save1Promise, save2Promise]);
 
       expect(result1.ok).toBe(true);
       expect(result2.ok).toBe(true);
-
-      // Both should complete successfully
-      expect(mockWriteFile).toHaveBeenCalled();
+      expect(Object.keys(manifestOnDisk.entries)).toEqual(
+        expect.arrayContaining([request1.documentId, request2.documentId])
+      );
+      expect(Object.keys(manifestOnDisk.entries)).toHaveLength(2);
     });
 
     it('should use atomic write for manifest updates', async () => {

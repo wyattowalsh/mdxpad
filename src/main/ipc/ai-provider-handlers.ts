@@ -7,7 +7,7 @@
  * @module src/main/ipc/ai-provider-handlers
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
@@ -15,6 +15,7 @@ import type { AIServices } from '@main/services/ai';
 import type { ProviderConfig } from '@shared/ai/types';
 
 import { toErrorResponse } from './ai-handler-utils';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 // =============================================================================
 // REQUEST BUILDERS
@@ -358,48 +359,65 @@ async function handleCapabilityRefresh(
 // =============================================================================
 
 /**
+ * Registers a sender-authorized IPC handler for a single channel.
+ */
+function registerAuthorizedHandler(
+  channel: string,
+  window: BrowserWindow,
+  handler: (request: unknown) => Promise<unknown>
+): void {
+  ipcMain.handle(channel, (event, request) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(request);
+  });
+}
+
+/**
  * Registers all provider, credential, and capability IPC handlers.
  */
-export function registerProviderHandlers(services: AIServices): void {
+export function registerProviderHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
   // Provider management
-  ipcMain.handle(AIChannels.PROVIDER_LIST, () =>
+  registerAuthorizedHandler(AIChannels.PROVIDER_LIST, window, () =>
     handleProviderList(services)
   );
-  ipcMain.handle(AIChannels.PROVIDER_ADD, (_, request) =>
+  registerAuthorizedHandler(AIChannels.PROVIDER_ADD, window, (request) =>
     handleProviderAdd(services, request)
   );
-  ipcMain.handle(AIChannels.PROVIDER_UPDATE, (_, request) =>
+  registerAuthorizedHandler(AIChannels.PROVIDER_UPDATE, window, (request) =>
     handleProviderUpdate(services, request)
   );
-  ipcMain.handle(AIChannels.PROVIDER_REMOVE, (_, request) =>
+  registerAuthorizedHandler(AIChannels.PROVIDER_REMOVE, window, (request) =>
     handleProviderRemove(services, request)
   );
-  ipcMain.handle(AIChannels.PROVIDER_SET_ACTIVE, (_, request) =>
+  registerAuthorizedHandler(AIChannels.PROVIDER_SET_ACTIVE, window, (request) =>
     handleProviderSetActive(services, request)
   );
-  ipcMain.handle(AIChannels.PROVIDER_VALIDATE, (_, request) =>
+  registerAuthorizedHandler(AIChannels.PROVIDER_VALIDATE, window, (request) =>
     handleProviderValidate(services, request)
   );
 
   // Credential management
-  ipcMain.handle(AIChannels.CREDENTIAL_SET, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CREDENTIAL_SET, window, (request) =>
     handleCredentialSet(services, request)
   );
-  ipcMain.handle(AIChannels.CREDENTIAL_HAS, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CREDENTIAL_HAS, window, (request) =>
     handleCredentialHas(services, request)
   );
-  ipcMain.handle(AIChannels.CREDENTIAL_CLEAR, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CREDENTIAL_CLEAR, window, (request) =>
     handleCredentialClear(services, request)
   );
 
   // Capability detection
-  ipcMain.handle(AIChannels.CAPABILITY_GET, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CAPABILITY_GET, window, (request) =>
     handleCapabilityGet(services, request)
   );
-  ipcMain.handle(AIChannels.CAPABILITY_LIST_MODELS, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CAPABILITY_LIST_MODELS, window, (request) =>
     handleCapabilityListModels(services, request)
   );
-  ipcMain.handle(AIChannels.CAPABILITY_REFRESH, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CAPABILITY_REFRESH, window, (request) =>
     handleCapabilityRefresh(services, request)
   );
 }

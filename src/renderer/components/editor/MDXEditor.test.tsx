@@ -13,8 +13,9 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, cleanup, waitFor, act } from '@testing-library/react';
-import { createElement, useState, useEffect } from 'react';
+import { createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { EditorView } from '@codemirror/view';
 import { MDXEditor } from './MDXEditor';
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
 
@@ -357,155 +358,29 @@ describe('MDXEditor', () => {
   // =============================================================================
 
   describe('onChange invocation', () => {
-    // SKIPPED: These tests attempt to trigger onChange by dispatching DOM InputEvents
-    // to CodeMirror's contenteditable element. However, CodeMirror in jsdom doesn't
-    // properly process DOM events - it relies on browser-specific input handling that
-    // jsdom doesn't implement. The InputEvent is dispatched but CodeMirror's internal
-    // update listeners never fire, so onChange is never called.
-    //
-    // Alternative approaches considered:
-    // 1. Using the hook's programmatic setValue() - but MDXEditor doesn't expose hook methods
-    // 2. Changing value prop - triggers sync logic but not user-initiated onChange
-    // 3. E2E tests with Playwright - would work but outside unit test scope
-    //
-    // These behaviors are covered by:
-    // - useCodeMirror.test.tsx which tests the hook directly with programmatic API
-    // - E2E tests that run in a real browser environment
+    // These tests trigger onChange via external value prop changes, which invoke
+    // the component's sync logic (setValue) -> CodeMirror docChanged -> debounced onChange.
+    // DOM InputEvents don't work in happy-dom since CodeMirror relies on browser-specific
+    // input handling. The useCodeMirror.test.tsx covers the hook's programmatic API directly.
 
-    it.skip('should call onChange with EditorState when document changes', async () => {
+    it('should call onChange with EditorState when document changes', async () => {
       const onChange = vi.fn();
       const { container, root } = createTrackedContainer();
 
       try {
         await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Initial', onChange }));
-        });
-
-        const cmContent = await waitForCodeMirror(container);
-        if (cmContent) {
-          // Simulate input by dispatching events
-          cmContent.focus();
-          const inputEvent = new InputEvent('beforeinput', {
-            data: 'X',
-            inputType: 'insertText',
-            bubbles: true,
-            cancelable: true,
-          });
-          cmContent.dispatchEvent(inputEvent);
-
-          // Wait for debounced onChange - verify it fires with expected state
-          await waitFor(
-            () => {
-              expect(onChange.mock.calls.length).toBeGreaterThan(0);
-            },
-            { timeout: 2000 }
-          );
-
-          // onChange was called with EditorState
-          const state = onChange.mock.calls[0]?.[0];
-          if (state) {
-            expect(state).toBeDefined();
-            expect(typeof state.doc).toBe('string');
-            expect(state.selection).toBeDefined();
-          }
-        }
-      } finally {
-        cleanupTrackedContainer(container, root);
-      }
-    });
-
-    it.skip('should provide EditorState with doc property', async () => {
-      const onChange = vi.fn();
-      const { container, root } = createTrackedContainer();
-
-      try {
-        await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Test doc', onChange }));
-        });
-
-        const cmContent = await waitForCodeMirror(container);
-        if (cmContent) {
-          cmContent.focus();
-          // Dispatch an input event
-          cmContent.dispatchEvent(
-            new InputEvent('beforeinput', {
-              data: 'A',
-              inputType: 'insertText',
-              bubbles: true,
-            })
-          );
-
-          // Wait for debounced onChange
-          await waitFor(
-            () => {
-              expect(onChange.mock.calls.length).toBeGreaterThan(0);
-            },
-            { timeout: 2000 }
-          );
-
-          const state = onChange.mock.calls[0]?.[0] as EditorState | undefined;
-          if (state) {
-            expect(state).toHaveProperty('doc');
-            expect(typeof state.doc).toBe('string');
-          }
-        }
-      } finally {
-        cleanupTrackedContainer(container, root);
-      }
-    });
-
-    it.skip('should provide EditorState with selection property', async () => {
-      const onChange = vi.fn();
-      const { container, root } = createTrackedContainer();
-
-      try {
-        await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Test selection', onChange }));
-        });
-
-        const cmContent = await waitForCodeMirror(container);
-        if (cmContent) {
-          cmContent.focus();
-          cmContent.dispatchEvent(
-            new InputEvent('beforeinput', {
-              data: 'B',
-              inputType: 'insertText',
-              bubbles: true,
-            })
-          );
-
-          // Wait for debounced onChange
-          await waitFor(
-            () => {
-              expect(onChange.mock.calls.length).toBeGreaterThan(0);
-            },
-            { timeout: 2000 }
-          );
-
-          const state = onChange.mock.calls[0]?.[0] as EditorState | undefined;
-          if (state) {
-            expect(state).toHaveProperty('selection');
-            expect(state.selection).toHaveProperty('anchor');
-            expect(state.selection).toHaveProperty('head');
-          }
-        }
-      } finally {
-        cleanupTrackedContainer(container, root);
-      }
-    });
-
-    it.skip('should trigger onChange when external value prop changes', async () => {
-      const onChange = vi.fn();
-      const { container, root } = createTrackedContainer();
-
-      try {
-        await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'First', onChange }));
+          root.render(createElement(MDXEditor, { value: 'Initial', onChange, debounceMs: 10 }));
         });
 
         await waitForCodeMirror(container);
+        onChange.mockClear();
 
-        // Wait for initial onChange to fire
+        // Change value externally to trigger onChange via the sync mechanism
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'Updated content', onChange, debounceMs: 10 }));
+        });
+
+        // Wait for debounced onChange to fire
         await waitFor(
           () => {
             expect(onChange.mock.calls.length).toBeGreaterThan(0);
@@ -513,26 +388,116 @@ describe('MDXEditor', () => {
           { timeout: 2000 }
         );
 
-        const callCountAfterMount = onChange.mock.calls.length;
+        // onChange was called with EditorState
+        const state = onChange.mock.calls[0]?.[0];
+        expect(state).toBeDefined();
+        expect(typeof state.doc).toBe('string');
+        expect(state.selection).toBeDefined();
+      } finally {
+        cleanupTrackedContainer(container, root);
+      }
+    });
+
+    it('should provide EditorState with doc property', async () => {
+      const onChange = vi.fn();
+      const { container, root } = createTrackedContainer();
+
+      try {
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'Test doc', onChange, debounceMs: 10 }));
+        });
+
+        await waitForCodeMirror(container);
+        onChange.mockClear();
+
+        // Trigger onChange by changing value prop
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'New doc content', onChange, debounceMs: 10 }));
+        });
+
+        await waitFor(
+          () => {
+            expect(onChange.mock.calls.length).toBeGreaterThan(0);
+          },
+          { timeout: 2000 }
+        );
+
+        const state = onChange.mock.calls[0]?.[0] as EditorState | undefined;
+        expect(state).toBeDefined();
+        if (state) {
+          expect(state).toHaveProperty('doc');
+          expect(typeof state.doc).toBe('string');
+        }
+      } finally {
+        cleanupTrackedContainer(container, root);
+      }
+    });
+
+    it('should provide EditorState with selection property', async () => {
+      const onChange = vi.fn();
+      const { container, root } = createTrackedContainer();
+
+      try {
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'Test selection', onChange, debounceMs: 10 }));
+        });
+
+        await waitForCodeMirror(container);
+        onChange.mockClear();
+
+        // Trigger onChange by changing value prop
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'Changed selection text', onChange, debounceMs: 10 }));
+        });
+
+        await waitFor(
+          () => {
+            expect(onChange.mock.calls.length).toBeGreaterThan(0);
+          },
+          { timeout: 2000 }
+        );
+
+        const state = onChange.mock.calls[0]?.[0] as EditorState | undefined;
+        expect(state).toBeDefined();
+        if (state) {
+          expect(state).toHaveProperty('selection');
+          expect(state.selection).toHaveProperty('anchor');
+          expect(state.selection).toHaveProperty('head');
+        }
+      } finally {
+        cleanupTrackedContainer(container, root);
+      }
+    });
+
+    it('should trigger onChange when external value prop changes', async () => {
+      const onChange = vi.fn();
+      const { container, root } = createTrackedContainer();
+
+      try {
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'First', onChange, debounceMs: 10 }));
+        });
+
+        await waitForCodeMirror(container);
+        // Clear any onChange calls from initialization
+        onChange.mockClear();
 
         // Update value externally (not user input)
         await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Second', onChange }));
+          root.render(createElement(MDXEditor, { value: 'Second', onChange, debounceMs: 10 }));
         });
 
         // Wait for onChange to fire with the new value
         await waitFor(
           () => {
-            // External changes trigger onChange through the setValue mechanism
-            // This is expected behavior - the component syncs external value changes
-            // and reports them via onChange
-            expect(onChange.mock.calls.length).toBeGreaterThan(callCountAfterMount);
+            expect(onChange.mock.calls.length).toBeGreaterThan(0);
           },
           { timeout: 2000 }
         );
 
         // Verify the state reflects the new value
         const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
+        expect(lastCall).toBeDefined();
         if (lastCall) {
           expect(lastCall.doc).toContain('Second');
         }
@@ -562,44 +527,48 @@ describe('MDXEditor', () => {
   // =============================================================================
 
   describe('onSelectionChange invocation', () => {
-    // SKIPPED: These tests expect onSelectionChange to fire when the editor
-    // initializes or when focus() is called. In jsdom, CodeMirror's selection
-    // update listeners don't fire reliably because jsdom doesn't implement the
-    // full DOM selection/focus API that CodeMirror relies on. The editor renders
-    // correctly but selection events aren't dispatched as they would be in a
-    // real browser.
-    //
-    // These behaviors are covered by:
-    // - useCodeMirror.test.tsx which tests the hook with programmatic setSelection()
-    // - E2E tests that run in a real browser environment
+    // These tests trigger onSelectionChange via the editorRef prop, which exposes
+    // the raw EditorView for programmatic selection dispatch. DOM focus/selection
+    // events don't work reliably in happy-dom. The useCodeMirror.test.tsx covers
+    // the hook's setSelection() API directly.
 
-    it.skip('should call onSelectionChange with SelectionInfo when selection changes', async () => {
+    it('should call onSelectionChange with SelectionInfo when selection changes', async () => {
       const onSelectionChange = vi.fn();
+      const editorRef = { current: null as EditorView | null };
       const { container, root } = createTrackedContainer();
 
       try {
         await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Select me', onSelectionChange }));
+          root.render(createElement(MDXEditor, { value: 'Select me', onSelectionChange, editorRef }));
         });
 
-        const cmContent = await waitForCodeMirror(container);
-        if (cmContent) {
-          cmContent.focus();
+        await waitForCodeMirror(container);
 
-          // Wait for onSelectionChange to be called on initial focus
-          await waitFor(
-            () => {
-              expect(onSelectionChange.mock.calls.length).toBeGreaterThan(0);
-            },
-            { timeout: 2000 }
-          );
+        // Wait for editorRef to be populated
+        await waitFor(
+          () => {
+            expect(editorRef.current).not.toBeNull();
+          },
+          { timeout: 2000 }
+        );
 
-          // onSelectionChange was called with SelectionInfo
-          const selection = onSelectionChange.mock.calls[0]?.[0] as SelectionInfo | undefined;
-          if (selection) {
-            expect(selection).toBeDefined();
-          }
-        }
+        onSelectionChange.mockClear();
+
+        // Programmatically dispatch a selection change via the EditorView
+        act(() => {
+          editorRef.current!.dispatch({ selection: { anchor: 0, head: 6 } });
+        });
+
+        await waitFor(
+          () => {
+            expect(onSelectionChange.mock.calls.length).toBeGreaterThan(0);
+          },
+          { timeout: 2000 }
+        );
+
+        // onSelectionChange was called with SelectionInfo
+        const selection = onSelectionChange.mock.calls[0]?.[0] as SelectionInfo | undefined;
+        expect(selection).toBeDefined();
       } finally {
         cleanupTrackedContainer(container, root);
       }
@@ -639,18 +608,25 @@ describe('MDXEditor', () => {
       }
     });
 
-    it.skip('should provide SelectionInfo with to property', async () => {
+    it('should provide SelectionInfo with to property', async () => {
       const onSelectionChange = vi.fn();
+      const editorRef = { current: null as EditorView | null };
       const { container, root } = createTrackedContainer();
 
       try {
         await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Test to', onSelectionChange }));
+          root.render(createElement(MDXEditor, { value: 'Test to', onSelectionChange, editorRef }));
         });
 
         await waitForCodeMirror(container);
+        await waitFor(() => { expect(editorRef.current).not.toBeNull(); }, { timeout: 2000 });
+        onSelectionChange.mockClear();
 
-        // Wait for onSelectionChange to be called
+        // Dispatch a selection range to trigger onSelectionChange
+        act(() => {
+          editorRef.current!.dispatch({ selection: { anchor: 0, head: 4 } });
+        });
+
         await waitFor(
           () => {
             expect(onSelectionChange.mock.calls.length).toBeGreaterThan(0);
@@ -659,6 +635,7 @@ describe('MDXEditor', () => {
         );
 
         const selection = onSelectionChange.mock.calls[0]?.[0] as SelectionInfo | undefined;
+        expect(selection).toBeDefined();
         if (selection) {
           expect(selection).toHaveProperty('to');
           expect(typeof selection.to).toBe('number');
@@ -669,18 +646,25 @@ describe('MDXEditor', () => {
       }
     });
 
-    it.skip('should provide SelectionInfo with empty property', async () => {
+    it('should provide SelectionInfo with empty property', async () => {
       const onSelectionChange = vi.fn();
+      const editorRef = { current: null as EditorView | null };
       const { container, root } = createTrackedContainer();
 
       try {
         await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Test empty', onSelectionChange }));
+          root.render(createElement(MDXEditor, { value: 'Test empty', onSelectionChange, editorRef }));
         });
 
         await waitForCodeMirror(container);
+        await waitFor(() => { expect(editorRef.current).not.toBeNull(); }, { timeout: 2000 });
+        onSelectionChange.mockClear();
 
-        // Wait for onSelectionChange to be called
+        // Dispatch a selection range (non-empty) to trigger onSelectionChange
+        act(() => {
+          editorRef.current!.dispatch({ selection: { anchor: 0, head: 4 } });
+        });
+
         await waitFor(
           () => {
             expect(onSelectionChange.mock.calls.length).toBeGreaterThan(0);
@@ -689,6 +673,7 @@ describe('MDXEditor', () => {
         );
 
         const selection = onSelectionChange.mock.calls[0]?.[0] as SelectionInfo | undefined;
+        expect(selection).toBeDefined();
         if (selection) {
           expect(selection).toHaveProperty('empty');
           expect(typeof selection.empty).toBe('boolean');
@@ -698,18 +683,25 @@ describe('MDXEditor', () => {
       }
     });
 
-    it.skip('should have empty=true when cursor is collapsed', async () => {
+    it('should have empty=true when cursor is collapsed', async () => {
       const onSelectionChange = vi.fn();
+      const editorRef = { current: null as EditorView | null };
       const { container, root } = createTrackedContainer();
 
       try {
         await act(async () => {
-          root.render(createElement(MDXEditor, { value: 'Cursor test', onSelectionChange }));
+          root.render(createElement(MDXEditor, { value: 'Cursor test', onSelectionChange, editorRef }));
         });
 
         await waitForCodeMirror(container);
+        await waitFor(() => { expect(editorRef.current).not.toBeNull(); }, { timeout: 2000 });
+        onSelectionChange.mockClear();
 
-        // Wait for onSelectionChange to be called
+        // Dispatch a collapsed cursor (anchor === head) to trigger onSelectionChange
+        act(() => {
+          editorRef.current!.dispatch({ selection: { anchor: 5, head: 5 } });
+        });
+
         await waitFor(
           () => {
             expect(onSelectionChange.mock.calls.length).toBeGreaterThan(0);
@@ -717,13 +709,12 @@ describe('MDXEditor', () => {
           { timeout: 2000 }
         );
 
-        // Initial cursor position should be collapsed (empty selection)
         const selection = onSelectionChange.mock.calls[0]?.[0] as SelectionInfo | undefined;
+        expect(selection).toBeDefined();
         if (selection) {
-          // from === to means empty selection
-          if (selection.from === selection.to) {
-            expect(selection.empty).toBe(true);
-          }
+          expect(selection.from).toBe(5);
+          expect(selection.to).toBe(5);
+          expect(selection.empty).toBe(true);
         }
       } finally {
         cleanupTrackedContainer(container, root);

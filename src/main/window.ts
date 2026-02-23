@@ -3,8 +3,27 @@
  * All security settings are per constitution §3.2 and MUST NOT be modified.
  */
 
-import { BrowserWindow, dialog, type BrowserWindowConstructorOptions } from 'electron';
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  type BrowserWindowConstructorOptions,
+  type IpcMainEvent,
+} from 'electron';
 import { join } from 'node:path';
+import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
+
+/** Timeout for dirty state query in milliseconds */
+const DIRTY_CHECK_TIMEOUT_MS = 2000;
+
+/** Timeout to verify save completion before allowing close */
+const SAVE_BEFORE_CLOSE_TIMEOUT_MS = 15_000;
+
+/** Polling interval while waiting for save completion */
+const SAVE_VERIFICATION_POLL_MS = 100;
+
+/** Channel for renderer to respond with dirty state */
+const DIRTY_CHECK_RESPONSE_CHANNEL = IPC_CHANNELS.editor.isDirtyResponse;
 
 /**
  * IPC channel for querying dirty state from renderer.
@@ -13,7 +32,7 @@ import { join } from 'node:path';
  * NOTE: Renderer-side implementation deferred to renderer integration phase.
  * For now, dirty check is stubbed to always return false (clean state).
  */
-export const DIRTY_CHECK_CHANNEL = 'mdxpad:editor:is-dirty';
+export const DIRTY_CHECK_CHANNEL = IPC_CHANNELS.editor.isDirty;
 
 /**
  * Response type for dirty state query.
@@ -115,19 +134,99 @@ function setupCloseHandler(window: BrowserWindow): void {
 }
 
 /**
+ * Query the renderer for dirty state and wait for a response.
+ */
+function queryDirtyState(
+  window: BrowserWindow,
+  options?: {
+    timeoutMs?: number;
+    defaultIsDirty?: boolean;
+  }
+): Promise<DirtyStateResponse> {
+  const timeoutMs = options?.timeoutMs ?? DIRTY_CHECK_TIMEOUT_MS;
+  const defaultIsDirty = options?.defaultIsDirty ?? true;
+
+  return new Promise((resolve) => {
+    if (window.isDestroyed()) {
+      resolve({ isDirty: defaultIsDirty });
+      return;
+    }
+
+    let settled = false;
+    const timeoutId = setTimeout(() => {
+      console.warn('[Window] Dirty state query timed out');
+      finish({ isDirty: defaultIsDirty });
+    }, timeoutMs);
+
+    const cleanup = (): void => {
+      clearTimeout(timeoutId);
+      ipcMain.removeListener(DIRTY_CHECK_RESPONSE_CHANNEL, onResponse);
+    };
+
+    const finish = (response: DirtyStateResponse): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(response);
+    };
+
+    const onResponse = (event: IpcMainEvent, response: DirtyStateResponse): void => {
+      if (event.sender !== window.webContents) {
+        return;
+      }
+      finish(response);
+    };
+
+    ipcMain.on(DIRTY_CHECK_RESPONSE_CHANNEL, onResponse);
+
+    try {
+      window.webContents.send(DIRTY_CHECK_CHANNEL);
+    } catch (error) {
+      console.error('[Window] Failed to request dirty state:', error);
+      finish({ isDirty: defaultIsDirty });
+    }
+  });
+}
+
+/**
+ * Sleep helper used when waiting for renderer save completion.
+ */
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Trigger renderer save and verify that dirty state clears before closing.
+ */
+async function saveBeforeClose(window: BrowserWindow): Promise<boolean> {
+  try {
+    window.webContents.send(IPC_EVENTS.menuSaveFile);
+  } catch (error) {
+    console.error('[Window] Failed to trigger save before close:', error);
+    return false;
+  }
+
+  const deadline = Date.now() + SAVE_BEFORE_CLOSE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const dirtyState = await queryDirtyState(window, { defaultIsDirty: true });
+    if (!dirtyState.isDirty) {
+      return true;
+    }
+    await wait(SAVE_VERIFICATION_POLL_MS);
+  }
+
+  console.warn('[Window] Save before close timed out, keeping window open');
+  return false;
+}
+
+/**
  * Handles the window close flow with dirty state checking.
  *
  * @param window - The BrowserWindow being closed
  * @returns Promise<boolean> - true if window should close, false to cancel
  */
 async function handleCloseWithDirtyCheck(window: BrowserWindow): Promise<boolean> {
-  // TODO: Query renderer for dirty state via IPC
-  // Once renderer integration is complete, this will use:
-  //   const response = await window.webContents.invoke(DIRTY_CHECK_CHANNEL);
-  //   const dirtyState: DirtyStateResponse = response;
-  //
-  // For now, stub to clean state (always allow close)
-  const dirtyState: DirtyStateResponse = { isDirty: false };
+  const dirtyState = await queryDirtyState(window, { defaultIsDirty: true });
 
   // If not dirty, allow close immediately
   if (!dirtyState.isDirty) {
@@ -147,11 +246,7 @@ async function handleCloseWithDirtyCheck(window: BrowserWindow): Promise<boolean
 
   switch (response) {
     case DIALOG_BUTTON.SAVE:
-      // TODO: Renderer integration required - send IPC to renderer to save current file
-      // The renderer has the document store with isDirty state and content.
-      // Once integrated, send 'mdxpad:window:save-before-close' IPC to renderer
-      // and wait for save completion response before closing.
-      return true;
+      return saveBeforeClose(window);
 
     case DIALOG_BUTTON.DISCARD:
       // Close without saving

@@ -35,92 +35,59 @@ import type {
 } from '@shared/contracts/autosave-schemas';
 
 // =============================================================================
-// IPC STUBS
+// IPC HELPERS
 // =============================================================================
 
 /**
- * Check if recovery data exists via IPC.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.recovery.check()
- *
- * The preload.ts needs to expose:
- *   recovery: {
- *     check: () => Promise<RecoveryCheckResponse>
- *   }
- *
- * @returns Promise resolving to recovery check response
+ * Check if recovery data exists via preload bridge.
+ * Falls back to a safe no-data response outside Electron (tests/browser).
  */
 const checkRecovery = (): Promise<RecoveryCheckResponse> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.recovery.check();
-  // Return no recovery data for stub implementation
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (window.mdxpad) {
+    return window.mdxpad.recoveryCheck();
+  }
   return Promise.resolve({ hasRecoveryData: false, count: 0 });
 };
 
 /**
- * List all recoverable documents via IPC.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.recovery.list()
- *
- * The preload.ts needs to expose:
- *   recovery: {
- *     list: () => Promise<RecoveryListResponse>
- *   }
- *
- * @returns Promise resolving to list of recovery entries
+ * List recoverable documents via preload bridge.
+ * Falls back to an empty list outside Electron.
  */
 const listRecovery = (): Promise<RecoveryListResponse> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.recovery.list();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (window.mdxpad) {
+    return window.mdxpad.recoveryList();
+  }
   return Promise.resolve({ entries: [] });
 };
 
 /**
- * Restore selected documents via IPC.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.recovery.restore(request)
- *
- * The preload.ts needs to expose:
- *   recovery: {
- *     restore: (request: RecoveryRestoreRequest) => Promise<RecoveryRestoreResponse>
- *   }
- *
- * @returns Promise resolving to restore response with recovered documents
+ * Restore selected documents via preload bridge.
+ * Falls back to a deterministic error outside Electron.
  */
 const restoreRecovery = (
-  _request: RecoveryRestoreRequest
+  request: RecoveryRestoreRequest
 ): Promise<RecoveryRestoreResponse> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.recovery.restore(request);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (window.mdxpad) {
+    return window.mdxpad.recoveryRestore(request);
+  }
   return Promise.resolve({ ok: false, error: 'Recovery API not available - preload needs update' });
 };
 
 /**
- * Discard recovery data via IPC.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.recovery.discard(request)
- *
- * The preload.ts needs to expose:
- *   recovery: {
- *     discard: (request: RecoveryDiscardRequest) => Promise<RecoveryDiscardResponse>
- *   }
- *
- * @returns Promise resolving to discard response
+ * Discard recovery data via preload bridge.
+ * Falls back to a deterministic no-op outside Electron.
  */
 const discardRecovery = (
-  _request: RecoveryDiscardRequest
+  request: RecoveryDiscardRequest
 ): Promise<RecoveryDiscardResponse> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.recovery.discard(request);
-  return Promise.resolve({ discardedCount: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (window.mdxpad) {
+    return window.mdxpad.recoveryDiscard(request);
+  }
+  return Promise.resolve({ discardedCount: request.documentIds.length });
 };
 
 // =============================================================================

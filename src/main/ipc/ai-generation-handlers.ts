@@ -7,11 +7,12 @@
  * @module src/main/ipc/ai-generation-handlers
  */
 
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent, type BrowserWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
+import { AIProviderError } from '@shared/ai/errors';
 import type { AIServices } from '@main/services/ai';
 import type {
   TextGenerationRequest,
@@ -20,6 +21,7 @@ import type {
 } from '@main/services/ai';
 
 import { toErrorResponse, filterUndefined } from './ai-handler-utils';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 // =============================================================================
 // CONSTANTS
@@ -27,6 +29,13 @@ import { toErrorResponse, filterUndefined } from './ai-handler-utils';
 
 /** Maximum buffer size for stream chunks before forced flush (P1-3 fix) */
 const MAX_BUFFER_SIZE = 100;
+const STREAM_WATCHDOG_TIMEOUT_MS = 60_000;
+
+interface ActiveStream {
+  cancel: () => void;
+}
+
+const activeStreams = new Map<string, ActiveStream>();
 
 // =============================================================================
 // REQUEST BUILDERS
@@ -119,6 +128,9 @@ async function handleGenerateStream(
     // Batch streaming chunks with backpressure control
     const chunkBuffer: string[] = [];
     let flushIntervalId: NodeJS.Timeout | null = null;
+    let watchdogTimeoutId: NodeJS.Timeout | null = null;
+    let abortStream: (() => void) | null = null;
+    let settled = false;
 
     const flushChunks = () => {
       if (chunkBuffer.length > 0 && !sender.isDestroyed()) {
@@ -131,32 +143,116 @@ async function handleGenerateStream(
       }
     };
 
-    // Set up flush interval (50ms batching)
-    flushIntervalId = setInterval(flushChunks, 50);
+    const cleanup = (shouldFlush = false) => {
+      if (flushIntervalId) {
+        clearInterval(flushIntervalId);
+        flushIntervalId = null;
+      }
+      if (watchdogTimeoutId) {
+        clearTimeout(watchdogTimeoutId);
+        watchdogTimeoutId = null;
+      }
+      if (shouldFlush) {
+        flushChunks();
+      }
+      activeStreams.delete(streamId);
+    };
+
+    const settleWithComplete = (usage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    }) => {
+      if (settled) return;
+      settled = true;
+      cleanup(true);
+      if (!sender.isDestroyed()) {
+        sender.send(AIChannels.STREAM_COMPLETE, {
+          streamId,
+          usage,
+        });
+      }
+    };
+
+    const settleWithError = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup(true);
+      if (!sender.isDestroyed()) {
+        sender.send(AIChannels.STREAM_ERROR, {
+          streamId,
+          error: toErrorResponse(error),
+        });
+      }
+    };
 
     const controller = await services.aiService.streamText(
       buildTextRequest(request),
       (chunk) => {
-        // Check if sender is still valid before buffering
-        if (!sender.isDestroyed()) {
-          chunkBuffer.push(chunk);
-
-          // P1-3 fix: flush on overflow to prevent unbounded memory growth
-          if (chunkBuffer.length >= MAX_BUFFER_SIZE) {
-            flushChunks();
-          }
+        if (settled) {
+          return;
         }
+        // Check if sender is still valid before buffering
+        if (sender.isDestroyed()) {
+          settled = true;
+          cleanup(false);
+          abortStream?.();
+          return;
+        }
+        chunkBuffer.push(chunk);
+
+        // P1-3 fix: flush on overflow to prevent unbounded memory growth
+        if (chunkBuffer.length >= MAX_BUFFER_SIZE) {
+          flushChunks();
+        }
+        if (watchdogTimeoutId) {
+          clearTimeout(watchdogTimeoutId);
+        }
+        watchdogTimeoutId = setTimeout(() => {
+          abortStream?.();
+          settleWithError(
+            new AIProviderError(
+              'Stream timed out waiting for data',
+              'STREAM_TIMEOUT'
+            )
+          );
+        }, STREAM_WATCHDOG_TIMEOUT_MS);
       }
     );
+    abortStream = controller.abort;
 
-    // Handle completion in background (don't await)
-    handleStreamCompletion(controller.completion, streamId, sender, () => {
-      if (flushIntervalId) {
-        clearInterval(flushIntervalId);
-        flushIntervalId = null;
-        flushChunks(); // Final flush
-      }
+    // Set up flush interval (50ms batching)
+    flushIntervalId = setInterval(flushChunks, 50);
+
+    watchdogTimeoutId = setTimeout(() => {
+      abortStream();
+      settleWithError(
+        new AIProviderError(
+          'Stream timed out waiting for data',
+          'STREAM_TIMEOUT'
+        )
+      );
+    }, STREAM_WATCHDOG_TIMEOUT_MS);
+
+    activeStreams.set(streamId, {
+      cancel: () => {
+        settleWithError(
+          new AIProviderError(
+            'Stream cancelled by client',
+            'STREAM_CANCELLED'
+          )
+        );
+        abortStream();
+      },
     });
+
+    void controller.completion
+      .then((result) => {
+        settleWithComplete(result.usage);
+      })
+      .catch((error: unknown) => {
+        settleWithError(error);
+      });
 
     return schemas.StreamInitResponseSchema.parse({
       success: true,
@@ -171,33 +267,34 @@ async function handleGenerateStream(
 }
 
 /**
- * Handles stream completion in background.
+ * Handles CANCEL_STREAM: Cancel active stream by streamId.
  */
-function handleStreamCompletion(
-  completion: Promise<{ text: string; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }>,
-  streamId: string,
-  sender: Electron.WebContents,
-  onComplete?: () => void
-): void {
-  completion
-    .then((result) => {
-      if (onComplete) onComplete();
-      if (!sender.isDestroyed()) {
-        sender.send(AIChannels.STREAM_COMPLETE, {
-          streamId,
-          usage: result.usage,
-        });
-      }
-    })
-    .catch((error: unknown) => {
-      if (onComplete) onComplete();
-      if (!sender.isDestroyed()) {
-        sender.send(AIChannels.STREAM_ERROR, {
-          streamId,
-          error: toErrorResponse(error),
-        });
-      }
-    });
+function handleCancelStream(
+  rawRequest: unknown
+): Promise<schemas.StreamCancelResponseSchemaType> {
+  try {
+    const request = schemas.StreamCancelRequestSchema.parse(rawRequest);
+    const stream = activeStreams.get(request.streamId);
+    if (!stream) {
+      return Promise.resolve(schemas.StreamCancelResponseSchema.parse({
+        success: false,
+        error: {
+          code: 'STREAM_NOT_FOUND',
+          message: 'Stream not found or already settled',
+        },
+      }));
+    }
+
+    stream.cancel();
+    return Promise.resolve(schemas.StreamCancelResponseSchema.parse({
+      success: true,
+    }));
+  } catch (error) {
+    return Promise.resolve(schemas.StreamCancelResponseSchema.parse({
+      success: false,
+      error: toErrorResponse(error),
+    }));
+  }
 }
 
 /**
@@ -259,17 +356,34 @@ async function handleGenerateImage(
 /**
  * Registers all AI generation IPC handlers.
  */
-export function registerGenerationHandlers(services: AIServices): void {
-  ipcMain.handle(AIChannels.GENERATE_TEXT, (_, request) =>
+function registerAuthorizedHandler(
+  channel: string,
+  window: BrowserWindow,
+  handler: (event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>
+): void {
+  ipcMain.handle(channel, (event, request) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(event, request);
+  });
+}
+
+export function registerGenerationHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
+  registerAuthorizedHandler(AIChannels.GENERATE_TEXT, window, (_event, request) =>
     handleGenerateText(services, request)
   );
-  ipcMain.handle(AIChannels.GENERATE_STREAM, (event, request) =>
+  registerAuthorizedHandler(AIChannels.GENERATE_STREAM, window, (event, request) =>
     handleGenerateStream(services, event, request)
   );
-  ipcMain.handle(AIChannels.GENERATE_EMBED, (_, request) =>
+  registerAuthorizedHandler(AIChannels.CANCEL_STREAM, window, (_event, request) =>
+    handleCancelStream(request)
+  );
+  registerAuthorizedHandler(AIChannels.GENERATE_EMBED, window, (_event, request) =>
     handleGenerateEmbed(services, request)
   );
-  ipcMain.handle(AIChannels.GENERATE_IMAGE, (_, request) =>
+  registerAuthorizedHandler(AIChannels.GENERATE_IMAGE, window, (_event, request) =>
     handleGenerateImage(services, request)
   );
 }

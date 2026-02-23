@@ -421,8 +421,12 @@ test.describe('Autosave and Recovery', () => {
       await editor.click();
       await win.keyboard.type(TEST_CONTENT_WITH_MARKER);
 
-      // Wait for autosave debounce + buffer
-      await win.waitForTimeout(AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_BUFFER_MS);
+      // Wait for autosave debounce + buffer by polling for recovery file existence.
+      // The next block handles the case where the file never appears (test.skip).
+      const autosaveDeadline = Date.now() + AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_BUFFER_MS + 2000;
+      while (!hasRecoveryFiles(targetRecoveryDir) && Date.now() < autosaveDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
 
       // Verify recovery file was created
       const recoveryFileExists = hasRecoveryFiles(targetRecoveryDir);
@@ -562,7 +566,7 @@ Special chars: <>&"'\`\\n\\t
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
 
       // Allow time for dialog to render
-      await win.waitForTimeout(2000);
+      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
       // Check if dialog is visible (if implemented)
       const dialogVisible = await recoveryDialog.isVisible().catch(() => false);
@@ -602,7 +606,9 @@ Special chars: <>&"'\`\\n\\t
         userDataDir: profileDir,
       });
 
-      await win.waitForTimeout(2000);
+      // Wait for recovery dialog to render
+      const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
+      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
       // Click accept/restore button if dialog is visible
       const acceptButton = win.locator('[data-testid="recovery-accept-button"]');
@@ -610,7 +616,8 @@ Special chars: <>&"'\`\\n\\t
 
       if (buttonVisible) {
         await acceptButton.click();
-        await win.waitForTimeout(1000);
+        // Wait for recovery dialog to close after accepting
+        await recoveryDialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
         // Verify document content in editor matches recovery content
         const editorContent = await win.evaluate(() => {
@@ -651,7 +658,9 @@ Special chars: <>&"'\`\\n\\t
         userDataDir: profileDir,
       });
 
-      await win.waitForTimeout(2000);
+      // Wait for recovery dialog to render
+      const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
+      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
       // Click decline button if dialog is visible
       const declineButton = win.locator('[data-testid="recovery-decline-button"]');
@@ -659,7 +668,8 @@ Special chars: <>&"'\`\\n\\t
 
       if (buttonVisible) {
         await declineButton.click();
-        await win.waitForTimeout(1000);
+        // Wait for recovery dialog to close after declining
+        await recoveryDialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
         // Verify all recovery files were deleted
         expect(getRecoveryFileContent(targetRecoveryDir, docId1)).toBeNull();
@@ -690,7 +700,9 @@ Special chars: <>&"'\`\\n\\t
         userDataDir: profileDir,
       });
 
-      await win.waitForTimeout(2000);
+      // Wait for recovery dialog to render
+      const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
+      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
       // Click dismiss button (X or close) if dialog is visible
       const dismissButton = win.locator('[data-testid="recovery-dismiss-button"]');
@@ -698,7 +710,8 @@ Special chars: <>&"'\`\\n\\t
 
       if (buttonVisible) {
         await dismissButton.click();
-        await win.waitForTimeout(1000);
+        // Wait for recovery dialog to close after dismissing
+        await recoveryDialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
         // Verify recovery file is still present (preserved for next startup)
         const recoveryData = getRecoveryFileContent(targetRecoveryDir, docId);
@@ -781,10 +794,11 @@ Special chars: <>&"'\`\\n\\t
         userDataDir: profileDir,
       });
 
-      await win.waitForTimeout(2000);
+      // Wait for recovery dialog to render
+      const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
+      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
       // Check for recovery dialog
-      const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
       const dialogVisible = await recoveryDialog.isVisible().catch(() => false);
 
       if (dialogVisible) {
@@ -806,7 +820,8 @@ Special chars: <>&"'\`\\n\\t
         userDataDir: profileDir,
       });
 
-      await win.waitForTimeout(2000);
+      // Give the app enough time to potentially show a recovery dialog (it should not)
+      await win.waitForSelector('[data-testid="status-bar"]', { timeout: 5000 }).catch(() => {});
 
       // Recovery dialog should NOT appear when there's no recovery data
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');

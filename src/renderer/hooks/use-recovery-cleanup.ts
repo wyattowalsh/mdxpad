@@ -24,34 +24,21 @@ import type { RecoveryDiscardRequest, RecoveryDiscardResponse } from '@shared/co
 import type { DocumentId as DocumentStoreId } from '@shared/types/document';
 
 // =============================================================================
-// IPC STUB
+// IPC HELPERS
 // =============================================================================
 
 /**
- * Discard recovery files via IPC.
- *
- * Removes recovery files for the specified document IDs from the recovery
- * directory and updates the manifest accordingly.
- *
- * NOTE: This function will need to be updated once the preload API is available.
- * The actual implementation should be:
- *   window.mdxpad.recovery.discard(request)
- *
- * The preload.ts needs to expose:
- *   recovery: {
- *     discard: (request: RecoveryDiscardRequest) => Promise<RecoveryDiscardResponse>
- *   }
- *
- * @param request - Contains array of documentIds to discard
- * @returns Promise resolving to discard count
+ * Discard recovery files via preload bridge.
+ * Falls back to a deterministic no-op outside Electron.
  */
 const discardRecovery = (
   request: RecoveryDiscardRequest
 ): Promise<RecoveryDiscardResponse> => {
-  // TODO: Replace with actual IPC call after preload update
-  // return window.mdxpad.recovery.discard(request);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (window.mdxpad) {
+    return window.mdxpad.recoveryDiscard(request);
+  }
 
-  // Stub: Return success with count matching request
   return Promise.resolve({
     discardedCount: request.documentIds.length,
   });

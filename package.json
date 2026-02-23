@@ -24,14 +24,18 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:unit": "vitest run --dir src",
+    "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "bench": "tsx scripts/bench.ts",
     "verify-security": "tsx scripts/verify-security.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "clean": "rm -rf dist out .vite coverage",
     "coverage": "vitest run --coverage",
     "audit:types": "echo '=== Type Safety Audit ===' && echo 'as unknown as:' && grep -r 'as unknown as' src/ --include='*.ts' --include='*.tsx' -c 2>/dev/null | tail -1 && echo 'as any:' && grep -r 'as any' src/ --include='*.ts' --include='*.tsx' -c 2>/dev/null | tail -1 && echo 'eslint-disable:' && grep -r 'eslint-disable' src/ --include='*.ts' --include='*.tsx' -c 2>/dev/null | tail -1",
-    "lint:report": "eslint . --format json 2>/dev/null | node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const r={};d.forEach(f=>f.messages.forEach(m=>{r[m.ruleId]=(r[m.ruleId]||0)+1}));Object.entries(r).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>console.log(v+'\\t'+k))\""
+    "lint:report": "eslint . --format json 2>/dev/null | node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const r={};d.forEach(f=>f.messages.forEach(m=>{r[m.ruleId]=(r[m.ruleId]||0)+1}));Object.entries(r).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>console.log(v+'\\t'+k))\"",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.15",
@@ -87,6 +91,8 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.49.0",
     "@tailwindcss/vite": "^4.0.0",
@@ -104,6 +110,8 @@
     "eslint-plugin-react": "^7.0.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "happy-dom": "^15.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "mdast-util-mdx-jsx": "^3.2.0",
     "ollama-ai-provider": "^1.2.0",
     "playwright": "^1.49.0",

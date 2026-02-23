@@ -36,6 +36,7 @@ export const IPC_CHANNELS = {
   /** Editor operations */
   editor: {
     isDirty: 'mdxpad:editor:is-dirty',
+    isDirtyResponse: 'mdxpad:editor:is-dirty:response',
     save: 'mdxpad:editor:save',
   },
   /** Template operations (Spec 016) */

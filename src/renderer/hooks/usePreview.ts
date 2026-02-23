@@ -36,7 +36,15 @@ export interface UsePreviewResult {
 
 /** Convert worker response to CompileSuccess type. */
 function toCompileSuccess(response: CompileResponseSuccess): CompileSuccess {
-  return { ok: true, code: response.code, frontmatter: response.frontmatter, outline: undefined };
+  const outline = (
+    response as CompileResponseSuccess & { outline?: CompileSuccess['outline'] }
+  ).outline;
+  return {
+    ok: true,
+    code: response.code,
+    frontmatter: response.frontmatter,
+    outline: outline ?? null,
+  };
 }
 
 /** Trigger compilation after debounce timeout */

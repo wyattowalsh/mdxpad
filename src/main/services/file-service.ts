@@ -5,9 +5,11 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import type { BrowserWindow } from 'electron';
 
 import type { FileHandle, FileResult, FileError, FileId } from '@shared/types/file';
 import { createFileId } from '@shared/types/file';
+import { atomicWrite } from '@shared/lib/atomic-write';
 import { FileWatcher } from './file-watcher';
 import { RecentFilesService } from './recent-files';
 import { AutoSaveManager } from './auto-save';
@@ -64,7 +66,7 @@ export async function writeFile(
   content: string
 ): Promise<FileResult<void>> {
   try {
-    await fs.writeFile(filePath, content, { encoding: 'utf-8' });
+    await atomicWrite(filePath, content);
     return { ok: true, value: undefined };
   } catch (error: unknown) {
     const fileError = mapFsError(error, filePath);
@@ -365,4 +367,18 @@ export class FileServiceIntegration {
     // Clear internal tracking
     this.openFiles.clear();
   }
+}
+
+/**
+ * Creates the default file integration wiring used in production IPC handlers.
+ *
+ * Includes FileWatcher for external change notifications.
+ *
+ * @param window - Target window for file change events
+ * @returns Configured file service integration
+ */
+export function createFileServiceIntegration(window: BrowserWindow): FileServiceIntegration {
+  return new FileServiceIntegration({
+    fileWatcher: new FileWatcher(window),
+  });
 }

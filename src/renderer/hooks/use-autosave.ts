@@ -13,7 +13,7 @@
  * @module renderer/hooks/use-autosave
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, type MutableRefObject } from 'react';
 import { useDocumentStore, selectIsDirty, selectFilePath, selectContent, selectFileName } from '@renderer/stores/document-store';
 import { useAutosaveStore } from '@renderer/stores/autosave-store';
 import type { AutosaveTriggerRequest, AutosaveTriggerResponse } from '@shared/contracts/autosave-ipc';
@@ -141,6 +141,12 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
 
   // State for consecutive failures (exposed to UI)
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
+
+  // Ref to track latest consecutiveFailures value, avoiding stale closure in performSave
+  const consecutiveFailuresRef: MutableRefObject<number> = useRef(0);
+  useEffect(() => {
+    consecutiveFailuresRef.current = consecutiveFailures;
+  }, [consecutiveFailures]);
 
   // Refs for managing async state
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

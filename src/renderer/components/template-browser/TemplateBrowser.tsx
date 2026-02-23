@@ -33,6 +33,7 @@ import {
   ErrorState,
   TemplatePreviewPanel,
 } from './TemplateBrowserStates';
+import { createSelectionRequestCoalescer } from './selection-request-coalescer';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { EditTemplateDialog, type EditTemplateFormData } from './EditTemplateDialog';
 import type { Template, TemplateMetadata } from '@shared/contracts/template-schemas';
@@ -105,6 +106,10 @@ export function TemplateBrowser({
   const saveTemplate = useTemplateStore((state) => state.saveTemplate);
   const importTemplate = useTemplateStore((state) => state.importTemplate);
   const exportTemplate = useTemplateStore((state) => state.exportTemplate);
+  const coalescedSelectTemplate = useMemo(
+    () => createSelectionRequestCoalescer(selectTemplate),
+    [selectTemplate]
+  );
 
   // Local state for tracking which template is loading
   const [isSelectingTemplate, setIsSelectingTemplate] = useState(false);
@@ -148,11 +153,17 @@ export function TemplateBrowser({
   // Handle template card selection
   const handleTemplateSelect = useCallback(
     async (id: string) => {
+      if (id === selectedId && selectedTemplate !== null) {
+        return;
+      }
       setIsSelectingTemplate(true);
-      await selectTemplate(id);
-      setIsSelectingTemplate(false);
+      try {
+        await coalescedSelectTemplate(id);
+      } finally {
+        setIsSelectingTemplate(false);
+      }
     },
-    [selectTemplate]
+    [selectedId, selectedTemplate, coalescedSelectTemplate]
   );
 
   // Handle "Use Template" button click

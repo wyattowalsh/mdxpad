@@ -389,6 +389,26 @@ export const StreamInitResponseSchema = z.object({
 export type StreamInitResponseSchemaType = z.infer<typeof StreamInitResponseSchema>;
 
 /**
+ * Request for canceling an active text stream.
+ */
+export const StreamCancelRequestSchema = z.object({
+  streamId: z.string().uuid(),
+});
+export type StreamCancelRequestSchemaType = z.infer<typeof StreamCancelRequestSchema>;
+
+/**
+ * Response for stream cancellation.
+ */
+export const StreamCancelResponseSchema = z.object({
+  success: z.boolean(),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }).optional(),
+});
+export type StreamCancelResponseSchemaType = z.infer<typeof StreamCancelResponseSchema>;
+
+/**
  * Stream chunk event schema.
  */
 export const StreamChunkSchema = z.object({

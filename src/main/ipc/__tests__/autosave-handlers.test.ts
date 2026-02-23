@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IpcMain } from 'electron';
+import type { IpcMain, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 import { AutosaveChannels } from '@shared/contracts/autosave-ipc';
 import { registerAutosaveHandlers, type AutosaveHandlerServices } from '../autosave-handlers';
@@ -21,6 +21,34 @@ import type { AutosaveSettings, RecoveryDialogEntry } from '@shared/contracts/au
 const mockIpcMain = {
   handle: vi.fn(),
 } as unknown as IpcMain;
+
+function createMockWindow(): BrowserWindow {
+  return {
+    webContents: {
+      id: 42,
+      mainFrame: { routingId: 99 },
+    },
+  } as unknown as BrowserWindow;
+}
+
+function createInvokeEvent(
+  window: BrowserWindow,
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+) {
+  const senderId = overrides?.senderId ?? window.webContents.id;
+  const senderFrameRoutingId =
+    overrides?.senderFrameRoutingId ?? window.webContents.mainFrame.routingId;
+
+  return {
+    sender: {
+      id: senderId,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: senderFrameRoutingId },
+  };
+}
+
+const mockWindow = createMockWindow();
 
 // ============================================================================
 // Test Constants
@@ -98,7 +126,7 @@ function createMockServices(): AutosaveHandlerServices {
 describe('registerAutosaveHandlers', () => {
   it('should register all recovery handlers', () => {
     const services = createMockServices();
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
 
     expect(mockIpcMain.handle).toHaveBeenCalledWith(
       AutosaveChannels.RECOVERY_CHECK,
@@ -124,7 +152,7 @@ describe('registerAutosaveHandlers', () => {
 
   it('should register all autosave handlers', () => {
     const services = createMockServices();
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
 
     expect(mockIpcMain.handle).toHaveBeenCalledWith(
       AutosaveChannels.AUTOSAVE_TRIGGER,
@@ -138,7 +166,7 @@ describe('registerAutosaveHandlers', () => {
 
   it('should register all settings handlers', () => {
     const services = createMockServices();
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
 
     expect(mockIpcMain.handle).toHaveBeenCalledWith(
       AutosaveChannels.SETTINGS_GET,
@@ -152,12 +180,34 @@ describe('registerAutosaveHandlers', () => {
 
   it('should register conflict resolution handler', () => {
     const services = createMockServices();
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
 
     expect(mockIpcMain.handle).toHaveBeenCalledWith(
       AutosaveChannels.CONFLICT_RESOLVE,
       expect.any(Function)
     );
+  });
+
+  it('should reject unauthorized sender for privileged autosave handler', async () => {
+    const services = createMockServices();
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
+
+    const autosaveStatusCall = vi
+      .mocked(mockIpcMain.handle)
+      .mock.calls
+      .find(([channel]) => channel === AutosaveChannels.AUTOSAVE_STATUS);
+    const autosaveStatusHandler = autosaveStatusCall?.[1] as
+      | ((event: unknown, request: unknown) => Promise<unknown>)
+      | undefined;
+
+    expect(autosaveStatusHandler).toBeDefined();
+
+    expect(() =>
+      autosaveStatusHandler!(
+        createInvokeEvent(mockWindow, { senderId: mockWindow.webContents.id + 1 }),
+        undefined
+      )
+    ).toThrow('Unauthorized IPC sender');
   });
 });
 
@@ -176,10 +226,11 @@ describe('Recovery Handlers', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(mockWindow)) as IpcMainInvokeEvent, args);
     });
 
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
   });
 
   describe('RECOVERY_CHECK', () => {
@@ -346,10 +397,11 @@ describe('Autosave Handlers', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(mockWindow)) as IpcMainInvokeEvent, args);
     });
 
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
   });
 
   describe('AUTOSAVE_STATUS', () => {
@@ -454,10 +506,11 @@ describe('Settings Handlers', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(mockWindow)) as IpcMainInvokeEvent, args);
     });
 
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
   });
 
   describe('SETTINGS_GET', () => {
@@ -545,10 +598,11 @@ describe('Conflict Resolution Handler', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(mockWindow)) as IpcMainInvokeEvent, args);
     });
 
-    registerAutosaveHandlers(mockIpcMain, services);
+    registerAutosaveHandlers(mockIpcMain, services, mockWindow);
   });
 
   describe('CONFLICT_RESOLVE', () => {

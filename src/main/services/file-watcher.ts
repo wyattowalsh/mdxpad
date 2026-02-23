@@ -111,6 +111,10 @@ export class FileWatcher {
       }
     });
 
+    watcher.on('error', (error) => {
+      console.error('[FileWatcher] Watcher error:', error);
+    });
+
     this.watched.set(fileId, { fileId, path: filePath, watcher });
   }
 
@@ -125,8 +129,12 @@ export class FileWatcher {
   async unwatch(fileId: FileId): Promise<void> {
     const entry = this.watched.get(fileId);
     if (entry) {
-      await entry.watcher.close();
       this.watched.delete(fileId);
+      try {
+        await entry.watcher.close();
+      } catch (error) {
+        console.error('[FileWatcher] Failed to unwatch file:', error);
+      }
     }
   }
 
@@ -137,10 +145,17 @@ export class FileWatcher {
    * release all file system resources.
    */
   async close(): Promise<void> {
-    await Promise.all(
-      Array.from(this.watched.values()).map((entry) => entry.watcher.close())
-    );
+    const entries = Array.from(this.watched.values());
     this.watched.clear();
+    await Promise.all(
+      entries.map(async (entry) => {
+        try {
+          await entry.watcher.close();
+        } catch (error) {
+          console.error('[FileWatcher] Failed to close watcher:', error);
+        }
+      })
+    );
   }
 
   /**
@@ -151,6 +166,16 @@ export class FileWatcher {
    * @param type - Type of change ('change' or 'unlink')
    */
   private emitChange(fileId: FileId, path: string, type: 'change' | 'unlink'): void {
+    if (this.watched.get(fileId)?.path !== path) {
+      return;
+    }
+
+    const windowDestroyed = this.window.isDestroyed();
+    const webContentsDestroyed = this.window.webContents.isDestroyed();
+    if (windowDestroyed || webContentsDestroyed) {
+      return;
+    }
+
     const event: FileChangeEvent = { fileId, path, type };
     // Send to renderer via IPC channel
     this.window.webContents.send('mdxpad:file:change', event);

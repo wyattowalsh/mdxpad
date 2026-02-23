@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
@@ -93,6 +93,37 @@ function createMockAIServices(): AIServices {
   } as unknown as AIServices;
 }
 
+function createMockWindow(): BrowserWindow {
+  return {
+    webContents: {
+      id: 1,
+      mainFrame: { routingId: 10 },
+    },
+  } as unknown as BrowserWindow;
+}
+
+function createAuthorizedInvokeEvent(window: BrowserWindow) {
+  return {
+    sender: {
+      id: window.webContents.id,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: window.webContents.mainFrame.routingId },
+  };
+}
+
+function createUnauthorizedInvokeEvent(window: BrowserWindow) {
+  return {
+    sender: {
+      id: window.webContents.id + 1,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: window.webContents.mainFrame.routingId + 1 },
+  };
+}
+
+const mockWindow = createMockWindow();
+
 // ============================================================================
 // Handler Registration Tests
 // ============================================================================
@@ -100,7 +131,7 @@ function createMockAIServices(): AIServices {
 describe('registerProviderHandlers', () => {
   it('should register all provider management handlers', () => {
     const services = createMockAIServices();
-    registerProviderHandlers(services);
+    registerProviderHandlers(services, mockWindow);
 
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_LIST, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_ADD, expect.any(Function));
@@ -112,7 +143,7 @@ describe('registerProviderHandlers', () => {
 
   it('should register all credential management handlers', () => {
     const services = createMockAIServices();
-    registerProviderHandlers(services);
+    registerProviderHandlers(services, mockWindow);
 
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CREDENTIAL_SET, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CREDENTIAL_HAS, expect.any(Function));
@@ -121,11 +152,35 @@ describe('registerProviderHandlers', () => {
 
   it('should register all capability detection handlers', () => {
     const services = createMockAIServices();
-    registerProviderHandlers(services);
+    registerProviderHandlers(services, mockWindow);
 
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CAPABILITY_GET, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CAPABILITY_LIST_MODELS, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CAPABILITY_REFRESH, expect.any(Function));
+  });
+
+  it('should reject unauthorized sender for privileged provider handlers', async () => {
+    const services = createMockAIServices();
+    registerProviderHandlers(services, mockWindow);
+
+    const providerAddCall = vi
+      .mocked(ipcMain.handle)
+      .mock.calls
+      .find(([channel]) => channel === AIChannels.PROVIDER_ADD);
+    const providerAddHandler = providerAddCall?.[1] as
+      | ((event: unknown, request: unknown) => Promise<unknown>)
+      | undefined;
+
+    expect(providerAddHandler).toBeDefined();
+
+    expect(() =>
+      providerAddHandler!(createUnauthorizedInvokeEvent(mockWindow), {
+        displayName: 'Test Provider',
+        type: 'openai',
+        apiKey: 'sk-test123',
+      })
+    ).toThrow('Unauthorized IPC sender');
+    expect(services.providerService.addProvider).not.toHaveBeenCalled();
   });
 });
 
@@ -142,12 +197,16 @@ describe('Provider Management Handlers', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createAuthorizedInvokeEvent(mockWindow);
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (...args: unknown[]) => {
+        const request = args.length === 0 ? undefined : args[args.length - 1];
+        return handler(authorizedEvent, request);
+      };
     });
 
-    registerProviderHandlers(services);
+    registerProviderHandlers(services, mockWindow);
   });
 
   describe('PROVIDER_LIST', () => {
@@ -461,12 +520,16 @@ describe('Credential Management Handlers', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createAuthorizedInvokeEvent(mockWindow);
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (...args: unknown[]) => {
+        const request = args.length === 0 ? undefined : args[args.length - 1];
+        return handler(authorizedEvent, request);
+      };
     });
 
-    registerProviderHandlers(services);
+    registerProviderHandlers(services, mockWindow);
   });
 
   describe('CREDENTIAL_SET', () => {
@@ -568,12 +631,16 @@ describe('Capability Detection Handlers', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createAuthorizedInvokeEvent(mockWindow);
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (...args: unknown[]) => {
+        const request = args.length === 0 ? undefined : args[args.length - 1];
+        return handler(authorizedEvent, request);
+      };
     });
 
-    registerProviderHandlers(services);
+    registerProviderHandlers(services, mockWindow);
   });
 
   describe('CAPABILITY_GET', () => {

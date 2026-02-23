@@ -6,7 +6,7 @@
  * @module src/main/ipc/ai-usage-handlers
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
@@ -14,6 +14,7 @@ import type { AIServices } from '@main/services/ai';
 import type { UsageQuery } from '@main/services/ai';
 
 import { toErrorResponse, filterUndefined } from './ai-handler-utils';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 // =============================================================================
 // REQUEST BUILDERS
@@ -145,14 +146,28 @@ async function handleUsageClear(
 /**
  * Registers all usage statistics IPC handlers.
  */
-export function registerUsageHandlers(services: AIServices): void {
-  ipcMain.handle(AIChannels.USAGE_QUERY, (_, request) =>
+function registerAuthorizedHandler(
+  channel: string,
+  window: BrowserWindow,
+  handler: (_event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>
+): void {
+  ipcMain.handle(channel, (event, request) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(event, request);
+  });
+}
+
+export function registerUsageHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
+  registerAuthorizedHandler(AIChannels.USAGE_QUERY, window, (_event, request) =>
     handleUsageQuery(services, request)
   );
-  ipcMain.handle(AIChannels.USAGE_EXPORT, (_, request) =>
+  registerAuthorizedHandler(AIChannels.USAGE_EXPORT, window, (_event, request) =>
     handleUsageExport(services, request)
   );
-  ipcMain.handle(AIChannels.USAGE_CLEAR, (_, request) =>
+  registerAuthorizedHandler(AIChannels.USAGE_CLEAR, window, (_event, request) =>
     handleUsageClear(services, request)
   );
 }

@@ -11,6 +11,7 @@ import { usePreview, usePreviewStatus, type UsePreviewOptions } from '../hooks/u
 import { usePreviewStore } from '../stores/preview-store';
 import type { CompileSuccess, CompileError } from '@shared/types/preview';
 import type { CompileResponseSuccess } from '@shared/types/preview-worker';
+import type { OutlineAST } from '@shared/types/outline';
 
 // Mock types for compiler
 interface MockCompiler {
@@ -206,7 +207,42 @@ describe('usePreview', () => {
         ok: true,
         code: 'compiled code',
         frontmatter: { title: 'Hello' },
+        outline: null,
       });
+    });
+
+    it('onSuccess preserves outline from compile response', () => {
+      renderHook(() => usePreview('# Hello'));
+
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+
+      const compileCall = mockCompiler.compile.mock.calls[0];
+      expect(compileCall).toBeDefined();
+      const { requestId, onSuccess } = compileCall![1];
+
+      const outline: OutlineAST = {
+        headings: [{ depth: 1, text: 'Hello', position: { line: 1, column: 1 } }],
+        components: [],
+        frontmatter: null,
+      };
+
+      act(() => {
+        onSuccess({
+          id: requestId,
+          ok: true,
+          code: 'compiled code',
+          frontmatter: {},
+          outline,
+        } as CompileResponseSuccess);
+      });
+
+      const state = usePreviewStore.getState();
+      expect(state.state.status).toBe('success');
+      if (state.state.status === 'success') {
+        expect(state.state.result.outline).toEqual(outline);
+      }
     });
   });
 

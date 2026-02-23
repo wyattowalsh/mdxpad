@@ -59,6 +59,8 @@ const RECOVERY_DIR_NAME = 'recovery';
 /** Manifest file name */
 const MANIFEST_FILE = 'manifest.json';
 
+/** Delay before scheduled retention cleanup runs */
+const CLEANUP_SCHEDULE_DELAY_MS = 0;
 
 /**
  * Service for managing crash recovery operations.
@@ -96,6 +98,7 @@ export class RecoveryService {
   private readonly settingsService: AutosaveSettingsService;
   private readonly autosaveService: AutosaveService | null;
   private recoveryDirPath: string | null = null;
+  private cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Creates a new RecoveryService instance.
@@ -130,6 +133,8 @@ export class RecoveryService {
    * ```
    */
   async checkForRecovery(): Promise<RecoveryCheckResponse> {
+    this.scheduleRetentionCleanup();
+
     try {
       const manifest = await this.readManifest();
       const count = Object.keys(manifest.entries).length;
@@ -177,8 +182,22 @@ export class RecoveryService {
         manifestEntries.map(entry => this.createDialogEntry(entry.documentId))
       );
 
-      // Filter out null results
-      const entries = results.filter((r): r is RecoveryDialogEntry => r !== null);
+      const staleIds: DocumentId[] = [];
+      const entries: RecoveryDialogEntry[] = [];
+      for (const [index, result] of results.entries()) {
+        if (result === null) {
+          const staleEntry = manifestEntries[index];
+          if (staleEntry) {
+            staleIds.push(staleEntry.documentId);
+          }
+        } else {
+          entries.push(result);
+        }
+      }
+
+      if (staleIds.length > 0) {
+        await this.reconcileStaleEntries(staleIds);
+      }
 
       // Sort by most recent first
       entries.sort((a, b) => b.savedAt - a.savedAt);
@@ -387,8 +406,7 @@ export class RecoveryService {
       const settings = this.settingsService.getSettings();
       const manifest = await this.readManifest();
 
-      const { idsToDelete, deletedCount: newDeletedCount } = this.calculateFilesToDelete(manifest, settings);
-      deletedCount = newDeletedCount;
+      const { idsToDelete } = this.calculateFilesToDelete(manifest, settings);
 
       // Delete identified files individually to collect per-file errors
       if (idsToDelete.length > 0) {
@@ -425,7 +443,7 @@ export class RecoveryService {
   private calculateFilesToDelete(
     manifest: RecoveryManifest,
     settings: { retentionDays: number; maxFiles: number }
-  ): { idsToDelete: DocumentId[]; deletedCount: number } {
+  ): { idsToDelete: DocumentId[] } {
     // Get all entries sorted by savedAt (oldest first)
     const manifestEntries = Object.values(manifest.entries);
     const entries = manifestEntries.sort((a, b) => a.savedAt - b.savedAt);
@@ -460,7 +478,7 @@ export class RecoveryService {
       }
     }
 
-    return { idsToDelete, deletedCount: 0 };
+    return { idsToDelete };
   }
 
   /**
@@ -475,6 +493,40 @@ export class RecoveryService {
   validateChecksum(file: RecoveryFile): boolean {
     const computedChecksum = computeChecksum(file.content);
     return computedChecksum === file.checksum;
+  }
+
+  /**
+   * Schedules retention cleanup to run asynchronously once per startup cycle.
+   */
+  private scheduleRetentionCleanup(): void {
+    if (this.cleanupTimer !== null) {
+      return;
+    }
+
+    this.cleanupTimer = setTimeout(() => {
+      this.cleanupTimer = null;
+      void this.runRetentionCleanup().catch((error: unknown) => {
+        console.error('[RecoveryService] Scheduled cleanup failed:', error);
+      });
+    }, CLEANUP_SCHEDULE_DELAY_MS);
+  }
+
+  /**
+   * Reconciles stale manifest entries that no longer have valid recovery files.
+   *
+   * @param documentIds - Stale document IDs to remove from manifest
+   */
+  private async reconcileStaleEntries(documentIds: readonly DocumentId[]): Promise<void> {
+    for (const documentId of documentIds) {
+      try {
+        await this.deleteRecoveryFileAndUpdateManifest(documentId);
+      } catch (error) {
+        console.warn(
+          `[RecoveryService] Failed to reconcile stale entry ${documentId}:`,
+          error
+        );
+      }
+    }
   }
 
 

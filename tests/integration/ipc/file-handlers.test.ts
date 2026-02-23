@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import type { IpcMain, Dialog, BrowserWindow, App } from 'electron';
+import type { IpcMain, BrowserWindow } from 'electron';
 
 // Mock electron modules before importing handlers
 vi.mock('electron', () => ({
@@ -30,6 +30,11 @@ vi.mock('@main/services/file-service', () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   createFileHandle: vi.fn(),
+  createFileServiceIntegration: vi.fn(() => ({
+    onFileOpened: vi.fn(),
+    onFileSaved: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn(),
+  })),
 }));
 
 // Mock menu module
@@ -39,7 +44,12 @@ vi.mock('@main/menu', () => ({
 
 // Import after mocks are set up
 import { registerFileHandlers } from '@main/ipc/file-handlers';
-import { readFile, writeFile, createFileHandle } from '@main/services/file-service';
+import {
+  readFile,
+  writeFile,
+  createFileHandle,
+  createFileServiceIntegration,
+} from '@main/services/file-service';
 import { addToRecentFiles } from '@main/menu';
 import { dialog, app, ipcMain } from 'electron';
 import {
@@ -60,11 +70,30 @@ const mockIpcMain = ipcMain as unknown as { handle: Mock };
 const mockReadFile = readFile as Mock;
 const mockWriteFile = writeFile as Mock;
 const mockCreateFileHandle = createFileHandle as Mock;
+const mockCreateFileServiceIntegration = createFileServiceIntegration as Mock;
 const mockAddToRecentFiles = addToRecentFiles as Mock;
+
+function createInvokeEvent(
+  window: BrowserWindow,
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+) {
+  const senderId = overrides?.senderId ?? window.webContents.id;
+  const senderFrameRoutingId =
+    overrides?.senderFrameRoutingId ?? window.webContents.mainFrame.routingId;
+
+  return {
+    sender: {
+      id: senderId,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: senderFrameRoutingId },
+  };
+}
 
 describe('file-handlers', () => {
   let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
   let mockBrowserWindow: BrowserWindow;
+  let authorizedInvokeEvent: ReturnType<typeof createInvokeEvent>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -84,7 +113,18 @@ describe('file-handlers', () => {
       maximize: vi.fn(),
       restore: vi.fn(),
       isMaximized: vi.fn(() => false),
+      webContents: {
+        id: 1,
+        mainFrame: { routingId: 10 },
+      },
     } as unknown as BrowserWindow;
+
+    authorizedInvokeEvent = createInvokeEvent(mockBrowserWindow);
+    mockCreateFileServiceIntegration.mockReturnValue({
+      onFileOpened: vi.fn(),
+      onFileSaved: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn(),
+    });
 
     // Register handlers
     registerFileHandlers(ipcMain, mockBrowserWindow);
@@ -127,6 +167,32 @@ describe('file-handlers', () => {
     });
   });
 
+  describe('sender authorization', () => {
+    it('should reject unauthorized sender for file:read', () => {
+      const handler = registeredHandlers.get('mdxpad:file:read');
+      const unauthorizedEvent = createInvokeEvent(mockBrowserWindow, {
+        senderId: mockBrowserWindow.webContents.id + 1,
+      });
+
+      expect(() => handler!(unauthorizedEvent, { path: '/test/file.mdx' })).toThrow(
+        'Unauthorized IPC sender'
+      );
+      expect(mockReadFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject non-main-frame sender for file:read', () => {
+      const handler = registeredHandlers.get('mdxpad:file:read');
+      const unauthorizedEvent = createInvokeEvent(mockBrowserWindow, {
+        senderFrameRoutingId: mockBrowserWindow.webContents.mainFrame.routingId + 1,
+      });
+
+      expect(() => handler!(unauthorizedEvent, { path: '/test/file.mdx' })).toThrow(
+        'Unauthorized IPC sender'
+      );
+      expect(mockReadFile).not.toHaveBeenCalled();
+    });
+  });
+
   describe('mdxpad:file:open', () => {
     it('should return FileHandle when file is selected and read successfully', async () => {
       const testPath = '/test/file.mdx';
@@ -147,7 +213,7 @@ describe('file-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:file:open');
       expect(handler).toBeDefined();
 
-      const result = await handler!({});
+      const result = await handler!(authorizedInvokeEvent);
 
       expect(mockDialog.showOpenDialog).toHaveBeenCalledWith({
         properties: ['openFile'],
@@ -165,7 +231,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:open');
-      const result = await handler!({});
+      const result = await handler!(authorizedInvokeEvent);
 
       expect(result).toEqual({ ok: false, error: { code: 'CANCELLED' } });
       expect(mockReadFile).not.toHaveBeenCalled();
@@ -184,7 +250,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:open');
-      const result = await handler!({});
+      const result = await handler!(authorizedInvokeEvent);
 
       expect(result).toEqual({
         ok: false,
@@ -205,7 +271,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:open');
-      const result = await handler!({});
+      const result = await handler!(authorizedInvokeEvent);
 
       expect(result).toEqual({
         ok: false,
@@ -226,7 +292,7 @@ describe('file-handlers', () => {
       mockWriteFile.mockResolvedValue({ ok: true, value: undefined });
 
       const handler = registeredHandlers.get('mdxpad:file:save');
-      const result = await handler!({}, { handle: testHandle, content: testContent });
+      const result = await handler!(authorizedInvokeEvent, { handle: testHandle, content: testContent });
 
       expect(mockWriteFile).toHaveBeenCalledWith(testHandle.path, testContent);
       expect(result).toEqual({ ok: true, value: undefined });
@@ -240,7 +306,7 @@ describe('file-handlers', () => {
       };
 
       const handler = registeredHandlers.get('mdxpad:file:save');
-      const result = await handler!({}, { handle: untitledHandle, content: 'test' });
+      const result = await handler!(authorizedInvokeEvent, { handle: untitledHandle, content: 'test' });
 
       expect(result).toEqual({
         ok: false,
@@ -262,7 +328,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:save');
-      const result = await handler!({}, { handle: testHandle, content: 'test' });
+      const result = await handler!(authorizedInvokeEvent, { handle: testHandle, content: 'test' });
 
       expect(result).toEqual({
         ok: false,
@@ -289,7 +355,7 @@ describe('file-handlers', () => {
       mockCreateFileHandle.mockReturnValue(mockHandle);
 
       const handler = registeredHandlers.get('mdxpad:file:save-as');
-      const result = await handler!({}, { content: testContent });
+      const result = await handler!(authorizedInvokeEvent, { content: testContent });
 
       expect(mockDialog.showSaveDialog).toHaveBeenCalledWith({
         filters: [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }],
@@ -307,7 +373,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:save-as');
-      const result = await handler!({}, { content: 'test' });
+      const result = await handler!(authorizedInvokeEvent, { content: 'test' });
 
       expect(result).toEqual({ ok: false, error: { code: 'CANCELLED' } });
       expect(mockWriteFile).not.toHaveBeenCalled();
@@ -326,7 +392,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:save-as');
-      const result = await handler!({}, { content: 'test' });
+      const result = await handler!(authorizedInvokeEvent, { content: 'test' });
 
       expect(result).toEqual({
         ok: false,
@@ -343,7 +409,7 @@ describe('file-handlers', () => {
       mockReadFile.mockResolvedValue({ ok: true, value: testContent });
 
       const handler = registeredHandlers.get('mdxpad:file:read');
-      const result = await handler!({}, { path: testPath });
+      const result = await handler!(authorizedInvokeEvent, { path: testPath });
 
       expect(mockReadFile).toHaveBeenCalledWith(testPath);
       expect(result).toEqual({ ok: true, value: testContent });
@@ -358,7 +424,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:read');
-      const result = await handler!({}, { path: testPath });
+      const result = await handler!(authorizedInvokeEvent, { path: testPath });
 
       expect(result).toEqual({
         ok: false,
@@ -375,7 +441,7 @@ describe('file-handlers', () => {
       mockWriteFile.mockResolvedValue({ ok: true, value: undefined });
 
       const handler = registeredHandlers.get('mdxpad:file:write');
-      const result = await handler!({}, { path: testPath, content: testContent });
+      const result = await handler!(authorizedInvokeEvent, { path: testPath, content: testContent });
 
       expect(mockWriteFile).toHaveBeenCalledWith(testPath, testContent);
       expect(result).toEqual({ ok: true, value: undefined });
@@ -390,7 +456,7 @@ describe('file-handlers', () => {
       });
 
       const handler = registeredHandlers.get('mdxpad:file:write');
-      const result = await handler!({}, { path: testPath, content: 'test' });
+      const result = await handler!(authorizedInvokeEvent, { path: testPath, content: 'test' });
 
       expect(result).toEqual({
         ok: false,
@@ -404,7 +470,7 @@ describe('file-handlers', () => {
       mockApp.getVersion.mockReturnValue('1.2.3');
 
       const handler = registeredHandlers.get('mdxpad:app:get-version');
-      const result = await handler!({});
+      const result = await handler!(authorizedInvokeEvent);
 
       expect(result).toBe('1.2.3');
     });
@@ -413,7 +479,7 @@ describe('file-handlers', () => {
   describe('mdxpad:app:ready', () => {
     it('should complete without error', async () => {
       const handler = registeredHandlers.get('mdxpad:app:ready');
-      const result = await handler!({});
+      const result = await handler!(authorizedInvokeEvent);
 
       expect(result).toBeUndefined();
     });
@@ -547,36 +613,96 @@ describe('zod validation (Constitution Section 3.3 compliance)', () => {
 });
 
 describe('error code mapping', () => {
-  /**
-   * These tests verify that the file-service mapFsError function
-   * correctly maps Node.js error codes to FileError types.
-   * Tested indirectly through the handlers.
-   */
+  let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
+  let mockBrowserWindow: BrowserWindow;
+  let authorizedInvokeEvent: ReturnType<typeof createInvokeEvent>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    registeredHandlers = new Map();
+    mockIpcMain.handle.mockImplementation(
+      (channel: string, handler: (event: unknown, args?: unknown) => Promise<unknown>) => {
+        registeredHandlers.set(channel, handler);
+      }
+    );
+
+    mockBrowserWindow = {
+      webContents: {
+        id: 1,
+        mainFrame: { routingId: 10 },
+      },
+    } as unknown as BrowserWindow;
+
+    authorizedInvokeEvent = createInvokeEvent(mockBrowserWindow);
+    mockCreateFileServiceIntegration.mockReturnValue({
+      onFileOpened: vi.fn(),
+      onFileSaved: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn(),
+    });
+
+    registerFileHandlers(ipcMain, mockBrowserWindow);
   });
 
-  it('should map ENOENT to NOT_FOUND', async () => {
-    // This is tested through the file-service integration
-    // The file-service mapFsError converts ENOENT -> NOT_FOUND
-    const notFoundError = { code: 'NOT_FOUND', path: '/missing.mdx' };
-    expect(notFoundError.code).toBe('NOT_FOUND');
+  it('should map read errors to NOT_FOUND', async () => {
+    mockReadFile.mockResolvedValue({
+      ok: false,
+      error: { code: 'NOT_FOUND', path: '/missing.mdx' },
+    });
+
+    const handler = registeredHandlers.get('mdxpad:file:read');
+    const result = await handler!(authorizedInvokeEvent, { path: '/missing.mdx' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'NOT_FOUND', path: '/missing.mdx' },
+    });
   });
 
-  it('should map EACCES to PERMISSION_DENIED', async () => {
-    const permissionError = { code: 'PERMISSION_DENIED', path: '/protected.mdx' };
-    expect(permissionError.code).toBe('PERMISSION_DENIED');
+  it('should map write errors to PERMISSION_DENIED', async () => {
+    mockWriteFile.mockResolvedValue({
+      ok: false,
+      error: { code: 'PERMISSION_DENIED', path: '/protected.mdx' },
+    });
+
+    const handler = registeredHandlers.get('mdxpad:file:write');
+    const result = await handler!(authorizedInvokeEvent, {
+      path: '/protected.mdx',
+      content: 'content',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'PERMISSION_DENIED', path: '/protected.mdx' },
+    });
   });
 
   it('should map dialog cancellation to CANCELLED', async () => {
-    const cancelledError = { code: 'CANCELLED' };
-    expect(cancelledError.code).toBe('CANCELLED');
+    mockDialog.showOpenDialog.mockResolvedValue({
+      canceled: true,
+      filePaths: [],
+    });
+
+    const handler = registeredHandlers.get('mdxpad:file:open');
+    const result = await handler!(authorizedInvokeEvent);
+
+    expect(result).toEqual({ ok: false, error: { code: 'CANCELLED' } });
   });
 
-  it('should map unknown errors to UNKNOWN with message', async () => {
-    const unknownError = { code: 'UNKNOWN', message: 'Something went wrong' };
-    expect(unknownError.code).toBe('UNKNOWN');
-    expect(unknownError.message).toBe('Something went wrong');
+  it('should map save-without-path failures to UNKNOWN', async () => {
+    const handler = registeredHandlers.get('mdxpad:file:save');
+    const result = await handler!(authorizedInvokeEvent, {
+      handle: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        path: null,
+        name: 'Untitled',
+      },
+      content: 'content',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'UNKNOWN', message: 'Cannot save: file has no path' },
+    });
   });
 });

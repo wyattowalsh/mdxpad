@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import type { RequestId } from '@shared/types/preview-worker';
+import type { OutlineAST } from '@shared/types/outline';
 import {
   compileMdx,
   extractError,
@@ -96,6 +97,27 @@ More markdown.`;
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.code).toBeTruthy();
+      }
+    });
+
+    it('should include extracted outline in successful result', async () => {
+      const source = `---
+title: Outline Test
+---
+
+# Title
+
+<MyComponent />
+`;
+      const result = await compileMdx(testId('outline-id'), source);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const outline = (result as { outline?: OutlineAST | null }).outline;
+        expect(outline).not.toBeNull();
+        expect(outline?.headings.map((heading) => heading.text)).toEqual(['Title']);
+        expect(outline?.components.map((component) => component.name)).toEqual(['MyComponent']);
+        expect(outline?.frontmatter?.data).toEqual({ title: 'Outline Test' });
       }
     });
 

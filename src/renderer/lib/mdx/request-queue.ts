@@ -37,7 +37,11 @@ export const TRANSIENT_ERROR_PATTERNS = [
   'Worker terminated',
   'timed out',
   'Queue overflow',
+  'Stale response',
 ] as const;
+
+const STALE_RESPONSE_ERROR_MESSAGE = 'Stale response from previous worker generation';
+const REQUEST_CANCELLED_ERROR_MESSAGE = 'Compilation request cancelled';
 
 // ============================================================================
 // Types
@@ -377,6 +381,10 @@ export function handleCompileResponse(
     console.debug(
       `[MDX Compiler] Rejecting stale response from worker ${pending.workerIndex} (request gen ${pending.generation}, worker gen ${workerInstance.generation})`
     );
+    clearTimeout(pending.timeoutId);
+    pendingRequests.delete(response.id);
+    workerInstance.pendingCount = Math.max(0, workerInstance.pendingCount - 1);
+    pending.reject([{ message: STALE_RESPONSE_ERROR_MESSAGE }]);
     return false;
   }
 
@@ -445,5 +453,6 @@ export function cancelRequest(
     if (workerInstance) {
       workerInstance.pendingCount = Math.max(0, workerInstance.pendingCount - 1);
     }
+    pending.reject([{ message: REQUEST_CANCELLED_ERROR_MESSAGE }]);
   }
 }

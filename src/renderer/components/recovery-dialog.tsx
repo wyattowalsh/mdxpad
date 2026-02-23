@@ -176,10 +176,7 @@ function truncatePreview(content: string, maxLength: number = MAX_PREVIEW_LENGTH
  * @returns Promise resolving to preview response
  */
 function fetchPreview(documentId: DocumentId): Promise<RecoveryPreviewResponse> {
-  // TODO: Replace with actual IPC call
-  // return window.mdxpad.recovery.preview({ documentId });
-  console.debug('[RecoveryDialog] Fetching preview for:', documentId);
-  throw new Error('Preview API not available - preload needs update');
+  return window.mdxpad.recoveryPreview({ documentId });
 }
 
 // =============================================================================

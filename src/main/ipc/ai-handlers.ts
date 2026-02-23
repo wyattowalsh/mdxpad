@@ -14,6 +14,7 @@
  */
 
 import type { AIServices } from '@main/services/ai';
+import type { BrowserWindow } from 'electron';
 
 import { registerProviderHandlers } from './ai-provider-handlers';
 import { registerGenerationHandlers } from './ai-generation-handlers';
@@ -28,11 +29,15 @@ export type { ErrorResponse } from './ai-handler-utils';
  * Call this once during app initialization.
  *
  * @param services - The AIServices instance to use for all handlers
+ * @param window - BrowserWindow used for sender/frame authorization
  */
-export function registerAIHandlers(services: AIServices): void {
-  registerProviderHandlers(services);
-  registerGenerationHandlers(services);
-  registerUsageHandlers(services);
+export function registerAIHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
+  registerProviderHandlers(services, window);
+  registerGenerationHandlers(services, window);
+  registerUsageHandlers(services, window);
 
   console.log('[AIHandlers] All AI handlers registered (19 channels)');
 }

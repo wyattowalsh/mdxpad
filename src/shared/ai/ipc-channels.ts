@@ -20,6 +20,7 @@ import type {
   ClearCredentialRequestSchema, ClearCredentialResponseSchema,
   GenerateTextRequestSchema, GenerateTextResponseSchema,
   GenerateStreamRequestSchema, StreamInitResponseSchema,
+  StreamCancelRequestSchema, StreamCancelResponseSchema,
   StreamChunkSchema, StreamCompleteSchema, StreamErrorSchema,
   GenerateEmbedRequestSchema, GenerateEmbedResponseSchema,
   GenerateImageRequestSchema, GenerateImageResponseSchema,
@@ -50,6 +51,7 @@ export const AIChannels = {
   // AI Generation (invoke/handle)
   GENERATE_TEXT: 'mdxpad:ai:generate:text',
   GENERATE_STREAM: 'mdxpad:ai:generate:stream',
+  CANCEL_STREAM: 'mdxpad:ai:stream:cancel',
   GENERATE_EMBED: 'mdxpad:ai:generate:embed',
   GENERATE_IMAGE: 'mdxpad:ai:generate:image',
   // Usage Statistics (invoke/handle)
@@ -130,6 +132,10 @@ export interface AIProviderApi {
   [AIChannels.GENERATE_STREAM]: {
     request: z.infer<typeof GenerateStreamRequestSchema>;
     response: z.infer<typeof StreamInitResponseSchema>;
+  };
+  [AIChannels.CANCEL_STREAM]: {
+    request: z.infer<typeof StreamCancelRequestSchema>;
+    response: z.infer<typeof StreamCancelResponseSchema>;
   };
   [AIChannels.GENERATE_EMBED]: {
     request: z.infer<typeof GenerateEmbedRequestSchema>;
@@ -246,6 +252,7 @@ export const AIChannelRegistry = {
   credentialClear: { channel: AIChannels.CREDENTIAL_CLEAR, description: 'Remove a credential' },
   generateText: { channel: AIChannels.GENERATE_TEXT, description: 'Generate text (non-streaming)' },
   generateStream: { channel: AIChannels.GENERATE_STREAM, description: 'Generate text with streaming' },
+  cancelStream: { channel: AIChannels.CANCEL_STREAM, description: 'Cancel an active text stream' },
   generateEmbed: { channel: AIChannels.GENERATE_EMBED, description: 'Generate text embeddings' },
   generateImage: { channel: AIChannels.GENERATE_IMAGE, description: 'Generate an image' },
   usageQuery: { channel: AIChannels.USAGE_QUERY, description: 'Query usage statistics' },

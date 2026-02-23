@@ -32,7 +32,13 @@ import {
 
 // Type assertion helpers for mocks
 const mockIpcMain = ipcMain as unknown as { handle: Mock };
-const mockInvokeEvent = { sender: 'renderer' };
+const mockInvokeEvent = {
+  sender: {
+    id: 1,
+    mainFrame: { routingId: 10 },
+  },
+  senderFrame: { routingId: 10 },
+};
 
 describe('window-handlers', () => {
   let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
@@ -62,7 +68,11 @@ describe('window-handlers', () => {
       maximize: vi.fn(),
       unmaximize: vi.fn(),
       isMaximized: vi.fn(() => false),
-      webContents: { send: vi.fn() },
+      webContents: {
+        id: 1,
+        mainFrame: { routingId: 10 },
+        send: vi.fn(),
+      },
     } as unknown as BrowserWindow & {
       close: Mock;
       minimize: Mock;
@@ -264,7 +274,11 @@ describe('window handler integration scenarios', () => {
       maximize: vi.fn(),
       unmaximize: vi.fn(),
       isMaximized: vi.fn(),
-      webContents: { send: vi.fn() },
+      webContents: {
+        id: 1,
+        mainFrame: { routingId: 10 },
+        send: vi.fn(),
+      },
     } as unknown as BrowserWindow & {
       close: Mock;
       minimize: Mock;

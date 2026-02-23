@@ -13,6 +13,19 @@ import {
   WindowMinimizeRequestSchema,
   WindowMaximizeRequestSchema,
 } from '@shared/contracts/file-schemas';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
+
+function registerAuthorizedWindowHandler(
+  ipcMain: IpcMain,
+  window: BrowserWindow,
+  channel: string,
+  handler: (args: unknown) => Promise<void>
+): void {
+  ipcMain.handle(channel, (event, args) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(args);
+  });
+}
 
 /**
  * Register all window-related IPC handlers.
@@ -54,11 +67,26 @@ export function registerWindowHandlers(
   );
 
   // mdxpad:window:close - Close window (with dirty check in Phase 3)
-  ipcMain.handle(IPC_CHANNELS.window.close, (_event, args) => handleWindowClose(args));
+  registerAuthorizedWindowHandler(
+    ipcMain,
+    window,
+    IPC_CHANNELS.window.close,
+    handleWindowClose
+  );
 
   // mdxpad:window:minimize - Minimize window
-  ipcMain.handle(IPC_CHANNELS.window.minimize, (_event, args) => handleWindowMinimize(args));
+  registerAuthorizedWindowHandler(
+    ipcMain,
+    window,
+    IPC_CHANNELS.window.minimize,
+    handleWindowMinimize
+  );
 
   // mdxpad:window:maximize - Toggle maximize/restore
-  ipcMain.handle(IPC_CHANNELS.window.maximize, (_event, args) => handleWindowMaximize(args));
+  registerAuthorizedWindowHandler(
+    ipcMain,
+    window,
+    IPC_CHANNELS.window.maximize,
+    handleWindowMaximize
+  );
 }

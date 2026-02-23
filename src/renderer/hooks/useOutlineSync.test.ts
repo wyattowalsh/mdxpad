@@ -149,6 +149,19 @@ describe('useOutlineSync', () => {
 
       expect(headingsCount2).toBeGreaterThan(headingsCount1);
     });
+
+    it('should clear outline when preview transitions to error', () => {
+      const ast = createOutlineAST([{ depth: 1, text: 'Heading 1', line: 1 }]);
+      setPreviewSuccess(ast);
+
+      const { rerender } = renderHook(() => useOutlineSync());
+      expect(getHeadingsItems().length).toBeGreaterThan(0);
+
+      usePreviewStore.getState().setError([{ message: 'Compile failed' }]);
+      rerender();
+
+      expect(getHeadingsItems()).toEqual([]);
+    });
   });
 
   describe('combined compilation and AST sync', () => {

@@ -373,7 +373,11 @@ test.describe('Template Browser E2E', () => {
 
         await expect(searchInput).toBeVisible();
         await searchInput.fill(searchTerm);
-        await page.waitForTimeout(150);
+
+        // Wait for search filtering to take effect by polling for card count change
+        await expect
+          .poll(async () => cards.count(), { timeout: 2000 })
+          .toBeLessThanOrEqual(initialCardCount);
 
         const filteredCount = await cards.count();
         expect(filteredCount).toBeLessThanOrEqual(initialCardCount);

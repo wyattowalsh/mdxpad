@@ -23,6 +23,44 @@ let electronApp: ElectronApplication;
 let page: Page;
 let userDataDir: string | null = null;
 
+const PALETTE_SELECTOR = '[data-testid="command-palette"]';
+
+/** Opens the command palette and waits for it to appear. */
+async function openPalette(target: Page): Promise<void> {
+  await target.keyboard.press('Meta+Shift+p');
+  await target.waitForSelector(PALETTE_SELECTOR);
+}
+
+/** Closes the command palette and waits for it to disappear. */
+async function closePalette(target: Page): Promise<void> {
+  await target.keyboard.press('Escape');
+  await expect
+    .poll(async () => {
+      return await target.evaluate((sel) => document.querySelector(sel) === null, PALETTE_SELECTOR);
+    })
+    .toBe(true);
+}
+
+/** Waits for command items to appear in the palette after typing. */
+async function waitForCommandItems(target: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      return await target.evaluate(() => {
+        return document.querySelectorAll('[data-testid="command-item"], [role="option"]').length;
+      });
+    })
+    .toBeGreaterThan(0);
+}
+
+/** Waits for the palette to close after executing a command. */
+async function waitForPaletteClosed(target: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      return await target.evaluate((sel) => document.querySelector(sel) === null, PALETTE_SELECTOR);
+    })
+    .toBe(true);
+}
+
 test.beforeAll(async () => {
   const launched = await launchMdxpad({ userDataDirSuffix: 'command-palette' });
   electronApp = launched.app;
@@ -41,54 +79,40 @@ test.afterAll(async () => {
 test.describe('Command Palette E2E', () => {
   test.describe('FR-005: Opening Command Palette', () => {
     test('Cmd+Shift+P should open command palette', async () => {
-      // Press Cmd+Shift+P to open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Look for command palette elements
-      const paletteVisible = await page.evaluate(() => {
-        const palette = document.querySelector('[data-testid="command-palette"]');
-        return palette !== null;
-      });
+      const paletteVisible = await page.evaluate(
+        (sel) => document.querySelector(sel) !== null,
+        PALETTE_SELECTOR
+      );
 
-      // Close palette for next test
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(paletteVisible).toBe(true);
     });
 
     test('Escape should close command palette', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Verify it's open
-      const openBefore = await page.evaluate(() => {
-        const palette = document.querySelector('[data-testid="command-palette"]');
-        return palette !== null;
-      });
+      const openBefore = await page.evaluate(
+        (sel) => document.querySelector(sel) !== null,
+        PALETTE_SELECTOR
+      );
 
-      // Close with Escape
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
-      // Verify it's closed
-      const openAfter = await page.evaluate(() => {
-        const palette = document.querySelector('[data-testid="command-palette"]');
-        return palette !== null;
-      });
+      const openAfter = await page.evaluate(
+        (sel) => document.querySelector(sel) !== null,
+        PALETTE_SELECTOR
+      );
 
       expect(openBefore).toBe(true);
       expect(openAfter).toBe(false);
     });
 
     test('clicking outside should close command palette', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Click outside palette (on the overlay backdrop)
       const clicked = await page.evaluate(() => {
         const overlay =
           document.querySelector('[data-testid="command-palette-backdrop"]') ??
@@ -102,12 +126,12 @@ test.describe('Command Palette E2E', () => {
       });
 
       if (clicked) {
-        await page.waitForTimeout(100);
+        await waitForPaletteClosed(page);
 
-        const openAfter = await page.evaluate(() => {
-          const palette = document.querySelector('[data-testid="command-palette"]');
-          return palette !== null;
-        });
+        const openAfter = await page.evaluate(
+          (sel) => document.querySelector(sel) !== null,
+          PALETTE_SELECTOR
+        );
 
         expect(openAfter).toBe(false);
       }
@@ -116,37 +140,27 @@ test.describe('Command Palette E2E', () => {
 
   test.describe('FR-006: Command Search', () => {
     test('should filter commands as user types', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Type search query
       await page.keyboard.type('bold');
-      await page.waitForTimeout(100);
+      await waitForCommandItems(page);
 
-      // Check if filtered results appear
       const hasFilteredResults = await page.evaluate(() => {
         const items = document.querySelectorAll('[data-testid="command-item"], [role="option"]');
         return items.length > 0;
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(hasFilteredResults).toBe(true);
     });
 
     test('search should be case-insensitive', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Type uppercase search query
       await page.keyboard.type('BOLD');
-      await page.waitForTimeout(100);
+      await waitForCommandItems(page);
 
-      // Should still find "Bold" command
       const foundCommand = await page.evaluate(() => {
         const items = document.querySelectorAll('[data-testid="command-item"], [role="option"]');
         for (const item of items) {
@@ -157,32 +171,35 @@ test.describe('Command Palette E2E', () => {
         return false;
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(foundCommand).toBe(true);
     });
 
     test('should show "No commands found" for unmatched search', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Type gibberish search query
       await page.keyboard.type('xyznonexistent123');
-      await page.waitForTimeout(100);
 
-      // Check for empty state message
+      // Wait for the empty state to appear
+      await expect
+        .poll(async () => {
+          return await page.evaluate(() => {
+            const text = document.body.innerText.toLowerCase();
+            return text.includes('no commands') || text.includes('no results');
+          });
+        })
+        .toBe(true);
+
       const hasEmptyState = await page.evaluate(() => {
         const emptyText = document.body.innerText;
-        return emptyText.toLowerCase().includes('no commands') ||
-               emptyText.toLowerCase().includes('no results');
+        return (
+          emptyText.toLowerCase().includes('no commands') ||
+          emptyText.toLowerCase().includes('no results')
+        );
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(hasEmptyState).toBe(true);
     });
@@ -190,63 +207,62 @@ test.describe('Command Palette E2E', () => {
 
   test.describe('FR-007: Keyboard Navigation', () => {
     test('arrow keys should navigate command list', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Get initial selected item
       const initialSelected = await page.evaluate(() => {
-        const selected = document.querySelector('[aria-selected="true"]') ??
-                        document.querySelector('[data-selected]') ??
-                        document.querySelector('.selected');
+        const selected =
+          document.querySelector('[aria-selected="true"]') ??
+          document.querySelector('[data-selected]') ??
+          document.querySelector('.selected');
         return selected?.textContent ?? '';
       });
 
-      // Press down arrow
       await page.keyboard.press('ArrowDown');
-      await page.waitForTimeout(50);
 
-      // Get new selected item
+      // Wait for selection state to potentially update
+      await expect
+        .poll(async () => {
+          return await page.evaluate(() => {
+            const selected =
+              document.querySelector('[aria-selected="true"]') ??
+              document.querySelector('[data-selected]') ??
+              document.querySelector('.selected');
+            return selected?.textContent ?? '';
+          });
+        })
+        .toBeTruthy();
+
       const afterDown = await page.evaluate(() => {
-        const selected = document.querySelector('[aria-selected="true"]') ??
-                        document.querySelector('[data-selected]') ??
-                        document.querySelector('.selected');
+        const selected =
+          document.querySelector('[aria-selected="true"]') ??
+          document.querySelector('[data-selected]') ??
+          document.querySelector('.selected');
         return selected?.textContent ?? '';
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
-      // Selection should have changed (or stayed if at bottom)
-      // We can't strictly assert they're different since first item might be selected
       expect(typeof afterDown).toBe('string');
     });
 
     test('Enter should execute selected command', async () => {
-      // Set up detection for command execution
       await page.evaluate(() => {
         (window as any).__commandExecuted = false;
         (window as any).__executedCommandId = null;
       });
 
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Type to filter to a specific command
       await page.keyboard.type('toggle preview');
-      await page.waitForTimeout(100);
+      await waitForCommandItems(page);
 
-      // Press Enter to execute
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(200);
+      await waitForPaletteClosed(page);
 
-      // Palette should close after execution
-      const paletteOpen = await page.evaluate(() => {
-        const palette = document.querySelector('[data-testid="command-palette"]');
-        return palette !== null;
-      });
+      const paletteOpen = await page.evaluate(
+        (sel) => document.querySelector(sel) !== null,
+        PALETTE_SELECTOR
+      );
 
       expect(paletteOpen).toBe(false);
     });
@@ -254,23 +270,18 @@ test.describe('Command Palette E2E', () => {
 
   test.describe('FR-008: Command Execution', () => {
     test('should execute view commands from palette', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Search for zoom command
       await page.keyboard.type('zoom in');
-      await page.waitForTimeout(100);
+      await waitForCommandItems(page);
 
-      // Execute
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(200);
+      await waitForPaletteClosed(page);
 
-      // Command should have executed (palette closes)
-      const paletteOpen = await page.evaluate(() => {
-        const palette = document.querySelector('[data-testid="command-palette"]');
-        return palette !== null;
-      });
+      const paletteOpen = await page.evaluate(
+        (sel) => document.querySelector(sel) !== null,
+        PALETTE_SELECTOR
+      );
 
       expect(paletteOpen).toBe(false);
     });
@@ -286,26 +297,21 @@ test.describe('Command Palette E2E', () => {
   test.describe('FR-009: Recent Commands', () => {
     test('recently executed commands should appear in list', async () => {
       // Execute a command first
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
       await page.keyboard.type('toggle preview');
-      await page.waitForTimeout(100);
+      await waitForCommandItems(page);
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(200);
+      await waitForPaletteClosed(page);
 
       // Reopen palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Check for recent commands section or the executed command at top
       const hasRecentSection = await page.evaluate(() => {
         const text = document.body.innerText.toLowerCase();
         return text.includes('recent') || text.includes('toggle preview');
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(hasRecentSection).toBe(true);
     });
@@ -313,28 +319,23 @@ test.describe('Command Palette E2E', () => {
 
   test.describe('Shortcut Display', () => {
     test('commands should display their keyboard shortcuts', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Search for a command with a known shortcut
       await page.keyboard.type('bold');
-      await page.waitForTimeout(100);
+      await waitForCommandItems(page);
 
-      // Check if shortcut is displayed (e.g., "⌘B" or "Ctrl+B")
       const hasShortcut = await page.evaluate(() => {
         const text = document.body.innerText;
-        // Look for common shortcut patterns
-        return text.includes('⌘') ||
-               text.includes('Ctrl') ||
-               text.includes('Cmd') ||
-               text.includes('+B') ||
-               text.includes('⌘B');
+        return (
+          text.includes('\u2318') ||
+          text.includes('Ctrl') ||
+          text.includes('Cmd') ||
+          text.includes('+B') ||
+          text.includes('\u2318B')
+        );
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(hasShortcut).toBe(true);
     });
@@ -342,22 +343,14 @@ test.describe('Command Palette E2E', () => {
 
   test.describe('Category Grouping', () => {
     test('commands should be grouped by category', async () => {
-      // Open palette
-      await page.keyboard.press('Meta+Shift+p');
-      await page.waitForTimeout(100);
+      await openPalette(page);
 
-      // Check for category headers
       const hasCategories = await page.evaluate(() => {
         const text = document.body.innerText.toLowerCase();
-        // Check for common category names
-        return text.includes('edit') ||
-               text.includes('view') ||
-               text.includes('file');
+        return text.includes('edit') || text.includes('view') || text.includes('file');
       });
 
-      // Close palette
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(100);
+      await closePalette(page);
 
       expect(hasCategories).toBe(true);
     });
@@ -429,11 +422,8 @@ test.describe('Menu Integration', () => {
 
 test.describe('Accessibility', () => {
   test('command palette should have proper ARIA attributes', async () => {
-    // Open palette
-    await page.keyboard.press('Meta+Shift+p');
-    await page.waitForTimeout(100);
+    await openPalette(page);
 
-    // Check for ARIA attributes
     const hasAriaAttributes = await page.evaluate(() => {
       const dialog = document.querySelector('[data-testid="command-palette"]');
       const listbox = document.querySelector('[data-testid="command-list"]');
@@ -446,35 +436,26 @@ test.describe('Accessibility', () => {
       };
     });
 
-    // Close palette
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(100);
+    await closePalette(page);
 
-    // At minimum, should have a dialog or search input
     expect(hasAriaAttributes.hasDialog || hasAriaAttributes.hasSearchInput).toBe(true);
   });
 
   test('focus should be trapped within command palette', async () => {
-    // Open palette
-    await page.keyboard.press('Meta+Shift+p');
-    await page.waitForTimeout(100);
+    await openPalette(page);
 
-    // Check if focus is within the palette
     const focusInPalette = await page.evaluate(() => {
       const activeElement = document.activeElement;
       const palette = document.querySelector('[data-testid="command-palette"]');
 
       if (!palette) {
-        // Try to find input that might be focused
         return activeElement?.getAttribute('data-testid') === 'command-palette-input';
       }
 
       return palette.contains(activeElement);
     });
 
-    // Close palette
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(100);
+    await closePalette(page);
 
     expect(focusInPalette).toBe(true);
   });

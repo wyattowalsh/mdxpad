@@ -10,6 +10,7 @@
 
 import type {
   ProviderConfig,
+  ProviderType,
   ConnectionStatus,
 } from '../../../shared/ai/types';
 
@@ -40,6 +41,39 @@ export interface ProviderValidationResult {
 // =============================================================================
 
 const VALIDATION_TIMEOUT_MS = 10_000;
+const HTTP_PROTOCOL = 'http:';
+const HTTPS_PROTOCOL = 'https:';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+export const OPENAI_CANONICAL_BASE_URL = 'https://api.openai.com';
+
+/**
+ * Resolves a trusted base URL for a provider type.
+ * - OpenAI providers are pinned to the canonical OpenAI host and ignore overrides.
+ * - OpenAI-compatible providers enforce endpoint trust policy.
+ * - Other providers pass through normalized URLs.
+ */
+export function resolveTrustedProviderBaseUrl(
+  type: ProviderType,
+  baseUrl?: string
+): string | undefined {
+  if (type === 'openai') {
+    return undefined;
+  }
+
+  if (!baseUrl) {
+    return undefined;
+  }
+
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  if (type === 'openai-compatible') {
+    const validation = validateOpenAICompatibleBaseUrl(normalizedBaseUrl);
+    if (!validation.valid) {
+      throw new Error(validation.message);
+    }
+  }
+
+  return normalizedBaseUrl;
+}
 
 // =============================================================================
 // VALIDATION DISPATCH
@@ -84,7 +118,7 @@ async function validateOpenAI(apiKey: string | null): Promise<ProviderValidation
     return createMissingKeyResult();
   }
 
-  const response = await fetchWithTimeout('https://api.openai.com/v1/models', {
+  const response = await fetchWithTimeout(`${OPENAI_CANONICAL_BASE_URL}/v1/models`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
   });
@@ -158,12 +192,24 @@ async function validateOpenAICompatible(
     return createMissingUrlResult();
   }
 
+  let trustedBaseUrl: string;
+  try {
+    trustedBaseUrl = resolveTrustedProviderBaseUrl('openai-compatible', baseUrl) ?? '';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid base URL';
+    return {
+      valid: false,
+      status: 'error',
+      error: { code: 'INVALID_BASE_URL', message },
+    };
+  }
+
   const headers: Record<string, string> = {};
   if (apiKey) {
     headers.Authorization = `Bearer ${apiKey}`;
   }
 
-  const response = await fetchWithTimeout(`${baseUrl}/v1/models`, {
+  const response = await fetchWithTimeout(`${trustedBaseUrl}/v1/models`, {
     method: 'GET',
     headers,
   });
@@ -277,6 +323,121 @@ export function createErrorResult(error: unknown): ProviderValidationResult {
 
   const message = error instanceof Error ? error.message : String(error);
   return { valid: false, status: 'error', error: { code: 'UNKNOWN_ERROR', message } };
+}
+
+type BaseUrlValidationResult = { valid: true } | { valid: false; message: string };
+
+function validateOpenAICompatibleBaseUrl(baseUrl: string): BaseUrlValidationResult {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(baseUrl);
+  } catch {
+    return { valid: false, message: 'Base URL must be a valid URL' };
+  }
+
+  if (parsedUrl.protocol !== HTTP_PROTOCOL && parsedUrl.protocol !== HTTPS_PROTOCOL) {
+    return { valid: false, message: 'Base URL must use HTTP or HTTPS' };
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase().replace(/\.$/, '');
+  if (!hostname) {
+    return { valid: false, message: 'Base URL hostname is required' };
+  }
+
+  const isLoopbackHost = LOOPBACK_HOSTS.has(hostname);
+  const isPrivateHost =
+    isPrivateIPv4Host(hostname) || isPrivateIPv6Host(hostname) || isPrivateHostname(hostname);
+
+  if ((isLoopbackHost || isPrivateHost) && !(isLoopbackHost && isLocalDevelopmentOptInEnabled())) {
+    return {
+      valid: false,
+      message:
+        'Local and private network base URLs are blocked for OpenAI-compatible providers',
+    };
+  }
+
+  if (parsedUrl.protocol !== HTTPS_PROTOCOL && !isLoopbackHost) {
+    return { valid: false, message: 'HTTPS is required for non-local OpenAI-compatible base URLs' };
+  }
+
+  return { valid: true };
+}
+
+function isLocalDevelopmentOptInEnabled(): boolean {
+  if (process.env.NODE_ENV !== 'development') {
+    return false;
+  }
+
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (!rendererUrl) {
+    return false;
+  }
+
+  try {
+    const parsedRendererUrl = new URL(rendererUrl);
+    return (
+      parsedRendererUrl.protocol === HTTP_PROTOCOL &&
+      (parsedRendererUrl.hostname === 'localhost' || parsedRendererUrl.hostname === '127.0.0.1')
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isPrivateHostname(hostname: string): boolean {
+  return !hostname.includes('.') || hostname.endsWith('.local') || hostname.endsWith('.internal');
+}
+
+function isPrivateIPv4Host(hostname: string): boolean {
+  const ipv4 = parseIPv4(hostname);
+  if (!ipv4) {
+    return false;
+  }
+
+  const [a, b] = ipv4;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a === 0 ||
+    a >= 224
+  );
+}
+
+function parseIPv4(hostname: string): [number, number, number, number] | null {
+  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+    return null;
+  }
+
+  const octets = hostname.split('.').map((part) => Number(part));
+  if (!octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)) {
+    return null;
+  }
+
+  if (octets.length !== 4) {
+    return null;
+  }
+
+  const [a, b, c, d] = octets as [number, number, number, number];
+  return [a, b, c, d];
+}
+
+function isPrivateIPv6Host(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === '::1' ||
+    normalized.startsWith('fc') ||
+    normalized.startsWith('fd') ||
+    /^fe[89ab]/.test(normalized)
+  );
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '');
 }
 
 // =============================================================================

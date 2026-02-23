@@ -188,8 +188,14 @@ test.describe('File Operations E2E', () => {
       // Simulate accelerator pathway: File menu event routed to renderer command execution.
       await dispatchMenuAcceleratorEvent('mdxpad:menu:open-file-dialog');
 
-      // Small delay for event propagation
-      await page.waitForTimeout(100);
+      // Wait for event propagation by polling for the expected state
+      await expect
+        .poll(async () => {
+          return await electronApp.evaluate(() => {
+            return (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled === true;
+          });
+        })
+        .toBe(true);
 
       // Check if native dialog handler was invoked
       const wasCalled = await electronApp.evaluate(() => {
@@ -244,7 +250,20 @@ test.describe('File Operations E2E', () => {
 
       // Simulate accelerator pathway: File menu event routed to renderer command execution.
       await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file');
-      await page.waitForTimeout(100);
+
+      // Wait briefly for IPC event propagation, then check state.
+      // For a clean untitled doc, the save dialog should NOT be triggered,
+      // so we poll a few times to confirm it stays false.
+      await expect
+        .poll(
+          async () => {
+            return await electronApp.evaluate(() => {
+              return (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled === true;
+            });
+          },
+          { timeout: 1000, intervals: [100, 200, 300] }
+        )
+        .toBe(false);
 
       const wasCalled = await electronApp.evaluate(() => {
         return (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled === true;
@@ -294,7 +313,15 @@ test.describe('File Operations E2E', () => {
 
       // Simulate accelerator pathway: File menu event routed to renderer command execution.
       await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file-as');
-      await page.waitForTimeout(100);
+
+      // Wait for event propagation by polling for the expected state
+      await expect
+        .poll(async () => {
+          return await electronApp.evaluate(() => {
+            return (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled === true;
+          });
+        })
+        .toBe(true);
 
       const wasCalled = await electronApp.evaluate(() => {
         return (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled === true;
@@ -329,7 +356,9 @@ test.describe('File Operations E2E', () => {
 
       // Simulate accelerator pathway: File menu event routed to renderer command execution.
       await dispatchMenuAcceleratorEvent('mdxpad:menu:new-file');
-      await page.waitForTimeout(100);
+
+      // Wait for IPC event propagation by waiting for status bar to remain visible
+      await expect(page.locator('[data-testid="status-bar"]')).toBeVisible();
 
       // Verify new document behavior
       // The specific assertions depend on how the app handles Cmd+N
@@ -339,17 +368,6 @@ test.describe('File Operations E2E', () => {
       // - Dirty state is false
     });
 
-    test('new document should have "Untitled" as name', async () => {
-      // This tests the FileHandle creation for new documents
-      const mockNewFileHandle = {
-        id: 'test-id',
-        path: null, // null indicates untitled
-        name: 'Untitled',
-      };
-
-      expect(mockNewFileHandle.path).toBeNull();
-      expect(mockNewFileHandle.name).toBe('Untitled');
-    });
   });
 
   test.describe('US5: Close with Unsaved Changes', () => {
@@ -360,42 +378,6 @@ test.describe('File Operations E2E', () => {
       expect(hasCloseWindow).toBe(true);
     });
 
-    test('closing with dirty document should show confirmation dialog', async () => {
-      // This test verifies the dirty state detection and dialog flow
-      // In a real scenario, we would:
-      // 1. Make changes to create dirty state
-      // 2. Attempt to close
-      // 3. Verify dialog appears
-
-      await page.evaluate(() => {
-        (window as any).__closeWindowCalled = false;
-        const original = (window as any).mdxpad.closeWindow;
-        (window as any).mdxpad.closeWindow = async () => {
-          (window as any).__closeWindowCalled = true;
-          // Dialog would be shown by main process
-        };
-        (window as any).__originalCloseWindow = original;
-      });
-
-      // The actual close behavior is handled by Electron's window manager
-      // with the 'close' event handler in main process
-    });
-
-    test('dialog should have Save, Discard, and Cancel options', async () => {
-      // Verify dialog configuration matches spec
-      const expectedButtons = ['Save', 'Discard', 'Cancel'];
-      expect(expectedButtons).toHaveLength(3);
-      expect(expectedButtons[0]).toBe('Save');
-      expect(expectedButtons[1]).toBe('Discard');
-      expect(expectedButtons[2]).toBe('Cancel');
-    });
-
-    test('clean document should close without dialog', async () => {
-      // When there are no unsaved changes, close should proceed directly
-      const mockDirtyState = false;
-      expect(mockDirtyState).toBe(false);
-      // Window would close immediately without showing dialog
-    });
   });
 
   test.describe('US6: External File Change Detection', () => {
@@ -489,30 +471,6 @@ test.describe('File Operations E2E', () => {
       expect(menuExists).toBe(true);
     });
 
-    test('recent files list should have maximum 10 entries', async () => {
-      // Verify the RecentFilesService constraint
-      const MAX_RECENT_FILES = 10;
-      expect(MAX_RECENT_FILES).toBe(10);
-    });
-
-    test('selecting recent file should open it', async () => {
-      // This would test clicking a menu item and verifying file opens
-      // Implementation depends on how the menu is constructed
-    });
-
-    test('missing recent file should show error and be removed', async () => {
-      // When a file in the recent list no longer exists:
-      // 1. Show user-friendly error
-      // 2. Remove from recent files list
-
-      const mockMissingFileError = {
-        ok: false,
-        error: { code: 'NOT_FOUND', path: '/path/to/deleted/file.mdx' },
-      };
-
-      expect(mockMissingFileError.ok).toBe(false);
-      expect(mockMissingFileError.error.code).toBe('NOT_FOUND');
-    });
   });
 
   test.describe('Error Handling', () => {

@@ -6,7 +6,7 @@
  * @module autosave-handlers
  */
 
-import type { IpcMain } from 'electron';
+import type { IpcMain, BrowserWindow } from 'electron';
 
 import {
   AutosaveChannels,
@@ -33,6 +33,7 @@ import { createValidatedHandler } from '@shared/contracts/file-schemas';
 import type { AutosaveService } from '@main/services/autosave-service';
 import type { RecoveryService } from '@main/services/recovery-service';
 import type { AutosaveSettingsService } from '@main/services/autosave-settings';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 /**
  * Services container for dependency injection.
@@ -181,10 +182,112 @@ function createConflictHandler() {
  *
  * @param ipcMainInstance - The Electron IpcMain instance
  * @param services - Service container with required dependencies
+ * @param window - BrowserWindow used for sender/frame authorization
  */
+function registerAuthorizedHandler(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow,
+  channel: string,
+  handler: (args: unknown) => Promise<unknown>
+): void {
+  ipcMainInstance.handle(channel, (event, args) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(args);
+  });
+}
+
+function registerRecoveryChannels(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow,
+  recoveryHandlers: ReturnType<typeof createRecoveryHandlers>
+): void {
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.RECOVERY_CHECK,
+    () => recoveryHandlers.handleRecoveryCheck(undefined)
+  );
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.RECOVERY_LIST,
+    () => recoveryHandlers.handleRecoveryList(undefined)
+  );
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.RECOVERY_PREVIEW,
+    (args) => recoveryHandlers.handleRecoveryPreview(args)
+  );
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.RECOVERY_RESTORE,
+    (args) => recoveryHandlers.handleRecoveryRestore(args)
+  );
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.RECOVERY_DISCARD,
+    (args) => recoveryHandlers.handleRecoveryDiscard(args)
+  );
+}
+
+function registerAutosaveChannels(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow,
+  autosaveHandlers: ReturnType<typeof createAutosaveHandlers>
+): void {
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.AUTOSAVE_TRIGGER,
+    (args) => autosaveHandlers.handleAutosaveTrigger(args)
+  );
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.AUTOSAVE_STATUS,
+    () => autosaveHandlers.handleAutosaveStatus(undefined)
+  );
+}
+
+function registerSettingsChannels(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow,
+  settingsHandlers: ReturnType<typeof createSettingsHandlers>
+): void {
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.SETTINGS_GET,
+    () => settingsHandlers.handleSettingsGet(undefined)
+  );
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.SETTINGS_SET,
+    (args) => settingsHandlers.handleSettingsSet(args)
+  );
+}
+
+function registerConflictChannel(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow,
+  conflictHandler: ReturnType<typeof createConflictHandler>
+): void {
+  registerAuthorizedHandler(
+    ipcMainInstance,
+    window,
+    AutosaveChannels.CONFLICT_RESOLVE,
+    (args) => conflictHandler.handleConflictResolve(args)
+  );
+}
+
 export function registerAutosaveHandlers(
   ipcMainInstance: IpcMain,
-  services: AutosaveHandlerServices
+  services: AutosaveHandlerServices,
+  window: BrowserWindow
 ): void {
   // Create handlers with injected services
   const recoveryHandlers = createRecoveryHandlers(services);
@@ -192,23 +295,10 @@ export function registerAutosaveHandlers(
   const settingsHandlers = createSettingsHandlers(services);
   const conflictHandler = createConflictHandler();
 
-  // Recovery handlers
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_CHECK, () => recoveryHandlers.handleRecoveryCheck(undefined));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_LIST, () => recoveryHandlers.handleRecoveryList(undefined));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_PREVIEW, (_, args) => recoveryHandlers.handleRecoveryPreview(args));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_RESTORE, (_, args) => recoveryHandlers.handleRecoveryRestore(args));
-  ipcMainInstance.handle(AutosaveChannels.RECOVERY_DISCARD, (_, args) => recoveryHandlers.handleRecoveryDiscard(args));
-
-  // Autosave handlers
-  ipcMainInstance.handle(AutosaveChannels.AUTOSAVE_TRIGGER, (_, args) => autosaveHandlers.handleAutosaveTrigger(args));
-  ipcMainInstance.handle(AutosaveChannels.AUTOSAVE_STATUS, () => autosaveHandlers.handleAutosaveStatus(undefined));
-
-  // Settings handlers
-  ipcMainInstance.handle(AutosaveChannels.SETTINGS_GET, () => settingsHandlers.handleSettingsGet(undefined));
-  ipcMainInstance.handle(AutosaveChannels.SETTINGS_SET, (_, args) => settingsHandlers.handleSettingsSet(args));
-
-  // Conflict resolution handler
-  ipcMainInstance.handle(AutosaveChannels.CONFLICT_RESOLVE, (_, args) => conflictHandler.handleConflictResolve(args));
+  registerRecoveryChannels(ipcMainInstance, window, recoveryHandlers);
+  registerAutosaveChannels(ipcMainInstance, window, autosaveHandlers);
+  registerSettingsChannels(ipcMainInstance, window, settingsHandlers);
+  registerConflictChannel(ipcMainInstance, window, conflictHandler);
 
   console.log('[AutosaveHandlers] All autosave and recovery handlers registered');
 }

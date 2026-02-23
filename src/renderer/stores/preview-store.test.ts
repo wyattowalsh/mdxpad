@@ -295,6 +295,14 @@ describe('selectors', () => {
       usePreviewStore.getState().setSuccess(result);
       expect(selectOutlineAST(usePreviewStore.getState())).toBe(result.outline);
     });
+
+    it('should return null when state is error even with cached success', () => {
+      const result = createMockSuccess();
+      usePreviewStore.getState().setSuccess(result);
+      usePreviewStore.getState().setError([createMockError()]);
+
+      expect(selectOutlineAST(usePreviewStore.getState())).toBeNull();
+    });
   });
 
   describe('selectIsStale', () => {

@@ -17,6 +17,7 @@ import type {
   FrontmatterData,
   SourcePosition,
 } from '@shared/types/outline';
+import { parseFrontmatterYaml } from './frontmatter-yaml-parser';
 
 /**
  * MDX JSX node type (flow or text).
@@ -94,70 +95,6 @@ function isYamlNode(node: unknown): node is YamlNode {
 }
 
 /**
- * Parse YAML frontmatter content.
- * Uses simple key-value parsing for common cases.
- *
- * @param yaml - YAML string content
- * @returns Parsed key-value pairs
- */
-function parseYamlContent(yaml: string): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  const lines = yaml.split('\n');
-  let currentKey: string | null = null;
-  let currentArray: string[] | null = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // Check for array item
-    if (trimmed.startsWith('- ') && currentKey && currentArray) {
-      currentArray.push(trimmed.slice(2).trim());
-      result[currentKey] = currentArray;
-      continue;
-    }
-
-    // Check for key-value pair
-    const colonIndex = trimmed.indexOf(':');
-    if (colonIndex > 0) {
-      // Save previous array if any
-      if (currentKey && currentArray) {
-        result[currentKey] = currentArray;
-      }
-
-      const key = trimmed.slice(0, colonIndex).trim();
-      const value = trimmed.slice(colonIndex + 1).trim();
-
-      if (value === '' || value === '|' || value === '>') {
-        // Start of array or multiline value
-        currentKey = key;
-        currentArray = [];
-      } else {
-        // Simple key-value
-        currentKey = null;
-        currentArray = null;
-
-        // Parse value type
-        if (value === 'true') {
-          result[key] = true;
-        } else if (value === 'false') {
-          result[key] = false;
-        } else if (/^-?\d+$/.test(value)) {
-          result[key] = parseInt(value, 10);
-        } else if (/^-?\d+\.\d+$/.test(value)) {
-          result[key] = parseFloat(value);
-        } else {
-          // String value - strip quotes if present
-          result[key] = value.replace(/^["']|["']$/g, '');
-        }
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
  * Extract outline data from an MDAST tree.
  *
  * Traverses the tree to collect:
@@ -221,7 +158,7 @@ export function extractOutline(
     // Extract YAML frontmatter
     if (isYamlNode(node)) {
       const yamlNode = node;
-      const parsedData = parseYamlContent(yamlNode.value);
+      const parsedData = parseFrontmatterYaml(yamlNode.value);
       frontmatterEndLine = yamlNode.position?.end.line ?? 0;
 
       frontmatter = {

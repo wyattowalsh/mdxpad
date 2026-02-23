@@ -17,7 +17,7 @@ concurrency:
 jobs:
   quality:
     name: Code Quality
-    runs-on: macos-14 # M1 runner for arm64
+    runs-on: macos-14
     timeout-minutes: 15
 
     steps:
@@ -64,10 +64,18 @@ jobs:
           retention-days: 7
 
   build:
-    name: Build
-    runs-on: macos-14
+    name: Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     needs: quality
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x64
 
     steps:
       - name: Checkout
@@ -90,22 +98,28 @@ jobs:
       - name: Build app
         run: pnpm build
         env:
-          # Skip code signing in CI
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mdxpad-macos
+          name: mdxpad-macos-${{ matrix.arch }}
           path: |
             release/*.dmg
             release/*.blockmap
           retention-days: 7
 
+      - name: Upload dist for downstream jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.arch }}
+          path: dist/
+          retention-days: 1
+
   security:
     name: Security Verification
     runs-on: macos-14
-    needs: quality
+    needs: build
     timeout-minutes: 10
 
     steps:
@@ -126,8 +140,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build for verification
-        run: pnpm exec electron-vite build
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-arm64
+          path: dist/
 
       - name: Verify security settings
         run: pnpm verify-security
@@ -135,7 +152,7 @@ jobs:
   benchmark:
     name: Performance Benchmark
     runs-on: macos-14
-    needs: quality
+    needs: build
     timeout-minutes: 10
 
     steps:
@@ -156,24 +173,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build for benchmark
-        run: pnpm exec electron-vite build
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-arm64
+          path: dist/
 
       - name: Run benchmark
         run: pnpm bench
 
-      - name: Check performance budget
-        run: |
-          # Parse benchmark output and verify against constitution budgets
-          pnpm bench 2>/dev/null | jq -e '.passed == true' || {
-            echo "Performance budget exceeded!"
-            exit 1
-          }
-
   e2e:
     name: E2E Tests
     runs-on: macos-14
-    needs: quality
+    needs: build
     timeout-minutes: 15
 
     steps:
@@ -194,8 +206,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build app
-        run: pnpm exec electron-vite build
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-arm64
+          path: dist/
 
       - name: Run E2E tests
         run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

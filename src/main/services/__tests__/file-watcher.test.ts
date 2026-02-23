@@ -44,8 +44,10 @@ import { FileWatcher } from '../file-watcher';
 
 function createMockBrowserWindow(): BrowserWindow {
   return {
+    isDestroyed: vi.fn(() => false),
     webContents: {
       send: vi.fn(),
+      isDestroyed: vi.fn(() => false),
     },
   } as unknown as BrowserWindow;
 }
@@ -123,6 +125,15 @@ describe('FileWatcher', () => {
       watcher.watch(fileId, filePath);
 
       expect(mockWatcherInstance.on).toHaveBeenCalledWith('unlink', expect.any(Function));
+    });
+
+    it('should register error event handler', () => {
+      const fileId = 'test-file-id' as FileId;
+      const filePath = '/test/document.mdx';
+
+      watcher.watch(fileId, filePath);
+
+      expect(mockWatcherInstance.on).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
     it('should not create duplicate watcher for same file', () => {
@@ -324,6 +335,7 @@ describe('FileWatcher', () => {
     });
 
     it('should handle close errors gracefully', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const fileId = 'test-file-id' as FileId;
       const filePath = '/test/document.mdx';
 
@@ -331,7 +343,12 @@ describe('FileWatcher', () => {
 
       mockWatcherInstance.close.mockRejectedValueOnce(new Error('Close failed'));
 
-      await expect(watcher.unwatch(fileId)).rejects.toThrow('Close failed');
+      await expect(watcher.unwatch(fileId)).resolves.toBeUndefined();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[FileWatcher] Failed to unwatch file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('should not emit events after unwatch', async () => {
@@ -351,9 +368,8 @@ describe('FileWatcher', () => {
       // Simulate change after unwatch (in practice, chokidar prevents this)
       changeHandler?.();
 
-      // Event should still be emitted, but fileId won't match any tracked file
-      // This is expected behavior - the handler is still registered until close completes
-      expect(mockWindow.webContents.send).toHaveBeenCalled();
+      // Ignore stale events after file is no longer tracked
+      expect(mockWindow.webContents.send).not.toHaveBeenCalled();
     });
   });
 
@@ -393,6 +409,7 @@ describe('FileWatcher', () => {
     });
 
     it('should handle partial close failures', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const fileId1 = 'file-1' as FileId;
       const fileId2 = 'file-2' as FileId;
 
@@ -407,10 +424,16 @@ describe('FileWatcher', () => {
         }
       });
 
-      await expect(watcher.close()).rejects.toThrow();
+      await expect(watcher.close()).resolves.toBeUndefined();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[FileWatcher] Failed to close watcher:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('should close all watchers even if some fail', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const fileId1 = 'file-1' as FileId;
       const fileId2 = 'file-2' as FileId;
       const fileId3 = 'file-3' as FileId;
@@ -427,10 +450,12 @@ describe('FileWatcher', () => {
         }
       });
 
-      await expect(watcher.close()).rejects.toThrow();
+      await expect(watcher.close()).resolves.toBeUndefined();
 
       // All close attempts should have been made
       expect(mockWatcherInstance.close).toHaveBeenCalledTimes(3);
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 
@@ -504,10 +529,12 @@ describe('FileWatcher', () => {
     it('should handle destroyed window gracefully', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const destroyedWindow = {
+        isDestroyed: vi.fn(() => false),
         webContents: {
           send: vi.fn(() => {
             throw new Error('WebContents destroyed');
           }),
+          isDestroyed: vi.fn(() => false),
         },
       } as unknown as BrowserWindow;
 
@@ -520,6 +547,26 @@ describe('FileWatcher', () => {
 
       expect(() => changeHandler?.()).not.toThrow();
       expect(consoleSpy).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle watcher error events without throwing', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const fileId = 'test-file-id' as FileId;
+      const filePath = '/test/document.mdx';
+
+      watcher.watch(fileId, filePath);
+
+      const errorHandler = mockWatcherInstance.on.mock.calls.find(
+        (call) => call[0] === 'error'
+      )?.[1];
+
+      expect(() => errorHandler?.(new Error('Watch failed'))).not.toThrow();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[FileWatcher] Watcher error:',
+        expect.any(Error)
+      );
 
       consoleSpy.mockRestore();
     });

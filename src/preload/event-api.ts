@@ -46,6 +46,9 @@ const menuSaveFileAsListeners = new Set<() => void>();
 /** Autosave settings change event listeners registry */
 const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => void>();
 
+/** Editor dirty-state query listeners (used by main-process close flow) */
+const editorDirtyCheckListeners = new Set<() => boolean>();
+
 // ============================================================================
 // Event Listeners Setup (One-Time Initialization)
 // ============================================================================
@@ -114,6 +117,24 @@ ipcRenderer.on('mdxpad:autosave:settings:changed', (_event, data: unknown) => {
   }
 });
 
+// Editor dirty-state query listener (main -> renderer -> main response)
+ipcRenderer.on(IPC_CHANNELS.editor.isDirty, () => {
+  let isDirty = false;
+
+  for (const listener of editorDirtyCheckListeners) {
+    try {
+      if (listener()) {
+        isDirty = true;
+        break;
+      }
+    } catch (error) {
+      console.warn('[Preload] Dirty check listener failed:', error);
+    }
+  }
+
+  ipcRenderer.send(IPC_CHANNELS.editor.isDirtyResponse, { isDirty });
+});
+
 // ============================================================================
 // Event Subscription API
 // ============================================================================
@@ -180,6 +201,14 @@ export const eventSubscriptions = {
     autosaveSettingsChangeListeners.add(callback);
     return () => {
       autosaveSettingsChangeListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to editor dirty-state checks from main process */
+  onEditorDirtyCheck: (callback: () => boolean) => {
+    editorDirtyCheckListeners.add(callback);
+    return () => {
+      editorDirtyCheckListeners.delete(callback);
     };
   },
 };

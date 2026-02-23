@@ -306,6 +306,24 @@ describe('AI Generation API', () => {
     });
   });
 
+  describe('cancelStream', () => {
+    it('should cancel stream by streamId', async () => {
+      vi.mocked(validatedInvoke).mockResolvedValue({
+        success: true,
+      });
+
+      const result = await aiApi.cancelStream('stream-123');
+
+      expect(validatedInvoke).toHaveBeenCalledWith(
+        AIChannels.CANCEL_STREAM,
+        expect.any(Object),
+        expect.any(Object),
+        { streamId: 'stream-123' }
+      );
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe('generateEmbed', () => {
     it('should generate embeddings', async () => {
       vi.mocked(validatedInvoke).mockResolvedValue({

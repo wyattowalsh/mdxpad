@@ -21,7 +21,7 @@ Before you begin:
 1. **Read the README**: Familiarize yourself with the project by reading [README.md](README.md)
 2. **Check existing issues**: Look for existing issues or discussions related to your contribution
 3. **Create an issue**: For significant changes, create an issue to discuss your approach before writing code
-4. **Review the constitution**: Check `docs/constitution/` for architectural principles and constraints
+4. **Review the architecture**: Check `AGENTS.md` and `docs/constitution/` for architectural principles and constraints
 
 ## Development Setup
 
@@ -78,7 +78,7 @@ MDXPad follows **Specification-Driven Development (SDD)**:
 1. **Specification Phase**
    - Write a detailed specification in `docs/specs/`
    - Include rationale, architecture, acceptance criteria
-   - Review against the constitution for consistency
+   - Review against `AGENTS.md` and `docs/constitution/` for consistency
    - Get feedback before implementation
 
 2. **Implementation Phase**
@@ -96,7 +96,7 @@ MDXPad follows **Specification-Driven Development (SDD)**:
 4. **Documentation Phase**
    - Update relevant documentation
    - Add JSDoc comments for public APIs
-   - Update CHANGELOG.md if applicable
+   - Update `CHANGELOG.md` if applicable
 
 ## Code Conventions
 
@@ -274,7 +274,7 @@ pnpm test:e2e
 
 ### Coverage Requirements
 
-- **Minimum**: 70% overall coverage
+- **Minimum**: 80% overall coverage
 - **Critical Paths**: 90%+ coverage for security and data integrity code
 - **UI Components**: Focus on behavior, not implementation details
 

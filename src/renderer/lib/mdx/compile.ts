@@ -11,6 +11,7 @@ import { compile } from '@mdx-js/mdx';
 import remarkGfm from 'remark-gfm';
 import remarkFrontmatter from 'remark-frontmatter';
 import rehypeHighlight from 'rehype-highlight';
+import type { Root } from 'mdast';
 import { matter } from 'vfile-matter';
 import { VFile } from 'vfile';
 import type {
@@ -20,6 +21,12 @@ import type {
   RequestId,
 } from '@shared/types/preview-worker';
 import type { CompileError } from '@shared/types/preview';
+import type { OutlineAST } from '@shared/types/outline';
+import { extractOutline } from './outline-extractor';
+
+type CompileResponseSuccessWithOutline = CompileResponseSuccess & {
+  readonly outline: OutlineAST | null;
+};
 
 /** Maximum source size in characters (500KB) */
 export const MAX_SOURCE_SIZE = 500_000;
@@ -99,8 +106,8 @@ export function extractUnknownError(error: unknown): CompileError {
  * @param id - Request ID for correlation
  * @returns Success response with empty code and frontmatter
  */
-function createEmptyResult(id: RequestId): CompileResponseSuccess {
-  return { id, ok: true, code: '', frontmatter: {} };
+function createEmptyResult(id: RequestId): CompileResponseSuccessWithOutline {
+  return { id, ok: true, code: '', frontmatter: {}, outline: null };
 }
 
 /**
@@ -137,10 +144,17 @@ async function performCompilation(
 
   const rawFrontmatter = (vfile.data.matter ?? {}) as Record<string, unknown>;
   const frontmatter = sanitizeFrontmatter(rawFrontmatter);
+  let outline: OutlineAST | null = null;
 
   const result = await compile(vfile, {
     outputFormat: 'function-body',
-    remarkPlugins: [remarkGfm, remarkFrontmatter],
+    remarkPlugins: [
+      remarkGfm,
+      remarkFrontmatter,
+      () => (tree: unknown) => {
+        outline = extractOutline(tree as Root, frontmatter);
+      },
+    ],
     rehypePlugins: [rehypeHighlight],
   });
 
@@ -149,7 +163,14 @@ async function performCompilation(
     return { id, ok: false, errors: fatalMessages.map(extractError) };
   }
 
-  return { id, ok: true, code: String(result), frontmatter };
+  const success: CompileResponseSuccessWithOutline = {
+    id,
+    ok: true,
+    code: String(result),
+    frontmatter,
+    outline,
+  };
+  return success;
 }
 
 /**

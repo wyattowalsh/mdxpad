@@ -38,6 +38,8 @@ import {
   GenerateTextResponseSchema,
   GenerateStreamRequestSchema,
   StreamInitResponseSchema,
+  StreamCancelRequestSchema,
+  StreamCancelResponseSchema,
   StreamChunkSchema,
   StreamCompleteSchema,
   StreamErrorSchema,
@@ -92,6 +94,7 @@ export type {
   ClearCredentialResponseSchemaType as ClearCredentialResponse,
   GenerateTextResponseSchemaType as GenerateTextResponse,
   StreamInitResponseSchemaType as StreamInitResponse,
+  StreamCancelResponseSchemaType as StreamCancelResponse,
   StreamChunkSchemaType as StreamChunk,
   StreamCompleteSchemaType as StreamComplete,
   StreamErrorSchemaType as StreamError,
@@ -197,6 +200,7 @@ export interface AIApi {
   // AI Generation
   generateText(request: z.infer<typeof GenerateTextRequestSchema>): Promise<z.infer<typeof GenerateTextResponseSchema>>;
   generateStream(request: z.infer<typeof GenerateStreamRequestSchema>): Promise<z.infer<typeof StreamInitResponseSchema>>;
+  cancelStream(streamId: string): Promise<z.infer<typeof StreamCancelResponseSchema>>;
   generateEmbed(request: z.infer<typeof GenerateEmbedRequestSchema>): Promise<z.infer<typeof GenerateEmbedResponseSchema>>;
   generateImage(request: z.infer<typeof GenerateImageRequestSchema>): Promise<z.infer<typeof GenerateImageResponseSchema>>;
 
@@ -322,6 +326,14 @@ export const aiApi: AIApi = {
       GenerateStreamRequestSchema,
       StreamInitResponseSchema,
       request
+    ),
+
+  cancelStream: (streamId) =>
+    validatedInvoke(
+      AIChannels.CANCEL_STREAM,
+      StreamCancelRequestSchema,
+      StreamCancelResponseSchema,
+      { streamId }
     ),
 
   generateEmbed: (request) =>

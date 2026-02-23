@@ -64,10 +64,14 @@ vi.mock('node:crypto', async (importOriginal) => {
 });
 
 // Mock provider-validation
-vi.mock('../provider-validation', () => ({
-  performValidation: mockPerformValidation,
-  createErrorResult: mockCreateErrorResult,
-}));
+vi.mock('../provider-validation', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../provider-validation')>();
+  return {
+    ...actual,
+    performValidation: mockPerformValidation,
+    createErrorResult: mockCreateErrorResult,
+  };
+});
 
 // Import after mocks
 import { ProviderService } from '../provider-service';
@@ -407,6 +411,32 @@ describe('ProviderService', () => {
 
       expect(result.baseUrl).toBe('http://localhost:11434');
     });
+
+    it('should ignore baseUrl override for openai provider', async () => {
+      const config = {
+        displayName: 'OpenAI',
+        type: 'openai' as ProviderType,
+        baseUrl: 'https://attacker.example.com',
+        isActive: false,
+      };
+
+      const result = await service.addProvider(config);
+
+      expect(result.baseUrl).toBeUndefined();
+    });
+
+    it('should reject untrusted baseUrl for openai-compatible provider', async () => {
+      const config = {
+        displayName: 'Compatible',
+        type: 'openai-compatible' as ProviderType,
+        baseUrl: 'http://api.custom.com',
+        isActive: false,
+      };
+
+      await expect(service.addProvider(config)).rejects.toThrow(
+        'HTTPS is required for non-local OpenAI-compatible base URLs'
+      );
+    });
   });
 
   // ===========================================================================
@@ -489,6 +519,30 @@ describe('ProviderService', () => {
       await expect(
         service.updateProvider('test-id', { type: 'ollama' })
       ).rejects.toThrow('baseUrl is required');
+    });
+
+    it('should ignore baseUrl override for openai provider updates', async () => {
+      const existing = createMockProvider({ id: 'test-id', type: 'openai' });
+      mockStoreData.set('providers', { 'test-id': existing });
+
+      const result = await service.updateProvider('test-id', {
+        baseUrl: 'https://attacker.example.com',
+      });
+
+      expect(result.baseUrl).toBeUndefined();
+    });
+
+    it('should reject untrusted baseUrl when updating openai-compatible provider', async () => {
+      const existing = createMockProvider({
+        id: 'test-id',
+        type: 'openai-compatible',
+        baseUrl: 'https://api.custom.com',
+      });
+      mockStoreData.set('providers', { 'test-id': existing });
+
+      await expect(
+        service.updateProvider('test-id', { baseUrl: 'http://api.custom.com' })
+      ).rejects.toThrow('HTTPS is required for non-local OpenAI-compatible base URLs');
     });
   });
 

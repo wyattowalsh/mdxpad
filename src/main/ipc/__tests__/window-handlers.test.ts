@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IpcMain, BrowserWindow } from 'electron';
+import type { IpcMain, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import { registerWindowHandlers } from '../window-handlers';
@@ -28,7 +28,28 @@ function createMockWindow(): BrowserWindow {
     maximize: vi.fn(),
     unmaximize: vi.fn(),
     isMaximized: vi.fn().mockReturnValue(false),
+    webContents: {
+      id: 42,
+      mainFrame: { routingId: 99 },
+    },
   } as unknown as BrowserWindow;
+}
+
+function createInvokeEvent(
+  window: BrowserWindow,
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+) {
+  const senderId = overrides?.senderId ?? window.webContents.id;
+  const senderFrameRoutingId =
+    overrides?.senderFrameRoutingId ?? window.webContents.mainFrame.routingId;
+
+  return {
+    sender: {
+      id: senderId,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: senderFrameRoutingId },
+  };
 }
 
 // ============================================================================
@@ -70,7 +91,8 @@ describe('window:close Handler', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(window)) as IpcMainInvokeEvent, args);
     });
 
     registerWindowHandlers(mockIpcMain, window);
@@ -93,6 +115,17 @@ describe('window:close Handler', () => {
 
     expect(window.close).toHaveBeenCalled();
   });
+
+  it('should reject unauthorized sender', async () => {
+    expect(() =>
+      handlers[IPC_CHANNELS.window.close]!(
+        createInvokeEvent(window, { senderId: window.webContents.id + 1 }),
+        undefined
+      )
+    ).toThrow('Unauthorized IPC sender');
+
+    expect(window.close).not.toHaveBeenCalled();
+  });
 });
 
 // ============================================================================
@@ -110,7 +143,8 @@ describe('window:minimize Handler', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(window)) as IpcMainInvokeEvent, args);
     });
 
     registerWindowHandlers(mockIpcMain, window);
@@ -144,7 +178,8 @@ describe('window:maximize Handler', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(window)) as IpcMainInvokeEvent, args);
     });
 
     registerWindowHandlers(mockIpcMain, window);
@@ -212,7 +247,8 @@ describe('Window Handler Integration', () => {
     handlers = {};
 
     vi.mocked(mockIpcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, args: unknown) =>
+        handler((event ?? createInvokeEvent(window)) as IpcMainInvokeEvent, args);
     });
 
     registerWindowHandlers(mockIpcMain, window);

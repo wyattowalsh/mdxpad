@@ -250,6 +250,26 @@ describe('RecoveryService', () => {
       expect(result.hasRecoveryData).toBe(false);
       expect(result.count).toBe(0);
     });
+
+    it('should schedule retention cleanup during startup recovery check', async () => {
+      vi.useFakeTimers();
+      const cleanupSpy = vi
+        .spyOn(recoveryService, 'runRetentionCleanup')
+        .mockResolvedValue({ deletedCount: 0, errors: [] });
+
+      mockFs.readFile.mockResolvedValue(
+        JSON.stringify({
+          version: 1,
+          entries: {},
+        })
+      );
+
+      await recoveryService.checkForRecovery();
+      await vi.runOnlyPendingTimersAsync();
+
+      expect(cleanupSpy).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
+    });
   });
 
   // ==========================================================================
@@ -740,6 +760,43 @@ describe('RecoveryService', () => {
       const result = await recoveryService.listRecoverable();
 
       expect(result.entries).toHaveLength(0);
+    });
+
+    it('should reconcile stale manifest entries when recovery files are missing', async () => {
+      const validDocId = '123e4567-e89b-12d3-a456-426614174001';
+      const staleDocId = '123e4567-e89b-12d3-a456-426614174002';
+      const manifest = createManifest({
+        [validDocId]: { documentId: validDocId, savedAt: Date.now(), fileName: 'valid.mdx' },
+        [staleDocId]: { documentId: staleDocId, savedAt: Date.now(), fileName: 'stale.mdx' },
+      });
+
+      mockFs.readFile.mockImplementation((filePath: string) => {
+        if (filePath.endsWith('manifest.json')) {
+          return Promise.resolve(JSON.stringify(manifest));
+        }
+        if (filePath.includes(validDocId)) {
+          return Promise.resolve(JSON.stringify(createRecoveryFile(validDocId, '# Valid')));
+        }
+        const enoentError = new Error('ENOENT') as NodeJS.ErrnoException;
+        enoentError.code = 'ENOENT';
+        return Promise.reject(enoentError);
+      });
+
+      const enoentError = new Error('ENOENT') as NodeJS.ErrnoException;
+      enoentError.code = 'ENOENT';
+      mockFs.stat.mockRejectedValue(enoentError);
+
+      const result = await recoveryService.listRecoverable();
+
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0]?.documentId).toBe(validDocId);
+
+      const manifestWriteCall = mockFs.writeFile.mock.calls.find(
+        (call) => (call[0] as string).includes('manifest.json.tmp')
+      );
+      expect(manifestWriteCall).toBeDefined();
+      const updatedManifest = JSON.parse((manifestWriteCall?.[1] ?? '{}') as string) as RecoveryManifest;
+      expect(updatedManifest.entries[staleDocId]).toBeUndefined();
     });
   });
 

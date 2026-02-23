@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent, type BrowserWindow } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import { registerGenerationHandlers } from '../ai-generation-handlers';
@@ -59,11 +59,30 @@ function createMockAIServices(): AIServices {
   } as unknown as AIServices;
 }
 
-function createMockIpcEvent(): IpcMainInvokeEvent {
+function createMockWindow(): BrowserWindow {
+  return {
+    webContents: {
+      id: 1,
+      mainFrame: { routingId: 10 },
+    },
+  } as unknown as BrowserWindow;
+}
+
+function createMockIpcEvent(
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+): IpcMainInvokeEvent {
+  const senderId = overrides?.senderId ?? 1;
+  const senderFrameRoutingId = overrides?.senderFrameRoutingId ?? 10;
+
   return {
     sender: {
+      id: senderId,
+      mainFrame: { routingId: 10 },
       send: vi.fn(),
       isDestroyed: vi.fn().mockReturnValue(false),
+    },
+    senderFrame: {
+      routingId: senderFrameRoutingId,
     },
   } as unknown as IpcMainInvokeEvent;
 }
@@ -73,14 +92,43 @@ function createMockIpcEvent(): IpcMainInvokeEvent {
 // ============================================================================
 
 describe('registerGenerationHandlers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('should register all generation handlers', () => {
     const services = createMockAIServices();
-    registerGenerationHandlers(services);
+    const window = createMockWindow();
+    registerGenerationHandlers(services, window);
 
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.GENERATE_TEXT, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.GENERATE_STREAM, expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CANCEL_STREAM, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.GENERATE_EMBED, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.GENERATE_IMAGE, expect.any(Function));
+  });
+
+  it('should reject unauthorized sender for privileged generation handlers', async () => {
+    const services = createMockAIServices();
+    const window = createMockWindow();
+    registerGenerationHandlers(services, window);
+
+    const generateTextCall = vi
+      .mocked(ipcMain.handle)
+      .mock.calls
+      .find(([channel]) => channel === AIChannels.GENERATE_TEXT);
+    const generateTextHandler = generateTextCall?.[1] as
+      | ((event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>)
+      | undefined;
+
+    expect(generateTextHandler).toBeDefined();
+
+    expect(() =>
+      generateTextHandler!(
+        createMockIpcEvent({ senderId: 2 }),
+        { prompt: 'Hello, world!' }
+      )
+    ).toThrow('Unauthorized IPC sender');
   });
 });
 
@@ -97,12 +145,14 @@ describe('GENERATE_TEXT Handler', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerGenerationHandlers(services);
+    registerGenerationHandlers(services, createMockWindow());
   });
 
   it('should generate text successfully', async () => {
@@ -199,12 +249,14 @@ describe('GENERATE_STREAM Handler', () => {
     vi.useFakeTimers();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerGenerationHandlers(services);
+    registerGenerationHandlers(services, createMockWindow());
   });
 
   afterEach(() => {
@@ -397,6 +449,108 @@ describe('GENERATE_STREAM Handler', () => {
     expect(result.success).toBe(false);
     expect(result.error?.message).toContain('Failed to start stream');
   });
+
+  it('should cancel an active stream and emit deterministic terminal error', async () => {
+    const event = createMockIpcEvent();
+    const request = { prompt: 'Cancel test' };
+
+    const abortSpy = vi.fn();
+    const mockController: StreamController = {
+      abort: abortSpy,
+      completion: new Promise(() => {}),
+    };
+
+    vi.mocked(services.aiService.streamText).mockResolvedValue(mockController);
+
+    const startResult = await handlers[AIChannels.GENERATE_STREAM]!(event, request);
+    const streamId = startResult.streamId;
+    const cancelResult = await handlers[AIChannels.CANCEL_STREAM]!(event, { streamId });
+
+    expect(cancelResult).toEqual({ success: true });
+    expect(abortSpy).toHaveBeenCalledTimes(1);
+    expect(event.sender.send).toHaveBeenCalledWith(AIChannels.STREAM_ERROR, {
+      streamId,
+      error: expect.objectContaining({
+        code: 'STREAM_CANCELLED',
+      }),
+    });
+  });
+
+  it('should return stream not found for cancel of unknown stream', async () => {
+    const event = createMockIpcEvent();
+    const result = await handlers[AIChannels.CANCEL_STREAM]!(event, {
+      streamId: '00000000-0000-4000-8000-000000000000',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: expect.objectContaining({
+        code: 'STREAM_NOT_FOUND',
+      }),
+    });
+  });
+
+  it('should emit timeout terminal error and abort stalled stream', async () => {
+    const event = createMockIpcEvent();
+    const request = { prompt: 'Timeout test' };
+
+    const abortSpy = vi.fn();
+    const mockController: StreamController = {
+      abort: abortSpy,
+      completion: new Promise(() => {}),
+    };
+
+    vi.mocked(services.aiService.streamText).mockResolvedValue(mockController);
+
+    const startResult = await handlers[AIChannels.GENERATE_STREAM]!(event, request);
+    const streamId = startResult.streamId;
+
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(abortSpy).toHaveBeenCalledTimes(1);
+    expect(event.sender.send).toHaveBeenCalledWith(AIChannels.STREAM_ERROR, {
+      streamId,
+      error: expect.objectContaining({
+        code: 'STREAM_TIMEOUT',
+      }),
+    });
+  });
+
+  it('should settle stream exactly once when canceled before late completion failure', async () => {
+    const event = createMockIpcEvent();
+    const request = { prompt: 'Settle once test' };
+
+    let rejectCompletion: ((error: unknown) => void) | undefined;
+    const completion = new Promise<{
+      text: string;
+      usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+      modelId: string;
+      durationMs: number;
+    }>((_resolve, reject) => {
+      rejectCompletion = reject;
+    });
+
+    const mockController: StreamController = {
+      abort: vi.fn(),
+      completion,
+    };
+
+    vi.mocked(services.aiService.streamText).mockResolvedValue(mockController);
+
+    const startResult = await handlers[AIChannels.GENERATE_STREAM]!(event, request);
+    const streamId = startResult.streamId;
+    await handlers[AIChannels.CANCEL_STREAM]!(event, { streamId });
+
+    rejectCompletion?.(new Error('late completion failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const streamErrorCalls = vi
+      .mocked(event.sender.send)
+      .mock.calls
+      .filter(([channel]) => channel === AIChannels.STREAM_ERROR);
+    expect(streamErrorCalls).toHaveLength(1);
+  });
 });
 
 // ============================================================================
@@ -412,12 +566,14 @@ describe('GENERATE_EMBED Handler', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerGenerationHandlers(services);
+    registerGenerationHandlers(services, createMockWindow());
   });
 
   it('should generate embeddings successfully', async () => {
@@ -480,12 +636,14 @@ describe('GENERATE_IMAGE Handler', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerGenerationHandlers(services);
+    registerGenerationHandlers(services, createMockWindow());
   });
 
   it('should generate image successfully', async () => {

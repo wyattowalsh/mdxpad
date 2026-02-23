@@ -11,6 +11,13 @@
 import { useEffect } from 'react';
 import { usePreviewStore, selectOutlineAST, selectIsCompiling } from '@renderer/stores/preview-store';
 import { useOutlineStore } from '@renderer/stores/outline-store';
+import type { OutlineAST } from '@shared/types/outline';
+
+const EMPTY_OUTLINE_AST: OutlineAST = {
+  headings: [],
+  components: [],
+  frontmatter: null,
+};
 
 /**
  * Hook that synchronizes the outline store with AST from preview store.
@@ -45,8 +52,13 @@ export function useOutlineSync(): void {
   useEffect(() => {
     if (outlineAST) {
       updateFromAST(outlineAST);
+      return;
     }
-  }, [outlineAST, updateFromAST]);
+    updateFromAST(EMPTY_OUTLINE_AST);
+    if (isCompiling) {
+      setIsParsing(true);
+    }
+  }, [outlineAST, isCompiling, setIsParsing, updateFromAST]);
 }
 
 export default useOutlineSync;

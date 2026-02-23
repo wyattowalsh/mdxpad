@@ -14,6 +14,7 @@ import type {
   ComponentNode,
   FrontmatterData,
 } from '@shared/types/outline';
+import { parseFrontmatterYaml } from './frontmatter-yaml-parser';
 
 // ============================================================================
 // Regex Patterns
@@ -68,70 +69,6 @@ function getColumnNumber(source: string, offset: number): number {
 }
 
 /**
- * Parse YAML-like frontmatter content.
- * Simple key-value parsing for common cases.
- *
- * @param yaml - YAML string content
- * @returns Parsed key-value pairs
- */
-function parseYamlContent(yaml: string): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  const lines = yaml.split('\n');
-  let currentKey: string | null = null;
-  let currentArray: string[] | null = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // Check for array item
-    if (trimmed.startsWith('- ') && currentKey && currentArray) {
-      currentArray.push(trimmed.slice(2).trim());
-      result[currentKey] = currentArray;
-      continue;
-    }
-
-    // Check for key-value pair
-    const colonIndex = trimmed.indexOf(':');
-    if (colonIndex > 0) {
-      // Save previous array if any
-      if (currentKey && currentArray) {
-        result[currentKey] = currentArray;
-      }
-
-      const key = trimmed.slice(0, colonIndex).trim();
-      const value = trimmed.slice(colonIndex + 1).trim();
-
-      if (value === '' || value === '|' || value === '>') {
-        // Start of array or multiline value
-        currentKey = key;
-        currentArray = [];
-      } else {
-        // Simple key-value
-        currentKey = null;
-        currentArray = null;
-
-        // Parse value type
-        if (value === 'true') {
-          result[key] = true;
-        } else if (value === 'false') {
-          result[key] = false;
-        } else if (/^-?\d+$/.test(value)) {
-          result[key] = parseInt(value, 10);
-        } else if (/^-?\d+\.\d+$/.test(value)) {
-          result[key] = parseFloat(value);
-        } else {
-          // String value - strip quotes if present
-          result[key] = value.replace(/^["']|["']$/g, '');
-        }
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
  * Count the number of lines in frontmatter block.
  *
  * @param frontmatterMatch - Regex match for frontmatter
@@ -174,7 +111,7 @@ export function parseFallbackOutline(source: string): OutlineAST {
   if (frontmatterMatch) {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const yamlContent = frontmatterMatch[1] || '';
-    const parsedData = parseYamlContent(yamlContent);
+    const parsedData = parseFrontmatterYaml(yamlContent);
     const endLine = getFrontmatterEndLine(frontmatterMatch);
 
     frontmatter = {

@@ -17,6 +17,7 @@ import { AutosaveSettingsService } from '@main/services/autosave-settings';
 import { AutosaveService } from '@main/services/autosave-service';
 import { RecoveryService } from '@main/services/recovery-service';
 import { createAIServices } from '@main/services/ai';
+import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 /** Track whether global handlers have been registered */
 let globalHandlersRegistered = false;
@@ -37,7 +38,8 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   // Only register global handlers once
   if (!globalHandlersRegistered) {
     // App security info handler
-    ipcMain.handle(IPC_CHANNELS.app.getSecurityInfo, () => {
+    ipcMain.handle(IPC_CHANNELS.app.getSecurityInfo, (event) => {
+      assertAuthorizedIpcSender(event, window, IPC_CHANNELS.app.getSecurityInfo);
       // Return security configuration matching window.ts BrowserWindow webPreferences
       // These values are verified by scripts/verify-security.ts
       return {
@@ -59,13 +61,13 @@ export function registerIpcHandlers(window: BrowserWindow): void {
       settingsService,
       autosaveService,
       recoveryService,
-    });
+    }, window);
 
     // Register AI provider handlers (Spec 028)
-    registerAIHandlers(createAIServices());
+    registerAIHandlers(createAIServices(), window);
 
     // Register template operation handlers (list, get, save, delete, import, export, validate, createFromTemplate)
-    registerTemplateHandlers(ipcMain);
+    registerTemplateHandlers(ipcMain, window);
 
     globalHandlersRegistered = true;
   }

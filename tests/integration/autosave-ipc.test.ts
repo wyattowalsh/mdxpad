@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import type { IpcMain } from 'electron';
+import type { IpcMain, BrowserWindow } from 'electron';
 
 // Mock electron modules before importing handlers
 vi.mock('electron', () => ({
@@ -158,6 +158,43 @@ import { RecoveryService } from '@main/services/recovery-service';
 // Type assertion helper for mocks
 const mockIpcMain = ipcMain as unknown as { handle: Mock };
 
+function createMockWindow(): BrowserWindow {
+  return {
+    webContents: {
+      id: 1,
+      mainFrame: { routingId: 10 },
+    },
+  } as unknown as BrowserWindow;
+}
+
+function createInvokeEvent(window: BrowserWindow) {
+  return {
+    sender: {
+      id: window.webContents.id,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: window.webContents.mainFrame.routingId },
+  };
+}
+
+function createUnauthorizedInvokeEvent(
+  window: BrowserWindow,
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+) {
+  return {
+    sender: {
+      id: overrides?.senderId ?? window.webContents.id + 1,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: {
+      routingId: overrides?.senderFrameRoutingId ?? window.webContents.mainFrame.routingId,
+    },
+  };
+}
+
+const mockWindow = createMockWindow();
+const authorizedInvokeEvent = createInvokeEvent(mockWindow);
+
 // Helper to create valid document IDs
 function createDocumentId(uuid: string): DocumentId {
   return uuid as unknown as DocumentId;
@@ -169,7 +206,15 @@ function getHandler(channel: string, handlers: Map<string, (event: unknown, args
   if (!handler) {
     throw new Error(`Handler not found for channel: ${channel}`);
   }
-  return handler;
+  return (event, args) => {
+    const hasSenderContext = Boolean(
+      event &&
+      typeof event === 'object' &&
+      'sender' in event &&
+      'senderFrame' in event
+    );
+    return handler(hasSenderContext ? event : authorizedInvokeEvent, args);
+  };
 }
 
 describe('Autosave IPC Integration', () => {
@@ -199,7 +244,7 @@ describe('Autosave IPC Integration', () => {
       settingsService: mockSettingsService,
       autosaveService: mockAutosaveService,
       recoveryService: mockRecoveryService,
-    });
+    }, mockWindow);
   });
 
   afterEach(() => {
@@ -258,6 +303,34 @@ describe('Autosave IPC Integration', () => {
     });
   });
 
+  describe('sender authorization', () => {
+    it('should reject unauthorized sender for recovery check', () => {
+      const handler = registeredHandlers.get(AutosaveChannels.RECOVERY_CHECK);
+      const unauthorizedEvent = createUnauthorizedInvokeEvent(mockWindow);
+
+      expect(() => handler!(unauthorizedEvent, undefined)).toThrow('Unauthorized IPC sender');
+      expect(mockRecoveryService.checkForRecovery).not.toHaveBeenCalled();
+    });
+
+    it('should reject unauthorized frame for autosave trigger', () => {
+      const handler = registeredHandlers.get(AutosaveChannels.AUTOSAVE_TRIGGER);
+      const unauthorizedEvent = createUnauthorizedInvokeEvent(mockWindow, {
+        senderId: mockWindow.webContents.id,
+        senderFrameRoutingId: mockWindow.webContents.mainFrame.routingId + 1,
+      });
+
+      expect(() =>
+        handler!(unauthorizedEvent, {
+          documentId: '123e4567-e89b-12d3-a456-426614174000',
+          filePath: '/tmp/test.mdx',
+          fileName: 'test.mdx',
+          content: '# Test',
+        })
+      ).toThrow('Unauthorized IPC sender');
+      expect(mockAutosaveService.saveDocument).not.toHaveBeenCalled();
+    });
+  });
+
   // ===========================================================================
   // Recovery Channels
   // ===========================================================================
@@ -265,15 +338,15 @@ describe('Autosave IPC Integration', () => {
   describe('Recovery Channels', () => {
     describe('mdxpad:recovery:check', () => {
       it('should return hasRecoveryData true when manifest has entries', async () => {
-        // Get the handler that was registered
         const handler = getHandler(AutosaveChannels.RECOVERY_CHECK, registeredHandlers);
+        vi.mocked(mockRecoveryService.checkForRecovery).mockResolvedValue({
+          hasRecoveryData: true,
+          count: 2,
+        });
 
-        // The handler internally calls recoveryService.checkForRecovery()
-        // The result depends on the service mock
         const result = await handler({});
 
-        expect(result).toHaveProperty('hasRecoveryData');
-        expect(result).toHaveProperty('count');
+        expect(result).toEqual({ hasRecoveryData: true, count: 2 });
       });
 
       it('should return hasRecoveryData false when manifest is empty', async () => {
@@ -281,42 +354,60 @@ describe('Autosave IPC Integration', () => {
 
         const result = await handler({});
 
-        // Default mock returns empty recovery
-        expect(result).toHaveProperty('hasRecoveryData');
-        expect(result).toHaveProperty('count');
+        expect(result).toEqual({ hasRecoveryData: false, count: 0 });
       });
 
       it('should accept void request (no arguments)', async () => {
         const handler = getHandler(AutosaveChannels.RECOVERY_CHECK, registeredHandlers);
 
-        // Should not throw with no arguments
-        await expect(handler({})).resolves.toBeDefined();
+        const result = await handler({});
+        expect(result).toEqual({ hasRecoveryData: false, count: 0 });
       });
     });
 
     describe('mdxpad:recovery:list', () => {
       it('should return array of recovery dialog entries', async () => {
         const handler = getHandler(AutosaveChannels.RECOVERY_LIST, registeredHandlers);
+        const entries = [{
+          documentId: createDocumentId('123e4567-e89b-12d3-a456-426614174000'),
+          fileName: 'Recovered.mdx',
+          filePath: '/tmp/recovered.mdx',
+          savedAt: Date.now(),
+          contentPreview: '# Recovered',
+          isValid: true,
+          hasConflict: false,
+        }];
+        vi.mocked(mockRecoveryService.listRecoverable).mockResolvedValue({ entries });
 
         const result = await handler({});
 
-        expect(result).toHaveProperty('entries');
-        expect(Array.isArray((result as { entries: unknown[] }).entries)).toBe(true);
+        expect(result).toEqual({ entries });
       });
 
       it('should include conflict status in entries', async () => {
         const handler = getHandler(AutosaveChannels.RECOVERY_LIST, registeredHandlers);
+        vi.mocked(mockRecoveryService.listRecoverable).mockResolvedValue({
+          entries: [{
+            documentId: createDocumentId('123e4567-e89b-12d3-a456-426614174001'),
+            fileName: 'Conflict.mdx',
+            filePath: '/tmp/conflict.mdx',
+            savedAt: Date.now(),
+            contentPreview: '# Conflict',
+            isValid: true,
+            hasConflict: true,
+          }],
+        });
 
-        const result = await handler({});
-
-        // The result shape should be RecoveryListResponse
-        expect(result).toHaveProperty('entries');
+        const result = await handler({}) as { entries: { hasConflict: boolean }[] };
+        expect(result.entries).toHaveLength(1);
+        expect(result.entries[0]?.hasConflict).toBe(true);
       });
 
       it('should accept void request (no arguments)', async () => {
         const handler = getHandler(AutosaveChannels.RECOVERY_LIST, registeredHandlers);
 
-        await expect(handler({})).resolves.toBeDefined();
+        const result = await handler({});
+        expect(result).toEqual({ entries: [] });
       });
     });
 
@@ -325,10 +416,18 @@ describe('Autosave IPC Integration', () => {
         const handler = getHandler(AutosaveChannels.RECOVERY_PREVIEW, registeredHandlers);
 
         const validDocId = '123e4567-e89b-12d3-a456-426614174000';
+        vi.mocked(mockRecoveryService.getPreview).mockResolvedValue({
+          ok: true,
+          content: `Preview for ${validDocId}`,
+          conflict: null,
+        });
         const result = await handler({}, { documentId: validDocId });
 
-        // Result should have ok property (discriminated union)
-        expect(result).toBeDefined();
+        expect(result).toEqual({
+          ok: true,
+          content: `Preview for ${validDocId}`,
+          conflict: null,
+        });
       });
 
       it('should handle missing documentId parameter', async () => {
@@ -358,7 +457,13 @@ describe('Autosave IPC Integration', () => {
           },
         });
 
-        expect(result).toBeDefined();
+        expect(result).toEqual({ ok: true, restored: [] });
+        expect(mockRecoveryService.restore).toHaveBeenCalledWith({
+          decision: {
+            action: 'accept',
+            selectedIds: [validDocId],
+          },
+        });
       });
 
       it('should handle decline action', async () => {
@@ -370,7 +475,7 @@ describe('Autosave IPC Integration', () => {
           },
         });
 
-        expect(result).toBeDefined();
+        expect(result).toEqual({ ok: true, restored: [] });
       });
 
       it('should handle dismiss action', async () => {
@@ -382,7 +487,7 @@ describe('Autosave IPC Integration', () => {
           },
         });
 
-        expect(result).toBeDefined();
+        expect(result).toEqual({ ok: true, restored: [] });
       });
 
       it('should reject invalid decision schema', async () => {
@@ -442,7 +547,14 @@ describe('Autosave IPC Integration', () => {
           content: '# Test Content',
         });
 
-        expect(result).toBeDefined();
+        expect(result).toMatchObject({ ok: true });
+        expect((result as { savedAt: number }).savedAt).toBeTypeOf('number');
+        expect(mockAutosaveService.saveDocument).toHaveBeenCalledWith({
+          documentId: validDocId,
+          filePath: '/path/to/file.mdx',
+          fileName: 'test.mdx',
+          content: '# Test Content',
+        });
       });
 
       it('should handle untitled documents (null filePath)', async () => {
@@ -456,7 +568,13 @@ describe('Autosave IPC Integration', () => {
           content: '# New Document',
         });
 
-        expect(result).toBeDefined();
+        expect(result).toMatchObject({ ok: true });
+        expect(mockAutosaveService.saveDocument).toHaveBeenCalledWith({
+          documentId: validDocId,
+          filePath: null,
+          fileName: 'Untitled',
+          content: '# New Document',
+        });
       });
 
       it('should reject missing required fields', async () => {
@@ -490,15 +608,35 @@ describe('Autosave IPC Integration', () => {
       it('should return current autosave status', async () => {
         const handler = getHandler(AutosaveChannels.AUTOSAVE_STATUS, registeredHandlers);
 
-        const result = await handler({});
-
-        expect(result).toHaveProperty('status');
+        const result = await handler({}) as {
+          status: 'idle' | 'saving' | 'saved' | 'failed';
+          savedAt?: number;
+          consecutiveFailures?: number;
+          lastError?: string;
+        };
+        expect(['idle', 'saving', 'saved', 'failed']).toContain(result.status);
+        if (result.status === 'saved') {
+          expect(result.savedAt).toBeTypeOf('number');
+        }
+        if (result.status === 'failed') {
+          expect(result.consecutiveFailures).toBeGreaterThanOrEqual(1);
+          expect(result.lastError).toBeTypeOf('string');
+        }
       });
 
       it('should accept void request (no arguments)', async () => {
+        const trigger = getHandler(AutosaveChannels.AUTOSAVE_TRIGGER, registeredHandlers);
         const handler = getHandler(AutosaveChannels.AUTOSAVE_STATUS, registeredHandlers);
+        await trigger({}, {
+          documentId: '123e4567-e89b-12d3-a456-426614174000',
+          filePath: '/tmp/document.mdx',
+          fileName: 'document.mdx',
+          content: '# Status update',
+        });
 
-        await expect(handler({})).resolves.toBeDefined();
+        const result = await handler({}) as { status: string; savedAt?: number };
+        expect(result.status).toBe('saved');
+        expect(result.savedAt).toBeTypeOf('number');
       });
     });
   });
@@ -537,7 +675,8 @@ describe('Autosave IPC Integration', () => {
       it('should accept void request (no arguments)', async () => {
         const handler = getHandler(AutosaveChannels.SETTINGS_GET, registeredHandlers);
 
-        await expect(handler({})).resolves.toBeDefined();
+        const result = await handler({});
+        expect(result).toEqual(DEFAULT_AUTOSAVE_SETTINGS);
       });
     });
 
@@ -586,7 +725,13 @@ describe('Autosave IPC Integration', () => {
           maxStorageMB: 500,
         });
 
-        expect(result).toBeDefined();
+        expect(result).toEqual({
+          enabled: true,
+          intervalMs: 60000,
+          retentionDays: 7,
+          maxFiles: 100,
+          maxStorageMB: 500,
+        });
       });
     });
   });

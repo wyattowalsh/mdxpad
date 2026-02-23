@@ -12,6 +12,7 @@ import type { FileHandle, FileId } from '@shared/types/file';
 import type { FileWatcher } from '../file-watcher';
 import type { RecentFilesService } from '../recent-files';
 import type { AutoSaveManager } from '../auto-save';
+import type { BrowserWindow } from 'electron';
 
 // ============================================================================
 // Mock Setup
@@ -32,7 +33,14 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 // Import after mocks
-import { readFile, writeFile, createNewFile, createFileHandle, FileServiceIntegration } from '../file-service';
+import {
+  readFile,
+  writeFile,
+  createNewFile,
+  createFileHandle,
+  FileServiceIntegration,
+  createFileServiceIntegration,
+} from '../file-service';
 
 // ============================================================================
 // Test Utilities
@@ -331,6 +339,22 @@ describe('createFileHandle', () => {
 
     expect(handle.name).toBe('My Document.mdx');
     expect(handle.path).toBe('/test/My Document.mdx');
+  });
+});
+
+describe('createFileServiceIntegration', () => {
+  it('should create integration with watcher wiring for a BrowserWindow', () => {
+    const window = {
+      webContents: {
+        send: vi.fn(),
+      },
+    } as unknown as BrowserWindow;
+
+    const integration = createFileServiceIntegration(window);
+
+    expect(integration).toBeInstanceOf(FileServiceIntegration);
+    expect(integration.getRecentFilesService()).toBeNull();
+    expect(integration.getAutoSaveManager()).toBeNull();
   });
 });
 

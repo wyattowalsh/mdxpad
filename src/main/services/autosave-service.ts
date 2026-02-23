@@ -88,6 +88,7 @@ export class AutosaveService {
   private recoveryDirPath: string | null = null;
   private savingDocuments = new Set<string>();
   private diskSpaceCache: { available: boolean; timestamp: number } | null = null;
+  private manifestQueue: Promise<unknown> = Promise.resolve();
 
   /**
    * Creates a new AutosaveService instance.
@@ -310,20 +311,22 @@ export class AutosaveService {
    * @param entry - The manifest entry to add or update
    */
   private async updateManifest(documentId: DocumentId, entry: ManifestEntry): Promise<void> {
-    const manifest = await this.readManifest();
-    const updatedManifest: RecoveryManifest = {
-      ...manifest,
-      entries: {
-        ...manifest.entries,
-        [documentId]: entry,
-      },
-    };
+    await this.enqueueManifestOperation(async () => {
+      const manifest = await this.readManifest();
+      const updatedManifest: RecoveryManifest = {
+        ...manifest,
+        entries: {
+          ...manifest.entries,
+          [documentId]: entry,
+        },
+      };
 
-    const recoveryDir = await this.getRecoveryDir();
-    const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
+      const recoveryDir = await this.getRecoveryDir();
+      const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
 
-    // Atomic write for manifest
-    await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+      // Atomic write for manifest
+      await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+    });
   }
 
   /**
@@ -334,22 +337,40 @@ export class AutosaveService {
    * @param documentId - The document identifier to remove
    */
   private async removeFromManifest(documentId: DocumentId): Promise<void> {
-    const manifest = await this.readManifest();
+    await this.enqueueManifestOperation(async () => {
+      const manifest = await this.readManifest();
 
-    // Create new entries object without the specified documentId
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { [documentId]: _removed, ...remainingEntries } = manifest.entries;
+      // Create new entries object without the specified documentId
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [documentId]: _removed, ...remainingEntries } = manifest.entries;
 
-    const updatedManifest: RecoveryManifest = {
-      ...manifest,
-      entries: remainingEntries,
-    };
+      const updatedManifest: RecoveryManifest = {
+        ...manifest,
+        entries: remainingEntries,
+      };
 
-    const recoveryDir = await this.getRecoveryDir();
-    const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
+      const recoveryDir = await this.getRecoveryDir();
+      const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
 
-    // Atomic write for manifest
-    await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+      // Atomic write for manifest
+      await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+    });
+  }
+
+  /**
+   * Serializes manifest operations to prevent concurrent read-modify-write drift.
+   *
+   * @param operation - Manifest operation to enqueue
+   * @returns Operation result
+   */
+  private enqueueManifestOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const runOperation = async (): Promise<T> => operation();
+    const queuedOperation = this.manifestQueue.then(runOperation, runOperation);
+    this.manifestQueue = queuedOperation.then(
+      () => undefined,
+      () => undefined
+    );
+    return queuedOperation;
   }
 
   /**
@@ -417,6 +438,8 @@ export class AutosaveService {
 
       switch (nodeError.code) {
         case 'ENOSPC':
+          // Invalidate disk space cache on ENOSPC so next check re-probes
+          this.diskSpaceCache = { available: false, timestamp: Date.now() };
           return {
             ok: false,
             error: 'DISK_FULL',

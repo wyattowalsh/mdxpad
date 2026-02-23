@@ -77,7 +77,7 @@ export async function performEmbedding(
     const embeddings = result.embeddings.map((e) => Array.from(e));
     const dimensions = embeddings[0]?.length ?? 0;
 
-    await recordEmbeddingUsage(
+    recordEmbeddingUsage(
       usageService,
       provider.id,
       modelId,
@@ -88,7 +88,7 @@ export async function performEmbedding(
 
     return { embeddings, dimensions, modelId };
   } catch (error) {
-    await recordEmbeddingUsage(
+    recordEmbeddingUsage(
       usageService,
       provider.id,
       modelId,
@@ -107,20 +107,22 @@ export async function performEmbedding(
 /**
  * Records embedding generation usage.
  */
-async function recordEmbeddingUsage(
+function recordEmbeddingUsage(
   usageService: IUsageService,
   providerId: string,
   modelId: string,
   dimensions: number,
   durationMs: number,
   success: boolean
-): Promise<void> {
-  await usageService.recordUsage({
+): void {
+  void usageService.recordUsage({
     providerId,
     modelId,
     operationType: 'embedding',
     embeddingDimensions: dimensions,
     durationMs,
     success,
+  }).catch((error: unknown) => {
+    console.error('[AI] Failed to record usage:', error);
   });
 }

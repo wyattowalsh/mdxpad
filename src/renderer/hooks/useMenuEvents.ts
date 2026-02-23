@@ -46,6 +46,7 @@ function getMdxpadApi() {
     onMenuOpenFile: () => () => { /* noop */ },
     onMenuSaveFile: () => () => { /* noop */ },
     onMenuSaveFileAs: () => () => { /* noop */ },
+    onEditorDirtyCheck: () => () => { /* noop */ },
     platform: { os: 'browser' as const, arch: 'unknown' as const },
   };
 }
@@ -199,6 +200,20 @@ export function useMenuEvents(
       }
     };
   }, [executeCommand, getCommandContext]);
+
+  // -------------------------------------------------------------------------
+  // Dirty-state query responder (for main-process close flow)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const mdxpad = getMdxpadApi();
+    const unsubscribe = mdxpad.onEditorDirtyCheck?.(
+      () => useDocumentStore.getState().isDirty
+    );
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
 
   // -------------------------------------------------------------------------
   // External file change events

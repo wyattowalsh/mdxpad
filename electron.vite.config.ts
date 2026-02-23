@@ -3,11 +3,14 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'node:path';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
       outDir: 'dist/main',
+      sourcemap: !isProduction,
       lib: {
         entry: resolve(__dirname, 'src/main/index.ts'),
       },
@@ -25,6 +28,7 @@ export default defineConfig({
     plugins: [],
     build: {
       outDir: 'dist/preload',
+      sourcemap: !isProduction,
       lib: {
         entry: resolve(__dirname, 'src/preload/index.ts'),
         formats: ['cjs'],
@@ -54,10 +58,39 @@ export default defineConfig({
     },
     build: {
       outDir: 'dist/renderer',
+      sourcemap: !isProduction,
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'src/renderer/index.html'),
           'preview-frame': resolve(__dirname, 'src/renderer/preview-frame/index.html'),
+        },
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom'],
+            codemirror: [
+              '@codemirror/state',
+              '@codemirror/view',
+              '@codemirror/commands',
+              '@codemirror/language',
+              '@codemirror/autocomplete',
+              '@codemirror/search',
+              '@codemirror/lint',
+            ],
+            radix: [
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-popover',
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-scroll-area',
+            ],
+            remark: [
+              'remark-gfm',
+              'remark-frontmatter',
+              'rehype-highlight',
+              '@mdx-js/mdx',
+            ],
+          },
         },
       },
     },

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import { registerUsageHandlers } from '../ai-usage-handlers';
@@ -81,18 +81,72 @@ function createMockAIServices(): AIServices {
   } as unknown as AIServices;
 }
 
+function createMockWindow(): BrowserWindow {
+  return {
+    webContents: {
+      id: 1,
+      mainFrame: { routingId: 10 },
+    },
+  } as unknown as BrowserWindow;
+}
+
+function createMockIpcEvent(
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+): IpcMainInvokeEvent {
+  const senderId = overrides?.senderId ?? 1;
+  const senderFrameRoutingId = overrides?.senderFrameRoutingId ?? 10;
+
+  return {
+    sender: {
+      id: senderId,
+      mainFrame: { routingId: 10 },
+    },
+    senderFrame: {
+      routingId: senderFrameRoutingId,
+    },
+  } as unknown as IpcMainInvokeEvent;
+}
+
 // ============================================================================
 // Handler Registration Tests
 // ============================================================================
 
 describe('registerUsageHandlers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('should register all usage handlers', () => {
     const services = createMockAIServices();
-    registerUsageHandlers(services);
+    const window = createMockWindow();
+    registerUsageHandlers(services, window);
 
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.USAGE_QUERY, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.USAGE_EXPORT, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.USAGE_CLEAR, expect.any(Function));
+  });
+
+  it('should reject unauthorized sender for privileged usage handlers', async () => {
+    const services = createMockAIServices();
+    const window = createMockWindow();
+    registerUsageHandlers(services, window);
+
+    const usageQueryCall = vi
+      .mocked(ipcMain.handle)
+      .mock.calls
+      .find(([channel]) => channel === AIChannels.USAGE_QUERY);
+    const usageQueryHandler = usageQueryCall?.[1] as
+      | ((event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>)
+      | undefined;
+
+    expect(usageQueryHandler).toBeDefined();
+
+    expect(() =>
+      usageQueryHandler!(
+        createMockIpcEvent({ senderId: 2 }),
+        { timeRange: 'all' }
+      )
+    ).toThrow('Unauthorized IPC sender');
   });
 });
 
@@ -109,12 +163,14 @@ describe('USAGE_QUERY Handler', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerUsageHandlers(services);
+    registerUsageHandlers(services, createMockWindow());
   });
 
   it('should query usage statistics for all time', async () => {
@@ -269,12 +325,14 @@ describe('USAGE_EXPORT Handler', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerUsageHandlers(services);
+    registerUsageHandlers(services, createMockWindow());
   });
 
   it('should export usage data as JSON by default', async () => {
@@ -348,12 +406,14 @@ describe('USAGE_CLEAR Handler', () => {
     vi.clearAllMocks();
     services = createMockAIServices();
     handlers = {};
+    const authorizedEvent = createMockIpcEvent();
 
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
+      handlers[channel] = (event: unknown, request: unknown) =>
+        handler((event as IpcMainInvokeEvent) ?? authorizedEvent, request);
     });
 
-    registerUsageHandlers(services);
+    registerUsageHandlers(services, createMockWindow());
   });
 
   it('should clear all usage history', async () => {

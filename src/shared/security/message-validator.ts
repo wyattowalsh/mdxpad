@@ -53,7 +53,8 @@ export interface SecureMessageHandlerConfig {
  * Validates a parent-to-iframe message using Zod schema.
  *
  * Security features:
- * - Strict schema validation (no extra properties)
+ * - Strict envelope schema validation (unknown top-level keys rejected)
+ * - Explicitly dynamic payload sections (e.g., render frontmatter) remain allowed
  * - Type narrowing for type-safe handling
  * - Size limits on string fields
  *
@@ -109,7 +110,7 @@ export function validateParentToIframeMessage(
  * Validates an iframe-to-parent message using Zod schema.
  *
  * Security features:
- * - Strict schema validation
+ * - Strict envelope schema validation (unknown top-level keys rejected)
  * - Sanitization of error messages and component stacks
  * - Size limits on string fields
  *

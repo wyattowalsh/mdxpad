@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import type { IpcMain } from 'electron';
+import type { IpcMain, BrowserWindow } from 'electron';
 
 // Mock electron modules before importing handlers
 vi.mock('electron', () => ({
@@ -87,6 +87,43 @@ const mockFs = fs as unknown as {
 };
 const mockCompile = compile as Mock;
 
+function createMockWindow(): BrowserWindow {
+  return {
+    webContents: {
+      id: 1,
+      mainFrame: { routingId: 10 },
+    },
+  } as unknown as BrowserWindow;
+}
+
+function createInvokeEvent(window: BrowserWindow) {
+  return {
+    sender: {
+      id: window.webContents.id,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: { routingId: window.webContents.mainFrame.routingId },
+  };
+}
+
+function createUnauthorizedInvokeEvent(
+  window: BrowserWindow,
+  overrides?: { senderId?: number; senderFrameRoutingId?: number }
+) {
+  return {
+    sender: {
+      id: overrides?.senderId ?? window.webContents.id + 1,
+      mainFrame: { routingId: window.webContents.mainFrame.routingId },
+    },
+    senderFrame: {
+      routingId: overrides?.senderFrameRoutingId ?? window.webContents.mainFrame.routingId,
+    },
+  };
+}
+
+const mockWindow = createMockWindow();
+const authorizedInvokeEvent = createInvokeEvent(mockWindow);
+
 // Test template content
 const VALID_TEMPLATE_CONTENT = `---
 name: "Test Template"
@@ -135,7 +172,15 @@ describe('template-handlers', () => {
     registeredHandlers = new Map();
     mockIpcMain.handle.mockImplementation(
       (channel: string, handler: (event: unknown, args?: unknown) => Promise<unknown>) => {
-        registeredHandlers.set(channel, handler);
+        registeredHandlers.set(channel, (event, args) => {
+          const hasSenderContext = Boolean(
+            event &&
+            typeof event === 'object' &&
+            'sender' in event &&
+            'senderFrame' in event
+          );
+          return handler(hasSenderContext ? event : authorizedInvokeEvent, args);
+        });
       }
     );
 
@@ -152,7 +197,7 @@ describe('template-handlers', () => {
     mockApp.isPackaged = false;
 
     // Register handlers
-    registerTemplateHandlers(ipcMain);
+    registerTemplateHandlers(ipcMain, mockWindow);
   });
 
   afterEach(() => {
@@ -204,13 +249,41 @@ describe('template-handlers', () => {
     });
   });
 
+  describe('sender authorization', () => {
+    it('should reject unauthorized sender for template:list', () => {
+      const handler = registeredHandlers.get(IPC_CHANNELS.template.list);
+      const unauthorizedEvent = createUnauthorizedInvokeEvent(mockWindow);
+
+      expect(() =>
+        handler!(unauthorizedEvent, { action: 'list', source: 'all' })
+      ).toThrow('Unauthorized IPC sender');
+      expect(mockFs.readdir).not.toHaveBeenCalled();
+    });
+
+    it('should reject non-main-frame sender for template:get', () => {
+      const handler = registeredHandlers.get(IPC_CHANNELS.template.get);
+      const unauthorizedEvent = createUnauthorizedInvokeEvent(mockWindow, {
+        senderId: mockWindow.webContents.id,
+        senderFrameRoutingId: mockWindow.webContents.mainFrame.routingId + 1,
+      });
+
+      expect(() =>
+        handler!(unauthorizedEvent, { action: 'get', id: 'template-id' })
+      ).toThrow('Unauthorized IPC sender');
+      expect(mockFs.readFile).not.toHaveBeenCalled();
+    });
+  });
+
   describe('template:list handler', () => {
     it('should return empty list when no templates exist', async () => {
       const handler = registeredHandlers.get(IPC_CHANNELS.template.list);
       expect(handler).toBeDefined();
 
       const result = await handler!({}, { action: 'list', source: 'all' });
-      expect(result).toHaveProperty('success');
+      expect(result).toEqual({
+        success: true,
+        templates: [],
+      });
     });
 
     it('should reject invalid payload', async () => {

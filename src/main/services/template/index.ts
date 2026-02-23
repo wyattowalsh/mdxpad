@@ -14,8 +14,9 @@
  * @see Constitution §III.3 - All payloads validated with zod safeParse()
  */
 
-import type { IpcMain } from 'electron';
+import type { IpcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
+import { assertAuthorizedIpcSender } from '@main/ipc/ipc-sender-authorization';
 
 import {
   handleTemplateList,
@@ -42,57 +43,45 @@ export * from './handlers';
  * Called during app initialization.
  *
  * @param ipcMainInstance - The Electron IpcMain instance
+ * @param window - BrowserWindow used for sender/frame authorization
  */
-export function registerTemplateHandlers(ipcMainInstance: IpcMain): void {
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.list,
-    (_event, payload) => handleTemplateList(payload)
-  );
+function registerAuthorizedTemplateHandler(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow,
+  channel: string,
+  handler: (payload: unknown) => Promise<unknown>
+): void {
+  ipcMainInstance.handle(channel, (event, payload) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(payload);
+  });
+}
 
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.get,
-    (_event, payload) => handleTemplateGet(payload)
-  );
+type TemplateHandlerRegistration = readonly [
+  channel: string,
+  handler: (payload: unknown) => Promise<unknown>,
+];
 
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.save,
-    (_event, payload) => handleTemplateSave(payload)
-  );
+export function registerTemplateHandlers(
+  ipcMainInstance: IpcMain,
+  window: BrowserWindow
+): void {
+  const registrations: TemplateHandlerRegistration[] = [
+    [IPC_CHANNELS.template.list, handleTemplateList],
+    [IPC_CHANNELS.template.get, handleTemplateGet],
+    [IPC_CHANNELS.template.save, handleTemplateSave],
+    [IPC_CHANNELS.template.delete, handleTemplateDelete],
+    [IPC_CHANNELS.template.import, handleTemplateImport],
+    [IPC_CHANNELS.template.export, handleTemplateExport],
+    [IPC_CHANNELS.template.validate, handleTemplateValidate],
+    [IPC_CHANNELS.template.createFromTemplate, handleCreateFromTemplate],
+    [IPC_CHANNELS.template.showOpenDialog, handleTemplateOpenDialog],
+    [IPC_CHANNELS.template.showSaveDialog, handleTemplateSaveDialog],
+  ];
 
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.delete,
-    (_event, payload) => handleTemplateDelete(payload)
-  );
-
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.import,
-    (_event, payload) => handleTemplateImport(payload)
-  );
-
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.export,
-    (_event, payload) => handleTemplateExport(payload)
-  );
-
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.validate,
-    (_event, payload) => handleTemplateValidate(payload)
-  );
-
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.createFromTemplate,
-    (_event, payload) => handleCreateFromTemplate(payload)
-  );
-
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.showOpenDialog,
-    (_event, payload) => handleTemplateOpenDialog(payload)
-  );
-
-  ipcMainInstance.handle(
-    IPC_CHANNELS.template.showSaveDialog,
-    (_event, payload) => handleTemplateSaveDialog(payload)
-  );
+  for (const [channel, handler] of registrations) {
+    registerAuthorizedTemplateHandler(ipcMainInstance, window, channel, handler);
+  }
 
   console.log('[TemplateService] All template handlers registered');
 }

@@ -455,18 +455,23 @@ export function PreviewFrame(props: PreviewFrameProps): React.ReactNode {
   const { handleLoad, handleError } = useIframeHandlers(isReadyRef, readyTimeoutRef, refs.onRuntimeError);
 
   return (
-    <iframe
-      ref={iframeRef}
-      src={PREVIEW_FRAME_SRC}
-      sandbox={IFRAME_SANDBOX}
-      title={IFRAME_TITLE}
-      aria-label="Rendered MDX content preview"
-      aria-describedby="preview-frame-description"
-      className={`preview-frame ${className}`.trim()}
-      onLoad={handleLoad}
-      onError={handleError}
-      style={{ width: '100%', height: '100%', border: 'none' }}
-    />
+    <>
+      <span id="preview-frame-description" className="sr-only">
+        Sandboxed preview of MDX document content
+      </span>
+      <iframe
+        ref={iframeRef}
+        src={PREVIEW_FRAME_SRC}
+        sandbox={IFRAME_SANDBOX}
+        title={IFRAME_TITLE}
+        aria-label="Rendered MDX content preview"
+        aria-describedby="preview-frame-description"
+        className={`preview-frame ${className}`.trim()}
+        onLoad={handleLoad}
+        onError={handleError}
+        style={{ width: '100%', height: '100%', border: 'none' }}
+      />
+    </>
   );
 }
 
