@@ -236,6 +236,28 @@ describe('validatedInvoke', () => {
         'Request timeout'
       );
     });
+
+    it('should reject when invoke exceeds timeout', async () => {
+      mockInvoke.mockImplementation(() => new Promise(() => {}));
+
+      await expect(
+        validatedInvoke('test:channel', null, VoidResponseSchema, undefined, { timeoutMs: 5 })
+      ).rejects.toThrow('IPC invoke timed out');
+    });
+
+    it('should reject when invoke is aborted', async () => {
+      mockInvoke.mockImplementation(() => new Promise(() => {}));
+      const controller = new AbortController();
+
+      const request = validatedInvoke('test:channel', null, VoidResponseSchema, undefined, {
+        signal: controller.signal,
+        timeoutMs: 1000,
+      });
+
+      controller.abort();
+
+      await expect(request).rejects.toThrow('IPC invoke aborted');
+    });
   });
 
   // --------------------------------------------------------------------------

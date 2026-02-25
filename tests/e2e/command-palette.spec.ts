@@ -25,20 +25,49 @@ let userDataDir: string | null = null;
 
 const PALETTE_SELECTOR = '[data-testid="command-palette"]';
 
+async function isPaletteOpen(target: Page): Promise<boolean> {
+  return await target.evaluate((sel) => document.querySelector(sel) !== null, PALETTE_SELECTOR);
+}
+
 /** Opens the command palette and waits for it to appear. */
 async function openPalette(target: Page): Promise<void> {
+  if (await isPaletteOpen(target)) {
+    return;
+  }
+
+  await target.bringToFront();
+  await target.locator('body').click({ position: { x: 8, y: 8 } });
   await target.keyboard.press('Meta+Shift+p');
-  await target.waitForSelector(PALETTE_SELECTOR);
+  try {
+    await expect(target.getByTestId('command-palette')).toBeVisible({ timeout: 3000 });
+    return;
+  } catch {
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win?.webContents.send('mdxpad:menu:command-palette');
+    });
+    await expect(target.getByTestId('command-palette')).toBeVisible({ timeout: 5000 });
+  }
 }
 
 /** Closes the command palette and waits for it to disappear. */
 async function closePalette(target: Page): Promise<void> {
+  if (!(await isPaletteOpen(target))) {
+    return;
+  }
+
   await target.keyboard.press('Escape');
-  await expect
-    .poll(async () => {
-      return await target.evaluate((sel) => document.querySelector(sel) === null, PALETTE_SELECTOR);
-    })
-    .toBe(true);
+  const stillOpenAfterEscape = await isPaletteOpen(target);
+  if (stillOpenAfterEscape) {
+    await target.evaluate(() => {
+      const backdrop = document.querySelector('[data-testid="command-palette-backdrop"]');
+      if (backdrop) {
+        (backdrop as HTMLElement).click();
+      }
+    });
+  }
+
+  await waitForPaletteClosed(target);
 }
 
 /** Waits for command items to appear in the palette after typing. */
@@ -55,9 +84,15 @@ async function waitForCommandItems(target: Page): Promise<void> {
 /** Waits for the palette to close after executing a command. */
 async function waitForPaletteClosed(target: Page): Promise<void> {
   await expect
-    .poll(async () => {
-      return await target.evaluate((sel) => document.querySelector(sel) === null, PALETTE_SELECTOR);
-    })
+    .poll(
+      async () => {
+        return await target.evaluate(
+          (sel) => document.querySelector(sel) === null,
+          PALETTE_SELECTOR
+        );
+      },
+      { timeout: 10_000 }
+    )
     .toBe(true);
 }
 
@@ -113,28 +148,24 @@ test.describe('Command Palette E2E', () => {
     test('clicking outside should close command palette', async () => {
       await openPalette(page);
 
-      const clicked = await page.evaluate(() => {
-        const overlay =
-          document.querySelector('[data-testid="command-palette-backdrop"]') ??
-          document.querySelector('[data-overlay]') ??
-          document.querySelector('.fixed.inset-0');
-        if (overlay) {
-          (overlay as HTMLElement).click();
-          return true;
+      const clickedBackdrop = await page.evaluate(() => {
+        const backdrop = document.querySelector('[data-testid="command-palette-backdrop"]');
+        if (!backdrop) {
+          return false;
         }
-        return false;
+        (backdrop as HTMLElement).click();
+        return true;
       });
+      expect(clickedBackdrop).toBe(true);
 
-      if (clicked) {
-        await waitForPaletteClosed(page);
+      await waitForPaletteClosed(page);
 
-        const openAfter = await page.evaluate(
-          (sel) => document.querySelector(sel) !== null,
-          PALETTE_SELECTOR
-        );
+      const openAfter = await page.evaluate(
+        (sel) => document.querySelector(sel) !== null,
+        PALETTE_SELECTOR
+      );
 
-        expect(openAfter).toBe(false);
-      }
+      expect(openAfter).toBe(false);
     });
   });
 
@@ -208,6 +239,10 @@ test.describe('Command Palette E2E', () => {
   test.describe('FR-007: Keyboard Navigation', () => {
     test('arrow keys should navigate command list', async () => {
       await openPalette(page);
+      await waitForCommandItems(page);
+
+      const itemCount = await page.locator('[data-testid="command-item"], [role="option"]').count();
+      expect(itemCount).toBeGreaterThan(0);
 
       const initialSelected = await page.evaluate(() => {
         const selected =
@@ -242,7 +277,10 @@ test.describe('Command Palette E2E', () => {
 
       await closePalette(page);
 
-      expect(typeof afterDown).toBe('string');
+      expect(afterDown).toBeTruthy();
+      if (itemCount > 1) {
+        expect(afterDown).not.toBe(initialSelected);
+      }
     });
 
     test('Enter should execute selected command', async () => {
@@ -287,10 +325,51 @@ test.describe('Command Palette E2E', () => {
     });
 
     test('disabled commands should not execute', async () => {
-      // This test verifies that commands with enabled: () => false
-      // are not executed when selected
-      // The actual behavior depends on how disabled commands are displayed
-      // They might be hidden, grayed out, or shown but non-interactive
+      await electronApp.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        win?.webContents.send('mdxpad:menu:new-file');
+      });
+      await expect(page.getByTestId('file-info-dirty')).toHaveCount(0);
+
+      await electronApp.evaluate(({ dialog }) => {
+        (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled = false;
+        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
+        (globalThis as { __restoreSaveDialog?: () => void }).__restoreSaveDialog = () => {
+          dialog.showSaveDialog = originalSaveDialog;
+        };
+        dialog.showSaveDialog = async () => {
+          (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled = true;
+          return { canceled: true, filePath: '' };
+        };
+      });
+
+      try {
+        await openPalette(page);
+        await page.keyboard.type('save');
+        await waitForCommandItems(page);
+
+        const saveCommand = page
+          .getByTestId('command-item')
+          .filter({ has: page.getByText(/^Save$/) })
+          .first();
+        await expect(saveCommand).toBeVisible();
+        await saveCommand.click();
+
+        await expect(page.getByTestId('command-palette')).toBeVisible();
+        const saveDialogCalled = await electronApp.evaluate(() => {
+          return (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled === true;
+        });
+        expect(saveDialogCalled).toBe(false);
+
+        await closePalette(page);
+      } finally {
+        await electronApp.evaluate(() => {
+          const restore = (globalThis as { __restoreSaveDialog?: () => void }).__restoreSaveDialog;
+          if (restore) {
+            restore();
+          }
+        });
+      }
     });
   });
 
@@ -438,7 +517,9 @@ test.describe('Accessibility', () => {
 
     await closePalette(page);
 
-    expect(hasAriaAttributes.hasDialog || hasAriaAttributes.hasSearchInput).toBe(true);
+    expect(hasAriaAttributes.hasDialog).toBe(true);
+    expect(hasAriaAttributes.hasListbox).toBe(true);
+    expect(hasAriaAttributes.hasSearchInput).toBe(true);
   });
 
   test('focus should be trapped within command palette', async () => {

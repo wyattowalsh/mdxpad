@@ -21,11 +21,7 @@ import type {
   RecentCommandEntry,
   ShortcutConflict,
 } from '@shared/types/commands';
-import {
-  STORAGE_KEYS,
-  parseRecentCommands,
-  parseCommandId,
-} from '@shared/types/commands';
+import { STORAGE_KEYS, parseRecentCommands, parseCommandId } from '@shared/types/commands';
 import { normalizeShortcut } from '../lib/fuzzy-search';
 
 // =============================================================================
@@ -105,8 +101,7 @@ export interface CommandRegistryStoreActions {
 /**
  * Combined command registry store type.
  */
-export type CommandRegistryStore = CommandRegistryStoreState &
-  CommandRegistryStoreActions;
+export type CommandRegistryStore = CommandRegistryStoreState & CommandRegistryStoreActions;
 
 // =============================================================================
 // INITIAL STATE
@@ -228,6 +223,17 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
         return { ok: false, error: `Command already registered: ${command.id}` };
       }
 
+      if (command.shortcut) {
+        const normalizedShortcut = normalizeShortcut(command.shortcut);
+        const conflictingCommandId = state.shortcutIndex.get(normalizedShortcut);
+        if (conflictingCommandId !== undefined) {
+          return {
+            ok: false,
+            error: `Shortcut already registered (${normalizedShortcut}) by ${conflictingCommandId}`,
+          };
+        }
+      }
+
       // Create the command object (only include optional props if defined)
       const registeredCommand: Command = {
         id: command.id,
@@ -293,9 +299,7 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
     },
 
     getCommandsByCategory: (category: CommandCategory): readonly Command[] => {
-      return Array.from(get().commands.values()).filter(
-        (cmd) => cmd.category === category
-      );
+      return Array.from(get().commands.values()).filter((cmd) => cmd.category === category);
     },
 
     detectConflicts: (): readonly ShortcutConflict[] => {
@@ -388,10 +392,7 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
     persistRecent: (): void => {
       try {
         const state = get();
-        localStorage.setItem(
-          STORAGE_KEYS.recentCommands,
-          JSON.stringify(state.recentCommands)
-        );
+        localStorage.setItem(STORAGE_KEYS.recentCommands, JSON.stringify(state.recentCommands));
       } catch {
         // Silently fail on localStorage errors
       }
@@ -409,8 +410,7 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
  * @param state - Command registry store state
  * @returns Number of registered commands
  */
-export const selectCommandCount = (state: CommandRegistryStore): number =>
-  state.commands.size;
+export const selectCommandCount = (state: CommandRegistryStore): number => state.commands.size;
 
 /**
  * Selector factory for checking if a command is registered.

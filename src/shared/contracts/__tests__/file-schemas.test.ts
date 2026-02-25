@@ -377,7 +377,7 @@ describe('IPC_SCHEMAS', () => {
     expect(channels).toContain('mdxpad:window:close');
     expect(channels).toContain('mdxpad:window:minimize');
     expect(channels).toContain('mdxpad:window:maximize');
-    expect(channels).toContain('mdxpad:app:version');
+    expect(channels).toContain('mdxpad:app:get-version');
     expect(channels).toContain('mdxpad:app:ready');
   });
 

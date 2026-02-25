@@ -4,6 +4,7 @@ import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 
 const mockIpcMainHandle = vi.fn();
+const mockIpcMainRemoveHandler = vi.fn();
 
 const registerFileHandlersMock = vi.fn();
 const registerWindowHandlersMock = vi.fn();
@@ -18,6 +19,7 @@ const recoveryServiceCtorMock = vi.fn(() => ({}));
 vi.mock('electron', () => ({
   ipcMain: {
     handle: mockIpcMainHandle,
+    removeHandler: mockIpcMainRemoveHandler,
   },
   BrowserWindow: vi.fn(),
 }));
@@ -106,9 +108,7 @@ describe('registerIpcHandlers', () => {
     expect(getSecurityInfoHandler).toBeDefined();
 
     expect(() =>
-      getSecurityInfoHandler!(
-        createInvokeEvent(window, { senderId: window.webContents.id + 1 })
-      )
+      getSecurityInfoHandler!(createInvokeEvent(window, { senderId: window.webContents.id + 1 }))
     ).toThrow('Unauthorized IPC sender');
   });
 
@@ -127,5 +127,30 @@ describe('registerIpcHandlers', () => {
       expect.objectContaining({ handle: mockIpcMainHandle }),
       window
     );
+  });
+
+  it('authorizes app:get-security-info against recreated window context', async () => {
+    const { registerIpcHandlers } = await import('../index');
+    const firstWindow = createMockWindow();
+    const recreatedWindow = {
+      webContents: {
+        id: 99,
+        mainFrame: { routingId: 199 },
+      },
+    } as unknown as BrowserWindow;
+
+    registerIpcHandlers(firstWindow);
+    registerIpcHandlers(recreatedWindow);
+
+    const getSecurityInfoCalls = mockIpcMainHandle.mock.calls.filter(
+      ([channel]) => channel === IPC_CHANNELS.app.getSecurityInfo
+    );
+    const getSecurityInfoHandler = getSecurityInfoCalls.at(-1)?.[1] as
+      | ((event: unknown) => unknown)
+      | undefined;
+
+    expect(getSecurityInfoHandler).toBeDefined();
+
+    expect(() => getSecurityInfoHandler!(createInvokeEvent(recreatedWindow))).not.toThrow();
   });
 });

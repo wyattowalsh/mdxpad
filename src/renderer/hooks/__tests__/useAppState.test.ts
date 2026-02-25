@@ -8,6 +8,42 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
+const {
+  mockSetContent,
+  mockNewDocument,
+  mockOpenDocument,
+  mockOpenTemplateBrowser,
+  mockCloseTemplateBrowser,
+  mockStartVariableDialog,
+  mockCloseVariableDialog,
+  mockClearPendingTemplate,
+  mockCloseSaveTemplateDialog,
+  mockSetSaving,
+  mockSetSaveError,
+  mockSaveTemplate,
+  mockCloseSettings,
+  mockNavigateToItem,
+  mockNavigateToError,
+  mockSetSplitRatio,
+} = vi.hoisted(() => ({
+  mockSetContent: vi.fn(),
+  mockNewDocument: vi.fn(),
+  mockOpenDocument: vi.fn(),
+  mockOpenTemplateBrowser: vi.fn(),
+  mockCloseTemplateBrowser: vi.fn(),
+  mockStartVariableDialog: vi.fn(),
+  mockCloseVariableDialog: vi.fn(),
+  mockClearPendingTemplate: vi.fn(),
+  mockCloseSaveTemplateDialog: vi.fn(),
+  mockSetSaving: vi.fn(),
+  mockSetSaveError: vi.fn(),
+  mockSaveTemplate: vi.fn(),
+  mockCloseSettings: vi.fn(),
+  mockNavigateToItem: vi.fn(),
+  mockNavigateToError: vi.fn(),
+  mockSetSplitRatio: vi.fn(),
+}));
+
 // Mock all store modules before importing the hook
 vi.mock('../../stores/ui-layout-store', () => {
   const state = {
@@ -15,7 +51,7 @@ vi.mock('../../stores/ui-layout-store', () => {
     outlineVisible: false,
     frontmatterVisible: false,
     splitRatio: 0.5,
-    setSplitRatio: vi.fn(),
+    setSplitRatio: mockSetSplitRatio,
   };
   const store = Object.assign((selector: (s: typeof state) => unknown) => selector(state), {
     getState: () => state,
@@ -29,9 +65,6 @@ vi.mock('../../stores/ui-layout-store', () => {
   };
 });
 
-const mockSetContent = vi.fn();
-const mockNewDocument = vi.fn();
-
 vi.mock('../../stores/document-store', () => {
   const state = {
     fileId: 'test-file-id',
@@ -41,6 +74,7 @@ vi.mock('../../stores/document-store', () => {
     content: '# Hello',
     setContent: mockSetContent,
     newDocument: mockNewDocument,
+    openDocument: mockOpenDocument,
   };
   const store = Object.assign((selector: (s: typeof state) => unknown) => selector(state), {
     getState: () => state,
@@ -54,15 +88,6 @@ vi.mock('../../stores/document-store', () => {
     selectContent: (s: typeof state) => s.content,
   };
 });
-
-const mockOpenTemplateBrowser = vi.fn();
-const mockCloseTemplateBrowser = vi.fn();
-const mockStartVariableDialog = vi.fn();
-const mockCloseVariableDialog = vi.fn();
-const mockClearPendingTemplate = vi.fn();
-const mockCloseSaveTemplateDialog = vi.fn();
-const mockSetSaving = vi.fn();
-const mockSetSaveError = vi.fn();
 
 vi.mock('../../stores/template-browser-store', () => {
   const state = {
@@ -95,8 +120,6 @@ vi.mock('../../stores/template-browser-store', () => {
   };
 });
 
-const mockSaveTemplate = vi.fn();
-
 vi.mock('../../stores/template-store', () => {
   const state = {
     templates: [{ name: 'Blog Post' }, { name: 'Notes' }],
@@ -110,8 +133,6 @@ vi.mock('../../stores/template-store', () => {
     selectTemplates: (s: typeof state) => s.templates,
   };
 });
-
-const mockCloseSettings = vi.fn();
 
 vi.mock('../../stores/settings-store', () => {
   const state = { isOpen: false, close: mockCloseSettings };
@@ -141,12 +162,10 @@ vi.mock('../useOutlineSync', () => ({
   useOutlineSync: vi.fn(),
 }));
 
-const mockNavigateToItem = vi.fn();
 vi.mock('../useOutlineNavigation', () => ({
   useOutlineNavigation: () => ({ navigateToItem: mockNavigateToItem }),
 }));
 
-const mockNavigateToError = vi.fn();
 vi.mock('../useErrorNavigation', () => ({
   useErrorNavigation: () => ({ navigateToError: mockNavigateToError }),
 }));
@@ -479,13 +498,57 @@ describe('useAppState', () => {
   describe('handleLayout', () => {
     it('should convert panel sizes to split ratio', () => {
       const { result } = renderHook(() => useAppState());
-      const { setSplitRatio } = require('../../stores/ui-layout-store').useUILayoutStore.getState();
 
       act(() => {
         result.current.handleLayout([60, 40]);
       });
 
-      expect(setSplitRatio).toHaveBeenCalledWith(0.6);
+      expect(mockSetSplitRatio).toHaveBeenCalledWith(0.6);
+    });
+  });
+
+  describe('menu open-file wiring', () => {
+    it('subscribes to menu open-file events and opens document from payload', () => {
+      const unsubscribe = vi.fn();
+      const onMenuOpenFile = vi.fn(
+        (
+          callback: (event: {
+            handle: { id: string; path: string | null; name: string };
+            content: string;
+          }) => void
+        ) => {
+          callback({
+            handle: {
+              id: '123e4567-e89b-12d3-a456-426614174000',
+              path: '/test/recent-file.mdx',
+              name: 'recent-file.mdx',
+            },
+            content: '# Opened from recent',
+          });
+          return unsubscribe;
+        }
+      );
+
+      Object.defineProperty(window, 'mdxpad', {
+        value: { onMenuOpenFile },
+        configurable: true,
+      });
+
+      const { unmount } = renderHook(() => useAppState());
+
+      expect(onMenuOpenFile).toHaveBeenCalledTimes(1);
+      expect(mockOpenDocument).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filePath: '/test/recent-file.mdx',
+          mtime: expect.any(Number),
+        }),
+        '# Opened from recent'
+      );
+
+      unmount();
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+
+      delete (window as unknown as { mdxpad?: unknown }).mdxpad;
     });
   });
 });

@@ -22,11 +22,14 @@ const mockIpcMain = {
   handle: vi.fn(),
 } as unknown as IpcMain;
 
+const mockWebContentsSend = vi.fn();
+
 function createMockWindow(): BrowserWindow {
   return {
     webContents: {
       id: 42,
       mainFrame: { routingId: 99 },
+      send: mockWebContentsSend,
     },
   } as unknown as BrowserWindow;
 }
@@ -194,8 +197,7 @@ describe('registerAutosaveHandlers', () => {
 
     const autosaveStatusCall = vi
       .mocked(mockIpcMain.handle)
-      .mock.calls
-      .find(([channel]) => channel === AutosaveChannels.AUTOSAVE_STATUS);
+      .mock.calls.find(([channel]) => channel === AutosaveChannels.AUTOSAVE_STATUS);
     const autosaveStatusHandler = autosaveStatusCall?.[1] as
       | ((event: unknown, request: unknown) => Promise<unknown>)
       | undefined;
@@ -580,6 +582,27 @@ describe('Settings Handlers', () => {
       });
       expect(callArgs).not.toHaveProperty('intervalMs');
     });
+
+    it('should broadcast updated settings to renderer', async () => {
+      const request = { intervalMs: 60000 };
+      const updatedSettings = {
+        enabled: true,
+        intervalMs: 60000,
+        retentionDays: 7,
+        maxFiles: 100,
+        maxStorageMB: 50,
+      };
+      vi.mocked(services.settingsService.setSettings).mockReturnValue(updatedSettings);
+
+      const handler = handlers[AutosaveChannels.SETTINGS_SET]!;
+      const result = await handler(null, request);
+
+      expect(result).toEqual(updatedSettings);
+      expect(mockWebContentsSend).toHaveBeenCalledWith(
+        'mdxpad:autosave:settings:changed',
+        updatedSettings
+      );
+    });
   });
 });
 
@@ -618,6 +641,12 @@ describe('Conflict Resolution Handler', () => {
       const result = await handler(null, request);
 
       expect(result).toEqual({ ok: true });
+      expect(services.recoveryService.restore).toHaveBeenCalledWith({
+        decision: {
+          action: 'accept',
+          selectedIds: ['123e4567-e89b-12d3-a456-426614174000'],
+        },
+      });
     });
 
     it('should resolve conflict with disk version', async () => {
@@ -632,9 +661,12 @@ describe('Conflict Resolution Handler', () => {
       const result = await handler(null, request);
 
       expect(result).toEqual({ ok: true });
+      expect(services.recoveryService.discardRecovery).toHaveBeenCalledWith([
+        '123e4567-e89b-12d3-a456-426614174000',
+      ]);
     });
 
-    it('should resolve conflict with save-as', async () => {
+    it('should fail conflict resolution with save-as when unsupported', async () => {
       const request = {
         resolution: {
           choice: 'save-as' as const,
@@ -646,7 +678,10 @@ describe('Conflict Resolution Handler', () => {
       const handler = handlers[AutosaveChannels.CONFLICT_RESOLVE]!;
       const result = await handler(null, request);
 
-      expect(result).toEqual({ ok: true });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain('not supported');
+      }
     });
   });
 });

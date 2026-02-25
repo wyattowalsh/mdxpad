@@ -10,15 +10,15 @@
  * @module renderer/hooks/useScrollSync
  */
 
- 
-
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { EditorView } from '@codemirror/view';
 import type { SyncMode } from '@shared/types/sync';
-import {
-  shouldSyncEditorToPreview,
-  shouldSyncPreviewToEditor,
-} from '@shared/types/sync';
+import { validateIframeToParentMessage, validateOrigin } from '@shared/security';
+import type {
+  ScrollCommand as PreviewScrollCommand,
+  ScrollReportSignal as PreviewScrollReport,
+} from '@shared/schemas/preview';
+import { shouldSyncEditorToPreview, shouldSyncPreviewToEditor } from '@shared/types/sync';
 import {
   useSyncStore,
   selectIsSyncEnabled,
@@ -66,20 +66,6 @@ export interface UseScrollSyncResult {
   readonly updatePreviewHeight: (scrollHeight: number, clientHeight: number) => void;
 }
 
-interface PreviewScrollCommand {
-  readonly type: 'scroll';
-  readonly ratio: number;
-  readonly animate: boolean;
-}
-
-interface PreviewScrollReport {
-  readonly type: 'scroll-report';
-  readonly ratio: number;
-  readonly scrollTop: number;
-  readonly scrollHeight: number;
-  readonly clientHeight: number;
-}
-
 interface SyncRefs {
   readonly scrollLock: React.RefObject<ScrollLockController | null>;
   readonly positionCache: React.RefObject<PositionCache | null>;
@@ -110,6 +96,12 @@ function getPreviewScrollMax(iframe: HTMLIFrameElement): number {
   }
 }
 
+function getPreviewIframe(
+  previewRef: React.RefObject<HTMLIFrameElement | null>
+): HTMLIFrameElement | null {
+  return previewRef.current ?? document.querySelector<HTMLIFrameElement>('iframe.preview-frame');
+}
+
 function getEditorFirstVisibleLine(view: EditorView): number {
   return view.state.doc.lineAt(view.viewport.from).number;
 }
@@ -125,18 +117,6 @@ function getEditorTotalLines(view: EditorView): number {
 function getEditorCursorLine(view: EditorView): number {
   const cursor = view.state.selection.main.head;
   return view.state.doc.lineAt(cursor).number;
-}
-
-function isScrollReport(data: unknown): data is PreviewScrollReport {
-  if (!data || typeof data !== 'object') return false;
-  const d = data as Record<string, unknown>;
-  return (
-    d.type === 'scroll-report' &&
-    typeof d.ratio === 'number' &&
-    typeof d.scrollTop === 'number' &&
-    typeof d.scrollHeight === 'number' &&
-    typeof d.clientHeight === 'number'
-  );
 }
 
 // =============================================================================
@@ -194,7 +174,7 @@ function useEditorToPreviewSync(
 ): () => void {
   return useCallback(() => {
     const view = editorRef.current;
-    const iframe = previewRef.current;
+    const iframe = getPreviewIframe(previewRef);
     if (!view || !iframe?.contentWindow) return;
     if (!isEnabled || isPaused || !isEditorToPreviewEnabled) return;
 
@@ -212,18 +192,28 @@ function useEditorToPreviewSync(
     const command: PreviewScrollCommand = {
       type: 'scroll',
       ratio: Math.max(0, Math.min(1, ratio)),
-      animate: !prefersReducedMotion,
     };
 
     try {
       iframe.contentWindow.postMessage(command, '*');
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     setTimeout(
       () => setIsSyncing(false),
       prefersReducedMotion ? 0 : SYNC_CONSTANTS.SCROLL_ANIMATION_MS
     );
-  }, [editorRef, previewRef, isEnabled, isPaused, isEditorToPreviewEnabled, getScrollLock, getPositionMapper, setIsSyncing]);
+  }, [
+    editorRef,
+    previewRef,
+    isEnabled,
+    isPaused,
+    isEditorToPreviewEnabled,
+    getScrollLock,
+    getPositionMapper,
+    setIsSyncing,
+  ]);
 }
 
 function usePreviewToEditorSync(
@@ -242,54 +232,88 @@ function usePreviewToEditorSync(
   }) => void,
   setIsSyncing: (syncing: boolean) => void
 ): (report: PreviewScrollReport) => void {
-  return useCallback((report: PreviewScrollReport) => {
-    const view = editorRef.current;
-    if (!view) return;
-    if (!isEnabled || isPaused || !isPreviewToEditorEnabled) return;
+  return useCallback(
+    (report: PreviewScrollReport) => {
+      const view = editorRef.current;
+      if (!view) return;
+      if (!isEnabled || isPaused || !isPreviewToEditorEnabled) return;
 
-    const lock = getScrollLock();
-    if (lock.shouldIgnore('editor') || !lock.acquire('preview')) return;
+      const lock = getScrollLock();
+      if (lock.shouldIgnore('editor') || !lock.acquire('preview')) return;
 
-    setIsSyncing(true);
+      setIsSyncing(true);
 
-    const mapper = getPositionMapper();
-    mapper.updatePreviewHeight(report.scrollHeight, report.clientHeight);
+      const mapper = getPositionMapper();
+      mapper.updatePreviewHeight(report.scrollHeight, report.clientHeight);
 
-    const mapping = mapper.previewToEditor(report.scrollTop);
-    const totalLines = getEditorTotalLines(view);
-    const targetLine = Math.max(1, Math.min(mapping.editorLine, totalLines));
-    const lineInfo = view.state.doc.line(targetLine);
-    const prefersReducedMotion = getPrefersReducedMotion();
+      const mapping = mapper.previewToEditor(report.scrollTop);
+      const totalLines = getEditorTotalLines(view);
+      const targetLine = Math.max(1, Math.min(mapping.editorLine, totalLines));
+      const lineInfo = view.state.doc.line(targetLine);
+      const prefersReducedMotion = getPrefersReducedMotion();
 
-    view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
+      view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
 
-    onPreviewScroll({
-      pane: 'preview',
-      line: null,
-      scrollTop: report.scrollTop,
-      ratio: report.ratio,
-      timestamp: Date.now(),
-    });
+      onPreviewScroll({
+        pane: 'preview',
+        line: null,
+        scrollTop: report.scrollTop,
+        ratio: report.ratio,
+        timestamp: Date.now(),
+      });
 
-    setTimeout(
-      () => setIsSyncing(false),
-      prefersReducedMotion ? 0 : SYNC_CONSTANTS.SCROLL_ANIMATION_MS
-    );
-  }, [editorRef, isEnabled, isPaused, isPreviewToEditorEnabled, getScrollLock, getPositionMapper, onPreviewScroll, setIsSyncing]);
+      setTimeout(
+        () => setIsSyncing(false),
+        prefersReducedMotion ? 0 : SYNC_CONSTANTS.SCROLL_ANIMATION_MS
+      );
+    },
+    [
+      editorRef,
+      isEnabled,
+      isPaused,
+      isPreviewToEditorEnabled,
+      getScrollLock,
+      getPositionMapper,
+      onPreviewScroll,
+      setIsSyncing,
+    ]
+  );
 }
 
 // =============================================================================
 // Event Listener Hooks
 // =============================================================================
 
-function usePreviewMessageListener(handleScrollReport: (report: PreviewScrollReport) => void): void {
+function usePreviewMessageListener(
+  previewRef: React.RefObject<HTMLIFrameElement | null>,
+  handleScrollReport: (report: PreviewScrollReport) => void
+): void {
   useEffect(() => {
     const handler = (event: MessageEvent): void => {
-      if (isScrollReport(event.data)) handleScrollReport(event.data);
+      const iframeWindow = getPreviewIframe(previewRef)?.contentWindow;
+      if (!iframeWindow || event.source !== iframeWindow) {
+        return;
+      }
+
+      const originResult = validateOrigin(
+        event.origin,
+        window.location.origin,
+        import.meta.env.DEV
+      );
+      if (!originResult.allowed) {
+        return;
+      }
+
+      const validationResult = validateIframeToParentMessage(event.data);
+      if (!validationResult.valid || validationResult.data?.type !== 'scroll-report') {
+        return;
+      }
+
+      handleScrollReport(validationResult.data);
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [handleScrollReport]);
+  }, [previewRef, handleScrollReport]);
 }
 
 function useEditorScrollListener(
@@ -327,7 +351,14 @@ function useEditorScrollListener(
         debounceTimerRef.current = null;
       }
     };
-  }, [editorRef, isEnabled, isPaused, isEditorToPreviewEnabled, syncEditorToPreview, debounceTimerRef]);
+  }, [
+    editorRef,
+    isEnabled,
+    isPaused,
+    isEditorToPreviewEnabled,
+    syncEditorToPreview,
+    debounceTimerRef,
+  ]);
 }
 
 /**
@@ -396,8 +427,13 @@ function useCursorTrackingListener(
     // Use keyup event for typing detection - fires after keystroke completes
     const keyHandler = (event: KeyboardEvent): void => {
       // Ignore modifier keys
-      if (event.key === 'Shift' || event.key === 'Control' ||
-          event.key === 'Alt' || event.key === 'Meta') return;
+      if (
+        event.key === 'Shift' ||
+        event.key === 'Control' ||
+        event.key === 'Alt' ||
+        event.key === 'Meta'
+      )
+        return;
       checkCursorChange();
     };
 
@@ -460,9 +496,11 @@ function useContentChangeListener(
       const currentLength = currentView.state.doc.length;
       const currentSample = currentView.state.doc.sliceString(0, 100);
 
-      if (lastDocVersionRef.current !== null &&
-          (currentLength !== lastDocVersionRef.current.length ||
-           currentSample !== lastDocVersionRef.current.sample)) {
+      if (
+        lastDocVersionRef.current !== null &&
+        (currentLength !== lastDocVersionRef.current.length ||
+          currentSample !== lastDocVersionRef.current.sample)
+      ) {
         // Content changed - invalidate cache
         cacheRef.current?.clear();
         lastDocVersionRef.current = { length: currentLength, sample: currentSample };
@@ -487,10 +525,13 @@ function useContentChangeListener(
 // =============================================================================
 
 function useSyncCleanup(refs: SyncRefs): void {
-  useEffect(() => () => {
-    if (refs.debounceTimer.current !== null) clearTimeout(refs.debounceTimer.current);
-    refs.scrollLock.current?.release();
-  }, [refs.debounceTimer, refs.scrollLock]);
+  useEffect(
+    () => () => {
+      if (refs.debounceTimer.current !== null) clearTimeout(refs.debounceTimer.current);
+      refs.scrollLock.current?.release();
+    },
+    [refs.debounceTimer, refs.scrollLock]
+  );
 }
 
 // =============================================================================
@@ -520,7 +561,8 @@ function useControlFunctions(
     [getPositionMapper]
   );
   const updatePreviewHeight = useCallback(
-    (scrollHeight: number, clientHeight: number) => getPositionMapper().updatePreviewHeight(scrollHeight, clientHeight),
+    (scrollHeight: number, clientHeight: number) =>
+      getPositionMapper().updatePreviewHeight(scrollHeight, clientHeight),
     [getPositionMapper]
   );
   return { pauseSync, resumeSync, updateAST, updateEditorLines, updatePreviewHeight };
@@ -570,29 +612,53 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   const previewPosition = useSyncStore(selectPreviewPosition);
   const handlePreviewScroll = useSyncStore((state) => state.handlePreviewScroll);
 
-  useEffect(() => { onSyncStateChange?.(isSyncing); }, [isSyncing, onSyncStateChange]);
+  useEffect(() => {
+    onSyncStateChange?.(isSyncing);
+  }, [isSyncing, onSyncStateChange]);
 
   const syncEditorToPreview = useEditorToPreviewSync(
-    editorRef, previewRef, isEnabled, isPaused, isEditorToPreviewEnabled,
-    getScrollLock, getPositionMapper, setIsSyncing
+    editorRef,
+    previewRef,
+    isEnabled,
+    isPaused,
+    isEditorToPreviewEnabled,
+    getScrollLock,
+    getPositionMapper,
+    setIsSyncing
   );
 
   const handlePreviewScrollReport = usePreviewToEditorSync(
-    editorRef, isEnabled, isPaused, isPreviewToEditorEnabled,
-    getScrollLock, getPositionMapper, handlePreviewScroll, setIsSyncing
+    editorRef,
+    isEnabled,
+    isPaused,
+    isPreviewToEditorEnabled,
+    getScrollLock,
+    getPositionMapper,
+    handlePreviewScroll,
+    setIsSyncing
   );
 
-  usePreviewMessageListener(handlePreviewScrollReport);
+  usePreviewMessageListener(previewRef, handlePreviewScrollReport);
   useEditorScrollListener(
-    editorRef, isEnabled, isPaused, isEditorToPreviewEnabled,
-    syncEditorToPreview, refs.debounceTimer
+    editorRef,
+    isEnabled,
+    isPaused,
+    isEditorToPreviewEnabled,
+    syncEditorToPreview,
+    refs.debounceTimer
   );
 
   // T023, T024, T025: Cursor tracking for typing sync
   useCursorTrackingListener(
-    editorRef, isEnabled, isPaused, isEditorToPreviewEnabled,
-    enableCursorTracking, syncEditorToPreview,
-    refs.lastCursorLine, refs.lastSyncedLine, refs.debounceTimer
+    editorRef,
+    isEnabled,
+    isPaused,
+    isEditorToPreviewEnabled,
+    enableCursorTracking,
+    syncEditorToPreview,
+    refs.lastCursorLine,
+    refs.lastSyncedLine,
+    refs.debounceTimer
   );
 
   // T029, T030: Cache invalidation on content change
@@ -606,15 +672,24 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   const syncPreviewToEditor = useCallback(() => {
     if (previewPosition?.scrollTop != null) {
       handlePreviewScrollReport({
-        type: 'scroll-report', ratio: previewPosition.ratio, scrollTop: previewPosition.scrollTop,
-        scrollHeight: 0, clientHeight: 0,
+        type: 'scroll-report',
+        ratio: previewPosition.ratio,
+        scrollTop: previewPosition.scrollTop,
+        scrollHeight: 0,
+        clientHeight: 0,
       });
     }
   }, [previewPosition, handlePreviewScrollReport]);
 
   return {
-    isSyncing, syncEditorToPreview, syncPreviewToEditor,
-    pauseSync, resumeSync, updateAST, updateEditorLines, updatePreviewHeight,
+    isSyncing,
+    syncEditorToPreview,
+    syncPreviewToEditor,
+    pauseSync,
+    resumeSync,
+    updateAST,
+    updateEditorLines,
+    updatePreviewHeight,
   };
 }
 

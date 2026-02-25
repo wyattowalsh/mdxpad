@@ -17,6 +17,33 @@ export class IpcSenderAuthorizationError extends Error {
 }
 
 /**
+ * Safely extracts an origin from a URL string.
+ * Returns null when URL is missing/invalid.
+ */
+function extractOrigin(url: string | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads BrowserWindow webContents URL safely for mocked test environments.
+ */
+function getWindowUrl(window: BrowserWindow): string | undefined {
+  const webContentsWithMaybeGetUrl = window.webContents as {
+    getURL?: () => string;
+  };
+  const getUrl = webContentsWithMaybeGetUrl.getURL;
+  return typeof getUrl === 'function' ? getUrl.call(window.webContents) : undefined;
+}
+
+/**
  * Ensures an IPC invoke event came from the expected BrowserWindow main frame.
  */
 export function assertAuthorizedIpcSender(
@@ -28,11 +55,15 @@ export function assertAuthorizedIpcSender(
   const expectedMainFrameId = window.webContents.mainFrame.routingId;
   const senderId = event.sender.id;
   const senderFrameId = event.senderFrame?.routingId;
+  const senderOrigin = extractOrigin(event.senderFrame?.url);
+  const windowOrigin = extractOrigin(getWindowUrl(window));
 
   const isAuthorizedSender = senderId === expectedSenderId;
   const isAuthorizedMainFrame = senderFrameId === expectedMainFrameId;
+  const isAuthorizedOrigin =
+    senderOrigin === null || windowOrigin === null || senderOrigin === windowOrigin;
 
-  if (!isAuthorizedSender || !isAuthorizedMainFrame) {
+  if (!isAuthorizedSender || !isAuthorizedMainFrame || !isAuthorizedOrigin) {
     throw new IpcSenderAuthorizationError(channel);
   }
 }

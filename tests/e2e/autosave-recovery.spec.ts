@@ -73,6 +73,7 @@ const AUTOSAVE_DEBOUNCE_MS = 2000;
 
 /** Additional buffer time for autosave to complete */
 const AUTOSAVE_BUFFER_MS = 3000;
+const ALLOW_CRITICAL_E2E_RUNTIME_SKIP = process.env.MDXPAD_ALLOW_CRITICAL_E2E_SKIP === '1';
 
 interface LaunchedTestApp {
   app: ElectronApplication;
@@ -116,6 +117,13 @@ function getActiveRecoveryDir(targetRecoveryDir?: string): string {
   return resolved;
 }
 
+function failOrSkipCritical(reason: string): never {
+  if (ALLOW_CRITICAL_E2E_RUNTIME_SKIP) {
+    test.skip(true, `[governed-runtime-skip] ${reason}`);
+  }
+  throw new Error(`${reason}. Set MDXPAD_ALLOW_CRITICAL_E2E_SKIP=1 to allow a governed skip.`);
+}
+
 function createIsolatedRecoveryDir(label: string): string {
   const fixtureDir = trackTempDir(
     mkdtempSync(join(TEST_FIXTURES_DIR, `${sanitizePathSegment(label)}-`))
@@ -127,9 +135,7 @@ function createIsolatedRecoveryDir(label: string): string {
 }
 
 function createIsolatedProfileDir(label: string): string {
-  const profileDir = createIsolatedUserDataDir(
-    `${sanitizePathSegment(label)}-${randomUUID()}`
-  );
+  const profileDir = createIsolatedUserDataDir(`${sanitizePathSegment(label)}-${randomUUID()}`);
   ensureDir(profileDir);
   trackTempDir(profileDir);
   return profileDir;
@@ -390,57 +396,57 @@ test.describe('Autosave and Recovery', () => {
     });
 
     test('should autosave document after debounce period', async () => {
-      const { page: win, recoveryDir: targetRecoveryDir } = await launchTestApp(
-        'autosave-flow-debounce'
-      );
+      const { page: win, recoveryDir: targetRecoveryDir } =
+        await launchTestApp('autosave-flow-debounce');
 
-      // Skip if autosave API is not yet implemented
       const hasAutosaveSupport = await win.evaluate(() => {
-        // Check if editor and autosave hooks are wired up
-        // This depends on the actual implementation
-        return typeof (window as unknown as Record<string, unknown>).mdxpad !== 'undefined';
+        const mdxpad = (window as unknown as Record<string, unknown>).mdxpad as
+          | { autosaveTrigger?: unknown }
+          | undefined;
+        return typeof mdxpad?.autosaveTrigger === 'function';
       });
 
       if (!hasAutosaveSupport) {
-        test.skip();
-        return;
-      }
-
-      // Type content in editor to trigger dirty state
-      const editor = win.locator('.cm-editor');
-      if (await editor.count() === 0) {
-        // Editor not yet implemented - skip
-        test.skip();
-        return;
+        failOrSkipCritical('Autosave API missing for critical autosave debounce flow');
       }
 
       cleanupRecoveryDir(targetRecoveryDir);
       ensureDir(targetRecoveryDir);
 
-      // Focus editor and type content
-      await editor.click();
-      await win.keyboard.type(TEST_CONTENT_WITH_MARKER);
+      const testDocId = randomUUID();
+      const triggerResult = await win.evaluate(
+        async ({ documentId, content }) => {
+          return await (window as any).mdxpad.autosaveTrigger({
+            documentId,
+            filePath: null,
+            fileName: 'Untitled',
+            content,
+          });
+        },
+        { documentId: testDocId, content: TEST_CONTENT_WITH_MARKER }
+      );
 
-      // Wait for autosave debounce + buffer by polling for recovery file existence.
-      // The next block handles the case where the file never appears (test.skip).
-      const autosaveDeadline = Date.now() + AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_BUFFER_MS + 2000;
-      while (!hasRecoveryFiles(targetRecoveryDir) && Date.now() < autosaveDeadline) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      expect(triggerResult.ok).toBe(true);
 
-      // Verify recovery file was created
-      const recoveryFileExists = hasRecoveryFiles(targetRecoveryDir);
-      if (!recoveryFileExists) {
-        test.skip();
-        return;
+      await expect
+        .poll(
+          () => {
+            return hasRecoveryFiles(targetRecoveryDir);
+          },
+          { timeout: AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_BUFFER_MS + 4000 }
+        )
+        .toBe(true);
+
+      const recoveryData = getRecoveryFileContent(targetRecoveryDir, testDocId);
+      if (!recoveryData) {
+        failOrSkipCritical('Autosave recovery artifact was not created within debounce budget');
       }
-      expect(recoveryFileExists).toBe(true);
+      expect(recoveryData.content).toContain(UNIQUE_MARKER);
     });
 
     test('should include 100% of content in recovery file (SC-001)', async () => {
-      const { page: win, recoveryDir: targetRecoveryDir } = await launchTestApp(
-        'autosave-flow-sc001'
-      );
+      const { page: win, recoveryDir: targetRecoveryDir } =
+        await launchTestApp('autosave-flow-sc001');
 
       // Skip if autosave API is not yet implemented
       const hasAutosaveSupport = await win.evaluate(() => {
@@ -448,8 +454,7 @@ test.describe('Autosave and Recovery', () => {
       });
 
       if (!hasAutosaveSupport) {
-        test.skip();
-        return;
+        failOrSkipCritical('Autosave API missing for SC-001 recovery integrity flow');
       }
 
       // Create a document with known content
@@ -536,9 +541,8 @@ Special chars: <>&"'\`\\n\\t
 
   test.describe('Recovery Dialog Flow', () => {
     test('should show recovery dialog on restart with recovery data', async () => {
-      const { profileDir, recoveryDir: targetRecoveryDir } = await prepareRecoveryProfile(
-        'recovery-dialog-show'
-      );
+      const { profileDir, recoveryDir: targetRecoveryDir } =
+        await prepareRecoveryProfile('recovery-dialog-show');
 
       // Create mock recovery files before launching app
       const docId1 = randomUUID();
@@ -561,46 +565,23 @@ Special chars: <>&"'\`\\n\\t
         userDataDir: profileDir,
       });
 
-      // Wait for recovery dialog to appear
-      // Note: The exact selector depends on the RecoveryDialog component implementation
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
+      await expect(recoveryDialog).toBeVisible({ timeout: 5_000 });
+      await expect(win.locator('[data-testid="recovery-list"]')).toBeVisible();
 
-      // Allow time for dialog to render
-      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-
-      // Check if dialog is visible (if implemented)
-      const dialogVisible = await recoveryDialog.isVisible().catch(() => false);
-
-      // If dialog component exists, verify it shows the documents
-      if (dialogVisible) {
-        // Verify document list is displayed
-        const documentList = win.locator('[data-testid="recovery-document-list"]');
-        expect(await documentList.isVisible()).toBe(true);
-
-        // Verify both documents are listed
-        const documentItems = win.locator('[data-testid="recovery-document-item"]');
-        expect(await documentItems.count()).toBe(2);
-      } else {
-        // Dialog component not yet implemented - test serves as specification
-        console.log('Recovery dialog component not yet implemented');
-      }
+      const documentItems = win.locator('[data-testid^="recovery-entry-"]');
+      await expect(documentItems).toHaveCount(2);
     });
 
     test('should restore document when accept is chosen', async () => {
-      const { profileDir, recoveryDir: targetRecoveryDir } = await prepareRecoveryProfile(
-        'recovery-dialog-accept'
-      );
+      const { profileDir, recoveryDir: targetRecoveryDir } =
+        await prepareRecoveryProfile('recovery-dialog-accept');
 
       // Create mock recovery file
       const docId = randomUUID();
       const recoveryContent = '# Restored Document\n\nThis content should be restored.';
 
-      createMockRecoveryFile(
-        targetRecoveryDir,
-        docId,
-        recoveryContent,
-        'Restored Document.mdx'
-      );
+      createMockRecoveryFile(targetRecoveryDir, docId, recoveryContent, 'Restored Document.mdx');
 
       const { page: win } = await launchTestApp('recovery-dialog-accept-app', {
         userDataDir: profileDir,
@@ -608,40 +589,21 @@ Special chars: <>&"'\`\\n\\t
 
       // Wait for recovery dialog to render
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
-      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+      await expect(recoveryDialog).toBeVisible({ timeout: 5_000 });
 
-      // Click accept/restore button if dialog is visible
-      const acceptButton = win.locator('[data-testid="recovery-accept-button"]');
-      const buttonVisible = await acceptButton.isVisible().catch(() => false);
+      const restoreButton = win.locator('[data-testid="recovery-restore-button"]');
+      await expect(restoreButton).toBeVisible();
+      await expect(restoreButton).toBeEnabled();
+      await restoreButton.click();
+      await expect(recoveryDialog).toBeHidden({ timeout: 5_000 });
 
-      if (buttonVisible) {
-        await acceptButton.click();
-        // Wait for recovery dialog to close after accepting
-        await recoveryDialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-
-        // Verify document content in editor matches recovery content
-        const editorContent = await win.evaluate(() => {
-          // Depends on how editor state is exposed
-          return (window as unknown as { __editorContent?: string }).__editorContent;
-        });
-
-        // If editor content is exposed, verify it matches
-        if (editorContent !== undefined) {
-          expect(editorContent).toBe(recoveryContent);
-        }
-
-        // Verify recovery file was deleted after restore
-        const restoredRecoveryFile = getRecoveryFileContent(targetRecoveryDir, docId);
-        expect(restoredRecoveryFile).toBeNull();
-      } else {
-        console.log('Recovery accept button not yet implemented');
-      }
+      const restoredRecoveryFile = getRecoveryFileContent(targetRecoveryDir, docId);
+      expect(restoredRecoveryFile).toBeNull();
     });
 
     test('should delete recovery files when decline is chosen', async () => {
-      const { profileDir, recoveryDir: targetRecoveryDir } = await prepareRecoveryProfile(
-        'recovery-dialog-decline'
-      );
+      const { profileDir, recoveryDir: targetRecoveryDir } =
+        await prepareRecoveryProfile('recovery-dialog-decline');
 
       // Create mock recovery files
       const docId1 = randomUUID();
@@ -660,35 +622,27 @@ Special chars: <>&"'\`\\n\\t
 
       // Wait for recovery dialog to render
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
-      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+      await expect(recoveryDialog).toBeVisible({ timeout: 5_000 });
 
-      // Click decline button if dialog is visible
-      const declineButton = win.locator('[data-testid="recovery-decline-button"]');
-      const buttonVisible = await declineButton.isVisible().catch(() => false);
+      const discardButton = win.locator('[data-testid="recovery-discard-button"]');
+      await expect(discardButton).toBeVisible();
+      await discardButton.click();
+      await expect(recoveryDialog).toBeHidden({ timeout: 5_000 });
 
-      if (buttonVisible) {
-        await declineButton.click();
-        // Wait for recovery dialog to close after declining
-        await recoveryDialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      // Verify all recovery files were deleted
+      expect(getRecoveryFileContent(targetRecoveryDir, docId1)).toBeNull();
+      expect(getRecoveryFileContent(targetRecoveryDir, docId2)).toBeNull();
 
-        // Verify all recovery files were deleted
-        expect(getRecoveryFileContent(targetRecoveryDir, docId1)).toBeNull();
-        expect(getRecoveryFileContent(targetRecoveryDir, docId2)).toBeNull();
-
-        // Verify manifest is empty or deleted
-        const manifest = readManifest(targetRecoveryDir);
-        if (manifest) {
-          expect(Object.keys(manifest.entries).length).toBe(0);
-        }
-      } else {
-        console.log('Recovery decline button not yet implemented');
+      // Verify manifest is empty or deleted
+      const manifest = readManifest(targetRecoveryDir);
+      if (manifest) {
+        expect(Object.keys(manifest.entries).length).toBe(0);
       }
     });
 
     test('should preserve recovery files when dismiss is chosen', async () => {
-      const { profileDir, recoveryDir: targetRecoveryDir } = await prepareRecoveryProfile(
-        'recovery-dialog-dismiss'
-      );
+      const { profileDir, recoveryDir: targetRecoveryDir } =
+        await prepareRecoveryProfile('recovery-dialog-dismiss');
 
       // Create mock recovery file
       const docId = randomUUID();
@@ -702,35 +656,16 @@ Special chars: <>&"'\`\\n\\t
 
       // Wait for recovery dialog to render
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
-      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+      await expect(recoveryDialog).toBeVisible({ timeout: 5_000 });
 
-      // Click dismiss button (X or close) if dialog is visible
-      const dismissButton = win.locator('[data-testid="recovery-dismiss-button"]');
-      const buttonVisible = await dismissButton.isVisible().catch(() => false);
+      await win.keyboard.press('Escape');
+      await expect(recoveryDialog).toBeHidden({ timeout: 5_000 });
 
-      if (buttonVisible) {
-        await dismissButton.click();
-        // Wait for recovery dialog to close after dismissing
-        await recoveryDialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-
-        // Verify recovery file is still present (preserved for next startup)
-        const recoveryData = getRecoveryFileContent(targetRecoveryDir, docId);
-        expect(recoveryData).not.toBeNull();
-        if (recoveryData) {
-          expect(recoveryData.content).toBe(originalContent);
-        }
-      } else {
-        // Even without button, closing app should preserve files
-        await safeCloseElectronApp(electronApp);
-        electronApp = null;
-        page = null;
-
-        // Verify files are preserved
-        const recoveryData = getRecoveryFileContent(targetRecoveryDir, docId);
-        expect(recoveryData).not.toBeNull();
-        if (recoveryData) {
-          expect(recoveryData.content).toBe(originalContent);
-        }
+      // Verify recovery file is still present (preserved for next startup)
+      const recoveryData = getRecoveryFileContent(targetRecoveryDir, docId);
+      expect(recoveryData).not.toBeNull();
+      if (recoveryData) {
+        expect(recoveryData.content).toBe(originalContent);
       }
     });
   });
@@ -796,16 +731,9 @@ Special chars: <>&"'\`\\n\\t
 
       // Wait for recovery dialog to render
       const recoveryDialog = win.locator('[data-testid="recovery-dialog"]');
-      await recoveryDialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-
-      // Check for recovery dialog
-      const dialogVisible = await recoveryDialog.isVisible().catch(() => false);
-
-      if (dialogVisible) {
-        // Verify the crashed document is listed
-        const documentItems = win.locator('[data-testid="recovery-document-item"]');
-        expect(await documentItems.count()).toBeGreaterThanOrEqual(1);
-      }
+      await expect(recoveryDialog).toBeVisible({ timeout: 5_000 });
+      const documentItems = win.locator('[data-testid^="recovery-entry-"]');
+      await expect.poll(async () => documentItems.count()).toBeGreaterThanOrEqual(1);
     });
 
     test('should handle app restart without recovery data gracefully', async () => {
@@ -992,12 +920,7 @@ Special chars: <>&"'\`\\n\\t
 
       // Create multiple recovery files
       docIds.forEach((id, i) => {
-        createMockRecoveryFile(
-          targetRecoveryDir,
-          id,
-          contents[i] ?? '',
-          `Document ${i + 1}.mdx`
-        );
+        createMockRecoveryFile(targetRecoveryDir, id, contents[i] ?? '', `Document ${i + 1}.mdx`);
       });
 
       // Verify all files exist

@@ -51,6 +51,10 @@ interface AutosaveHandlerServices {
  */
 let currentStatus: AutosaveStatus = { status: 'idle' };
 
+const AUTOSAVE_SETTINGS_CHANGED_EVENT = 'mdxpad:autosave:settings:changed';
+
+type SettingsChangeNotifier = (settings: AutosaveSettings) => void;
+
 // ============================================================================
 // Recovery Handlers (FR-003 to FR-007)
 // ============================================================================
@@ -74,7 +78,8 @@ function createRecoveryHandlers(services: AutosaveHandlerServices) {
 
     handleRecoveryPreview: createValidatedHandler(
       RecoveryPreviewRequestSchema,
-      async (args): Promise<RecoveryPreviewResponse> => services.recoveryService.getPreview(args.documentId)
+      async (args): Promise<RecoveryPreviewResponse> =>
+        services.recoveryService.getPreview(args.documentId)
     ),
 
     handleRecoveryRestore: createValidatedHandler(
@@ -84,7 +89,8 @@ function createRecoveryHandlers(services: AutosaveHandlerServices) {
 
     handleRecoveryDiscard: createValidatedHandler(
       RecoveryDiscardRequestSchema,
-      async (args): Promise<RecoveryDiscardResponse> => services.recoveryService.discardRecovery(args.documentIds)
+      async (args): Promise<RecoveryDiscardResponse> =>
+        services.recoveryService.discardRecovery(args.documentIds)
     ),
   };
 }
@@ -130,7 +136,10 @@ function createAutosaveHandlers(services: AutosaveHandlerServices) {
  * @param services - Service container with required dependencies
  * @returns Object containing all settings handler functions
  */
-function createSettingsHandlers(services: AutosaveHandlerServices) {
+function createSettingsHandlers(
+  services: AutosaveHandlerServices,
+  notifySettingsChanged?: SettingsChangeNotifier
+) {
   return {
     handleSettingsGet: createValidatedHandler(
       SettingsGetRequestSchema,
@@ -147,7 +156,9 @@ function createSettingsHandlers(services: AutosaveHandlerServices) {
         if (args.retentionDays !== undefined) filtered.retentionDays = args.retentionDays;
         if (args.maxFiles !== undefined) filtered.maxFiles = args.maxFiles;
         if (args.maxStorageMB !== undefined) filtered.maxStorageMB = args.maxStorageMB;
-        return Promise.resolve(services.settingsService.setSettings(filtered));
+        const updatedSettings = services.settingsService.setSettings(filtered);
+        notifySettingsChanged?.(updatedSettings);
+        return Promise.resolve(updatedSettings);
       }
     ),
   };
@@ -161,13 +172,49 @@ function createSettingsHandlers(services: AutosaveHandlerServices) {
  * Creates conflict resolution handler.
  * @returns Conflict resolution handler function
  */
-function createConflictHandler() {
+function createConflictHandler(services: AutosaveHandlerServices) {
   return {
     handleConflictResolve: createValidatedHandler(
       ConflictResolveRequestSchema,
-      (args): Promise<ConflictResolveResponse> => {
+      async (args): Promise<ConflictResolveResponse> => {
         console.log('[AutosaveHandlers] Conflict resolution:', args.resolution);
-        return Promise.resolve({ ok: true });
+
+        try {
+          if (args.resolution.choice === 'recovery') {
+            const restoreResult = await services.recoveryService.restore({
+              decision: {
+                action: 'accept',
+                selectedIds: [args.resolution.documentId],
+              },
+            });
+
+            if (!restoreResult.ok) {
+              return { ok: false, error: restoreResult.error };
+            }
+
+            if (restoreResult.restored.length === 0) {
+              return {
+                ok: false,
+                error: 'No recovery data available for the selected document',
+              };
+            }
+
+            return { ok: true };
+          }
+
+          if (args.resolution.choice === 'disk') {
+            await services.recoveryService.discardRecovery([args.resolution.documentId]);
+            return { ok: true };
+          }
+
+          return {
+            ok: false,
+            error: 'Conflict resolution choice "save-as" is not supported',
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return { ok: false, error: `Conflict resolution failed: ${message}` };
+        }
       }
     ),
   };
@@ -201,35 +248,20 @@ function registerRecoveryChannels(
   window: BrowserWindow,
   recoveryHandlers: ReturnType<typeof createRecoveryHandlers>
 ): void {
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.RECOVERY_CHECK,
-    () => recoveryHandlers.handleRecoveryCheck(undefined)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.RECOVERY_CHECK, () =>
+    recoveryHandlers.handleRecoveryCheck(undefined)
   );
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.RECOVERY_LIST,
-    () => recoveryHandlers.handleRecoveryList(undefined)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.RECOVERY_LIST, () =>
+    recoveryHandlers.handleRecoveryList(undefined)
   );
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.RECOVERY_PREVIEW,
-    (args) => recoveryHandlers.handleRecoveryPreview(args)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.RECOVERY_PREVIEW, (args) =>
+    recoveryHandlers.handleRecoveryPreview(args)
   );
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.RECOVERY_RESTORE,
-    (args) => recoveryHandlers.handleRecoveryRestore(args)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.RECOVERY_RESTORE, (args) =>
+    recoveryHandlers.handleRecoveryRestore(args)
   );
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.RECOVERY_DISCARD,
-    (args) => recoveryHandlers.handleRecoveryDiscard(args)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.RECOVERY_DISCARD, (args) =>
+    recoveryHandlers.handleRecoveryDiscard(args)
   );
 }
 
@@ -238,17 +270,11 @@ function registerAutosaveChannels(
   window: BrowserWindow,
   autosaveHandlers: ReturnType<typeof createAutosaveHandlers>
 ): void {
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.AUTOSAVE_TRIGGER,
-    (args) => autosaveHandlers.handleAutosaveTrigger(args)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.AUTOSAVE_TRIGGER, (args) =>
+    autosaveHandlers.handleAutosaveTrigger(args)
   );
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.AUTOSAVE_STATUS,
-    () => autosaveHandlers.handleAutosaveStatus(undefined)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.AUTOSAVE_STATUS, () =>
+    autosaveHandlers.handleAutosaveStatus(undefined)
   );
 }
 
@@ -257,17 +283,11 @@ function registerSettingsChannels(
   window: BrowserWindow,
   settingsHandlers: ReturnType<typeof createSettingsHandlers>
 ): void {
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.SETTINGS_GET,
-    () => settingsHandlers.handleSettingsGet(undefined)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.SETTINGS_GET, () =>
+    settingsHandlers.handleSettingsGet(undefined)
   );
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.SETTINGS_SET,
-    (args) => settingsHandlers.handleSettingsSet(args)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.SETTINGS_SET, (args) =>
+    settingsHandlers.handleSettingsSet(args)
   );
 }
 
@@ -276,11 +296,8 @@ function registerConflictChannel(
   window: BrowserWindow,
   conflictHandler: ReturnType<typeof createConflictHandler>
 ): void {
-  registerAuthorizedHandler(
-    ipcMainInstance,
-    window,
-    AutosaveChannels.CONFLICT_RESOLVE,
-    (args) => conflictHandler.handleConflictResolve(args)
+  registerAuthorizedHandler(ipcMainInstance, window, AutosaveChannels.CONFLICT_RESOLVE, (args) =>
+    conflictHandler.handleConflictResolve(args)
   );
 }
 
@@ -292,8 +309,10 @@ export function registerAutosaveHandlers(
   // Create handlers with injected services
   const recoveryHandlers = createRecoveryHandlers(services);
   const autosaveHandlers = createAutosaveHandlers(services);
-  const settingsHandlers = createSettingsHandlers(services);
-  const conflictHandler = createConflictHandler();
+  const settingsHandlers = createSettingsHandlers(services, (settings) => {
+    window.webContents.send(AUTOSAVE_SETTINGS_CHANGED_EVENT, settings);
+  });
+  const conflictHandler = createConflictHandler(services);
 
   registerRecoveryChannels(ipcMainInstance, window, recoveryHandlers);
   registerAutosaveChannels(ipcMainInstance, window, autosaveHandlers);

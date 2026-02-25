@@ -13,10 +13,19 @@
  * @module renderer/hooks/use-autosave
  */
 
-import { useEffect, useRef, useCallback, useState, type MutableRefObject } from 'react';
-import { useDocumentStore, selectIsDirty, selectFilePath, selectContent, selectFileName } from '@renderer/stores/document-store';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import {
+  useDocumentStore,
+  selectIsDirty,
+  selectFilePath,
+  selectContent,
+  selectFileName,
+} from '@renderer/stores/document-store';
 import { useAutosaveStore } from '@renderer/stores/autosave-store';
-import type { AutosaveTriggerRequest, AutosaveTriggerResponse } from '@shared/contracts/autosave-ipc';
+import type {
+  AutosaveTriggerRequest,
+  AutosaveTriggerResponse,
+} from '@shared/contracts/autosave-ipc';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
 
@@ -143,7 +152,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
 
   // Ref to track latest consecutiveFailures value, avoiding stale closure in performSave
-  const consecutiveFailuresRef: MutableRefObject<number> = useRef(0);
+  const consecutiveFailuresRef = useRef(0);
   useEffect(() => {
     consecutiveFailuresRef.current = consecutiveFailures;
   }, [consecutiveFailures]);
@@ -160,7 +169,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   useEffect(() => {
     if (fileId) {
       documentIdRef.current = fileId;
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     } else if (!documentIdRef.current) {
       // Generate a new ID for untitled documents
       documentIdRef.current = crypto.randomUUID();
@@ -228,77 +237,94 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   /**
    * Perform the actual autosave operation.
    */
-   
-  const performSave = useCallback(async (): Promise<void> => {
-    // Generate document ID if needed
-    documentIdRef.current ??= crypto.randomUUID();
-    const documentId = documentIdRef.current;
 
-    // Skip if read-only (T029)
-    if (isReadOnlyRef.current) {
-      console.debug('[useAutosave] Skipping autosave - file is read-only');
-      return;
-    }
+  const performSave = useCallback(
+    async (allowPausedRetry = false): Promise<void> => {
+      // Generate document ID if needed
+      documentIdRef.current ??= crypto.randomUUID();
+      const documentId = documentIdRef.current;
 
-    // Skip if already in progress (T030)
-    if (saveInProgressRef.current) {
-      // Queue for later (max 1 pending)
-      pendingQueueRef.current = true;
-      console.debug('[useAutosave] Save in progress, queued for later');
-      return;
-    }
+      // Skip if read-only (T029)
+      if (isReadOnlyRef.current) {
+        console.debug('[useAutosave] Skipping autosave - file is read-only');
+        return;
+      }
 
-    // Skip if too many consecutive failures (FR-013)
-    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-      console.warn('[useAutosave] Autosave paused after consecutive failures');
-      useAutosaveStore.getState().setPaused(true, 'Max consecutive failures reached');
-      return;
-    }
+      // Skip if already in progress (T030)
+      if (saveInProgressRef.current) {
+        // Queue for later (max 1 pending)
+        pendingQueueRef.current = true;
+        console.debug('[useAutosave] Save in progress, queued for later');
+        return;
+      }
 
-    saveInProgressRef.current = true;
-    startSave(documentId);
+      // Skip if too many consecutive failures (FR-013)
+      if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES && !allowPausedRetry) {
+        console.warn('[useAutosave] Autosave paused after consecutive failures');
+        setPaused(true, 'Max consecutive failures reached');
+        return;
+      }
 
-    try {
-      const request: AutosaveTriggerRequest = {
-        documentId: documentId as AutosaveTriggerRequest['documentId'],
-        filePath,
-        fileName,
-        content,
-      };
+      saveInProgressRef.current = true;
+      startSave(documentId);
 
-      const response = await triggerAutosave(request);
+      try {
+        const request: AutosaveTriggerRequest = {
+          documentId: documentId as AutosaveTriggerRequest['documentId'],
+          filePath,
+          fileName,
+          content,
+        };
 
-      if (response.ok) {
-        completeSave(response.savedAt);
-        setConsecutiveFailures(0);
-        console.debug('[useAutosave] Autosave successful at', new Date(response.savedAt).toISOString());
-      } else {
-        failSave(response.message);
+        const response = await triggerAutosave(request);
+
+        if (response.ok) {
+          completeSave(response.savedAt);
+          setConsecutiveFailures(0);
+          consecutiveFailuresRef.current = 0;
+          setPaused(false);
+          console.debug(
+            '[useAutosave] Autosave successful at',
+            new Date(response.savedAt).toISOString()
+          );
+        } else {
+          failSave(response.message);
+          setConsecutiveFailures((prev) => {
+            const newCount = prev + 1;
+            consecutiveFailuresRef.current = newCount;
+            if (newCount >= MAX_CONSECUTIVE_FAILURES) {
+              console.error('[useAutosave] Max consecutive failures reached, pausing autosave');
+              setPaused(true, 'Max consecutive failures reached');
+            }
+            return newCount;
+          });
+          console.error('[useAutosave] Autosave failed:', response.error, response.message);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        failSave(message);
         setConsecutiveFailures((prev) => {
           const newCount = prev + 1;
+          consecutiveFailuresRef.current = newCount;
           if (newCount >= MAX_CONSECUTIVE_FAILURES) {
-            console.error('[useAutosave] Max consecutive failures reached, pausing autosave');
+            setPaused(true, 'Max consecutive failures reached');
           }
           return newCount;
         });
-        console.error('[useAutosave] Autosave failed:', response.error, response.message);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      failSave(message);
-      setConsecutiveFailures((prev) => prev + 1);
-      console.error('[useAutosave] Autosave error:', message);
-    } finally {
-      saveInProgressRef.current = false;
+        console.error('[useAutosave] Autosave error:', message);
+      } finally {
+        saveInProgressRef.current = false;
 
-      // Process queued save if pending (T030)
-      if (pendingQueueRef.current) {
-        pendingQueueRef.current = false;
-        // Schedule the queued save
-        void performSave();
+        // Process queued save if pending (T030)
+        if (pendingQueueRef.current) {
+          pendingQueueRef.current = false;
+          // Schedule the queued save
+          void performSave();
+        }
       }
-    }
-  }, [filePath, fileName, content, consecutiveFailures, startSave, completeSave, failSave]);
+    },
+    [filePath, fileName, content, startSave, completeSave, failSave, setPaused]
+  );
 
   /**
    * Public method to trigger immediate save.
@@ -316,8 +342,15 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
       return;
     }
 
-    await performSave();
-  }, [isDirty, performSave]);
+    const isRetryAfterPause = consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES;
+    if (isRetryAfterPause) {
+      setConsecutiveFailures(0);
+      consecutiveFailuresRef.current = 0;
+      setPaused(false);
+    }
+
+    await performSave(isRetryAfterPause);
+  }, [isDirty, performSave, setPaused]);
 
   // Main effect: subscribe to isDirty and debounce autosave (T008)
   useEffect(() => {

@@ -40,6 +40,7 @@ const mockAutosaveActions = {
   completeSave: vi.fn(),
   failSave: vi.fn(),
   setEnabled: vi.fn(),
+  setPaused: vi.fn(),
   reset: vi.fn(),
 };
 
@@ -73,12 +74,17 @@ vi.mock('@renderer/stores/document-store', () => ({
 
 // Mock autosave store
 vi.mock('@renderer/stores/autosave-store', () => ({
-  useAutosaveStore: vi.fn((selector: (state: typeof mockAutosaveState) => unknown) => {
-    if (typeof selector === 'function') {
-      return selector(mockAutosaveState);
+  useAutosaveStore: Object.assign(
+    vi.fn((selector: (state: typeof mockAutosaveState) => unknown) => {
+      if (typeof selector === 'function') {
+        return selector(mockAutosaveState);
+      }
+      return mockAutosaveState;
+    }),
+    {
+      getState: () => mockAutosaveState,
     }
-    return mockAutosaveState;
-  }),
+  ),
 }));
 
 // Import after mocks
@@ -114,6 +120,7 @@ function resetMockState(): void {
   mockAutosaveActions.completeSave.mockClear();
   mockAutosaveActions.failSave.mockClear();
   mockAutosaveActions.setEnabled.mockClear();
+  mockAutosaveActions.setPaused.mockClear();
   mockAutosaveActions.reset.mockClear();
 }
 
@@ -125,7 +132,7 @@ function setDirtyDocument(content = 'test content', filePath: string | null = nu
   mockDocumentState.savedContent = '';
   mockDocumentState.isDirty = true;
   mockDocumentState.filePath = filePath;
-  mockDocumentState.fileName = filePath ? filePath.split('/').pop() ?? 'Untitled' : 'Untitled';
+  mockDocumentState.fileName = filePath ? (filePath.split('/').pop() ?? 'Untitled') : 'Untitled';
 }
 
 /**
@@ -543,6 +550,50 @@ describe('useAutosave', () => {
       // failSave should be called with an error message
       expect(mockAutosaveActions.failSave).toHaveBeenCalledWith(expect.any(String));
     });
+
+    it('should recover from max-failure pause when saveNow retries explicitly', async () => {
+      setDirtyDocument();
+
+      const autosaveTrigger = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('fail 1'))
+        .mockRejectedValueOnce(new Error('fail 2'))
+        .mockRejectedValueOnce(new Error('fail 3'))
+        .mockResolvedValue({ ok: true, savedAt: Date.now() });
+
+      (window as unknown as Record<string, unknown>).mdxpad = {
+        ...(window as unknown as Record<string, Record<string, unknown>>).mdxpad,
+        autosaveTrigger,
+      };
+
+      const { result } = renderHook(() => useAutosave({ debounceMs: 60000 }));
+
+      await act(async () => {
+        await result.current.saveNow();
+      });
+      await act(async () => {
+        await result.current.saveNow();
+      });
+      await act(async () => {
+        await result.current.saveNow();
+      });
+
+      expect(autosaveTrigger).toHaveBeenCalledTimes(3);
+      expect(result.current.consecutiveFailures).toBe(3);
+      expect(mockAutosaveActions.setPaused).toHaveBeenCalledWith(
+        true,
+        'Max consecutive failures reached'
+      );
+
+      await act(async () => {
+        await result.current.saveNow();
+      });
+
+      expect(autosaveTrigger).toHaveBeenCalledTimes(4);
+      expect(mockAutosaveActions.completeSave).toHaveBeenCalled();
+      expect(mockAutosaveActions.setPaused).toHaveBeenCalledWith(false);
+      expect(result.current.consecutiveFailures).toBe(0);
+    });
   });
 
   // ===========================================================================
@@ -671,7 +722,9 @@ describe('useAutosave', () => {
 
   describe('settings change (T020)', () => {
     it('should subscribe to settings changes via IPC', () => {
-      const onChangeMock = (window as unknown as { mdxpad: { settings: { onChange: ReturnType<typeof vi.fn> } } }).mdxpad.settings.onChange;
+      const onChangeMock = (
+        window as unknown as { mdxpad: { settings: { onChange: ReturnType<typeof vi.fn> } } }
+      ).mdxpad.settings.onChange;
 
       renderHook(() => useAutosave());
 
@@ -680,7 +733,9 @@ describe('useAutosave', () => {
 
     it('should unsubscribe from settings changes on unmount', () => {
       const unsubscribe = vi.fn();
-      const onChangeMock = (window as unknown as { mdxpad: { settings: { onChange: ReturnType<typeof vi.fn> } } }).mdxpad.settings.onChange;
+      const onChangeMock = (
+        window as unknown as { mdxpad: { settings: { onChange: ReturnType<typeof vi.fn> } } }
+      ).mdxpad.settings.onChange;
       onChangeMock.mockReturnValue(unsubscribe);
 
       const { unmount } = renderHook(() => useAutosave());
@@ -782,10 +837,9 @@ describe('useAutosave', () => {
       setDirtyDocument();
 
       // Start with disabled state
-      const { rerender } = renderHook(
-        ({ enabled }) => useAutosave({ enabled, debounceMs: 100 }),
-        { initialProps: { enabled: false } }
-      );
+      const { rerender } = renderHook(({ enabled }) => useAutosave({ enabled, debounceMs: 100 }), {
+        initialProps: { enabled: false },
+      });
 
       // Advance - should NOT trigger because disabled
       await act(async () => {
@@ -852,4 +906,3 @@ describe('useAutosave', () => {
     });
   });
 });
-

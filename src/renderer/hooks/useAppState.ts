@@ -10,7 +10,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
-import { useUILayoutStore, selectPreviewVisible, selectSplitRatio, selectOutlineVisible, selectFrontmatterVisible } from '../stores/ui-layout-store';
+import {
+  useUILayoutStore,
+  selectPreviewVisible,
+  selectSplitRatio,
+  selectOutlineVisible,
+  selectFrontmatterVisible,
+} from '../stores/ui-layout-store';
 import {
   useDocumentStore,
   selectFileId,
@@ -44,13 +50,18 @@ import type { CompilationError } from '../components/shell/StatusBar/types';
 import type { OutlineItem } from '@shared/types/outline';
 import type { NotificationInput } from '@shared/types/commands';
 import type { Template } from '@shared/contracts/template-schemas';
+import type { DocumentId } from '@shared/types/document';
 import type { SaveTemplateFormData } from '../components/template-browser/SaveTemplateDialog';
 
 /** Convert split ratio (0-1) to panel size percentage */
-function ratioToSize(ratio: number): number { return ratio * 100; }
+function ratioToSize(ratio: number): number {
+  return ratio * 100;
+}
 
 /** Convert panel sizes array to split ratio */
-function sizesToRatio(sizes: number[]): number { return (sizes[0] ?? 50) / 100; }
+function sizesToRatio(sizes: number[]): number {
+  return (sizes[0] ?? 50) / 100;
+}
 
 export interface AppState {
   // Refs
@@ -136,6 +147,7 @@ export function useAppState(): AppState {
   const documentContent = useDocumentStore(selectContent);
   const setContent = useDocumentStore.getState().setContent;
   const newDocument = useDocumentStore.getState().newDocument;
+  const openDocument = useDocumentStore.getState().openDocument;
 
   // Store subscriptions - Template browser modal
   const isTemplateBrowserOpen = useTemplateBrowserModalStore(selectIsTemplateBrowserOpen);
@@ -188,6 +200,28 @@ export function useAppState(): AppState {
   const [errors, setErrors] = useState<readonly CompilationError[]>([]);
   const [announcement, setAnnouncement] = useState<string>('');
   const announcementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const maybeMdxpad = (window as unknown as { mdxpad?: typeof window.mdxpad }).mdxpad;
+    if (!maybeMdxpad) return;
+
+    const unsubscribe = maybeMdxpad.onMenuOpenFile((event) => {
+      if (event.handle.path === null) return;
+
+      openDocument(
+        {
+          fileId: event.handle.id as unknown as DocumentId,
+          filePath: event.handle.path,
+          mtime: Date.now(),
+        },
+        event.content
+      );
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [openDocument]);
 
   // Computed values
   const editorSize = useMemo(() => {

@@ -136,34 +136,16 @@ describe('file-handlers', () => {
 
   describe('registerFileHandlers', () => {
     it('should register all expected IPC handlers', () => {
-      expect(mockIpcMain.handle).toHaveBeenCalledWith(
-        'mdxpad:file:open',
-        expect.any(Function)
-      );
-      expect(mockIpcMain.handle).toHaveBeenCalledWith(
-        'mdxpad:file:save',
-        expect.any(Function)
-      );
-      expect(mockIpcMain.handle).toHaveBeenCalledWith(
-        'mdxpad:file:save-as',
-        expect.any(Function)
-      );
-      expect(mockIpcMain.handle).toHaveBeenCalledWith(
-        'mdxpad:file:read',
-        expect.any(Function)
-      );
-      expect(mockIpcMain.handle).toHaveBeenCalledWith(
-        'mdxpad:file:write',
-        expect.any(Function)
-      );
+      expect(mockIpcMain.handle).toHaveBeenCalledWith('mdxpad:file:open', expect.any(Function));
+      expect(mockIpcMain.handle).toHaveBeenCalledWith('mdxpad:file:save', expect.any(Function));
+      expect(mockIpcMain.handle).toHaveBeenCalledWith('mdxpad:file:save-as', expect.any(Function));
+      expect(mockIpcMain.handle).toHaveBeenCalledWith('mdxpad:file:read', expect.any(Function));
+      expect(mockIpcMain.handle).toHaveBeenCalledWith('mdxpad:file:write', expect.any(Function));
       expect(mockIpcMain.handle).toHaveBeenCalledWith(
         'mdxpad:app:get-version',
         expect.any(Function)
       );
-      expect(mockIpcMain.handle).toHaveBeenCalledWith(
-        'mdxpad:app:ready',
-        expect.any(Function)
-      );
+      expect(mockIpcMain.handle).toHaveBeenCalledWith('mdxpad:app:ready', expect.any(Function));
     });
   });
 
@@ -292,7 +274,10 @@ describe('file-handlers', () => {
       mockWriteFile.mockResolvedValue({ ok: true, value: undefined });
 
       const handler = registeredHandlers.get('mdxpad:file:save');
-      const result = await handler!(authorizedInvokeEvent, { handle: testHandle, content: testContent });
+      const result = await handler!(authorizedInvokeEvent, {
+        handle: testHandle,
+        content: testContent,
+      });
 
       expect(mockWriteFile).toHaveBeenCalledWith(testHandle.path, testContent);
       expect(result).toEqual({ ok: true, value: undefined });
@@ -306,7 +291,10 @@ describe('file-handlers', () => {
       };
 
       const handler = registeredHandlers.get('mdxpad:file:save');
-      const result = await handler!(authorizedInvokeEvent, { handle: untitledHandle, content: 'test' });
+      const result = await handler!(authorizedInvokeEvent, {
+        handle: untitledHandle,
+        content: 'test',
+      });
 
       expect(result).toEqual({
         ok: false,
@@ -441,7 +429,10 @@ describe('file-handlers', () => {
       mockWriteFile.mockResolvedValue({ ok: true, value: undefined });
 
       const handler = registeredHandlers.get('mdxpad:file:write');
-      const result = await handler!(authorizedInvokeEvent, { path: testPath, content: testContent });
+      const result = await handler!(authorizedInvokeEvent, {
+        path: testPath,
+        content: testContent,
+      });
 
       expect(mockWriteFile).toHaveBeenCalledWith(testPath, testContent);
       expect(result).toEqual({ ok: true, value: undefined });
@@ -465,7 +456,7 @@ describe('file-handlers', () => {
     });
   });
 
-  describe('mdxpad:app:version', () => {
+  describe('mdxpad:app:get-version', () => {
     it('should return app version', async () => {
       mockApp.getVersion.mockReturnValue('1.2.3');
 
@@ -502,9 +493,7 @@ describe('zod validation (Constitution Section 3.3 compliance)', () => {
       });
 
       // Path must start with /
-      await expect(handler({ path: 'relative/path.mdx' })).rejects.toThrow(
-        'Validation failed'
-      );
+      await expect(handler({ path: 'relative/path.mdx' })).rejects.toThrow('Validation failed');
     });
 
     it('should reject invalid FileReadRequest (empty path)', async () => {

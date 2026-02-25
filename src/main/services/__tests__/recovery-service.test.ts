@@ -62,7 +62,11 @@ import { app } from 'electron';
 import { RecoveryService } from '../recovery-service';
 import { AutosaveSettingsService } from '../autosave-settings';
 import type { AutosaveService } from '../autosave-service';
-import type { DocumentId, RecoveryFile, RecoveryManifest } from '@shared/contracts/autosave-schemas';
+import type {
+  DocumentId,
+  RecoveryFile,
+  RecoveryManifest,
+} from '@shared/contracts/autosave-schemas';
 
 // Type assertion helpers for mocks
 const mockFs = {
@@ -114,7 +118,10 @@ function createRecoveryFile(
  * Helper to create a valid RecoveryManifest
  */
 function createManifest(
-  entries: Record<string, { documentId: string; savedAt: number; fileName?: string; filePath?: string | null }>
+  entries: Record<
+    string,
+    { documentId: string; savedAt: number; fileName?: string; filePath?: string | null }
+  >
 ): RecoveryManifest {
   const manifestEntries: RecoveryManifest['entries'] = {};
   for (const [id, entry] of Object.entries(entries)) {
@@ -279,10 +286,7 @@ describe('RecoveryService', () => {
   describe('checksum validation', () => {
     it('should accept valid checksum', () => {
       const content = '# Test MDX Content\n\nHello world!';
-      const recoveryFile = createRecoveryFile(
-        '123e4567-e89b-12d3-a456-426614174001',
-        content
-      );
+      const recoveryFile = createRecoveryFile('123e4567-e89b-12d3-a456-426614174001', content);
 
       const isValid = recoveryService.validateChecksum(recoveryFile);
 
@@ -293,11 +297,9 @@ describe('RecoveryService', () => {
       const content = '# Test MDX Content\n\nHello world!';
       // Valid length (64 chars) but wrong checksum
       const wrongChecksum = '0'.repeat(64);
-      const recoveryFile = createRecoveryFile(
-        '123e4567-e89b-12d3-a456-426614174001',
-        content,
-        { checksum: wrongChecksum }
-      );
+      const recoveryFile = createRecoveryFile('123e4567-e89b-12d3-a456-426614174001', content, {
+        checksum: wrongChecksum,
+      });
 
       const isValid = recoveryService.validateChecksum(recoveryFile);
 
@@ -322,10 +324,7 @@ describe('RecoveryService', () => {
 
     it('should handle empty content with valid checksum', () => {
       const content = '';
-      const recoveryFile = createRecoveryFile(
-        '123e4567-e89b-12d3-a456-426614174001',
-        content
-      );
+      const recoveryFile = createRecoveryFile('123e4567-e89b-12d3-a456-426614174001', content);
 
       const isValid = recoveryService.validateChecksum(recoveryFile);
 
@@ -333,11 +332,9 @@ describe('RecoveryService', () => {
     });
 
     it('should handle unicode content correctly', () => {
-      const content = '# MDX\n\n\u6CE8\u91C8\u306E\u30C6\u30B9\u30C8 Test with special chars: \u00E9\u00E0\u00FC\u00F1';
-      const recoveryFile = createRecoveryFile(
-        '123e4567-e89b-12d3-a456-426614174001',
-        content
-      );
+      const content =
+        '# MDX\n\n\u6CE8\u91C8\u306E\u30C6\u30B9\u30C8 Test with special chars: \u00E9\u00E0\u00FC\u00F1';
+      const recoveryFile = createRecoveryFile('123e4567-e89b-12d3-a456-426614174001', content);
 
       const isValid = recoveryService.validateChecksum(recoveryFile);
 
@@ -421,7 +418,7 @@ describe('RecoveryService', () => {
       }
     });
 
-    it('should restore multiple selected documents', async () => {
+    it('should fail when multiple documents are selected in single-document mode', async () => {
       const result = await recoveryService.restore({
         decision: {
           action: 'accept',
@@ -429,9 +426,9 @@ describe('RecoveryService', () => {
         },
       });
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.restored).toHaveLength(2);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain('single-document mode');
       }
     });
 
@@ -791,11 +788,13 @@ describe('RecoveryService', () => {
       expect(result.entries).toHaveLength(1);
       expect(result.entries[0]?.documentId).toBe(validDocId);
 
-      const manifestWriteCall = mockFs.writeFile.mock.calls.find(
-        (call) => (call[0] as string).includes('manifest.json.tmp')
+      const manifestWriteCall = mockFs.writeFile.mock.calls.find((call) =>
+        (call[0] as string).includes('manifest.json.tmp')
       );
       expect(manifestWriteCall).toBeDefined();
-      const updatedManifest = JSON.parse((manifestWriteCall?.[1] ?? '{}') as string) as RecoveryManifest;
+      const updatedManifest = JSON.parse(
+        (manifestWriteCall?.[1] ?? '{}') as string
+      ) as RecoveryManifest;
       expect(updatedManifest.entries[staleDocId]).toBeUndefined();
     });
   });
@@ -925,7 +924,7 @@ describe('RecoveryService', () => {
       });
 
       mockFs.unlink.mockImplementation((filePath: string) => {
-        const match = /([0-9a-f-]+)\.json$/.exec((filePath));
+        const match = /([0-9a-f-]+)\.json$/.exec(filePath);
         if (match) {
           deletedIds.push(match[1] ?? '');
         }
@@ -961,7 +960,7 @@ describe('RecoveryService', () => {
       });
 
       mockFs.unlink.mockImplementation((filePath: string) => {
-        const match = /([0-9a-f-]+)\.json$/.exec((filePath));
+        const match = /([0-9a-f-]+)\.json$/.exec(filePath);
         if (match) {
           deletedIds.push(match[1] ?? '');
         }
@@ -998,7 +997,7 @@ describe('RecoveryService', () => {
       });
 
       mockFs.unlink.mockImplementation((filePath: string) => {
-        const match = /([0-9a-f-]+)\.json$/.exec((filePath));
+        const match = /([0-9a-f-]+)\.json$/.exec(filePath);
         if (match) {
           deletedIds.push(match[1] ?? '');
         }
@@ -1058,7 +1057,7 @@ describe('RecoveryService', () => {
       });
 
       mockFs.unlink.mockImplementation((filePath: string) => {
-        const match = /([0-9a-f-]+)\.json$/.exec((filePath));
+        const match = /([0-9a-f-]+)\.json$/.exec(filePath);
         if (match) {
           deletedIds.push(match[1] ?? '');
         }
@@ -1086,7 +1085,7 @@ describe('RecoveryService', () => {
       });
 
       mockFs.unlink.mockImplementation((filePath: string) => {
-        const match = /([0-9a-f-]+)\.json$/.exec((filePath));
+        const match = /([0-9a-f-]+)\.json$/.exec(filePath);
         if (match) {
           deletedIds.push(match[1] ?? '');
         }
@@ -1132,9 +1131,7 @@ describe('RecoveryService', () => {
         },
       });
 
-      expect(mockAutosaveService.deleteRecoveryFile).toHaveBeenCalledWith(
-        createDocumentId(docId)
-      );
+      expect(mockAutosaveService.deleteRecoveryFile).toHaveBeenCalledWith(createDocumentId(docId));
     });
 
     it('should handle deletion independently when AutosaveService not provided', async () => {
@@ -1198,10 +1195,9 @@ describe('RecoveryService', () => {
 
       await recoveryService.checkForRecovery();
 
-      expect(mockFs.mkdir).toHaveBeenCalledWith(
-        expect.stringContaining('recovery'),
-        { recursive: true }
-      );
+      expect(mockFs.mkdir).toHaveBeenCalledWith(expect.stringContaining('recovery'), {
+        recursive: true,
+      });
     });
   });
 });

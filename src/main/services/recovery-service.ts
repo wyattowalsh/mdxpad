@@ -106,10 +106,7 @@ export class RecoveryService {
    * @param settingsService - Service for accessing autosave configuration settings
    * @param autosaveService - Optional AutosaveService for cleanup operations
    */
-  constructor(
-    settingsService: AutosaveSettingsService,
-    autosaveService?: AutosaveService
-  ) {
+  constructor(settingsService: AutosaveSettingsService, autosaveService?: AutosaveService) {
     this.settingsService = settingsService;
     this.autosaveService = autosaveService ?? null;
   }
@@ -179,7 +176,7 @@ export class RecoveryService {
 
       // Process all entries in parallel
       const results = await Promise.all(
-        manifestEntries.map(entry => this.createDialogEntry(entry.documentId))
+        manifestEntries.map((entry) => this.createDialogEntry(entry.documentId))
       );
 
       const staleIds: DocumentId[] = [];
@@ -227,9 +224,7 @@ export class RecoveryService {
 
       // Validate checksum per FR-019
       if (!this.validateChecksum(recoveryFile)) {
-        console.error(
-          `[RecoveryService] Checksum validation failed for document ${documentId}`
-        );
+        console.error(`[RecoveryService] Checksum validation failed for document ${documentId}`);
         return { ok: false, error: 'CORRUPTED' };
       }
 
@@ -242,10 +237,7 @@ export class RecoveryService {
         conflict,
       };
     } catch (error) {
-      console.error(
-        `[RecoveryService] Failed to get preview for ${documentId}:`,
-        error
-      );
+      console.error(`[RecoveryService] Failed to get preview for ${documentId}:`, error);
       return { ok: false, error: 'READ_ERROR' };
     }
   }
@@ -283,53 +275,45 @@ export class RecoveryService {
    */
   async restore(request: RecoveryRestoreRequest): Promise<RecoveryRestoreResponse> {
     const { decision } = request;
-
     try {
       if (decision.action === 'decline') {
-        // User explicitly declined - discard all recovery data per FR-007
         const manifest = await this.readManifest();
         const allIds = Object.keys(manifest.entries) as DocumentId[];
         await this.discardRecovery(allIds);
         return { ok: true, restored: [] };
       }
-
       if (decision.action === 'dismiss') {
-        // User dismissed without decision - preserve data for next startup
         return { ok: true, restored: [] };
       }
+      if (decision.selectedIds.length !== 1) {
+        return {
+          ok: false,
+          error:
+            decision.selectedIds.length === 0
+              ? 'No recovery documents were selected for restore'
+              : 'Multiple document restore is not supported in single-document mode',
+        };
+      }
 
-      // decision.action === 'accept' - restore selected documents
       const restored: RestoredDocument[] = [];
-
       for (const documentId of decision.selectedIds) {
         const recoveryFile = await this.readRecoveryFile(documentId);
-
         if (!recoveryFile) {
-          console.warn(
-            `[RecoveryService] Recovery file not found for ${documentId}`
-          );
+          console.warn(`[RecoveryService] Recovery file not found for ${documentId}`);
           continue;
         }
-
-        // Validate checksum before restore per FR-019
         if (!this.validateChecksum(recoveryFile)) {
-          console.error(
-            `[RecoveryService] Skipping corrupted file for ${documentId}`
-          );
+          console.error(`[RecoveryService] Skipping corrupted file for ${documentId}`);
           continue;
         }
-
         restored.push({
           documentId: recoveryFile.documentId,
           filePath: recoveryFile.filePath,
           fileName: recoveryFile.fileName,
           content: recoveryFile.content,
         });
-
-        // Delete recovery file after successful restore
         await this.deleteRecoveryFileAndUpdateManifest(documentId);
       }
-
       return { ok: true, restored };
     } catch (error) {
       console.error('[RecoveryService] Failed to restore documents:', error);
@@ -367,10 +351,7 @@ export class RecoveryService {
         await this.deleteRecoveryFileAndUpdateManifest(documentId);
         discardedCount++;
       } catch (error) {
-        console.error(
-          `[RecoveryService] Failed to discard ${documentId}:`,
-          error
-        );
+        console.error(`[RecoveryService] Failed to discard ${documentId}:`, error);
         // Continue with other files
       }
     }
@@ -410,9 +391,7 @@ export class RecoveryService {
 
       // Delete identified files individually to collect per-file errors
       if (idsToDelete.length > 0) {
-        console.log(
-          `[RecoveryService] Cleaning up ${idsToDelete.length} recovery files`
-        );
+        console.log(`[RecoveryService] Cleaning up ${idsToDelete.length} recovery files`);
         for (const documentId of idsToDelete) {
           try {
             await this.deleteRecoveryFileAndUpdateManifest(documentId);
@@ -462,9 +441,7 @@ export class RecoveryService {
     }
 
     // Step 2: Calculate remaining entries after age-based deletion
-    const remainingEntries = entries.filter(
-      (e) => !idsToDelete.includes(e.documentId)
-    );
+    const remainingEntries = entries.filter((e) => !idsToDelete.includes(e.documentId));
 
     // Step 3: If still over maxFiles, mark oldest for deletion
     if (remainingEntries.length > settings.maxFiles) {
@@ -521,14 +498,10 @@ export class RecoveryService {
       try {
         await this.deleteRecoveryFileAndUpdateManifest(documentId);
       } catch (error) {
-        console.warn(
-          `[RecoveryService] Failed to reconcile stale entry ${documentId}:`,
-          error
-        );
+        console.warn(`[RecoveryService] Failed to reconcile stale entry ${documentId}:`, error);
       }
     }
   }
-
 
   /**
    * Creates a dialog entry for a document ID.
@@ -541,9 +514,7 @@ export class RecoveryService {
    * @param documentId - The document ID to create entry for
    * @returns Promise resolving to dialog entry or null if file not found
    */
-  private async createDialogEntry(
-    documentId: DocumentId
-  ): Promise<RecoveryDialogEntry | null> {
+  private async createDialogEntry(documentId: DocumentId): Promise<RecoveryDialogEntry | null> {
     try {
       const recoveryFile = await this.readRecoveryFile(documentId);
 
@@ -569,10 +540,7 @@ export class RecoveryService {
         hasConflict,
       };
     } catch (error) {
-      console.error(
-        `[RecoveryService] Failed to create dialog entry for ${documentId}:`,
-        error
-      );
+      console.error(`[RecoveryService] Failed to create dialog entry for ${documentId}:`, error);
       return null;
     }
   }
@@ -687,9 +655,7 @@ export class RecoveryService {
    * @param documentId - The document ID to read
    * @returns Promise resolving to RecoveryFile or null if not found
    */
-  private async readRecoveryFile(
-    documentId: DocumentId
-  ): Promise<RecoveryFile | null> {
+  private async readRecoveryFile(documentId: DocumentId): Promise<RecoveryFile | null> {
     try {
       const filePath = this.getRecoveryFilePath(documentId);
       const content = await fs.readFile(filePath, 'utf-8');
@@ -779,9 +745,7 @@ export class RecoveryService {
    * @param recoveryFile - The recovery file to check
    * @returns Conflict info or null if no conflict
    */
-  private async detectConflict(
-    recoveryFile: RecoveryFile
-  ): Promise<{
+  private async detectConflict(recoveryFile: RecoveryFile): Promise<{
     documentId: DocumentId;
     filePath: string;
     recoveryContent: string;
@@ -834,7 +798,9 @@ export class RecoveryService {
    */
   private isEnoentError(error: unknown): boolean {
     return (
-      error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
     );
   }
 }

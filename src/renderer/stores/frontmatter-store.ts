@@ -7,8 +7,6 @@
  * @module renderer/stores/frontmatter-store
  */
 
- 
-
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { castDraft, current } from 'immer';
@@ -25,18 +23,16 @@ import type {
   FrontmatterStoreState,
   FrontmatterStore,
 } from '@shared/types/frontmatter';
-import {
-  EMPTY_FRONTMATTER_DATA,
-  EMPTY_SCHEMA,
-  VALID_RESULT,
-} from '@shared/types/frontmatter';
+import { EMPTY_FRONTMATTER_DATA, EMPTY_SCHEMA, VALID_RESULT } from '@shared/types/frontmatter';
 import {
   parseFrontmatter,
   serializeFrontmatter,
   validateYamlSyntax,
   getDefaultValue,
   validateField as validateFieldValue,
+  loadSchemaForWorkspace,
 } from '@renderer/lib/frontmatter';
+import { useDocumentStore } from '@renderer/stores/document-store';
 
 // =============================================================================
 // INITIAL STATE
@@ -61,11 +57,7 @@ const INITIAL_STATE: FrontmatterStoreState = {
 /**
  * Creates a new field with default values
  */
-function createField(
-  name: string,
-  type: FieldType,
-  order: number
-): FrontmatterField {
+function createField(name: string, type: FieldType, order: number): FrontmatterField {
   return {
     name,
     value: getDefaultValue(type),
@@ -82,12 +74,9 @@ function createField(
  * Note: value assignment uses any to avoid WritableDraft deep instantiation issues
  */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unnecessary-condition */
-function updateFieldInPlace(
-  field: WritableDraft<FrontmatterField>,
-  value: FieldValue
-): void {
+function updateFieldInPlace(field: WritableDraft<FrontmatterField>, value: FieldValue): void {
   // Direct mutation is safe inside Immer's set() callback
-   
+
   (field as any).value = value;
 }
 
@@ -102,18 +91,16 @@ function validateFieldInPlace(
   field: WritableDraft<FrontmatterField>,
   schema?: FrontmatterSchema
 ): void {
-   
   const schemaProperty = schema?.properties?.[(field as any).name];
   const validationResult = validateFieldValue(
-     
     (field as any).value,
-     
+
     (field as any).type,
     schemaProperty
   );
 
   // Update validation result in-place
-   
+
   (field as any).validation = validationResult;
 }
 /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unnecessary-condition */
@@ -166,9 +153,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
         if (!draft.data) return;
 
         const field = draft.data.fields.find(
-          (f) =>
-            f.path.length === path.length &&
-            f.path.every((p, i) => p === path[i])
+          (f) => f.path.length === path.length && f.path.every((p, i) => p === path[i])
         );
 
         if (field) {
@@ -184,20 +169,20 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     addField: (name: string, type: FieldType) =>
       set((draft) => {
         // Create new frontmatter data if it doesn't exist
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any -- if/assign pattern required for TypeScript narrowing (??= doesn't narrow)
-        if (draft.data === null) { draft.data = { ...EMPTY_FRONTMATTER_DATA, exists: true, fields: [] } as any; }
-
-        // data is guaranteed non-null after above assignment
-        if (!draft.data) return;
+        const data = (draft.data ??= castDraft({
+          ...EMPTY_FRONTMATTER_DATA,
+          exists: true,
+          fields: [],
+        }));
 
         // Check if field already exists
-        const existing = draft.data.fields.find((f) => f.name === name);
+        const existing = data.fields.find((f) => f.name === name);
         if (existing) return;
 
         // Add new field at the end
-        const order = draft.data.fields.length;
+        const order = data.fields.length;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- Immer WritableDraft deep instantiation workaround
-        draft.data.fields.push(createField(name, type, order) as any);
+        data.fields.push(createField(name, type, order) as any);
         draft.isDirty = true;
         draft.lastChangeSource = 'panel';
       }),
@@ -207,11 +192,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
         if (!draft.data) return;
 
         draft.data.fields = draft.data.fields.filter(
-          (f) =>
-            !(
-              f.path.length === path.length &&
-              f.path.every((p, i) => p === path[i])
-            )
+          (f) => !(f.path.length === path.length && f.path.every((p, i) => p === path[i]))
         );
 
         draft.isDirty = true;
@@ -357,19 +338,23 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
       });
 
       try {
-        // TODO: Implement full schema loading from project config or user settings (Phase 7)
-        // For now, use empty schema with simulated async operation
-        await Promise.resolve();
+        const filePath = useDocumentStore.getState().filePath;
+        const loadedSchema = await loadSchemaForWorkspace(filePath);
+
         set((draft) => {
-          draft.schema = castDraft(EMPTY_SCHEMA);
+          draft.schema = castDraft(loadedSchema);
+          if (draft.data) {
+            for (const field of draft.data.fields) {
+              validateFieldInPlace(field, loadedSchema);
+            }
+          }
           draft.isLoadingSchema = false;
         });
       } catch (error) {
         set((draft) => {
           // On error, fall back to empty schema
           draft.schema = castDraft(EMPTY_SCHEMA);
-          draft.schemaError =
-            error instanceof Error ? error.message : 'Failed to load schema';
+          draft.schemaError = error instanceof Error ? error.message : 'Failed to load schema';
           draft.isLoadingSchema = false;
         });
       }
@@ -405,52 +390,44 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
 /**
  * Selector for frontmatter data.
  */
-export const selectData = (state: FrontmatterStore): FrontmatterData | null =>
-  state.data;
+export const selectData = (state: FrontmatterStore): FrontmatterData | null => state.data;
 
 /**
  * Selector for frontmatter fields.
  */
-export const selectFields = (
-  state: FrontmatterStore
-): FrontmatterField[] => state.data?.fields ?? [];
+export const selectFields = (state: FrontmatterStore): FrontmatterField[] =>
+  state.data?.fields ?? [];
 
 /**
  * Selector for current mode.
  */
-export const selectMode = (state: FrontmatterStore): FrontmatterMode =>
-  state.mode;
+export const selectMode = (state: FrontmatterStore): FrontmatterMode => state.mode;
 
 /**
  * Selector for panel visibility.
  */
-export const selectIsPanelOpen = (state: FrontmatterStore): boolean =>
-  state.isPanelOpen;
+export const selectIsPanelOpen = (state: FrontmatterStore): boolean => state.isPanelOpen;
 
 /**
  * Selector for dirty state.
  */
-export const selectIsDirty = (state: FrontmatterStore): boolean =>
-  state.isDirty;
+export const selectIsDirty = (state: FrontmatterStore): boolean => state.isDirty;
 
 /**
  * Selector for raw YAML draft.
  */
-export const selectRawYamlDraft = (state: FrontmatterStore): string =>
-  state.rawYamlDraft;
+export const selectRawYamlDraft = (state: FrontmatterStore): string => state.rawYamlDraft;
 
 /**
  * Selector for whether frontmatter exists.
  */
-export const selectExists = (state: FrontmatterStore): boolean =>
-  state.data?.exists ?? false;
+export const selectExists = (state: FrontmatterStore): boolean => state.data?.exists ?? false;
 
 /**
  * Selector for parse errors.
  */
-export const selectParseError = (
-  state: FrontmatterStore
-): FrontmatterData['parseError'] => state.data?.parseError ?? null;
+export const selectParseError = (state: FrontmatterStore): FrontmatterData['parseError'] =>
+  state.data?.parseError ?? null;
 
 /**
  * Selector for validation errors across all fields.
@@ -467,13 +444,10 @@ export const selectValidationErrorCount = (state: FrontmatterStore): number =>
 /**
  * Selector for schema.
  */
-export const selectSchema = (
-  state: FrontmatterStore
-): FrontmatterSchema | null => state.schema;
+export const selectSchema = (state: FrontmatterStore): FrontmatterSchema | null => state.schema;
 
 /**
  * Selector for last change source.
  */
-export const selectLastChangeSource = (
-  state: FrontmatterStore
-): ChangeSource => state.lastChangeSource;
+export const selectLastChangeSource = (state: FrontmatterStore): ChangeSource =>
+  state.lastChangeSource;

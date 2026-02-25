@@ -7,6 +7,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
+    environmentMatchGlobs: [
+      ['src/main/**/*.test.ts', 'node'],
+      ['src/main/**/*.test.tsx', 'node'],
+      ['src/preload/**/*.test.ts', 'node'],
+      ['src/preload/**/*.test.tsx', 'node'],
+      ['tests/integration/**/*.test.ts', 'node'],
+      ['tests/integration/**/*.test.tsx', 'node'],
+    ],
     include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',

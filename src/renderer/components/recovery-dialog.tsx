@@ -34,7 +34,11 @@ import {
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './ui/resizable';
-import type { RecoveryDialogEntry, RecoveryDecision, DocumentId } from '@shared/contracts/autosave-schemas';
+import type {
+  RecoveryDialogEntry,
+  RecoveryDecision,
+  DocumentId,
+} from '@shared/contracts/autosave-schemas';
 import type { RecoveryPreviewResponse } from '@shared/contracts/autosave-ipc';
 
 // =============================================================================
@@ -195,9 +199,7 @@ const ContentPreview = memo(function ContentPreviewComponent({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
         <Eye className="w-8 h-8 mb-2 opacity-50" aria-hidden="true" />
-        <p className="text-sm text-center">
-          Select a document to preview its content
-        </p>
+        <p className="text-sm text-center">Select a document to preview its content</p>
       </div>
     );
   }
@@ -217,12 +219,8 @@ const ContentPreview = memo(function ContentPreviewComponent({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
         <AlertTriangle className="w-6 h-6 text-yellow-500 mb-2" aria-hidden="true" />
-        <p className="text-sm text-center text-destructive">
-          Failed to load preview
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {previewState.error}
-        </p>
+        <p className="text-sm text-center text-destructive">Failed to load preview</p>
+        <p className="text-xs text-muted-foreground mt-1">{previewState.error}</p>
       </div>
     );
   }
@@ -254,11 +252,7 @@ const ContentPreview = memo(function ContentPreviewComponent({
       {/* Content area */}
       <ScrollArea className="flex-1">
         <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-words text-foreground/90">
-          {content || (
-            <span className="text-muted-foreground italic">
-              No content available
-            </span>
-          )}
+          {content || <span className="text-muted-foreground italic">No content available</span>}
         </pre>
       </ScrollArea>
     </div>
@@ -359,16 +353,11 @@ const RecoveryEntryItem = memo(function RecoveryEntryItemComponent({
 
         {/* File path */}
         {entry.filePath ? (
-          <p
-            className="text-xs text-muted-foreground truncate mt-0.5"
-            title={entry.filePath}
-          >
+          <p className="text-xs text-muted-foreground truncate mt-0.5" title={entry.filePath}>
             {entry.filePath}
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground/70 italic mt-0.5">
-            Untitled document
-          </p>
+          <p className="text-xs text-muted-foreground/70 italic mt-0.5">Untitled document</p>
         )}
 
         {/* Timestamp */}
@@ -441,18 +430,20 @@ function RecoveryDialogComponent({
 
   // Get preview state for focused entry
   const currentPreviewState = focusedEntry
-    ? previewCache.get(focusedEntry.documentId) ?? null
+    ? (previewCache.get(focusedEntry.documentId) ?? null)
     : null;
 
   // Initialize checked state when entries change or dialog opens
   useEffect(() => {
     if (isOpen && entries.length > 0) {
-      // Pre-select all valid entries
-      const validIds = new Set(
-        entries.filter((e) => e.isValid).map((e) => e.documentId)
-      );
-      setCheckedIds(validIds);
-      setFocusedIndex(0);
+      // Single-document mode: pre-select the first valid entry
+      const firstValidEntry = entries.find((entry) => entry.isValid) ?? null;
+      const firstValidIndex = firstValidEntry
+        ? entries.findIndex((entry) => entry.documentId === firstValidEntry.documentId)
+        : 0;
+
+      setCheckedIds(firstValidEntry ? new Set([firstValidEntry.documentId]) : new Set());
+      setFocusedIndex(firstValidIndex >= 0 ? firstValidIndex : 0);
       // Clear preview cache when dialog opens with new entries
       setPreviewCache(new Map());
     }
@@ -461,77 +452,80 @@ function RecoveryDialogComponent({
   /**
    * Fetch preview for a document with debouncing and caching.
    */
-  const fetchPreviewForDocument = useCallback(async (documentId: DocumentId) => {
-    // Check cache first
-    const cached = previewCache.get(documentId);
-    const cachedFetchedAt = cached?.fetchedAt;
-    if (cached?.content !== null && cachedFetchedAt !== null && cachedFetchedAt !== undefined) {
-      const age = Date.now() - cachedFetchedAt;
-      if (age < PREVIEW_CACHE_DURATION_MS) {
-        // Cache is still valid, no need to fetch
-        return;
+  const fetchPreviewForDocument = useCallback(
+    async (documentId: DocumentId) => {
+      // Check cache first
+      const cached = previewCache.get(documentId);
+      const cachedFetchedAt = cached?.fetchedAt;
+      if (cached?.content !== null && cachedFetchedAt !== null && cachedFetchedAt !== undefined) {
+        const age = Date.now() - cachedFetchedAt;
+        if (age < PREVIEW_CACHE_DURATION_MS) {
+          // Cache is still valid, no need to fetch
+          return;
+        }
       }
-    }
 
-    // Set loading state
-    setPreviewCache(prev => {
-      const next = new Map(prev);
-      next.set(documentId, {
-        isLoading: true,
-        content: null,
-        error: null,
-        fetchedAt: null,
-      });
-      return next;
-    });
-
-    try {
-      const response = await fetchPreview(documentId);
-
-      if (response.ok) {
-        setPreviewCache(prev => {
-          const next = new Map(prev);
-          next.set(documentId, {
-            isLoading: false,
-            content: response.content,
-            error: null,
-            fetchedAt: Date.now(),
-          });
-          return next;
+      // Set loading state
+      setPreviewCache((prev) => {
+        const next = new Map(prev);
+        next.set(documentId, {
+          isLoading: true,
+          content: null,
+          error: null,
+          fetchedAt: null,
         });
-      } else {
-        // Map error codes to user-friendly messages
-        const errorMessages: Record<string, string> = {
-          NOT_FOUND: 'Recovery file not found',
-          CORRUPTED: 'Recovery file is corrupted',
-          READ_ERROR: 'Failed to read recovery file',
-        };
-        setPreviewCache(prev => {
+        return next;
+      });
+
+      try {
+        const response = await fetchPreview(documentId);
+
+        if (response.ok) {
+          setPreviewCache((prev) => {
+            const next = new Map(prev);
+            next.set(documentId, {
+              isLoading: false,
+              content: response.content,
+              error: null,
+              fetchedAt: Date.now(),
+            });
+            return next;
+          });
+        } else {
+          // Map error codes to user-friendly messages
+          const errorMessages: Record<string, string> = {
+            NOT_FOUND: 'Recovery file not found',
+            CORRUPTED: 'Recovery file is corrupted',
+            READ_ERROR: 'Failed to read recovery file',
+          };
+          setPreviewCache((prev) => {
+            const next = new Map(prev);
+            next.set(documentId, {
+              isLoading: false,
+              content: null,
+              error: errorMessages[response.error] ?? 'Unknown error',
+              fetchedAt: null,
+            });
+            return next;
+          });
+        }
+      } catch (err) {
+        // Handle IPC not available or other errors
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch preview';
+        setPreviewCache((prev) => {
           const next = new Map(prev);
           next.set(documentId, {
             isLoading: false,
             content: null,
-            error: errorMessages[response.error] ?? 'Unknown error',
+            error: errorMessage,
             fetchedAt: null,
           });
           return next;
         });
       }
-    } catch (err) {
-      // Handle IPC not available or other errors
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch preview';
-      setPreviewCache(prev => {
-        const next = new Map(prev);
-        next.set(documentId, {
-          isLoading: false,
-          content: null,
-          error: errorMessage,
-          fetchedAt: null,
-        });
-        return next;
-      });
-    }
-  }, [previewCache]);
+    },
+    [previewCache]
+  );
 
   // Fetch preview when focused entry changes (debounced)
   useEffect(() => {
@@ -578,13 +572,11 @@ function RecoveryDialogComponent({
    */
   const handleToggle = useCallback((documentId: DocumentId) => {
     setCheckedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(documentId)) {
-        next.delete(documentId);
-      } else {
-        next.add(documentId);
+      if (prev.has(documentId)) {
+        return new Set();
       }
-      return next;
+
+      return new Set([documentId]);
     });
   }, []);
 
@@ -675,11 +667,9 @@ function RecoveryDialogComponent({
         case 'a':
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
-            // Select all valid entries
-            const allValidIds = new Set(
-              entries.filter((entry) => entry.isValid).map((entry) => entry.documentId)
-            );
-            setCheckedIds(allValidIds);
+            // Single-document mode: select first valid entry
+            const firstValid = entries.find((entry) => entry.isValid) ?? null;
+            setCheckedIds(firstValid ? new Set([firstValid.documentId]) : new Set());
           }
           break;
       }
@@ -730,10 +720,7 @@ function RecoveryDialogComponent({
 
         {/* Split view: Document list and Content preview */}
         <div className="flex-1 min-h-0 -mx-6 my-4">
-          <ResizablePanelGroup
-            direction="horizontal"
-            className="h-full min-h-[300px]"
-          >
+          <ResizablePanelGroup direction="horizontal" className="h-full min-h-[300px]">
             {/* Document list panel */}
             <ResizablePanel defaultSize={45} minSize={30}>
               <ScrollArea className="h-full px-6">
@@ -741,7 +728,7 @@ function RecoveryDialogComponent({
                   ref={listRef}
                   role="listbox"
                   aria-label="Recoverable documents"
-                  aria-multiselectable="true"
+                  aria-multiselectable="false"
                   aria-activedescendant={
                     entries[focusedIndex]
                       ? `${ITEM_ID_PREFIX}${entries[focusedIndex].documentId}`
@@ -775,10 +762,7 @@ function RecoveryDialogComponent({
                 data-testid="recovery-preview"
                 aria-label="Document preview"
               >
-                <ContentPreview
-                  entry={focusedEntry}
-                  previewState={currentPreviewState}
-                />
+                <ContentPreview entry={focusedEntry} previewState={currentPreviewState} />
               </div>
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -813,8 +797,8 @@ function RecoveryDialogComponent({
 
         {/* Keyboard hints for screen readers */}
         <div className="sr-only" aria-live="polite">
-          Use arrow keys to navigate, Space to toggle selection, Enter to restore selected.
-          Press Escape to dismiss and keep recovery data.
+          Use arrow keys to navigate, Space to toggle selection, Enter to restore selected. Press
+          Escape to dismiss and keep recovery data.
         </div>
       </DialogContent>
     </Dialog>

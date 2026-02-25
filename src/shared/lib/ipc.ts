@@ -30,7 +30,8 @@ export const IPC_CHANNELS = {
   app: {
     getVersion: 'mdxpad:app:get-version',
     getSecurityInfo: 'mdxpad:app:get-security-info',
-    version: 'mdxpad:app:version',
+    // Legacy alias retained for compatibility; canonical channel is app.getVersion
+    version: 'mdxpad:app:get-version',
     ready: 'mdxpad:app:ready',
   },
   /** Editor operations */

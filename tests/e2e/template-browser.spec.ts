@@ -34,6 +34,7 @@ const SEARCH_PERFORMANCE_BUDGET_MS = 1500;
 const PREVIEW_PERFORMANCE_BUDGET_MS = 2000;
 const FIRST_DOCUMENT_BUDGET_MS = 30_000;
 const OPEN_PALETTE_TIMEOUT_MS = 3000;
+const ALLOW_CRITICAL_E2E_RUNTIME_SKIP = process.env.MDXPAD_ALLOW_CRITICAL_E2E_SKIP === '1';
 
 type TemplateBrowserReadyState = 'cards' | 'empty' | 'error';
 
@@ -41,6 +42,13 @@ interface TemplateInventory {
   totalCount: number;
   builtInCount: number;
   error: string | null;
+}
+
+function failOrSkipCritical(reason: string): never {
+  if (ALLOW_CRITICAL_E2E_RUNTIME_SKIP) {
+    test.skip(true, `[governed-runtime-skip] ${reason}`);
+  }
+  throw new Error(`${reason}. Set MDXPAD_ALLOW_CRITICAL_E2E_SKIP=1 to allow a governed skip.`);
 }
 
 function getTemplateBrowserDialog(target: Page): Locator {
@@ -192,6 +200,20 @@ async function openTemplateBrowserDirect(target: Page): Promise<boolean> {
   }
 }
 
+async function requireTemplateBrowserOpen(target: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await openTemplateBrowserDirect(target)) {
+      return;
+    }
+    await closeVariableDialogIfOpen(target);
+    await closeTemplateBrowserIfOpen(target);
+    await closeCommandPaletteIfOpen(target);
+    await target.waitForTimeout(250);
+  }
+
+  failOrSkipCritical('Template browser did not open in this environment');
+}
+
 async function getTemplateInventory(target: Page): Promise<TemplateInventory> {
   return target.evaluate(async () => {
     const result = await window.mdxpad.template.list();
@@ -212,7 +234,9 @@ async function getTemplateInventory(target: Page): Promise<TemplateInventory> {
   });
 }
 
-async function getTemplateBrowserReadyState(target: Page): Promise<TemplateBrowserReadyState | 'loading'> {
+async function getTemplateBrowserReadyState(
+  target: Page
+): Promise<TemplateBrowserReadyState | 'loading'> {
   const templateBrowser = getTemplateBrowserDialog(target);
   const cards = getTemplateCards(target);
 
@@ -224,7 +248,9 @@ async function getTemplateBrowserReadyState(target: Page): Promise<TemplateBrows
     return 'empty';
   }
 
-  if (await templateBrowser.getByRole('heading', { name: 'Failed to load templates' }).isVisible()) {
+  if (
+    await templateBrowser.getByRole('heading', { name: 'Failed to load templates' }).isVisible()
+  ) {
     return 'error';
   }
 
@@ -317,9 +343,7 @@ test.describe('Template Browser E2E', () => {
 
   test.describe('FR-003: Template List Display', () => {
     test('should display built-in templates', async () => {
-      if (!(await openTemplateBrowserDirect(page))) {
-        test.skip(true, 'Template browser did not open in this environment');
-      }
+      await requireTemplateBrowserOpen(page);
       const readyState = await waitForTemplateBrowserReady(page);
       const inventory = await getTemplateInventory(page);
 
@@ -341,17 +365,15 @@ test.describe('Template Browser E2E', () => {
 
       expect(readyState).toBe('cards');
       await expect.poll(async () => cards.count(), { timeout: 10_000 }).toBe(inventory.totalCount);
-      await expect.poll(async () => builtInCards.count(), { timeout: 10_000 }).toBe(
-        inventory.builtInCount
-      );
+      await expect
+        .poll(async () => builtInCards.count(), { timeout: 10_000 })
+        .toBe(inventory.builtInCount);
     });
   });
 
   test.describe('FR-004: Search Functionality', () => {
     test('should filter templates by search query (SC-004: < 200ms)', async () => {
-      if (!(await openTemplateBrowserDirect(page))) {
-        test.skip(true, 'Template browser did not open in this environment');
-      }
+      await requireTemplateBrowserOpen(page);
       const readyState = await waitForTemplateBrowserReady(page);
 
       const templateBrowser = getTemplateBrowserDialog(page);
@@ -393,9 +415,7 @@ test.describe('Template Browser E2E', () => {
 
   test.describe('FR-005: Template Preview', () => {
     test('should show preview when template selected (SC-002: < 1s)', async () => {
-      if (!(await openTemplateBrowserDirect(page))) {
-        test.skip(true, 'Template browser did not open in this environment');
-      }
+      await requireTemplateBrowserOpen(page);
       const readyState = await waitForTemplateBrowserReady(page);
 
       const templateBrowser = getTemplateBrowserDialog(page);
@@ -428,9 +448,7 @@ test.describe('Template Browser E2E', () => {
 
   test.describe('FR-019/SC-007: Keyboard Navigation', () => {
     test('should navigate templates with arrow keys', async () => {
-      if (!(await openTemplateBrowserDirect(page))) {
-        test.skip(true, 'Template browser did not open in this environment');
-      }
+      await requireTemplateBrowserOpen(page);
       const readyState = await waitForTemplateBrowserReady(page);
 
       const templateBrowser = getTemplateBrowserDialog(page);
@@ -447,14 +465,14 @@ test.describe('Template Browser E2E', () => {
         expect(firstSelectedId).not.toBeNull();
 
         await page.keyboard.press('ArrowDown');
-        await expect.poll(async () => getSelectedTemplateId(page), { timeout: 5_000 }).not.toBe(
-          firstSelectedId
-        );
+        await expect
+          .poll(async () => getSelectedTemplateId(page), { timeout: 5_000 })
+          .not.toBe(firstSelectedId);
 
         await page.keyboard.press('ArrowUp');
-        await expect.poll(async () => getSelectedTemplateId(page), { timeout: 5_000 }).toBe(
-          firstSelectedId
-        );
+        await expect
+          .poll(async () => getSelectedTemplateId(page), { timeout: 5_000 })
+          .toBe(firstSelectedId);
       } else {
         await expect(
           templateBrowser.locator('[data-testid="template-card"][aria-pressed="true"]')
@@ -463,9 +481,7 @@ test.describe('Template Browser E2E', () => {
     });
 
     test('should close browser with Escape', async () => {
-      if (!(await openTemplateBrowserDirect(page))) {
-        test.skip(true, 'Template browser did not open in this environment');
-      }
+      await requireTemplateBrowserOpen(page);
       const templateBrowser = getTemplateBrowserDialog(page);
       await expect(templateBrowser).toBeVisible();
 
@@ -477,9 +493,7 @@ test.describe('Template Browser E2E', () => {
   test.describe('SC-001: Time to First Document', () => {
     test('should create document from template in < 30s', async () => {
       const startTime = Date.now();
-      if (!(await openTemplateBrowserDirect(page))) {
-        test.skip(true, 'Template browser did not open in this environment');
-      }
+      await requireTemplateBrowserOpen(page);
       const readyState = await waitForTemplateBrowserReady(page);
 
       const templateBrowser = getTemplateBrowserDialog(page);

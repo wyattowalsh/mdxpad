@@ -31,11 +31,7 @@ vi.stubGlobal('localStorage', {
 });
 
 // Import after mocking localStorage
-import {
-  useCommandRegistry,
-  selectCommandCount,
-  selectHasCommand,
-} from './command-registry-store';
+import { useCommandRegistry, selectCommandCount, selectHasCommand } from './command-registry-store';
 
 // =============================================================================
 // TEST HELPERS
@@ -49,8 +45,7 @@ const createCommandId = (id: string): CommandId => id as CommandId;
 /**
  * Helper to create a valid NormalizedShortcut with proper branding.
  */
-const createShortcut = (shortcut: string): NormalizedShortcut =>
-  shortcut as NormalizedShortcut;
+const createShortcut = (shortcut: string): NormalizedShortcut => shortcut as NormalizedShortcut;
 
 /**
  * Test helper to create a minimal test command.
@@ -197,6 +192,27 @@ describe('CommandRegistryStore', () => {
       const state = useCommandRegistry.getState();
       expect(state.commands.size).toBe(2);
     });
+
+    it('should reject registration when shortcut conflicts with existing command', () => {
+      const command1 = createTestCommand('file.save', 'file', {
+        key: 's',
+        modifiers: ['Mod'],
+      });
+      const command2 = createTestCommand('file.save-as', 'file', {
+        key: 's',
+        modifiers: ['Mod'],
+      });
+
+      const firstResult = useCommandRegistry.getState().register(command1);
+      const secondResult = useCommandRegistry.getState().register(command2);
+
+      expect(firstResult.ok).toBe(true);
+      expect(secondResult.ok).toBe(false);
+      if (!secondResult.ok) {
+        expect(secondResult.error).toContain('Shortcut already registered');
+      }
+      expect(useCommandRegistry.getState().commands.has(command2.id)).toBe(false);
+    });
   });
 
   // ===========================================================================
@@ -281,18 +297,14 @@ describe('CommandRegistryStore', () => {
       useCommandRegistry.getState().register(command);
 
       const normalizedShortcut = createShortcut('Mod+s');
-      const result = useCommandRegistry
-        .getState()
-        .getCommandByShortcut(normalizedShortcut);
+      const result = useCommandRegistry.getState().getCommandByShortcut(normalizedShortcut);
 
       expect(result).toEqual(command);
     });
 
     it('should return undefined for unknown shortcut', () => {
       const unknownShortcut = createShortcut('Mod+x');
-      const result = useCommandRegistry
-        .getState()
-        .getCommandByShortcut(unknownShortcut);
+      const result = useCommandRegistry.getState().getCommandByShortcut(unknownShortcut);
 
       expect(result).toBeUndefined();
     });
@@ -332,9 +344,7 @@ describe('CommandRegistryStore', () => {
       useCommandRegistry.getState().register(fileCommand2);
       useCommandRegistry.getState().register(editCommand);
 
-      const fileCommands = useCommandRegistry
-        .getState()
-        .getCommandsByCategory('file');
+      const fileCommands = useCommandRegistry.getState().getCommandsByCategory('file');
 
       expect(fileCommands).toHaveLength(2);
       expect(fileCommands).toContainEqual(fileCommand1);
@@ -346,9 +356,7 @@ describe('CommandRegistryStore', () => {
       const command = createTestCommand('file.save', 'file');
       useCommandRegistry.getState().register(command);
 
-      const viewCommands = useCommandRegistry
-        .getState()
-        .getCommandsByCategory('view');
+      const viewCommands = useCommandRegistry.getState().getCommandsByCategory('view');
 
       expect(viewCommands).toEqual([]);
     });
@@ -465,9 +473,7 @@ describe('CommandRegistryStore', () => {
 
       expect(state.recentCommands).toHaveLength(1);
       expect(state.recentCommands[0]!.useCount).toBe(firstUseCount + 1);
-      expect(state.recentCommands[0]!.lastUsed).toBeGreaterThanOrEqual(
-        firstLastUsed
-      );
+      expect(state.recentCommands[0]!.lastUsed).toBeGreaterThanOrEqual(firstLastUsed);
     });
 
     it('should maintain max 10 entries', () => {
@@ -496,9 +502,7 @@ describe('CommandRegistryStore', () => {
       const afterTrack = Date.now();
 
       const state = useCommandRegistry.getState();
-      expect(state.recentCommands[0]!.lastUsed).toBeGreaterThanOrEqual(
-        beforeTrack
-      );
+      expect(state.recentCommands[0]!.lastUsed).toBeGreaterThanOrEqual(beforeTrack);
       expect(state.recentCommands[0]!.lastUsed).toBeLessThanOrEqual(afterTrack);
     });
   });
@@ -740,17 +744,13 @@ describe('CommandRegistryStore', () => {
       useCommandRegistry.getState().register(command);
 
       // selectHasCommand is curried: selectHasCommand(id)(state)
-      const hasCommand = selectHasCommand(command.id)(
-        useCommandRegistry.getState()
-      );
+      const hasCommand = selectHasCommand(command.id)(useCommandRegistry.getState());
       expect(hasCommand).toBe(true);
     });
 
     it('should return false if command does not exist', () => {
       const unknownId = createCommandId('unknown.command');
-      const hasCommand = selectHasCommand(unknownId)(
-        useCommandRegistry.getState()
-      );
+      const hasCommand = selectHasCommand(unknownId)(useCommandRegistry.getState());
       expect(hasCommand).toBe(false);
     });
 
@@ -758,15 +758,11 @@ describe('CommandRegistryStore', () => {
       const command = createTestCommand('file.save');
       useCommandRegistry.getState().register(command);
 
-      expect(
-        selectHasCommand(command.id)(useCommandRegistry.getState())
-      ).toBe(true);
+      expect(selectHasCommand(command.id)(useCommandRegistry.getState())).toBe(true);
 
       useCommandRegistry.getState().unregister(command.id);
 
-      expect(
-        selectHasCommand(command.id)(useCommandRegistry.getState())
-      ).toBe(false);
+      expect(selectHasCommand(command.id)(useCommandRegistry.getState())).toBe(false);
     });
   });
 });
@@ -809,9 +805,7 @@ describe('CommandRegistryStore Integration', () => {
     // Load from storage
     useCommandRegistry.getState().loadRecentFromStorage();
     expect(useCommandRegistry.getState().recentCommands[0]!.useCount).toBe(2);
-    expect(useCommandRegistry.getState().recentCommands[0]!.commandId).toBe(
-      command.id
-    );
+    expect(useCommandRegistry.getState().recentCommands[0]!.commandId).toBe(command.id);
   });
 
   it('should handle multiple categories and shortcuts correctly', () => {
@@ -836,15 +830,9 @@ describe('CommandRegistryStore Integration', () => {
     expect(selectCommandCount(useCommandRegistry.getState())).toBe(6);
 
     // Verify category filtering
-    expect(
-      useCommandRegistry.getState().getCommandsByCategory('file')
-    ).toHaveLength(3);
-    expect(
-      useCommandRegistry.getState().getCommandsByCategory('edit')
-    ).toHaveLength(3);
-    expect(
-      useCommandRegistry.getState().getCommandsByCategory('view')
-    ).toHaveLength(0);
+    expect(useCommandRegistry.getState().getCommandsByCategory('file')).toHaveLength(3);
+    expect(useCommandRegistry.getState().getCommandsByCategory('edit')).toHaveLength(3);
+    expect(useCommandRegistry.getState().getCommandsByCategory('view')).toHaveLength(0);
 
     // Verify no conflicts (all unique shortcuts)
     expect(useCommandRegistry.getState().detectConflicts()).toEqual([]);

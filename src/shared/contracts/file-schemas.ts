@@ -234,13 +234,13 @@ export const WindowMaximizeResponseSchema = z.void();
 // ============================================================================
 
 /**
- * mdxpad:app:version request schema.
+ * mdxpad:app:get-version request schema.
  * Gets application version.
  */
 export const AppVersionRequestSchema = z.void();
 
 /**
- * mdxpad:app:version response schema.
+ * mdxpad:app:get-version response schema.
  * Returns semantic version string (e.g., "0.1.0").
  */
 export const AppVersionResponseSchema = z.string();
@@ -396,7 +396,7 @@ export const IPC_SCHEMAS = {
     request: WindowMaximizeRequestSchema,
     response: WindowMaximizeResponseSchema,
   },
-  'mdxpad:app:version': {
+  'mdxpad:app:get-version': {
     request: AppVersionRequestSchema,
     response: AppVersionResponseSchema,
   },

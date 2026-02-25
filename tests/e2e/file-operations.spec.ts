@@ -18,7 +18,15 @@
 import type { ElectronApplication, Page } from 'playwright';
 import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
-import { writeFileSync, unlinkSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import {
+  writeFileSync,
+  readFileSync,
+  unlinkSync,
+  mkdirSync,
+  rmSync,
+  existsSync,
+  chmodSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
 
@@ -30,6 +38,7 @@ let userDataDir: string | null = null;
 const TEST_FIXTURES_DIR = join(tmpdir(), 'mdxpad-e2e-fixtures');
 const TEST_FILE_PATH = join(TEST_FIXTURES_DIR, 'test-document.mdx');
 const TEST_FILE_CONTENT = '# Test Document\n\nThis is test content.';
+const TEST_FILE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
 async function dispatchMenuAcceleratorEvent(
   channel:
@@ -214,15 +223,41 @@ test.describe('File Operations E2E', () => {
     });
 
     test('cancelled file dialog should not change document state', async () => {
-      // Simulate cancelled dialog response
-      const result = await page.evaluate(async () => {
-        const mdxpad = (window as any).mdxpad;
-        // Mock the openFile to return cancelled
-        return { ok: false, error: { code: 'CANCELLED' } };
+      const fileNameBefore = (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
+
+      await electronApp.evaluate(({ dialog }) => {
+        (globalThis as { __openDialogCancelled?: boolean }).__openDialogCancelled = false;
+        const originalOpenDialog = dialog.showOpenDialog.bind(dialog);
+        (globalThis as { __restoreOpenDialogCancelled?: () => void }).__restoreOpenDialogCancelled =
+          () => {
+            dialog.showOpenDialog = originalOpenDialog;
+          };
+        dialog.showOpenDialog = async () => {
+          (globalThis as { __openDialogCancelled?: boolean }).__openDialogCancelled = true;
+          return { canceled: true, filePaths: [] };
+        };
       });
 
-      expect(result.ok).toBe(false);
-      expect(result.error.code).toBe('CANCELLED');
+      try {
+        const result = await page.evaluate(async () => {
+          return await (window as any).mdxpad.openFile();
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe('CANCELLED');
+
+        const fileNameAfter =
+          (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
+        expect(fileNameAfter).toBe(fileNameBefore);
+      } finally {
+        await electronApp.evaluate(() => {
+          const restore = (globalThis as { __restoreOpenDialogCancelled?: () => void })
+            .__restoreOpenDialogCancelled;
+          if (restore) {
+            restore();
+          }
+        });
+      }
     });
   });
 
@@ -281,12 +316,26 @@ test.describe('File Operations E2E', () => {
     });
 
     test('saveFile should return success result for valid operations', async () => {
-      // Test the API contract
-      const hasCorrectSignature = await page.evaluate(() => {
-        const mdxpad = (window as any).mdxpad;
-        return mdxpad && typeof mdxpad.saveFile === 'function';
-      });
-      expect(hasCorrectSignature).toBe(true);
+      const saveTargetPath = join(TEST_FIXTURES_DIR, 'save-target.mdx');
+      const updatedContent = '# Saved by E2E\n\nUpdated content';
+      writeFileSync(saveTargetPath, '# Initial', 'utf-8');
+
+      const result = await page.evaluate(
+        async ({ path, content, fileId }) => {
+          return await (window as any).mdxpad.saveFile(
+            { id: fileId, path, name: 'save-target.mdx' },
+            content
+          );
+        },
+        { path: saveTargetPath, content: updatedContent, fileId: TEST_FILE_ID }
+      );
+
+      expect(result.ok).toBe(true);
+      const writtenContent = readFileSync(saveTargetPath, 'utf-8');
+      expect(writtenContent).toBe(updatedContent);
+      if (existsSync(saveTargetPath)) {
+        unlinkSync(saveTargetPath);
+      }
     });
   });
 
@@ -328,7 +377,8 @@ test.describe('File Operations E2E', () => {
       });
 
       await electronApp.evaluate(() => {
-        const restore = (globalThis as { __restoreSaveAsDialog?: () => void }).__restoreSaveAsDialog;
+        const restore = (globalThis as { __restoreSaveAsDialog?: () => void })
+          .__restoreSaveAsDialog;
         if (restore) {
           restore();
         }
@@ -338,36 +388,68 @@ test.describe('File Operations E2E', () => {
     });
 
     test('cancelled Save As should preserve original file path', async () => {
-      // Verify cancelled dialog returns appropriate error
-      const mockResult = { ok: false, error: { code: 'CANCELLED' } };
-      expect(mockResult.ok).toBe(false);
-      expect(mockResult.error.code).toBe('CANCELLED');
+      await dispatchMenuAcceleratorEvent('mdxpad:menu:new-file');
+      await expect(page.getByTestId('file-info-name')).toHaveText('Untitled');
+      const fileNameBefore = (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
+
+      await electronApp.evaluate(({ dialog }) => {
+        (globalThis as { __saveAsDialogCancelled?: boolean }).__saveAsDialogCancelled = false;
+        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
+        (
+          globalThis as { __restoreSaveAsDialogCancelled?: () => void }
+        ).__restoreSaveAsDialogCancelled = () => {
+          dialog.showSaveDialog = originalSaveDialog;
+        };
+        dialog.showSaveDialog = async () => {
+          (globalThis as { __saveAsDialogCancelled?: boolean }).__saveAsDialogCancelled = true;
+          return { canceled: true, filePath: '' };
+        };
+      });
+
+      try {
+        await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file-as');
+        await expect
+          .poll(async () => {
+            return await electronApp.evaluate(() => {
+              return (
+                (globalThis as { __saveAsDialogCancelled?: boolean }).__saveAsDialogCancelled ===
+                true
+              );
+            });
+          })
+          .toBe(true);
+
+        const fileNameAfter =
+          (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
+        expect(fileNameAfter).toBe(fileNameBefore);
+      } finally {
+        await electronApp.evaluate(() => {
+          const restore = (globalThis as { __restoreSaveAsDialogCancelled?: () => void })
+            .__restoreSaveAsDialogCancelled;
+          if (restore) {
+            restore();
+          }
+        });
+      }
     });
   });
 
   test.describe('US4: New File (Cmd+N)', () => {
     test('Cmd+N should create new untitled document', async () => {
-      // Track if new document action is triggered
-      await page.evaluate(() => {
-        (window as any).__newDocumentCreated = false;
-        // Hook into whatever mechanism creates new documents
-        // This depends on the app's implementation
-      });
+      const editor = page.locator('.cm-editor').first();
+      await expect(editor).toBeVisible();
+      await editor.click();
+      await page.keyboard.type('temporary text');
+      await expect(page.getByTestId('file-info-dirty')).toBeVisible();
 
       // Simulate accelerator pathway: File menu event routed to renderer command execution.
       await dispatchMenuAcceleratorEvent('mdxpad:menu:new-file');
 
       // Wait for IPC event propagation by waiting for status bar to remain visible
       await expect(page.locator('[data-testid="status-bar"]')).toBeVisible();
-
-      // Verify new document behavior
-      // The specific assertions depend on how the app handles Cmd+N
-      // Common expectations:
-      // - Window title changes to "Untitled"
-      // - Editor content is cleared
-      // - Dirty state is false
+      await expect(page.getByTestId('file-info-name')).toHaveText('Untitled');
+      await expect(page.getByTestId('file-info-dirty')).toHaveCount(0);
     });
-
   });
 
   test.describe('US5: Close with Unsaved Changes', () => {
@@ -377,7 +459,6 @@ test.describe('File Operations E2E', () => {
       });
       expect(hasCloseWindow).toBe(true);
     });
-
   });
 
   test.describe('US6: External File Change Detection', () => {
@@ -404,48 +485,124 @@ test.describe('File Operations E2E', () => {
     });
 
     test('file change event should contain correct structure', async () => {
-      // Verify FileChangeEvent shape
-      const mockEvent = {
-        fileId: 'test-file-id',
-        path: '/path/to/file.mdx',
-        type: 'change' as const,
-      };
+      await page.evaluate(() => {
+        const win = window as any;
+        const previousUnsubscribe = win.__fileChangeUnsubscribe;
+        if (typeof previousUnsubscribe === 'function') {
+          previousUnsubscribe();
+        }
+        win.__fileChangeEvent = null;
+        win.__fileChangeSetupError = null;
 
-      expect(mockEvent.fileId).toBeDefined();
-      expect(mockEvent.path).toBeDefined();
-      expect(['change', 'unlink']).toContain(mockEvent.type);
-    });
+        const mdxpad = win.mdxpad;
+        if (!mdxpad?.onFileChange) {
+          win.__fileChangeSetupError = 'onFileChange API unavailable';
+          return;
+        }
 
-    test('external modification should trigger notification', async () => {
-      // This test would require:
-      // 1. Opening a file
-      // 2. Modifying it externally (e.g., via fs.writeFileSync)
-      // 3. Waiting for the file watcher to detect the change
-      // 4. Verifying the onFileChange callback is invoked
-
-      // Set up listener
-      const eventReceived = await page.evaluate(() => {
-        return new Promise<boolean>((resolve) => {
-          const mdxpad = (window as any).mdxpad;
-          if (mdxpad?.onFileChange) {
-            const unsubscribe = mdxpad.onFileChange((event: any) => {
-              unsubscribe();
-              resolve(true);
-            });
-
-            // Timeout if no event received
-            setTimeout(() => {
-              unsubscribe();
-              resolve(false);
-            }, 2000);
-          } else {
-            resolve(false);
+        win.__fileChangeUnsubscribe = mdxpad.onFileChange(
+          (event: { fileId: string; path: string; type: string }) => {
+            win.__fileChangeEvent = event;
           }
+        );
+      });
+
+      await electronApp.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        win?.webContents.send('mdxpad:file:change', {
+          fileId: '550e8400-e29b-41d4-a716-446655440000',
+          path: '/tmp/file-change-structure.mdx',
+          type: 'change',
         });
       });
 
-      // Note: This test would need actual file modification to complete
-      // In CI/CD, we might skip this or use a mock
+      const setupError = await page.evaluate(() => {
+        return (window as any).__fileChangeSetupError as string | null;
+      });
+      expect(setupError).toBeNull();
+
+      await expect
+        .poll(
+          async () => {
+            return await page.evaluate(() => {
+              return (window as any).__fileChangeEvent !== null;
+            });
+          },
+          { timeout: 5000 }
+        )
+        .toBe(true);
+
+      const event = await page.evaluate(() => {
+        return (window as any).__fileChangeEvent as { fileId: string; path: string; type: string };
+      });
+      expect(event.fileId).toBe(TEST_FILE_ID);
+      expect(event.path).toBe('/tmp/file-change-structure.mdx');
+      expect(event.type).toBe('change');
+
+      await page.evaluate(() => {
+        const win = window as any;
+        const unsubscribe = win.__fileChangeUnsubscribe;
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+        win.__fileChangeUnsubscribe = null;
+      });
+    });
+
+    test('external modification should trigger notification', async () => {
+      await page.evaluate(() => {
+        const win = window as any;
+        const previousUnsubscribe = win.__fileChangeUnsubscribe;
+        if (typeof previousUnsubscribe === 'function') {
+          previousUnsubscribe();
+        }
+        win.__fileChangeEvent = null;
+
+        const mdxpad = win.mdxpad;
+        if (!mdxpad?.onFileChange) {
+          win.__fileChangeSetupError = 'onFileChange API unavailable';
+          return;
+        }
+
+        win.__fileChangeSetupError = null;
+        win.__fileChangeUnsubscribe = mdxpad.onFileChange((event: { type: string }) => {
+          win.__fileChangeEvent = event;
+        });
+      });
+
+      await electronApp.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0];
+        win?.webContents.send('mdxpad:file:change', {
+          fileId: '550e8400-e29b-41d4-a716-446655440000',
+          path: '/tmp/file-change-unlink.mdx',
+          type: 'unlink',
+        });
+      });
+
+      const setupError = await page.evaluate(() => {
+        return (window as any).__fileChangeSetupError as string | null;
+      });
+      expect(setupError).toBeNull();
+
+      await expect
+        .poll(
+          async () => {
+            return await page.evaluate(() => {
+              return (window as any).__fileChangeEvent?.type ?? null;
+            });
+          },
+          { timeout: 5000 }
+        )
+        .toBe('unlink');
+
+      await page.evaluate(() => {
+        const win = window as any;
+        const unsubscribe = win.__fileChangeUnsubscribe;
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+        win.__fileChangeUnsubscribe = null;
+      });
     });
   });
 
@@ -470,60 +627,118 @@ test.describe('File Operations E2E', () => {
       // Menu should exist
       expect(menuExists).toBe(true);
     });
-
   });
 
   test.describe('Error Handling', () => {
     test('NOT_FOUND error should be user-friendly', async () => {
-      const error = { code: 'NOT_FOUND', path: '/missing/file.mdx' };
-      expect(error.code).toBe('NOT_FOUND');
-      expect(error.path).toBeDefined();
+      const missingPath = join(TEST_FIXTURES_DIR, `missing-${Date.now()}.mdx`);
+      const result = await page.evaluate(async (path) => {
+        return await (window as any).mdxpad.readFile(path);
+      }, missingPath);
+
+      expect(result.ok).toBe(false);
+      expect(result.error.code).toBe('NOT_FOUND');
+      expect(result.error.path).toBe(missingPath);
     });
 
     test('PERMISSION_DENIED error should be user-friendly', async () => {
-      const error = { code: 'PERMISSION_DENIED', path: '/restricted/file.mdx' };
-      expect(error.code).toBe('PERMISSION_DENIED');
-      expect(error.path).toBeDefined();
+      const restrictedPath = join(TEST_FIXTURES_DIR, `restricted-${Date.now()}.mdx`);
+      writeFileSync(restrictedPath, 'restricted', 'utf-8');
+      chmodSync(restrictedPath, 0o000);
+
+      try {
+        const result = await page.evaluate(async (path) => {
+          return await (window as any).mdxpad.readFile(path);
+        }, restrictedPath);
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe('PERMISSION_DENIED');
+        expect(result.error.path).toBe(restrictedPath);
+      } finally {
+        if (existsSync(restrictedPath)) {
+          chmodSync(restrictedPath, 0o600);
+          unlinkSync(restrictedPath);
+        }
+      }
     });
 
     test('CANCELLED should not show error message', async () => {
-      const result = { ok: false, error: { code: 'CANCELLED' } };
+      await electronApp.evaluate(({ dialog }) => {
+        const originalOpenDialog = dialog.showOpenDialog.bind(dialog);
+        (globalThis as { __restoreCancelledDialog?: () => void }).__restoreCancelledDialog = () => {
+          dialog.showOpenDialog = originalOpenDialog;
+        };
+        dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
+      });
+      const result = await page.evaluate(async () => {
+        return await (window as any).mdxpad.openFile();
+      });
+      await electronApp.evaluate(() => {
+        const restore = (globalThis as { __restoreCancelledDialog?: () => void })
+          .__restoreCancelledDialog;
+        if (restore) {
+          restore();
+        }
+      });
+
+      expect(result.ok).toBe(false);
       expect(result.error.code).toBe('CANCELLED');
-      // CANCELLED is a normal flow, not an error to display
+      expect(result.error.message).toBeUndefined();
     });
 
     test('UNKNOWN error should include message', async () => {
-      const error = { code: 'UNKNOWN', message: 'Unexpected error occurred' };
-      expect(error.code).toBe('UNKNOWN');
-      expect(error.message).toBeDefined();
+      const result = await page.evaluate(async () => {
+        return await (window as any).mdxpad.saveFile(
+          {
+            id: '550e8400-e29b-41d4-a716-446655440001',
+            path: null,
+            name: 'Untitled',
+          },
+          'content'
+        );
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error.code).toBe('UNKNOWN');
+      expect(result.error.message).toContain('no path');
     });
   });
 
   test.describe('API Contract Verification', () => {
     test('readFile should accept path and return FileResult<string>', async () => {
-      const hasReadFile = await page.evaluate(() => {
-        return typeof (window as any).mdxpad?.readFile === 'function';
-      });
-      expect(hasReadFile).toBe(true);
+      const result = await page.evaluate(async (path) => {
+        return await (window as any).mdxpad.readFile(path);
+      }, TEST_FILE_PATH);
+
+      expect(result.ok).toBe(true);
+      expect(result.value).toContain('Test Document');
     });
 
     test('writeFile should accept path and content', async () => {
-      const hasWriteFile = await page.evaluate(() => {
-        return typeof (window as any).mdxpad?.writeFile === 'function';
-      });
-      expect(hasWriteFile).toBe(true);
+      const writeTargetPath = join(TEST_FIXTURES_DIR, `write-target-${Date.now()}.mdx`);
+      const content = '# Write API test';
+      const result = await page.evaluate(
+        async ({ path, value }) => {
+          return await (window as any).mdxpad.writeFile(path, value);
+        },
+        { path: writeTargetPath, value: content }
+      );
+
+      expect(result.ok).toBe(true);
+      expect(readFileSync(writeTargetPath, 'utf-8')).toBe(content);
+      if (existsSync(writeTargetPath)) {
+        unlinkSync(writeTargetPath);
+      }
     });
 
     test('all file operations should return FileResult type', async () => {
-      // Verify the discriminated union structure
-      const successResult = { ok: true, value: 'content' };
-      const errorResult = { ok: false, error: { code: 'NOT_FOUND', path: '/test' } };
+      const missingPath = join(TEST_FIXTURES_DIR, `missing-contract-${Date.now()}.mdx`);
+      const result = await page.evaluate(async (path) => {
+        return await (window as any).mdxpad.readFile(path);
+      }, missingPath);
 
-      expect(successResult.ok).toBe(true);
-      expect(successResult.value).toBeDefined();
-
-      expect(errorResult.ok).toBe(false);
-      expect(errorResult.error).toBeDefined();
+      expect(result.ok).toBe(false);
+      expect(result.error).toBeDefined();
+      expect(typeof result.error.code).toBe('string');
     });
   });
 });
@@ -702,8 +917,7 @@ test.describe('Keyboard Shortcuts Integration', () => {
       if (!fileMenu?.submenu) return false;
 
       const saveAsItem = fileMenu.submenu.items.find(
-        (item) =>
-          item.label?.includes('Save As') || item.accelerator === 'CmdOrCtrl+Shift+S'
+        (item) => item.label?.includes('Save As') || item.accelerator === 'CmdOrCtrl+Shift+S'
       );
       return !!saveAsItem;
     });

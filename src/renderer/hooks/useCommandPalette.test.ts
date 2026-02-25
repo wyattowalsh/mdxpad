@@ -351,7 +351,7 @@ describe('useCommandPalette', () => {
       const executeMock = vi.fn().mockResolvedValue({ ok: true });
       const cmd = createMockCommand({
         id: 'test.cmd' as CommandId,
-        execute: executeMock
+        execute: executeMock,
       });
 
       useCommandRegistry.getState().register(cmd);
@@ -415,7 +415,7 @@ describe('useCommandPalette', () => {
       });
 
       const recent = useCommandRegistry.getState().getRecentCommands(5);
-      expect(recent.some(r => r.commandId === 'track.me')).toBe(true);
+      expect(recent.some((r) => r.commandId === 'track.me')).toBe(true);
     });
 
     it('should NOT track command in recent commands on failure', async () => {
@@ -434,7 +434,7 @@ describe('useCommandPalette', () => {
       });
 
       const recent = useCommandRegistry.getState().getRecentCommands(5);
-      expect(recent.some(r => r.commandId === 'fail.cmd')).toBe(false);
+      expect(recent.some((r) => r.commandId === 'fail.cmd')).toBe(false);
     });
 
     it('should close palette after execution', async () => {
@@ -482,7 +482,7 @@ describe('useCommandPalette', () => {
 
     it('should set isExecuting during execution', async () => {
       let resolveExecution!: (value: any) => void;
-      const executionPromise = new Promise(resolve => {
+      const executionPromise = new Promise((resolve) => {
         resolveExecution = resolve;
       });
 
@@ -524,7 +524,7 @@ describe('useCommandPalette', () => {
       const cmd = createMockCommand({
         id: 'selected.cmd' as CommandId,
         name: 'Selected Command',
-        execute: executeMock
+        execute: executeMock,
       });
 
       useCommandRegistry.getState().register(cmd);
@@ -633,6 +633,65 @@ describe('useCommandPalette', () => {
 
       expect(result.current.results.length).toBeGreaterThan(0);
       expect(result.current.results[0]?.item.id).toBe('file.new');
+    });
+
+    it('should match commands by description metadata', () => {
+      const cmd1 = createMockCommand({
+        id: 'file.save-as' as CommandId,
+        name: 'Save As',
+        description: 'Export document to a new destination',
+      });
+      const cmd2 = createMockCommand({
+        id: 'edit.copy' as CommandId,
+        name: 'Copy',
+      });
+
+      useCommandRegistry.getState().register(cmd1);
+      useCommandRegistry.getState().register(cmd2);
+
+      const { result } = renderHook(() => useCommandPalette());
+
+      act(() => {
+        result.current.setQuery('export');
+      });
+
+      expect(result.current.results[0]?.item.id).toBe('file.save-as');
+    });
+
+    it('should match commands by command id metadata', () => {
+      const cmd1 = createMockCommand({ id: 'file.save-as' as CommandId, name: 'Save As' });
+      const cmd2 = createMockCommand({ id: 'edit.copy' as CommandId, name: 'Copy' });
+
+      useCommandRegistry.getState().register(cmd1);
+      useCommandRegistry.getState().register(cmd2);
+
+      const { result } = renderHook(() => useCommandPalette());
+
+      act(() => {
+        result.current.setQuery('save-as');
+      });
+
+      expect(result.current.results[0]?.item.id).toBe('file.save-as');
+    });
+
+    it('should match commands by shortcut metadata', () => {
+      const cmd1 = createMockCommand({
+        id: 'file.save' as CommandId,
+        name: 'Save File',
+        shortcut: { key: 's', modifiers: ['Mod'] },
+      });
+      const cmd2 = createMockCommand({ id: 'edit.copy' as CommandId, name: 'Copy' });
+
+      useCommandRegistry.getState().register(cmd1);
+      useCommandRegistry.getState().register(cmd2);
+
+      const { result } = renderHook(() => useCommandPalette());
+
+      act(() => {
+        result.current.setQuery('mod+s');
+      });
+
+      expect(result.current.results[0]?.item.id).toBe('file.save');
     });
 
     it('should prioritize recent commands when query is empty', () => {

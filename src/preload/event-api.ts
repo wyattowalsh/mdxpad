@@ -13,7 +13,11 @@ import { z } from 'zod';
 import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
 import { AutosaveSettingsSchema } from '@shared/contracts/autosave-schemas';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
-import { FileChangeEventSchema, FileHandleSchema, type FileChangeEvent } from '@shared/contracts/file-schemas';
+import {
+  FileChangeEventSchema,
+  FileHandleSchema,
+  type FileChangeEvent,
+} from '@shared/contracts/file-schemas';
 
 // ============================================================================
 // Event Data Schemas
@@ -45,6 +49,8 @@ const menuSaveFileAsListeners = new Set<() => void>();
 
 /** Autosave settings change event listeners registry */
 const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => void>();
+
+const AUTOSAVE_SETTINGS_CHANGED_EVENT = 'mdxpad:autosave:settings:changed';
 
 /** Editor dirty-state query listeners (used by main-process close flow) */
 const editorDirtyCheckListeners = new Set<() => boolean>();
@@ -108,12 +114,15 @@ ipcRenderer.on(IPC_EVENTS.menuSaveFileAs, () => {
 });
 
 // Autosave settings change listener
-ipcRenderer.on('mdxpad:autosave:settings:changed', (_event, data: unknown) => {
+ipcRenderer.on(AUTOSAVE_SETTINGS_CHANGED_EVENT, (_event, data: unknown) => {
   const parsed = AutosaveSettingsSchema.safeParse(data);
-  if (parsed.success) {
-    for (const listener of autosaveSettingsChangeListeners) {
-      listener(parsed.data);
-    }
+  if (!parsed.success) {
+    console.warn('[Preload] Invalid autosave settings event data:', parsed.error.message);
+    return;
+  }
+
+  for (const listener of autosaveSettingsChangeListeners) {
+    listener(parsed.data);
   }
 });
 

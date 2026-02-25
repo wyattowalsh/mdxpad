@@ -76,7 +76,7 @@ beforeEach(() => {
   // Mock matchMedia for reduced motion detection
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation(query => ({
+    value: vi.fn().mockImplementation((query) => ({
       matches: false, // Not reduced motion by default
       media: query,
       onchange: null,
@@ -104,9 +104,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       expect(result.current.isSyncing).toBe(false);
       expect(typeof result.current.syncEditorToPreview).toBe('function');
@@ -133,9 +131,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       expect(result.current.syncEditorToPreview).toBeDefined();
     });
@@ -146,9 +142,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // Should not throw
       expect(() => {
@@ -161,9 +155,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: editor };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       expect(() => {
         result.current.syncEditorToPreview();
@@ -207,6 +199,31 @@ describe('useScrollSync', () => {
 
       cleanupEditor(editor);
     });
+
+    it('should send scroll command using strict shared contract', () => {
+      const editor = createMockEditorView('test content');
+      const iframe = createMockIframe();
+      const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
+
+      const editorRef = { current: editor };
+      const previewRef = { current: iframe };
+
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
+
+      act(() => {
+        result.current.syncEditorToPreview();
+      });
+
+      expect(postMessageSpy).toHaveBeenCalled();
+      const [command] = postMessageSpy.mock.calls.at(-1) ?? [];
+      expect(command).toMatchObject({
+        type: 'scroll',
+        ratio: expect.any(Number),
+      });
+      expect(command).not.toHaveProperty('animate');
+
+      cleanupEditor(editor);
+    });
   });
 
   describe('syncPreviewToEditor', () => {
@@ -214,9 +231,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       expect(() => {
         result.current.syncPreviewToEditor();
@@ -244,9 +259,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: editor };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // No preview position data
       result.current.syncPreviewToEditor();
@@ -257,14 +270,45 @@ describe('useScrollSync', () => {
     });
   });
 
+  describe('preview message validation', () => {
+    it('should ignore scroll reports from untrusted origins', () => {
+      const editor = createMockEditorView('line 1\nline 2\nline 3');
+      const iframe = createMockIframe();
+      const editorRef = { current: editor };
+      const previewRef = { current: iframe };
+
+      renderHook(() => useScrollSync({ editorRef, previewRef }));
+
+      expect(useSyncStore.getState().previewPosition).toBeNull();
+
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              type: 'scroll-report',
+              ratio: 0.4,
+              scrollTop: 120,
+              scrollHeight: 800,
+              clientHeight: 400,
+            },
+            origin: 'https://evil.example',
+            source: iframe.contentWindow,
+          })
+        );
+      });
+
+      expect(useSyncStore.getState().previewPosition).toBeNull();
+
+      cleanupEditor(editor);
+    });
+  });
+
   describe('pauseSync and resumeSync', () => {
     it('should pause sync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.pauseSync();
@@ -278,9 +322,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.pauseSync();
@@ -295,9 +337,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.pauseSync();
@@ -315,9 +355,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       const headings = [
         {
@@ -339,9 +377,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.updateAST([]);
@@ -356,9 +392,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.updateEditorLines(100);
@@ -371,9 +405,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.updateEditorLines(0);
@@ -388,9 +420,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.updatePreviewHeight(1000, 500);
@@ -403,9 +433,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       act(() => {
         result.current.updatePreviewHeight(0, 0);
@@ -421,9 +449,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      renderHook(() =>
-        useScrollSync({ editorRef, previewRef, onSyncStateChange })
-      );
+      renderHook(() => useScrollSync({ editorRef, previewRef, onSyncStateChange }));
 
       // Initially not syncing
       await waitFor(() => {
@@ -436,9 +462,7 @@ describe('useScrollSync', () => {
       const previewRef = { current: null };
 
       expect(() => {
-        renderHook(() =>
-          useScrollSync({ editorRef, previewRef })
-        );
+        renderHook(() => useScrollSync({ editorRef, previewRef }));
       }).not.toThrow();
     });
   });
@@ -448,9 +472,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // Default enableCursorTracking is true
       expect(result.current.syncEditorToPreview).toBeDefined();
@@ -490,9 +512,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { unmount } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { unmount } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       expect(() => {
         unmount();
@@ -506,9 +526,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: editor };
       const previewRef = { current: iframe };
 
-      const { unmount, result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { unmount, result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // Verify hook is functional before unmount
       expect(result.current.isSyncing).toBe(false);
@@ -522,9 +540,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { unmount, result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { unmount, result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // Verify hook returned valid state before unmount
       expect(result.current.isSyncing).toBe(false);
@@ -627,9 +643,7 @@ describe('useScrollSync', () => {
       const editorRef: { current: EditorView | null } = { current: null };
       const previewRef = { current: null };
 
-      const { rerender, result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { rerender, result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // Add editor
       const editor = createMockEditorView('test');
@@ -648,9 +662,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef: { current: HTMLIFrameElement | null } = { current: null };
 
-      const { rerender, result } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { rerender, result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       // Add preview
       const iframe = createMockIframe();
@@ -669,9 +681,7 @@ describe('useScrollSync', () => {
       const editorRef = { current: null };
       const previewRef = { current: null };
 
-      const { result, rerender } = renderHook(() =>
-        useScrollSync({ editorRef, previewRef })
-      );
+      const { result, rerender } = renderHook(() => useScrollSync({ editorRef, previewRef }));
 
       const firstSync = result.current.syncEditorToPreview;
       const firstPause = result.current.pauseSync;

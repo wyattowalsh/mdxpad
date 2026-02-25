@@ -168,25 +168,38 @@ describe('RecoveryDialog', () => {
     expect(onDecision).toHaveBeenCalledWith({ action: 'decline' });
   });
 
-  it('should call onDecision with accept and selected IDs when restore clicked', () => {
+  it('should call onDecision with accept and one selected ID when restore clicked', () => {
     const onDecision = vi.fn();
     render(<RecoveryDialog isOpen={true} entries={mockEntries} onDecision={onDecision} />);
 
-    // Valid entries are pre-selected, so clicking restore should include both
+    // Single-document mode preselects one valid entry
     fireEvent.click(screen.getByTestId('recovery-restore-button'));
 
     expect(onDecision).toHaveBeenCalledTimes(1);
     const decision = onDecision.mock.calls[0]![0] as RecoveryDecision;
     expect(decision.action).toBe('accept');
     if (decision.action === 'accept') {
-      expect(decision.selectedIds).toHaveLength(2);
+      expect(decision.selectedIds).toHaveLength(1);
     }
   });
 
   it('should show selection count in footer', () => {
     render(<RecoveryDialog isOpen={true} entries={mockEntries} onDecision={vi.fn()} />);
-    // Both valid entries are pre-selected
-    expect(screen.getByText('2 of 2 selected')).toBeTruthy();
+    expect(screen.getByText('1 of 2 selected')).toBeTruthy();
+  });
+
+  it('should keep only one selection when choosing another entry', () => {
+    const onDecision = vi.fn();
+    render(<RecoveryDialog isOpen={true} entries={mockEntries} onDecision={onDecision} />);
+
+    fireEvent.click(screen.getByTestId(`recovery-entry-${docId2}`));
+    fireEvent.click(screen.getByTestId('recovery-restore-button'));
+
+    const decision = onDecision.mock.calls[0]![0] as RecoveryDecision;
+    expect(decision.action).toBe('accept');
+    if (decision.action === 'accept') {
+      expect(decision.selectedIds).toEqual([docId2]);
+    }
   });
 
   it('should show recovery list and preview panel', () => {
@@ -208,13 +221,19 @@ describe('RecoveryDialog', () => {
 
     render(<RecoveryDialog isOpen={true} entries={mockEntries} onDecision={vi.fn()} />);
 
-    await waitFor(() => {
-      expect(recoveryPreview).toHaveBeenCalledWith({ documentId: docId1 });
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(recoveryPreview).toHaveBeenCalledWith({ documentId: docId1 });
+      },
+      { timeout: 2000 }
+    );
 
-    await waitFor(() => {
-      expect(screen.getByText('# Full recovered content')).toBeTruthy();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('# Full recovered content')).toBeTruthy();
+      },
+      { timeout: 2000 }
+    );
   });
 
   it('should show preview error message from preload API response', async () => {
@@ -229,8 +248,11 @@ describe('RecoveryDialog', () => {
 
     render(<RecoveryDialog isOpen={true} entries={mockEntries} onDecision={vi.fn()} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Recovery file not found')).toBeTruthy();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Recovery file not found')).toBeTruthy();
+      },
+      { timeout: 2000 }
+    );
   });
 });

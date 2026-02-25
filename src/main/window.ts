@@ -51,6 +51,58 @@ const DIALOG_BUTTON = {
   CANCEL: 2,
 } as const;
 
+/** Allowed localhost hosts for dev-server navigation */
+const DEV_LOCALHOSTS = new Set(['localhost', '127.0.0.1']);
+
+/**
+ * Validates whether a target URL is allowed for renderer navigation/window-open.
+ * Production allows local app files only; development also allows local dev server origins.
+ */
+function isAllowedNavigationUrl(targetUrl: string): boolean {
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol === 'file:') {
+      return true;
+    }
+
+    const isDev = process.env.ELECTRON_RENDERER_URL !== undefined;
+    if (isDev && parsed.protocol === 'http:' && DEV_LOCALHOSTS.has(parsed.hostname)) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Registers navigation/window-open allowlists per Electron security guidance.
+ */
+function setupNavigationGuards(window: BrowserWindow): void {
+  if (typeof window.webContents.setWindowOpenHandler === 'function') {
+    window.webContents.setWindowOpenHandler(({ url }) => {
+      if (isAllowedNavigationUrl(url)) {
+        return { action: 'allow' };
+      }
+
+      console.warn('[Window] Blocked window open to untrusted URL:', url);
+      return { action: 'deny' };
+    });
+  }
+
+  if (typeof window.webContents.on === 'function') {
+    window.webContents.on('will-navigate', (event, url) => {
+      if (isAllowedNavigationUrl(url)) {
+        return;
+      }
+
+      event.preventDefault();
+      console.warn('[Window] Blocked navigation to untrusted URL:', url);
+    });
+  }
+}
+
 /**
  * Create the main application window with secure defaults.
  *
@@ -92,6 +144,7 @@ export function createWindow(): BrowserWindow {
 
   // Handle window close with dirty state check
   setupCloseHandler(mainWindow);
+  setupNavigationGuards(mainWindow);
 
   return mainWindow;
 }

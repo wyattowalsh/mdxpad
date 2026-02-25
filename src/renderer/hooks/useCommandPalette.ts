@@ -15,7 +15,7 @@ import type {
 } from '@shared/types/commands';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useUILayoutStore } from '../stores/ui-layout-store';
-import { fuzzySearch } from '../lib/fuzzy-search';
+import { fuzzyMatch, fuzzySearch, normalizeShortcut } from '../lib/fuzzy-search';
 
 // =============================================================================
 // TYPES
@@ -59,6 +59,47 @@ export interface CommandPaletteActions {
 
 export type UseCommandPaletteReturn = CommandPaletteState & CommandPaletteActions;
 
+function getCommandMetadataTargets(command: Command): readonly string[] {
+  const shortcut = command.shortcut !== undefined ? normalizeShortcut(command.shortcut) : null;
+
+  return [command.description ?? '', command.id, command.category, shortcut ?? ''].filter(
+    (value) => value.length > 0
+  );
+}
+
+function searchCommands(
+  query: string,
+  commands: readonly Command[]
+): readonly FuzzyMatchResult<Command>[] {
+  const nameMatches = fuzzySearch(query, commands, (command) => command.name);
+  const matchedByName = new Set(nameMatches.map((match) => match.item.id));
+  const metadataMatches: FuzzyMatchResult<Command>[] = [];
+
+  for (const command of commands) {
+    if (matchedByName.has(command.id)) {
+      continue;
+    }
+
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (const target of getCommandMetadataTargets(command)) {
+      const result = fuzzyMatch(query, target);
+      if (result && result.score > bestScore) {
+        bestScore = result.score;
+      }
+    }
+
+    if (bestScore !== Number.NEGATIVE_INFINITY) {
+      metadataMatches.push({
+        item: command,
+        score: bestScore * 0.85,
+        matches: [],
+      });
+    }
+  }
+
+  return [...nameMatches, ...metadataMatches].sort((a, b) => b.score - a.score);
+}
+
 // =============================================================================
 // HOOK
 // =============================================================================
@@ -90,7 +131,7 @@ export type UseCommandPaletteReturn = CommandPaletteState & CommandPaletteAction
  * }
  * ```
  */
- 
+
 export function useCommandPalette(): UseCommandPaletteReturn {
   // ==========================================================================
   // STATE
@@ -150,7 +191,7 @@ export function useCommandPalette(): UseCommandPaletteReturn {
     }
 
     // With query: fuzzy search
-    return fuzzySearch(query, visibleCommands, (command) => command.name);
+    return searchCommands(query, visibleCommands);
   }, [query, getAllCommands, getRecentCommands, getCommand]);
 
   // ==========================================================================
