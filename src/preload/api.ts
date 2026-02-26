@@ -5,6 +5,37 @@
 
 import type { SecurityInfo } from '@shared/lib/ipc';
 import type { FileHandle, FileResult } from '@shared/types/file';
+import type { ExportFormat, FileExportResult } from '@shared/contracts/file-schemas';
+import type {
+  CloudSyncProviderId,
+  CloudSyncListProvidersResponse,
+  CloudSyncConnectResponse,
+  CloudSyncStatus,
+  CloudSyncPushRequest,
+  CloudSyncPushResponse,
+  CloudSyncPullRequest,
+  CloudSyncPullResponse,
+  CollaborationListRequest,
+  CollaborationListResponse,
+  CollaborationAddCommentRequest,
+  CollaborationAddCommentResponse,
+  CollaborationResolveThreadRequest,
+  CollaborationResolveThreadResponse,
+  CollaborationAddSuggestionRequest,
+  CollaborationAddSuggestionResponse,
+  CollaborationApplySuggestionRequest,
+  CollaborationApplySuggestionResponse,
+  ExtensionListResponse,
+  ExtensionInstallRequest,
+  ExtensionInstallResponse,
+  ExtensionSetPermissionRequest,
+  ExtensionSetPermissionResponse,
+  PublishRequest,
+  PublishResponse,
+  PublishListProvenanceRequest,
+  PublishListProvenanceResponse,
+  PublishBacklinksResponse,
+} from '@shared/contracts/platform-schemas';
 import type {
   RecoveryCheckResponse,
   RecoveryListResponse,
@@ -101,6 +132,15 @@ export interface MdxpadAPI {
    */
   writeFile(path: string, content: string): Promise<FileResult<void>>;
 
+  /**
+   * Export current document content to a selected format/path.
+   * Supports html/markdown/mdx and returns explicit unsupported-format errors for others.
+   */
+  exportFile(
+    content: string,
+    options?: { sourcePath?: string | null; format?: ExportFormat }
+  ): Promise<FileExportResult>;
+
   // === Window Operations ===
   /**
    * Close the current window.
@@ -174,6 +214,13 @@ export interface MdxpadAPI {
    * @returns Unsubscribe function
    */
   onMenuSaveFileAs(callback: () => void): () => void;
+
+  /**
+   * Subscribe to export file menu event.
+   * @param callback - Called when export is requested from menu
+   * @returns Unsubscribe function
+   */
+  onMenuExportFile(callback: () => void): () => void;
 
   /**
    * Subscribe to main-process dirty-state queries.
@@ -380,7 +427,59 @@ export interface MdxpadAPI {
      * @param defaultName - Suggested file name (without extension)
      * @returns Selected file path or null if canceled
      */
-    showSaveDialog(defaultName?: string): Promise<TemplateResult<{ path: string | null; canceled: boolean }>>;
+    showSaveDialog(
+      defaultName?: string
+    ): Promise<TemplateResult<{ path: string | null; canceled: boolean }>>;
+  };
+
+  /**
+   * Cloud sync API (Fleet Wave 3).
+   * Optional for backward compatibility with existing mocks/tests.
+   */
+  sync?: {
+    listProviders(): Promise<CloudSyncListProvidersResponse>;
+    connectProvider(providerId: CloudSyncProviderId): Promise<CloudSyncConnectResponse>;
+    status(providerId: CloudSyncProviderId): Promise<CloudSyncStatus>;
+    pushDocument(request: CloudSyncPushRequest): Promise<CloudSyncPushResponse>;
+    pullDocument(request: CloudSyncPullRequest): Promise<CloudSyncPullResponse>;
+  };
+
+  /**
+   * Collaboration primitives API (Fleet Wave 3).
+   * Optional for backward compatibility with existing mocks/tests.
+   */
+  collaboration?: {
+    list(request: CollaborationListRequest): Promise<CollaborationListResponse>;
+    addComment(request: CollaborationAddCommentRequest): Promise<CollaborationAddCommentResponse>;
+    resolveThread(
+      request: CollaborationResolveThreadRequest
+    ): Promise<CollaborationResolveThreadResponse>;
+    addSuggestion(
+      request: CollaborationAddSuggestionRequest
+    ): Promise<CollaborationAddSuggestionResponse>;
+    applySuggestion(
+      request: CollaborationApplySuggestionRequest
+    ): Promise<CollaborationApplySuggestionResponse>;
+  };
+
+  /**
+   * Extension platform API (Fleet Wave 4).
+   * Optional for backward compatibility with existing mocks/tests.
+   */
+  extensions?: {
+    list(): Promise<ExtensionListResponse>;
+    install(request: ExtensionInstallRequest): Promise<ExtensionInstallResponse>;
+    setPermission(request: ExtensionSetPermissionRequest): Promise<ExtensionSetPermissionResponse>;
+  };
+
+  /**
+   * Publish + provenance API (Fleet Wave 4).
+   * Optional for backward compatibility with existing mocks/tests.
+   */
+  publish?: {
+    run(request: PublishRequest): Promise<PublishResponse>;
+    listProvenance(request?: PublishListProvenanceRequest): Promise<PublishListProvenanceResponse>;
+    getBacklinks(canonicalUrl: string): Promise<PublishBacklinksResponse>;
   };
 }
 

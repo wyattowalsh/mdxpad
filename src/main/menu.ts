@@ -54,7 +54,7 @@ function getRecentFilesService(): RecentFilesService {
  * @param url - The URL to open
  */
 function safeOpenExternal(url: string): void {
-  if (!ALLOWED_EXTERNAL_URLS.includes(url as typeof ALLOWED_EXTERNAL_URLS[number])) {
+  if (!ALLOWED_EXTERNAL_URLS.includes(url as (typeof ALLOWED_EXTERNAL_URLS)[number])) {
     console.error(`[Menu] Blocked attempt to open disallowed URL: ${url}`);
     return;
   }
@@ -242,6 +242,11 @@ function buildFileMenu(window: BrowserWindow): MenuItemConstructorOptions {
         accelerator: 'CmdOrCtrl+Shift+S',
         click: () => window.webContents.send('mdxpad:menu:save-file-as'),
       },
+      {
+        label: 'Export...',
+        accelerator: 'CmdOrCtrl+Shift+E',
+        click: () => window.webContents.send('mdxpad:menu:export-file'),
+      },
       { type: 'separator' },
       isMac ? { role: 'close' } : { role: 'quit' },
     ],
@@ -272,10 +277,7 @@ function buildEditMenu(_window: BrowserWindow): MenuItemConstructorOptions {
             { type: 'separator' as const },
             {
               label: 'Speech',
-              submenu: [
-                { role: 'startSpeaking' as const },
-                { role: 'stopSpeaking' as const },
-              ],
+              submenu: [{ role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }],
             },
           ]
         : [

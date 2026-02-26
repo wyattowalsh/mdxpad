@@ -14,6 +14,7 @@ import {
   isReadySignal,
   isSizeSignal,
   isRuntimeErrorSignal,
+  IFRAME_CSP,
   assertNever,
   type ParentToIframeMessage,
   type IframeToParentMessage,
@@ -681,6 +682,13 @@ describe('assertNeverResponse', () => {
   });
 });
 
+describe('IFRAME_CSP', () => {
+  it('does not allow external CDN script origins', () => {
+    expect(IFRAME_CSP).not.toContain('cdn.jsdelivr.net');
+    expect(IFRAME_CSP).toContain("script-src 'self' blob:");
+  });
+});
+
 // ============================================================================
 // Edge Cases and Integration Tests
 // ============================================================================
@@ -700,12 +708,18 @@ describe('Edge Cases', () => {
     });
 
     it('isCompileRequest reads inherited properties', () => {
-      const objWithInheritedProps = Object.create({ id: '550e8400-e29b-41d4-a716-446655440000', source: 'code' });
+      const objWithInheritedProps = Object.create({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        source: 'code',
+      });
       expect(isCompileRequest(objWithInheritedProps)).toBe(true);
     });
 
     it('isCompileResponse reads inherited properties', () => {
-      const objWithInheritedProps = Object.create({ id: '550e8400-e29b-41d4-a716-446655440000', ok: true });
+      const objWithInheritedProps = Object.create({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        ok: true,
+      });
       expect(isCompileResponse(objWithInheritedProps)).toBe(true);
     });
   });
@@ -742,8 +756,7 @@ describe('Edge Cases', () => {
       ];
 
       for (const msg of messages) {
-        const handled =
-          isRenderCommand(msg) || isThemeCommand(msg) || isScrollCommand(msg);
+        const handled = isRenderCommand(msg) || isThemeCommand(msg) || isScrollCommand(msg);
         expect(handled).toBe(true);
       }
     });
@@ -756,8 +769,7 @@ describe('Edge Cases', () => {
       ];
 
       for (const sig of signals) {
-        const handled =
-          isReadySignal(sig) || isSizeSignal(sig) || isRuntimeErrorSignal(sig);
+        const handled = isReadySignal(sig) || isSizeSignal(sig) || isRuntimeErrorSignal(sig);
         expect(handled).toBe(true);
       }
     });

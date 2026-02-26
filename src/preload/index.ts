@@ -12,14 +12,11 @@ import type { MdxpadAPI } from './api';
 
 // Import modularized APIs
 import { appInfo, fileOperations, windowOperations } from './file-api';
-import {
-  recoveryOperations,
-  autosaveOperations,
-  settingsOperations,
-} from './recovery-api';
+import { recoveryOperations, autosaveOperations, settingsOperations } from './recovery-api';
 import { templateApi } from './template-api';
 import { eventSubscriptions } from './event-api';
 import { aiApi } from './ai-api';
+import { syncApi, collaborationApi, extensionPlatformApi, publishApi } from './platform-api';
 
 // ============================================================================
 // Platform Detection
@@ -57,6 +54,7 @@ const api: MdxpadAPI = {
   openFile: fileOperations.openFile,
   saveFile: fileOperations.saveFile,
   saveFileAs: fileOperations.saveFileAs,
+  exportFile: fileOperations.exportFile,
   readFile: fileOperations.readFile,
   writeFile: fileOperations.writeFile,
 
@@ -93,6 +91,7 @@ const api: MdxpadAPI = {
   onMenuOpenFile: eventSubscriptions.onMenuOpenFile,
   onMenuSaveFile: eventSubscriptions.onMenuSaveFile,
   onMenuSaveFileAs: eventSubscriptions.onMenuSaveFileAs,
+  onMenuExportFile: eventSubscriptions.onMenuExportFile,
   onAutosaveSettingsChange: eventSubscriptions.onAutosaveSettingsChange,
   onEditorDirtyCheck: eventSubscriptions.onEditorDirtyCheck,
 
@@ -107,6 +106,12 @@ const api: MdxpadAPI = {
 
   // Template Operations (from template-api)
   template: templateApi,
+
+  // Fleet Wave 3/4 platform foundations
+  sync: syncApi,
+  collaboration: collaborationApi,
+  extensions: extensionPlatformApi,
+  publish: publishApi,
 };
 
 // ============================================================================

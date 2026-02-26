@@ -176,6 +176,24 @@ describe('fileOperations', () => {
       );
     });
   });
+
+  describe('exportFile', () => {
+    it('should invoke file:export with content and optional sourcePath', async () => {
+      mockValidatedInvoke.mockResolvedValue({
+        ok: true,
+        value: { path: '/test/path.html', format: 'html', warnings: [] },
+      });
+
+      await fileOperations.exportFile('# content', { sourcePath: '/test/path.mdx' });
+
+      expect(mockValidatedInvoke).toHaveBeenCalledWith(
+        IPC_CHANNELS.file.export,
+        expect.any(Object),
+        expect.any(Object),
+        { content: '# content', sourcePath: '/test/path.mdx' }
+      );
+    });
+  });
 });
 
 describe('windowOperations', () => {

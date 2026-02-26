@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
     open: 'mdxpad:file:open',
     save: 'mdxpad:file:save',
     saveAs: 'mdxpad:file:save-as',
+    export: 'mdxpad:file:export',
     read: 'mdxpad:file:read',
     write: 'mdxpad:file:write',
     change: 'mdxpad:file:change',
@@ -53,6 +54,34 @@ export const IPC_CHANNELS = {
     showOpenDialog: 'mdxpad:template:show-open-dialog',
     showSaveDialog: 'mdxpad:template:show-save-dialog',
   },
+  /** Cloud sync operations (Fleet Wave 3) */
+  sync: {
+    listProviders: 'mdxpad:sync:list-providers',
+    connectProvider: 'mdxpad:sync:connect-provider',
+    status: 'mdxpad:sync:status',
+    pushDocument: 'mdxpad:sync:push-document',
+    pullDocument: 'mdxpad:sync:pull-document',
+  },
+  /** Collaboration primitive operations (Fleet Wave 3) */
+  collaboration: {
+    list: 'mdxpad:collaboration:list',
+    addComment: 'mdxpad:collaboration:add-comment',
+    resolveThread: 'mdxpad:collaboration:resolve-thread',
+    addSuggestion: 'mdxpad:collaboration:add-suggestion',
+    applySuggestion: 'mdxpad:collaboration:apply-suggestion',
+  },
+  /** Extension platform operations (Fleet Wave 4) */
+  extension: {
+    list: 'mdxpad:extension:list',
+    install: 'mdxpad:extension:install',
+    setPermission: 'mdxpad:extension:set-permission',
+  },
+  /** Publishing + provenance operations (Fleet Wave 4) */
+  publish: {
+    run: 'mdxpad:publish:run',
+    listProvenance: 'mdxpad:publish:list-provenance',
+    getBacklinks: 'mdxpad:publish:get-backlinks',
+  },
 } as const;
 
 /**
@@ -81,6 +110,8 @@ export const IPC_EVENTS = {
   menuSaveFile: 'mdxpad:menu:save-file',
   /** Menu events - save file as */
   menuSaveFileAs: 'mdxpad:menu:save-file-as',
+  /** Menu events - export file */
+  menuExportFile: 'mdxpad:menu:export-file',
 } as const;
 
 /**
@@ -91,7 +122,11 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.window)[keyof typeof IPC_CHANNELS.window]
   | (typeof IPC_CHANNELS.app)[keyof typeof IPC_CHANNELS.app]
   | (typeof IPC_CHANNELS.editor)[keyof typeof IPC_CHANNELS.editor]
-  | (typeof IPC_CHANNELS.template)[keyof typeof IPC_CHANNELS.template];
+  | (typeof IPC_CHANNELS.template)[keyof typeof IPC_CHANNELS.template]
+  | (typeof IPC_CHANNELS.sync)[keyof typeof IPC_CHANNELS.sync]
+  | (typeof IPC_CHANNELS.collaboration)[keyof typeof IPC_CHANNELS.collaboration]
+  | (typeof IPC_CHANNELS.extension)[keyof typeof IPC_CHANNELS.extension]
+  | (typeof IPC_CHANNELS.publish)[keyof typeof IPC_CHANNELS.publish];
 
 /**
  * Type helper for event channels.

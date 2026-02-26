@@ -30,7 +30,7 @@
  * The iframe runs with strict sandboxing:
  * - `sandbox="allow-scripts"` - Only allows JavaScript execution
  * - No access to parent DOM, cookies, or storage
- * - Strict CSP prevents network requests and external resources
+ * - Strict CSP with a limited script allowlist for Mermaid runtime rendering
  *
  * ## Message Flow
  *
@@ -249,7 +249,12 @@ function handleReadyMessage(
   isReadyRef: React.RefObject<boolean>,
   callbacks: { onReady?: (() => void) | undefined },
   sender: ReturnType<typeof useIframeSender>,
-  refs: { code?: string | undefined; frontmatter?: Record<string, unknown> | undefined; theme?: string | undefined; scrollRatio?: number | undefined }
+  refs: {
+    code?: string | undefined;
+    frontmatter?: Record<string, unknown> | undefined;
+    theme?: string | undefined;
+    scrollRatio?: number | undefined;
+  }
 ): void {
   if (readyTimeoutRef.current !== null) {
     clearTimeout(readyTimeoutRef.current);
@@ -295,8 +300,16 @@ function usePreviewRefs(props: PreviewFrameProps): PreviewRefs {
   scrollRatioRef.current = props.scrollRatio;
   themeRef.current = props.theme;
 
-  return { onReady: onReadyRef, onSizeChange: onSizeChangeRef, onRuntimeError: onRuntimeErrorRef,
-    onScrollReport: onScrollReportRef, code: codeRef, frontmatter: frontmatterRef, theme: themeRef, scrollRatio: scrollRatioRef };
+  return {
+    onReady: onReadyRef,
+    onSizeChange: onSizeChangeRef,
+    onRuntimeError: onRuntimeErrorRef,
+    onScrollReport: onScrollReportRef,
+    code: codeRef,
+    frontmatter: frontmatterRef,
+    theme: themeRef,
+    scrollRatio: scrollRatioRef,
+  };
 }
 
 /**
@@ -324,7 +337,11 @@ function useIframeMessageHandler(
         currentOrigin: window.location.origin,
         rateLimiter,
         onOriginRejected: (result) => {
-          console.warn('[PreviewFrame] Rejected message from untrusted origin:', result.origin, result.reason);
+          console.warn(
+            '[PreviewFrame] Rejected message from untrusted origin:',
+            result.origin,
+            result.reason
+          );
         },
         onRateLimitExceeded: () => {
           console.warn('[PreviewFrame] Rate limit exceeded for iframe messages');
@@ -343,10 +360,18 @@ function useIframeMessageHandler(
         // Handle validated message with exhaustive switch
         switch (msg.type) {
           case 'ready':
-            handleReadyMessage(readyTimeoutRef, isReadyRef, { onReady: refs.onReady.current }, sender, {
-              code: refs.code.current, frontmatter: refs.frontmatter.current,
-              theme: refs.theme.current, scrollRatio: refs.scrollRatio.current,
-            });
+            handleReadyMessage(
+              readyTimeoutRef,
+              isReadyRef,
+              { onReady: refs.onReady.current },
+              sender,
+              {
+                code: refs.code.current,
+                frontmatter: refs.frontmatter.current,
+                theme: refs.theme.current,
+                scrollRatio: refs.scrollRatio.current,
+              }
+            );
             break;
           case 'size':
             refs.onSizeChange.current?.(msg.height);
@@ -390,7 +415,8 @@ function useIframeHandlers(
     (isReadyRef as { current: boolean }).current = false;
     if (readyTimeoutRef.current !== null) clearTimeout(readyTimeoutRef.current);
     (readyTimeoutRef as { current: number | null }).current = window.setTimeout(() => {
-      if (!isReadyRef.current) onRuntimeErrorRef.current?.('Preview iframe failed to initialize within 5 seconds');
+      if (!isReadyRef.current)
+        onRuntimeErrorRef.current?.('Preview iframe failed to initialize within 5 seconds');
     }, READY_TIMEOUT_MS);
   }, [isReadyRef, readyTimeoutRef, onRuntimeErrorRef]);
 
@@ -450,9 +476,18 @@ export function PreviewFrame(props: PreviewFrameProps): React.ReactNode {
   useIframeMessageHandler(iframeRef, isReadyRef, readyTimeoutRef, sender, refs, rateLimiter);
   usePropSync({ code, frontmatter, theme, scrollRatio }, isReadyRef, sender);
 
-  useEffect(() => () => { if (readyTimeoutRef.current !== null) clearTimeout(readyTimeoutRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (readyTimeoutRef.current !== null) clearTimeout(readyTimeoutRef.current);
+    },
+    []
+  );
 
-  const { handleLoad, handleError } = useIframeHandlers(isReadyRef, readyTimeoutRef, refs.onRuntimeError);
+  const { handleLoad, handleError } = useIframeHandlers(
+    isReadyRef,
+    readyTimeoutRef,
+    refs.onRuntimeError
+  );
 
   return (
     <>

@@ -266,6 +266,22 @@ describe('buildExtensions()', () => {
     });
   });
 
+  describe('markdownIntelligence option', () => {
+    it('includes markdown intelligence by default', () => {
+      const defaultExtensions = getExtensions();
+      const withIntelligence = getExtensions({ markdownIntelligence: true });
+
+      expect(defaultExtensions.length).toBe(withIntelligence.length);
+    });
+
+    it('can disable markdown intelligence extensions', () => {
+      const withIntelligence = getExtensions({ markdownIntelligence: true });
+      const withoutIntelligence = getExtensions({ markdownIntelligence: false });
+
+      expect(withoutIntelligence.length).toBeLessThan(withIntelligence.length);
+    });
+  });
+
   describe('theme option', () => {
     let getThemeExtensionSpy: MockInstance;
 
@@ -432,6 +448,7 @@ describe('buildExtensions()', () => {
       const config9: MDXEditorConfig = { closeBrackets: false };
       const config10: MDXEditorConfig = { indentationGuides: false };
       const config11: MDXEditorConfig = { lineWrapping: true };
+      const config12: MDXEditorConfig = { markdownIntelligence: false };
 
       [
         config1,
@@ -445,6 +462,7 @@ describe('buildExtensions()', () => {
         config9,
         config10,
         config11,
+        config12,
       ].forEach((config) => {
         expect(() => getExtensions(config)).not.toThrow();
       });

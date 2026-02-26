@@ -16,6 +16,8 @@ import {
   FileSaveRequestSchema,
   FileOpenRequestSchema,
   FileSaveAsRequestSchema,
+  FileExportRequestSchema,
+  FileExportResponseSchema,
   FileIdSchema,
   FileHandleSchema,
   FileErrorSchema,
@@ -57,11 +59,13 @@ import * as FileService from '@main/services/file-service';
 /**
  * Create a valid FileHandle for testing.
  */
-function createTestFileHandle(overrides?: Partial<{
-  id: string;
-  path: string | null;
-  name: string;
-}>) {
+function createTestFileHandle(
+  overrides?: Partial<{
+    id: string;
+    path: string | null;
+    name: string;
+  }>
+) {
   return {
     id: overrides?.id ?? crypto.randomUUID(),
     // Use 'in' check to allow null to be explicitly passed
@@ -119,7 +123,10 @@ describe('createValidatedHandler', () => {
     });
 
     it('handles void request schemas (no arguments)', async () => {
-      const mockHandler = vi.fn().mockResolvedValue({ ok: true, value: { id: crypto.randomUUID(), path: '/test.mdx', name: 'test.mdx' } });
+      const mockHandler = vi.fn().mockResolvedValue({
+        ok: true,
+        value: { id: crypto.randomUUID(), path: '/test.mdx', name: 'test.mdx' },
+      });
       const validatedHandler = createValidatedHandler(FileOpenRequestSchema, mockHandler);
 
       // void schema accepts undefined
@@ -643,6 +650,52 @@ describe('FileSaveAsRequestSchema', () => {
   });
 });
 
+describe('FileExportRequestSchema', () => {
+  it('accepts content with optional sourcePath and format', () => {
+    const result = FileExportRequestSchema.safeParse({
+      content: '# Export',
+      sourcePath: '/tmp/file.mdx',
+      format: 'html',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects unknown export formats', () => {
+    const result = FileExportRequestSchema.safeParse({
+      content: '# Export',
+      format: 'txt',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('FileExportResponseSchema', () => {
+  it('accepts successful export results', () => {
+    const result = FileExportResponseSchema.safeParse({
+      ok: true,
+      value: {
+        path: '/tmp/file.html',
+        format: 'html',
+        warnings: [],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts explicit unsupported-format errors', () => {
+    const result = FileExportResponseSchema.safeParse({
+      ok: false,
+      error: {
+        code: 'UNSUPPORTED_FORMAT',
+        format: 'pdf',
+        message: 'PDF export is not implemented yet',
+      },
+      support: [],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 // ============================================================================
 // Integration Tests: Handler + Validation + Service
 // ============================================================================
@@ -733,16 +786,24 @@ describe('Handler integration', () => {
       const handle = createTestFileHandle({ path: null });
 
       // Simulate the actual file:save handler behavior
-      const mockHandler = vi.fn(async (args: { handle: { id: string; path: string | null; name: string }; content: string }) => {
-        // This mimics handleFileSave in file-handlers.ts
-        if (args.handle.path === null) {
-          return {
-            ok: false as const,
-            error: { code: 'UNKNOWN' as const, message: 'Cannot save untitled file without path' },
-          };
+      const mockHandler = vi.fn(
+        async (args: {
+          handle: { id: string; path: string | null; name: string };
+          content: string;
+        }) => {
+          // This mimics handleFileSave in file-handlers.ts
+          if (args.handle.path === null) {
+            return {
+              ok: false as const,
+              error: {
+                code: 'UNKNOWN' as const,
+                message: 'Cannot save untitled file without path',
+              },
+            };
+          }
+          return FileService.writeFile(args.handle.path, args.content);
         }
-        return FileService.writeFile(args.handle.path, args.content);
-      });
+      );
 
       const validatedHandler = createValidatedHandler(FileSaveRequestSchema, mockHandler);
       const result = await validatedHandler({

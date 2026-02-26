@@ -53,6 +53,7 @@ import {
   openFileCommand,
   saveFileCommand,
   saveFileAsCommand,
+  exportFileCommand,
   closeWindowCommand,
   FILE_COMMANDS,
   registerFileCommands,
@@ -81,6 +82,7 @@ function createMockAIApi(overrides: Partial<AIApi> = {}): AIApi {
     // AI Generation
     generateText: vi.fn().mockResolvedValue({ text: 'Generated text', usage: null }),
     generateStream: vi.fn().mockResolvedValue({ streamId: 'test-stream' }),
+    cancelStream: vi.fn().mockResolvedValue({ success: true }),
     generateEmbed: vi.fn().mockResolvedValue({ embedding: [], usage: null }),
     generateImage: vi.fn().mockResolvedValue({ url: 'data:image/png;base64,...', usage: null }),
     // Usage Statistics
@@ -106,9 +108,19 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
   return {
     getVersion: vi.fn().mockResolvedValue('1.0.0'),
     getSecurityInfo: vi.fn().mockResolvedValue({}),
-    openFile: vi.fn().mockResolvedValue({ ok: true, value: { id: 'test-id', path: '/test/file.mdx', name: 'file.mdx' } }),
+    openFile: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { id: 'test-id', path: '/test/file.mdx', name: 'file.mdx' },
+    }),
     saveFile: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
-    saveFileAs: vi.fn().mockResolvedValue({ ok: true, value: { id: 'test-id', path: '/test/new-file.mdx', name: 'new-file.mdx' } }),
+    saveFileAs: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { id: 'test-id', path: '/test/new-file.mdx', name: 'new-file.mdx' },
+    }),
+    exportFile: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { path: '/test/new-file.html', format: 'html', warnings: [] },
+    }),
     readFile: vi.fn().mockResolvedValue({ ok: true, value: '# Test Content' }),
     writeFile: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     closeWindow: vi.fn().mockResolvedValue(undefined),
@@ -122,6 +134,7 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     onMenuOpenFile: vi.fn(() => () => {}),
     onMenuSaveFile: vi.fn(() => () => {}),
     onMenuSaveFileAs: vi.fn(() => () => {}),
+    onMenuExportFile: vi.fn(() => () => {}),
     platform: { os: 'darwin', arch: 'arm64' },
     // Autosave API (Spec 011)
     recoveryCheck: vi.fn().mockResolvedValue({ hasRecoveryData: false, count: 0 }),
@@ -131,13 +144,37 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     recoveryDiscard: vi.fn().mockResolvedValue({ discardedCount: 0 }),
     autosaveTrigger: vi.fn().mockResolvedValue({ ok: true, savedAt: Date.now() }),
     autosaveStatus: vi.fn().mockResolvedValue({ status: 'idle' }),
-    autosaveSettingsGet: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
-    autosaveSettingsSet: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
+    autosaveSettingsGet: vi.fn().mockResolvedValue({
+      enabled: true,
+      intervalMs: 30000,
+      retentionDays: 30,
+      maxFiles: 50,
+      maxStorageMB: 100,
+    }),
+    autosaveSettingsSet: vi.fn().mockResolvedValue({
+      enabled: true,
+      intervalMs: 30000,
+      retentionDays: 30,
+      maxFiles: 50,
+      maxStorageMB: 100,
+    }),
     conflictResolve: vi.fn().mockResolvedValue({ ok: true }),
     onAutosaveSettingsChange: vi.fn(() => () => {}),
     settings: {
-      get: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
-      set: vi.fn().mockResolvedValue({ enabled: true, intervalMs: 30000, retentionDays: 30, maxFiles: 50, maxStorageMB: 100 }),
+      get: vi.fn().mockResolvedValue({
+        enabled: true,
+        intervalMs: 30000,
+        retentionDays: 30,
+        maxFiles: 50,
+        maxStorageMB: 100,
+      }),
+      set: vi.fn().mockResolvedValue({
+        enabled: true,
+        intervalMs: 30000,
+        retentionDays: 30,
+        maxFiles: 50,
+        maxStorageMB: 100,
+      }),
       onChange: vi.fn(() => () => {}),
     },
     // AI API (Spec 028)
@@ -152,8 +189,12 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
       export: vi.fn().mockResolvedValue({ success: true, data: { path: '/test/path' } }),
       validate: vi.fn().mockResolvedValue({ success: true, data: { valid: true, errors: [] } }),
       createFromTemplate: vi.fn().mockResolvedValue({ success: true, data: { content: '' } }),
-      showOpenDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
-      showSaveDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+      showOpenDialog: vi
+        .fn()
+        .mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+      showSaveDialog: vi
+        .fn()
+        .mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
     },
     ...overrides,
   };
@@ -198,6 +239,7 @@ describe('FILE_COMMAND_IDS', () => {
     expect(FILE_COMMAND_IDS.open).toBe('file.open');
     expect(FILE_COMMAND_IDS.save).toBe('file.save');
     expect(FILE_COMMAND_IDS.saveAs).toBe('file.save-as');
+    expect(FILE_COMMAND_IDS.export).toBe('file.export');
     expect(FILE_COMMAND_IDS.close).toBe('file.close');
   });
 });
@@ -469,13 +511,43 @@ describe('closeWindowCommand', () => {
   });
 });
 
+describe('exportFileCommand', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should have correct command ID', () => {
+    expect(exportFileCommand.id).toBe(FILE_COMMAND_IDS.export);
+  });
+
+  it('should call IPC exportFile', async () => {
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        ...INITIAL_DOCUMENT_STATE,
+        content: '# Export me',
+        filePath: '/test/new-file.mdx',
+      },
+    });
+
+    const result = await exportFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.exportFile).toHaveBeenCalledWith('# Export me', {
+      sourcePath: '/test/new-file.mdx',
+    });
+  });
+});
+
 describe('FILE_COMMANDS', () => {
   it('should contain all file commands', () => {
-    expect(FILE_COMMANDS).toHaveLength(5);
+    expect(FILE_COMMANDS).toHaveLength(6);
     expect(FILE_COMMANDS).toContain(newFileCommand);
     expect(FILE_COMMANDS).toContain(openFileCommand);
     expect(FILE_COMMANDS).toContain(saveFileCommand);
     expect(FILE_COMMANDS).toContain(saveFileAsCommand);
+    expect(FILE_COMMANDS).toContain(exportFileCommand);
     expect(FILE_COMMANDS).toContain(closeWindowCommand);
   });
 });
@@ -499,6 +571,10 @@ describe('Keyboard Shortcuts', () => {
 
   it('file.close should have Cmd+W shortcut', () => {
     expect(closeWindowCommand.shortcut).toEqual({ key: 'w', modifiers: ['Mod'] });
+  });
+
+  it('file.export should have Cmd+Shift+E shortcut', () => {
+    expect(exportFileCommand.shortcut).toEqual({ key: 'e', modifiers: ['Mod', 'Shift'] });
   });
 });
 

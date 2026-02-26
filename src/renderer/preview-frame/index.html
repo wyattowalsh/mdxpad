@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'self';">
   <title>MDX Preview</title>
   <style>
     /* Base styles for preview content */
@@ -78,6 +78,11 @@
       padding: 1em;
       border-radius: 6px;
       overflow-x: auto;
+    }
+
+    pre.mermaid {
+      background: var(--preview-bg);
+      border: 1px solid var(--preview-border);
     }
 
     pre code {

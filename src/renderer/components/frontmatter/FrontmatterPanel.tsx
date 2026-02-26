@@ -49,6 +49,9 @@ export interface FrontmatterPanelProps {
   /** Optional className for container styling */
   readonly className?: string;
 
+  /** Callback to create initial frontmatter when document has none */
+  readonly onAddFrontmatter?: () => void;
+
   /** Callback to apply auto-fix (provided by parent who has document access) */
   readonly onApplyAutoFix?: (fixedContent: string) => void;
 }
@@ -119,22 +122,12 @@ const DelimiterErrorBanner = memo(function DelimiterErrorBanner(
         <p className="mb-1.5 text-destructive">{message}</p>
         <div className="flex gap-2">
           {hasSuggestedFix && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 gap-1 text-xs"
-              onClick={onAutoFix}
-            >
+            <Button variant="outline" size="sm" className="h-6 gap-1 text-xs" onClick={onAutoFix}>
               <Wrench className="h-3 w-3" />
               Auto-fix
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 gap-1 text-xs"
-            onClick={onSwitchToRaw}
-          >
+          <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={onSwitchToRaw}>
             <Code className="h-3 w-3" />
             View raw
           </Button>
@@ -155,7 +148,7 @@ const DelimiterErrorBanner = memo(function DelimiterErrorBanner(
  * @returns JSX element
  */
 function FrontmatterPanelComponent(props: FrontmatterPanelProps): React.JSX.Element {
-  const { className, onApplyAutoFix } = props;
+  const { className, onAddFrontmatter, onApplyAutoFix } = props;
 
   const mode = useFrontmatterStore(selectMode);
   const isPanelOpen = useFrontmatterStore(selectIsPanelOpen);
@@ -210,8 +203,7 @@ function FrontmatterPanelComponent(props: FrontmatterPanelProps): React.JSX.Elem
 
   // Determine if we should show banners
   const showDelimiterError = delimiterError !== null;
-  const showUnsupportedWarning =
-    hasUnsupportedFeatures && mode === 'visual' && !showDelimiterError;
+  const showUnsupportedWarning = hasUnsupportedFeatures && mode === 'visual' && !showDelimiterError;
 
   return (
     <div className={className}>
@@ -223,11 +215,7 @@ function FrontmatterPanelComponent(props: FrontmatterPanelProps): React.JSX.Elem
         aria-expanded={isPanelOpen}
         aria-controls="frontmatter-content"
       >
-        {isPanelOpen ? (
-          <ChevronDown className="h-4 w-4" />
-        ) : (
-          <ChevronRight className="h-4 w-4" />
-        )}
+        {isPanelOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         <FileText className="h-4 w-4" />
         <span>Frontmatter</span>
         {(hasValidationErrors || showDelimiterError) && (
@@ -267,10 +255,7 @@ function FrontmatterPanelComponent(props: FrontmatterPanelProps): React.JSX.Elem
                     <FileText className="h-3 w-3" />
                     Visual
                     {hasValidationErrors && (
-                      <ValidationBadge
-                        errorCount={validationErrorCount}
-                        className="ml-1"
-                      />
+                      <ValidationBadge errorCount={validationErrorCount} className="ml-1" />
                     )}
                     {hasUnsupportedFeatures && !hasValidationErrors && (
                       <AlertTriangle className="h-3 w-3 text-yellow-600" />
@@ -322,16 +307,8 @@ function FrontmatterPanelComponent(props: FrontmatterPanelProps): React.JSX.Elem
             </Tabs>
           ) : !showDelimiterError ? (
             <div className="p-3">
-              <p className="mb-3 text-sm text-muted-foreground">
-                No frontmatter in this document.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Will be handled by addField in Phase 5
-                }}
-              >
+              <p className="mb-3 text-sm text-muted-foreground">No frontmatter in this document.</p>
+              <Button variant="outline" size="sm" onClick={onAddFrontmatter}>
                 Add Frontmatter
               </Button>
             </div>

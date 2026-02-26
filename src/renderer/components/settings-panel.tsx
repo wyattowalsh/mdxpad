@@ -12,16 +12,11 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { Settings, Clock, Save, Info } from 'lucide-react';
 import { cn } from '@shared/lib/utils';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Slider } from './ui/slider';
+import { Button } from './ui/button';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
 
@@ -52,8 +47,13 @@ const INTERVAL_STEPS = [5000, 10000, 15000, 20000, 30000] as const;
 // ============================================================================
 
 // Type guard for settings API availability
- 
-function hasSettingsApi(api: unknown): api is { settings: { get: () => Promise<AutosaveSettings>; set: (s: Partial<AutosaveSettings>) => Promise<AutosaveSettings> } } {
+
+function hasSettingsApi(api: unknown): api is {
+  settings: {
+    get: () => Promise<AutosaveSettings>;
+    set: (s: Partial<AutosaveSettings>) => Promise<AutosaveSettings>;
+  };
+} {
   return (
     typeof api === 'object' &&
     api !== null &&
@@ -229,6 +229,12 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
     [onClose]
   );
 
+  const handleOpenAiProviders = useCallback(() => {
+    void import('../features/ai-provider/store').then(({ useAIProviderStore }) => {
+      useAIProviderStore.getState().openSettings();
+    });
+  }, []);
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md" data-testid="settings-panel">
@@ -264,7 +270,9 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                 <Switch
                   id="autosave-enabled"
                   checked={settings.enabled}
-                  onCheckedChange={(checked) => { void handleEnabledChange(checked); }}
+                  onCheckedChange={(checked) => {
+                    void handleEnabledChange(checked);
+                  }}
                   disabled={isSaving}
                   data-testid="autosave-enabled-switch"
                 />
@@ -288,7 +296,9 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                   max={INTERVAL_STEPS.length - 1}
                   step={1}
                   onValueChange={handleIntervalChange}
-                  onValueCommit={(value) => { void handleIntervalCommit(value); }}
+                  onValueCommit={(value) => {
+                    void handleIntervalCommit(value);
+                  }}
                   disabled={!settings.enabled || isSaving}
                   data-testid="autosave-interval-slider"
                 />
@@ -300,12 +310,31 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
 
               {/* Info Note */}
               <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
-                <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" aria-hidden="true" />
+                <Info
+                  className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0"
+                  aria-hidden="true"
+                />
                 <p className="text-xs text-muted-foreground">
                   Autosave creates recovery files that can restore your work if the app crashes.
                   Files are saved to the recovery directory and cleaned up after manual saves.
                 </p>
               </div>
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <h3 className="text-sm font-medium">AI</h3>
+              <p className="text-xs text-muted-foreground">
+                Configure providers used for AI features in MDXPad.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenAiProviders}
+                data-testid="open-ai-provider-settings-button"
+              >
+                Open AI Provider Settings
+              </Button>
             </div>
           </div>
         )}

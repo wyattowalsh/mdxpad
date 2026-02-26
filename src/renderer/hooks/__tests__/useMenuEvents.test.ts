@@ -30,6 +30,7 @@ const mockMdxpadApi = {
   openFile: vi.fn(),
   saveFile: vi.fn(),
   saveFileAs: vi.fn(),
+  exportFile: vi.fn(),
   readFile: vi.fn(),
   writeFile: vi.fn(),
   closeWindow: vi.fn(),
@@ -37,39 +38,44 @@ const mockMdxpadApi = {
   maximizeWindow: vi.fn(),
   signalReady: vi.fn(),
   onFileChange: vi.fn((cb: (event: unknown) => void) => {
-    menuListeners['fileChange'] = menuListeners['fileChange'] || [];
-    menuListeners['fileChange'].push(cb as () => void);
+    menuListeners.fileChange ??= [];
+    menuListeners.fileChange.push(cb as () => void);
     return createMockUnsub();
   }),
   onMenuCommandPalette: vi.fn((cb: () => void) => {
-    menuListeners['commandPalette'] = menuListeners['commandPalette'] || [];
-    menuListeners['commandPalette'].push(cb);
+    menuListeners.commandPalette ??= [];
+    menuListeners.commandPalette.push(cb);
     return createMockUnsub();
   }),
   onMenuNewFile: vi.fn((cb: () => void) => {
-    menuListeners['newFile'] = menuListeners['newFile'] || [];
-    menuListeners['newFile'].push(cb);
+    menuListeners.newFile ??= [];
+    menuListeners.newFile.push(cb);
     return createMockUnsub();
   }),
   onMenuOpenFileDialog: vi.fn((cb: () => void) => {
-    menuListeners['openFile'] = menuListeners['openFile'] || [];
-    menuListeners['openFile'].push(cb);
+    menuListeners.openFile ??= [];
+    menuListeners.openFile.push(cb);
     return createMockUnsub();
   }),
   onMenuOpenFile: vi.fn(() => createMockUnsub()),
   onMenuSaveFile: vi.fn((cb: () => void) => {
-    menuListeners['saveFile'] = menuListeners['saveFile'] || [];
-    menuListeners['saveFile'].push(cb);
+    menuListeners.saveFile ??= [];
+    menuListeners.saveFile.push(cb);
     return createMockUnsub();
   }),
   onMenuSaveFileAs: vi.fn((cb: () => void) => {
-    menuListeners['saveFileAs'] = menuListeners['saveFileAs'] || [];
-    menuListeners['saveFileAs'].push(cb);
+    menuListeners.saveFileAs ??= [];
+    menuListeners.saveFileAs.push(cb);
+    return createMockUnsub();
+  }),
+  onMenuExportFile: vi.fn((cb: () => void) => {
+    menuListeners.exportFile ??= [];
+    menuListeners.exportFile.push(cb);
     return createMockUnsub();
   }),
   onEditorDirtyCheck: vi.fn((cb: () => boolean) => {
-    menuListeners['dirtyCheck'] = menuListeners['dirtyCheck'] || [];
-    menuListeners['dirtyCheck'].push(cb as unknown as () => void);
+    menuListeners.dirtyCheck ??= [];
+    menuListeners.dirtyCheck.push(cb as unknown as () => void);
     return createMockUnsub();
   }),
   platform: { os: 'darwin' as const, arch: 'arm64' as const },
@@ -143,6 +149,7 @@ vi.mock('../../commands/file-commands', () => ({
     open: 'file.open',
     save: 'file.save',
     saveAs: 'file.saveAs',
+    export: 'file.export',
   },
 }));
 
@@ -154,7 +161,9 @@ describe('useMenuEvents', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    Object.keys(menuListeners).forEach((key) => delete menuListeners[key]);
+    Object.keys(menuListeners).forEach((key) => {
+      Reflect.deleteProperty(menuListeners, key);
+    });
     mockUnsubscribers.length = 0;
     Object.defineProperty(window, 'mdxpad', {
       value: mockMdxpadApi,
@@ -191,6 +200,7 @@ describe('useMenuEvents', () => {
       expect(mockMdxpadApi.onMenuOpenFileDialog).toHaveBeenCalled();
       expect(mockMdxpadApi.onMenuSaveFile).toHaveBeenCalled();
       expect(mockMdxpadApi.onMenuSaveFileAs).toHaveBeenCalled();
+      expect(mockMdxpadApi.onMenuExportFile).toHaveBeenCalled();
     });
 
     it('should unsubscribe from menu events on unmount', () => {

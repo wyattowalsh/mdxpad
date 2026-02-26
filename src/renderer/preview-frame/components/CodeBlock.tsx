@@ -18,7 +18,7 @@ const { useState, useCallback, useMemo, useRef, useEffect } = React;
  */
 export interface CodeBlockProps {
   /** Code content to display */
-  readonly children: string;
+  readonly children: React.ReactNode;
   /** Language for syntax highlighting (e.g., "typescript", "javascript") */
   readonly language?: string;
   /** Optional filename/title to display above the code block */
@@ -109,6 +109,52 @@ function extractLanguage(className?: string, explicitLanguage?: string): string 
   return match ? match[1] : undefined;
 }
 
+function nodeToPlainText(node: React.ReactNode): string {
+  if (typeof node === 'string') {
+    return node;
+  }
+
+  if (typeof node === 'number' || typeof node === 'boolean') {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map((item: React.ReactNode) => nodeToPlainText(item)).join('');
+  }
+
+  if (React.isValidElement(node)) {
+    const props = node.props as { children?: React.ReactNode };
+    return nodeToPlainText(props.children ?? '');
+  }
+
+  return '';
+}
+
+/**
+ * Extract code content/class from children.
+ * Handles both direct string children and `<code className="language-x">...</code>`.
+ */
+function extractCodeChildren(children: React.ReactNode): {
+  code: string;
+  nestedClassName?: string;
+} {
+  if (
+    React.isValidElement(children) &&
+    typeof children.type === 'string' &&
+    children.type === 'code'
+  ) {
+    const props = children.props as { className?: string; children?: React.ReactNode };
+    return {
+      code: nodeToPlainText(props.children ?? ''),
+      ...(props.className !== undefined && { nestedClassName: props.className }),
+    };
+  }
+
+  return {
+    code: nodeToPlainText(children),
+  };
+}
+
 /**
  * Formats language name for display.
  */
@@ -187,12 +233,7 @@ function CopyButton({ code }: CopyButtonProps): React.JSX.Element {
         {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
       {/* Screen reader announcement for copy status */}
-      <span
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="visually-hidden"
-      >
+      <span role="status" aria-live="polite" aria-atomic="true" className="visually-hidden">
         {copied ? 'Code copied to clipboard' : ''}
       </span>
     </>
@@ -206,11 +247,7 @@ function CodeBlockHeader({ title, language }: CodeBlockHeaderProps): React.JSX.E
   return (
     <div className="code-block-header">
       <span className="code-block-title">{title ?? ''}</span>
-      {language && (
-        <span className="code-block-language">
-          {formatLanguageDisplay(language)}
-        </span>
-      )}
+      {language && <span className="code-block-language">{formatLanguageDisplay(language)}</span>}
     </div>
   );
 }
@@ -259,9 +296,16 @@ export function CodeBlock({
   highlightLines = [],
   className,
 }: CodeBlockProps): React.JSX.Element {
+  const extractedChildren = useMemo(() => extractCodeChildren(children), [children]);
+
+  const mergedClassName = useMemo(
+    () => [className, extractedChildren.nestedClassName].filter(Boolean).join(' '),
+    [className, extractedChildren.nestedClassName]
+  );
+
   const detectedLanguage = useMemo(
-    () => extractLanguage(className, language),
-    [className, language]
+    () => extractLanguage(mergedClassName, language),
+    [mergedClassName, language]
   );
 
   const codeClassName = useMemo(() => {
@@ -273,12 +317,13 @@ export function CodeBlock({
   }, [detectedLanguage]);
 
   const code = useMemo(() => {
-    return typeof children === 'string' ? children : String(children);
-  }, [children]);
+    return extractedChildren.code;
+  }, [extractedChildren.code]);
 
   const lineCount = useMemo(() => code.split('\n').length, [code]);
   const highlightedLineSet = useMemo(() => new Set(highlightLines), [highlightLines]);
   const showHeader = Boolean(title) || Boolean(detectedLanguage);
+  const isMermaid = detectedLanguage?.toLowerCase() === 'mermaid';
 
   // Generate descriptive label for screen readers
   const codeBlockLabel = useMemo(() => {
@@ -301,12 +346,18 @@ export function CodeBlock({
       aria-label={codeBlockLabel}
     >
       {showHeader && <CodeBlockHeader title={title} language={detectedLanguage} />}
-      {showLineNumbers && (
+      {showLineNumbers && !isMermaid && (
         <CodeBlockLineNumbers count={lineCount} highlightedLines={highlightedLineSet} />
       )}
-      <pre tabIndex={0} aria-label={`Code: ${title ?? detectedLanguage ?? 'snippet'}`}>
-        <code className={codeClassName}>{code}</code>
-      </pre>
+      {isMermaid ? (
+        <pre className="mermaid" tabIndex={0} aria-label="Mermaid diagram">
+          {code}
+        </pre>
+      ) : (
+        <pre tabIndex={0} aria-label={`Code: ${title ?? detectedLanguage ?? 'snippet'}`}>
+          <code className={codeClassName}>{code}</code>
+        </pre>
+      )}
       <CopyButton code={code} />
     </figure>
   );

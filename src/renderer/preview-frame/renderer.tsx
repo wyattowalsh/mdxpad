@@ -9,6 +9,7 @@ import * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BuiltInComponents } from './components';
+import { createMermaidRenderScheduler } from './mermaid-render-scheduler';
 import {
   assertNever,
   type ReadySignal,
@@ -33,6 +34,19 @@ import {
 /** MDX module shape returned by compiled code */
 interface MDXModule {
   default: React.ComponentType<MDXContentProps>;
+}
+
+interface MermaidApi {
+  initialize(config: {
+    startOnLoad: boolean;
+    securityLevel: 'strict';
+    theme: 'default' | 'dark';
+  }): void;
+  run?(options: { querySelector: string }): Promise<void>;
+}
+
+interface MermaidModule {
+  readonly default: MermaidApi;
 }
 
 /**
@@ -107,6 +121,9 @@ let currentMessageHandler: ((event: MessageEvent) => void) | null = null;
 /** Render counter for ErrorBoundary resetKey (enables recovery from errors) */
 let renderCounter = 0;
 
+/** Cached Mermaid module promise. */
+let mermaidPromise: Promise<MermaidApi | null> | null = null;
+
 /** Scroll event handler reference for cleanup */
 let scrollHandler: (() => void) | null = null;
 
@@ -178,9 +195,8 @@ function sendScrollReportSignal(
 function sendRuntimeErrorSignal(message: string, componentStack?: string): void {
   // Sanitize error message and component stack before sending
   const sanitizedMessage = sanitizeErrorMessage(message);
-  const sanitizedStack = componentStack !== undefined
-    ? sanitizeComponentStack(componentStack)
-    : undefined;
+  const sanitizedStack =
+    componentStack !== undefined ? sanitizeComponentStack(componentStack) : undefined;
 
   const signal: RuntimeErrorSignal = {
     type: 'runtime-error',
@@ -205,12 +221,16 @@ function createModuleFromCode(code: string): MDXModule {
   // The compiled MDX code expects React and components to be available
   // We use new Function() to evaluate the compiled code in a controlled scope
   // eslint-disable-next-line @typescript-eslint/no-implied-eval -- MDX runtime requires dynamic code evaluation
-  const moduleFactory = new Function('React', 'components', `
+  const moduleFactory = new Function(
+    'React',
+    'components',
+    `
     const exports = {};
     const module = { exports };
     ${code}
     return module.exports;
-  `);
+  `
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Function constructor returns typed module
   return moduleFactory(React, BuiltInComponents) as MDXModule;
@@ -219,6 +239,48 @@ function createModuleFromCode(code: string): MDXModule {
 /**
  * Renders MDX content with error boundary
  */
+async function loadMermaid(): Promise<MermaidApi | null> {
+  if (mermaidPromise !== null) {
+    return mermaidPromise;
+  }
+
+  mermaidPromise = (import('mermaid') as Promise<MermaidModule>)
+    .then((module) => module.default)
+    .catch((error: unknown) => {
+      console.warn('[Preview] Mermaid unavailable:', error);
+      return null;
+    });
+
+  return mermaidPromise;
+}
+
+async function renderMermaidDiagrams(): Promise<void> {
+  const mermaid = await loadMermaid();
+  if (!mermaid) {
+    return;
+  }
+
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default',
+  });
+
+  await mermaid.run?.({ querySelector: '.mermaid' });
+}
+
+const mermaidRenderScheduler = createMermaidRenderScheduler(async () => {
+  try {
+    await renderMermaidDiagrams();
+  } catch (error) {
+    console.warn('[Preview] Mermaid render failed:', error);
+  }
+});
+
+function requestMermaidRender(): void {
+  mermaidRenderScheduler.requestRender();
+}
+
 function renderContent(command: RenderCommand): void {
   if (!root) {
     console.error('React root not initialized');
@@ -251,6 +313,10 @@ function renderContent(command: RenderCommand): void {
         />
       </ErrorBoundary>
     );
+
+    window.requestAnimationFrame(() => {
+      requestMermaidRender();
+    });
   } catch (error) {
     // Handle synchronous errors during module creation or initial render
     const message = error instanceof Error ? error.message : String(error);
@@ -276,6 +342,7 @@ function renderContent(command: RenderCommand): void {
  */
 function applyTheme(theme: 'light' | 'dark'): void {
   document.documentElement.setAttribute('data-theme', theme);
+  requestMermaidRender();
 }
 
 // ============================================================================
@@ -467,7 +534,11 @@ function createMessageHandler(): (event: MessageEvent) => void {
       currentOrigin: window.location.origin,
       rateLimiter,
       onOriginRejected: (result) => {
-        console.warn('[Preview] Rejected message from untrusted origin:', result.origin, result.reason);
+        console.warn(
+          '[Preview] Rejected message from untrusted origin:',
+          result.origin,
+          result.reason
+        );
       },
       onRateLimitExceeded: () => {
         console.warn('[Preview] Rate limit exceeded for parent messages');

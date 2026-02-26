@@ -79,6 +79,7 @@
     "gray-matter": "^4.0.3",
     "immer": "^10.0.0",
     "lucide-react": "^0.514.0",
+    "mermaid": "^11.12.3",
     "react-resizable-panels": "^4.1.0",
     "rehype-highlight": "^7.0.2",
     "remark-frontmatter": "^5.0.0",

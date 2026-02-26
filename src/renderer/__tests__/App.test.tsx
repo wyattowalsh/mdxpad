@@ -4,22 +4,33 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from '../App';
 import { useCommandRegistry } from '../stores/command-registry-store';
+import { useDocumentStore } from '../stores/document-store';
+import { useSettingsStore } from '../stores/settings-store';
+import { useFrontmatterStore } from '../stores/frontmatter-store';
+import { useAIProviderStore } from '../features/ai-provider/store';
+import { useFileExplorerStore } from '../stores/file-explorer-store';
 import type { CommandId, NormalizedShortcut } from '@shared/types/commands';
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
 function createMockMdxpadApi() {
   return {
     getVersion: vi.fn().mockResolvedValue('0.1.0'),
-    getSecurityInfo: vi
-      .fn()
-      .mockResolvedValue({
-        contextIsolation: true,
-        sandbox: true,
-        nodeIntegration: false,
-        webSecurity: true,
-      }),
+    getSecurityInfo: vi.fn().mockResolvedValue({
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    }),
     platform: {
       os: 'darwin',
       arch: 'arm64',
@@ -31,6 +42,9 @@ function createMockMdxpadApi() {
     saveFileAs: vi
       .fn()
       .mockResolvedValue({ ok: true, value: { id: 'test', path: '/test.mdx', name: 'test.mdx' } }),
+    exportFile: vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: { path: '/test.html', format: 'html', warnings: [] } }),
     readFile: vi.fn().mockResolvedValue({ ok: true, value: '# mock content' }),
     writeFile: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     closeWindow: vi.fn().mockResolvedValue(undefined),
@@ -44,6 +58,7 @@ function createMockMdxpadApi() {
     onMenuOpenFileDialog: vi.fn(() => () => {}),
     onMenuSaveFile: vi.fn(() => () => {}),
     onMenuSaveFileAs: vi.fn(() => () => {}),
+    onMenuExportFile: vi.fn(() => () => {}),
     recoveryCheck: vi.fn().mockResolvedValue({ hasRecoveryData: false, count: 0 }),
     recoveryList: vi.fn().mockResolvedValue({ entries: [] }),
     recoveryPreview: vi.fn().mockResolvedValue({ ok: true, content: '', conflict: null }),
@@ -51,45 +66,37 @@ function createMockMdxpadApi() {
     recoveryDiscard: vi.fn().mockResolvedValue({ discardedCount: 0 }),
     autosaveTrigger: vi.fn().mockResolvedValue({ ok: true, savedAt: Date.now() }),
     autosaveStatus: vi.fn().mockResolvedValue({ status: 'idle' }),
-    autosaveSettingsGet: vi
-      .fn()
-      .mockResolvedValue({
-        enabled: true,
-        intervalMs: 30000,
-        retentionDays: 30,
-        maxFiles: 50,
-        maxStorageMB: 100,
-      }),
-    autosaveSettingsSet: vi
-      .fn()
-      .mockResolvedValue({
-        enabled: true,
-        intervalMs: 30000,
-        retentionDays: 30,
-        maxFiles: 50,
-        maxStorageMB: 100,
-      }),
+    autosaveSettingsGet: vi.fn().mockResolvedValue({
+      enabled: true,
+      intervalMs: 30000,
+      retentionDays: 30,
+      maxFiles: 50,
+      maxStorageMB: 100,
+    }),
+    autosaveSettingsSet: vi.fn().mockResolvedValue({
+      enabled: true,
+      intervalMs: 30000,
+      retentionDays: 30,
+      maxFiles: 50,
+      maxStorageMB: 100,
+    }),
     conflictResolve: vi.fn().mockResolvedValue({ ok: true }),
     onAutosaveSettingsChange: vi.fn(() => () => {}),
     settings: {
-      get: vi
-        .fn()
-        .mockResolvedValue({
-          enabled: true,
-          intervalMs: 30000,
-          retentionDays: 30,
-          maxFiles: 50,
-          maxStorageMB: 100,
-        }),
-      set: vi
-        .fn()
-        .mockResolvedValue({
-          enabled: true,
-          intervalMs: 30000,
-          retentionDays: 30,
-          maxFiles: 50,
-          maxStorageMB: 100,
-        }),
+      get: vi.fn().mockResolvedValue({
+        enabled: true,
+        intervalMs: 30000,
+        retentionDays: 30,
+        maxFiles: 50,
+        maxStorageMB: 100,
+      }),
+      set: vi.fn().mockResolvedValue({
+        enabled: true,
+        intervalMs: 30000,
+        retentionDays: 30,
+        maxFiles: 50,
+        maxStorageMB: 100,
+      }),
       onChange: vi.fn(() => () => {}),
     },
     ai: {
@@ -125,8 +132,12 @@ function createMockMdxpadApi() {
       export: vi.fn().mockResolvedValue({ success: true, data: { path: '/test/path' } }),
       validate: vi.fn().mockResolvedValue({ success: true, data: { valid: true, errors: [] } }),
       createFromTemplate: vi.fn().mockResolvedValue({ success: true, data: { content: '' } }),
-      showOpenDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
-      showSaveDialog: vi.fn().mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+      showOpenDialog: vi
+        .fn()
+        .mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
+      showSaveDialog: vi
+        .fn()
+        .mockResolvedValue({ success: true, data: { path: null, canceled: true } }),
     },
   };
 }
@@ -134,9 +145,15 @@ function createMockMdxpadApi() {
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('mdxpad', createMockMdxpadApi());
+    useDocumentStore.getState().reset();
+    useSettingsStore.getState().close();
+    useFrontmatterStore.getState().reset();
+    useAIProviderStore.getState().closeSettings();
+    useFileExplorerStore.getState().clearFilter();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -154,6 +171,33 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /frontmatter/i })).toBeDefined();
   });
 
+  it('renders file explorer filter controls', () => {
+    render(<App />);
+
+    expect(screen.getByRole('textbox', { name: /filter file tree/i })).toBeDefined();
+    expect(screen.getByTestId('file-explorer-list')).toBeDefined();
+  });
+
+  it('does not reset filter results when filter is already empty and inactive', () => {
+    const applyFilterResultsSpy = vi.spyOn(useFileExplorerStore.getState(), 'applyFilterResults');
+    render(<App />);
+    expect(applyFilterResultsSpy).not.toHaveBeenCalled();
+    applyFilterResultsSpy.mockRestore();
+  });
+
+  it('adds frontmatter content when Add Frontmatter is clicked', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /frontmatter/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add frontmatter/i }));
+
+    await waitFor(() => {
+      const content = useDocumentStore.getState().content;
+      expect(content).toContain('---');
+      expect(content).toContain('title');
+    });
+  });
+
   it('subscribes to menu command-palette events on mount', async () => {
     render(<App />);
 
@@ -166,8 +210,8 @@ describe('App', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     render(<App />);
 
-    const invalidIdWarnings = warnSpy.mock.calls.filter(([message]) =>
-      typeof message === 'string' && message.includes('Invalid CommandId format')
+    const invalidIdWarnings = warnSpy.mock.calls.filter(
+      ([message]) => typeof message === 'string' && message.includes('Invalid CommandId format')
     );
     expect(invalidIdWarnings).toHaveLength(0);
 
@@ -184,6 +228,165 @@ describe('App', () => {
     expect(command).toBeDefined();
     expect(command?.shortcut).toEqual({ key: 'p', modifiers: ['Mod', 'Shift'] });
     expect(byShortcut?.id).toBe('view.command-palette');
+  });
+
+  it('opens AI provider settings from settings panel action', async () => {
+    act(() => {
+      useSettingsStore.getState().open();
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByTestId('open-ai-provider-settings-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-provider-settings-dialog')).toBeDefined();
+    });
+  });
+
+  it('opens conflict dialog when restoring a conflicted recovery entry', async () => {
+    const mdxpad = createMockMdxpadApi();
+    const documentId = '123e4567-e89b-12d3-a456-426614174000';
+    const now = Date.now();
+
+    mdxpad.recoveryCheck.mockResolvedValue({ hasRecoveryData: true, count: 1 });
+    mdxpad.recoveryList.mockResolvedValue({
+      entries: [
+        {
+          documentId,
+          fileName: 'conflicted.mdx',
+          filePath: '/conflicted.mdx',
+          savedAt: now - 1_000,
+          contentPreview: '# Recovery content',
+          isValid: true,
+          hasConflict: true,
+        },
+      ],
+    });
+    mdxpad.recoveryPreview.mockResolvedValue({
+      ok: true,
+      content: '# Recovery content',
+      conflict: {
+        documentId,
+        filePath: '/conflicted.mdx',
+        recoveryContent: '# Recovery content',
+        diskContent: '# Disk content',
+        recoveryTimestamp: now - 1_000,
+        diskModifiedAt: now,
+      },
+    });
+
+    vi.stubGlobal('mdxpad', mdxpad);
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('recovery-dialog')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTestId('recovery-restore-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('conflict-dialog')).toBeDefined();
+    });
+  });
+
+  it('ignores stale frontmatter sync timeouts when document changes rapidly', () => {
+    vi.useFakeTimers();
+    const parseSpy = vi.spyOn(useFrontmatterStore.getState(), 'parseFromDocument');
+    render(<App />);
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    parseSpy.mockClear();
+
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout').mockImplementation(() => {});
+    act(() => {
+      useDocumentStore.getState().setContent('---\ntitle: first\n---\n');
+    });
+    act(() => {
+      useDocumentStore.getState().setContent('---\ntitle: second\n---\n');
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(parseSpy).toHaveBeenCalledTimes(1);
+    expect(parseSpy).toHaveBeenLastCalledWith('---\ntitle: second\n---\n');
+
+    clearTimeoutSpy.mockRestore();
+    parseSpy.mockRestore();
+  });
+
+  it('does not update conflict state after unmount while preview request is pending', async () => {
+    const mdxpad = createMockMdxpadApi();
+    const documentId = '123e4567-e89b-12d3-a456-426614174001';
+    const now = Date.now();
+    const deferredPreview = createDeferred<{
+      ok: boolean;
+      content: string;
+      conflict: {
+        documentId: string;
+        filePath: string;
+        recoveryContent: string;
+        diskContent: string;
+        recoveryTimestamp: number;
+        diskModifiedAt: number;
+      } | null;
+    }>();
+
+    mdxpad.recoveryCheck.mockResolvedValue({ hasRecoveryData: true, count: 1 });
+    mdxpad.recoveryList.mockResolvedValue({
+      entries: [
+        {
+          documentId,
+          fileName: 'pending-conflict.mdx',
+          filePath: '/pending-conflict.mdx',
+          savedAt: now - 1_000,
+          contentPreview: '# Recovery content',
+          isValid: true,
+          hasConflict: true,
+        },
+      ],
+    });
+    mdxpad.recoveryPreview.mockReturnValue(deferredPreview.promise);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('mdxpad', mdxpad);
+    const { unmount } = render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('recovery-dialog')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTestId('recovery-restore-button'));
+    unmount();
+
+    await act(async () => {
+      deferredPreview.resolve({
+        ok: true,
+        content: '# Recovery content',
+        conflict: {
+          documentId,
+          filePath: '/pending-conflict.mdx',
+          recoveryContent: '# Recovery content',
+          diskContent: '# Disk content',
+          recoveryTimestamp: now - 1_000,
+          diskModifiedAt: now,
+        },
+      });
+      await deferredPreview.promise;
+    });
+
+    const hasUnmountedUpdateWarning = errorSpy.mock.calls.some((args) =>
+      args.some(
+        (arg) =>
+          typeof arg === 'string' &&
+          arg.includes("Can't perform a React state update on an unmounted component")
+      )
+    );
+    expect(hasUnmountedUpdateWarning).toBe(false);
+    errorSpy.mockRestore();
   });
 
   it('opens command palette when shortcut is pressed', async () => {

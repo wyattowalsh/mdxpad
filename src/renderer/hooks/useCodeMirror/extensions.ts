@@ -32,6 +32,7 @@ import { Compartment } from '@codemirror/state';
 
 // DIRECT imports (not barrel) per task spec
 import { mdxLanguage } from '../../lib/editor/mdx-language';
+import { createMarkdownIntelligenceExtension } from '../../lib/editor/markdown-intelligence';
 import { createThemeCompartment, getThemeExtension, type EditorTheme } from './themes';
 import type { EditorConfig } from '@shared/types/editor';
 
@@ -69,6 +70,8 @@ export interface MDXEditorConfig extends EditorConfig {
   readonly closeBrackets?: boolean;
   /** Enable indentation guides (default: true) */
   readonly indentationGuides?: boolean;
+  /** Enable markdown diagnostics and anchor completions (default: true) */
+  readonly markdownIntelligence?: boolean;
   /**
    * Custom CodeMirror extensions to add to the editor.
    *
@@ -88,7 +91,9 @@ export interface MDXEditorConfig extends EditorConfig {
 }
 
 /** Default configuration values */
-const DEFAULTS: Required<Omit<MDXEditorConfig, 'debounceMs' | 'extensions' | 'initialDoc' | 'readonly'>> & {
+const DEFAULTS: Required<
+  Omit<MDXEditorConfig, 'debounceMs' | 'extensions' | 'initialDoc' | 'readonly'>
+> & {
   debounceMs: number;
   extensions: Extension[];
 } = {
@@ -102,6 +107,7 @@ const DEFAULTS: Required<Omit<MDXEditorConfig, 'debounceMs' | 'extensions' | 'in
   bracketMatching: true,
   closeBrackets: true,
   indentationGuides: true,
+  markdownIntelligence: true,
   extensions: [],
 } as const;
 
@@ -185,6 +191,11 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
 
   // MDX language support
   extensions.push(mdxLanguage());
+
+  // Markdown diagnostics and link-anchor intelligence
+  if (opts.markdownIntelligence) {
+    extensions.push(...createMarkdownIntelligenceExtension());
+  }
 
   // Theme (compartment for dynamic switching)
   extensions.push(themeCompartment.of(getThemeExtension(opts.theme)));

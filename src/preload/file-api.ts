@@ -15,11 +15,13 @@ import {
   FileSaveAsRequestSchema,
   FileReadRequestSchema,
   FileWriteRequestSchema,
+  FileExportRequestSchema,
   FileOpenResponseSchema,
   FileSaveResponseSchema,
   FileSaveAsResponseSchema,
   FileReadResponseSchema,
   FileWriteResponseSchema,
+  FileExportResponseSchema,
   WindowCloseResponseSchema,
   WindowMinimizeResponseSchema,
   WindowMaximizeResponseSchema,
@@ -28,6 +30,7 @@ import {
 } from '@shared/contracts/file-schemas';
 import { validatedInvoke } from './validated-invoke';
 import type { FileResult, FileHandle } from '@shared/types/file';
+import type { ExportFormat, FileExportResult } from '@shared/contracts/file-schemas';
 import { z } from 'zod';
 
 // ============================================================================
@@ -85,36 +88,36 @@ export const fileOperations = {
     ) as Promise<FileResult<FileHandle>>,
 
   saveFile: (handle: unknown, content: string): Promise<FileResult<void>> =>
-    validatedInvoke(
-      IPC_CHANNELS.file.save,
-      FileSaveRequestSchema,
-      FileSaveResponseSchema,
-      { handle, content }
-    ) as Promise<FileResult<void>>,
+    validatedInvoke(IPC_CHANNELS.file.save, FileSaveRequestSchema, FileSaveResponseSchema, {
+      handle,
+      content,
+    }) as Promise<FileResult<void>>,
 
   saveFileAs: (content: string): Promise<FileResult<FileHandle>> =>
-    validatedInvoke(
-      IPC_CHANNELS.file.saveAs,
-      FileSaveAsRequestSchema,
-      FileSaveAsResponseSchema,
-      { content }
-    ) as Promise<FileResult<FileHandle>>,
+    validatedInvoke(IPC_CHANNELS.file.saveAs, FileSaveAsRequestSchema, FileSaveAsResponseSchema, {
+      content,
+    }) as Promise<FileResult<FileHandle>>,
 
   readFile: (path: string): Promise<FileResult<string>> =>
-    validatedInvoke(
-      IPC_CHANNELS.file.read,
-      FileReadRequestSchema,
-      FileReadResponseSchema,
-      { path }
-    ) as Promise<FileResult<string>>,
+    validatedInvoke(IPC_CHANNELS.file.read, FileReadRequestSchema, FileReadResponseSchema, {
+      path,
+    }) as Promise<FileResult<string>>,
 
   writeFile: (path: string, content: string): Promise<FileResult<void>> =>
-    validatedInvoke(
-      IPC_CHANNELS.file.write,
-      FileWriteRequestSchema,
-      FileWriteResponseSchema,
-      { path, content }
-    ) as Promise<FileResult<void>>,
+    validatedInvoke(IPC_CHANNELS.file.write, FileWriteRequestSchema, FileWriteResponseSchema, {
+      path,
+      content,
+    }) as Promise<FileResult<void>>,
+
+  exportFile: (
+    content: string,
+    options?: { sourcePath?: string | null; format?: ExportFormat }
+  ): Promise<FileExportResult> =>
+    validatedInvoke(IPC_CHANNELS.file.export, FileExportRequestSchema, FileExportResponseSchema, {
+      content,
+      sourcePath: options?.sourcePath ?? null,
+      ...(options?.format !== undefined && { format: options.format }),
+    }) as Promise<FileExportResult>,
 };
 
 // ============================================================================

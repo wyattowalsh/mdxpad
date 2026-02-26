@@ -15,12 +15,15 @@ import {
   FileSaveAsRequestSchema,
   FileReadRequestSchema,
   FileWriteRequestSchema,
+  FileExportRequestSchema,
   AppVersionRequestSchema,
   AppReadyRequestSchema,
   createValidatedHandler,
   type FileResultHandle,
   type FileResultVoid,
   type FileResultString,
+  type FileExportResult,
+  type ExportFormat,
 } from '@shared/contracts/file-schemas';
 import {
   readFile,
@@ -30,14 +33,19 @@ import {
   type FileServiceIntegration,
 } from '@main/services/file-service';
 import { addToRecentFiles } from '@main/menu';
+import {
+  EXPORT_SUPPORT_MATRIX,
+  getDefaultExportPath,
+  serializeForExport,
+} from '@main/services/export-service';
 import type { FileHandle as SchemaFileHandle } from '@shared/contracts/file-schemas';
-import type { FileId } from '@shared/types/file';
+import type { FileError, FileId } from '@shared/types/file';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 /** File dialog filters for MDX and Markdown files */
-const MDX_FILTERS = [
-  { name: 'MDX/Markdown', extensions: ['mdx', 'md'] },
-];
+const MDX_FILTERS = [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }];
+
+const EXPORT_FORMAT_ORDER: readonly ExportFormat[] = ['html', 'markdown', 'mdx', 'pdf', 'docx'];
 
 /** File lifecycle integration for watcher/recent-file wiring. */
 let fileIntegration: FileServiceIntegration | null = null;
@@ -47,10 +55,7 @@ let integrationWindow: BrowserWindow | null = null;
  * Ensure file integration is initialized for the active BrowserWindow.
  */
 function ensureFileIntegration(window: BrowserWindow): FileServiceIntegration {
-  if (
-    fileIntegration === null ||
-    integrationWindow?.webContents.id !== window.webContents.id
-  ) {
+  if (fileIntegration === null || integrationWindow?.webContents.id !== window.webContents.id) {
     fileIntegration?.close();
     fileIntegration = createFileServiceIntegration(window);
     integrationWindow = window;
@@ -63,6 +68,61 @@ function ensureFileIntegration(window: BrowserWindow): FileServiceIntegration {
  */
 function getFileIntegration(): FileServiceIntegration | null {
   return integrationWindow ? ensureFileIntegration(integrationWindow) : null;
+}
+
+function mapWriteError(error: FileError): string {
+  switch (error.code) {
+    case 'NOT_FOUND':
+      return `Path not found: ${error.path}`;
+    case 'PERMISSION_DENIED':
+      return `Permission denied: ${error.path}`;
+    case 'CANCELLED':
+      return 'Export cancelled';
+    case 'UNKNOWN':
+      return error.message;
+    default:
+      return 'Unknown file write error';
+  }
+}
+
+function cloneExportSupportMatrix() {
+  return EXPORT_SUPPORT_MATRIX.map((entry) => ({ ...entry }));
+}
+
+async function promptExportFormat(): Promise<ExportFormat | null> {
+  const supportEntries = cloneExportSupportMatrix()
+    .sort((a, b) => a.priority - b.priority)
+    .filter((entry): entry is (typeof EXPORT_SUPPORT_MATRIX)[number] =>
+      EXPORT_FORMAT_ORDER.includes(entry.format)
+    );
+
+  const buttons = [
+    ...supportEntries.map((entry) => {
+      const suffix = entry.supported ? '' : ' (coming soon)';
+      return `${entry.label} (.${entry.extension})${suffix}`;
+    }),
+    'Cancel',
+  ];
+
+  const dialogOptions = {
+    type: 'question' as const,
+    title: 'Export Document',
+    message: 'Choose an export format',
+    detail: 'Supported now: HTML, Markdown, MDX. Unsupported formats return explicit errors.',
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1,
+  };
+
+  const response = integrationWindow
+    ? await dialog.showMessageBox(integrationWindow, dialogOptions)
+    : await dialog.showMessageBox(dialogOptions);
+
+  if (response.response < 0 || response.response >= supportEntries.length) {
+    return null;
+  }
+
+  return supportEntries[response.response]?.format ?? null;
 }
 
 /**
@@ -200,31 +260,81 @@ const handleFileWrite = createValidatedHandler(
 );
 
 /**
+ * Handler for mdxpad:file:export.
+ * Runs format selection + serialization + save dialog with explicit unsupported-format errors.
+ */
+const handleFileExport = createValidatedHandler(
+  FileExportRequestSchema,
+  async (args): Promise<FileExportResult> => {
+    const support = cloneExportSupportMatrix();
+    const selectedFormat = args.format ?? (await promptExportFormat());
+
+    if (!selectedFormat) {
+      return { ok: false, error: { code: 'CANCELLED' }, support };
+    }
+
+    const serialized = serializeForExport(args.content, selectedFormat);
+    if (!serialized.ok) {
+      return { ok: false, error: serialized.error, support };
+    }
+
+    const selectedSupport = support.find((entry) => entry.format === selectedFormat);
+    const saveDialogOptions = {
+      title: 'Export Document',
+      defaultPath: getDefaultExportPath(args.sourcePath ?? null, selectedFormat),
+      ...(selectedSupport
+        ? { filters: [{ name: selectedSupport.label, extensions: [selectedSupport.extension] }] }
+        : {}),
+    };
+    const saveDialogResult = await dialog.showSaveDialog(saveDialogOptions);
+
+    if (saveDialogResult.canceled || !saveDialogResult.filePath) {
+      return { ok: false, error: { code: 'CANCELLED' }, support };
+    }
+
+    const writeResult = await writeFile(saveDialogResult.filePath, serialized.content);
+    if (!writeResult.ok) {
+      return {
+        ok: false,
+        error: {
+          code: 'WRITE_FAILED',
+          message: mapWriteError(writeResult.error),
+        },
+        support,
+      };
+    }
+
+    return {
+      ok: true,
+      value: {
+        path: saveDialogResult.filePath,
+        format: selectedFormat,
+        warnings: [...serialized.warnings],
+      },
+    };
+  }
+);
+
+/**
  * Handler for mdxpad:app:version.
  * Returns the application version from package.json.
  * @returns Application version string
  */
-const handleAppVersion = createValidatedHandler(
-  AppVersionRequestSchema,
-  (): Promise<string> => {
-    return Promise.resolve(app.getVersion());
-  }
-);
+const handleAppVersion = createValidatedHandler(AppVersionRequestSchema, (): Promise<string> => {
+  return Promise.resolve(app.getVersion());
+});
 
 /**
  * Handler for mdxpad:app:ready.
  * Signals that the renderer process is ready.
  * @returns void
  */
-const handleAppReady = createValidatedHandler(
-  AppReadyRequestSchema,
-  (): Promise<void> => {
-    // Signal acknowledged - can be used to trigger main process actions
-    // when renderer is ready (e.g., opening a file passed via CLI)
-    console.log('[FileHandlers] Renderer signaled ready');
-    return Promise.resolve();
-  }
-);
+const handleAppReady = createValidatedHandler(AppReadyRequestSchema, (): Promise<void> => {
+  // Signal acknowledged - can be used to trigger main process actions
+  // when renderer is ready (e.g., opening a file passed via CLI)
+  console.log('[FileHandlers] Renderer signaled ready');
+  return Promise.resolve();
+});
 
 /**
  * Registers all file and app IPC handlers.
@@ -233,10 +343,7 @@ const handleAppReady = createValidatedHandler(
  * @param ipcMainInstance - The Electron IpcMain instance
  * @param window - The authorized BrowserWindow for privileged handlers
  */
-export function registerFileHandlers(
-  ipcMainInstance: IpcMain,
-  window: BrowserWindow
-): void {
+export function registerFileHandlers(ipcMainInstance: IpcMain, window: BrowserWindow): void {
   ensureFileIntegration(window);
 
   // File operation handlers
@@ -260,6 +367,10 @@ export function registerFileHandlers(
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.write);
     return handleFileWrite(args);
   });
+  ipcMainInstance.handle(IPC_CHANNELS.file.export, (event, args) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.export);
+    return handleFileExport(args);
+  });
 
   // App lifecycle handlers
   ipcMainInstance.handle(IPC_CHANNELS.app.getVersion, (event) => {
@@ -271,5 +382,5 @@ export function registerFileHandlers(
     return handleAppReady(undefined);
   });
 
-  console.log('[FileHandlers] All file and app handlers registered');
+  console.log('[FileHandlers] All file/app/export handlers registered');
 }

@@ -368,6 +368,18 @@ describe('Menu Actions', () => {
 
       expect(window.webContents.send).toHaveBeenCalledWith('mdxpad:menu:save-file-as');
     });
+
+    it('should send export-file event on Export click', () => {
+      buildApplicationMenu(window);
+
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls[0]![0];
+      const fileMenu = findMenuItemStrict(template, 'File');
+      const exportItem = findMenuItemStrict(fileMenu.submenu, 'Export...');
+
+      exportItem.click();
+
+      expect(window.webContents.send).toHaveBeenCalledWith('mdxpad:menu:export-file');
+    });
   });
 
   describe('View Menu Actions', () => {

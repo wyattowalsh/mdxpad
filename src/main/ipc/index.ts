@@ -15,6 +15,7 @@ import { registerWindowHandlers } from './window-handlers';
 import { registerAutosaveHandlers } from './autosave-handlers';
 import { registerAIHandlers } from './ai-handlers';
 import { registerTemplateHandlers } from '@main/services/template-service';
+import { registerPlatformHandlers } from './platform-handlers';
 import { AutosaveSettingsService } from '@main/services/autosave-settings';
 import { AutosaveService } from '@main/services/autosave-service';
 import { RecoveryService } from '@main/services/recovery-service';
@@ -32,6 +33,7 @@ const RECREATION_SENSITIVE_CHANNELS = [
   IPC_CHANNELS.file.open,
   IPC_CHANNELS.file.save,
   IPC_CHANNELS.file.saveAs,
+  IPC_CHANNELS.file.export,
   IPC_CHANNELS.file.read,
   IPC_CHANNELS.file.write,
   IPC_CHANNELS.app.getVersion,
@@ -41,6 +43,10 @@ const RECREATION_SENSITIVE_CHANNELS = [
   IPC_CHANNELS.window.maximize,
   ...Object.values(AutosaveChannels),
   ...Object.values(IPC_CHANNELS.template),
+  ...Object.values(IPC_CHANNELS.sync),
+  ...Object.values(IPC_CHANNELS.collaboration),
+  ...Object.values(IPC_CHANNELS.extension),
+  ...Object.values(IPC_CHANNELS.publish),
   ...getInvokeChannels(),
 ] as const;
 
@@ -95,4 +101,7 @@ export function registerIpcHandlers(window: BrowserWindow): void {
 
   // Register template operation handlers (list, get, save, delete, import, export, validate, createFromTemplate)
   registerTemplateHandlers(ipcMain, window);
+
+  // Register cloud sync, collaboration, extension, and publish/provenance handlers
+  registerPlatformHandlers(ipcMain, window);
 }

@@ -46,6 +46,7 @@ const menuOpenFileDialogListeners = new Set<() => void>();
 const menuOpenFileListeners = new Set<(event: MenuFileOpenEvent) => void>();
 const menuSaveFileListeners = new Set<() => void>();
 const menuSaveFileAsListeners = new Set<() => void>();
+const menuExportFileListeners = new Set<() => void>();
 
 /** Autosave settings change event listeners registry */
 const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => void>();
@@ -109,6 +110,12 @@ ipcRenderer.on(IPC_EVENTS.menuSaveFile, () => {
 
 ipcRenderer.on(IPC_EVENTS.menuSaveFileAs, () => {
   for (const listener of menuSaveFileAsListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuExportFile, () => {
+  for (const listener of menuExportFileListeners) {
     listener();
   }
 });
@@ -202,6 +209,14 @@ export const eventSubscriptions = {
     menuSaveFileAsListeners.add(callback);
     return () => {
       menuSaveFileAsListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to export file menu event */
+  onMenuExportFile: (callback: () => void) => {
+    menuExportFileListeners.add(callback);
+    return () => {
+      menuExportFileListeners.delete(callback);
     };
   },
 

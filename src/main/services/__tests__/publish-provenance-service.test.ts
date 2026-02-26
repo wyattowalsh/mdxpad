@@ -1,0 +1,110 @@
+import { promises as fs } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { PublishProvenanceService } from '../publish-provenance-service';
+
+describe('PublishProvenanceService', () => {
+  let tempDir = '';
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-platform-'));
+  });
+
+  afterEach(async () => {
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('publishes content and records provenance + backlinks', async () => {
+    const service = new PublishProvenanceService(tempDir);
+    const sourcePath = path.join(tempDir, 'notes.mdx');
+    const published = await service.publish({
+      providerId: 'filesystem-export',
+      sourcePath,
+      content: '# Notes\nSee [Docs](https://example.com/docs).',
+      frontmatter: {
+        references: ['https://example.com/source'],
+      },
+    });
+
+    expect(published.ok).toBe(true);
+    expect(published.canonicalUrl.startsWith('file://')).toBe(true);
+    expect(published.provenanceEventId.length).toBeGreaterThan(0);
+    expect(published.backlinks.length).toBeGreaterThan(0);
+
+    const provenance = await service.listProvenance(sourcePath);
+    expect(provenance).toHaveLength(1);
+    expect(provenance[0]?.publishTarget.canonicalUrl).toBe(published.canonicalUrl);
+
+    const backlinks = await service.getBacklinks(published.canonicalUrl);
+    expect(backlinks.some((record) => record.targetUrl === 'https://example.com/docs')).toBe(true);
+    expect(backlinks.some((record) => record.targetUrl === 'https://example.com/source')).toBe(
+      true
+    );
+  });
+
+  it('preserves backlink index updates during concurrent publishes', async () => {
+    const service = new PublishProvenanceService(tempDir);
+    const backlinksPath = path.join(tempDir, 'backlinks.json');
+    await writeFile(backlinksPath, '{}', 'utf-8');
+
+    const originalReadFile = fs.readFile.bind(fs);
+    let backlinkReadCount = 0;
+    let releaseBacklinkReads: () => void = () => {};
+    const backlinkReadGate = new Promise<void>((resolve) => {
+      releaseBacklinkReads = resolve;
+    });
+
+    const readFileSpy = vi.spyOn(fs, 'readFile').mockImplementation((async (
+      ...args: Parameters<typeof fs.readFile>
+    ) => {
+      const filePath = args[0];
+      if (typeof filePath === 'string' && filePath === backlinksPath) {
+        backlinkReadCount += 1;
+        const snapshot = await originalReadFile(...args);
+        if (backlinkReadCount === 1) {
+          setTimeout(() => releaseBacklinkReads(), 50);
+        }
+        if (backlinkReadCount === 2) {
+          releaseBacklinkReads();
+        }
+        await backlinkReadGate;
+        return snapshot;
+      }
+      return originalReadFile(...args);
+    }) as typeof fs.readFile);
+
+    const firstPublish = service.publish({
+      providerId: 'filesystem-export',
+      sourcePath: path.join(tempDir, 'first.mdx'),
+      content: '# First\nSee [A](https://example.com/a).',
+      frontmatter: undefined,
+    });
+    const secondPublish = service.publish({
+      providerId: 'filesystem-export',
+      sourcePath: path.join(tempDir, 'second.mdx'),
+      content: '# Second\nSee [B](https://example.com/b).',
+      frontmatter: undefined,
+    });
+
+    const [firstResult, secondResult] = await Promise.all([firstPublish, secondPublish]);
+
+    readFileSpy.mockRestore();
+
+    const firstBacklinks = await service.getBacklinks(firstResult.canonicalUrl);
+    const secondBacklinks = await service.getBacklinks(secondResult.canonicalUrl);
+    expect(firstBacklinks.some((record) => record.targetUrl === 'https://example.com/a')).toBe(
+      true
+    );
+    expect(secondBacklinks.some((record) => record.targetUrl === 'https://example.com/b')).toBe(
+      true
+    );
+
+    const provenance = await service.listProvenance();
+    expect(provenance).toHaveLength(2);
+  });
+});

@@ -8,14 +8,10 @@
  * @module src/renderer/features/ai-provider/hooks
  */
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { ProviderType, TimeRange } from '@shared/ai/types';
-import {
-  useAIProviderStore,
-  selectActiveProvider,
-  selectSelectedProvider,
-} from './store';
+import { useAIProviderStore, selectActiveProvider, selectSelectedProvider } from './store';
 
 // =============================================================================
 // PROVIDER MANAGEMENT HOOKS
@@ -132,10 +128,7 @@ export function useUpdateProvider() {
   const clearError = useAIProviderStore((state) => state.clearError);
 
   const update = useCallback(
-    async (
-      id: string,
-      updates: { displayName?: string; baseUrl?: string }
-    ): Promise<void> => {
+    async (id: string, updates: { displayName?: string; baseUrl?: string }): Promise<void> => {
       await updateProvider(id, updates);
     },
     [updateProvider]
@@ -234,9 +227,7 @@ export function useProviderSettings() {
  * Note: Capabilities are fetched via the main process API.
  */
 export function useProviderCapabilities(providerId: string | null, _modelId?: string) {
-  const provider = useAIProviderStore((state) =>
-    state.providers.find((p) => p.id === providerId)
-  );
+  const provider = useAIProviderStore((state) => state.providers.find((p) => p.id === providerId));
 
   // Capabilities would be fetched via the AI API
   // This hook provides access to the provider for capability queries
@@ -267,10 +258,12 @@ export function useInitializeAIProviders() {
   const fetchProviders = useAIProviderStore((state) => state.fetchProviders);
   const isLoading = useAIProviderStore((state) => state.isLoading);
   const providers = useAIProviderStore((state) => state.providers);
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     // Only fetch if we haven't loaded providers yet
-    if (providers.length === 0 && !isLoading) {
+    if (!hasFetchedRef.current && providers.length === 0 && !isLoading) {
+      hasFetchedRef.current = true;
       void fetchProviders();
     }
   }, [fetchProviders, isLoading, providers.length]);
@@ -289,9 +282,7 @@ export function useInitializeAIProviders() {
  * Hook for checking if any provider is configured and connected.
  */
 export function useHasConnectedProvider() {
-  return useAIProviderStore((state) =>
-    state.providers.some((p) => p.status === 'connected')
-  );
+  return useAIProviderStore((state) => state.providers.some((p) => p.status === 'connected'));
 }
 
 /**
@@ -299,7 +290,7 @@ export function useHasConnectedProvider() {
  */
 export function useProviderById(providerId: string | null) {
   return useAIProviderStore((state) =>
-    providerId ? state.providers.find((p) => p.id === providerId) ?? null : null
+    providerId ? (state.providers.find((p) => p.id === providerId) ?? null) : null
   );
 }
 
@@ -307,7 +298,5 @@ export function useProviderById(providerId: string | null) {
  * Hook for getting providers by type.
  */
 export function useProvidersByType(type: ProviderType) {
-  return useAIProviderStore((state) =>
-    state.providers.filter((p) => p.type === type)
-  );
+  return useAIProviderStore((state) => state.providers.filter((p) => p.type === type));
 }

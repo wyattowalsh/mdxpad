@@ -149,4 +149,29 @@ describe('registerFileHandlers authorization', () => {
 
     expect(onFileSavedMock).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
   });
+
+  it('allows authorized sender/main-frame for file:export', async () => {
+    const { dialog } = await import('electron');
+    vi.mocked(dialog.showSaveDialog).mockResolvedValue({
+      canceled: false,
+      filePath: '/test/file.md',
+    } as never);
+
+    await handlers[IPC_CHANNELS.file.export]!(createInvokeEvent(window), {
+      content: '# exported',
+      sourcePath: '/test/file.mdx',
+      format: 'markdown',
+    });
+
+    expect(FileService.writeFile).toHaveBeenCalledWith('/test/file.md', '# exported');
+  });
+
+  it('rejects unauthorized sender for file:export', async () => {
+    expect(() =>
+      handlers[IPC_CHANNELS.file.export]!(
+        createInvokeEvent(window, { senderId: window.webContents.id + 1 }),
+        { content: '# exported', format: 'markdown' }
+      )
+    ).toThrow('Unauthorized IPC sender');
+  });
 });

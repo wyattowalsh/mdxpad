@@ -49,12 +49,8 @@ describe('compileMdx', () => {
         const firstError = result.errors[0];
         expect(firstError).toBeDefined();
         expect(firstError!.message).toContain('Document too large');
-        expect(firstError!.message).toContain(
-          (MAX_SOURCE_SIZE + 1).toLocaleString()
-        );
-        expect(firstError!.message).toContain(
-          MAX_SOURCE_SIZE.toLocaleString()
-        );
+        expect(firstError!.message).toContain((MAX_SOURCE_SIZE + 1).toLocaleString());
+        expect(firstError!.message).toContain(MAX_SOURCE_SIZE.toLocaleString());
       }
     });
 
@@ -138,6 +134,16 @@ title: Outline Test
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.code).toBeTruthy();
+      }
+    });
+
+    it('should compile mermaid code fences with language-mermaid class', async () => {
+      const source = '```mermaid\ngraph TD\n  A-->B\n```';
+      const result = await compileMdx(testId('mermaid-fence'), source);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.code).toContain('language-mermaid');
       }
     });
   });

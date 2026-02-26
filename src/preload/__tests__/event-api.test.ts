@@ -180,6 +180,17 @@ describe('eventSubscriptions', () => {
     });
   });
 
+  describe('onMenuExportFile', () => {
+    it('should register and call callback', () => {
+      const callback = vi.fn();
+      eventSubscriptions.onMenuExportFile(callback);
+
+      emitIpcEvent(IPC_EVENTS.menuExportFile);
+
+      expect(callback).toHaveBeenCalled();
+    });
+  });
+
   // --------------------------------------------------------------------------
   // onMenuOpenFile (with data)
   // --------------------------------------------------------------------------

@@ -18,7 +18,12 @@ import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
 import { registerAllCommands } from '../commands';
 import { FILE_COMMAND_IDS } from '../commands/file-commands';
-import type { CommandContext, CommandId, NormalizedShortcut, NotificationInput } from '@shared/types/commands';
+import type {
+  CommandContext,
+  CommandId,
+  NormalizedShortcut,
+  NotificationInput,
+} from '@shared/types/commands';
 
 // =============================================================================
 // HELPERS
@@ -26,27 +31,82 @@ import type { CommandContext, CommandId, NormalizedShortcut, NotificationInput }
 
 /** Get mdxpad API with fallback for non-Electron environments */
 function getMdxpadApi() {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  return window.mdxpad ?? {
+  const mdxpadApi = Reflect.get(window as object, 'mdxpad') as unknown;
+  if (mdxpadApi !== undefined) {
+    return mdxpadApi as typeof window.mdxpad;
+  }
+
+  return {
     getVersion: () => Promise.resolve('dev'),
-    getSecurityInfo: () => Promise.resolve({ contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true }),
-    openFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    saveFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    saveFileAs: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    readFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
-    writeFile: () => Promise.resolve({ ok: false as const, error: { code: 'UNKNOWN' as const, message: 'Not in Electron' } }),
+    getSecurityInfo: () =>
+      Promise.resolve({
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+        webSecurity: true,
+      }),
+    openFile: () =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'UNKNOWN' as const, message: 'Not in Electron' },
+      }),
+    saveFile: () =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'UNKNOWN' as const, message: 'Not in Electron' },
+      }),
+    saveFileAs: () =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'UNKNOWN' as const, message: 'Not in Electron' },
+      }),
+    exportFile: () =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'UNKNOWN' as const, message: 'Not in Electron' },
+        support: [],
+      }),
+    readFile: () =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'UNKNOWN' as const, message: 'Not in Electron' },
+      }),
+    writeFile: () =>
+      Promise.resolve({
+        ok: false as const,
+        error: { code: 'UNKNOWN' as const, message: 'Not in Electron' },
+      }),
     closeWindow: () => Promise.resolve(),
     minimizeWindow: () => Promise.resolve(),
     maximizeWindow: () => Promise.resolve(),
     signalReady: () => Promise.resolve(),
-    onFileChange: () => () => { /* noop */ },
-    onMenuCommandPalette: () => () => { /* noop */ },
-    onMenuNewFile: () => () => { /* noop */ },
-    onMenuOpenFileDialog: () => () => { /* noop */ },
-    onMenuOpenFile: () => () => { /* noop */ },
-    onMenuSaveFile: () => () => { /* noop */ },
-    onMenuSaveFileAs: () => () => { /* noop */ },
-    onEditorDirtyCheck: () => () => { /* noop */ },
+    onFileChange: () => () => {
+      /* noop */
+    },
+    onMenuCommandPalette: () => () => {
+      /* noop */
+    },
+    onMenuNewFile: () => () => {
+      /* noop */
+    },
+    onMenuOpenFileDialog: () => () => {
+      /* noop */
+    },
+    onMenuOpenFile: () => () => {
+      /* noop */
+    },
+    onMenuSaveFile: () => () => {
+      /* noop */
+    },
+    onMenuSaveFileAs: () => () => {
+      /* noop */
+    },
+    onMenuExportFile: () => () => {
+      /* noop */
+    },
+    onEditorDirtyCheck: () => () => {
+      /* noop */
+    },
     platform: { os: 'browser' as const, arch: 'unknown' as const },
   };
 }
@@ -79,22 +139,34 @@ function useBuiltInCommands(toggle: () => void): void {
       name: 'Toggle Command Palette',
       category: 'view',
       shortcut: { key: 'p', modifiers: ['Mod', 'Shift'] },
-      execute: () => { toggle(); return { ok: true }; },
+      execute: () => {
+        toggle();
+        return { ok: true };
+      },
     });
     const unregister = registerAllCommands();
-    return () => { unregister(); };
+    return () => {
+      unregister();
+    };
   }, [toggle]);
 }
 
 /** Fetch app version and subscribe to the menu command-palette event */
-function useAppVersionAndPaletteMenu(toggle: () => void): { version: string; platform: { os: string; arch: string } } {
+function useAppVersionAndPaletteMenu(toggle: () => void): {
+  version: string;
+  platform: { os: string; arch: string };
+} {
   const mdxpad = getMdxpadApi();
   const [version, setVersion] = useState<string>('...');
 
   useEffect(() => {
     void mdxpad.getVersion().then(setVersion);
-    const unsub = mdxpad.onMenuCommandPalette(() => { toggle(); });
-    return () => { unsub(); };
+    const unsub = mdxpad.onMenuCommandPalette(() => {
+      toggle();
+    });
+    return () => {
+      unsub();
+    };
   }, [toggle, mdxpad]);
 
   return { version, platform: mdxpad.platform };
@@ -119,7 +191,7 @@ function useAppVersionAndPaletteMenu(toggle: () => void): { version: string; pla
  */
 export function useMenuEvents(
   editorRef: React.RefObject<EditorView | null>,
-  handleNotification: (n: NotificationInput) => void,
+  handleNotification: (n: NotificationInput) => void
 ): MenuEventsResult {
   // Command palette state
   const palette = useCommandPalette();
@@ -137,12 +209,16 @@ export function useMenuEvents(
   const handleExternalChange = useDocumentStore((s) => s.handleExternalChange);
 
   // Build command context
-  const getCommandContext = useCallback((): CommandContext => buildCommandContext(
-    editorRef.current,
-    getMdxpadApi(),
-    { fileId, filePath, content: documentContent, isDirty },
-    handleNotification,
-  ), [editorRef, fileId, filePath, documentContent, isDirty, handleNotification]);
+  const getCommandContext = useCallback(
+    (): CommandContext =>
+      buildCommandContext(
+        editorRef.current,
+        getMdxpadApi(),
+        { fileId, filePath, content: documentContent, isDirty },
+        handleNotification
+      ),
+    [editorRef, fileId, filePath, documentContent, isDirty, handleNotification]
+  );
 
   // Keyboard shortcuts
   const handleShortcut = useCallback(
@@ -178,6 +254,7 @@ export function useMenuEvents(
         window.mdxpad.onMenuOpenFileDialog(() => runCommandFromMenu(FILE_COMMAND_IDS.open)),
         window.mdxpad.onMenuSaveFile(() => runCommandFromMenu(FILE_COMMAND_IDS.save)),
         window.mdxpad.onMenuSaveFileAs(() => runCommandFromMenu(FILE_COMMAND_IDS.saveAs)),
+        window.mdxpad.onMenuExportFile(() => runCommandFromMenu(FILE_COMMAND_IDS.export)),
       ];
       return true;
     };
@@ -206,9 +283,7 @@ export function useMenuEvents(
   // -------------------------------------------------------------------------
   useEffect(() => {
     const mdxpad = getMdxpadApi();
-    const unsubscribe = mdxpad.onEditorDirtyCheck?.(
-      () => useDocumentStore.getState().isDirty
-    );
+    const unsubscribe = mdxpad.onEditorDirtyCheck?.(() => useDocumentStore.getState().isDirty);
 
     return () => {
       unsubscribe?.();
@@ -232,7 +307,9 @@ export function useMenuEvents(
       })();
     });
 
-    return () => { unsubscribe(); };
+    return () => {
+      unsubscribe();
+    };
   }, [fileId, handleExternalChange]);
 
   return { palette, version, platform, getCommandContext };

@@ -7,14 +7,10 @@
  * @module renderer/commands/file-commands
  */
 
-import type {
-  Command,
-  CommandId,
-  CommandContext,
-  CommandResult,
-} from '@shared/types/commands';
+import type { Command, CommandId, CommandContext, CommandResult } from '@shared/types/commands';
 import type { FileError, FileHandle, FileId } from '@shared/types/file';
 import type { DocumentFileHandle, DocumentId } from '@shared/types/document';
+import type { FileExportError } from '@shared/contracts/file-schemas';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
 
@@ -31,6 +27,7 @@ export const FILE_COMMAND_IDS = {
   open: 'file.open' as CommandId,
   save: 'file.save' as CommandId,
   saveAs: 'file.save-as' as CommandId,
+  export: 'file.export' as CommandId,
   close: 'file.close' as CommandId,
 } as const;
 
@@ -67,6 +64,24 @@ function formatFileError(error: FileError): string {
       return error.message;
     default:
       return 'Unknown error';
+  }
+}
+
+/**
+ * Format file export errors into user-friendly text.
+ */
+function formatExportError(error: FileExportError): string {
+  switch (error.code) {
+    case 'CANCELLED':
+      return 'Operation cancelled';
+    case 'UNSUPPORTED_FORMAT':
+      return error.message;
+    case 'WRITE_FAILED':
+      return error.message;
+    case 'UNKNOWN':
+      return error.message;
+    default:
+      return 'Unknown export error';
   }
 }
 
@@ -262,7 +277,7 @@ const saveFileCommand: Command = {
  * Save file as command.
  * Shows native save dialog and saves to new location.
  */
- 
+
 const saveFileAsCommand: Command = {
   id: FILE_COMMAND_IDS.saveAs,
   name: 'Save As...',
@@ -335,6 +350,62 @@ const saveFileAsCommand: Command = {
 };
 
 /**
+ * Export file command.
+ * Exports current document to a selected format and path.
+ */
+const exportFileCommand: Command = {
+  id: FILE_COMMAND_IDS.export,
+  name: 'Export...',
+  description: 'Export current document to HTML, Markdown, or MDX',
+  category: 'file',
+  shortcut: { key: 'e', modifiers: ['Mod', 'Shift'] },
+  icon: '📤',
+  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const result = await ctx.api.exportFile(ctx.document.content, {
+        sourcePath: ctx.document.filePath,
+      });
+
+      if (!result.ok) {
+        if (result.error.code === 'CANCELLED') {
+          return { ok: true };
+        }
+
+        const message = formatExportError(result.error);
+        ctx.notify({
+          type: 'error',
+          message: `Failed to export: ${message}`,
+        });
+        return { ok: false, error: message };
+      }
+
+      const exportedFileName = result.value.path.split('/').pop() ?? result.value.path;
+      ctx.notify({
+        type: 'success',
+        message: `Exported: ${exportedFileName}`,
+      });
+
+      if (result.value.warnings.length > 0) {
+        ctx.notify({
+          type: 'info',
+          message: result.value.warnings[0] ?? 'Export completed with warnings',
+        });
+      }
+
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      ctx.notify({
+        type: 'error',
+        message: `Failed to export: ${message}`,
+      });
+      return { ok: false, error: message };
+    }
+  },
+  enabled: () => true,
+};
+
+/**
  * Close window command.
  * Prompts for unsaved changes before closing.
  */
@@ -389,6 +460,7 @@ const FILE_COMMANDS: readonly Command[] = [
   openFileCommand,
   saveFileCommand,
   saveFileAsCommand,
+  exportFileCommand,
   closeWindowCommand,
 ];
 
@@ -428,6 +500,7 @@ export {
   openFileCommand,
   saveFileCommand,
   saveFileAsCommand,
+  exportFileCommand,
   closeWindowCommand,
   FILE_COMMANDS,
 };

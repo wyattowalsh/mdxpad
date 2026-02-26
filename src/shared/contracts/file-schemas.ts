@@ -192,6 +192,94 @@ export type FileWriteRequest = z.infer<typeof FileWriteRequestSchema>;
 export const FileWriteResponseSchema = FileResultVoidSchema;
 
 // ============================================================================
+// IPC Channel Schemas - File Export Operations
+// ============================================================================
+
+/**
+ * Supported export formats.
+ */
+export const ExportFormatSchema = z.enum(['html', 'markdown', 'mdx', 'pdf', 'docx']);
+
+/** Inferred ExportFormat type */
+export type ExportFormat = z.infer<typeof ExportFormatSchema>;
+
+/**
+ * Export format capability entry.
+ */
+export const ExportSupportEntrySchema = z.object({
+  format: ExportFormatSchema,
+  label: z.string(),
+  extension: z.string().min(1),
+  mimeType: z.string().min(1),
+  priority: z.number().int().positive(),
+  supported: z.boolean(),
+  unsupportedReason: z.string().optional(),
+});
+
+/** Inferred ExportSupportEntry type */
+export type ExportSupportEntry = z.infer<typeof ExportSupportEntrySchema>;
+
+/**
+ * File export error schema.
+ */
+export const FileExportErrorSchema = z.discriminatedUnion('code', [
+  z.object({ code: z.literal('CANCELLED') }),
+  z.object({
+    code: z.literal('UNSUPPORTED_FORMAT'),
+    format: ExportFormatSchema,
+    message: z.string(),
+  }),
+  z.object({ code: z.literal('WRITE_FAILED'), message: z.string() }),
+  z.object({ code: z.literal('UNKNOWN'), message: z.string() }),
+]);
+
+/** Inferred FileExportError type */
+export type FileExportError = z.infer<typeof FileExportErrorSchema>;
+
+/**
+ * Export success payload schema.
+ */
+export const FileExportSuccessSchema = z.object({
+  path: FilePathSchema,
+  format: ExportFormatSchema,
+  warnings: z.array(z.string()),
+});
+
+/** Inferred FileExportSuccess type */
+export type FileExportSuccess = z.infer<typeof FileExportSuccessSchema>;
+
+/**
+ * File export result schema.
+ */
+export const FileExportResponseSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    value: FileExportSuccessSchema,
+  }),
+  z.object({
+    ok: z.literal(false),
+    error: FileExportErrorSchema,
+    support: z.array(ExportSupportEntrySchema),
+  }),
+]);
+
+/** Inferred FileExportResult type */
+export type FileExportResult = z.infer<typeof FileExportResponseSchema>;
+
+/**
+ * mdxpad:file:export request schema.
+ * Exports document content through a format-aware export pipeline.
+ */
+export const FileExportRequestSchema = z.object({
+  content: FileContentSchema,
+  sourcePath: FilePathSchema.nullable().optional(),
+  format: ExportFormatSchema.optional(),
+});
+
+/** Inferred FileExportRequest type */
+export type FileExportRequest = z.infer<typeof FileExportRequestSchema>;
+
+// ============================================================================
 // IPC Channel Schemas - Window Operations
 // ============================================================================
 
@@ -383,6 +471,10 @@ export const IPC_SCHEMAS = {
   'mdxpad:file:write': {
     request: FileWriteRequestSchema,
     response: FileWriteResponseSchema,
+  },
+  'mdxpad:file:export': {
+    request: FileExportRequestSchema,
+    response: FileExportResponseSchema,
   },
   'mdxpad:window:close': {
     request: WindowCloseRequestSchema,

@@ -11,6 +11,7 @@ const registerWindowHandlersMock = vi.fn();
 const registerAutosaveHandlersMock = vi.fn();
 const registerAIHandlersMock = vi.fn();
 const registerTemplateHandlersMock = vi.fn();
+const registerPlatformHandlersMock = vi.fn();
 const createAIServicesMock = vi.fn(() => ({}));
 const autosaveSettingsServiceCtorMock = vi.fn(() => ({}));
 const autosaveServiceCtorMock = vi.fn(() => ({}));
@@ -42,6 +43,10 @@ vi.mock('../ai-handlers', () => ({
 
 vi.mock('@main/services/template-service', () => ({
   registerTemplateHandlers: registerTemplateHandlersMock,
+}));
+
+vi.mock('../platform-handlers', () => ({
+  registerPlatformHandlers: registerPlatformHandlersMock,
 }));
 
 vi.mock('@main/services/ai', () => ({
@@ -124,6 +129,10 @@ describe('registerIpcHandlers', () => {
       window
     );
     expect(registerTemplateHandlersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ handle: mockIpcMainHandle }),
+      window
+    );
+    expect(registerPlatformHandlersMock).toHaveBeenCalledWith(
       expect.objectContaining({ handle: mockIpcMainHandle }),
       window
     );
