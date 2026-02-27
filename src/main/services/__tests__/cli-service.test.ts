@@ -8,6 +8,7 @@ import {
   LlmsGenerationResponseSchema,
   type ExportCliInvokeRequest,
 } from '@shared/contracts/export-schemas';
+import { ALLOWED_COMMANDS } from '../cli-engine';
 import { generateLlmsFile, getDefaultLlmsOutputPath, invokeExportCli } from '../cli-service';
 
 const SAMPLE_CONTENT = `---
@@ -53,6 +54,14 @@ function createTestRequest(overrides?: Partial<ExportCliInvokeRequest>): ExportC
 }
 
 describe('invokeExportCli', () => {
+  // Allow process.execPath (node binary) for spawn behavior tests
+  beforeEach(() => {
+    ALLOWED_COMMANDS.add(process.execPath);
+  });
+  afterEach(() => {
+    ALLOWED_COMMANDS.delete(process.execPath);
+  });
+
   it('returns successful output for zero-exit commands', async () => {
     const response = await invokeExportCli(createTestRequest());
 
@@ -204,21 +213,17 @@ describe('invokeExportCli', () => {
     }
   });
 
-  it('supports shell integration mode', async () => {
+  it('rejects non-allowlisted commands', async () => {
     const response = await invokeExportCli(
       createTestRequest({
         command: 'printf "shell-ok\\n"',
         args: [],
-        shell: true,
       })
     );
 
-    expect(response.ok).toBe(true);
-    if (response.ok) {
-      expect(
-        response.output.events.some((event) => event.message.includes('Shell integration'))
-      ).toBe(true);
-      expect(response.output.events.some((event) => event.message === 'shell-ok')).toBe(true);
+    expect(response.ok).toBe(false);
+    if (!response.ok) {
+      expect(response.error).toContain('not in the allowed commands list');
     }
   });
 

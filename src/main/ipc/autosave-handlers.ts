@@ -109,12 +109,19 @@ function createAutosaveHandlers(services: AutosaveHandlerServices) {
     handleAutosaveTrigger: createValidatedHandler(
       AutosaveTriggerRequestSchema,
       async (args): Promise<AutosaveTriggerResponse> => {
+        const statusBeforeSave = currentStatus;
         currentStatus = { status: 'saving' };
         const result = await services.autosaveService.saveDocument(args);
         if (result.ok) {
           currentStatus = { status: 'saved', savedAt: result.savedAt };
         } else {
-          currentStatus = { status: 'failed', consecutiveFailures: 1, lastError: result.message };
+          const prevFailures =
+            statusBeforeSave.status === 'failed' ? statusBeforeSave.consecutiveFailures : 0;
+          currentStatus = {
+            status: 'failed',
+            consecutiveFailures: prevFailures + 1,
+            lastError: result.message,
+          };
         }
         return result;
       }

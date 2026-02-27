@@ -52,12 +52,21 @@ describe('assertAuthorizedIpcSender', () => {
     }).toThrow(IpcSenderAuthorizationError);
   });
 
-  it('allows sender when origin metadata is unavailable', () => {
+  it('allows sender when senderFrame.url is absent (relies on sender/frame ID)', () => {
     const window = createWindow();
-    const event = createEvent();
+    const event = createEvent(); // no senderFrameUrl → null origin, skips origin check
 
     expect(() => {
       assertAuthorizedIpcSender(event, window, 'test:channel');
     }).not.toThrow();
+  });
+
+  it('rejects sender when senderFrame.url has mismatched origin', () => {
+    const window = createWindow();
+    const event = createEvent({ senderFrameUrl: 'https://evil.com/exploit' });
+
+    expect(() => {
+      assertAuthorizedIpcSender(event, window, 'test:channel');
+    }).toThrow(IpcSenderAuthorizationError);
   });
 });

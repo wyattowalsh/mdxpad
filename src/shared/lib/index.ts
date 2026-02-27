@@ -47,6 +47,7 @@ export {
 } from './metadata';
 
 // IPC
+/* eslint-disable @typescript-eslint/no-deprecated -- intentional re-export of legacy API */
 export {
   IPC_CHANNELS,
   IPC_EVENTS,
@@ -57,3 +58,4 @@ export {
   type IpcRequest,
   type IpcResponse,
 } from './ipc';
+/* eslint-enable @typescript-eslint/no-deprecated */

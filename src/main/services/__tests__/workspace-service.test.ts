@@ -112,11 +112,44 @@ describe('WorkspaceService', () => {
 
     const sourceDocumentId = randomUUID();
     const targetDocumentId = randomUUID();
+    const now = new Date().toISOString();
+    const sourcePath = path.join(workspaceRoot, 'notes', 'source.mdx');
+    const targetPath = path.join(workspaceRoot, 'notes', 'target.mdx');
+
+    // Register documents in the workspace so addLink target validation passes
+    const modelWithDocuments = {
+      ...opened.value,
+      workspace: {
+        ...opened.value.workspace,
+        documents: [
+          {
+            id: sourceDocumentId,
+            title: 'Source',
+            filePath: sourcePath,
+            tags: [],
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            id: targetDocumentId,
+            title: 'Target',
+            filePath: targetPath,
+            tags: [],
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        updatedAt: now,
+      },
+    };
+    const saveResult = await service.saveWorkspace({ model: modelWithDocuments });
+    expect(saveResult.ok).toBe(true);
+
     const link = {
       sourceDocumentId,
-      sourcePath: path.join(workspaceRoot, 'notes', 'source.mdx'),
+      sourcePath,
       targetDocumentId,
-      targetPath: path.join(workspaceRoot, 'notes', 'target.mdx'),
+      targetPath,
       targetAnchor: 'intro',
       relation: 'references' as const,
       position: {

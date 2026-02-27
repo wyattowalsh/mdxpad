@@ -1,6 +1,10 @@
 import type { BrowserWindow, IpcMain } from 'electron';
 
+// Re-export for backward compatibility with existing consumers
+export { EXPORT_IPC_CHANNELS } from '@shared/contracts/export-schemas';
+
 import {
+  EXPORT_IPC_CHANNELS,
   ExportJobLifecycleRequestSchema,
   ExportJobLifecycleResponseSchema,
   ExportPresetCrudRequestSchema,
@@ -14,13 +18,6 @@ import { ExportOrchestratorService } from '@main/services/export-orchestrator';
 import { generateLlmsFile, invokeExportCli } from '@main/services/cli-service';
 
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
-
-export const EXPORT_IPC_CHANNELS = {
-  jobLifecycle: 'mdxpad:export:job-lifecycle',
-  presetCrud: 'mdxpad:export:preset-crud',
-  cliInvoke: 'mdxpad:export:cli-invoke',
-  llmsGenerate: 'mdxpad:export:llms-generate',
-} as const;
 
 export interface ExportCliService {
   invokeExportCli: typeof invokeExportCli;

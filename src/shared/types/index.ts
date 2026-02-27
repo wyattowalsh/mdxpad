@@ -6,6 +6,7 @@
 // Re-export types from lib
 export type { Result } from '../lib/result';
 export type { EventMap, EventHandler } from '../lib/events';
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional re-export of legacy API
 export type { IpcChannel, SecurityInfo, IpcPayloads, IpcRequest, IpcResponse } from '../lib/ipc';
 
 // Re-export types from type modules (Spec 001)

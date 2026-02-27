@@ -2,7 +2,11 @@ import type { BrowserWindow, IpcMain } from 'electron';
 
 import { WorkspaceService } from '@main/services/workspace-service';
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
+// Re-export for backward compatibility with existing consumers
+export { WorkspaceChannels } from '@shared/contracts/workspace-schemas';
+
 import {
+  WorkspaceChannels,
   AggregateMetadataCollectionRequestSchema,
   AggregateMetadataCollectionResponseSchema,
   CreateProjectRequestSchema,
@@ -14,16 +18,7 @@ import {
   SaveWorkspaceRequestSchema,
   SaveWorkspaceResponseSchema,
 } from '@shared/contracts/workspace-schemas';
-import { IPC_CHANNELS } from '@shared/lib/ipc';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
-
-export const WorkspaceChannels = {
-  OPEN: IPC_CHANNELS.workspace.open,
-  SAVE: IPC_CHANNELS.workspace.save,
-  CREATE_PROJECT: IPC_CHANNELS.workspace.createProject,
-  QUERY_METADATA_COLLECTION: IPC_CHANNELS.workspace.queryMetadataCollection,
-  AGGREGATE_METADATA_COLLECTION: IPC_CHANNELS.workspace.aggregateMetadataCollection,
-} as const;
 
 type WorkspaceHandlerService = Pick<
   WorkspaceService,

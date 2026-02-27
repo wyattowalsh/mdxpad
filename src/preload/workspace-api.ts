@@ -8,6 +8,7 @@
  */
 
 import {
+  WorkspaceChannels,
   AggregateMetadataCollectionRequestSchema,
   AggregateMetadataCollectionResponseSchema,
   AddLinkRequestSchema,
@@ -37,7 +38,6 @@ import {
   type SaveWorkspaceRequest,
   type SaveWorkspaceResponse,
 } from '@shared/contracts/workspace-schemas';
-import { IPC_CHANNELS } from '@shared/lib/ipc';
 
 import { validatedInvoke } from './validated-invoke';
 
@@ -58,49 +58,49 @@ export interface WorkspaceApi {
 export const workspaceApi: WorkspaceApi = {
   openWorkspace: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.open,
+      WorkspaceChannels.OPEN,
       OpenWorkspaceRequestSchema,
       OpenWorkspaceResponseSchema,
       request
     ),
   saveWorkspace: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.save,
+      WorkspaceChannels.SAVE,
       SaveWorkspaceRequestSchema,
       SaveWorkspaceResponseSchema,
       request
     ),
   createProject: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.createProject,
+      WorkspaceChannels.CREATE_PROJECT,
       CreateProjectRequestSchema,
       CreateProjectResponseSchema,
       request
     ),
   addLink: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.addLink,
+      WorkspaceChannels.ADD_LINK,
       AddLinkRequestSchema,
       AddLinkResponseSchema,
       request
     ),
   getBacklinks: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.getBacklinks,
+      WorkspaceChannels.GET_BACKLINKS,
       GetBacklinksRequestSchema,
       GetBacklinksResponseSchema,
       request
     ),
   queryMetadataCollection: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.queryMetadataCollection,
+      WorkspaceChannels.QUERY_METADATA_COLLECTION,
       QueryMetadataCollectionRequestSchema,
       QueryMetadataCollectionResponseSchema,
       request
     ),
   aggregateMetadataCollection: (request) =>
     validatedInvoke(
-      IPC_CHANNELS.workspace.aggregateMetadataCollection,
+      WorkspaceChannels.AGGREGATE_METADATA_COLLECTION,
       AggregateMetadataCollectionRequestSchema,
       AggregateMetadataCollectionResponseSchema,
       request

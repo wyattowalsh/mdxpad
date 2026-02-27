@@ -47,6 +47,8 @@ function createLocalHeader(prepared: PreparedZipEntry): Buffer {
   header.writeUInt32LE(0x04034b50, 0);
   header.writeUInt16LE(20, 4);
   header.writeUInt16LE(0, 6);
+  // TODO: Implement DEFLATE compression (method 0x0008) for production use.
+  // Currently using STORED (0x0000) which produces larger but faster output.
   header.writeUInt16LE(0, 8);
   header.writeUInt16LE(0, 10);
   header.writeUInt16LE(0, 12);

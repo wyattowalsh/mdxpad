@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 
+import { IPC_CHANNELS } from '../lib/ipc';
 import { DocumentMetadataSchema, WorkspaceSchema } from '../types/root';
 import type {
   LinkIndex,
@@ -16,6 +17,20 @@ import type {
   WorkspaceId,
   WorkspaceModel,
 } from '../types/workspace';
+
+// ============================================================================
+// Workspace IPC Channel Constants (single source of truth)
+// ============================================================================
+
+export const WorkspaceChannels = {
+  OPEN: IPC_CHANNELS.workspace.open,
+  SAVE: IPC_CHANNELS.workspace.save,
+  CREATE_PROJECT: IPC_CHANNELS.workspace.createProject,
+  ADD_LINK: IPC_CHANNELS.workspace.addLink,
+  GET_BACKLINKS: IPC_CHANNELS.workspace.getBacklinks,
+  QUERY_METADATA_COLLECTION: IPC_CHANNELS.workspace.queryMetadataCollection,
+  AGGREGATE_METADATA_COLLECTION: IPC_CHANNELS.workspace.aggregateMetadataCollection,
+} as const;
 
 // ============================================================================
 // Base Workspace Schemas
@@ -67,6 +82,10 @@ export const LinkIndexSchema: z.ZodType<LinkIndex> = z.record(
 );
 
 export const WorkspaceModelSchema: z.ZodType<WorkspaceModel> = z.object({
+  /**
+   * Schema version for workspace model format.
+   * @migration When bumping to v2, add a transformFn in the parser to handle v1->v2 migration.
+   */
   version: z.literal(1),
   workspace: WorkspaceSchema,
   projects: z.array(ProjectSchema),

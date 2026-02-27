@@ -60,8 +60,10 @@ export function assertAuthorizedIpcSender(
 
   const isAuthorizedSender = senderId === expectedSenderId;
   const isAuthorizedMainFrame = senderFrameId === expectedMainFrameId;
-  const isAuthorizedOrigin =
-    senderOrigin === null || windowOrigin === null || senderOrigin === windowOrigin;
+  // Defense-in-depth origin check (sender/frame ID checks above are primary).
+  // If the sender provides an origin, it must match the window origin.
+  // If senderFrame.url is absent, skip — rely on sender ID + frame ID.
+  const isAuthorizedOrigin = senderOrigin === null || senderOrigin === windowOrigin;
 
   if (!isAuthorizedSender || !isAuthorizedMainFrame || !isAuthorizedOrigin) {
     throw new IpcSenderAuthorizationError(channel);

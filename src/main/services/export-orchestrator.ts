@@ -54,6 +54,10 @@ function sortPresetsByName(presets: readonly ExportPreset[]): ExportPreset[] {
 }
 
 export class ExportOrchestratorService {
+  /**
+   * In-memory job registry.
+   * TODO: Persist jobs to disk for crash recovery and cross-restart continuity.
+   */
   private readonly jobs = new Map<string, ExportJob>();
   private readonly presets = new Map<string, ExportPreset>();
   private readonly now: () => string;

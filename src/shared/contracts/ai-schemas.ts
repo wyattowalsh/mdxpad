@@ -6,6 +6,23 @@
 
 import { z } from 'zod';
 
+// ============================================================================
+// AI Session IPC Channel Constants (single source of truth)
+// ============================================================================
+
+export const AISessionChannels = {
+  SESSION_CREATE: 'mdxpad:ai:session:create',
+  SESSION_LIST: 'mdxpad:ai:session:list',
+  SESSION_GET: 'mdxpad:ai:session:get',
+  SESSION_ARCHIVE: 'mdxpad:ai:session:archive',
+  SESSION_RESTORE: 'mdxpad:ai:session:restore',
+  PROMPT_LIST: 'mdxpad:ai:prompt:list',
+  PROMPT_ATTACH: 'mdxpad:ai:prompt:attach',
+  INSTRUCTION_LIST: 'mdxpad:ai:instruction:list',
+  INSTRUCTION_LOAD: 'mdxpad:ai:instruction:load',
+  INSTRUCTION_ATTACH: 'mdxpad:ai:instruction:attach',
+} as const;
+
 import {
   ErrorObjectSchema,
   GenerateStreamRequestSchema,

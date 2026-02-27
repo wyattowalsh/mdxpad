@@ -9,7 +9,11 @@
  * @module src/preload/export-api
  */
 
+// Re-export for backward compatibility with existing consumers
+export { EXPORT_IPC_CHANNELS } from '@shared/contracts/export-schemas';
+
 import {
+  EXPORT_IPC_CHANNELS,
   ExportJobLifecycleRequestSchema,
   ExportJobLifecycleResponseSchema,
   ExportPresetCrudRequestSchema,
@@ -28,13 +32,6 @@ import {
   type LlmsGenerationResponse,
 } from '@shared/contracts/export-schemas';
 import { validatedInvoke } from './validated-invoke';
-
-export const EXPORT_IPC_CHANNELS = {
-  jobLifecycle: 'mdxpad:export:job-lifecycle',
-  presetCrud: 'mdxpad:export:preset-crud',
-  cliInvoke: 'mdxpad:export:cli-invoke',
-  llmsGenerate: 'mdxpad:export:llms-generate',
-} as const;
 
 export interface ExportApi {
   jobLifecycle(request: ExportJobLifecycleRequest): Promise<ExportJobLifecycleResponse>;

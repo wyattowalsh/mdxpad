@@ -380,6 +380,12 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     },
 
     getBacklinks: async (request) => {
+      // Cache-hit guard: skip IPC if backlinks are already loaded for this document
+      const existing = get().backlinksByDocumentId[request.documentId];
+      if (existing !== undefined) {
+        return { ok: true, value: existing } as GetBacklinksResponse;
+      }
+
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -465,7 +471,26 @@ export const selectBacklinksForDocument =
   (state: WorkspaceStore): LinkRecord[] =>
     state.backlinksByDocumentId[documentId] ?? EMPTY_BACKLINKS;
 
-export const selectFilteredBacklinksForDocument =
-  (documentId: WorkspaceDocumentId) =>
-  (state: WorkspaceStore): LinkRecord[] =>
+const filteredBacklinksCache = new Map<
+  WorkspaceDocumentId,
+  (state: WorkspaceStore) => LinkRecord[]
+>();
+
+/**
+ * Returns a stable selector reference per documentId so React components
+ * can use it without breaking memoization on every render.
+ */
+export function selectFilteredBacklinksForDocument(
+  documentId: WorkspaceDocumentId
+): (state: WorkspaceStore) => LinkRecord[] {
+  const cached = filteredBacklinksCache.get(documentId);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const selector = (state: WorkspaceStore): LinkRecord[] =>
     filterBacklinksForQuery(selectBacklinksForDocument(documentId)(state), state.linkSearchQuery);
+
+  filteredBacklinksCache.set(documentId, selector);
+  return selector;
+}

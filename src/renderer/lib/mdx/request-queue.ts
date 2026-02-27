@@ -31,15 +31,28 @@ export const BACKOFF_JITTER_MS = 100;
 /** Maximum pending requests before queue overflow protection kicks in */
 export const MAX_PENDING_REQUESTS = 100;
 
-/** Error messages that indicate transient (retryable) failures */
-export const TRANSIENT_ERROR_PATTERNS = [
-  'Worker crashed',
-  'Worker is unhealthy',
-  'Worker terminated',
-  'timed out',
-  'Queue overflow',
-  'Stale response',
-] as const;
+/**
+ * Patterns that indicate a transient worker error eligible for retry.
+ *
+ * - worker crashed: Worker process died unexpectedly
+ * - worker .* timeout: Worker failed to respond within deadline
+ * - worker .* unhealthy: Worker health check failed
+ * - worker terminated: Worker was explicitly terminated
+ * - timed out: General compilation timeout
+ * - queue overflow: Too many pending requests
+ * - stale response: Response from a previous worker generation
+ * - network error: Transient network failure
+ */
+export const TRANSIENT_ERROR_PATTERNS: readonly RegExp[] = [
+  /worker crashed/i,
+  /worker .* timeout/i,
+  /worker .* unhealthy/i,
+  /worker terminated/i,
+  /timed out/i,
+  /queue overflow/i,
+  /stale response/i,
+  /network error/i,
+];
 
 const STALE_RESPONSE_ERROR_MESSAGE = 'Stale response from previous worker generation';
 const REQUEST_CANCELLED_ERROR_MESSAGE = 'Compilation request cancelled';
@@ -103,9 +116,9 @@ export interface PendingRequest {
  * @returns True if the error is transient (e.g., worker crash), false otherwise
  */
 export function isTransientError(errors: readonly CompileError[]): boolean {
-  if (errors.length === 0) return false;
-  const message = errors[0]?.message ?? '';
-  return TRANSIENT_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
+  return errors.some((error) =>
+    TRANSIENT_ERROR_PATTERNS.some((pattern) => pattern.test(error.message))
+  );
 }
 
 /**
@@ -336,58 +349,58 @@ function createTrackedOnError(
   };
 }
 
+/** Bundled context for compile-with-retry to keep the function within line limits. */
+interface CompileRetryContext {
+  workers: WorkerInstance[];
+  pendingRequests: Map<RequestId, PendingRequest>;
+  queueOverflows: { count: number };
+  shutdownRef: { readonly isShuttingDown: boolean };
+  source: string;
+  pluginConfig: MdxPluginPipelineConfig | undefined;
+  id: RequestId;
+  config: RetryConfig;
+  selectWorkerFn: () => number;
+  onRestart: (index: number) => void;
+  onSuccess?: ((result: CompileResponseSuccess) => void) | undefined;
+  onError?: ((errors: readonly CompileError[]) => void) | undefined;
+}
+
 /**
  * Compile with retry logic for transient failures.
  * User callbacks are invoked synchronously on response to preserve ordering.
  */
-export async function compileWithRetry(
-  workers: WorkerInstance[],
-  pendingRequests: Map<RequestId, PendingRequest>,
-  queueOverflows: { count: number },
-  isShuttingDown: boolean,
-  source: string,
-  pluginConfig: MdxPluginPipelineConfig | undefined,
-  id: RequestId,
-  config: RetryConfig,
-  selectWorkerFn: () => number,
-  onRestart: (index: number) => void,
-  onSuccess?: (result: CompileResponseSuccess) => void,
-  onError?: (errors: readonly CompileError[]) => void
-): Promise<void> {
+export async function compileWithRetry(ctx: CompileRetryContext): Promise<void> {
+  const { shutdownRef, config, onError } = ctx;
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    if (isShuttingDown) {
+    if (shutdownRef.isShuttingDown) {
       onError?.([{ message: 'Compiler is shutting down' }]);
       return;
     }
-
     let attemptErrorReported = false;
     const trackedOnError = createTrackedOnError(onError, () => {
       attemptErrorReported = true;
     });
-
     try {
       await attemptCompilation(
-        workers,
-        pendingRequests,
-        queueOverflows,
-        source,
-        pluginConfig,
-        id,
-        selectWorkerFn,
-        onSuccess,
+        ctx.workers,
+        ctx.pendingRequests,
+        ctx.queueOverflows,
+        ctx.source,
+        ctx.pluginConfig,
+        ctx.id,
+        ctx.selectWorkerFn,
+        ctx.onSuccess,
         trackedOnError,
-        onRestart
+        ctx.onRestart
       );
       return;
     } catch (errors) {
       const compileErrors = errors as readonly CompileError[];
-
       if (!isTransientError(compileErrors)) {
         console.debug('[MDX Compiler] Non-transient error, not retrying:', compileErrors);
         emitTerminalError(compileErrors, attemptErrorReported, onError);
         return;
       }
-
       const shouldRetry = await handleRetry(attempt, config, compileErrors);
       if (!shouldRetry) {
         console.error('[MDX Compiler] All retry attempts exhausted:', compileErrors);

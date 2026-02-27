@@ -37,6 +37,24 @@ import {
 
 export const WORKSPACE_MODEL_RELATIVE_PATH = path.join('.mdxpad', 'workspace.json');
 
+/** Cache entry for collection index with TTL */
+interface CollectionCacheEntry {
+  readonly data: FileIndexService;
+  readonly timestamp: number;
+}
+
+const COLLECTION_CACHE_TTL_MS = 30_000;
+const collectionCache = new Map<string, CollectionCacheEntry>();
+
+/** Cache entry for parsed workspace model with TTL */
+interface WorkspaceModelCacheEntry {
+  readonly model: WorkspaceModel;
+  readonly timestamp: number;
+}
+
+const WORKSPACE_MODEL_CACHE_TTL_MS = 10_000;
+const workspaceModelCache = new Map<string, WorkspaceModelCacheEntry>();
+
 function createWorkspaceError(code: WorkspaceError['code'], message: string): WorkspaceError {
   return { code, message };
 }
@@ -84,6 +102,31 @@ function createLinkIndexEntry(documentId: string, updatedAt: string): LinkIndexE
   };
 }
 
+function buildUpdatedLinkIndex(
+  existing: LinkIndex,
+  link: LinkRecord,
+  timestamp: string
+): LinkIndex {
+  const linkIndex: LinkIndex = { ...existing };
+  const sourceEntry =
+    linkIndex[link.sourceDocumentId] ?? createLinkIndexEntry(link.sourceDocumentId, timestamp);
+  linkIndex[link.sourceDocumentId] = {
+    ...sourceEntry,
+    outgoing: [...sourceEntry.outgoing, link],
+    updatedAt: timestamp,
+  };
+  if (link.targetDocumentId !== null) {
+    const targetId = link.targetDocumentId;
+    const targetEntry = linkIndex[targetId] ?? createLinkIndexEntry(targetId, timestamp);
+    linkIndex[targetId] = {
+      ...targetEntry,
+      incoming: [...targetEntry.incoming, link],
+      updatedAt: timestamp,
+    };
+  }
+  return linkIndex;
+}
+
 export class WorkspaceService {
   private readonly workspaceRootById = new Map<string, string>();
 
@@ -91,6 +134,12 @@ export class WorkspaceService {
     model: WorkspaceModel,
     documentIds: readonly string[]
   ): Promise<FileIndexService> {
+    const cacheKey = `${model.workspace.id}:${[...documentIds].sort().join(',')}`;
+    const cached = collectionCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < COLLECTION_CACHE_TTL_MS) {
+      return cached.data;
+    }
+
     const filterByDocumentId = documentIds.length > 0 ? new Set(documentIds) : null;
     const collectionDocuments = model.workspace.documents.filter(
       (document) => !filterByDocumentId || filterByDocumentId.has(document.id)
@@ -116,6 +165,8 @@ export class WorkspaceService {
     index.indexDocuments(
       indexedDocuments.filter((document): document is FileIndexDocumentInput => document !== null)
     );
+
+    collectionCache.set(cacheKey, { data: index, timestamp: Date.now() });
     return index;
   }
 
@@ -128,9 +179,23 @@ export class WorkspaceService {
     await fs.mkdir(path.dirname(modelPath), { recursive: true });
     await atomicWrite(modelPath, JSON.stringify(model, null, 2));
     this.workspaceRootById.set(model.workspace.id, model.workspace.rootPath);
+
+    // Invalidate caches on write
+    workspaceModelCache.delete(model.workspace.rootPath);
+    for (const key of collectionCache.keys()) {
+      if (key.startsWith(`${model.workspace.id}:`)) {
+        collectionCache.delete(key);
+      }
+    }
   }
 
   private async readWorkspaceModel(rootPath: string): Promise<OpenWorkspaceResponse> {
+    const cachedModel = workspaceModelCache.get(rootPath);
+    if (cachedModel && Date.now() - cachedModel.timestamp < WORKSPACE_MODEL_CACHE_TTL_MS) {
+      this.workspaceRootById.set(cachedModel.model.workspace.id, rootPath);
+      return { ok: true, value: cachedModel.model };
+    }
+
     const modelPath = this.getWorkspaceModelPath(rootPath);
     try {
       const rawContent = await fs.readFile(modelPath, 'utf-8');
@@ -147,6 +212,7 @@ export class WorkspaceService {
       }
 
       this.workspaceRootById.set(parsedModel.data.workspace.id, rootPath);
+      workspaceModelCache.set(rootPath, { model: parsedModel.data, timestamp: Date.now() });
       return {
         ok: true,
         value: parsedModel.data,
@@ -285,34 +351,29 @@ export class WorkspaceService {
       return { ok: false, error: loaded.error };
     }
 
-    const timestamp = new Date().toISOString();
     const link = request.link;
-    const linkIndex: LinkIndex = { ...loaded.value.linkIndex };
 
-    const sourceEntry =
-      linkIndex[link.sourceDocumentId] ?? createLinkIndexEntry(link.sourceDocumentId, timestamp);
-    linkIndex[link.sourceDocumentId] = {
-      ...sourceEntry,
-      outgoing: [...sourceEntry.outgoing, link],
-      updatedAt: timestamp,
-    };
-
+    // Verify the target document exists in the workspace before adding the link
     if (link.targetDocumentId !== null) {
-      const targetId = link.targetDocumentId;
-      const targetEntry = linkIndex[targetId] ?? createLinkIndexEntry(targetId, timestamp);
-      linkIndex[targetId] = {
-        ...targetEntry,
-        incoming: [...targetEntry.incoming, link],
-        updatedAt: timestamp,
-      };
+      const targetExists = loaded.value.workspace.documents.some(
+        (document) => document.id === link.targetDocumentId
+      );
+      if (!targetExists) {
+        return {
+          ok: false,
+          error: createWorkspaceError(
+            'WORKSPACE_INVALID_STATE',
+            `Target document not found: ${link.targetDocumentId}`
+          ),
+        };
+      }
     }
 
+    const timestamp = new Date().toISOString();
+    const linkIndex = buildUpdatedLinkIndex(loaded.value.linkIndex, link, timestamp);
     const updatedModel: WorkspaceModel = {
       ...loaded.value,
-      workspace: {
-        ...loaded.value.workspace,
-        updatedAt: timestamp,
-      },
+      workspace: { ...loaded.value.workspace, updatedAt: timestamp },
       linkIndex,
     };
 

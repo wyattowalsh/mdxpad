@@ -11,6 +11,24 @@ import { DocxExportPresetOptionsSchema, PdfExportPresetOptionsSchema } from '@sh
 import { buildDocxDocument, buildPdfDocument } from './export-document-builders';
 import { serializeForExport } from './export-service';
 
+/**
+ * Allowlisted commands that may be executed. All others are rejected.
+ * @internal Exported for test-only manipulation via beforeEach/afterEach.
+ */
+export const ALLOWED_COMMANDS = new Set(['mdxpad-export']);
+
+/** Environment variables allowed to be passed to spawned processes. */
+const ALLOWED_ENV_KEYS = new Set([
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'TEMP',
+  'TMP',
+  'NODE_ENV',
+  'LANG',
+  'LC_ALL',
+]);
+
 type CliEventLevel = ExportCliEvent['level'];
 
 interface SpawnCommandResult {
@@ -105,14 +123,44 @@ function createCliOutput(
 }
 
 function createSpawnOptions(request: ExportCliInvokeRequest): SpawnOptions {
-  const env = request.env ? { ...process.env, ...request.env } : process.env;
+  const baseEnv: Record<string, string> = {};
+  for (const key of ALLOWED_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined) {
+      baseEnv[key] = value;
+    }
+  }
+  if (request.env) {
+    for (const [key, value] of Object.entries(request.env)) {
+      if (ALLOWED_ENV_KEYS.has(key)) {
+        baseEnv[key] = value;
+      }
+    }
+  }
   return {
     cwd: request.cwd,
-    env,
-    shell: request.shell ?? false,
+    env: baseEnv,
+    shell: false,
     detached: request.background ?? false,
     stdio: request.background ? 'ignore' : 'pipe',
   };
+}
+
+function assertPathWithinBase(
+  targetPath: string,
+  basePath: string | undefined,
+  label: string
+): void {
+  if (!basePath) return; // No base to validate against
+  const resolved = path.resolve(targetPath);
+  const resolvedBase = path.resolve(basePath);
+  if (!resolved.startsWith(resolvedBase + path.sep) && resolved !== resolvedBase) {
+    throw new Error(`${label} "${resolved}" escapes the allowed base directory "${resolvedBase}"`);
+  }
+}
+
+function isAllowedCommand(command: string): boolean {
+  return ALLOWED_COMMANDS.has(command.trim());
 }
 
 function isBuiltInExportCommand(request: ExportCliInvokeRequest): boolean {
@@ -180,6 +228,7 @@ async function runBuiltInExportCommand(
     }
 
     const sourceContent = await fs.readFile(request.job.sourcePath, 'utf-8');
+    assertPathWithinBase(request.job.targetPath, request.cwd, 'Target path');
     await fs.mkdir(path.dirname(request.job.targetPath), { recursive: true });
     const warnings = await writeBuiltInExportArtifact(request, sourceContent);
 
@@ -330,8 +379,13 @@ export async function runCliAutomationCommand(
     ),
   ];
 
-  if (request.shell) {
-    events.push(createCliEvent('info', 'Shell integration enabled'));
+  if (!isAllowedCommand(request.command)) {
+    return createSpawnFailureResult(
+      request,
+      startTimeMs,
+      events,
+      `Command "${request.command}" is not in the allowed commands list`
+    );
   }
 
   if (isBuiltInExportCommand(request)) {

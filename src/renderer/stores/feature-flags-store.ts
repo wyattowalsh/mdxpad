@@ -172,7 +172,14 @@ export const useFeatureFlagsStore = create<FeatureFlagsStore>()(
         return;
       }
       try {
-        localStorage.setItem(FEATURE_FLAG_STORAGE_KEY, JSON.stringify(get().flags));
+        // Strip env-override flags before saving — they should be
+        // re-evaluated from the environment on each load, not baked
+        // into localStorage where they would survive env changes.
+        const envOverrides = getEnvFlagOverrides();
+        const flags = Object.fromEntries(
+          Object.entries(get().flags).filter(([key]) => !(key in envOverrides))
+        );
+        localStorage.setItem(FEATURE_FLAG_STORAGE_KEY, JSON.stringify(flags));
       } catch {
         // Ignore localStorage write failures.
       }

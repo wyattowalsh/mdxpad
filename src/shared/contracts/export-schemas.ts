@@ -7,8 +7,23 @@ import {
 } from '../types/export-model';
 import { ExportPresetSchema } from '../types/root';
 
+// ============================================================================
+// Export IPC Channel Constants (single source of truth)
+// ============================================================================
+
+export const EXPORT_IPC_CHANNELS = {
+  jobLifecycle: 'mdxpad:export:job-lifecycle',
+  presetCrud: 'mdxpad:export:preset-crud',
+  cliInvoke: 'mdxpad:export:cli-invoke',
+  llmsGenerate: 'mdxpad:export:llms-generate',
+} as const;
+
 export const ExportJobIdSchema = z.string().uuid();
 export type ExportJobId = z.infer<typeof ExportJobIdSchema>;
+
+/** Separate ID schema for export presets (distinct domain from job IDs) */
+export const ExportPresetIdSchema = z.string().uuid();
+export type ExportPresetId = z.infer<typeof ExportPresetIdSchema>;
 
 // ============================================================================
 // Export Job Lifecycle
@@ -64,6 +79,10 @@ export const ExportJobLifecycleErrorCodeSchema = z.enum([
 ]);
 export type ExportJobLifecycleErrorCode = z.infer<typeof ExportJobLifecycleErrorCodeSchema>;
 
+/**
+ * Cannot use z.discriminatedUnion — two `ok: true` variants exist
+ * (single job vs. job list). The ok/false variant handles errors.
+ */
 export const ExportJobLifecycleResponseSchema = z.union([
   z.object({
     ok: z.literal(true),
@@ -93,7 +112,7 @@ export type ExportPresetCreateRequest = z.infer<typeof ExportPresetCreateRequest
 
 export const ExportPresetGetRequestSchema = z.object({
   action: z.literal('get'),
-  presetId: ExportJobIdSchema,
+  presetId: ExportPresetIdSchema,
 });
 export type ExportPresetGetRequest = z.infer<typeof ExportPresetGetRequestSchema>;
 
@@ -104,14 +123,14 @@ export type ExportPresetListRequest = z.infer<typeof ExportPresetListRequestSche
 
 export const ExportPresetUpdateRequestSchema = z.object({
   action: z.literal('update'),
-  presetId: ExportJobIdSchema,
+  presetId: ExportPresetIdSchema,
   preset: ExportPresetSchema,
 });
 export type ExportPresetUpdateRequest = z.infer<typeof ExportPresetUpdateRequestSchema>;
 
 export const ExportPresetDeleteRequestSchema = z.object({
   action: z.literal('delete'),
-  presetId: ExportJobIdSchema,
+  presetId: ExportPresetIdSchema,
 });
 export type ExportPresetDeleteRequest = z.infer<typeof ExportPresetDeleteRequestSchema>;
 
@@ -132,6 +151,10 @@ export const ExportPresetCrudErrorCodeSchema = z.enum([
 ]);
 export type ExportPresetCrudErrorCode = z.infer<typeof ExportPresetCrudErrorCodeSchema>;
 
+/**
+ * Cannot use z.discriminatedUnion — three `ok: true` variants exist
+ * (single preset, preset list, deleted ID). The ok/false variant handles errors.
+ */
 export const ExportPresetCrudResponseSchema = z.union([
   z.object({
     ok: z.literal(true),
@@ -143,7 +166,7 @@ export const ExportPresetCrudResponseSchema = z.union([
   }),
   z.object({
     ok: z.literal(true),
-    deletedId: ExportJobIdSchema,
+    deletedId: ExportPresetIdSchema,
   }),
   z.object({
     ok: z.literal(false),
@@ -164,7 +187,6 @@ export const ExportCliInvokeRequestSchema = z.object({
   cwd: z.string().min(1).optional(),
   env: z.record(z.string(), z.string()).optional(),
   timeoutMs: z.number().int().positive().max(900_000).optional(),
-  shell: z.boolean().optional(),
   background: z.boolean().optional(),
 });
 export type ExportCliInvokeRequest = z.infer<typeof ExportCliInvokeRequestSchema>;
@@ -177,7 +199,7 @@ export const ExportCliInvokeErrorCodeSchema = z.enum([
 ]);
 export type ExportCliInvokeErrorCode = z.infer<typeof ExportCliInvokeErrorCodeSchema>;
 
-export const ExportCliInvokeResponseSchema = z.union([
+export const ExportCliInvokeResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
     output: ExportCliOutputSchema,
@@ -211,12 +233,13 @@ export type LlmsGenerationRequest = z.infer<typeof LlmsGenerationRequestSchema>;
 
 export const LlmsGenerationErrorCodeSchema = z.enum([
   'WRITE_FAILED',
+  'FILE_EXISTS',
   'VALIDATION_ERROR',
   'INTERNAL_ERROR',
 ]);
 export type LlmsGenerationErrorCode = z.infer<typeof LlmsGenerationErrorCodeSchema>;
 
-export const LlmsGenerationResponseSchema = z.union([
+export const LlmsGenerationResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
     target: LlmsTargetSchema,

@@ -93,7 +93,7 @@ export const IPC_CHANNELS = {
 } as const;
 
 /**
- * Deferred channels for future specs.
+ * @deprecated Placeholder for future channel definitions. Currently unused.
  */
 export const IPC_CHANNELS_DEFERRED = {} as const;
 
@@ -153,8 +153,11 @@ export interface SecurityInfo {
 }
 
 /**
- * Payload types for each IPC channel.
- * Request and response types for invoke/handle pattern.
+ * Payload types for legacy IPC channels.
+ * @deprecated New domains (AI, export, workspace) use Zod schemas in
+ * `shared/contracts/` for runtime validation instead of this compile-time registry.
+ * Retained for backward compatibility with app-level channels.
+ * TODO: Migrate remaining app channels to Zod schema contracts.
  */
 export interface IpcPayloads {
   [IPC_CHANNELS.app.getVersion]: {
@@ -174,9 +177,11 @@ export interface IpcPayloads {
 /**
  * Helper type to get request type for a channel.
  */
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- helper for legacy IpcPayloads
 export type IpcRequest<C extends keyof IpcPayloads> = IpcPayloads[C]['request'];
 
 /**
  * Helper type to get response type for a channel.
  */
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- helper for legacy IpcPayloads
 export type IpcResponse<C extends keyof IpcPayloads> = IpcPayloads[C]['response'];

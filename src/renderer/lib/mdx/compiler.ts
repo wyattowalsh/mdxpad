@@ -18,7 +18,12 @@
  */
 
 import type { CompileResponse, RequestId } from '@shared/types/preview-worker';
-import { createRequestId, isHeartbeatPong, isPrewarmResponse } from '@shared/types/preview-worker';
+import {
+  createRequestId,
+  isCompileResponse,
+  isHeartbeatPong,
+  isPrewarmResponse,
+} from '@shared/types/preview-worker';
 
 // Import worker pool utilities
 import {
@@ -185,7 +190,11 @@ function handleWorkerMessage(
     return;
   }
 
-  const response = data as CompileResponse;
+  if (!isCompileResponse(data)) {
+    console.warn('[MDX Compiler] Received unknown message from worker:', data);
+    return;
+  }
+  const response = data;
   const pending = state.pendingRequests.get(response.id);
   if (pending !== undefined) {
     handleCompile(response, state, pending);
@@ -260,24 +269,28 @@ function doCompile(
     },
   };
 
-  void compileWithRetry(
-    state.workers,
-    state.pendingRequests,
-    queueOverflowRef,
-    state.isShuttingDown,
+  void compileWithRetry({
+    workers: state.workers,
+    pendingRequests: state.pendingRequests,
+    queueOverflows: queueOverflowRef,
+    shutdownRef: {
+      get isShuttingDown() {
+        return state.isShuttingDown;
+      },
+    },
     source,
-    options?.pluginConfig,
+    pluginConfig: options?.pluginConfig,
     id,
     config,
-    () => {
+    selectWorkerFn: () => {
       const result = selectWorker(state.workers, state.nextWorkerIndex);
       state.nextWorkerIndex = result.nextIndex;
       return result.workerIndex;
     },
-    restartFn,
-    options?.onSuccess,
-    options?.onError
-  );
+    onRestart: restartFn,
+    onSuccess: options?.onSuccess,
+    onError: options?.onError,
+  });
 
   return id;
 }

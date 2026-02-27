@@ -219,21 +219,46 @@ export function normalizeFrontmatter(
   return normalized;
 }
 
+/** Maximum input length for slug generation to prevent ReDoS on untrusted input. */
+const MAX_SLUG_INPUT_LENGTH = 500;
+
 /**
  * Converts arbitrary text into a deterministic URL-safe slug.
+ * @param value - Text to slugify
+ * @param fallback - Fallback slug when the result would be empty
+ * @param existingSlugs - Optional set of existing slugs for collision disambiguation
+ * @returns URL-safe slug string, with numeric suffix if disambiguation is needed
  */
-export function toSlug(value: string, fallback = 'untitled'): string {
-  const slug = value
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
+export function toSlug(
+  value: string,
+  fallback = 'untitled',
+  existingSlugs?: ReadonlySet<string>
+): string {
+  // Guard against excessively long input that could cause ReDoS
+  const safeInput =
+    value.length > MAX_SLUG_INPUT_LENGTH ? value.slice(0, MAX_SLUG_INPUT_LENGTH) : value;
 
-  return slug || fallback;
+  const slug =
+    safeInput
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '') || fallback;
+
+  if (!existingSlugs?.has(slug)) {
+    return slug;
+  }
+
+  // Disambiguate with a numeric suffix when a collision exists
+  let counter = 2;
+  while (existingSlugs.has(`${slug}-${counter}`)) {
+    counter++;
+  }
+  return `${slug}-${counter}`;
 }
 
 /**

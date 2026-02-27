@@ -4,24 +4,15 @@ import { ipcMain, type BrowserWindow } from 'electron';
 import type { AIServices } from '@main/services/ai';
 import { ProviderCapability } from '@shared/ai/types';
 import * as schemas from '@shared/contracts/ai-schemas';
+import { AISessionChannels } from '@shared/contracts/ai-schemas';
+
+// Re-export for backward compatibility with existing consumers
+export { AISessionChannels };
 import type { AIPromptFileMetadata } from '@shared/types/ai-session';
 import type { AISession } from '@shared/types/root';
 
 import { toErrorResponse } from './ai-handler-utils';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
-
-export const AISessionChannels = {
-  SESSION_CREATE: 'mdxpad:ai:session:create',
-  SESSION_LIST: 'mdxpad:ai:session:list',
-  SESSION_GET: 'mdxpad:ai:session:get',
-  SESSION_ARCHIVE: 'mdxpad:ai:session:archive',
-  SESSION_RESTORE: 'mdxpad:ai:session:restore',
-  PROMPT_LIST: 'mdxpad:ai:prompt:list',
-  PROMPT_ATTACH: 'mdxpad:ai:prompt:attach',
-  INSTRUCTION_LIST: 'mdxpad:ai:instruction:list',
-  INSTRUCTION_LOAD: 'mdxpad:ai:instruction:load',
-  INSTRUCTION_ATTACH: 'mdxpad:ai:instruction:attach',
-} as const;
 
 const SESSION_NOT_FOUND_ERROR = {
   code: 'SESSION_NOT_FOUND',
@@ -79,67 +70,82 @@ async function handleSessionList(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.AISessionListResponse> {
-  const request = schemas.AISessionListRequestSchema.parse(rawRequest ?? {});
-  const sessions = await services.aiSessionStorageService.listSessions({
-    ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
-  });
-  const activeSession = await services.aiSessionStorageService.getActiveSession(
-    request.workspaceId
-  );
+  try {
+    const request = schemas.AISessionListRequestSchema.parse(rawRequest ?? {});
+    const sessions = await services.aiSessionStorageService.listSessions({
+      ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+    });
+    const activeSession = await services.aiSessionStorageService.getActiveSession(
+      request.workspaceId
+    );
 
-  return schemas.AISessionListResponseSchema.parse({
-    sessions,
-    activeSessionId: activeSession?.id ?? null,
-  });
+    return schemas.AISessionListResponseSchema.parse({
+      sessions,
+      activeSessionId: activeSession?.id ?? null,
+    });
+  } catch {
+    return schemas.AISessionListResponseSchema.parse({
+      sessions: [],
+      activeSessionId: null,
+    });
+  }
 }
 
 async function handleSessionGet(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.AISessionGetResponse> {
-  const request = schemas.AISessionGetRequestSchema.parse(rawRequest);
-  const session = await services.aiSessionStorageService.getSession(request.sessionId);
-  if (session) {
+  try {
+    const request = schemas.AISessionGetRequestSchema.parse(rawRequest);
+    const session = await services.aiSessionStorageService.getSession(request.sessionId);
+    if (session) {
+      const [context, restoration] = await Promise.all([
+        services.aiSessionStorageService.getSessionPromptContext(session.id),
+        services.aiSessionStorageService.getSessionRestorationMetadata(session.id),
+      ]);
+      return schemas.AISessionGetResponseSchema.parse({
+        session,
+        ...(context ? { context } : {}),
+        ...(restoration ? { restoration } : {}),
+      });
+    }
+
+    const archived = await services.aiSessionStorageService.getArchivedSession(request.sessionId);
+    if (!archived?.session) {
+      return schemas.AISessionGetResponseSchema.parse({ session: null });
+    }
     const [context, restoration] = await Promise.all([
-      services.aiSessionStorageService.getSessionPromptContext(session.id),
-      services.aiSessionStorageService.getSessionRestorationMetadata(session.id),
+      services.aiSessionStorageService.getSessionPromptContext(archived.session.id),
+      services.aiSessionStorageService.getSessionRestorationMetadata(archived.session.id),
     ]);
     return schemas.AISessionGetResponseSchema.parse({
-      session,
+      session: archived.session,
       ...(context ? { context } : {}),
       ...(restoration ? { restoration } : {}),
     });
-  }
-
-  const archived = await services.aiSessionStorageService.getArchivedSession(request.sessionId);
-  if (!archived?.session) {
+  } catch {
     return schemas.AISessionGetResponseSchema.parse({ session: null });
   }
-  const [context, restoration] = await Promise.all([
-    services.aiSessionStorageService.getSessionPromptContext(archived.session.id),
-    services.aiSessionStorageService.getSessionRestorationMetadata(archived.session.id),
-  ]);
-  return schemas.AISessionGetResponseSchema.parse({
-    session: archived.session,
-    ...(context ? { context } : {}),
-    ...(restoration ? { restoration } : {}),
-  });
 }
 
 async function handleSessionRestore(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.AISessionRestoreResponse> {
-  const request = schemas.AISessionRestoreRequestSchema.parse(rawRequest ?? {});
-  const restored = await services.aiSessionStorageService.restoreSession({
-    ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
-    ...(request.sessionId ? { sessionId: request.sessionId } : {}),
-  });
-  if (!restored) {
+  try {
+    const request = schemas.AISessionRestoreRequestSchema.parse(rawRequest ?? {});
+    const restored = await services.aiSessionStorageService.restoreSession({
+      ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+      ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+    });
+    if (!restored) {
+      return schemas.AISessionRestoreResponseSchema.parse({ session: null });
+    }
+
+    return schemas.AISessionRestoreResponseSchema.parse(restored);
+  } catch {
     return schemas.AISessionRestoreResponseSchema.parse({ session: null });
   }
-
-  return schemas.AISessionRestoreResponseSchema.parse(restored);
 }
 
 async function handleSessionArchive(
@@ -173,26 +179,30 @@ async function handlePromptList(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.AIPromptListResponse> {
-  const request = schemas.AIPromptListRequestSchema.parse(rawRequest ?? {});
-  const hasDiscoveryContext =
-    request.workspaceRootPath !== undefined || request.projectRootPath !== undefined;
+  try {
+    const request = schemas.AIPromptListRequestSchema.parse(rawRequest ?? {});
+    const hasDiscoveryContext =
+      request.workspaceRootPath !== undefined || request.projectRootPath !== undefined;
 
-  if (hasDiscoveryContext) {
-    const prompts = await services.promptFileLoaderService.discoverPromptFiles({
-      ...(request.workspaceRootPath ? { workspaceRootPath: request.workspaceRootPath } : {}),
-      ...(request.projectRootPath ? { projectRootPath: request.projectRootPath } : {}),
-    });
+    if (hasDiscoveryContext) {
+      const prompts = await services.promptFileLoaderService.discoverPromptFiles({
+        ...(request.workspaceRootPath ? { workspaceRootPath: request.workspaceRootPath } : {}),
+        ...(request.projectRootPath ? { projectRootPath: request.projectRootPath } : {}),
+      });
 
-    for (const prompt of prompts) {
-      await services.aiSessionStorageService.upsertPromptFile(prompt as AIPromptFileMetadata);
+      for (const prompt of prompts) {
+        await services.aiSessionStorageService.upsertPromptFile(prompt as AIPromptFileMetadata);
+      }
+
+      return schemas.AIPromptListResponseSchema.parse({ prompts });
     }
 
+    const prompts = await services.aiSessionStorageService.listPromptFiles();
+
     return schemas.AIPromptListResponseSchema.parse({ prompts });
+  } catch {
+    return schemas.AIPromptListResponseSchema.parse({ prompts: [] });
   }
-
-  const prompts = await services.aiSessionStorageService.listPromptFiles();
-
-  return schemas.AIPromptListResponseSchema.parse({ prompts });
 }
 
 async function handlePromptAttach(
@@ -229,31 +239,39 @@ async function handleInstructionList(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.AIInstructionListResponse> {
-  const request = schemas.AIInstructionListRequestSchema.parse(rawRequest ?? {});
-  const instructions = await services.instructionLoaderService.listInstructionFiles({
-    ...(request.scope ? { scope: request.scope } : {}),
-    ...(request.projectRootPath ? { projectRootPath: request.projectRootPath } : {}),
-    ...(request.workspaceRootPath ? { workspaceRootPath: request.workspaceRootPath } : {}),
-    ...(request.documentPath ? { documentPath: request.documentPath } : {}),
-  });
+  try {
+    const request = schemas.AIInstructionListRequestSchema.parse(rawRequest ?? {});
+    const instructions = await services.instructionLoaderService.listInstructionFiles({
+      ...(request.scope ? { scope: request.scope } : {}),
+      ...(request.projectRootPath ? { projectRootPath: request.projectRootPath } : {}),
+      ...(request.workspaceRootPath ? { workspaceRootPath: request.workspaceRootPath } : {}),
+      ...(request.documentPath ? { documentPath: request.documentPath } : {}),
+    });
 
-  return schemas.AIInstructionListResponseSchema.parse({
-    instructions,
-  });
+    return schemas.AIInstructionListResponseSchema.parse({
+      instructions,
+    });
+  } catch {
+    return schemas.AIInstructionListResponseSchema.parse({ instructions: [] });
+  }
 }
 
 async function handleInstructionLoad(
   services: AIServices,
   rawRequest: unknown
 ): Promise<schemas.AIInstructionLoadResponse> {
-  const request = schemas.AIInstructionLoadRequestSchema.parse(rawRequest);
-  const instruction = await services.instructionLoaderService.loadInstructionFile(
-    request.instructionFileId
-  );
+  try {
+    const request = schemas.AIInstructionLoadRequestSchema.parse(rawRequest);
+    const instruction = await services.instructionLoaderService.loadInstructionFile(
+      request.instructionFileId
+    );
 
-  return schemas.AIInstructionLoadResponseSchema.parse({
-    instruction,
-  });
+    return schemas.AIInstructionLoadResponseSchema.parse({
+      instruction,
+    });
+  } catch {
+    return schemas.AIInstructionLoadResponseSchema.parse({ instruction: null });
+  }
 }
 
 async function handleInstructionAttach(

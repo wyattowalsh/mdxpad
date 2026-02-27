@@ -114,7 +114,23 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
       context.workspaceRootPath ? path.resolve(context.workspaceRootPath) : null,
     ].filter((rootPath): rootPath is string => rootPath !== null);
 
+    for (const rootPath of orderedRoots) {
+      this.assertPathBounded(rootPath, 'Context root');
+    }
+
     return uniqueStrings(orderedRoots);
+  }
+
+  /**
+   * Validate that a resolved path stays within its expected parent directory.
+   * Prevents path traversal via symlinks or ../ in workspace/project root paths.
+   */
+  private assertPathBounded(resolvedPath: string, label: string): void {
+    // Ensure no path components traverse upward after resolution
+    const normalized = path.normalize(resolvedPath);
+    if (normalized !== resolvedPath) {
+      throw new Error(`${label} path contains traversal components: ${resolvedPath}`);
+    }
   }
 
   private async findPromptFiles(dirPath: string): Promise<string[]> {
@@ -124,6 +140,12 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
 
       for (const entry of entries) {
         const entryPath = path.join(dirPath, entry.name);
+
+        // Skip symlinks to prevent traversal outside workspace
+        if (entry.isSymbolicLink()) {
+          continue;
+        }
+
         if (entry.isDirectory()) {
           files.push(...(await this.findPromptFiles(entryPath)));
           continue;

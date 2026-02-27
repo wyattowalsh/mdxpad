@@ -322,17 +322,18 @@ function toIpcSafeRecord(metadata: Record<string, unknown> | undefined): IpcSafe
     return undefined;
   }
 
+  const seen = new WeakSet<object>();
   const result: Record<string, IpcSafeValue> = {};
   for (const [key, value] of Object.entries(metadata)) {
     if (value !== undefined) {
-      result[key] = toIpcSafeValue(value);
+      result[key] = toIpcSafeValue(value, seen);
     }
   }
 
   return result;
 }
 
-function toIpcSafeValue(value: unknown): IpcSafeValue {
+function toIpcSafeValue(value: unknown, seen = new WeakSet<object>()): IpcSafeValue {
   if (value === null) {
     return null;
   }
@@ -365,15 +366,23 @@ function toIpcSafeValue(value: unknown): IpcSafeValue {
     return value.message;
   }
 
+  // Cycle detection for objects and arrays
+  if (typeof value === 'object') {
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
+  }
+
   if (Array.isArray(value)) {
-    return value.map((item) => toIpcSafeValue(item));
+    return value.map((item) => toIpcSafeValue(item, seen));
   }
 
   if (isPlainObject(value)) {
     const nested: Record<string, IpcSafeValue> = {};
     for (const [key, nestedValue] of Object.entries(value)) {
       if (nestedValue !== undefined) {
-        nested[key] = toIpcSafeValue(nestedValue);
+        nested[key] = toIpcSafeValue(nestedValue, seen);
       }
     }
     return nested;

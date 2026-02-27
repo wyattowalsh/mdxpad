@@ -155,11 +155,23 @@ export class InstructionLoaderService implements IInstructionLoaderService {
     );
   }
 
+  /**
+   * Validate that a resolved path doesn't contain traversal after resolution.
+   * Prevents symlink or ../ based escapes from expected directories.
+   */
+  private assertPathBounded(resolvedPath: string, label: string): void {
+    const normalized = path.normalize(resolvedPath);
+    if (normalized !== resolvedPath) {
+      throw new Error(`${label} path contains traversal components: ${resolvedPath}`);
+    }
+  }
+
   private async discoverDirectoryInstructionFiles(
     directoryPath: string,
     scope: z.infer<typeof AIInstructionScopeSchema>
   ): Promise<AIInstructionFileMetadata[]> {
     const resolvedDirectoryPath = path.resolve(directoryPath);
+    this.assertPathBounded(resolvedDirectoryPath, 'Instruction directory');
     const discovered = await Promise.all(
       REPO_INSTRUCTION_FILE_NAMES.map((fileName) =>
         this.tryReadInstructionFile(path.join(resolvedDirectoryPath, fileName), scope)

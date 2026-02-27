@@ -40,8 +40,8 @@ describe('request-queue', () => {
     it('should export expected constants', () => {
       expect(COMPILE_TIMEOUT_MS).toBe(30_000);
       expect(MAX_PENDING_REQUESTS).toBe(100);
-      expect(TRANSIENT_ERROR_PATTERNS).toContain('Worker crashed');
-      expect(TRANSIENT_ERROR_PATTERNS).toContain('timed out');
+      expect(TRANSIENT_ERROR_PATTERNS.some((p) => p.test('Worker crashed'))).toBe(true);
+      expect(TRANSIENT_ERROR_PATTERNS.some((p) => p.test('timed out'))).toBe(true);
     });
 
     it('should have sensible default retry config', () => {
@@ -82,9 +82,9 @@ describe('request-queue', () => {
       expect(isTransientError([])).toBe(false);
     });
 
-    it('should check only the first error message', () => {
+    it('should return true if any error message matches a transient pattern', () => {
       expect(isTransientError([{ message: 'Regular error' }, { message: 'Worker crashed' }])).toBe(
-        false
+        true
       );
     });
   });
@@ -387,20 +387,19 @@ describe('request-queue', () => {
       const queueOverflows = { count: 0 };
       const onError = vi.fn();
 
-      const compilePromise = compileWithRetry(
-        [createWorker()],
+      const compilePromise = compileWithRetry({
+        workers: [createWorker()],
         pendingRequests,
         queueOverflows,
-        false,
-        '# test',
-        undefined,
-        'overflow-test' as RequestId,
-        { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 1 },
-        () => 0,
-        vi.fn(),
-        undefined,
-        onError
-      );
+        shutdownRef: { isShuttingDown: false },
+        source: '# test',
+        pluginConfig: undefined,
+        id: 'overflow-test' as RequestId,
+        config: { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 1 },
+        selectWorkerFn: () => 0,
+        onRestart: vi.fn(),
+        onError,
+      });
 
       await vi.advanceTimersByTimeAsync(20);
       await compilePromise;
@@ -421,20 +420,19 @@ describe('request-queue', () => {
       const onError = vi.fn();
       const requestId = 'cancel-test' as RequestId;
 
-      const compilePromise = compileWithRetry(
+      const compilePromise = compileWithRetry({
         workers,
         pendingRequests,
         queueOverflows,
-        false,
-        '# test',
-        undefined,
-        requestId,
-        { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 1 },
-        () => 0,
-        vi.fn(),
-        undefined,
-        onError
-      );
+        shutdownRef: { isShuttingDown: false },
+        source: '# test',
+        pluginConfig: undefined,
+        id: requestId,
+        config: { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 1 },
+        selectWorkerFn: () => 0,
+        onRestart: vi.fn(),
+        onError,
+      });
 
       cancelRequest(requestId, pendingRequests, workers);
       await compilePromise;
@@ -447,20 +445,19 @@ describe('request-queue', () => {
       const queueOverflows = { count: 0 };
       const onError = vi.fn();
 
-      const compilePromise = compileWithRetry(
-        [createWorker()],
+      const compilePromise = compileWithRetry({
+        workers: [createWorker()],
         pendingRequests,
         queueOverflows,
-        false,
-        '# test',
-        undefined,
-        'timeout-test' as RequestId,
-        { maxRetries: 1, baseDelayMs: 1, maxDelayMs: 1 },
-        () => 0,
-        vi.fn(),
-        undefined,
-        onError
-      );
+        shutdownRef: { isShuttingDown: false },
+        source: '# test',
+        pluginConfig: undefined,
+        id: 'timeout-test' as RequestId,
+        config: { maxRetries: 1, baseDelayMs: 1, maxDelayMs: 1 },
+        selectWorkerFn: () => 0,
+        onRestart: vi.fn(),
+        onError,
+      });
 
       await vi.advanceTimersByTimeAsync(COMPILE_TIMEOUT_MS * 2 + 20);
       await compilePromise;

@@ -63,15 +63,15 @@ function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function upsertJob(jobs: ExportJob[], job: ExportJob): void {
-  const existingIndex = jobs.findIndex((existingJob) => existingJob.id === job.id);
+function upsertJob(draft: ExportStoreState, job: ExportJob): void {
+  const existingIndex = draft.jobs.findIndex((existingJob) => existingJob.id === job.id);
   if (existingIndex === -1) {
-    jobs.push(job);
+    draft.jobs.push(job);
+    draft.jobsSortDirty = true;
   } else {
-    jobs[existingIndex] = job;
+    draft.jobs[existingIndex] = job;
+    // Update-in-place does not change sort order (createdAt is immutable)
   }
-
-  jobs.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
 function upsertPreset(presets: ExportPreset[], preset: ExportPreset): void {
@@ -102,7 +102,7 @@ function applyJobLifecycleResponse(
     return;
   }
 
-  upsertJob(draft.jobs, response.job);
+  upsertJob(draft, response.job);
 }
 
 function applyPresetCrudResponse(
@@ -134,6 +134,7 @@ function createInitialState(): ExportStoreState {
   return {
     jobs: [],
     presets: [],
+    jobsSortDirty: false,
     isLoadingJobs: false,
     isLoadingPresets: false,
     cliRunStatus: 'idle',
@@ -152,6 +153,8 @@ function createInitialState(): ExportStoreState {
 export interface ExportStoreState {
   jobs: ExportJob[];
   presets: ExportPreset[];
+  /** When true, `jobs` needs re-sorting before being read in sorted order. */
+  jobsSortDirty: boolean;
   isLoadingJobs: boolean;
   isLoadingPresets: boolean;
   cliRunStatus: CliRunStatus;
@@ -259,7 +262,7 @@ export const useExportStore = create<ExportStore>()(
             draft.cliRunStatus = 'success';
             draft.cliOutput = response.output;
             draft.activeCliJobId = response.output.job.id;
-            upsertJob(draft.jobs, response.output.job);
+            upsertJob(draft, response.output.job);
             return;
           }
 
@@ -268,7 +271,7 @@ export const useExportStore = create<ExportStore>()(
           draft.cliOutput = response.output ?? null;
           if (response.output) {
             draft.activeCliJobId = response.output.job.id;
-            upsertJob(draft.jobs, response.output.job);
+            upsertJob(draft, response.output.job);
           }
         });
         if (response.ok) {
@@ -355,7 +358,30 @@ export const useExportStore = create<ExportStore>()(
   }))
 );
 
-export const selectExportJobs = (state: ExportStore): ExportJob[] => state.jobs;
+let cachedSortedJobs: ExportJob[] = [];
+let cachedJobsRef: ExportJob[] = [];
+let cachedJobsDirty = false;
+
+/**
+ * Returns jobs sorted by createdAt. Sorting is deferred to read-time
+ * so that mutations (upsertJob) stay O(1) for status/progress updates.
+ */
+export const selectExportJobs = (state: ExportStore): ExportJob[] => {
+  if (state.jobs === cachedJobsRef && state.jobsSortDirty === cachedJobsDirty) {
+    return cachedSortedJobs;
+  }
+  cachedJobsRef = state.jobs;
+  cachedJobsDirty = state.jobsSortDirty;
+
+  if (state.jobsSortDirty) {
+    cachedSortedJobs = [...state.jobs].sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt)
+    );
+  } else {
+    cachedSortedJobs = state.jobs;
+  }
+  return cachedSortedJobs;
+};
 export const selectExportPresets = (state: ExportStore): ExportPreset[] => state.presets;
 export const selectIsLoadingJobs = (state: ExportStore): boolean => state.isLoadingJobs;
 export const selectIsLoadingPresets = (state: ExportStore): boolean => state.isLoadingPresets;

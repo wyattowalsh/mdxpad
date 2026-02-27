@@ -80,12 +80,9 @@ function escapeXml(value: string): string {
 }
 
 function escapePdfText(value: string): string {
-  return value
-    .normalize('NFKD')
-    .replace(/[^\x20-\x7E]/g, '?')
-    .replaceAll('\\', '\\\\')
-    .replaceAll('(', '\\(')
-    .replaceAll(')', '\\)');
+  // Escape PDF special characters (backslash, parentheses) while preserving Unicode.
+  // PDF 1.4+ supports Unicode text in parenthesized strings.
+  return value.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
 }
 
 function clampHeadingLevel(level: number): number {
@@ -175,7 +172,8 @@ function formatPdfDate(date = new Date()): string {
 }
 
 function serializePdf(objects: ReadonlyMap<number, string>, infoObjectId: number): string {
-  const highestObjectId = Math.max(...objects.keys());
+  // Use iterative max to avoid stack overflow on large documents with many PDF objects
+  const highestObjectId = [...objects.keys()].reduce((max, val) => Math.max(max, val), 0);
   const offsets = new Array<number>(highestObjectId + 1).fill(0);
   let output = '%PDF-1.4\n';
 

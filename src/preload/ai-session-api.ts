@@ -6,7 +6,12 @@
  */
 
 import { z } from 'zod';
+
+// Re-export for backward compatibility with existing consumers
+export { AISessionChannels } from '@shared/contracts/ai-schemas';
+
 import {
+  AISessionChannels,
   AISessionCreateRequestSchema,
   AISessionCreateResponseSchema,
   AISessionListRequestSchema,
@@ -29,19 +34,6 @@ import {
   AIInstructionAttachResponseSchema,
 } from '@shared/contracts/ai-schemas';
 import { validatedInvoke } from './validated-invoke';
-
-export const AISessionChannels = {
-  SESSION_CREATE: 'mdxpad:ai:session:create',
-  SESSION_LIST: 'mdxpad:ai:session:list',
-  SESSION_GET: 'mdxpad:ai:session:get',
-  SESSION_ARCHIVE: 'mdxpad:ai:session:archive',
-  SESSION_RESTORE: 'mdxpad:ai:session:restore',
-  PROMPT_LIST: 'mdxpad:ai:prompt:list',
-  PROMPT_ATTACH: 'mdxpad:ai:prompt:attach',
-  INSTRUCTION_LIST: 'mdxpad:ai:instruction:list',
-  INSTRUCTION_LOAD: 'mdxpad:ai:instruction:load',
-  INSTRUCTION_ATTACH: 'mdxpad:ai:instruction:attach',
-} as const;
 
 export interface AISessionApi {
   createSession(

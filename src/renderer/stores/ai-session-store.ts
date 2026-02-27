@@ -618,6 +618,7 @@ export const useAISessionStore = create<AISessionStore>()(
           return;
         }
 
+        unbindStreamListeners(); // Prevent listener leak on stream init failure
         set((draft) => {
           draft.stream.status = 'error';
           draft.stream.error = getResponseErrorMessage(response.error, 'Failed to start stream');
@@ -629,6 +630,7 @@ export const useAISessionStore = create<AISessionStore>()(
           },
         });
       } catch (error) {
+        unbindStreamListeners(); // Prevent listener leak on stream start failure
         set((draft) => {
           draft.stream.status = 'error';
           draft.stream.error = getErrorMessage(error, 'Failed to start stream');

@@ -143,7 +143,14 @@ const streamCompleteListeners = new Set<(data: z.infer<typeof StreamCompleteSche
  */
 const streamErrorListeners = new Set<(data: z.infer<typeof StreamErrorSchema>) => void>();
 
-// Set up IPC listeners for stream events (once, shared across all subscriptions)
+/**
+ * Module-level IPC listeners for AI streaming events.
+ * These are registered once and shared across all subscriptions.
+ * Individual subscriptions manage their own lifecycle via the
+ * unsubscribe functions returned by onStreamChunk/onStreamComplete/onStreamError.
+ * This pattern is intentional — module-level registration prevents
+ * duplicate listeners on repeated imports.
+ */
 ipcRenderer.on(AIChannels.STREAM_CHUNK, (_event, data: unknown) => {
   const validated = StreamChunkSchema.safeParse(data);
   if (validated.success) {

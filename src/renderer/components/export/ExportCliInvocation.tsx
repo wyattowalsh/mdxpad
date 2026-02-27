@@ -9,11 +9,22 @@ import {
   useExportStore,
 } from '@renderer/stores/export-store';
 
+/**
+ * Parses a CLI argument string into an array, handling quoted substrings.
+ * Supports double-quoted and single-quoted values (e.g. --title "My Doc").
+ */
 function parseCliArgs(rawArgs: string): string[] {
-  return rawArgs
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+  if (rawArgs.trim().length === 0) {
+    return [];
+  }
+
+  const args: string[] = [];
+  const regex = /(?:[^\s"']+|"([^"]*)"|'([^']*)')/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(rawArgs)) !== null) {
+    args.push(match[1] ?? match[2] ?? match[0]);
+  }
+  return args;
 }
 
 function ExportCliInvocationComponent(): React.JSX.Element {

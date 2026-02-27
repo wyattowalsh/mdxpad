@@ -333,9 +333,42 @@ describe('workspace and link handlers with shared WorkspaceService', () => {
         return;
       }
 
+      const sourceDocumentId = crypto.randomUUID();
       const targetDocumentId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      // Register documents in the workspace so addLink target validation passes
+      const saveResult = await handlers[WorkspaceChannels.SAVE]!(createInvokeEvent(window), {
+        model: {
+          ...openResult.value,
+          workspace: {
+            ...openResult.value.workspace,
+            documents: [
+              {
+                id: sourceDocumentId,
+                title: 'Source',
+                filePath: path.join(workspaceRoot, 'docs', 'source.mdx'),
+                tags: [],
+                createdAt: now,
+                updatedAt: now,
+              },
+              {
+                id: targetDocumentId,
+                title: 'Target',
+                filePath: path.join(workspaceRoot, 'docs', 'target.mdx'),
+                tags: [],
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            updatedAt: now,
+          },
+        },
+      });
+      expect(saveResult).toMatchObject({ ok: true });
+
       const link = {
-        sourceDocumentId: crypto.randomUUID(),
+        sourceDocumentId,
         sourcePath: path.join(workspaceRoot, 'docs', 'source.mdx'),
         targetDocumentId,
         targetPath: path.join(workspaceRoot, 'docs', 'target.mdx'),
