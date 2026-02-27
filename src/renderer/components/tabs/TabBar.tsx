@@ -1,0 +1,136 @@
+/**
+ * TabBar Component
+ *
+ * Horizontal tab bar for tabbed editing. Displays tabs with filename and
+ * dirty indicator, supports drag-to-reorder via @dnd-kit, overflow scrolling,
+ * close on hover, middle-click close, and context menu actions.
+ *
+ * @module renderer/components/tabs/TabBar
+ */
+
+import { memo, useCallback, useEffect, useState } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { cn } from '@shared/lib/utils';
+import { useTabStore } from '@renderer/stores/tab-store';
+import { TabItem } from './TabItem';
+import { TabContextMenu } from './TabContextMenu';
+
+function TabBarComponent() {
+  const tabs = useTabStore((s) => s.tabs);
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const setActiveTab = useTabStore((s) => s.setActiveTab);
+  const removeTab = useTabStore((s) => s.removeTab);
+  const reorderTabs = useTabStore((s) => s.reorderTabs);
+  const closeOtherTabs = useTabStore((s) => s.closeOtherTabs);
+  const closeTabsToRight = useTabStore((s) => s.closeTabsToRight);
+
+  const [contextMenuTabId, setContextMenuTabId] = useState<string | null>(null);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const fromIndex = tabs.findIndex((t) => t.id === active.id);
+      const toIndex = tabs.findIndex((t) => t.id === over.id);
+      if (fromIndex !== -1 && toIndex !== -1) {
+        reorderTabs(fromIndex, toIndex);
+      }
+    },
+    [tabs, reorderTabs]
+  );
+
+  const handleContextMenu = useCallback((tabId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenuTabId(tabId);
+    setContextMenuOpen(true);
+  }, []);
+
+  // Keyboard shortcuts: Cmd+1-9 to switch tabs, Cmd+W to close active tab
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.metaKey && !e.ctrlKey) return;
+
+      // Cmd+1 through Cmd+9
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= 9) {
+        e.preventDefault();
+        const targetTab = tabs[num - 1];
+        if (targetTab) {
+          setActiveTab(targetTab.id);
+        }
+      }
+
+      // Cmd+W to close active tab
+      if (e.key === 'w' && activeTabId) {
+        e.preventDefault();
+        removeTab(activeTabId);
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [tabs, activeTabId, setActiveTab, removeTab]);
+
+  if (tabs.length === 0) return null;
+
+  return (
+    <div
+      className={cn(
+        'flex items-stretch overflow-x-auto',
+        'border-b border-border',
+        'bg-muted/30',
+        'select-none'
+      )}
+      role="tablist"
+      aria-label="Open files"
+      data-testid="tab-bar"
+    >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+          {tabs.map((tab) => {
+            const isContextTarget = contextMenuTabId === tab.id;
+            const tabElement = (
+              <TabItem
+                key={tab.id}
+                id={tab.id}
+                fileName={tab.fileName}
+                isDirty={tab.isDirty}
+                isActive={tab.id === activeTabId}
+                onClick={() => setActiveTab(tab.id)}
+                onClose={() => removeTab(tab.id)}
+                onContextMenu={(e) => handleContextMenu(tab.id, e)}
+              />
+            );
+
+            if (isContextTarget) {
+              return (
+                <TabContextMenu
+                  key={tab.id}
+                  tabId={tab.id}
+                  open={contextMenuOpen}
+                  onOpenChange={setContextMenuOpen}
+                  onClose={() => removeTab(tab.id)}
+                  onCloseOthers={() => closeOtherTabs(tab.id)}
+                  onCloseToRight={() => closeTabsToRight(tab.id)}
+                >
+                  {tabElement}
+                </TabContextMenu>
+              );
+            }
+
+            return tabElement;
+          })}
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+export const TabBar = memo(TabBarComponent);
+TabBar.displayName = 'TabBar';
