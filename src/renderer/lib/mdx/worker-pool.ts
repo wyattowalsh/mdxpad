@@ -56,15 +56,16 @@ export interface WorkerInstance {
   generation: number; // P0-5: Track worker restart generation
 }
 
-/** Worker URL for spawning */
-const WORKER_URL = new URL('../../workers/mdx-compiler.worker.ts', import.meta.url);
-
 // ============================================================================
 // Worker Instance Management
 // ============================================================================
 
 /**
  * Create a new worker instance.
+ *
+ * NOTE: The `new URL(...)` MUST be inlined inside `new Worker(...)` for Vite
+ * to detect and compile the worker as a separate bundle. Extracting the URL
+ * to a constant causes Vite to embed raw TypeScript as a data URL instead.
  *
  * @param index - Worker pool index
  * @param generation - Worker generation counter (P0-5)
@@ -78,7 +79,9 @@ export function createWorkerInstance(
   onMessage: (index: number, event: MessageEvent) => void,
   onError: (index: number, event: ErrorEvent) => void
 ): WorkerInstance {
-  const worker = new Worker(WORKER_URL, { type: 'module' });
+  const worker = new Worker(new URL('../../workers/mdx-compiler.worker.ts', import.meta.url), {
+    type: 'module',
+  });
 
   worker.onmessage = (event: MessageEvent) => onMessage(index, event);
   worker.onerror = (event: ErrorEvent) => onError(index, event);
