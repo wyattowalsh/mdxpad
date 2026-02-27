@@ -1,0 +1,154 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { LatexExporter } from '../latex-exporter';
+import type { ExportOptions } from '../types';
+
+vi.mock('node:fs/promises', () => ({
+  writeFile: vi.fn().mockResolvedValue(undefined),
+}));
+
+describe('LatexExporter', () => {
+  let exporter: LatexExporter;
+
+  beforeEach(() => {
+    exporter = new LatexExporter();
+    vi.clearAllMocks();
+  });
+
+  it('has correct metadata', () => {
+    expect(exporter.format).toBe('latex');
+    expect(exporter.label).toBe('LaTeX');
+    expect(exporter.extension).toBe('tex');
+    expect(exporter.mimeType).toBe('application/x-latex');
+  });
+
+  it('exports a basic document with preamble and body', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: '# Hello\n\nWorld',
+      title: 'Test Doc',
+      author: 'Test Author',
+      outputPath: '/tmp/test.tex',
+    };
+
+    const result = await exporter.export(options);
+
+    expect(result.ok).toBe(true);
+    expect(result.outputPath).toBe('/tmp/test.tex');
+    expect(writeFile).toHaveBeenCalledOnce();
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\documentclass');
+    expect(written).toContain('\\begin{document}');
+    expect(written).toContain('\\end{document}');
+    expect(written).toContain('\\title{Test Doc}');
+    expect(written).toContain('\\author{Test Author}');
+    expect(written).toContain('\\section{');
+  });
+
+  it('converts headings to correct LaTeX commands', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: '# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6',
+      outputPath: '/tmp/headings.tex',
+    };
+
+    await exporter.export(options);
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\section{');
+    expect(written).toContain('\\subsection{');
+    expect(written).toContain('\\subsubsection{');
+    expect(written).toContain('\\paragraph{');
+    expect(written).toContain('\\subparagraph{');
+  });
+
+  it('converts unordered lists to itemize', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: '- Item A\n- Item B\n- Item C',
+      outputPath: '/tmp/list.tex',
+    };
+
+    await exporter.export(options);
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{itemize}');
+    expect(written).toContain('\\item');
+    expect(written).toContain('\\end{itemize}');
+  });
+
+  it('converts ordered lists to enumerate', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: '1. First\n2. Second\n3. Third',
+      outputPath: '/tmp/olist.tex',
+    };
+
+    await exporter.export(options);
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{enumerate}');
+    expect(written).toContain('\\item');
+    expect(written).toContain('\\end{enumerate}');
+  });
+
+  it('converts code blocks to verbatim', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: '```\nconst x = 1;\n```',
+      outputPath: '/tmp/code.tex',
+    };
+
+    await exporter.export(options);
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{verbatim}');
+    expect(written).toContain('const x = 1;');
+    expect(written).toContain('\\end{verbatim}');
+  });
+
+  it('converts inline formatting', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: '**bold** and *italic* and `code` and [link](http://example.com)',
+      outputPath: '/tmp/inline.tex',
+    };
+
+    await exporter.export(options);
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\textbf{bold}');
+    expect(written).toContain('\\textit{italic}');
+    expect(written).toContain('\\texttt{code}');
+    expect(written).toContain('\\href{http://example.com}{link}');
+  });
+
+  it('escapes LaTeX special characters', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const options: ExportOptions = {
+      content: 'Price: $10 & 20%',
+      outputPath: '/tmp/escape.tex',
+    };
+
+    await exporter.export(options);
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\$');
+    expect(written).toContain('\\&');
+    expect(written).toContain('\\%');
+  });
+
+  it('returns error result on write failure', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    (writeFile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('disk full'));
+
+    const result = await exporter.export({
+      content: '# Test',
+      outputPath: '/tmp/fail.tex',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('disk full');
+  });
+});
