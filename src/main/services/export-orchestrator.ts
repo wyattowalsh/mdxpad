@@ -7,6 +7,7 @@ import {
   type ExportPresetCrudResponse,
 } from '@shared/contracts/export-schemas';
 import type { ExportJob, ExportJobStatus, ExportPreset } from '@shared/types/export-model';
+import { getExporter, type ExportResult, type ExportOptions } from './export-formats';
 
 const TERMINAL_JOB_STATUSES: ReadonlySet<ExportJobStatus> = new Set([
   'completed',
@@ -298,5 +299,41 @@ export class ExportOrchestratorService {
 
     this.presets.delete(presetId);
     return { ok: true, deletedId: presetId };
+  }
+
+  /**
+   * Execute an export job using the appropriate format exporter.
+   * Manages job status transitions during the export lifecycle.
+   */
+  public async runExport(
+    jobId: string,
+    options: ExportOptions
+  ): Promise<ExportResult> {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      return { ok: false, error: `Export job not found: ${jobId}`, warnings: [] };
+    }
+
+    const exporter = getExporter(job.format);
+    if (!exporter) {
+      this.updateJobStatus(jobId, 'failed', undefined, `Unsupported export format: ${job.format}`);
+      return { ok: false, error: `Unsupported export format: ${job.format}`, warnings: [] };
+    }
+
+    this.updateJobStatus(jobId, 'running');
+
+    try {
+      const result = await exporter.export(options);
+      if (result.ok) {
+        this.updateJobStatus(jobId, 'completed', result.warnings);
+      } else {
+        this.updateJobStatus(jobId, 'failed', result.warnings, result.error);
+      }
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.updateJobStatus(jobId, 'failed', undefined, message);
+      return { ok: false, error: message, warnings: [] };
+    }
   }
 }

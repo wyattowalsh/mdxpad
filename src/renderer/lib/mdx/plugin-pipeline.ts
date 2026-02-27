@@ -6,6 +6,8 @@ import { z } from 'zod';
 import type { OutlineAST } from '@shared/types/outline';
 import { extractOutline } from './outline-extractor';
 import { recordLocalTelemetryEvent } from '../telemetry/local-telemetry';
+import { remarkMathPluginDefinition } from './remark-math-plugin';
+import { rehypeKatexPluginDefinition } from './rehype-katex-plugin';
 
 export type MdxPluginKind = 'remark' | 'rehype';
 
@@ -65,6 +67,8 @@ const DEFAULT_PLUGIN_CONFIG: Readonly<Record<string, NormalizedMdxPluginConfigEn
     'remark-frontmatter': { enabled: true, options: undefined },
     'remark-outline': { enabled: true, options: undefined },
     'rehype-highlight': { enabled: true, options: undefined },
+    'remark-math': { enabled: false, options: undefined },
+    'rehype-katex': { enabled: false, options: undefined },
   });
 
 type InternalPluginDefinition = MdxPluginDefinition;
@@ -260,6 +264,10 @@ function registerDefaultPlugins(registry: MdxPluginRegistry): MdxPluginRegistry 
       return pluginWithOptions;
     },
   });
+
+  // Math plugins (Wave 2): remark-math for syntax detection, rehype-katex for rendering
+  registry.register(remarkMathPluginDefinition);
+  registry.register(rehypeKatexPluginDefinition);
 
   return registry;
 }

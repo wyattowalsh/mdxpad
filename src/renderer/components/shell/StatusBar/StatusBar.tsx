@@ -15,6 +15,8 @@ import { cn } from '@shared/lib/utils';
 import { FileInfo } from './FileInfo';
 import { CursorPosition } from './CursorPosition';
 import { ErrorCount } from './ErrorCount';
+import { WordCount } from './WordCount';
+import { ReadingTime } from './ReadingTime';
 import { AutosaveIndicator } from '../../autosave-indicator';
 import type { StatusBarProps } from './types';
 
@@ -43,6 +45,7 @@ function StatusBarComponent({
   errors,
   onErrorClick,
   autosave,
+  documentStats,
 }: StatusBarProps) {
   return (
     <div
@@ -61,9 +64,23 @@ function StatusBarComponent({
         <FileInfo fileName={fileName} isDirty={isDirty} isOrphan={isOrphan} />
       </div>
 
-      {/* Center: Cursor Position */}
-      <div className="flex items-center justify-center px-4">
+      {/* Center: Cursor Position + Document Stats */}
+      <div className="flex items-center justify-center gap-3 px-4">
         <CursorPosition line={line} column={column} />
+        {documentStats && (
+          <>
+            <span className="text-muted-foreground/40">|</span>
+            <WordCount
+              wordCount={documentStats.wordCount}
+              charCount={documentStats.charCount}
+            />
+            <span className="text-muted-foreground/40">|</span>
+            <ReadingTime
+              minutes={documentStats.readingTimeMinutes}
+              seconds={documentStats.readingTimeSeconds}
+            />
+          </>
+        )}
       </div>
 
       {/* Right: Autosave Indicator + Error Count */}

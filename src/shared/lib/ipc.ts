@@ -90,6 +90,35 @@ export const IPC_CHANNELS = {
     listProvenance: 'mdxpad:publish:list-provenance',
     getBacklinks: 'mdxpad:publish:get-backlinks',
   },
+  /** Git operations (Wave 2) */
+  git: {
+    status: 'mdxpad:git:status',
+    add: 'mdxpad:git:add',
+    commit: 'mdxpad:git:commit',
+    log: 'mdxpad:git:log',
+    diff: 'mdxpad:git:diff',
+    branches: 'mdxpad:git:branches',
+    checkout: 'mdxpad:git:checkout',
+    isRepo: 'mdxpad:git:is-repo',
+  },
+  /** Full-text search operations (Wave 2) */
+  search: {
+    query: 'mdxpad:search:query',
+    index: 'mdxpad:search:index',
+    status: 'mdxpad:search:status',
+  },
+  /** Content import operations (Wave 2) */
+  import: {
+    fromHtml: 'mdxpad:import:from-html',
+    fromNotion: 'mdxpad:import:from-notion',
+    fromGoogleDocs: 'mdxpad:import:from-google-docs',
+  },
+  /** Citation management operations (Wave 2) */
+  citation: {
+    parseBibtex: 'mdxpad:citation:parse-bibtex',
+    format: 'mdxpad:citation:format',
+    bibliography: 'mdxpad:citation:bibliography',
+  },
 } as const;
 
 /**
@@ -135,7 +164,11 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.collaboration)[keyof typeof IPC_CHANNELS.collaboration]
   | (typeof IPC_CHANNELS.extension)[keyof typeof IPC_CHANNELS.extension]
   | (typeof IPC_CHANNELS.workspace)[keyof typeof IPC_CHANNELS.workspace]
-  | (typeof IPC_CHANNELS.publish)[keyof typeof IPC_CHANNELS.publish];
+  | (typeof IPC_CHANNELS.publish)[keyof typeof IPC_CHANNELS.publish]
+  | (typeof IPC_CHANNELS.git)[keyof typeof IPC_CHANNELS.git]
+  | (typeof IPC_CHANNELS.search)[keyof typeof IPC_CHANNELS.search]
+  | (typeof IPC_CHANNELS.import)[keyof typeof IPC_CHANNELS.import]
+  | (typeof IPC_CHANNELS.citation)[keyof typeof IPC_CHANNELS.citation];
 
 /**
  * Type helper for event channels.

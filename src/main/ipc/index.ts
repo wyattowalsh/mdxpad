@@ -20,6 +20,14 @@ import { registerPlatformHandlers } from './platform-handlers';
 import { registerLinkHandlers } from './link-handlers';
 import { registerWorkspaceHandlers } from './workspace-handlers';
 import { EXPORT_IPC_CHANNELS, registerExportHandlers } from './export-handlers';
+import { registerGitHandlers } from '@main/services/git/git-handlers';
+import { registerSearchHandlers } from '@main/services/search/search-handlers';
+import { registerImportHandlers } from '@main/services/import/import-handlers';
+import { registerCitationHandlers } from '@main/services/citation/citation-handlers';
+import { GitChannels } from '@shared/contracts/git-schemas';
+import { SearchChannels } from '@shared/contracts/search-schemas';
+import { ImportChannels } from '@shared/contracts/import-schemas';
+import { CitationChannels } from '@shared/contracts/citation-schemas';
 import { AutosaveSettingsService } from '@main/services/autosave-settings';
 import { AutosaveService } from '@main/services/autosave-service';
 import { RecoveryService } from '@main/services/recovery-service';
@@ -57,6 +65,10 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(EXPORT_IPC_CHANNELS),
   ...getInvokeChannels(),
   ...Object.values(AISessionChannels),
+  ...Object.values(GitChannels),
+  ...Object.values(SearchChannels),
+  ...Object.values(ImportChannels),
+  ...Object.values(CitationChannels),
 ] as const;
 
 function removeLifecycleBoundHandlers(): void {
@@ -120,4 +132,10 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   // Register workspace model, link graph, and metadata collection handlers
   registerWorkspaceHandlers(ipcMain, window, workspaceService);
   registerLinkHandlers(ipcMain, window, workspaceService);
+
+  // Register git, search, import, and citation handlers (Wave 2)
+  registerGitHandlers(ipcMain, window);
+  registerSearchHandlers(ipcMain, window);
+  registerImportHandlers(ipcMain, window);
+  registerCitationHandlers(ipcMain, window);
 }
