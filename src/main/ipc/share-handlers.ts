@@ -1,0 +1,138 @@
+/**
+ * Share & Publish IPC handlers.
+ * Handles all sharing and publishing IPC communication.
+ * Per Constitution Article III.3: All payloads validated with zod on both ends.
+ *
+ * @module main/ipc/share-handlers
+ */
+
+import type { IpcMain, BrowserWindow } from 'electron';
+import {
+  ShareChannels,
+  CreateShareLinkRequestSchema,
+  RevokeShareLinkRequestSchema,
+  GetShareLinksRequestSchema,
+  PublishRequestSchema,
+  type CreateShareLinkResponse,
+  type RevokeShareLinkResponse,
+  type GetShareLinksResponse,
+  type PublishResponse,
+} from '@shared/contracts/share-schemas';
+import { createValidatedHandler } from '@shared/contracts/file-schemas';
+import type { ShareLinkService } from '@main/services/share-link-service';
+import { StaticSiteGenerator } from '@main/services/static-site-generator';
+
+// ============================================================================
+// Handler Factory
+// ============================================================================
+
+/**
+ * Create the create share link handler.
+ */
+function createCreateLinkHandler(service: ShareLinkService) {
+  return createValidatedHandler(
+    CreateShareLinkRequestSchema,
+    (args): Promise<CreateShareLinkResponse> => {
+      const link = service.createLink({
+        docId: args.docId,
+        accessMode: args.accessMode,
+        expiresInMs: args.expiresInMs,
+      });
+
+      return Promise.resolve({ success: true as const, link });
+    }
+  );
+}
+
+/**
+ * Create the revoke share link handler.
+ */
+function createRevokeLinkHandler(service: ShareLinkService) {
+  return createValidatedHandler(
+    RevokeShareLinkRequestSchema,
+    (args): Promise<RevokeShareLinkResponse> => {
+      const revoked = service.revokeLink(args.id);
+      if (!revoked) {
+        return Promise.reject(new Error(`Share link ${args.id} not found`));
+      }
+      return Promise.resolve({ success: true as const });
+    }
+  );
+}
+
+/**
+ * Create the get share links handler.
+ */
+function createGetLinksHandler(service: ShareLinkService) {
+  return createValidatedHandler(
+    GetShareLinksRequestSchema,
+    (args): Promise<GetShareLinksResponse> => {
+      const links = service.getLinks(args.docId);
+      return Promise.resolve({ links: [...links] });
+    }
+  );
+}
+
+/**
+ * Create the publish handler.
+ */
+function createPublishHandler(
+  generator: StaticSiteGenerator,
+  window: BrowserWindow
+) {
+  return createValidatedHandler(
+    PublishRequestSchema,
+    async (args): Promise<PublishResponse> => {
+      const result = await generator.generate(args, (progress) => {
+        if (!window.isDestroyed()) {
+          window.webContents.send(ShareChannels.PUBLISH_PROGRESS, progress);
+        }
+      });
+
+      return result;
+    }
+  );
+}
+
+// ============================================================================
+// Registration
+// ============================================================================
+
+/**
+ * Registers all share and publish IPC handlers.
+ * Called during app initialization.
+ *
+ * @param ipcMainInstance - The Electron IpcMain instance
+ * @param service - The share link service instance
+ * @param window - The main BrowserWindow (for sending progress events)
+ */
+export function registerShareHandlers(
+  ipcMainInstance: IpcMain,
+  service: ShareLinkService,
+  window: BrowserWindow
+): void {
+  const generator = new StaticSiteGenerator();
+
+  const handleCreateLink = createCreateLinkHandler(service);
+  const handleRevokeLink = createRevokeLinkHandler(service);
+  const handleGetLinks = createGetLinksHandler(service);
+  const handlePublish = createPublishHandler(generator, window);
+
+  ipcMainInstance.handle(ShareChannels.CREATE_LINK, (_event, args) =>
+    handleCreateLink(args)
+  );
+
+  ipcMainInstance.handle(ShareChannels.REVOKE_LINK, (_event, args) =>
+    handleRevokeLink(args)
+  );
+
+  ipcMainInstance.handle(ShareChannels.GET_LINKS, (_event, args) =>
+    handleGetLinks(args)
+  );
+
+  ipcMainInstance.handle(ShareChannels.PUBLISH, (_event, args) =>
+    handlePublish(args)
+  );
+
+  console.log('[ShareHandlers] All share and publish handlers registered');
+}
