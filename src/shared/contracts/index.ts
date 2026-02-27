@@ -5,12 +5,12 @@
  */
 
 // Re-export IPC contracts for convenience
-// eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional re-export of legacy API
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional re-export for backward compatibility
 export { IPC_CHANNELS, IPC_CHANNELS_DEFERRED, IPC_EVENTS } from '../lib/ipc';
-// eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional re-export of legacy API
 export type {
   IpcChannel,
   IpcEvent,
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional re-export for backward compatibility
   IpcPayloads,
   IpcRequest,
   IpcResponse,

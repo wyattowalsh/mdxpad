@@ -22,7 +22,9 @@ const mockStore = vi.hoisted(() => {
     }),
     _data: data,
     _reset: () => {
-      Object.keys(data).forEach((k) => delete data[k]);
+      for (const k of Object.keys(data)) {
+        data[k] = undefined;
+      }
     },
   };
 });

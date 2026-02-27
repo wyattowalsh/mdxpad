@@ -348,7 +348,7 @@ describe('validateIframeToParentMessage', () => {
 });
 
 describe('createSecureMessageHandler', () => {
-  function createMockMessageEvent(data: unknown, origin: string = 'file://'): MessageEvent {
+  function createMockMessageEvent(data: unknown, origin = 'file://'): MessageEvent {
     return { data, origin } as MessageEvent;
   }
 

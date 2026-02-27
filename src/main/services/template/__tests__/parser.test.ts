@@ -95,7 +95,7 @@ describe('buildTemplateFile', () => {
 
     // The frontmatter should not have a 'variables:' key
     const lines = result.split('\n');
-    const hasVariablesKey = lines.some((line) => /^variables:/.test(line.trim()));
+    const hasVariablesKey = lines.some((line) => line.trim().startsWith('variables:'));
     expect(hasVariablesKey).toBe(false);
   });
 });

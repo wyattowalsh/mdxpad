@@ -109,7 +109,7 @@ describe('View command IDs', () => {
 });
 
 describe('View command shortcuts', () => {
-  const shortcutTests: Array<{ id: string; key: string; modifiers: string[] }> = [
+  const shortcutTests: { id: string; key: string; modifiers: string[] }[] = [
     { id: 'view.toggle-preview', key: '\\', modifiers: ['Mod'] },
     { id: 'view.toggle-sidebar', key: 'b', modifiers: ['Mod', 'Shift'] },
     { id: 'view.toggle-outline', key: 'o', modifiers: ['Mod', 'Shift'] },

@@ -3,7 +3,7 @@
  * Handles app lifecycle, window creation, and IPC registration.
  */
 
-import { app, BrowserWindow, dialog, session } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { promises as fs } from 'node:fs';
 import { createWindow, loadContent } from './window';
 import { registerIpcHandlers } from './ipc';
@@ -54,9 +54,7 @@ async function checkCrashRecovery(): Promise<void> {
     cancelId: 1,
     title: 'Recover Unsaved Work',
     message: 'Found unsaved work from a previous session:',
-    detail: entries
-      .map((e) => `\u2022 ${e.displayName} (${formatTime(e.savedAt)})`)
-      .join('\n'),
+    detail: entries.map((e) => `\u2022 ${e.displayName} (${formatTime(e.savedAt)})`).join('\n'),
   });
 
   if (response === 0) {

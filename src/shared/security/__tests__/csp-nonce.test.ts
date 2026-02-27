@@ -125,7 +125,7 @@ describe('createNonceCSP', () => {
     it('should escape HTML entities in CSP content', () => {
       const { metaTag } = createNonceCSP();
       // The content attribute value should not contain raw angle brackets
-      const contentMatch = metaTag.match(/content="([^"]*)"/);
+      const contentMatch = /content="([^"]*)"/.exec(metaTag);
       expect(contentMatch).toBeTruthy();
       if (contentMatch) {
         // The CSP itself uses single quotes, not angle brackets
