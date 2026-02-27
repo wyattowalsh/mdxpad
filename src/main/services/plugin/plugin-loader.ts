@@ -59,7 +59,7 @@ function buildSandboxApi(manifest: PluginManifest): PluginSandboxApi {
 export class PluginLoader {
   private readonly pluginDir: string;
   private readonly registry: PluginRegistry;
-  private readonly loaded: Map<string, LoadedPlugin> = new Map();
+  private readonly loaded = new Map<string, LoadedPlugin>();
 
   constructor(pluginDir: string = getDefaultPluginDir()) {
     this.pluginDir = pluginDir;
@@ -174,9 +174,9 @@ export class PluginLoader {
       const activateFn = vm.runInContext(
         'typeof module.exports.activate === "function" ? module.exports.activate : null',
         plugin.context
-      );
+      ) as unknown;
       if (typeof activateFn === 'function') {
-        await Promise.resolve(activateFn());
+        await Promise.resolve((activateFn as () => unknown)());
       }
       plugin.activated = true;
       await this.registry.setState(pluginId, 'active');
@@ -192,7 +192,7 @@ export class PluginLoader {
    */
   async deactivatePlugin(pluginId: string): Promise<void> {
     const plugin = this.loaded.get(pluginId);
-    if (!plugin || !plugin.activated) {
+    if (!plugin?.activated) {
       return;
     }
 
@@ -200,9 +200,9 @@ export class PluginLoader {
       const deactivateFn = vm.runInContext(
         'typeof module.exports.deactivate === "function" ? module.exports.deactivate : null',
         plugin.context
-      );
+      ) as unknown;
       if (typeof deactivateFn === 'function') {
-        await Promise.resolve(deactivateFn());
+        await Promise.resolve((deactivateFn as () => unknown)());
       }
     } catch {
       // Best-effort deactivation

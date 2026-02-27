@@ -9,12 +9,10 @@
  */
 
 import {
-  autocompletion,
   type Completion,
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete';
-import { type Extension } from '@codemirror/state';
 
 import { BUILTIN_SLASH_COMMANDS, type SlashCommand } from './slash-command-definitions';
 
@@ -102,13 +100,17 @@ function createSlashCommandSource(
  * ]);
  * ```
  */
-export function slashCommandsExtension(commands: SlashCommand[] = []): Extension {
-  const allCommands = [...BUILTIN_SLASH_COMMANDS, ...commands];
-
-  return autocompletion({
-    override: [createSlashCommandSource(allCommands)],
-    defaultKeymap: true,
-  });
+/**
+ * Create a slash command completion source combining built-in commands
+ * with optional custom commands.
+ *
+ * Returns a CompletionSource for use with `autocompletion({ override })`.
+ * Do NOT wrap in `autocompletion()` — that must be called once centrally.
+ */
+export function createSlashCommandCompletionSource(
+  commands: SlashCommand[] = []
+): (context: CompletionContext) => CompletionResult | null {
+  return createSlashCommandSource([...BUILTIN_SLASH_COMMANDS, ...commands]);
 }
 
 export type { SlashCommand } from './slash-command-definitions';

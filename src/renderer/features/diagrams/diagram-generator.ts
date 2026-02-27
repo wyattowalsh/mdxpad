@@ -52,7 +52,7 @@ export function isValidMermaidSyntax(code: string): boolean {
   const trimmed = code.trim();
   if (!trimmed) return false;
 
-  const firstLine = trimmed.split('\n')[0].trim().toLowerCase();
+  const firstLine = (trimmed.split('\n')[0] ?? '').trim().toLowerCase();
   return VALID_DIAGRAM_STARTS.some(
     (start) =>
       firstLine.startsWith(start.toLowerCase()) ||
@@ -67,7 +67,7 @@ export function isValidMermaidSyntax(code: string): boolean {
 export function parseMermaidResponse(text: string): DiagramGenerationResult {
   // Try fenced code block first
   const fenceMatch = /```mermaid\s*\n([\s\S]*?)```/.exec(text);
-  const code = fenceMatch ? fenceMatch[1].trim() : text.trim();
+  const code = fenceMatch ? (fenceMatch[1] ?? '').trim() : text.trim();
 
   if (!code) {
     return { success: false, error: 'Empty response from AI' };
@@ -77,7 +77,7 @@ export function parseMermaidResponse(text: string): DiagramGenerationResult {
     // Try extracting from a generic code fence as fallback
     const genericMatch = /```\s*\n([\s\S]*?)```/.exec(text);
     if (genericMatch) {
-      const fallbackCode = genericMatch[1].trim();
+      const fallbackCode = (genericMatch[1] ?? '').trim();
       if (isValidMermaidSyntax(fallbackCode)) {
         return { success: true, mermaidCode: fallbackCode };
       }

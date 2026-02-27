@@ -29,8 +29,8 @@ interface PluginApiShape {
 
 function getPluginApi(): PluginApiShape | undefined {
   const win = globalThis as Record<string, unknown>;
-  const mdxpad = win['mdxpad'] as Record<string, unknown> | undefined;
-  return mdxpad?.['plugin'] as PluginApiShape | undefined;
+  const mdxpad = win.mdxpad as Record<string, unknown> | undefined;
+  return mdxpad?.plugin as PluginApiShape | undefined;
 }
 
 // ============================================================================
@@ -196,9 +196,9 @@ export function PluginMarketplace() {
               <InstalledPluginCard
                 key={plugin.id}
                 plugin={plugin}
-                onEnable={handleEnable}
-                onDisable={handleDisable}
-                onUninstall={handleUninstall}
+                onEnable={(id) => void handleEnable(id)}
+                onDisable={(id) => void handleDisable(id)}
+                onUninstall={(id) => void handleUninstall(id)}
                 isLoading={isLoading}
               />
             ))}
@@ -218,7 +218,7 @@ export function PluginMarketplace() {
                 key={plugin.id}
                 plugin={plugin}
                 isInstalled={installedIds.has(plugin.id)}
-                onInstall={handleInstall}
+                onInstall={(id) => void handleInstall(id)}
                 isLoading={isLoading}
               />
             ))}

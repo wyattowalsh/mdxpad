@@ -36,7 +36,7 @@ let userThemes: ThemeDefinition[] = [];
 export function initThemeManager(): void {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
-    void applyTheme(saved);
+    applyTheme(saved);
   }
 }
 
@@ -58,7 +58,7 @@ export function getActiveThemeId(): string | null {
  * Apply a theme by ID.
  * Sets CSS variables and generates editor theme styles.
  */
-export async function applyTheme(themeId: string): Promise<boolean> {
+export function applyTheme(themeId: string): boolean {
   const theme = getBuiltInTheme(themeId) ?? userThemes.find((t) => t.id === themeId);
 
   if (!theme) {

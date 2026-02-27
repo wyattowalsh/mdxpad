@@ -25,7 +25,7 @@ async function createPluginDir(
   baseDir: string,
   pluginName: string,
   manifest: Record<string, unknown>,
-  code: string = 'module.exports = { activate: function() {}, deactivate: function() {} };'
+  code = 'module.exports = { activate: function() {}, deactivate: function() {} };'
 ): Promise<string> {
   const pluginDir = path.join(baseDir, pluginName);
   await mkdir(pluginDir, { recursive: true });

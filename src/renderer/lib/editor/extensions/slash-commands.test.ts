@@ -4,7 +4,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { slashCommandsExtension } from './slash-commands';
+import { autocompletion } from '@codemirror/autocomplete';
+import { createSlashCommandCompletionSource } from './slash-commands';
 import { BUILTIN_SLASH_COMMANDS, type SlashCommand } from './slash-command-definitions';
 
 describe('BUILTIN_SLASH_COMMANDS', () => {
@@ -101,13 +102,13 @@ describe('BUILTIN_SLASH_COMMANDS', () => {
   });
 });
 
-describe('slashCommandsExtension', () => {
-  it('returns a valid extension with default commands', () => {
-    const ext = slashCommandsExtension();
-    expect(ext).toBeDefined();
+describe('createSlashCommandCompletionSource', () => {
+  it('returns a completion source function with default commands', () => {
+    const source = createSlashCommandCompletionSource();
+    expect(typeof source).toBe('function');
   });
 
-  it('returns a valid extension with custom commands', () => {
+  it('returns a completion source function with custom commands', () => {
     const custom: SlashCommand[] = [
       {
         name: 'callout',
@@ -117,21 +118,22 @@ describe('slashCommandsExtension', () => {
       },
     ];
 
-    const ext = slashCommandsExtension(custom);
-    expect(ext).toBeDefined();
+    const source = createSlashCommandCompletionSource(custom);
+    expect(typeof source).toBe('function');
   });
 
-  it('creates a valid EditorState', () => {
+  it('creates a valid EditorState when wrapped in autocompletion', () => {
+    const source = createSlashCommandCompletionSource();
     const state = EditorState.create({
       doc: '/heading',
-      extensions: [slashCommandsExtension()],
+      extensions: [autocompletion({ override: [source] })],
     });
     expect(state.doc.toString()).toBe('/heading');
   });
 
   it('handles empty custom commands array', () => {
-    const ext = slashCommandsExtension([]);
-    expect(ext).toBeDefined();
+    const source = createSlashCommandCompletionSource([]);
+    expect(typeof source).toBe('function');
   });
 
   it('merges custom commands with builtins', () => {
@@ -144,11 +146,10 @@ describe('slashCommandsExtension', () => {
       },
     ];
 
-    const ext = slashCommandsExtension(custom);
-    // Extension should be valid (no error thrown)
+    const source = createSlashCommandCompletionSource(custom);
     const state = EditorState.create({
       doc: '',
-      extensions: [ext],
+      extensions: [autocompletion({ override: [source] })],
     });
     expect(state).toBeDefined();
   });

@@ -8,7 +8,7 @@
  * - CodeMirror lint/autocomplete extensions
  */
 
-import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
+import type { CompletionContext } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { linter, type Diagnostic } from '@codemirror/lint';
 
@@ -303,7 +303,7 @@ export function collectAnchorCompletions(source: string, prefix = ''): readonly 
     }));
 }
 
-function anchorCompletionSource(context: CompletionContext) {
+export function anchorCompletionSource(context: CompletionContext) {
   const range = findAnchorCompletionsRange(context);
   if (!range) {
     return null;
@@ -335,5 +335,5 @@ export function createMarkdownIntelligenceExtension(): readonly Extension[] {
     return analysis.diagnostics.map(toCodeMirrorDiagnostic);
   });
 
-  return [markdownLinter, autocompletion({ override: [anchorCompletionSource] })] as const;
+  return [markdownLinter] as const;
 }

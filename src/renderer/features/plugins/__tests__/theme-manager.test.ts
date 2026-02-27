@@ -74,24 +74,24 @@ describe('theme-manager', () => {
   });
 
   describe('applyTheme', () => {
-    it('applies a built-in theme', async () => {
-      const success = await applyTheme('dark');
+    it('applies a built-in theme', () => {
+      const success = applyTheme('dark');
       expect(success).toBe(true);
       expect(getActiveThemeId()).toBe('dark');
     });
 
-    it('returns false for unknown theme', async () => {
-      const success = await applyTheme('nonexistent');
+    it('returns false for unknown theme', () => {
+      const success = applyTheme('nonexistent');
       expect(success).toBe(false);
     });
 
-    it('saves theme preference to localStorage', async () => {
-      await applyTheme('dracula');
+    it('saves theme preference to localStorage', () => {
+      applyTheme('dracula');
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith('mdxpad:active-theme', 'dracula');
     });
 
-    it('injects CSS variables into the document', async () => {
-      await applyTheme('dark');
+    it('injects CSS variables into the document', () => {
+      applyTheme('dark');
 
       const style = document.querySelector('[data-mdxpad-injected="mdxpad-theme"]');
       expect(style).not.toBeNull();
@@ -99,15 +99,15 @@ describe('theme-manager', () => {
   });
 
   describe('resetTheme', () => {
-    it('clears the active theme', async () => {
-      await applyTheme('dark');
+    it('clears the active theme', () => {
+      applyTheme('dark');
       resetTheme();
 
       expect(getActiveThemeId()).toBeNull();
     });
 
-    it('removes saved preference', async () => {
-      await applyTheme('dark');
+    it('removes saved preference', () => {
+      applyTheme('dark');
       resetTheme();
 
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('mdxpad:active-theme');
@@ -115,12 +115,10 @@ describe('theme-manager', () => {
   });
 
   describe('initThemeManager', () => {
-    it('restores saved theme on init', async () => {
+    it('restores saved theme on init', () => {
       store.set('mdxpad:active-theme', 'monokai');
       initThemeManager();
 
-      // Give async applyTheme time to complete
-      await new Promise((r) => setTimeout(r, 50));
       expect(getActiveThemeId()).toBe('monokai');
     });
 

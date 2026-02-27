@@ -1,24 +1,12 @@
 /**
  * Root application component.
- * Implements the main split-pane layout with EditorPane and PreviewPane.
- *
- * Layout Structure:
- * ```
- * +-------------------------------------+
- * | Title Bar (drag region)             |
- * +---------------+-----+---------------+
- * |               |     |               |
- * |  EditorPane   |  H  |  PreviewPane  |  <- Resizable
- * |               |     |               |
- * +---------------+-----+---------------+
- * | StatusBar                           |  <- Fixed
- * +-------------------------------------+
- * ```
+ * Implements the main split-pane layout with tabs, breadcrumbs,
+ * EditorPane, and PreviewPane.
  *
  * @module renderer/App
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { EditorPane } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
@@ -32,6 +20,8 @@ import { SaveTemplateDialog } from './components/template-browser/SaveTemplateDi
 import { RecoveryDialog } from './components/recovery-dialog';
 import { ConflictDialog } from './components/conflict-dialog';
 import { SettingsPanel } from './components/settings-panel';
+import { TabBar } from './components/tabs';
+import { Breadcrumb } from './components/breadcrumb';
 import {
   Dialog,
   DialogContent,
@@ -50,33 +40,27 @@ import {
   selectIsFiltering,
   selectMatchResults,
 } from './stores/file-explorer-store';
+import { useEditorPreferencesStore } from './stores/editor-preferences-store';
 import { useDocumentStore } from './stores/document-store';
-import { useFrontmatterStore } from './stores/frontmatter-store';
 import { useAppState } from './hooks/useAppState';
+import { useAppDialogs } from './hooks/useAppDialogs';
 import { useMenuEvents } from './hooks/useMenuEvents';
 import { useFilterDebounce, type FileEntry } from './hooks/useFilterDebounce';
-import { replaceFrontmatter } from './lib/frontmatter';
+import { useDragDrop } from './hooks/useDragDrop';
 import { ProviderSettings } from './features/ai-provider/components';
 import { useAIProviderStore } from './features/ai-provider/store';
-import type {
-  RecoveryDecision,
-  ConflictResolution,
-  FileConflict,
-} from '@shared/contracts/autosave-schemas';
+import type { DocumentId } from '@shared/types/document';
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-/** Minimum pane size as percentage (10% = ~100px at 1000px width) */
 const MIN_PANE_SIZE = 10;
-const FRONTMATTER_SYNC_DELAY_MS = 150;
 
 function buildExplorerEntries(filePath: string | null, fileName: string): readonly FileEntry[] {
   if (!filePath) {
     return [{ id: 'untitled', path: fileName, name: fileName }];
   }
-
   const lastSlash = filePath.lastIndexOf('/');
   const parentPath = lastSlash > 0 ? filePath.slice(0, lastSlash) : '';
   const parentName = parentPath.includes('/')
@@ -85,19 +69,9 @@ function buildExplorerEntries(filePath: string | null, fileName: string): readon
 
   const entries: FileEntry[] = [];
   if (parentPath && parentName) {
-    entries.push({
-      id: parentPath,
-      path: parentPath,
-      name: parentName,
-    });
+    entries.push({ id: parentPath, path: parentPath, name: parentName });
   }
-
-  entries.push({
-    id: filePath,
-    path: filePath,
-    name: fileName,
-  });
-
+  entries.push({ id: filePath, path: filePath, name: fileName });
   return entries;
 }
 
@@ -108,24 +82,24 @@ function buildExplorerEntries(filePath: string | null, fileName: string): readon
 /** Main App component with split-pane layout. */
 // eslint-disable-next-line max-lines-per-function
 export function App(): React.ReactElement {
-  // ---------------------------------------------------------------------------
-  // State (all store subscriptions, refs, handlers)
-  // ---------------------------------------------------------------------------
   const state = useAppState();
+  const dialogs = useAppDialogs(state);
   const sidebarVisible = useUILayoutStore(selectSidebarVisible);
   const aiFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('ai'));
   const authoringFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('authoring'));
   const aiProviderSettingsOpen = useAIProviderStore((s) => s.settingsOpen);
   const closeAiProviderSettings = useAIProviderStore((s) => s.closeSettings);
+  const distractionFree = useEditorPreferencesStore((s) => s.distractionFreeEnabled);
+
+  // File explorer filter state
   const filterQuery = useFileExplorerStore(selectFilterQuery);
   const isFilterActive = useFileExplorerStore(selectIsFilterActive);
   const isFiltering = useFileExplorerStore(selectIsFiltering);
   const matchResults = useFileExplorerStore(selectMatchResults);
   const matchResultCount = matchResults.size;
   const isFilterQueryActive = filterQuery.trim().length > 0;
-  const [activeConflict, setActiveConflict] = useState<FileConflict | null>(null);
+
   const isMountedRef = useRef(true);
-  const frontmatterSyncTokenRef = useRef(0);
 
   const explorerEntries = useMemo(
     () => buildExplorerEntries(state.filePath, state.fileName),
@@ -138,19 +112,13 @@ export function App(): React.ReactElement {
   });
 
   const visibleExplorerEntries = useMemo(() => {
-    if (!isFilterActive) {
-      return explorerEntries;
-    }
+    if (!isFilterActive) return explorerEntries;
     return explorerEntries.filter((entry) => matchResults.has(entry.id));
   }, [explorerEntries, isFilterActive, matchResults]);
 
   useEffect(() => {
-    if (isFilterQueryActive) {
-      return;
-    }
-    if (!isFilterActive && matchResultCount === 0 && !isFiltering) {
-      return;
-    }
+    if (isFilterQueryActive) return;
+    if (!isFilterActive && matchResultCount === 0 && !isFiltering) return;
     useFileExplorerStore.getState().applyFilterResults(new Map(), 0);
   }, [isFilterQueryActive, isFilterActive, isFiltering, matchResultCount]);
 
@@ -161,135 +129,29 @@ export function App(): React.ReactElement {
     };
   }, []);
 
-  useEffect(() => {
-    frontmatterSyncTokenRef.current += 1;
-    const syncToken = frontmatterSyncTokenRef.current;
-    const contentSnapshot = state.documentContent;
-    const timeoutId = window.setTimeout(() => {
-      if (!isMountedRef.current || frontmatterSyncTokenRef.current !== syncToken) {
-        return;
-      }
-      const frontmatterStore = useFrontmatterStore.getState();
-      if (frontmatterStore.lastChangeSource !== 'panel') {
-        frontmatterStore.parseFromDocument(contentSnapshot);
-      }
-    }, FRONTMATTER_SYNC_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [state.documentContent]);
-
-  useEffect(() => {
-    const unsubscribe = useFrontmatterStore.subscribe((frontmatterState) => {
-      if (!isMountedRef.current) {
-        return;
-      }
-      if (
-        frontmatterState.lastChangeSource !== 'panel' ||
-        !frontmatterState.isDirty ||
-        frontmatterState.mode !== 'visual'
-      ) {
-        return;
-      }
-
-      const currentContent = useDocumentStore.getState().content;
-      const nextContent = replaceFrontmatter(currentContent, frontmatterState.serializeToYaml());
-
-      if (nextContent !== currentContent) {
-        useDocumentStore.getState().setContent(nextContent);
-      }
-
-      useFrontmatterStore.getState().setChangeSource('document');
-    });
-
-    return () => {
-      unsubscribe();
-    };
+  // Drag & drop file opening
+  const handleFileDrop = useCallback((filePath: string) => {
+    void window.mdxpad
+      .readFile(filePath)
+      .then((result) => {
+        if (result.ok) {
+          useDocumentStore.getState().openDocument(
+            {
+              fileId: filePath as unknown as DocumentId,
+              filePath,
+              mtime: Date.now(),
+            },
+            result.value
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        console.error('[App] Failed to open dropped file:', err);
+      });
   }, []);
+  useDragDrop(handleFileDrop);
 
-  const handleAddFrontmatter = useCallback(() => {
-    useFrontmatterStore.getState().addField('title', 'text');
-  }, []);
-
-  const handleApplyAutoFix = useCallback((fixedContent: string) => {
-    useDocumentStore.getState().setContent(fixedContent);
-    useFrontmatterStore.getState().parseFromDocument(fixedContent);
-  }, []);
-
-  const handleRecoveryDecision = useCallback(
-    async (decision: RecoveryDecision) => {
-      if (decision.action !== 'accept' || decision.selectedIds.length !== 1) {
-        await state.recovery.handleDecision(decision);
-        return;
-      }
-
-      const selectedId = decision.selectedIds[0];
-      if (selectedId === undefined) {
-        await state.recovery.handleDecision(decision);
-        return;
-      }
-      const selectedEntry = state.recovery.entries.find((entry) => entry.documentId === selectedId);
-
-      if (!selectedEntry?.hasConflict) {
-        await state.recovery.handleDecision(decision);
-        return;
-      }
-
-      const preview = await window.mdxpad.recoveryPreview({ documentId: selectedId });
-      if (!isMountedRef.current) {
-        return;
-      }
-      if (preview.ok && preview.conflict) {
-        setActiveConflict(preview.conflict);
-        return;
-      }
-
-      await state.recovery.handleDecision(decision);
-    },
-    [state]
-  );
-
-  const handleConflictResolve = useCallback(
-    async (resolution: ConflictResolution) => {
-      if (resolution.choice === 'save-as') {
-        state.handleNotification({
-          type: 'warning',
-          message: 'Save As conflict resolution is not supported yet',
-        });
-        return;
-      }
-
-      if (resolution.choice === 'recovery') {
-        await state.recovery.handleDecision({
-          action: 'accept',
-          selectedIds: [resolution.documentId],
-        });
-      } else {
-        await state.recovery.handleDecision({ action: 'decline' });
-      }
-
-      if (isMountedRef.current) {
-        setActiveConflict(null);
-      }
-    },
-    [state]
-  );
-
-  const handleConflictCancel = useCallback(() => {
-    if (isMountedRef.current) {
-      setActiveConflict(null);
-    }
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Menu events, commands, keyboard shortcuts, file-change watcher
-  // ---------------------------------------------------------------------------
-  const { palette, getCommandContext } = useMenuEvents(state.editorRef, state.handleNotification);
-
-  // ---------------------------------------------------------------------------
-  // Expose template browser opener for tests
-  // ---------------------------------------------------------------------------
+  // Template browser opener for tests
   const openTemplateBrowser = useTemplateBrowserModalStore((s) => s.openTemplateBrowser);
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser =
@@ -299,21 +161,33 @@ export function App(): React.ReactElement {
     };
   }, [openTemplateBrowser]);
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  const { palette, getCommandContext } = useMenuEvents(state.editorRef, state.handleNotification);
+
+  // In distraction-free mode, hide sidebar, status bar, breadcrumb, and tabs
+  const showChrome = !distractionFree;
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground overflow-hidden">
       {/* Title bar drag region */}
-      <div
-        className="h-8 w-full flex-shrink-0"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      />
+      {showChrome && (
+        <div
+          className="h-8 w-full flex-shrink-0"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        />
+      )}
+
+      {/* Tab bar */}
+      {showChrome && <TabBar />}
+
+      {/* Breadcrumb navigation */}
+      {showChrome && (
+        <Breadcrumb className="border-b border-border bg-muted/20 text-xs text-muted-foreground" />
+      )}
 
       {/* Main content area with split panes */}
       <main className="flex-1 min-h-0 overflow-hidden flex">
-        {/* Left Sidebar - Explorer, Frontmatter, and Outline Panels */}
-        {sidebarVisible && (
+        {/* Left Sidebar */}
+        {showChrome && sidebarVisible && (
           <div className="flex flex-col w-64 border-r bg-muted/30 overflow-hidden">
             <div className="flex-shrink-0 border-b">
               <div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -346,8 +220,8 @@ export function App(): React.ReactElement {
             {authoringFeatureEnabled && state.frontmatterVisible && (
               <FrontmatterPanel
                 className="flex-shrink-0"
-                onAddFrontmatter={handleAddFrontmatter}
-                onApplyAutoFix={handleApplyAutoFix}
+                onAddFrontmatter={dialogs.handleAddFrontmatter}
+                onApplyAutoFix={dialogs.handleApplyAutoFix}
               />
             )}
             {state.outlineVisible && (
@@ -362,7 +236,6 @@ export function App(): React.ReactElement {
           onLayout={state.handleLayout}
           className="h-full flex-1"
         >
-          {/* Editor Panel */}
           <ResizablePanel
             defaultSize={state.editorSize}
             minSize={MIN_PANE_SIZE}
@@ -377,12 +250,9 @@ export function App(): React.ReactElement {
             />
           </ResizablePanel>
 
-          {/* Only show handle and preview when preview is visible */}
           {state.previewVisible && (
             <>
               <ResizableHandle withHandle />
-
-              {/* Preview Panel */}
               <ResizablePanel
                 defaultSize={state.previewSize}
                 minSize={MIN_PANE_SIZE}
@@ -400,67 +270,61 @@ export function App(): React.ReactElement {
         </ResizablePanelGroup>
       </main>
 
-      {/* Status Bar - fixed at bottom */}
-      <StatusBar
-        fileName={state.fileName}
-        isDirty={state.isDirty}
-        line={state.cursorPosition.line}
-        column={state.cursorPosition.column}
-        errors={state.errors}
-        onErrorClick={state.handleErrorClick}
-        autosave={{
-          isSaving: state.autosave.isSaving,
-          lastSaveAt: state.autosave.lastSaveAt,
-          lastSaveResult: state.autosave.lastSaveResult,
-          lastError: state.autosave.lastError,
-          consecutiveFailures: state.autosave.consecutiveFailures,
-          onRetry: () => {
-            void state.autosave.saveNow();
-          },
-          onDisable: () => {
-            state.autosave.disable();
-          },
-        }}
-      />
+      {/* Status Bar */}
+      {showChrome && (
+        <StatusBar
+          fileName={state.fileName}
+          isDirty={state.isDirty}
+          line={state.cursorPosition.line}
+          column={state.cursorPosition.column}
+          errors={state.errors}
+          onErrorClick={state.handleErrorClick}
+          autosave={{
+            isSaving: state.autosave.isSaving,
+            lastSaveAt: state.autosave.lastSaveAt,
+            lastSaveResult: state.autosave.lastSaveResult,
+            lastError: state.autosave.lastError,
+            consecutiveFailures: state.autosave.consecutiveFailures,
+            onRetry: () => {
+              void state.autosave.saveNow();
+            },
+            onDisable: () => {
+              state.autosave.disable();
+            },
+          }}
+        />
+      )}
 
-      {/* Command Palette overlay */}
       <CommandPalette getContext={getCommandContext} palette={palette} />
 
-      {/* T027: Screen reader announcement region for accessibility */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {state.announcement}
       </div>
 
-      {/* Recovery Dialog overlay (T011, T012) */}
       <RecoveryDialog
-        isOpen={state.recovery.isDialogOpen && activeConflict === null}
+        isOpen={state.recovery.isDialogOpen && dialogs.activeConflict === null}
         entries={state.recovery.entries}
         onDecision={(d) => {
-          void handleRecoveryDecision(d);
+          void dialogs.handleRecoveryDecision(d);
         }}
       />
 
-      {/* Conflict dialog overlay (FR-016) */}
       <ConflictDialog
-        isOpen={activeConflict !== null}
-        conflict={activeConflict}
+        isOpen={dialogs.activeConflict !== null}
+        conflict={dialogs.activeConflict}
         onResolve={(resolution) => {
-          void handleConflictResolve(resolution);
+          void dialogs.handleConflictResolve(resolution);
         }}
-        onCancel={handleConflictCancel}
+        onCancel={dialogs.handleConflictCancel}
       />
 
-      {/* Settings Panel overlay (T019) */}
       <SettingsPanel isOpen={state.settingsOpen} onClose={state.closeSettings} />
 
-      {/* AI Provider Settings overlay */}
       {aiFeatureEnabled && (
         <Dialog
           open={aiProviderSettingsOpen}
           onOpenChange={(open) => {
-            if (!open) {
-              closeAiProviderSettings();
-            }
+            if (!open) closeAiProviderSettings();
           }}
         >
           <DialogContent
@@ -478,14 +342,12 @@ export function App(): React.ReactElement {
         </Dialog>
       )}
 
-      {/* Template Browser Modal (US1: Create from Template) */}
       <TemplateBrowser
         isOpen={state.isTemplateBrowserOpen}
         onClose={state.closeTemplateBrowser}
         onSelect={state.handleTemplateSelect}
       />
 
-      {/* Variable Dialog Modal (for templates with dynamic variables) */}
       {state.pendingTemplate && (
         <VariableDialog
           isOpen={state.isVariableDialogOpen}
@@ -496,7 +358,6 @@ export function App(): React.ReactElement {
         />
       )}
 
-      {/* Save Template Dialog Modal (US3: Create Custom Template) */}
       <SaveTemplateDialog
         isOpen={state.isSaveTemplateDialogOpen}
         onClose={state.closeSaveTemplateDialog}

@@ -8,13 +8,11 @@
  */
 
 import {
-  autocompletion,
   snippet,
   type Completion,
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete';
-import { type Extension } from '@codemirror/state';
 
 // =============================================================================
 // Types
@@ -128,7 +126,7 @@ function snippetToCompletion(s: Snippet): Completion {
 /**
  * Create a completion source from a list of snippets.
  */
-function createSnippetSource(
+export function createSnippetSource(
   snippets: readonly Snippet[]
 ): (context: CompletionContext) => CompletionResult | null {
   const completions = snippets.map(snippetToCompletion);
@@ -172,10 +170,15 @@ function createSnippetSource(
  * ]);
  * ```
  */
-export function snippetExtension(customSnippets: Snippet[] = []): Extension {
-  const allSnippets = [...MDX_SNIPPETS, ...customSnippets];
-
-  return autocompletion({
-    override: [createSnippetSource(allSnippets)],
-  });
+/**
+ * Create a snippet completion source combining built-in MDX snippets
+ * with optional custom snippets.
+ *
+ * Returns a CompletionSource for use with `autocompletion({ override })`.
+ * Do NOT wrap in `autocompletion()` — that must be called once centrally.
+ */
+export function createSnippetCompletionSource(
+  customSnippets: Snippet[] = []
+): (context: CompletionContext) => CompletionResult | null {
+  return createSnippetSource([...MDX_SNIPPETS, ...customSnippets]);
 }

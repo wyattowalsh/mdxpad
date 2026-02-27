@@ -290,6 +290,50 @@ function buildEditMenu(_window: BrowserWindow): MenuItemConstructorOptions {
 }
 
 /**
+ * Builds tab shortcut menu items for switching between tabs.
+ * @param window - The main BrowserWindow for IPC communication
+ * @returns Array of tab-related menu items
+ */
+function buildTabMenuItems(window: BrowserWindow): MenuItemConstructorOptions[] {
+  const tabItems: MenuItemConstructorOptions[] = [];
+
+  // Cmd+1 through Cmd+9: Switch to tab N
+  for (let i = 1; i <= 9; i++) {
+    tabItems.push({
+      label: `Tab ${i}`,
+      accelerator: `CmdOrCtrl+${i}`,
+      click: () => window.webContents.send('mdxpad:menu:switch-tab', i),
+      visible: false,
+    });
+  }
+
+  tabItems.push(
+    {
+      label: 'Close Tab',
+      accelerator: 'CmdOrCtrl+W',
+      click: () => window.webContents.send('mdxpad:menu:close-tab'),
+    },
+    {
+      label: 'Reopen Closed Tab',
+      accelerator: 'CmdOrCtrl+Shift+T',
+      click: () => window.webContents.send('mdxpad:menu:reopen-tab'),
+    },
+    {
+      label: 'Next Tab',
+      accelerator: 'CmdOrCtrl+Shift+]',
+      click: () => window.webContents.send('mdxpad:menu:next-tab'),
+    },
+    {
+      label: 'Previous Tab',
+      accelerator: 'CmdOrCtrl+Shift+[',
+      click: () => window.webContents.send('mdxpad:menu:prev-tab'),
+    }
+  );
+
+  return tabItems;
+}
+
+/**
  * Builds the View menu with reload, devtools, command palette, and zoom options.
  * @param window - The main BrowserWindow for IPC communication
  * @returns The View menu configuration
@@ -307,6 +351,8 @@ function buildViewMenu(window: BrowserWindow): MenuItemConstructorOptions {
         accelerator: 'CmdOrCtrl+Shift+P',
         click: () => window.webContents.send('mdxpad:menu:command-palette'),
       },
+      { type: 'separator' },
+      ...buildTabMenuItems(window),
       { type: 'separator' },
       { role: 'resetZoom' },
       { role: 'zoomIn' },

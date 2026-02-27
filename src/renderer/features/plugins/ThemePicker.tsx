@@ -26,8 +26,8 @@ export function ThemePicker() {
     setActiveId(getActiveThemeId());
   }, []);
 
-  const handleApply = useCallback(async (themeId: string) => {
-    const success = await applyTheme(themeId);
+  const handleApply = useCallback((themeId: string) => {
+    const success = applyTheme(themeId);
     if (success) {
       setActiveId(themeId);
     }

@@ -28,12 +28,21 @@ function getExtensions(config?: Partial<MDXEditorConfig>): Extension[] {
 
 describe('buildExtensions()', () => {
   describe('default configuration', () => {
-    it('should return an object with extensions array and themeCompartment', () => {
+    it('should return an object with extensions array and all compartments', () => {
       const result = buildExtensions();
       expect(result).toHaveProperty('extensions');
       expect(result).toHaveProperty('themeCompartment');
+      expect(result).toHaveProperty('minimapCompartment');
+      expect(result).toHaveProperty('focusModeCompartment');
+      expect(result).toHaveProperty('spellcheckCompartment');
+      expect(result).toHaveProperty('snippetCompartment');
+      expect(result).toHaveProperty('wordWrapCompartment');
+      expect(result).toHaveProperty('fontSettingsCompartment');
+      expect(result).toHaveProperty('keymapCompartment');
       expect(Array.isArray(result.extensions)).toBe(true);
       expect(result.themeCompartment).toBeInstanceOf(Compartment);
+      expect(result.minimapCompartment).toBeInstanceOf(Compartment);
+      expect(result.keymapCompartment).toBeInstanceOf(Compartment);
     });
 
     it('should return non-empty extension array', () => {
@@ -97,28 +106,31 @@ describe('buildExtensions()', () => {
   });
 
   describe('lineWrapping option', () => {
-    it('should include line wrapping extension when lineWrapping: true', () => {
+    it('should produce valid extensions with lineWrapping: true', () => {
       const extensions = getExtensions({ lineWrapping: true });
-      const withoutWrapping = getExtensions({ lineWrapping: false });
-
-      expect(extensions.length).toBeGreaterThan(withoutWrapping.length);
+      expect(Array.isArray(extensions)).toBe(true);
+      expect(extensions.length).toBeGreaterThan(0);
     });
 
-    it('should exclude line wrapping extension when lineWrapping: false', () => {
+    it('should produce valid extensions with lineWrapping: false', () => {
       const extensions = getExtensions({ lineWrapping: false });
-      const extensionsWithWrapping = getExtensions({ lineWrapping: true });
-
-      expect(extensions.length).toBeLessThan(extensionsWithWrapping.length);
+      expect(Array.isArray(extensions)).toBe(true);
+      expect(extensions.length).toBeGreaterThan(0);
     });
 
-    it('should exclude line wrapping by default (default: false)', () => {
+    it('should use compartment-based wrapping (same count regardless of setting)', () => {
       const defaultExtensions = getExtensions();
       const withWrapping = getExtensions({ lineWrapping: true });
       const withoutWrapping = getExtensions({ lineWrapping: false });
 
-      // Default should match explicit false
+      // Compartment-based: extension count is the same, content differs
       expect(defaultExtensions.length).toBe(withoutWrapping.length);
-      expect(defaultExtensions.length).toBeLessThan(withWrapping.length);
+      expect(defaultExtensions.length).toBe(withWrapping.length);
+    });
+
+    it('should return a wordWrapCompartment for dynamic toggling', () => {
+      const result = buildExtensions({ lineWrapping: true });
+      expect(result.wordWrapCompartment).toBeInstanceOf(Compartment);
     });
   });
 
@@ -497,11 +509,11 @@ describe('buildExtensions()', () => {
       expect(defaultExtensions.length).toBe(withLineNumbers.length);
       expect(defaultExtensions.length).toBeGreaterThan(withoutLineNumbers.length);
 
-      // lineWrapping: false (default)
+      // lineWrapping uses compartment, so count is the same regardless
       const withWrapping = getExtensions({ lineWrapping: true });
       const withoutWrapping = getExtensions({ lineWrapping: false });
       expect(defaultExtensions.length).toBe(withoutWrapping.length);
-      expect(defaultExtensions.length).toBeLessThan(withWrapping.length);
+      expect(defaultExtensions.length).toBe(withWrapping.length);
     });
   });
 
