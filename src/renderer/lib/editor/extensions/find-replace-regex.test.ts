@@ -97,7 +97,7 @@ describe('regexSearchField', () => {
 
 describe('expandCaptureGroups', () => {
   it('replaces $1, $2 with capture groups', () => {
-    const match = 'hello world'.match(/(hello) (world)/);
+    const match = /(hello) (world)/.exec('hello world');
     expect(match).not.toBeNull();
 
     const result = expandCaptureGroups('$2 $1', match!);
@@ -105,7 +105,7 @@ describe('expandCaptureGroups', () => {
   });
 
   it('handles missing capture groups gracefully', () => {
-    const match = 'hello'.match(/(hello)/);
+    const match = /(hello)/.exec('hello');
     expect(match).not.toBeNull();
 
     const result = expandCaptureGroups('$1 $2', match!);
@@ -113,7 +113,7 @@ describe('expandCaptureGroups', () => {
   });
 
   it('handles pattern without capture references', () => {
-    const match = 'hello'.match(/(hello)/);
+    const match = /(hello)/.exec('hello');
     expect(match).not.toBeNull();
 
     const result = expandCaptureGroups('replaced', match!);
@@ -121,7 +121,7 @@ describe('expandCaptureGroups', () => {
   });
 
   it('handles multiple references to the same group', () => {
-    const match = 'hello'.match(/(hello)/);
+    const match = /(hello)/.exec('hello');
     expect(match).not.toBeNull();
 
     const result = expandCaptureGroups('$1-$1', match!);

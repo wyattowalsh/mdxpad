@@ -7,7 +7,12 @@
  * @module renderer/lib/editor/extensions/multi-cursor
  */
 
-import { EditorSelection, EditorState, type Extension, type SelectionRange } from '@codemirror/state';
+import {
+  EditorSelection,
+  EditorState,
+  type Extension,
+  type SelectionRange,
+} from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
 // =============================================================================
@@ -127,12 +132,10 @@ function selectAllOccurrences(view: EditorView): boolean {
   const doc = view.state.doc.toString();
   const ranges: SelectionRange[] = [];
 
-  let idx = 0;
-  while (true) {
-    const found = doc.indexOf(text, idx);
-    if (found === -1) break;
-    ranges.push(EditorSelection.range(found, found + text.length));
-    idx = found + 1;
+  let idx = doc.indexOf(text, 0);
+  while (idx !== -1) {
+    ranges.push(EditorSelection.range(idx, idx + text.length));
+    idx = doc.indexOf(text, idx + 1);
   }
 
   if (ranges.length === 0) return false;
@@ -149,15 +152,14 @@ function selectAllOccurrences(view: EditorView): boolean {
 // Keymap
 // =============================================================================
 
-const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
-
+// Mod maps to Cmd on macOS and Ctrl on other platforms
 const multiCursorKeymap = keymap.of([
   {
-    key: isMac ? 'Mod-d' : 'Ctrl-d',
+    key: 'Mod-d',
     run: selectNextOccurrence,
   },
   {
-    key: isMac ? 'Mod-Shift-l' : 'Ctrl-Shift-l',
+    key: 'Mod-Shift-l',
     run: selectAllOccurrences,
   },
 ]);

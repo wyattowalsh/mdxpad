@@ -76,9 +76,10 @@ function renderMinimap(canvas: HTMLCanvasElement, view: EditorView): void {
   if (!container) return;
 
   const rect = container.getBoundingClientRect();
-  canvas.width = rect.width * (globalThis.devicePixelRatio ?? 1);
-  canvas.height = rect.height * (globalThis.devicePixelRatio ?? 1);
-  ctx.scale(globalThis.devicePixelRatio ?? 1, globalThis.devicePixelRatio ?? 1);
+  const dpr = globalThis.devicePixelRatio;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
 
   // Clear
   ctx.clearRect(0, 0, rect.width, rect.height);

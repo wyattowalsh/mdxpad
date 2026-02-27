@@ -72,11 +72,8 @@ function foldCodeFence(
     const trimmed = candidate.text.trim();
 
     // Closing fence must use same char and be at least as long
-    if (
-      trimmed.length >= fenceLen &&
-      [...trimmed].every((c) => c === fenceChar) &&
-      trimmed.length <= trimmed.length // no trailing content
-    ) {
+    const closingFencePattern = new RegExp(`^${fenceChar === '~' ? '~' : '`'}{${fenceLen},}$`);
+    if (closingFencePattern.test(trimmed)) {
       return { from: line.to, to: candidate.to };
     }
   }
