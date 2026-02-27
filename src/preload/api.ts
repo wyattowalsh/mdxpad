@@ -63,6 +63,12 @@ import type {
 } from '@shared/contracts/export-schemas';
 import type { AIApi } from './ai-api';
 import type { WorkspaceApi } from './workspace-api';
+import type { gitApi } from './git-api';
+import type { searchApi } from './search-api';
+import type { importApi } from './import-api';
+import type { citationApi } from './citation-api';
+import type { SemanticSearchApi } from './semantic-search-api';
+import type { PluginRecord } from '@shared/contracts/plugin-schemas';
 import type {
   TemplateMetadata,
   Template,
@@ -83,6 +89,23 @@ export interface FileChangeEvent {
 export interface MenuFileOpenEvent {
   handle: import('@shared/types/file').FileHandle;
   content: string;
+}
+
+/** AI agent mode API shape */
+export interface AgentApi {
+  sendMessage(request: { message: string }): Promise<{ success: boolean; response?: string }>;
+  approveToolCall(request: { callId: string; approved: boolean }): Promise<{ success: boolean }>;
+  cancel(): Promise<void>;
+  clear(): Promise<void>;
+}
+
+/** Plugin system API shape */
+export interface PluginApi {
+  list(): Promise<{ plugins: PluginRecord[] }>;
+  install(pluginPath: string): Promise<{ ok: boolean; plugin?: PluginRecord }>;
+  uninstall(pluginId: string): Promise<{ ok: boolean }>;
+  enable(pluginId: string): Promise<{ ok: boolean; plugin?: PluginRecord }>;
+  disable(pluginId: string): Promise<{ ok: boolean; plugin?: PluginRecord }>;
 }
 
 export interface ExportOperationsApi {
@@ -509,6 +532,41 @@ export interface MdxpadAPI {
    * Export orchestration API (jobs, presets, CLI invocation, llms generation).
    */
   export?: ExportOperationsApi;
+
+  /**
+   * Git operations API (Wave 2).
+   */
+  git?: typeof gitApi;
+
+  /**
+   * Full-text search API (Wave 2).
+   */
+  search?: typeof searchApi;
+
+  /**
+   * Content import API (Wave 2).
+   */
+  import?: typeof importApi;
+
+  /**
+   * Citation management API (Wave 2).
+   */
+  citation?: typeof citationApi;
+
+  /**
+   * Semantic search API (Wave 2).
+   */
+  semanticSearch?: SemanticSearchApi;
+
+  /**
+   * AI agent API (Wave 2).
+   */
+  agent?: AgentApi;
+
+  /**
+   * Plugin system API (Wave 2).
+   */
+  plugin?: PluginApi;
 }
 
 /**

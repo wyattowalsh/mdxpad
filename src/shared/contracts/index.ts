@@ -26,3 +26,10 @@ export * from './autosave-ipc';
 
 // Template contracts (Spec 016)
 export * from './template-schemas';
+
+// Wave 2 contracts
+export * from './git-schemas';
+export * from './search-schemas';
+export * from './import-schemas';
+export * from './citation-schemas';
+export * from './export-format-schemas';

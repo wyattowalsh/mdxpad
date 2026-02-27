@@ -72,6 +72,20 @@ export interface AutosaveIndicatorProps {
  * Props for the StatusBar container component.
  * Combines all subcomponent props.
  */
+/**
+ * Props for the document stats widgets (WordCount + ReadingTime).
+ */
+export interface DocumentStatsProps {
+  /** Total word count */
+  readonly wordCount: number;
+  /** Total character count */
+  readonly charCount: number;
+  /** Estimated reading time in minutes */
+  readonly readingTimeMinutes: number;
+  /** Estimated reading time remainder in seconds */
+  readonly readingTimeSeconds: number;
+}
+
 export interface StatusBarProps {
   /** Name of the current file */
   readonly fileName: string;
@@ -89,4 +103,6 @@ export interface StatusBarProps {
   readonly onErrorClick: (error: CompilationError) => void;
   /** Autosave indicator props (optional) */
   readonly autosave?: AutosaveIndicatorProps;
+  /** Document statistics for word count and reading time (optional) */
+  readonly documentStats?: DocumentStatsProps;
 }

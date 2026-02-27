@@ -20,7 +20,11 @@ export {
 export type { RegexSearchState } from './find-replace-regex';
 export { createWordWrapExtension } from './word-wrap';
 export type { WordWrapExtensionResult } from './word-wrap';
-export { snippetExtension, MDX_SNIPPETS } from './snippets-engine';
+export {
+  createSnippetCompletionSource,
+  createSnippetSource,
+  MDX_SNIPPETS,
+} from './snippets-engine';
 export type { Snippet } from './snippets-engine';
 export { minimapExtension } from './minimap';
 export { focusModeExtension } from './focus-mode';

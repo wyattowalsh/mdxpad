@@ -12,7 +12,6 @@
 
 import { Extension } from '@codemirror/state';
 import {
-  EditorView,
   lineNumbers as lineNumbersExt,
   highlightActiveLine,
   keymap,
@@ -23,18 +22,34 @@ import {
   dropCursor,
 } from '@codemirror/view';
 import { bracketMatching, indentUnit } from '@codemirror/language';
-import { closeBrackets } from '@codemirror/autocomplete';
+import { autocompletion, closeBrackets } from '@codemirror/autocomplete';
 import { indentationMarkers } from '@replit/codemirror-indentation-markers';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { search, searchKeymap } from '@codemirror/search';
+import { searchKeymap } from '@codemirror/search';
 
 import { Compartment } from '@codemirror/state';
 
 // DIRECT imports (not barrel) per task spec
 import { mdxLanguage } from '../../lib/editor/mdx-language';
-import { createMarkdownIntelligenceExtension } from '../../lib/editor/markdown-intelligence';
+import {
+  createMarkdownIntelligenceExtension,
+  anchorCompletionSource,
+} from '../../lib/editor/markdown-intelligence';
 import { createThemeCompartment, getThemeExtension, type EditorTheme } from './themes';
 import type { EditorConfig } from '@shared/types/editor';
+
+// Wave 2 extensions
+import { multiCursorExtension } from '../../lib/editor/extensions/multi-cursor';
+import { codeFoldingExtension } from '../../lib/editor/extensions/code-folding';
+import { regexSearchExtension } from '../../lib/editor/extensions/find-replace-regex';
+import { createWordWrapExtension } from '../../lib/editor/extensions/word-wrap';
+import { createSnippetCompletionSource } from '../../lib/editor/extensions/snippets-engine';
+import { minimapExtension } from '../../lib/editor/extensions/minimap';
+import { focusModeExtension } from '../../lib/editor/extensions/focus-mode';
+import { distractionFreeExtension } from '../../lib/editor/extensions/distraction-free';
+import { spellcheckExtension } from '../../lib/editor/extensions/spellcheck';
+import { createFontSettingsExtension } from '../../lib/editor/extensions/font-settings';
+import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps';
 
 /**
  * Extended configuration for MDX editor, building on shared EditorConfig.
@@ -72,20 +87,27 @@ export interface MDXEditorConfig extends EditorConfig {
   readonly indentationGuides?: boolean;
   /** Enable markdown diagnostics and anchor completions (default: true) */
   readonly markdownIntelligence?: boolean;
+  /** Keymap mode: 'default' | 'vim' | 'emacs' (default: 'default') */
+  readonly keymapMode?: KeymapMode;
+  /** Enable minimap overview (default: false) */
+  readonly enableMinimap?: boolean;
+  /** Enable focus/typewriter mode (default: false) */
+  readonly enableFocusMode?: boolean;
+  /** Enable spellcheck (default: false) */
+  readonly enableSpellcheck?: boolean;
+  /** Enable snippet autocompletion (default: true) */
+  readonly enableSnippets?: boolean;
+  /** Font family CSS value (default: 'monospace') */
+  readonly fontFamily?: string;
+  /** Font size in pixels (default: 14) */
+  readonly fontSize?: number;
+  /** Line height multiplier (default: 1.6) */
+  readonly fontLineHeight?: number;
   /**
    * Custom CodeMirror extensions to add to the editor.
    *
    * These extensions are appended after all built-in extensions, allowing them
    * to override or extend built-in behavior when extension precedence matters.
-   *
-   * @example
-   * ```typescript
-   * import { EditorView } from '@codemirror/view';
-   *
-   * const customExtensions = [
-   *   EditorView.theme({ '&': { fontSize: '16px' } }),
-   * ];
-   * ```
    */
   readonly extensions?: Extension[];
 }
@@ -108,6 +130,14 @@ const DEFAULTS: Required<
   closeBrackets: true,
   indentationGuides: true,
   markdownIntelligence: true,
+  keymapMode: 'default',
+  enableMinimap: false,
+  enableFocusMode: false,
+  enableSpellcheck: false,
+  enableSnippets: true,
+  fontFamily: 'monospace',
+  fontSize: 14,
+  fontLineHeight: 1.6,
   extensions: [],
 } as const;
 
@@ -122,6 +152,20 @@ export interface EditorExtensionsResult {
   readonly extensions: Extension[];
   /** Theme compartment for this editor instance (use for dynamic theme switching) */
   readonly themeCompartment: Compartment;
+  /** Compartment for toggling minimap on/off */
+  readonly minimapCompartment: Compartment;
+  /** Compartment for toggling focus mode on/off */
+  readonly focusModeCompartment: Compartment;
+  /** Compartment for toggling spellcheck on/off */
+  readonly spellcheckCompartment: Compartment;
+  /** Compartment for toggling snippets on/off */
+  readonly snippetCompartment: Compartment;
+  /** Word wrap result with toggle and compartment */
+  readonly wordWrapCompartment: Compartment;
+  /** Font settings result with update and compartment */
+  readonly fontSettingsCompartment: Compartment;
+  /** Compartment for keymap mode switching */
+  readonly keymapCompartment: Compartment;
 }
 
 /**
@@ -181,6 +225,13 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   // Create per-instance theme compartment (fixes singleton issue with multiple editors)
   const themeCompartment = createThemeCompartment();
 
+  // Create compartments for toggleable features
+  const minimapCompartment = new Compartment();
+  const focusModeCompartment = new Compartment();
+  const spellcheckCompartment = new Compartment();
+  const snippetCompartment = new Compartment();
+  const keymapCompartment = new Compartment();
+
   // Core editing features (always enabled)
   extensions.push(highlightSpecialChars());
   extensions.push(history());
@@ -188,6 +239,15 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   extensions.push(dropCursor());
   extensions.push(crosshairCursor());
   extensions.push(rectangularSelection());
+
+  // Multi-cursor support (always enabled)
+  extensions.push(multiCursorExtension());
+
+  // Code folding (always enabled)
+  extensions.push(codeFoldingExtension());
+
+  // Enhanced find & replace with regex
+  extensions.push(regexSearchExtension());
 
   // MDX language support
   extensions.push(mdxLanguage());
@@ -205,10 +265,17 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
     extensions.push(lineNumbersExt());
   }
 
-  // Line wrapping
-  if (opts.lineWrapping) {
-    extensions.push(EditorView.lineWrapping);
-  }
+  // Word wrap (compartment-based for dynamic toggling)
+  const wordWrap = createWordWrapExtension(opts.lineWrapping);
+  extensions.push(wordWrap.extension);
+
+  // Font settings (compartment-based for dynamic updates)
+  const fontSettings = createFontSettingsExtension({
+    fontFamily: opts.fontFamily,
+    fontSize: opts.fontSize,
+    lineHeight: opts.fontLineHeight,
+  });
+  extensions.push(fontSettings.extension);
 
   // Active line highlighting
   if (opts.highlightActiveLine) {
@@ -233,10 +300,39 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   // Indentation configuration
   extensions.push(indentUnit.of(opts.indentWithTabs ? '\t' : ' '.repeat(opts.tabSize)));
 
-  // Search functionality
-  extensions.push(search());
+  // Distraction-free mode theme (always loaded, toggled via CSS class)
+  extensions.push(distractionFreeExtension());
 
-  // Keymaps (combined for proper precedence)
+  // Minimap (compartment for dynamic toggling)
+  extensions.push(minimapCompartment.of(opts.enableMinimap ? minimapExtension() : []));
+
+  // Focus mode (compartment for dynamic toggling)
+  extensions.push(focusModeCompartment.of(opts.enableFocusMode ? focusModeExtension() : []));
+
+  // Spellcheck (compartment for dynamic toggling)
+  extensions.push(spellcheckCompartment.of(opts.enableSpellcheck ? spellcheckExtension() : []));
+
+  // Autocompletion — single call combining all completion sources to avoid
+  // combineConfig conflicts on the 'override' field.
+  {
+    const completionSources = [];
+    if (opts.markdownIntelligence) {
+      completionSources.push(anchorCompletionSource);
+    }
+    if (opts.enableSnippets) {
+      completionSources.push(createSnippetCompletionSource());
+    }
+    extensions.push(
+      snippetCompartment.of(
+        autocompletion(completionSources.length > 0 ? { override: completionSources } : {})
+      )
+    );
+  }
+
+  // Keymap mode (compartment for dynamic switching)
+  extensions.push(keymapCompartment.of(createKeymapExtension(opts.keymapMode)));
+
+  // Default keymaps (combined for proper precedence)
   extensions.push(keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]));
 
   // Custom extensions (appended last so they can override built-in behavior)
@@ -244,9 +340,20 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
     extensions.push(...opts.extensions);
   }
 
-  return { extensions, themeCompartment };
+  return {
+    extensions,
+    themeCompartment,
+    minimapCompartment,
+    focusModeCompartment,
+    spellcheckCompartment,
+    snippetCompartment,
+    wordWrapCompartment: wordWrap.compartment,
+    fontSettingsCompartment: fontSettings.compartment,
+    keymapCompartment,
+  };
 }
 
 // Re-export types needed by consumers
 export type { EditorTheme };
+export type { KeymapMode };
 export { Compartment };

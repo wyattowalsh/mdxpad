@@ -10,7 +10,7 @@
  */
 
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Settings, Clock, Save, Info } from 'lucide-react';
+import { Settings, Clock, Save, Info, Type } from 'lucide-react';
 import { cn } from '@shared/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Label } from './ui/label';
@@ -24,6 +24,8 @@ import {
   selectFeatureFlags,
   type FeatureFlagKey,
 } from '../stores/feature-flags-store';
+import { useEditorPreferencesStore } from '../stores/editor-preferences-store';
+import type { KeymapMode } from '../lib/editor/keymaps';
 
 // ============================================================================
 // Types
@@ -385,6 +387,9 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
               </div>
             </div>
 
+            {/* Editor Preferences Section */}
+            <EditorPreferencesSection />
+
             {featureFlags.ai && (
               <div className="space-y-2 border-t pt-4">
                 <h3 className="text-sm font-medium">AI</h3>
@@ -406,6 +411,170 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ============================================================================
+// Editor Preferences Sub-Component
+// ============================================================================
+
+const KEYMAP_OPTIONS: { value: KeymapMode; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'vim', label: 'Vim' },
+  { value: 'emacs', label: 'Emacs' },
+];
+
+const FONT_SIZE_MIN = 8;
+const FONT_SIZE_MAX = 32;
+const LINE_HEIGHT_MIN = 1.0;
+const LINE_HEIGHT_MAX = 3.0;
+const LINE_HEIGHT_STEP = 0.1;
+
+function EditorPreferencesSection(): React.JSX.Element {
+  const prefs = useEditorPreferencesStore();
+
+  return (
+    <div className="space-y-4 border-t pt-4">
+      <div className="flex items-center gap-2">
+        <Type className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+        <h3 className="text-sm font-medium">Editor</h3>
+      </div>
+
+      {/* Keymap Mode */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="keymap-mode">Keymap</Label>
+          <p className="text-xs text-muted-foreground">Editor keybinding mode</p>
+        </div>
+        <select
+          id="keymap-mode"
+          value={prefs.keymapMode}
+          onChange={(e) => prefs.setKeymapMode(e.target.value as KeymapMode)}
+          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          data-testid="keymap-mode-select"
+        >
+          {KEYMAP_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Font Family */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="font-family">Font Family</Label>
+          <p className="text-xs text-muted-foreground">{prefs.fontFamily}</p>
+        </div>
+        <input
+          id="font-family"
+          type="text"
+          value={prefs.fontFamily}
+          onChange={(e) => prefs.setFontFamily(e.target.value)}
+          className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm"
+          data-testid="font-family-input"
+        />
+      </div>
+
+      {/* Font Size */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="font-size">Font Size</Label>
+          <span className="text-xs text-muted-foreground">{prefs.fontSize}px</span>
+        </div>
+        <Slider
+          id="font-size"
+          value={[prefs.fontSize]}
+          min={FONT_SIZE_MIN}
+          max={FONT_SIZE_MAX}
+          step={1}
+          onValueChange={(v) => prefs.setFontSize(v[0] ?? 14)}
+          data-testid="font-size-slider"
+        />
+      </div>
+
+      {/* Line Height */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="line-height">Line Height</Label>
+          <span className="text-xs text-muted-foreground">{prefs.lineHeight.toFixed(1)}</span>
+        </div>
+        <Slider
+          id="line-height"
+          value={[prefs.lineHeight]}
+          min={LINE_HEIGHT_MIN}
+          max={LINE_HEIGHT_MAX}
+          step={LINE_HEIGHT_STEP}
+          onValueChange={(v) => prefs.setLineHeight(v[0] ?? 1.6)}
+          data-testid="line-height-slider"
+        />
+      </div>
+
+      {/* Toggle Options */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="spellcheck-toggle">Spellcheck</Label>
+            <p className="text-xs text-muted-foreground">Highlight potential misspellings</p>
+          </div>
+          <Switch
+            id="spellcheck-toggle"
+            checked={prefs.spellcheckEnabled}
+            onCheckedChange={() => prefs.toggleSpellcheck()}
+            data-testid="spellcheck-toggle"
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="minimap-toggle">Minimap</Label>
+            <p className="text-xs text-muted-foreground">Show document overview</p>
+          </div>
+          <Switch
+            id="minimap-toggle"
+            checked={prefs.minimapEnabled}
+            onCheckedChange={() => prefs.toggleMinimap()}
+            data-testid="minimap-toggle"
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="focus-mode-toggle">Focus Mode</Label>
+            <p className="text-xs text-muted-foreground">Dim non-active paragraphs</p>
+          </div>
+          <Switch
+            id="focus-mode-toggle"
+            checked={prefs.focusModeEnabled}
+            onCheckedChange={() => prefs.toggleFocusMode()}
+            data-testid="focus-mode-toggle"
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="word-wrap-toggle">Word Wrap</Label>
+            <p className="text-xs text-muted-foreground">Wrap long lines</p>
+          </div>
+          <Switch
+            id="word-wrap-toggle"
+            checked={prefs.wordWrapEnabled}
+            onCheckedChange={() => prefs.toggleWordWrap()}
+            data-testid="word-wrap-toggle"
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="distraction-free-toggle">Distraction Free</Label>
+            <p className="text-xs text-muted-foreground">Minimal writing environment</p>
+          </div>
+          <Switch
+            id="distraction-free-toggle"
+            checked={prefs.distractionFreeEnabled}
+            onCheckedChange={() => prefs.toggleDistractionFree()}
+            data-testid="distraction-free-toggle"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 

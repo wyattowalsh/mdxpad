@@ -19,6 +19,10 @@ import { aiApi } from './ai-api';
 import { syncApi, collaborationApi, extensionPlatformApi, publishApi } from './platform-api';
 import { workspaceApi } from './workspace-api';
 import { exportApi } from './export-api';
+import { gitApi } from './git-api';
+import { searchApi } from './search-api';
+import { importApi } from './import-api';
+import { citationApi } from './citation-api';
 
 // ============================================================================
 // Platform Detection
@@ -120,6 +124,12 @@ const api: MdxpadAPI = {
 
   // Export orchestration (Wave 8)
   export: exportApi,
+
+  // Wave 2: Git, Search, Import, Citation
+  git: gitApi,
+  search: searchApi,
+  import: importApi,
+  citation: citationApi,
 };
 
 // ============================================================================

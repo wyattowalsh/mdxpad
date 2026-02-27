@@ -4,7 +4,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { snippetExtension, MDX_SNIPPETS, type Snippet } from './snippets-engine';
+import { autocompletion } from '@codemirror/autocomplete';
+import { createSnippetCompletionSource, MDX_SNIPPETS, type Snippet } from './snippets-engine';
 
 describe('MDX_SNIPPETS', () => {
   it('contains built-in MDX snippets', () => {
@@ -38,13 +39,13 @@ describe('MDX_SNIPPETS', () => {
   });
 });
 
-describe('snippetExtension', () => {
-  it('returns a valid extension with default snippets', () => {
-    const ext = snippetExtension();
-    expect(ext).toBeDefined();
+describe('createSnippetCompletionSource', () => {
+  it('returns a completion source function with default snippets', () => {
+    const source = createSnippetCompletionSource();
+    expect(typeof source).toBe('function');
   });
 
-  it('returns a valid extension with custom snippets', () => {
+  it('returns a completion source function with custom snippets', () => {
     const custom: Snippet[] = [
       {
         prefix: 'hero',
@@ -53,20 +54,21 @@ describe('snippetExtension', () => {
       },
     ];
 
-    const ext = snippetExtension(custom);
-    expect(ext).toBeDefined();
+    const source = createSnippetCompletionSource(custom);
+    expect(typeof source).toBe('function');
   });
 
-  it('creates a valid EditorState', () => {
+  it('creates a valid EditorState when wrapped in autocompletion', () => {
+    const source = createSnippetCompletionSource();
     const state = EditorState.create({
       doc: 'test',
-      extensions: [snippetExtension()],
+      extensions: [autocompletion({ override: [source] })],
     });
     expect(state.doc.toString()).toBe('test');
   });
 
   it('handles empty custom snippets array', () => {
-    const ext = snippetExtension([]);
-    expect(ext).toBeDefined();
+    const source = createSnippetCompletionSource([]);
+    expect(typeof source).toBe('function');
   });
 });
