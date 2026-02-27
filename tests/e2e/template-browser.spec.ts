@@ -34,6 +34,7 @@ const SEARCH_PERFORMANCE_BUDGET_MS = 1500;
 const PREVIEW_PERFORMANCE_BUDGET_MS = 2000;
 const FIRST_DOCUMENT_BUDGET_MS = 30_000;
 const OPEN_PALETTE_TIMEOUT_MS = 3000;
+const FEATURE_FLAGS_STORAGE_KEY = 'mdxpad.feature-flags';
 const ALLOW_CRITICAL_E2E_RUNTIME_SKIP = process.env.MDXPAD_ALLOW_CRITICAL_E2E_SKIP === '1';
 
 type TemplateBrowserReadyState = 'cards' | 'empty' | 'error';
@@ -314,6 +315,14 @@ test.beforeAll(async () => {
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   await page.waitForSelector('[data-testid="status-bar"]');
+  await page.evaluate((storageKey) => {
+    const existing = localStorage.getItem(storageKey);
+    const parsed = existing ? (JSON.parse(existing) as Record<string, unknown>) : {};
+    localStorage.setItem(storageKey, JSON.stringify({ ...parsed, authoring: true }));
+  }, FEATURE_FLAGS_STORAGE_KEY);
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('[data-testid="status-bar"]');
 });
 
 test.afterAll(async () => {
@@ -415,6 +424,9 @@ test.describe('Template Browser E2E', () => {
 
   test.describe('FR-005: Template Preview', () => {
     test('should show preview when template selected (SC-002: < 1s)', async () => {
+      await page.reload();
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForSelector('[data-testid="status-bar"]');
       await requireTemplateBrowserOpen(page);
       const readyState = await waitForTemplateBrowserReady(page);
 

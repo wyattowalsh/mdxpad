@@ -123,9 +123,7 @@ export function createRequestId(): RequestId {
 export function isRequestId(value: unknown): value is RequestId {
   return (
     typeof value === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value
-    )
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
   );
 }
 
@@ -134,11 +132,67 @@ export function isRequestId(value: unknown): value is RequestId {
 // ============================================================================
 
 /** Request sent from renderer to MDX compilation worker */
+export interface MdxPluginConfigEntry {
+  /** Enable or disable plugin execution */
+  readonly enabled?: boolean | undefined;
+  /** Plugin-specific options payload */
+  readonly options?: unknown;
+}
+
+export interface MdxPluginPipelineConfig {
+  /** Plugin configuration by registered plugin name */
+  readonly plugins?: Readonly<Record<string, MdxPluginConfigEntry>> | undefined;
+}
+
+const MDX_PLUGIN_CONFIG_ENTRY_KEYS = new Set(['enabled', 'options']);
+const MDX_PLUGIN_PIPELINE_CONFIG_KEYS = new Set(['plugins']);
+
+function isPlainObjectRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value) as object | null;
+  return prototype === Object.prototype || prototype === null;
+}
+
+function hasOnlyKnownKeys(value: Record<string, unknown>, knownKeys: ReadonlySet<string>): boolean {
+  return Object.keys(value).every((key) => knownKeys.has(key));
+}
+
+function isMdxPluginConfigEntry(value: unknown): value is MdxPluginConfigEntry {
+  if (!isPlainObjectRecord(value) || !hasOnlyKnownKeys(value, MDX_PLUGIN_CONFIG_ENTRY_KEYS)) {
+    return false;
+  }
+
+  const entry = value as { enabled?: unknown };
+  return entry.enabled === undefined || typeof entry.enabled === 'boolean';
+}
+
+function isMdxPluginPipelineConfig(value: unknown): value is MdxPluginPipelineConfig {
+  if (!isPlainObjectRecord(value) || !hasOnlyKnownKeys(value, MDX_PLUGIN_PIPELINE_CONFIG_KEYS)) {
+    return false;
+  }
+
+  const config = value as { plugins?: unknown };
+  if (config.plugins === undefined) {
+    return true;
+  }
+  if (!isPlainObjectRecord(config.plugins)) {
+    return false;
+  }
+
+  return Object.values(config.plugins).every(isMdxPluginConfigEntry);
+}
+
+/** Request sent from renderer to MDX compilation worker */
 export interface CompileRequest {
   /** UUID for request correlation and stale response detection */
   readonly id: RequestId;
   /** MDX source text to compile */
   readonly source: string;
+  /** Optional per-request plugin pipeline configuration */
+  readonly pluginConfig?: MdxPluginPipelineConfig | undefined;
 }
 
 /** Response sent from worker to renderer */
@@ -172,9 +226,7 @@ export interface CompileResponseFailure {
  * @param response - Compile response to check
  * @returns True if response indicates successful compilation
  */
-export function isCompileSuccess(
-  response: CompileResponse
-): response is CompileResponseSuccess {
+export function isCompileSuccess(response: CompileResponse): response is CompileResponseSuccess {
   return response.ok;
 }
 
@@ -184,9 +236,7 @@ export function isCompileSuccess(
  * @param response - Compile response to check
  * @returns True if response indicates failed compilation
  */
-export function isCompileFailure(
-  response: CompileResponse
-): response is CompileResponseFailure {
+export function isCompileFailure(response: CompileResponse): response is CompileResponseFailure {
   return !response.ok;
 }
 
@@ -198,8 +248,12 @@ export function isCompileFailure(
  */
 export function isCompileRequest(message: unknown): message is CompileRequest {
   if (typeof message !== 'object' || message === null) return false;
-  const msg = message as { id?: unknown; source?: unknown };
-  return isRequestId(msg.id) && typeof msg.source === 'string';
+  const msg = message as { id?: unknown; source?: unknown; pluginConfig?: unknown };
+  return (
+    isRequestId(msg.id) &&
+    typeof msg.source === 'string' &&
+    (msg.pluginConfig === undefined || isMdxPluginPipelineConfig(msg.pluginConfig))
+  );
 }
 
 /**
@@ -224,7 +278,5 @@ export function isCompileResponse(message: unknown): message is CompileResponse 
  * @throws TypeError if called with a non-never value (indicates unhandled case)
  */
 export function assertNeverResponse(value: never, message?: string): never {
-  throw new TypeError(
-    message ?? `Unhandled CompileResponse variant: ${JSON.stringify(value)}`
-  );
+  throw new TypeError(message ?? `Unhandled CompileResponse variant: ${JSON.stringify(value)}`);
 }

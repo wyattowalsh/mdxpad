@@ -413,7 +413,7 @@ describe('worker-pool', () => {
         (_event: string, handler: (e: MessageEvent) => void) => {
           // Schedule the response after a brief delay
           setTimeout(() => {
-            handler({ data: { type: 'prewarm-response' } } as MessageEvent);
+            handler({ data: { type: 'prewarm-complete', initDurationMs: 1 } } as MessageEvent);
           }, 10);
         }
       );

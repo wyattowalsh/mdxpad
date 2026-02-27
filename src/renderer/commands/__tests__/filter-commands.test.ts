@@ -46,12 +46,14 @@ describe('FILTER_EVENTS', () => {
   it('should have correct event names', () => {
     expect(FILTER_EVENTS.focus).toBe('mdxpad:filter:focus');
     expect(FILTER_EVENTS.clear).toBe('mdxpad:filter:clear');
+    expect(FILTER_EVENTS.focusWorkspaceLinkSearch).toBe('mdxpad:workspace-link-search:focus');
+    expect(FILTER_EVENTS.clearWorkspaceLinkSearch).toBe('mdxpad:workspace-link-search:clear');
   });
 });
 
 describe('FILTER_COMMANDS', () => {
-  it('should contain 2 commands', () => {
-    expect(FILTER_COMMANDS).toHaveLength(2);
+  it('should contain 4 commands', () => {
+    expect(FILTER_COMMANDS).toHaveLength(4);
   });
 
   it('should have unique IDs', () => {
@@ -115,6 +117,42 @@ describe('clearFilterCommand', () => {
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
     const event = dispatchSpy.mock.calls[0]![0] as CustomEvent;
     expect(event.type).toBe(FILTER_EVENTS.clear);
+
+    dispatchSpy.mockRestore();
+  });
+});
+
+describe('focusWorkspaceLinkSearchCommand', () => {
+  const command = FILTER_COMMANDS.find((c) => c.id === 'filter.focus-workspace-links')!;
+
+  it('should dispatch workspace link search focus event on execute', () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const ctx = createMockContext();
+
+    const result = command.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    const event = dispatchSpy.mock.calls[0]![0] as CustomEvent;
+    expect(event.type).toBe(FILTER_EVENTS.focusWorkspaceLinkSearch);
+
+    dispatchSpy.mockRestore();
+  });
+});
+
+describe('clearWorkspaceLinkSearchCommand', () => {
+  const command = FILTER_COMMANDS.find((c) => c.id === 'filter.clear-workspace-links')!;
+
+  it('should dispatch workspace link search clear event on execute', () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const ctx = createMockContext();
+
+    const result = command.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    const event = dispatchSpy.mock.calls[0]![0] as CustomEvent;
+    expect(event.type).toBe(FILTER_EVENTS.clearWorkspaceLinkSearch);
 
     dispatchSpy.mockRestore();
   });

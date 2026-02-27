@@ -17,6 +17,10 @@ import { CapabilityService } from './capability-service';
 import { AIService } from './ai-service';
 import { UsageService } from './usage-service';
 import { OnboardingService } from './onboarding-service';
+import { ProviderSessionService } from './provider-session-service';
+import { AISessionStorageService } from './ai-session-storage-service';
+import { AIPromptFileLoaderService } from './prompt-file-loader-service';
+import { InstructionLoaderService } from './instruction-loader-service';
 
 // =============================================================================
 // SERVICE EXPORTS
@@ -34,11 +38,7 @@ export {
   type ProviderValidationResult,
 } from './provider-service';
 
-export {
-  CapabilityService,
-  type ICapabilityService,
-  type ModelInfo,
-} from './capability-service';
+export { CapabilityService, type ICapabilityService, type ModelInfo } from './capability-service';
 
 export {
   AIService,
@@ -52,16 +52,41 @@ export {
   type ImageGenerationResponse,
 } from './ai-service';
 
-export {
-  UsageService,
-  type IUsageService,
-  type UsageQuery,
-} from './usage-service';
+export { UsageService, type IUsageService, type UsageQuery } from './usage-service';
+
+export { OnboardingService, type IOnboardingService } from './onboarding-service';
 
 export {
-  OnboardingService,
-  type IOnboardingService,
-} from './onboarding-service';
+  ProviderSessionService,
+  type IProviderSessionService,
+  type SessionModelSelectionRequest,
+  type SessionReadinessRequest,
+  type SessionModelSelection,
+  type SessionReadySelection,
+  type SessionReadinessResult,
+} from './provider-session-service';
+
+export {
+  AISessionStorageService,
+  type IAISessionStorageService,
+  type ArchivedAISession,
+  type SessionListOptions,
+  type SessionUpdate,
+  type InstructionListOptions,
+} from './ai-session-storage-service';
+
+export {
+  AIPromptFileLoaderService,
+  type IAIPromptFileLoaderService,
+  type PromptDiscoveryContext,
+} from './prompt-file-loader-service';
+
+export {
+  InstructionLoaderService,
+  type IInstructionLoaderService,
+  type InstructionLoaderOptions,
+  type LoadedInstructionFile,
+} from './instruction-loader-service';
 
 // =============================================================================
 // REGISTRY EXPORTS
@@ -107,21 +132,25 @@ export function createAIServices(): AIServices {
   const credentialService = new CredentialService();
   const providerService = new ProviderService(credentialService);
   const capabilityService = new CapabilityService(providerService);
+  const providerSessionService = new ProviderSessionService(providerService, capabilityService);
   const usageService = new UsageService();
   const onboardingService = new OnboardingService();
-  const aiService = new AIService(
-    credentialService,
-    providerService,
-    usageService
-  );
+  const aiSessionStorageService = new AISessionStorageService();
+  const promptFileLoaderService = new AIPromptFileLoaderService();
+  const instructionLoaderService = new InstructionLoaderService(aiSessionStorageService);
+  const aiService = new AIService(credentialService, providerService, usageService);
 
   return {
     credentialService,
     providerService,
     capabilityService,
+    providerSessionService,
     aiService,
     usageService,
     onboardingService,
+    aiSessionStorageService,
+    promptFileLoaderService,
+    instructionLoaderService,
   };
 }
 
@@ -132,7 +161,11 @@ export interface AIServices {
   credentialService: CredentialService;
   providerService: ProviderService;
   capabilityService: CapabilityService;
+  providerSessionService: ProviderSessionService;
   aiService: AIService;
   usageService: UsageService;
   onboardingService: OnboardingService;
+  aiSessionStorageService: AISessionStorageService;
+  promptFileLoaderService: AIPromptFileLoaderService;
+  instructionLoaderService: InstructionLoaderService;
 }

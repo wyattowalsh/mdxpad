@@ -8,10 +8,6 @@
  */
 
 import { compile } from '@mdx-js/mdx';
-import remarkGfm from 'remark-gfm';
-import remarkFrontmatter from 'remark-frontmatter';
-import rehypeHighlight from 'rehype-highlight';
-import type { Root } from 'mdast';
 import { matter } from 'vfile-matter';
 import { VFile } from 'vfile';
 import type {
@@ -22,11 +18,22 @@ import type {
 } from '@shared/types/preview-worker';
 import type { CompileError } from '@shared/types/preview';
 import type { OutlineAST } from '@shared/types/outline';
-import { extractOutline } from './outline-extractor';
+import {
+  createDefaultMdxPluginRegistry,
+  type MdxPluginPipelineConfig,
+  type MdxPluginRegistry,
+} from './plugin-pipeline';
 
 type CompileResponseSuccessWithOutline = CompileResponseSuccess & {
   readonly outline: OutlineAST | null;
 };
+
+export interface CompileMdxOptions {
+  readonly pluginConfig?: MdxPluginPipelineConfig | undefined;
+  readonly pluginRegistry?: MdxPluginRegistry | undefined;
+}
+
+const defaultPluginRegistry = createDefaultMdxPluginRegistry();
 
 /** Maximum source size in characters (500KB) */
 export const MAX_SOURCE_SIZE = 500_000;
@@ -64,9 +71,7 @@ export function extractError(diagnostic: VFileDiagnostic): CompileError {
  * @param frontmatter - Raw frontmatter object from YAML parsing
  * @returns Sanitized frontmatter safe for structured clone transfer
  */
-export function sanitizeFrontmatter(
-  frontmatter: Record<string, unknown>
-): Record<string, unknown> {
+export function sanitizeFrontmatter(frontmatter: Record<string, unknown>): Record<string, unknown> {
   try {
     return JSON.parse(JSON.stringify(frontmatter)) as Record<string, unknown>;
   } catch (error) {
@@ -121,9 +126,11 @@ function createSizeLimitError(id: RequestId, sourceLength: number): CompileRespo
   return {
     id,
     ok: false,
-    errors: [{
-      message: `Document too large: ${sourceLength.toLocaleString()} characters exceeds limit of ${MAX_SOURCE_SIZE.toLocaleString()} characters`,
-    }],
+    errors: [
+      {
+        message: `Document too large: ${sourceLength.toLocaleString()} characters exceeds limit of ${MAX_SOURCE_SIZE.toLocaleString()} characters`,
+      },
+    ],
   };
 }
 
@@ -137,7 +144,8 @@ function createSizeLimitError(id: RequestId, sourceLength: number): CompileRespo
  */
 async function performCompilation(
   id: RequestId,
-  source: string
+  source: string,
+  options?: CompileMdxOptions
 ): Promise<CompileResponse> {
   const vfile = new VFile({ value: source });
   matter(vfile, { strip: true });
@@ -145,17 +153,18 @@ async function performCompilation(
   const rawFrontmatter = (vfile.data.matter ?? {}) as Record<string, unknown>;
   const frontmatter = sanitizeFrontmatter(rawFrontmatter);
   let outline: OutlineAST | null = null;
+  const pluginRegistry = options?.pluginRegistry ?? defaultPluginRegistry;
+  const { remarkPlugins, rehypePlugins } = pluginRegistry.createPipeline(options?.pluginConfig, {
+    frontmatter,
+    setOutline: (nextOutline) => {
+      outline = nextOutline;
+    },
+  });
 
   const result = await compile(vfile, {
     outputFormat: 'function-body',
-    remarkPlugins: [
-      remarkGfm,
-      remarkFrontmatter,
-      () => (tree: unknown) => {
-        outline = extractOutline(tree as Root, frontmatter);
-      },
-    ],
-    rehypePlugins: [rehypeHighlight],
+    remarkPlugins: remarkPlugins as never[],
+    rehypePlugins: rehypePlugins as never[],
   });
 
   const fatalMessages = result.messages.filter((msg) => msg.fatal === true);
@@ -183,13 +192,14 @@ async function performCompilation(
  */
 export async function compileMdx(
   id: RequestId,
-  source: string
+  source: string,
+  options?: CompileMdxOptions
 ): Promise<CompileResponse> {
   if (source === '') return createEmptyResult(id);
   if (source.length > MAX_SOURCE_SIZE) return createSizeLimitError(id, source.length);
 
   try {
-    return await performCompilation(id, source);
+    return await performCompilation(id, source, options);
   } catch (error: unknown) {
     return { id, ok: false, errors: [extractUnknownError(error)] };
   }
@@ -200,14 +210,19 @@ export async function compileMdx(
  * This initializes the remark/rehype plugin pipeline and JIT compiles
  * frequently-used code paths, reducing latency for the first real compilation.
  */
-export async function prewarmCompiler(): Promise<void> {
+export async function prewarmCompiler(options?: CompileMdxOptions): Promise<void> {
   const minimalMdx = '# Prewarm\n\nInitializing compiler pipeline.';
   const vfile = new VFile({ value: minimalMdx });
   matter(vfile, { strip: true });
+  const pluginRegistry = options?.pluginRegistry ?? defaultPluginRegistry;
+  const { remarkPlugins, rehypePlugins } = pluginRegistry.createPipeline(options?.pluginConfig, {
+    frontmatter: {},
+    setOutline: () => undefined,
+  });
 
   await compile(vfile, {
     outputFormat: 'function-body',
-    remarkPlugins: [remarkGfm, remarkFrontmatter],
-    rehypePlugins: [rehypeHighlight],
+    remarkPlugins: remarkPlugins as never[],
+    rehypePlugins: rehypePlugins as never[],
   });
 }

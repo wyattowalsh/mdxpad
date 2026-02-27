@@ -92,7 +92,7 @@ describe('loadTemplatesFromDir', () => {
     const result = await loadTemplatesFromDir('/templates', false);
 
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('good');
+    expect(result[0]?.id).toBe('good');
   });
 
   it('should return empty array for directory with no .mdxt files', async () => {

@@ -411,8 +411,23 @@ describe('isCompileRequest', () => {
       expect(isCompileRequest({ id: testRequestId, source: '' })).toBe(true);
     });
 
-    it('returns true for request with extra properties', () => {
+    it('returns true for request with extra top-level properties (compatibility)', () => {
       expect(isCompileRequest({ id: testRequestId, source: 'test', extra: 'ignored' })).toBe(true);
+    });
+
+    it('returns true for request with valid plugin config entries', () => {
+      expect(
+        isCompileRequest({
+          id: testRequestId,
+          source: 'test',
+          pluginConfig: {
+            plugins: {
+              'remark-gfm': { enabled: true, options: { singleTilde: false } },
+              'rehype-highlight': { enabled: false },
+            },
+          },
+        })
+      ).toBe(true);
     });
 
     it('returns false for non-UUID id string', () => {
@@ -480,6 +495,52 @@ describe('isCompileRequest', () => {
 
     it('returns false for object with undefined source', () => {
       expect(isCompileRequest({ id: 'test', source: undefined })).toBe(false);
+    });
+  });
+
+  describe('plugin config validation', () => {
+    it('returns false for plugin config with unknown top-level keys', () => {
+      expect(
+        isCompileRequest({
+          id: testRequestId,
+          source: 'test',
+          pluginConfig: {
+            plugins: {},
+            unexpected: true,
+          },
+        })
+      ).toBe(false);
+    });
+
+    it('returns false for plugin config entries with unknown keys', () => {
+      expect(
+        isCompileRequest({
+          id: testRequestId,
+          source: 'test',
+          pluginConfig: {
+            plugins: {
+              'remark-gfm': {
+                enabled: true,
+                invalid: 'unexpected',
+              },
+            },
+          },
+        })
+      ).toBe(false);
+    });
+
+    it('returns false for plugin config entries that are arrays', () => {
+      expect(
+        isCompileRequest({
+          id: testRequestId,
+          source: 'test',
+          pluginConfig: {
+            plugins: {
+              'remark-gfm': [],
+            },
+          },
+        })
+      ).toBe(false);
     });
   });
 });

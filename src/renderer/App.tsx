@@ -42,6 +42,7 @@ import {
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable';
 import { useTemplateBrowserModalStore } from './stores/template-browser-store';
 import { useUILayoutStore, selectSidebarVisible } from './stores/ui-layout-store';
+import { useFeatureFlagsStore, selectFeatureFlag } from './stores/feature-flags-store';
 import {
   useFileExplorerStore,
   selectFilterQuery,
@@ -112,6 +113,8 @@ export function App(): React.ReactElement {
   // ---------------------------------------------------------------------------
   const state = useAppState();
   const sidebarVisible = useUILayoutStore(selectSidebarVisible);
+  const aiFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('ai'));
+  const authoringFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('authoring'));
   const aiProviderSettingsOpen = useAIProviderStore((s) => s.settingsOpen);
   const closeAiProviderSettings = useAIProviderStore((s) => s.closeSettings);
   const filterQuery = useFileExplorerStore(selectFilterQuery);
@@ -340,7 +343,7 @@ export function App(): React.ReactElement {
                 </ul>
               </div>
             </div>
-            {state.frontmatterVisible && (
+            {authoringFeatureEnabled && state.frontmatterVisible && (
               <FrontmatterPanel
                 className="flex-shrink-0"
                 onAddFrontmatter={handleAddFrontmatter}
@@ -451,27 +454,29 @@ export function App(): React.ReactElement {
       <SettingsPanel isOpen={state.settingsOpen} onClose={state.closeSettings} />
 
       {/* AI Provider Settings overlay */}
-      <Dialog
-        open={aiProviderSettingsOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeAiProviderSettings();
-          }
-        }}
-      >
-        <DialogContent
-          className="max-w-4xl h-[80vh] p-0 overflow-hidden"
-          data-testid="ai-provider-settings-dialog"
+      {aiFeatureEnabled && (
+        <Dialog
+          open={aiProviderSettingsOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeAiProviderSettings();
+            }
+          }}
         >
-          <DialogHeader className="sr-only">
-            <DialogTitle>AI Provider Settings</DialogTitle>
-            <DialogDescription>
-              Manage configured AI providers and usage settings.
-            </DialogDescription>
-          </DialogHeader>
-          <ProviderSettings />
-        </DialogContent>
-      </Dialog>
+          <DialogContent
+            className="max-w-4xl h-[80vh] p-0 overflow-hidden"
+            data-testid="ai-provider-settings-dialog"
+          >
+            <DialogHeader className="sr-only">
+              <DialogTitle>AI Provider Settings</DialogTitle>
+              <DialogDescription>
+                Manage configured AI providers and usage settings.
+              </DialogDescription>
+            </DialogHeader>
+            <ProviderSettings />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Template Browser Modal (US1: Create from Template) */}
       <TemplateBrowser

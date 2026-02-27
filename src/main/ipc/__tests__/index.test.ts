@@ -12,6 +12,9 @@ const registerAutosaveHandlersMock = vi.fn();
 const registerAIHandlersMock = vi.fn();
 const registerTemplateHandlersMock = vi.fn();
 const registerPlatformHandlersMock = vi.fn();
+const registerExportHandlersMock = vi.fn();
+const registerWorkspaceHandlersMock = vi.fn();
+const registerLinkHandlersMock = vi.fn();
 const createAIServicesMock = vi.fn(() => ({}));
 const autosaveSettingsServiceCtorMock = vi.fn(() => ({}));
 const autosaveServiceCtorMock = vi.fn(() => ({}));
@@ -47,6 +50,24 @@ vi.mock('@main/services/template-service', () => ({
 
 vi.mock('../platform-handlers', () => ({
   registerPlatformHandlers: registerPlatformHandlersMock,
+}));
+
+vi.mock('../export-handlers', () => ({
+  EXPORT_IPC_CHANNELS: {
+    jobLifecycle: 'mdxpad:export:job-lifecycle',
+    presetCrud: 'mdxpad:export:preset-crud',
+    cliInvoke: 'mdxpad:export:cli-invoke',
+    llmsGenerate: 'mdxpad:export:llms-generate',
+  },
+  registerExportHandlers: registerExportHandlersMock,
+}));
+
+vi.mock('../workspace-handlers', () => ({
+  registerWorkspaceHandlers: registerWorkspaceHandlersMock,
+}));
+
+vi.mock('../link-handlers', () => ({
+  registerLinkHandlers: registerLinkHandlersMock,
 }));
 
 vi.mock('@main/services/ai', () => ({
@@ -136,6 +157,24 @@ describe('registerIpcHandlers', () => {
       expect.objectContaining({ handle: mockIpcMainHandle }),
       window
     );
+    expect(registerExportHandlersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ handle: mockIpcMainHandle }),
+      window
+    );
+    expect(registerWorkspaceHandlersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ handle: mockIpcMainHandle }),
+      window,
+      expect.any(Object)
+    );
+    expect(registerLinkHandlersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ handle: mockIpcMainHandle }),
+      window,
+      expect.any(Object)
+    );
+
+    const sharedWorkspaceService = registerWorkspaceHandlersMock.mock.calls.at(-1)?.[2];
+    expect(sharedWorkspaceService).toBeDefined();
+    expect(registerLinkHandlersMock.mock.calls.at(-1)?.[2]).toBe(sharedWorkspaceService);
   });
 
   it('authorizes app:get-security-info against recreated window context', async () => {

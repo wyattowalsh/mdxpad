@@ -213,7 +213,7 @@ export function useMenuEvents(
     (): CommandContext =>
       buildCommandContext(
         editorRef.current,
-        getMdxpadApi(),
+        getMdxpadApi() as typeof window.mdxpad,
         { fileId, filePath, content: documentContent, isDirty },
         handleNotification
       ),

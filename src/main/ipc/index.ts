@@ -14,12 +14,17 @@ import { registerFileHandlers } from './file-handlers';
 import { registerWindowHandlers } from './window-handlers';
 import { registerAutosaveHandlers } from './autosave-handlers';
 import { registerAIHandlers } from './ai-handlers';
+import { AISessionChannels } from './ai-session-handlers';
 import { registerTemplateHandlers } from '@main/services/template-service';
 import { registerPlatformHandlers } from './platform-handlers';
+import { registerLinkHandlers } from './link-handlers';
+import { registerWorkspaceHandlers } from './workspace-handlers';
+import { EXPORT_IPC_CHANNELS, registerExportHandlers } from './export-handlers';
 import { AutosaveSettingsService } from '@main/services/autosave-settings';
 import { AutosaveService } from '@main/services/autosave-service';
 import { RecoveryService } from '@main/services/recovery-service';
 import { createAIServices } from '@main/services/ai';
+import { WorkspaceService } from '@main/services/workspace-service';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 
 /** Singleton autosave service instances */
@@ -27,6 +32,7 @@ const settingsService = new AutosaveSettingsService();
 const autosaveService = new AutosaveService(settingsService);
 const recoveryService = new RecoveryService(settingsService, autosaveService);
 const aiServices = createAIServices();
+const workspaceService = new WorkspaceService();
 
 const RECREATION_SENSITIVE_CHANNELS = [
   IPC_CHANNELS.app.getSecurityInfo,
@@ -46,8 +52,11 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(IPC_CHANNELS.sync),
   ...Object.values(IPC_CHANNELS.collaboration),
   ...Object.values(IPC_CHANNELS.extension),
+  ...Object.values(IPC_CHANNELS.workspace),
   ...Object.values(IPC_CHANNELS.publish),
+  ...Object.values(EXPORT_IPC_CHANNELS),
   ...getInvokeChannels(),
+  ...Object.values(AISessionChannels),
 ] as const;
 
 function removeLifecycleBoundHandlers(): void {
@@ -104,4 +113,11 @@ export function registerIpcHandlers(window: BrowserWindow): void {
 
   // Register cloud sync, collaboration, extension, and publish/provenance handlers
   registerPlatformHandlers(ipcMain, window);
+
+  // Register export job, preset, and CLI orchestration handlers
+  registerExportHandlers(ipcMain, window);
+
+  // Register workspace model, link graph, and metadata collection handlers
+  registerWorkspaceHandlers(ipcMain, window, workspaceService);
+  registerLinkHandlers(ipcMain, window, workspaceService);
 }

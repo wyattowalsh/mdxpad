@@ -14,7 +14,15 @@ import type { ProviderConfig, ProviderType } from '../../../../shared/ai/types';
 // Mock Setup - Use vi.hoisted for hoisted mock variables
 // =============================================================================
 
-const { mockStoreData, mockStore, mockStoreConstructor, mockPerformValidation, mockCreateErrorResult, mockRandomUUID, mockSetSnapshots } = vi.hoisted(() => {
+const {
+  mockStoreData,
+  mockStore,
+  mockStoreConstructor,
+  mockPerformValidation,
+  mockCreateErrorResult,
+  mockRandomUUID,
+  mockSetSnapshots,
+} = vi.hoisted(() => {
   const storeData = new Map<string, unknown>();
   const setSnapshots: [string, unknown][] = [];
   const store = {
@@ -27,9 +35,13 @@ const { mockStoreData, mockStore, mockStoreConstructor, mockPerformValidation, m
       setSnapshots.push([key, JSON.parse(JSON.stringify(value))]);
       storeData.set(key, value);
     }),
-    delete: vi.fn((key: string) => { storeData.delete(key); }),
+    delete: vi.fn((key: string) => {
+      storeData.delete(key);
+    }),
     has: vi.fn((key: string) => storeData.has(key)),
-    clear: vi.fn(() => { storeData.clear(); }),
+    clear: vi.fn(() => {
+      storeData.clear();
+    }),
     onDidChange: vi.fn(),
   };
   return {
@@ -38,7 +50,7 @@ const { mockStoreData, mockStore, mockStoreConstructor, mockPerformValidation, m
     mockStoreConstructor: vi.fn().mockImplementation(() => store),
     mockPerformValidation: vi.fn(),
     mockCreateErrorResult: vi.fn(),
-    mockRandomUUID: vi.fn(() => 'test-uuid-123'),
+    mockRandomUUID: vi.fn(() => '123e4567-e89b-12d3-a456-426614174000'),
     mockSetSnapshots: setSnapshots,
   };
 });
@@ -109,7 +121,7 @@ function resetMocks(): void {
     mockStoreData.set(key, value);
   });
   mockStoreConstructor.mockImplementation(() => mockStore);
-  mockRandomUUID.mockReturnValue('test-uuid-123');
+  mockRandomUUID.mockReturnValue('123e4567-e89b-12d3-a456-426614174000');
   mockCredentialService.setCredential.mockResolvedValue({
     success: true,
     storageType: 'persistent',
@@ -294,10 +306,7 @@ describe('ProviderService', () => {
 
       const result = await service.addProvider(config, apiKey);
 
-      expect(mockCredentialService.setCredential).toHaveBeenCalledWith(
-        result.id,
-        apiKey
-      );
+      expect(mockCredentialService.setCredential).toHaveBeenCalledWith(result.id, apiKey);
     });
 
     it('should not store API key when not provided', async () => {
@@ -326,9 +335,7 @@ describe('ProviderService', () => {
       await service.addProvider(config);
 
       // Should have updated existing provider to inactive
-      const setCallArgs = mockStore.set.mock.calls.find(
-        (call) => call[0] === 'providers'
-      );
+      const setCallArgs = mockStore.set.mock.calls.find((call) => call[0] === 'providers');
       expect(setCallArgs).toBeDefined();
       expect((setCallArgs?.[1] as Record<string, ProviderConfig>)?.existing?.isActive).toBe(false);
     });
@@ -459,9 +466,9 @@ describe('ProviderService', () => {
     it('should throw ProviderNotFoundError for non-existent provider', async () => {
       mockStoreData.set('providers', {});
 
-      await expect(
-        service.updateProvider('non-existent', { displayName: 'Test' })
-      ).rejects.toThrow(ProviderNotFoundError);
+      await expect(service.updateProvider('non-existent', { displayName: 'Test' })).rejects.toThrow(
+        ProviderNotFoundError
+      );
     });
 
     it('should preserve immutable fields', async () => {
@@ -516,9 +523,9 @@ describe('ProviderService', () => {
       const existing = createMockProvider({ id: 'test-id', type: 'openai' });
       mockStoreData.set('providers', { 'test-id': existing });
 
-      await expect(
-        service.updateProvider('test-id', { type: 'ollama' })
-      ).rejects.toThrow('baseUrl is required');
+      await expect(service.updateProvider('test-id', { type: 'ollama' })).rejects.toThrow(
+        'baseUrl is required'
+      );
     });
 
     it('should ignore baseUrl override for openai provider updates', async () => {
@@ -582,9 +589,7 @@ describe('ProviderService', () => {
     it('should throw ProviderNotFoundError for non-existent provider', async () => {
       mockStoreData.set('providers', {});
 
-      await expect(service.removeProvider('non-existent')).rejects.toThrow(
-        ProviderNotFoundError
-      );
+      await expect(service.removeProvider('non-existent')).rejects.toThrow(ProviderNotFoundError);
     });
 
     it('should preserve other providers', async () => {
@@ -710,9 +715,7 @@ describe('ProviderService', () => {
     it('should throw ProviderNotFoundError for non-existent provider', async () => {
       mockStoreData.set('providers', {});
 
-      await expect(service.validateProvider('non-existent')).rejects.toThrow(
-        ProviderNotFoundError
-      );
+      await expect(service.validateProvider('non-existent')).rejects.toThrow(ProviderNotFoundError);
     });
 
     it('should clear errorMessage on successful validation', async () => {
@@ -727,7 +730,9 @@ describe('ProviderService', () => {
       await service.validateProvider('test-id');
 
       const setCall = mockStore.set.mock.calls.find((call) => call[0] === 'providers');
-      expect((setCall?.[1] as Record<string, ProviderConfig>)?.['test-id']?.errorMessage).toBeUndefined();
+      expect(
+        (setCall?.[1] as Record<string, ProviderConfig>)?.['test-id']?.errorMessage
+      ).toBeUndefined();
     });
   });
 

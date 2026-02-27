@@ -188,19 +188,19 @@ export function startHeartbeatMonitoring(
       const ping: HeartbeatPing = { type: 'heartbeat-ping', timestamp: now };
       workerInstance.worker.postMessage(ping);
 
-      if (workerInstance.heartbeatTimeoutId !== null) {
-        clearTimeout(workerInstance.heartbeatTimeoutId);
+      if (workerInstance.heartbeatTimeoutId === null) {
+        const workerIndex = i;
+        workerInstance.heartbeatTimeoutId = window.setTimeout(() => {
+          const instance = workers[workerIndex];
+          if (instance) {
+            console.warn(
+              `[MDX Compiler] Worker ${workerIndex} heartbeat timeout, marking unhealthy`
+            );
+            instance.healthy = false;
+            onUnhealthy(workerIndex);
+          }
+        }, HEARTBEAT_TIMEOUT_MS);
       }
-
-      const workerIndex = i;
-      workerInstance.heartbeatTimeoutId = window.setTimeout(() => {
-        const instance = workers[workerIndex];
-        if (instance) {
-          console.warn(`[MDX Compiler] Worker ${workerIndex} heartbeat timeout, marking unhealthy`);
-          instance.healthy = false;
-          onUnhealthy(workerIndex);
-        }
-      }, HEARTBEAT_TIMEOUT_MS);
     }
   }, HEARTBEAT_INTERVAL_MS);
 }
@@ -254,11 +254,15 @@ export function handleHeartbeatPong(
   if (pong.memoryUsage) {
     const usageRatio = pong.memoryUsage.usedJSHeapSize / pong.memoryUsage.jsHeapSizeLimit;
     if (usageRatio >= MEMORY_CRITICAL_THRESHOLD) {
-      console.warn(`[MDX Compiler] Worker ${workerIndex} memory critical (${(usageRatio * 100).toFixed(1)}%), restarting...`);
+      console.warn(
+        `[MDX Compiler] Worker ${workerIndex} memory critical (${(usageRatio * 100).toFixed(1)}%), restarting...`
+      );
       _onMemoryCritical(workerIndex, usageRatio);
       return true;
     } else if (usageRatio >= MEMORY_WARNING_THRESHOLD) {
-      console.warn(`[MDX Compiler] Worker ${workerIndex} memory warning (${(usageRatio * 100).toFixed(1)}%)`);
+      console.warn(
+        `[MDX Compiler] Worker ${workerIndex} memory warning (${(usageRatio * 100).toFixed(1)}%)`
+      );
     }
   }
 

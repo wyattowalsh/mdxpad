@@ -13,6 +13,7 @@ import { ipcRenderer } from 'electron';
 import { z } from 'zod';
 import { AIChannels } from '@shared/ai/ipc-channels';
 import { validatedInvoke } from './validated-invoke';
+import { aiSessionApi, type AISessionApi } from './ai-session-api';
 import {
   // Provider Management Schemas
   ProviderListResponseSchema,
@@ -183,34 +184,58 @@ ipcRenderer.on(AIChannels.STREAM_ERROR, (_event, data: unknown) => {
 /**
  * AI Provider API exposed to renderer via contextBridge.
  */
-export interface AIApi {
+export interface AIApi extends AISessionApi {
   // Provider Management
   listProviders(): Promise<z.infer<typeof ProviderListResponseSchema>>;
-  addProvider(request: z.infer<typeof AddProviderRequestSchema>): Promise<z.infer<typeof AddProviderResponseSchema>>;
-  updateProvider(request: z.infer<typeof UpdateProviderRequestSchema>): Promise<z.infer<typeof UpdateProviderResponseSchema>>;
+  addProvider(
+    request: z.infer<typeof AddProviderRequestSchema>
+  ): Promise<z.infer<typeof AddProviderResponseSchema>>;
+  updateProvider(
+    request: z.infer<typeof UpdateProviderRequestSchema>
+  ): Promise<z.infer<typeof UpdateProviderResponseSchema>>;
   removeProvider(providerId: string): Promise<z.infer<typeof RemoveProviderResponseSchema>>;
   setActiveProvider(providerId: string): Promise<z.infer<typeof SetActiveProviderResponseSchema>>;
   validateProvider(providerId: string): Promise<z.infer<typeof ValidateProviderResponseSchema>>;
 
   // Credential Management
-  setCredential(providerId: string, apiKey: string): Promise<z.infer<typeof SetCredentialResponseSchema>>;
+  setCredential(
+    providerId: string,
+    apiKey: string
+  ): Promise<z.infer<typeof SetCredentialResponseSchema>>;
   hasCredential(providerId: string): Promise<z.infer<typeof HasCredentialResponseSchema>>;
   clearCredential(providerId: string): Promise<z.infer<typeof ClearCredentialResponseSchema>>;
 
   // AI Generation
-  generateText(request: z.infer<typeof GenerateTextRequestSchema>): Promise<z.infer<typeof GenerateTextResponseSchema>>;
-  generateStream(request: z.infer<typeof GenerateStreamRequestSchema>): Promise<z.infer<typeof StreamInitResponseSchema>>;
+  generateText(
+    request: z.infer<typeof GenerateTextRequestSchema>
+  ): Promise<z.infer<typeof GenerateTextResponseSchema>>;
+  generateStream(
+    request: z.infer<typeof GenerateStreamRequestSchema>
+  ): Promise<z.infer<typeof StreamInitResponseSchema>>;
   cancelStream(streamId: string): Promise<z.infer<typeof StreamCancelResponseSchema>>;
-  generateEmbed(request: z.infer<typeof GenerateEmbedRequestSchema>): Promise<z.infer<typeof GenerateEmbedResponseSchema>>;
-  generateImage(request: z.infer<typeof GenerateImageRequestSchema>): Promise<z.infer<typeof GenerateImageResponseSchema>>;
+  generateEmbed(
+    request: z.infer<typeof GenerateEmbedRequestSchema>
+  ): Promise<z.infer<typeof GenerateEmbedResponseSchema>>;
+  generateImage(
+    request: z.infer<typeof GenerateImageRequestSchema>
+  ): Promise<z.infer<typeof GenerateImageResponseSchema>>;
 
   // Usage Statistics
-  queryUsage(request: z.infer<typeof QueryUsageRequestSchema>): Promise<z.infer<typeof QueryUsageResponseSchema>>;
-  exportUsage(request: z.infer<typeof ExportUsageRequestSchema>): Promise<z.infer<typeof ExportUsageResponseSchema>>;
-  clearUsage(request?: z.infer<typeof ClearUsageRequestSchema>): Promise<z.infer<typeof ClearUsageResponseSchema>>;
+  queryUsage(
+    request: z.infer<typeof QueryUsageRequestSchema>
+  ): Promise<z.infer<typeof QueryUsageResponseSchema>>;
+  exportUsage(
+    request: z.infer<typeof ExportUsageRequestSchema>
+  ): Promise<z.infer<typeof ExportUsageResponseSchema>>;
+  clearUsage(
+    request?: z.infer<typeof ClearUsageRequestSchema>
+  ): Promise<z.infer<typeof ClearUsageResponseSchema>>;
 
   // Capability Detection
-  getCapability(providerId: string, modelId: string): Promise<z.infer<typeof GetCapabilityResponseSchema>>;
+  getCapability(
+    providerId: string,
+    modelId: string
+  ): Promise<z.infer<typeof GetCapabilityResponseSchema>>;
   listModels(providerId: string): Promise<z.infer<typeof ListModelsResponseSchema>>;
   refreshCapabilities(providerId: string): Promise<z.infer<typeof RefreshCapabilityResponseSchema>>;
 
@@ -229,16 +254,14 @@ export interface AIApi {
  * All methods use validatedInvoke for schema validation on both ends.
  */
 export const aiApi: AIApi = {
+  // Session/Prompt/Instruction Management (from ai-session-api)
+  ...aiSessionApi,
+
   // =========================================================================
   // Provider Management
   // =========================================================================
 
-  listProviders: () =>
-    validatedInvoke(
-      AIChannels.PROVIDER_LIST,
-      null,
-      ProviderListResponseSchema
-    ),
+  listProviders: () => validatedInvoke(AIChannels.PROVIDER_LIST, null, ProviderListResponseSchema),
 
   addProvider: (request) =>
     validatedInvoke(

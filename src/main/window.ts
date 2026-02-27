@@ -10,8 +10,11 @@ import {
   type BrowserWindowConstructorOptions,
   type IpcMainEvent,
 } from 'electron';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Timeout for dirty state query in milliseconds */
 const DIRTY_CHECK_TIMEOUT_MS = 2000;

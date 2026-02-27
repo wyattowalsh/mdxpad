@@ -350,7 +350,12 @@ export function CodeBlock({
         <CodeBlockLineNumbers count={lineCount} highlightedLines={highlightedLineSet} />
       )}
       {isMermaid ? (
-        <pre className="mermaid" tabIndex={0} aria-label="Mermaid diagram">
+        <pre
+          className="mermaid"
+          data-mermaid-source={code}
+          tabIndex={0}
+          aria-label="Mermaid diagram"
+        >
           {code}
         </pre>
       ) : (

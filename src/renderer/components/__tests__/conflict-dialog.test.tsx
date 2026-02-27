@@ -177,7 +177,7 @@ describe('ConflictDialog', () => {
     fireEvent.click(screen.getByTestId('conflict-keep-recovery-button'));
 
     expect(onResolve).toHaveBeenCalledTimes(1);
-    const resolution = onResolve.mock.calls[0][0] as ConflictResolution;
+    const resolution = onResolve.mock.calls[0]?.[0] as ConflictResolution;
     expect(resolution.choice).toBe('recovery');
     expect(resolution.documentId).toBe(docId);
   });
@@ -196,7 +196,7 @@ describe('ConflictDialog', () => {
     fireEvent.click(screen.getByTestId('conflict-keep-disk-button'));
 
     expect(onResolve).toHaveBeenCalledTimes(1);
-    const resolution = onResolve.mock.calls[0][0] as ConflictResolution;
+    const resolution = onResolve.mock.calls[0]?.[0] as ConflictResolution;
     expect(resolution.choice).toBe('disk');
   });
 
@@ -214,7 +214,7 @@ describe('ConflictDialog', () => {
     fireEvent.click(screen.getByTestId('conflict-save-as-button'));
 
     expect(onResolve).toHaveBeenCalledTimes(1);
-    const resolution = onResolve.mock.calls[0][0] as ConflictResolution;
+    const resolution = onResolve.mock.calls[0]?.[0] as ConflictResolution;
     expect(resolution.choice).toBe('save-as');
   });
 

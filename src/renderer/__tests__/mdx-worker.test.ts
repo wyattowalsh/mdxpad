@@ -146,6 +146,18 @@ title: Outline Test
         expect(result.code).toContain('language-mermaid');
       }
     });
+
+    it('should compile GFM footnotes with refs and backlinks', async () => {
+      const source = 'Footnote reference[^1].\n\n[^1]: Trusted source note.';
+      const result = await compileMdx(testId('footnotes'), source);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.code).toContain('data-footnotes');
+        expect(result.code).toContain('data-footnote-ref');
+        expect(result.code).toContain('data-footnote-backref');
+      }
+    });
   });
 
   describe('frontmatter extraction', () => {

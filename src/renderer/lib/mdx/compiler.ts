@@ -17,10 +17,7 @@
  * @module renderer/lib/mdx/compiler
  */
 
-import type {
-  CompileResponse,
-  RequestId,
-} from '@shared/types/preview-worker';
+import type { CompileResponse, RequestId } from '@shared/types/preview-worker';
 import { createRequestId, isHeartbeatPong, isPrewarmResponse } from '@shared/types/preview-worker';
 
 // Import worker pool utilities
@@ -62,12 +59,7 @@ import {
 } from './telemetry';
 
 // Re-export public types
-export type {
-  CompileOptions,
-  CompileTelemetry,
-  TelemetryStats,
-  TelemetryCallback,
-};
+export type { CompileOptions, CompileTelemetry, TelemetryStats, TelemetryCallback };
 
 // ============================================================================
 // Compiler State
@@ -149,7 +141,9 @@ function handlePrewarm(
   const response = data as import('@shared/types/preview-worker').PrewarmResponse;
   if (workerInstance) {
     workerInstance.prewarmed = true;
-    console.debug(`[MDX Compiler] Worker ${workerIndex} prewarmed in ${response.initDurationMs.toFixed(1)}ms`);
+    console.debug(
+      `[MDX Compiler] Worker ${workerIndex} prewarmed in ${response.initDurationMs.toFixed(1)}ms`
+    );
   }
 }
 
@@ -158,12 +152,7 @@ function handleCompile(
   state: CompilerState,
   pending: PendingRequest
 ): void {
-  const handled = handleCompileResponse(
-    response,
-    pending,
-    state.workers,
-    state.pendingRequests
-  );
+  const handled = handleCompileResponse(response, pending, state.workers, state.pendingRequests);
 
   if (handled) {
     const telemetry = createTelemetry(
@@ -263,8 +252,12 @@ function doCompile(
   };
 
   const queueOverflowRef = {
-    get count() { return state.queueOverflows; },
-    set count(v: number) { state.queueOverflows = v; },
+    get count() {
+      return state.queueOverflows;
+    },
+    set count(v: number) {
+      state.queueOverflows = v;
+    },
   };
 
   void compileWithRetry(
@@ -273,6 +266,7 @@ function doCompile(
     queueOverflowRef,
     state.isShuttingDown,
     source,
+    options?.pluginConfig,
     id,
     config,
     () => {
@@ -299,11 +293,7 @@ function setupGracefulShutdown(state: CompilerState): () => void {
     state.isShuttingDown = true;
     stopHeartbeatMonitoring(state.workers, state.heartbeatIntervalId);
     state.heartbeatIntervalId = null;
-    failAllPendingRequests(
-      state.pendingRequests,
-      state.workers,
-      'Page is unloading'
-    );
+    failAllPendingRequests(state.pendingRequests, state.workers, 'Page is unloading');
 
     for (const workerInstance of state.workers) {
       workerInstance.worker.terminate();
@@ -413,7 +403,7 @@ function buildCompilerAPI(
     },
 
     isHealthy(): boolean {
-      return state.workers.some(w => w.healthy);
+      return state.workers.some((w) => w.healthy);
     },
 
     async getMemoryUsage(): Promise<import('@shared/types/preview-worker').WorkerMemoryUsage[]> {
@@ -428,9 +418,7 @@ export function createMDXCompiler(options?: CreateCompilerOptions): MDXCompiler 
 
   // Create worker pool
   for (let i = 0; i < WORKER_POOL_SIZE; i++) {
-    state.workers.push(
-      createWorkerInstance(i, state.generation, handleMessage, handleError)
-    );
+    state.workers.push(createWorkerInstance(i, state.generation, handleMessage, handleError));
   }
 
   // Start heartbeat monitoring (unless disabled for testing)

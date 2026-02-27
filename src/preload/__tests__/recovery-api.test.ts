@@ -82,7 +82,7 @@ describe('recoveryOperations', () => {
         expect.any(Object),
         { documentId: 'doc-1' }
       );
-      expect(result.content).toBe('# Hello');
+      expect((result as { content?: string }).content).toBe('# Hello');
     });
   });
 
@@ -91,14 +91,14 @@ describe('recoveryOperations', () => {
       mockValidatedInvoke.mockResolvedValue({ ok: true });
 
       const result = await recoveryOperations.recoveryRestore({
-        documentIds: ['doc-1'] as never[],
+        decision: { action: 'accept', selectedIds: ['doc-1' as never] },
       });
 
       expect(mockValidatedInvoke).toHaveBeenCalledWith(
         AutosaveChannels.RECOVERY_RESTORE,
         expect.any(Object),
         expect.any(Object),
-        { documentIds: ['doc-1'] }
+        expect.objectContaining({ decision: expect.any(Object) })
       );
       expect(result.ok).toBe(true);
     });
@@ -135,6 +135,7 @@ describe('autosaveOperations', () => {
         documentId: 'doc-1' as never,
         content: '# Content',
         filePath: '/path/to/file.mdx',
+        fileName: 'file.mdx',
       });
 
       expect(mockValidatedInvoke).toHaveBeenCalledWith(
@@ -160,7 +161,7 @@ describe('autosaveOperations', () => {
         null,
         expect.any(Object)
       );
-      expect(result.enabled).toBe(true);
+      expect((result as { enabled?: boolean }).enabled).toBe(true);
     });
   });
 
@@ -169,8 +170,7 @@ describe('autosaveOperations', () => {
       mockValidatedInvoke.mockResolvedValue({ resolved: true });
 
       await autosaveOperations.conflictResolve({
-        documentId: 'doc-1' as never,
-        resolution: 'keep-local' as never,
+        resolution: { choice: 'recovery', documentId: 'doc-1' as never },
       });
 
       expect(mockValidatedInvoke).toHaveBeenCalledWith(
@@ -178,8 +178,10 @@ describe('autosaveOperations', () => {
         expect.any(Object),
         expect.any(Object),
         expect.objectContaining({
-          documentId: 'doc-1',
-          resolution: 'keep-local',
+          resolution: expect.objectContaining({
+            choice: 'recovery',
+            documentId: 'doc-1',
+          }),
         })
       );
     });

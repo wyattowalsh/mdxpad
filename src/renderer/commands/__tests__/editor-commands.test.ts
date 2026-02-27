@@ -7,15 +7,95 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CommandContext, CommandId } from '@shared/types/commands';
+import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
 
 // =============================================================================
 // MOCKS
 // =============================================================================
 
 const mockExecuteCommand = vi.fn().mockReturnValue(true);
+const aiStoreListeners = new Set<(state: MockAISessionStoreState) => void>();
+
+interface MockAISessionStoreState {
+  selectedSessionId: string | null;
+  isStreaming: boolean;
+  stream: {
+    status: 'idle' | 'starting' | 'streaming' | 'completed' | 'canceling' | 'error';
+    text: string;
+    error: string | null;
+  };
+  startStream: ReturnType<typeof vi.fn>;
+  cancelStream: ReturnType<typeof vi.fn>;
+  clearStream: ReturnType<typeof vi.fn>;
+}
+
+const mockAISessionStoreState: MockAISessionStoreState = {
+  selectedSessionId: '33333333-3333-4333-8333-333333333333',
+  isStreaming: false,
+  stream: {
+    status: 'idle',
+    text: '',
+    error: null,
+  },
+  startStream: vi.fn(async () => undefined),
+  cancelStream: vi.fn(async () => undefined),
+  clearStream: vi.fn(() => undefined),
+};
+
+function resetMockAISessionStoreState(): void {
+  mockAISessionStoreState.selectedSessionId = '33333333-3333-4333-8333-333333333333';
+  mockAISessionStoreState.isStreaming = false;
+  mockAISessionStoreState.stream = {
+    status: 'idle',
+    text: '',
+    error: null,
+  };
+  mockAISessionStoreState.startStream.mockReset();
+  mockAISessionStoreState.cancelStream.mockReset();
+  mockAISessionStoreState.clearStream.mockReset();
+  mockAISessionStoreState.startStream.mockResolvedValue(undefined);
+  mockAISessionStoreState.cancelStream.mockResolvedValue(undefined);
+  mockAISessionStoreState.clearStream.mockImplementation(() => undefined);
+  aiStoreListeners.clear();
+}
+
+function emitAISessionStoreState(
+  nextState: Partial<Omit<MockAISessionStoreState, 'stream'>> & {
+    stream?: Partial<MockAISessionStoreState['stream']>;
+  }
+): void {
+  if (nextState.selectedSessionId !== undefined) {
+    mockAISessionStoreState.selectedSessionId = nextState.selectedSessionId;
+  }
+  if (nextState.isStreaming !== undefined) {
+    mockAISessionStoreState.isStreaming = nextState.isStreaming;
+  }
+  if (nextState.stream) {
+    mockAISessionStoreState.stream = {
+      ...mockAISessionStoreState.stream,
+      ...nextState.stream,
+    };
+  }
+
+  for (const listener of aiStoreListeners) {
+    listener(mockAISessionStoreState);
+  }
+}
 
 vi.mock('../../hooks/useCodeMirror/commands', () => ({
   executeCommand: (...args: unknown[]) => mockExecuteCommand(...args),
+}));
+
+vi.mock('../../stores/ai-session-store', () => ({
+  useAISessionStore: {
+    getState: () => mockAISessionStoreState,
+    subscribe: (listener: (state: MockAISessionStoreState) => void) => {
+      aiStoreListeners.add(listener);
+      return () => {
+        aiStoreListeners.delete(listener);
+      };
+    },
+  },
 }));
 
 vi.mock('../../stores/command-registry-store', () => ({
@@ -46,13 +126,31 @@ function createMockContext(overrides: Partial<CommandContext> = {}): CommandCont
   };
 }
 
+function createMockEditor(options: { content: string; from: number; to: number }): {
+  state: {
+    selection: { main: { from: number; to: number } };
+    doc: { length: number };
+    sliceDoc: (from: number, to: number) => string;
+  };
+  dispatch: ReturnType<typeof vi.fn>;
+} {
+  return {
+    state: {
+      selection: { main: { from: options.from, to: options.to } },
+      doc: { length: options.content.length },
+      sliceDoc: (from: number, to: number) => options.content.slice(from, to),
+    },
+    dispatch: vi.fn(),
+  };
+}
+
 // =============================================================================
 // TESTS
 // =============================================================================
 
 describe('EDITOR_COMMANDS', () => {
-  it('should contain 14 commands', () => {
-    expect(EDITOR_COMMANDS).toHaveLength(14);
+  it('should contain 19 commands', () => {
+    expect(EDITOR_COMMANDS).toHaveLength(19);
   });
 
   it('should have unique IDs', () => {
@@ -83,6 +181,11 @@ describe('Editor command IDs', () => {
     'edit.heading-1',
     'edit.heading-2',
     'edit.heading-3',
+    'edit.ai-rewrite',
+    'edit.ai-summarize',
+    'edit.ai-fix-grammar',
+    'edit.ai-adjust-tone',
+    'edit.ai-cancel-write-action',
   ];
 
   it('should have all expected command IDs', () => {
@@ -94,7 +197,7 @@ describe('Editor command IDs', () => {
 });
 
 describe('Editor command shortcuts', () => {
-  const shortcutTests: Array<{ id: string; key: string; modifiers: string[] }> = [
+  const shortcutTests: { id: string; key: string; modifiers: string[] }[] = [
     { id: 'edit.bold', key: 'b', modifiers: ['Mod'] },
     { id: 'edit.italic', key: 'i', modifiers: ['Mod'] },
     { id: 'edit.code', key: 'e', modifiers: ['Mod'] },
@@ -122,6 +225,8 @@ describe('Editor command shortcuts', () => {
 describe('Editor command execution', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetMockAISessionStoreState();
+    useFeatureFlagsStore.getState().setFlag('ai', true);
   });
 
   it('should return error when editor is null', () => {
@@ -160,7 +265,188 @@ describe('Editor command execution', () => {
   });
 });
 
+describe('AI write command execution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMockAISessionStoreState();
+    useFeatureFlagsStore.getState().setFlag('ai', true);
+  });
+
+  it('should block AI write commands when AI feature flag is off', async () => {
+    useFeatureFlagsStore.getState().setFlag('ai', false);
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-rewrite');
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'AI feature is disabled' });
+    expect(mockAISessionStoreState.startStream).not.toHaveBeenCalled();
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'AI feature is disabled',
+    });
+  });
+
+  it('should show warning when no AI session is selected', async () => {
+    mockAISessionStoreState.selectedSessionId = null;
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-rewrite');
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'No AI session selected' });
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'Select an AI session before running write actions',
+    });
+  });
+
+  it('should show warning when there is no text selection', async () => {
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 0 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-rewrite');
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'No text selected' });
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'Select text in the editor to run AI write actions',
+    });
+  });
+
+  it('should preserve AI response whitespace when replacing selected text', async () => {
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-summarize');
+
+    mockAISessionStoreState.startStream.mockImplementation(async () => {
+      emitAISessionStoreState({
+        isStreaming: true,
+        stream: { status: 'streaming', text: '', error: null },
+      });
+      emitAISessionStoreState({
+        isStreaming: false,
+        stream: { status: 'completed', text: '  Summary  \n', error: null },
+      });
+    });
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockAISessionStoreState.startStream).toHaveBeenCalledWith({
+      prompt: expect.stringContaining('Hello'),
+    });
+    expect(editor.dispatch).toHaveBeenCalledWith({
+      changes: { from: 0, to: 5, insert: '  Summary  \n' },
+      selection: { anchor: 0, head: 12 },
+    });
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'success',
+      message: 'AI write action applied',
+    });
+  });
+
+  it('should reject AI write action when selection drifts before apply', async () => {
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-rewrite');
+
+    mockAISessionStoreState.startStream.mockImplementation(async () => {
+      emitAISessionStoreState({
+        isStreaming: true,
+        stream: { status: 'streaming', text: '', error: null },
+      });
+      editor.state.selection.main = { from: 1, to: 6 };
+      emitAISessionStoreState({
+        isStreaming: false,
+        stream: { status: 'completed', text: 'Updated', error: null },
+      });
+    });
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'AI write action selection changed' });
+    expect(editor.dispatch).not.toHaveBeenCalled();
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'Selection changed before applying AI write action; no changes were made',
+    });
+  });
+
+  it('should treat whitespace-only AI responses as empty', async () => {
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-adjust-tone');
+
+    mockAISessionStoreState.startStream.mockImplementation(async () => {
+      emitAISessionStoreState({
+        isStreaming: false,
+        stream: { status: 'completed', text: ' \n\t ', error: null },
+      });
+    });
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'Empty AI response' });
+    expect(editor.dispatch).not.toHaveBeenCalled();
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'AI write action failed: Empty AI response',
+    });
+  });
+
+  it('should handle stream errors from AI write action', async () => {
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-fix-grammar');
+
+    mockAISessionStoreState.startStream.mockImplementation(async () => {
+      emitAISessionStoreState({
+        isStreaming: false,
+        stream: { status: 'error', text: '', error: 'Provider unavailable' },
+      });
+    });
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'Provider unavailable' });
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'AI write action failed: Provider unavailable',
+    });
+    expect(editor.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('should cancel an in-progress AI write action', async () => {
+    mockAISessionStoreState.isStreaming = true;
+    const ctx = createMockContext({
+      editor: createMockEditor({
+        content: 'Hello world',
+        from: 0,
+        to: 5,
+      }) as unknown as CommandContext['editor'],
+    });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-cancel-write-action');
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockAISessionStoreState.cancelStream).toHaveBeenCalledTimes(1);
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'AI write action canceled',
+    });
+  });
+});
+
 describe('Editor command enabled predicate', () => {
+  beforeEach(() => {
+    useFeatureFlagsStore.getState().setFlag('ai', true);
+  });
+
   it('should be disabled when editor is null', () => {
     const ctx = createMockContext({ editor: null });
     for (const cmd of EDITOR_COMMANDS) {
@@ -173,6 +459,19 @@ describe('Editor command enabled predicate', () => {
     const ctx = createMockContext({ editor: mockEditor });
     for (const cmd of EDITOR_COMMANDS) {
       expect(cmd.enabled?.(ctx)).toBe(true);
+    }
+  });
+
+  it('should disable only AI commands when AI feature flag is off', () => {
+    useFeatureFlagsStore.getState().setFlag('ai', false);
+    const mockEditor = {} as CommandContext['editor'];
+    const ctx = createMockContext({ editor: mockEditor });
+    for (const cmd of EDITOR_COMMANDS) {
+      if (cmd.id.startsWith('edit.ai-')) {
+        expect(cmd.enabled?.(ctx)).toBe(false);
+      } else {
+        expect(cmd.enabled?.(ctx)).toBe(true);
+      }
     }
   });
 });

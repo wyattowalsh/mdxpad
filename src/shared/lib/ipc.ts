@@ -31,8 +31,6 @@ export const IPC_CHANNELS = {
   app: {
     getVersion: 'mdxpad:app:get-version',
     getSecurityInfo: 'mdxpad:app:get-security-info',
-    // Legacy alias retained for compatibility; canonical channel is app.getVersion
-    version: 'mdxpad:app:get-version',
     ready: 'mdxpad:app:ready',
   },
   /** Editor operations */
@@ -75,6 +73,16 @@ export const IPC_CHANNELS = {
     list: 'mdxpad:extension:list',
     install: 'mdxpad:extension:install',
     setPermission: 'mdxpad:extension:set-permission',
+  },
+  /** Workspace operations (Fleet Wave 4) */
+  workspace: {
+    open: 'mdxpad:workspace:open',
+    save: 'mdxpad:workspace:save',
+    createProject: 'mdxpad:workspace:create-project',
+    addLink: 'mdxpad:workspace:add-link',
+    getBacklinks: 'mdxpad:workspace:get-backlinks',
+    queryMetadataCollection: 'mdxpad:workspace:query-metadata-collection',
+    aggregateMetadataCollection: 'mdxpad:workspace:aggregate-metadata-collection',
   },
   /** Publishing + provenance operations (Fleet Wave 4) */
   publish: {
@@ -126,6 +134,7 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.sync)[keyof typeof IPC_CHANNELS.sync]
   | (typeof IPC_CHANNELS.collaboration)[keyof typeof IPC_CHANNELS.collaboration]
   | (typeof IPC_CHANNELS.extension)[keyof typeof IPC_CHANNELS.extension]
+  | (typeof IPC_CHANNELS.workspace)[keyof typeof IPC_CHANNELS.workspace]
   | (typeof IPC_CHANNELS.publish)[keyof typeof IPC_CHANNELS.publish];
 
 /**

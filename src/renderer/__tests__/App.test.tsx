@@ -12,6 +12,7 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useFrontmatterStore } from '../stores/frontmatter-store';
 import { useAIProviderStore } from '../features/ai-provider/store';
 import { useFileExplorerStore } from '../stores/file-explorer-store';
+import { useFeatureFlagsStore } from '../stores/feature-flags-store';
 import type { CommandId, NormalizedShortcut } from '@shared/types/commands';
 
 function createDeferred<T>() {
@@ -119,6 +120,16 @@ function createMockMdxpadApi() {
       getCapability: vi.fn().mockResolvedValue({ capabilities: [], modelInfo: null }),
       listModels: vi.fn().mockResolvedValue({ models: [] }),
       refreshCapabilities: vi.fn().mockResolvedValue({ success: true }),
+      createSession: vi.fn().mockResolvedValue({ success: true }),
+      listSessions: vi.fn().mockResolvedValue({ sessions: [], activeSessionId: null }),
+      getSession: vi.fn().mockResolvedValue({ session: null }),
+      archiveSession: vi.fn().mockResolvedValue({ success: true }),
+      restoreSession: vi.fn().mockResolvedValue({ session: null }),
+      listPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
+      attachPrompt: vi.fn().mockResolvedValue({ success: true }),
+      listInstructions: vi.fn().mockResolvedValue({ instructions: [] }),
+      loadInstruction: vi.fn().mockResolvedValue({ instruction: null }),
+      attachInstruction: vi.fn().mockResolvedValue({ success: true }),
       onStreamChunk: vi.fn(() => () => {}),
       onStreamComplete: vi.fn(() => () => {}),
       onStreamError: vi.fn(() => () => {}),
@@ -145,6 +156,13 @@ function createMockMdxpadApi() {
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('mdxpad', createMockMdxpadApi());
+    useFeatureFlagsStore.getState().reset();
+    useFeatureFlagsStore.getState().setFlags({
+      workspace: true,
+      ai: true,
+      export: true,
+      authoring: true,
+    });
     useDocumentStore.getState().reset();
     useSettingsStore.getState().close();
     useFrontmatterStore.getState().reset();
@@ -169,6 +187,13 @@ describe('App', () => {
     render(<App />);
 
     expect(screen.getByRole('button', { name: /frontmatter/i })).toBeDefined();
+  });
+
+  it('hides frontmatter authoring controls when authoring feature flag is off', () => {
+    useFeatureFlagsStore.getState().setFlag('authoring', false);
+    render(<App />);
+
+    expect(screen.queryByRole('button', { name: /frontmatter/i })).toBeNull();
   });
 
   it('renders file explorer filter controls', () => {
@@ -241,6 +266,19 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('ai-provider-settings-dialog')).toBeDefined();
+    });
+  });
+
+  it('hides AI settings actions when AI feature flag is off', async () => {
+    useFeatureFlagsStore.getState().setFlag('ai', false);
+    act(() => {
+      useSettingsStore.getState().open();
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('open-ai-provider-settings-button')).toBeNull();
     });
   });
 

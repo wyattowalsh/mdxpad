@@ -13,31 +13,54 @@ import { z } from 'zod';
 // Worker Message Schemas
 // ============================================================================
 
-export const compileRequestSchema = z.object({
-  id: z.string().uuid(),
-  source: z.string(),
-}).strict();
+export const compileRequestSchema = z
+  .object({
+    id: z.string().uuid(),
+    source: z.string(),
+    pluginConfig: z
+      .object({
+        plugins: z
+          .record(
+            z
+              .object({
+                enabled: z.boolean().optional(),
+                options: z.unknown().optional(),
+              })
+              .strict()
+          )
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
-export const compileErrorSchema = z.object({
-  message: z.string(),
-  line: z.number().optional(),
-  column: z.number().optional(),
-  source: z.string().optional(),
-}).strict();
+export const compileErrorSchema = z
+  .object({
+    message: z.string(),
+    line: z.number().optional(),
+    column: z.number().optional(),
+    source: z.string().optional(),
+  })
+  .strict();
 
-export const compileResponseSuccessSchema = z.object({
-  id: z.string().uuid(),
-  ok: z.literal(true),
-  code: z.string(),
-  // Frontmatter keys are intentionally dynamic user content.
-  frontmatter: z.record(z.unknown()),
-}).strict();
+export const compileResponseSuccessSchema = z
+  .object({
+    id: z.string().uuid(),
+    ok: z.literal(true),
+    code: z.string(),
+    // Frontmatter keys are intentionally dynamic user content.
+    frontmatter: z.record(z.unknown()),
+  })
+  .strict();
 
-export const compileResponseFailureSchema = z.object({
-  id: z.string().uuid(),
-  ok: z.literal(false),
-  errors: z.array(compileErrorSchema),
-}).strict();
+export const compileResponseFailureSchema = z
+  .object({
+    id: z.string().uuid(),
+    ok: z.literal(false),
+    errors: z.array(compileErrorSchema),
+  })
+  .strict();
 
 export const compileResponseSchema = z.discriminatedUnion('ok', [
   compileResponseSuccessSchema,
@@ -48,22 +71,28 @@ export const compileResponseSchema = z.discriminatedUnion('ok', [
 // Iframe Message Schemas
 // ============================================================================
 
-export const renderCommandSchema = z.object({
-  type: z.literal('render'),
-  code: z.string(),
-  // Frontmatter keys are intentionally dynamic user content.
-  frontmatter: z.record(z.unknown()),
-}).strict();
+export const renderCommandSchema = z
+  .object({
+    type: z.literal('render'),
+    code: z.string(),
+    // Frontmatter keys are intentionally dynamic user content.
+    frontmatter: z.record(z.unknown()),
+  })
+  .strict();
 
-export const themeCommandSchema = z.object({
-  type: z.literal('theme'),
-  value: z.enum(['light', 'dark']),
-}).strict();
+export const themeCommandSchema = z
+  .object({
+    type: z.literal('theme'),
+    value: z.enum(['light', 'dark']),
+  })
+  .strict();
 
-export const scrollCommandSchema = z.object({
-  type: z.literal('scroll'),
-  ratio: z.number().min(0).max(1),
-}).strict();
+export const scrollCommandSchema = z
+  .object({
+    type: z.literal('scroll'),
+    ratio: z.number().min(0).max(1),
+  })
+  .strict();
 
 export const parentToIframeMessageSchema = z.discriminatedUnion('type', [
   renderCommandSchema,
@@ -71,32 +100,40 @@ export const parentToIframeMessageSchema = z.discriminatedUnion('type', [
   scrollCommandSchema,
 ]);
 
-export const readySignalSchema = z.object({
-  type: z.literal('ready'),
-}).strict();
+export const readySignalSchema = z
+  .object({
+    type: z.literal('ready'),
+  })
+  .strict();
 
-export const sizeSignalSchema = z.object({
-  type: z.literal('size'),
-  height: z.number(),
-}).strict();
+export const sizeSignalSchema = z
+  .object({
+    type: z.literal('size'),
+    height: z.number(),
+  })
+  .strict();
 
-export const runtimeErrorSignalSchema = z.object({
-  type: z.literal('runtime-error'),
-  message: z.string(),
-  componentStack: z.string().optional(),
-}).strict();
+export const runtimeErrorSignalSchema = z
+  .object({
+    type: z.literal('runtime-error'),
+    message: z.string(),
+    componentStack: z.string().optional(),
+  })
+  .strict();
 
 /**
  * Schema for scroll report signal.
  * Feature: 008-bidirectional-sync
  */
-export const scrollReportSignalSchema = z.object({
-  type: z.literal('scroll-report'),
-  ratio: z.number().min(0).max(1),
-  scrollTop: z.number().min(0),
-  scrollHeight: z.number().min(0),
-  clientHeight: z.number().min(0),
-}).strict();
+export const scrollReportSignalSchema = z
+  .object({
+    type: z.literal('scroll-report'),
+    ratio: z.number().min(0).max(1),
+    scrollTop: z.number().min(0),
+    scrollHeight: z.number().min(0),
+    clientHeight: z.number().min(0),
+  })
+  .strict();
 
 export const iframeToParentMessageSchema = z.discriminatedUnion('type', [
   readySignalSchema,

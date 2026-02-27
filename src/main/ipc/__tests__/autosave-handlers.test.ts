@@ -666,7 +666,7 @@ describe('Conflict Resolution Handler', () => {
       ]);
     });
 
-    it('should fail conflict resolution with save-as when unsupported', async () => {
+    it('should resolve conflict with save-as choice', async () => {
       const request = {
         resolution: {
           choice: 'save-as' as const,
@@ -678,10 +678,10 @@ describe('Conflict Resolution Handler', () => {
       const handler = handlers[AutosaveChannels.CONFLICT_RESOLVE]!;
       const result = await handler(null, request);
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error).toContain('not supported');
-      }
+      expect(result).toEqual({ ok: true });
+      expect(services.recoveryService.discardRecovery).toHaveBeenCalledWith([
+        '123e4567-e89b-12d3-a456-426614174000',
+      ]);
     });
   });
 });

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ipcMain, type BrowserWindow } from 'electron';
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
@@ -74,9 +74,11 @@ function createMockAIServices(): AIServices {
         maxOutputTokens: 4096,
         constraints: {},
       }),
-      listModels: vi.fn().mockResolvedValue([
-        { id: 'gpt-4', name: 'GPT-4', capabilities: [ProviderCapability.TEXT_GENERATION] },
-      ]),
+      listModels: vi
+        .fn()
+        .mockResolvedValue([
+          { id: 'gpt-4', name: 'GPT-4', capabilities: [ProviderCapability.TEXT_GENERATION] },
+        ]),
       refreshCapabilities: vi.fn().mockResolvedValue(undefined),
     },
     aiService: {
@@ -102,14 +104,14 @@ function createMockWindow(): BrowserWindow {
   } as unknown as BrowserWindow;
 }
 
-function createAuthorizedInvokeEvent(window: BrowserWindow) {
+function createAuthorizedInvokeEvent(window: BrowserWindow): IpcMainInvokeEvent {
   return {
     sender: {
       id: window.webContents.id,
       mainFrame: { routingId: window.webContents.mainFrame.routingId },
     },
     senderFrame: { routingId: window.webContents.mainFrame.routingId },
-  };
+  } as IpcMainInvokeEvent;
 }
 
 function createUnauthorizedInvokeEvent(window: BrowserWindow) {
@@ -137,7 +139,10 @@ describe('registerProviderHandlers', () => {
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_ADD, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_UPDATE, expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_REMOVE, expect.any(Function));
-    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_SET_ACTIVE, expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      AIChannels.PROVIDER_SET_ACTIVE,
+      expect.any(Function)
+    );
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_VALIDATE, expect.any(Function));
   });
 
@@ -155,8 +160,14 @@ describe('registerProviderHandlers', () => {
     registerProviderHandlers(services, mockWindow);
 
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CAPABILITY_GET, expect.any(Function));
-    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CAPABILITY_LIST_MODELS, expect.any(Function));
-    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.CAPABILITY_REFRESH, expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      AIChannels.CAPABILITY_LIST_MODELS,
+      expect.any(Function)
+    );
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      AIChannels.CAPABILITY_REFRESH,
+      expect.any(Function)
+    );
   });
 
   it('should reject unauthorized sender for privileged provider handlers', async () => {
@@ -165,8 +176,7 @@ describe('registerProviderHandlers', () => {
 
     const providerAddCall = vi
       .mocked(ipcMain.handle)
-      .mock.calls
-      .find(([channel]) => channel === AIChannels.PROVIDER_ADD);
+      .mock.calls.find(([channel]) => channel === AIChannels.PROVIDER_ADD);
     const providerAddHandler = providerAddCall?.[1] as
       | ((event: unknown, request: unknown) => Promise<unknown>)
       | undefined;
@@ -333,9 +343,12 @@ describe('Provider Management Handlers', () => {
         success: true,
         provider: mockProvider,
       });
-      expect(services.providerService.updateProvider).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000', {
-        displayName: 'Updated Name',
-      });
+      expect(services.providerService.updateProvider).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000',
+        {
+          displayName: 'Updated Name',
+        }
+      );
     });
 
     it('should handle multiple update fields', async () => {
@@ -350,11 +363,14 @@ describe('Provider Management Handlers', () => {
 
       await handlers[AIChannels.PROVIDER_UPDATE]!(null, request);
 
-      expect(services.providerService.updateProvider).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000', {
-        displayName: 'New Name',
-        baseUrl: 'https://new.url.com',
-        isActive: true,
-      });
+      expect(services.providerService.updateProvider).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000',
+        {
+          displayName: 'New Name',
+          baseUrl: 'https://new.url.com',
+          isActive: true,
+        }
+      );
     });
 
     it('should filter out undefined values', async () => {
@@ -399,7 +415,9 @@ describe('Provider Management Handlers', () => {
       const result = await handler(null, request);
 
       expect(result).toEqual({ success: true });
-      expect(services.providerService.removeProvider).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000');
+      expect(services.providerService.removeProvider).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000'
+      );
     });
 
     it('should return error when removal fails', async () => {
@@ -428,7 +446,9 @@ describe('Provider Management Handlers', () => {
         success: true,
         activeProviderId: '550e8400-e29b-41d4-a716-446655440000',
       });
-      expect(services.providerService.setActiveProvider).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000');
+      expect(services.providerService.setActiveProvider).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000'
+      );
     });
 
     it('should return error when provider not found', async () => {
@@ -613,7 +633,9 @@ describe('Credential Management Handlers', () => {
       const result = await handler(null, request);
 
       expect(result).toEqual({ success: true });
-      expect(services.credentialService.clearCredential).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000');
+      expect(services.credentialService.clearCredential).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000'
+      );
     });
   });
 });
@@ -691,7 +713,11 @@ describe('Capability Detection Handlers', () => {
 
       const mockModels = [
         { id: 'gpt-4', name: 'GPT-4', capabilities: [ProviderCapability.TEXT_GENERATION] },
-        { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', capabilities: [ProviderCapability.TEXT_GENERATION] },
+        {
+          id: 'gpt-3.5-turbo',
+          name: 'GPT-3.5 Turbo',
+          capabilities: [ProviderCapability.TEXT_GENERATION],
+        },
       ];
 
       vi.mocked(services.capabilityService.listModels).mockResolvedValue(mockModels);
@@ -709,9 +735,7 @@ describe('Capability Detection Handlers', () => {
     it('should handle model list errors', async () => {
       const request = { providerId: '550e8400-e29b-41d4-a716-446655440000' };
 
-      vi.mocked(services.capabilityService.listModels).mockRejectedValue(
-        new Error('API error')
-      );
+      vi.mocked(services.capabilityService.listModels).mockRejectedValue(new Error('API error'));
 
       const handler = handlers[AIChannels.CAPABILITY_LIST_MODELS]!;
       const result = await handler(null, request);
@@ -729,7 +753,9 @@ describe('Capability Detection Handlers', () => {
       const result = await handler(null, request);
 
       expect(result).toEqual({ success: true });
-      expect(services.capabilityService.refreshCapabilities).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000');
+      expect(services.capabilityService.refreshCapabilities).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000'
+      );
     });
 
     it('should handle refresh errors', async () => {

@@ -335,6 +335,8 @@ describe('validateAllFields', () => {
         value: 'Hello',
         path: ['title'],
         validation: VALID_RESULT,
+        isFromSchema: false,
+        order: 0,
       },
       {
         name: 'count',
@@ -342,6 +344,8 @@ describe('validateAllFields', () => {
         value: 'not-a-number',
         path: ['count'],
         validation: VALID_RESULT,
+        isFromSchema: false,
+        order: 1,
       },
     ];
 
@@ -359,6 +363,8 @@ describe('validateAllFields', () => {
         value: '',
         path: ['title'],
         validation: VALID_RESULT,
+        isFromSchema: false,
+        order: 0,
       },
     ];
 
@@ -377,6 +383,8 @@ describe('getValidationErrorCount', () => {
         value: '',
         path: ['a'],
         validation: VALID_RESULT,
+        isFromSchema: false,
+        order: 0,
       },
       {
         name: 'b',
@@ -388,6 +396,8 @@ describe('getValidationErrorCount', () => {
           errors: [{ code: 'REQUIRED', message: 'Required' }],
           warnings: [],
         },
+        isFromSchema: false,
+        order: 1,
       },
     ];
 
@@ -398,14 +408,30 @@ describe('getValidationErrorCount', () => {
 describe('hasValidationErrors', () => {
   it('should return false when all valid', () => {
     const fields: FrontmatterField[] = [
-      { name: 'a', type: 'text', value: 'x', path: ['a'], validation: VALID_RESULT },
+      {
+        name: 'a',
+        type: 'text',
+        value: 'x',
+        path: ['a'],
+        validation: VALID_RESULT,
+        isFromSchema: false,
+        order: 0,
+      },
     ];
     expect(hasValidationErrors(fields)).toBe(false);
   });
 
   it('should return true when any field has errors', () => {
     const fields: FrontmatterField[] = [
-      { name: 'a', type: 'text', value: 'x', path: ['a'], validation: VALID_RESULT },
+      {
+        name: 'a',
+        type: 'text',
+        value: 'x',
+        path: ['a'],
+        validation: VALID_RESULT,
+        isFromSchema: false,
+        order: 0,
+      },
       {
         name: 'b',
         type: 'text',
@@ -416,6 +442,8 @@ describe('hasValidationErrors', () => {
           errors: [{ code: 'REQUIRED', message: 'Required' }],
           warnings: [],
         },
+        isFromSchema: false,
+        order: 1,
       },
     ];
     expect(hasValidationErrors(fields)).toBe(true);

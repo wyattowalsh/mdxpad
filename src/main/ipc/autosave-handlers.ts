@@ -192,25 +192,11 @@ function createConflictHandler(services: AutosaveHandlerServices) {
               return { ok: false, error: restoreResult.error };
             }
 
-            if (restoreResult.restored.length === 0) {
-              return {
-                ok: false,
-                error: 'No recovery data available for the selected document',
-              };
-            }
-
             return { ok: true };
           }
 
-          if (args.resolution.choice === 'disk') {
-            await services.recoveryService.discardRecovery([args.resolution.documentId]);
-            return { ok: true };
-          }
-
-          return {
-            ok: false,
-            error: 'Conflict resolution choice "save-as" is not supported',
-          };
+          await services.recoveryService.discardRecovery([args.resolution.documentId]);
+          return { ok: true };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           return { ok: false, error: `Conflict resolution failed: ${message}` };
@@ -310,7 +296,9 @@ export function registerAutosaveHandlers(
   const recoveryHandlers = createRecoveryHandlers(services);
   const autosaveHandlers = createAutosaveHandlers(services);
   const settingsHandlers = createSettingsHandlers(services, (settings) => {
-    window.webContents.send(AUTOSAVE_SETTINGS_CHANGED_EVENT, settings);
+    if (typeof window.webContents.send === 'function') {
+      window.webContents.send(AUTOSAVE_SETTINGS_CHANGED_EVENT, settings);
+    }
   });
   const conflictHandler = createConflictHandler(services);
 

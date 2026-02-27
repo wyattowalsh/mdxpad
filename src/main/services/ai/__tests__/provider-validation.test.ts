@@ -21,9 +21,8 @@ function makeProvider(type: ProviderConfig['type'], baseUrl?: string): ProviderC
     displayName: type.toUpperCase(),
     type,
     status: 'disconnected',
-    capabilities: [],
     ...(baseUrl ? { baseUrl } : {}),
-  };
+  } as unknown as ProviderConfig;
 }
 
 // ============================================================================

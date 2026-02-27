@@ -10,15 +10,11 @@
  * @module renderer/commands/template-commands
  */
 
-import type {
-  Command,
-  CommandId,
-  CommandContext,
-  CommandResult,
-} from '@shared/types/commands';
+import type { Command, CommandId, CommandContext, CommandResult } from '@shared/types/commands';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useTemplateBrowserModalStore } from '../stores/template-browser-store';
 import { useTemplateStore } from '../stores/template-store';
+import { isFeatureEnabled } from '../stores/feature-flags-store';
 
 // =============================================================================
 // COMMAND IDS
@@ -51,11 +47,14 @@ const newFromTemplateCommand: Command = {
   shortcut: { key: 'n', modifiers: ['Mod', 'Shift'] },
   icon: '📋',
   execute: (_ctx: CommandContext): CommandResult => {
+    if (!isFeatureEnabled('authoring')) {
+      return { ok: false, error: 'Authoring feature is disabled' };
+    }
     // Open the template browser modal
     useTemplateBrowserModalStore.getState().openTemplateBrowser();
     return { ok: true };
   },
-  enabled: () => true,
+  enabled: () => isFeatureEnabled('authoring'),
 };
 
 /**
@@ -69,10 +68,13 @@ const browseTemplatesCommand: Command = {
   category: 'file',
   icon: '📚',
   execute: (_ctx: CommandContext): CommandResult => {
+    if (!isFeatureEnabled('authoring')) {
+      return { ok: false, error: 'Authoring feature is disabled' };
+    }
     useTemplateBrowserModalStore.getState().openTemplateBrowser();
     return { ok: true };
   },
-  enabled: () => true,
+  enabled: () => isFeatureEnabled('authoring'),
 };
 
 /**
@@ -86,6 +88,9 @@ const saveAsTemplateCommand: Command = {
   category: 'file',
   icon: '💾',
   execute: (ctx: CommandContext): CommandResult => {
+    if (!isFeatureEnabled('authoring')) {
+      return { ok: false, error: 'Authoring feature is disabled' };
+    }
     // Check if there's content to save
     if (!ctx.document.content.trim()) {
       ctx.notify({
@@ -97,7 +102,7 @@ const saveAsTemplateCommand: Command = {
     useTemplateBrowserModalStore.getState().openSaveTemplateDialog();
     return { ok: true };
   },
-  enabled: (ctx) => ctx.document.content.trim().length > 0,
+  enabled: (ctx) => isFeatureEnabled('authoring') && ctx.document.content.trim().length > 0,
 };
 
 /**
@@ -111,6 +116,9 @@ const importTemplateCommand: Command = {
   category: 'file',
   icon: '📥',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    if (!isFeatureEnabled('authoring')) {
+      return { ok: false, error: 'Authoring feature is disabled' };
+    }
     try {
       // Show open dialog
       const dialogResult = await window.mdxpad.template.showOpenDialog();
@@ -144,7 +152,7 @@ const importTemplateCommand: Command = {
       return { ok: false, error: message };
     }
   },
-  enabled: () => true,
+  enabled: () => isFeatureEnabled('authoring'),
 };
 
 // =============================================================================

@@ -434,7 +434,7 @@ describe('useAppState', () => {
       const { result } = renderHook(() => useAppState());
 
       act(() => {
-        result.current.handleNotification({ message: 'File saved' });
+        result.current.handleNotification({ type: 'info', message: 'File saved' });
       });
 
       expect(result.current.announcement).toBe('File saved');
@@ -444,7 +444,7 @@ describe('useAppState', () => {
       const { result } = renderHook(() => useAppState());
 
       act(() => {
-        result.current.handleNotification({ message: 'Hello', duration: 1000 });
+        result.current.handleNotification({ type: 'info', message: 'Hello', duration: 1000 });
       });
 
       expect(result.current.announcement).toBe('Hello');
@@ -460,7 +460,7 @@ describe('useAppState', () => {
       const { result } = renderHook(() => useAppState());
 
       act(() => {
-        result.current.handleNotification({ message: 'Test' });
+        result.current.handleNotification({ type: 'info', message: 'Test' });
       });
 
       act(() => {
@@ -478,11 +478,11 @@ describe('useAppState', () => {
       const { result } = renderHook(() => useAppState());
 
       act(() => {
-        result.current.handleNotification({ message: 'First', duration: 5000 });
+        result.current.handleNotification({ type: 'info', message: 'First', duration: 5000 });
       });
 
       act(() => {
-        result.current.handleNotification({ message: 'Second', duration: 1000 });
+        result.current.handleNotification({ type: 'info', message: 'Second', duration: 1000 });
       });
 
       expect(result.current.announcement).toBe('Second');

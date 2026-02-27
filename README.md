@@ -134,6 +134,64 @@ This compiles the TypeScript code and packages the application using electron-bu
 - `pnpm bench` - Run performance benchmarks
 - `pnpm verify-security` - Verify security settings and configurations
 
+## Advanced Feature Usage
+
+### Workspace model, projects, and backlinks
+- Open a workspace with `window.mdxpad.workspace?.openWorkspace({ rootPath })`; if no model exists, MDXPad creates `.mdxpad/workspace.json`.
+- Workspace APIs support project creation and link graph operations: `createProject`, `addLink`, and `getBacklinks`.
+- Workspace metadata APIs are also available here (`queryMetadataCollection`, `aggregateMetadataCollection`).
+
+### AI write actions
+- Command palette write actions (edit category):
+  - `AI: Rewrite Selection` (`edit.ai-rewrite`)
+  - `AI: Summarize Selection` (`edit.ai-summarize`)
+  - `AI: Fix Grammar` (`edit.ai-fix-grammar`)
+  - `AI: Adjust Tone` (`edit.ai-adjust-tone`)
+  - `AI: Cancel Write Action` (`edit.ai-cancel-write-action`)
+- Write actions require an active AI session and non-empty editor selection; the selected text is replaced with streamed output.
+- `AIChatWritePanel` also supports action presets: Continue writing, Rewrite, Summarize, and Custom prompt.
+
+### Export and CLI orchestration
+- `File > Export…` / command `file.export` uses the file export path and currently supports `html`, `markdown`, and `mdx`.
+- Advanced orchestration is exposed as `window.mdxpad.export`:
+  - `jobLifecycle` (create/get/list/cancel/update-status)
+  - `presetCrud` (create/get/list/update/delete)
+  - `cliInvoke` (run export command)
+  - `llmsGenerate` (generate `llms.txt` / `llms-full.txt`)
+- The built-in CLI command name is `mdxpad-export`; it supports preset-driven PDF/DOCX generation in addition to text formats.
+
+### Metadata collections
+- Query metadata documents with:
+  - `queryMetadataCollection({ workspaceId, documentIds?, filters?, limit? })`
+- Aggregate metadata with:
+  - `aggregateMetadataCollection({ workspaceId, field, operation, filters?, histogramBinSize? })`
+- Supported filter operators: `eq`, `contains`, `in`, `gt`, `gte`, `lt`, `lte`.
+- Fields can target built-ins (`id`, `title`, `filePath`, `slug`, `tags`, `snippet`, `indexedAt`) or frontmatter paths (for example, `frontmatter.tags`).
+
+### MDX plugin pipeline
+- Default pipeline plugins are enabled: `remark-gfm`, `remark-frontmatter`, `remark-outline`, and `rehype-highlight`.
+- Per-plugin config supports `enabled` and `options` values under `pluginConfig.plugins`.
+- Invalid plugin option payloads are safely ignored and fall back to plugin defaults.
+
+### Mermaid diagrams and footnotes
+- Mermaid fences render in preview with standard code fence syntax:
+  - ````md
+    ```mermaid
+    graph TD
+      A-->B
+    ```
+    ````
+- GFM footnotes are supported (`[^1]` references + `[^1]:` definitions) and styled in the preview frame.
+- HTML export injects Mermaid runtime support and emits a warning that rendering requires jsdelivr access.
+
+### Feature flags and toggles
+- Runtime feature surfaces: `workspace`, `ai`, `export`, and `authoring`.
+- Default rollout posture is staged: feature surfaces are enabled by default in dev builds and disabled by default in production builds.
+- Rollout knobs (applied in order, last wins):
+  - `localStorage['mdxpad.feature-flags']` (local tester overrides)
+  - `VITE_FEATURE_WORKSPACE`, `VITE_FEATURE_AI`, `VITE_FEATURE_EXPORT`, `VITE_FEATURE_AUTHORING` (build/deploy overrides)
+  - `window.__MDXPAD_FEATURE_FLAGS__` (runtime bootstrap override)
+
 ## Architecture Overview
 
 MDXPad follows Electron's multi-process architecture with a clear separation of concerns:

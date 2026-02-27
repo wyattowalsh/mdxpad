@@ -13,6 +13,7 @@ import {
   handleEmptySource,
   setupTimeout,
   handleCompileResponse,
+  compileWithRetry,
   failAllPendingRequests,
   cancelRequest,
   COMPILE_TIMEOUT_MS,
@@ -68,9 +69,9 @@ describe('request-queue', () => {
     });
 
     it('should return true for stale response errors', () => {
-      expect(isTransientError([{ message: 'Stale response from previous worker generation' }])).toBe(
-        true
-      );
+      expect(
+        isTransientError([{ message: 'Stale response from previous worker generation' }])
+      ).toBe(true);
     });
 
     it('should return false for syntax errors', () => {
@@ -359,6 +360,112 @@ describe('request-queue', () => {
       expect(userOnErrors[0]).toHaveBeenCalledWith([{ message: 'Compiler shutting down' }]);
       expect(pendingRequests.size).toBe(0);
       expect(mockWorker.pendingCount).toBe(0);
+    });
+  });
+
+  describe('compileWithRetry', () => {
+    const createWorker = (): WorkerInstance =>
+      ({
+        worker: { postMessage: vi.fn() },
+        healthy: true,
+        pendingCount: 0,
+        generation: 0,
+      }) as unknown as WorkerInstance;
+
+    it('should invoke terminal onError exactly once when queue overflow retries are exhausted', async () => {
+      const pendingRequests = new Map<RequestId, PendingRequest>();
+      for (let i = 0; i < MAX_PENDING_REQUESTS; i++) {
+        pendingRequests.set(`existing-${i}` as RequestId, {
+          resolve: vi.fn(),
+          reject: vi.fn(),
+          timeoutId: 0,
+          startTime: 0,
+          workerIndex: 0,
+          generation: 0,
+        });
+      }
+      const queueOverflows = { count: 0 };
+      const onError = vi.fn();
+
+      const compilePromise = compileWithRetry(
+        [createWorker()],
+        pendingRequests,
+        queueOverflows,
+        false,
+        '# test',
+        undefined,
+        'overflow-test' as RequestId,
+        { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 1 },
+        () => 0,
+        vi.fn(),
+        undefined,
+        onError
+      );
+
+      await vi.advanceTimersByTimeAsync(20);
+      await compilePromise;
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith([
+        expect.objectContaining({
+          message: 'Queue overflow: too many pending requests',
+        }),
+      ]);
+      expect(queueOverflows.count).toBe(3);
+    });
+
+    it('should preserve cancellation semantics without user onError callback', async () => {
+      const pendingRequests = new Map<RequestId, PendingRequest>();
+      const workers = [createWorker()];
+      const queueOverflows = { count: 0 };
+      const onError = vi.fn();
+      const requestId = 'cancel-test' as RequestId;
+
+      const compilePromise = compileWithRetry(
+        workers,
+        pendingRequests,
+        queueOverflows,
+        false,
+        '# test',
+        undefined,
+        requestId,
+        { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 1 },
+        () => 0,
+        vi.fn(),
+        undefined,
+        onError
+      );
+
+      cancelRequest(requestId, pendingRequests, workers);
+      await compilePromise;
+
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('should not add duplicate terminal onError after timed-out retries', async () => {
+      const pendingRequests = new Map<RequestId, PendingRequest>();
+      const queueOverflows = { count: 0 };
+      const onError = vi.fn();
+
+      const compilePromise = compileWithRetry(
+        [createWorker()],
+        pendingRequests,
+        queueOverflows,
+        false,
+        '# test',
+        undefined,
+        'timeout-test' as RequestId,
+        { maxRetries: 1, baseDelayMs: 1, maxDelayMs: 1 },
+        () => 0,
+        vi.fn(),
+        undefined,
+        onError
+      );
+
+      await vi.advanceTimersByTimeAsync(COMPILE_TIMEOUT_MS * 2 + 20);
+      await compilePromise;
+
+      expect(onError).toHaveBeenCalledTimes(2);
     });
   });
 

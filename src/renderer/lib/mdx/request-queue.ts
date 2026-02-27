@@ -11,6 +11,7 @@ import type {
   CompileRequest,
   CompileResponse,
   CompileResponseSuccess,
+  MdxPluginPipelineConfig,
   RequestId,
 } from '@shared/types/preview-worker';
 import { createRequestId } from '@shared/types/preview-worker';
@@ -74,6 +75,8 @@ export interface CompileOptions {
   requestId?: RequestId;
   /** Optional retry configuration override */
   retryConfig?: Partial<RetryConfig>;
+  /** Optional per-request plugin pipeline configuration */
+  pluginConfig?: MdxPluginPipelineConfig | undefined;
 }
 
 /** Stored callback for pending compilation requests (P0-5: added generation) */
@@ -102,7 +105,7 @@ export interface PendingRequest {
 export function isTransientError(errors: readonly CompileError[]): boolean {
   if (errors.length === 0) return false;
   const message = errors[0]?.message ?? '';
-  return TRANSIENT_ERROR_PATTERNS.some(pattern => message.includes(pattern));
+  return TRANSIENT_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
 }
 
 /**
@@ -125,7 +128,7 @@ export function calculateBackoffDelay(attempt: number, config: RetryConfig): num
  * @returns Promise that resolves after the delay
  */
 export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -167,13 +170,23 @@ export function setupTimeout(
       if (workerInstance) {
         workerInstance.pendingCount = Math.max(0, workerInstance.pendingCount - 1);
       }
-      const errors = [{
-        message: `Compilation timed out after ${COMPILE_TIMEOUT_MS / 1000} seconds`,
-      }];
+      const errors = [
+        {
+          message: `Compilation timed out after ${COMPILE_TIMEOUT_MS / 1000} seconds`,
+        },
+      ];
       pending.userOnError?.(errors);
       pending.reject(errors);
     }
   }, COMPILE_TIMEOUT_MS);
+}
+
+function createCompileRequest(
+  id: RequestId,
+  source: string,
+  pluginConfig: MdxPluginPipelineConfig | undefined
+): CompileRequest {
+  return pluginConfig === undefined ? { id, source } : { id, source, pluginConfig };
 }
 
 /**
@@ -196,6 +209,7 @@ export function sendCompileRequest(
   pendingRequests: Map<RequestId, PendingRequest>,
   queueOverflows: { count: number },
   source: string,
+  pluginConfig: MdxPluginPipelineConfig | undefined,
   id: RequestId,
   workerIndex: number,
   generation: number, // P0-5: Accept generation
@@ -244,8 +258,7 @@ export function sendCompileRequest(
     const selectedWorker = workers[workerIndex];
     if (selectedWorker) {
       selectedWorker.pendingCount++;
-      const request: CompileRequest = { id, source };
-      selectedWorker.worker.postMessage(request);
+      selectedWorker.worker.postMessage(createCompileRequest(id, source, pluginConfig));
     }
   });
 }
@@ -258,6 +271,7 @@ async function attemptCompilation(
   pendingRequests: Map<RequestId, PendingRequest>,
   queueOverflows: { count: number },
   source: string,
+  pluginConfig: MdxPluginPipelineConfig | undefined,
   id: RequestId,
   selectWorkerFn: () => number,
   userOnSuccess: ((result: CompileResponseSuccess) => void) | undefined,
@@ -273,6 +287,7 @@ async function attemptCompilation(
     pendingRequests,
     queueOverflows,
     source,
+    pluginConfig,
     id,
     workerIndex,
     generation, // P0-5: Pass generation
@@ -301,6 +316,26 @@ async function handleRetry(
   return true;
 }
 
+function emitTerminalError(
+  errors: readonly CompileError[],
+  alreadyReported: boolean,
+  onError: ((errors: readonly CompileError[]) => void) | undefined
+): void {
+  if (alreadyReported || errors[0]?.message === REQUEST_CANCELLED_ERROR_MESSAGE) return;
+  onError?.(errors);
+}
+
+function createTrackedOnError(
+  onError: ((errors: readonly CompileError[]) => void) | undefined,
+  onReported: () => void
+): ((errors: readonly CompileError[]) => void) | undefined {
+  if (onError === undefined) return undefined;
+  return (errors: readonly CompileError[]) => {
+    onReported();
+    onError(errors);
+  };
+}
+
 /**
  * Compile with retry logic for transient failures.
  * User callbacks are invoked synchronously on response to preserve ordering.
@@ -311,6 +346,7 @@ export async function compileWithRetry(
   queueOverflows: { count: number },
   isShuttingDown: boolean,
   source: string,
+  pluginConfig: MdxPluginPipelineConfig | undefined,
   id: RequestId,
   config: RetryConfig,
   selectWorkerFn: () => number,
@@ -318,45 +354,48 @@ export async function compileWithRetry(
   onSuccess?: (result: CompileResponseSuccess) => void,
   onError?: (errors: readonly CompileError[]) => void
 ): Promise<void> {
-  let lastErrors: readonly CompileError[] = [];
-
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     if (isShuttingDown) {
       onError?.([{ message: 'Compiler is shutting down' }]);
       return;
     }
 
+    let attemptErrorReported = false;
+    const trackedOnError = createTrackedOnError(onError, () => {
+      attemptErrorReported = true;
+    });
+
     try {
-      // User callbacks are passed to attemptCompilation and invoked synchronously
-      // when the response arrives, preserving response arrival order
       await attemptCompilation(
         workers,
         pendingRequests,
         queueOverflows,
         source,
+        pluginConfig,
         id,
         selectWorkerFn,
         onSuccess,
-        onError,
+        trackedOnError,
         onRestart
       );
       return;
     } catch (errors) {
       const compileErrors = errors as readonly CompileError[];
-      lastErrors = compileErrors;
 
       if (!isTransientError(compileErrors)) {
         console.debug('[MDX Compiler] Non-transient error, not retrying:', compileErrors);
-        // Error callback already called synchronously
+        emitTerminalError(compileErrors, attemptErrorReported, onError);
         return;
       }
 
-      await handleRetry(attempt, config, compileErrors);
+      const shouldRetry = await handleRetry(attempt, config, compileErrors);
+      if (!shouldRetry) {
+        console.error('[MDX Compiler] All retry attempts exhausted:', compileErrors);
+        emitTerminalError(compileErrors, attemptErrorReported, onError);
+        return;
+      }
     }
   }
-
-  console.error('[MDX Compiler] All retry attempts exhausted:', lastErrors);
-  // Error callback already called synchronously
 }
 
 /**

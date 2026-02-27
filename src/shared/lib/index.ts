@@ -22,12 +22,7 @@ export {
 } from './result';
 
 // Typed events
-export {
-  type EventMap,
-  type EventHandler,
-  TypedEventEmitter,
-  createEventEmitter,
-} from './events';
+export { type EventMap, type EventHandler, TypedEventEmitter, createEventEmitter } from './events';
 
 // Utility functions
 export { cn, debounce, throttle, uid } from './utils';
@@ -37,6 +32,19 @@ export { atomicWrite } from './atomic-write';
 
 // Content integrity
 export { computeChecksum } from './checksum';
+
+// Metadata utilities
+export {
+  type NormalizedFrontmatterValue,
+  type ExtractedDocumentMetadata,
+  parseFrontmatterYaml,
+  normalizeFrontmatterValue,
+  normalizeFrontmatter,
+  toSlug,
+  deriveTags,
+  deriveSlug,
+  extractDocumentMetadata,
+} from './metadata';
 
 // IPC
 export {

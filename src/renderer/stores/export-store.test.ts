@@ -1,0 +1,256 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type {
+  ExportCliInvokeResponse,
+  ExportJobLifecycleResponse,
+  ExportPresetCrudResponse,
+  LlmsGenerationResponse,
+} from '@shared/contracts/export-schemas';
+import type { ExportCliOutput, ExportJob, ExportPreset } from '@shared/types/export-model';
+import {
+  selectCliRunStatus,
+  selectExportJobs,
+  selectExportPresets,
+  selectLlmsResult,
+  useExportStore,
+} from './export-store';
+
+const TEST_ID = '550e8400-e29b-41d4-a716-446655440000';
+const TEST_ID_TWO = '660e8400-e29b-41d4-a716-446655440000';
+const TEST_DATE = '2026-02-18T10:00:00.000Z';
+
+function createPreset(overrides: Partial<ExportPreset> = {}): ExportPreset {
+  return {
+    id: TEST_ID,
+    name: 'Default PDF',
+    format: 'pdf',
+    options: {},
+    ...overrides,
+  };
+}
+
+function createJob(overrides: Partial<ExportJob> = {}): ExportJob {
+  const preset = overrides.preset ?? createPreset();
+  return {
+    id: TEST_ID,
+    preset,
+    format: preset.format,
+    sourcePath: '/tmp/source.mdx',
+    targetPath: '/tmp/output.pdf',
+    generationMode: 'native',
+    status: 'queued',
+    warnings: [],
+    createdAt: TEST_DATE,
+    ...overrides,
+  };
+}
+
+function createCliOutput(overrides: Partial<ExportCliOutput> = {}): ExportCliOutput {
+  const job = overrides.job ?? createJob();
+  return {
+    job,
+    exitCode: 0,
+    durationMs: 120,
+    artifactPath: '/tmp/output.pdf',
+    events: [],
+    ...overrides,
+  };
+}
+
+type ExportApiMock = {
+  jobLifecycle: ReturnType<typeof vi.fn<(r: unknown) => Promise<ExportJobLifecycleResponse>>>;
+  presetCrud: ReturnType<typeof vi.fn<(r: unknown) => Promise<ExportPresetCrudResponse>>>;
+  cliInvoke: ReturnType<typeof vi.fn<(r: unknown) => Promise<ExportCliInvokeResponse>>>;
+  llmsGenerate: ReturnType<typeof vi.fn<(r: unknown) => Promise<LlmsGenerationResponse>>>;
+};
+
+function createExportApiMock(): ExportApiMock {
+  return {
+    jobLifecycle: vi.fn(),
+    presetCrud: vi.fn(),
+    cliInvoke: vi.fn(),
+    llmsGenerate: vi.fn(),
+  };
+}
+
+function setWindowExportApi(mockExportApi: ExportApiMock): void {
+  (globalThis as unknown as { window: { mdxpad: { export: ExportApiMock } } }).window = {
+    mdxpad: {
+      export: mockExportApi,
+    },
+  };
+}
+
+describe('useExportStore', () => {
+  let mockExportApi: ExportApiMock;
+
+  beforeEach(() => {
+    mockExportApi = createExportApiMock();
+    setWindowExportApi(mockExportApi);
+    useExportStore.getState().reset();
+    vi.clearAllMocks();
+  });
+
+  it('starts with initial state', () => {
+    const state = useExportStore.getState();
+
+    expect(state.jobs).toEqual([]);
+    expect(state.presets).toEqual([]);
+    expect(state.isLoadingJobs).toBe(false);
+    expect(state.isLoadingPresets).toBe(false);
+    expect(state.cliRunStatus).toBe('idle');
+    expect(state.llmsResult).toBeNull();
+  });
+
+  it('loads jobs via preload export API', async () => {
+    const job = createJob();
+    mockExportApi.jobLifecycle.mockResolvedValue({
+      ok: true,
+      jobs: [job],
+    });
+
+    await useExportStore.getState().loadJobs();
+    const state = useExportStore.getState();
+
+    expect(mockExportApi.jobLifecycle).toHaveBeenCalledWith({ action: 'list' });
+    expect(selectExportJobs(state)).toEqual([job]);
+    expect(state.jobsError).toBeNull();
+    expect(state.isLoadingJobs).toBe(false);
+  });
+
+  it('stores job errors when load fails', async () => {
+    mockExportApi.jobLifecycle.mockResolvedValue({
+      ok: false,
+      code: 'INTERNAL_ERROR',
+      error: 'Could not load jobs',
+    });
+
+    await useExportStore.getState().loadJobs();
+    const state = useExportStore.getState();
+
+    expect(state.jobsError).toBe('Could not load jobs');
+    expect(state.isLoadingJobs).toBe(false);
+  });
+
+  it('loads presets via preload export API', async () => {
+    const preset = createPreset();
+    mockExportApi.presetCrud.mockResolvedValue({
+      ok: true,
+      presets: [preset],
+    });
+
+    await useExportStore.getState().loadPresets();
+    const state = useExportStore.getState();
+
+    expect(mockExportApi.presetCrud).toHaveBeenCalledWith({ action: 'list' });
+    expect(selectExportPresets(state)).toEqual([preset]);
+    expect(state.presetsError).toBeNull();
+    expect(state.isLoadingPresets).toBe(false);
+  });
+
+  it('tracks CLI run state and updates job on success', async () => {
+    const queuedJob = createJob({ status: 'queued' });
+    const completedJob = createJob({ status: 'completed', completedAt: TEST_DATE });
+    const output = createCliOutput({ job: completedJob });
+    mockExportApi.cliInvoke.mockResolvedValue({
+      ok: true,
+      output,
+    });
+
+    await useExportStore.getState().invokeCli({
+      job: queuedJob,
+      command: 'mdxpad-export',
+      args: ['--format', 'pdf'],
+    });
+
+    const state = useExportStore.getState();
+    expect(selectCliRunStatus(state)).toBe('success');
+    expect(state.isRunningCli).toBe(false);
+    expect(state.cliError).toBeNull();
+    expect(state.cliOutput).toEqual(output);
+    expect(state.jobs).toEqual([completedJob]);
+  });
+
+  it('tracks CLI errors and preserves output when available', async () => {
+    const runningJob = createJob({ status: 'running' });
+    const failedJob = createJob({
+      status: 'failed',
+      errorMessage: 'exit code 1',
+      id: TEST_ID_TWO,
+    });
+    const output = createCliOutput({
+      job: failedJob,
+      exitCode: 1,
+      artifactPath: undefined,
+    });
+    mockExportApi.cliInvoke.mockResolvedValue({
+      ok: false,
+      code: 'NON_ZERO_EXIT',
+      error: 'Command exited with code 1',
+      output,
+    });
+
+    await useExportStore.getState().invokeCli({
+      job: runningJob,
+      command: 'mdxpad-export',
+      args: ['--format', 'pdf'],
+    });
+
+    const state = useExportStore.getState();
+    expect(selectCliRunStatus(state)).toBe('error');
+    expect(state.isRunningCli).toBe(false);
+    expect(state.cliError).toBe('Command exited with code 1');
+    expect(state.cliOutput).toEqual(output);
+    expect(state.jobs).toEqual([failedJob]);
+  });
+
+  it('stores llms generation success result', async () => {
+    mockExportApi.llmsGenerate.mockResolvedValue({
+      ok: true,
+      target: 'llms.txt',
+      path: '/tmp/llms.txt',
+      bytesWritten: 128,
+    });
+
+    await useExportStore.getState().generateLlms({
+      action: 'generate',
+      target: 'llms.txt',
+      sourcePath: '/tmp/source.mdx',
+      content: '# llms',
+      outputPath: '/tmp/llms.txt',
+      overwrite: true,
+    });
+
+    const state = useExportStore.getState();
+    expect(selectLlmsResult(state)).toEqual({
+      ok: true,
+      target: 'llms.txt',
+      path: '/tmp/llms.txt',
+      bytesWritten: 128,
+    });
+    expect(state.llmsError).toBeNull();
+    expect(state.isGeneratingLlms).toBe(false);
+  });
+
+  it('stores llms generation error message', async () => {
+    mockExportApi.llmsGenerate.mockResolvedValue({
+      ok: false,
+      code: 'WRITE_FAILED',
+      error: 'File already exists',
+    });
+
+    await useExportStore.getState().generateLlms({
+      action: 'generate',
+      target: 'llms-full.txt',
+      sourcePath: '/tmp/source.mdx',
+      content: '# llms full',
+      outputPath: '/tmp/llms-full.txt',
+      overwrite: false,
+    });
+
+    const state = useExportStore.getState();
+    expect(selectLlmsResult(state)).toBeNull();
+    expect(state.llmsError).toBe('File already exists');
+    expect(state.isGeneratingLlms).toBe(false);
+  });
+});

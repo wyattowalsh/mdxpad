@@ -18,9 +18,10 @@ import type { BrowserWindow } from 'electron';
 // Mock Setup
 // ============================================================================
 
-const { mockReadFile, mockWriteFile } = vi.hoisted(() => ({
+const { mockReadFile, mockWriteFile, mockAtomicWrite } = vi.hoisted(() => ({
   mockReadFile: vi.fn(),
   mockWriteFile: vi.fn(),
+  mockAtomicWrite: vi.fn(),
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -30,6 +31,10 @@ vi.mock('node:fs/promises', () => ({
   },
   readFile: mockReadFile,
   writeFile: mockWriteFile,
+}));
+
+vi.mock('@shared/lib/atomic-write', () => ({
+  atomicWrite: mockAtomicWrite,
 }));
 
 // Import after mocks
@@ -196,17 +201,17 @@ describe('writeFile', () => {
   });
 
   it('should successfully write file content', async () => {
-    mockWriteFile.mockResolvedValueOnce(undefined);
+    mockAtomicWrite.mockResolvedValueOnce(undefined);
 
     const result = await writeFile('/test/file.mdx', '# Test Content');
 
     expect(result.ok).toBe(true);
-    expect(mockWriteFile).toHaveBeenCalledWith('/test/file.mdx', '# Test Content', { encoding: 'utf-8' });
+    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/file.mdx', '# Test Content');
   });
 
   it('should handle permission denied error', async () => {
     const error = Object.assign(new Error('EACCES'), { code: 'EACCES' });
-    mockWriteFile.mockRejectedValueOnce(error);
+    mockAtomicWrite.mockRejectedValueOnce(error);
 
     const result = await writeFile('/forbidden/file.mdx', 'content');
 
@@ -219,7 +224,7 @@ describe('writeFile', () => {
 
   it('should handle file not found (directory missing)', async () => {
     const error = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-    mockWriteFile.mockRejectedValueOnce(error);
+    mockAtomicWrite.mockRejectedValueOnce(error);
 
     const result = await writeFile('/nonexistent/dir/file.mdx', 'content');
 
@@ -231,7 +236,7 @@ describe('writeFile', () => {
 
   it('should handle unknown errors', async () => {
     const error = new Error('Disk full');
-    mockWriteFile.mockRejectedValueOnce(error);
+    mockAtomicWrite.mockRejectedValueOnce(error);
 
     const result = await writeFile('/test/file.mdx', 'content');
 
@@ -243,32 +248,32 @@ describe('writeFile', () => {
   });
 
   it('should write UTF-8 encoded content', async () => {
-    mockWriteFile.mockResolvedValueOnce(undefined);
+    mockAtomicWrite.mockResolvedValueOnce(undefined);
 
     const unicodeContent = '# Unicode Test\n\n世界 😀';
     const result = await writeFile('/test/unicode.mdx', unicodeContent);
 
     expect(result.ok).toBe(true);
-    expect(mockWriteFile).toHaveBeenCalledWith('/test/unicode.mdx', unicodeContent, { encoding: 'utf-8' });
+    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/unicode.mdx', unicodeContent);
   });
 
   it('should write empty content', async () => {
-    mockWriteFile.mockResolvedValueOnce(undefined);
+    mockAtomicWrite.mockResolvedValueOnce(undefined);
 
     const result = await writeFile('/test/empty.mdx', '');
 
     expect(result.ok).toBe(true);
-    expect(mockWriteFile).toHaveBeenCalledWith('/test/empty.mdx', '', { encoding: 'utf-8' });
+    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/empty.mdx', '');
   });
 
   it('should preserve line endings', async () => {
-    mockWriteFile.mockResolvedValueOnce(undefined);
+    mockAtomicWrite.mockResolvedValueOnce(undefined);
 
     const content = 'Line1\r\nLine2\nLine3';
     const result = await writeFile('/test/file.mdx', content);
 
     expect(result.ok).toBe(true);
-    expect(mockWriteFile).toHaveBeenCalledWith('/test/file.mdx', content, { encoding: 'utf-8' });
+    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/file.mdx', content);
   });
 });
 
@@ -524,7 +529,9 @@ describe('FileServiceIntegration', () => {
         fileWatcher: mockWatcher,
       });
 
-      expect(() => noAutoSaveIntegration.onContentChanged('test-id' as FileId, 'content', null)).not.toThrow();
+      expect(() =>
+        noAutoSaveIntegration.onContentChanged('test-id' as FileId, 'content', null)
+      ).not.toThrow();
     });
   });
 

@@ -331,7 +331,7 @@ async function verifySecuritySettings(): Promise<VerificationResult> {
       violations,
     };
   } finally {
-    await closeElectronApp(electronApp);
+    await closeElectronApp(electronApp as ClosableElectronApp);
     if (existsSync(userDataDir)) {
       rmSync(userDataDir, { recursive: true, force: true });
     }

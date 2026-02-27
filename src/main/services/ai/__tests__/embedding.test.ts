@@ -45,19 +45,18 @@ import { performEmbedding } from '../embedding';
 // Fixtures
 // ============================================================================
 
-const mockProvider: ProviderConfig = {
+const mockProvider = {
   id: 'test-provider',
   displayName: 'Test',
   type: 'openai',
   status: 'connected',
-  capabilities: [ProviderCapability.EMBEDDINGS],
-};
+} as unknown as ProviderConfig;
 
-const mockUsageService: IUsageService = {
+const mockUsageService = {
   recordUsage: vi.fn().mockResolvedValue(undefined),
   getUsageStats: vi.fn().mockResolvedValue({ totalRequests: 0 }),
   clearUsage: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as IUsageService;
 
 const createResolver = (provider = mockProvider, apiKey = 'sk-test'): ProviderResolver =>
   vi.fn().mockResolvedValue({ provider, apiKey });
@@ -151,7 +150,9 @@ describe('performEmbedding', () => {
     mockEmbedMany.mockResolvedValue({
       embeddings: [[0.1, 0.2, 0.3]],
     });
-    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(new Error('Usage store unavailable'));
+    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(
+      new Error('Usage store unavailable')
+    );
 
     const result = await performEmbedding(
       { texts: ['Test'] },
@@ -184,7 +185,9 @@ describe('performEmbedding', () => {
 
   it('should preserve original embedding failure when usage persistence fails', async () => {
     mockEmbedMany.mockRejectedValue(new Error('API error'));
-    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(new Error('Usage store unavailable'));
+    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(
+      new Error('Usage store unavailable')
+    );
 
     await expect(
       performEmbedding(

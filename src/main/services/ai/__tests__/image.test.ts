@@ -29,19 +29,18 @@ import { performImageGeneration } from '../image';
 // Fixtures
 // ============================================================================
 
-const mockProvider: ProviderConfig = {
+const mockProvider = {
   id: 'openai-1',
   displayName: 'OpenAI',
   type: 'openai',
   status: 'connected',
-  capabilities: [ProviderCapability.IMAGE_GENERATION],
-};
+} as unknown as ProviderConfig;
 
-const mockUsageService: IUsageService = {
+const mockUsageService = {
   recordUsage: vi.fn().mockResolvedValue(undefined),
   getUsageStats: vi.fn().mockResolvedValue({ totalRequests: 0 }),
   clearUsage: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as IUsageService;
 
 const createResolver = (provider = mockProvider, apiKey = 'sk-test'): ProviderResolver =>
   vi.fn().mockResolvedValue({ provider, apiKey });
@@ -108,7 +107,7 @@ describe('performImageGeneration', () => {
       createAlternates()
     );
 
-    const callBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const callBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as { body: string }).body);
     expect(callBody.size).toBe('512x512');
     expect(callBody.quality).toBe('hd');
     expect(callBody.style).toBe('natural');
@@ -128,7 +127,7 @@ describe('performImageGeneration', () => {
       createAlternates()
     );
 
-    const callBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const callBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as { body: string }).body);
     expect(callBody.size).toBe('1024x1024');
     expect(callBody.quality).toBe('standard');
     expect(callBody.style).toBe('vivid');
@@ -152,7 +151,9 @@ describe('performImageGeneration', () => {
   });
 
   it('should not fail successful image generation when usage persistence fails', async () => {
-    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(new Error('Usage store unavailable'));
+    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(
+      new Error('Usage store unavailable')
+    );
 
     const result = await performImageGeneration(
       { prompt: 'Test' },
@@ -186,7 +187,8 @@ describe('performImageGeneration', () => {
   });
 
   it('should retry once on transient 5xx transport failures', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -211,7 +213,8 @@ describe('performImageGeneration', () => {
   });
 
   it('should retry once on retryable network transport errors', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockRejectedValueOnce(new TypeError('fetch failed'))
       .mockResolvedValueOnce({
         ok: true,
@@ -240,7 +243,9 @@ describe('performImageGeneration', () => {
         json: () => Promise.resolve({ error: { message: 'Server error' } }),
       })
     );
-    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(new Error('Usage store unavailable'));
+    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(
+      new Error('Usage store unavailable')
+    );
 
     await expect(
       performImageGeneration(

@@ -16,7 +16,11 @@
  */
 
 import { compileMdx, prewarmCompiler } from '@renderer/lib/mdx/compile';
-import type { HeartbeatPong, PrewarmResponse, WorkerMemoryUsage } from '@shared/types/preview-worker';
+import type {
+  HeartbeatPong,
+  PrewarmResponse,
+  WorkerMemoryUsage,
+} from '@shared/types/preview-worker';
 import { isCompileRequest, isHeartbeatPing, isPrewarmRequest } from '@shared/types/preview-worker';
 
 /** Web Worker global scope type assertion */
@@ -98,13 +102,10 @@ workerSelf.onmessageerror = (event: MessageEvent): void => {
  * Handle unhandled promise rejections within the worker.
  * Prevents silent failures and provides visibility into async errors.
  */
-workerSelf.addEventListener(
-  'unhandledrejection',
-  (event: PromiseRejectionEvent): void => {
-    console.error('[MDX Worker] Unhandled promise rejection:', event.reason);
-    event.preventDefault();
-  }
-);
+workerSelf.addEventListener('unhandledrejection', (event: PromiseRejectionEvent): void => {
+  console.error('[MDX Worker] Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+});
 
 /**
  * Handle incoming messages.
@@ -132,7 +133,7 @@ workerSelf.onmessage = async (event: MessageEvent): Promise<void> => {
     return;
   }
 
-  const { id, source } = data;
-  const response = await compileMdx(id, source);
+  const { id, source, pluginConfig } = data;
+  const response = await compileMdx(id, source, { pluginConfig });
   workerSelf.postMessage(response);
 };

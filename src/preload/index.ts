@@ -17,6 +17,8 @@ import { templateApi } from './template-api';
 import { eventSubscriptions } from './event-api';
 import { aiApi } from './ai-api';
 import { syncApi, collaborationApi, extensionPlatformApi, publishApi } from './platform-api';
+import { workspaceApi } from './workspace-api';
+import { exportApi } from './export-api';
 
 // ============================================================================
 // Platform Detection
@@ -104,6 +106,9 @@ const api: MdxpadAPI = {
   // AI Provider API (from ai-api)
   ai: aiApi,
 
+  // Workspace Operations (from workspace-api)
+  workspace: workspaceApi,
+
   // Template Operations (from template-api)
   template: templateApi,
 
@@ -112,6 +117,9 @@ const api: MdxpadAPI = {
   collaboration: collaborationApi,
   extensions: extensionPlatformApi,
   publish: publishApi,
+
+  // Export orchestration (Wave 8)
+  export: exportApi,
 };
 
 // ============================================================================

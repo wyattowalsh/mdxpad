@@ -22,6 +22,8 @@ import { useCommandRegistry } from '../stores/command-registry-store';
 const FILTER_EVENTS = {
   focus: 'mdxpad:filter:focus',
   clear: 'mdxpad:filter:clear',
+  focusWorkspaceLinkSearch: 'mdxpad:workspace-link-search:focus',
+  clearWorkspaceLinkSearch: 'mdxpad:workspace-link-search:clear',
 } as const;
 
 // =============================================================================
@@ -64,6 +66,28 @@ const clearFilterCommand: Command = {
   },
 };
 
+const focusWorkspaceLinkSearchCommand: Command = {
+  id: 'filter.focus-workspace-links' as CommandId,
+  name: 'Focus Workspace Link Search',
+  description: 'Focus workspace backlink search input',
+  category: 'view',
+  execute: (): CommandResult => {
+    window.dispatchEvent(new CustomEvent(FILTER_EVENTS.focusWorkspaceLinkSearch));
+    return { ok: true };
+  },
+};
+
+const clearWorkspaceLinkSearchCommand: Command = {
+  id: 'filter.clear-workspace-links' as CommandId,
+  name: 'Clear Workspace Link Search',
+  description: 'Clear workspace backlink search query',
+  category: 'view',
+  execute: (): CommandResult => {
+    window.dispatchEvent(new CustomEvent(FILTER_EVENTS.clearWorkspaceLinkSearch));
+    return { ok: true };
+  },
+};
+
 // =============================================================================
 // REGISTRATION
 // =============================================================================
@@ -71,6 +95,8 @@ const clearFilterCommand: Command = {
 const FILTER_COMMANDS: readonly Command[] = [
   focusFilterCommand,
   clearFilterCommand,
+  focusWorkspaceLinkSearchCommand,
+  clearWorkspaceLinkSearchCommand,
 ];
 
 /**

@@ -32,13 +32,10 @@ export function createIsolatedUserDataDir(suffix = 'session'): string {
  * Launch mdxpad Electron app with an isolated profile directory.
  * Isolating user data avoids Chromium SingletonLock collisions between runs.
  */
-export async function launchMdxpad(
-  options: LaunchMdxpadOptions = {}
-): Promise<LaunchedMdxpadApp> {
+export async function launchMdxpad(options: LaunchMdxpadOptions = {}): Promise<LaunchedMdxpadApp> {
   const electronPath = join(process.cwd(), 'node_modules', '.bin', 'electron');
   const appPath = join(process.cwd(), 'dist', 'main', 'index.js');
-  const userDataDir =
-    options.userDataDir ?? buildIsolatedUserDataDir(options.userDataDirSuffix);
+  const userDataDir = options.userDataDir ?? buildIsolatedUserDataDir(options.userDataDirSuffix);
   mkdirSync(userDataDir, { recursive: true });
 
   const app = await electron.launch({
@@ -65,33 +62,40 @@ export async function safeCloseElectronApp(
   if (app) {
     const pid = app.process().pid;
 
-    // Request a full app quit before closing the Playwright handle.
-    try {
-      await app.evaluate(({ app: electronApp }) => {
-        electronApp.quit();
-      });
-    } catch {
-      // App may already be closed.
+    if (pid) {
+      try {
+        process.kill(pid, 'SIGTERM');
+      } catch {
+        // Process may already be terminated.
+      }
     }
 
-    try {
-      await Promise.race([
-        app.close(),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Timed out closing Electron app')), 5000);
-        }),
-      ]);
-    } catch {
-      // Fall through to PID-based cleanup.
-    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
     if (pid) {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        // Process group may already be terminated.
+      }
+
       try {
         process.kill(pid, 0);
         process.kill(pid, 'SIGKILL');
       } catch {
         // Process may already be terminated.
       }
+    }
+
+    try {
+      await Promise.race([
+        app.close(),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timed out closing Electron app handle')), 1000);
+        }),
+      ]);
+    } catch {
+      // App connection may already be closed after PID cleanup.
     }
   }
 

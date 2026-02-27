@@ -19,6 +19,7 @@ import type { BrowserWindow } from 'electron';
 import { registerProviderHandlers } from './ai-provider-handlers';
 import { registerGenerationHandlers } from './ai-generation-handlers';
 import { registerUsageHandlers } from './ai-usage-handlers';
+import { registerSessionHandlers } from './ai-session-handlers';
 
 // Re-export shared utilities for external consumers
 export { toErrorResponse, filterUndefined } from './ai-handler-utils';
@@ -31,13 +32,11 @@ export type { ErrorResponse } from './ai-handler-utils';
  * @param services - The AIServices instance to use for all handlers
  * @param window - BrowserWindow used for sender/frame authorization
  */
-export function registerAIHandlers(
-  services: AIServices,
-  window: BrowserWindow
-): void {
+export function registerAIHandlers(services: AIServices, window: BrowserWindow): void {
   registerProviderHandlers(services, window);
+  registerSessionHandlers(services, window);
   registerGenerationHandlers(services, window);
   registerUsageHandlers(services, window);
 
-  console.log('[AIHandlers] All AI handlers registered (19 channels)');
+  console.log('[AIHandlers] All AI handlers registered');
 }

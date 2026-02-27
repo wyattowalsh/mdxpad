@@ -52,19 +52,18 @@ import { isRateLimitError } from '../ai-helpers';
 // Fixtures
 // ============================================================================
 
-const mockProvider: ProviderConfig = {
+const mockProvider = {
   id: 'test-provider',
   displayName: 'Test',
   type: 'openai',
   status: 'connected',
-  capabilities: [ProviderCapability.TEXT_GENERATION, ProviderCapability.STREAMING],
-};
+} as unknown as ProviderConfig;
 
-const mockUsageService: IUsageService = {
+const mockUsageService = {
   recordUsage: vi.fn().mockResolvedValue(undefined),
   getUsageStats: vi.fn().mockResolvedValue({ totalRequests: 0 }),
   clearUsage: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as IUsageService;
 
 const createResolver = (provider = mockProvider, apiKey = 'sk-test'): ProviderResolver =>
   vi.fn().mockResolvedValue({ provider, apiKey });
@@ -181,7 +180,9 @@ describe('performTextGeneration', () => {
       text: 'Result',
       usage: { inputTokens: 5, outputTokens: 10, totalTokens: 15 },
     });
-    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(new Error('Usage store unavailable'));
+    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(
+      new Error('Usage store unavailable')
+    );
 
     const result = await performTextGeneration(
       { prompt: 'Test' },
@@ -321,7 +322,9 @@ describe('performStreamText', () => {
       textStream: mockTextStream,
       usage: Promise.resolve({ inputTokens: 1, outputTokens: 1, totalTokens: 2 }),
     });
-    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(new Error('Usage store unavailable'));
+    vi.mocked(mockUsageService.recordUsage).mockRejectedValueOnce(
+      new Error('Usage store unavailable')
+    );
 
     const controller = await performStreamText(
       { prompt: 'Test' },

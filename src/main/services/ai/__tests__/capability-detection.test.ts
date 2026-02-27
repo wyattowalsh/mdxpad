@@ -22,6 +22,7 @@ import {
   registryEntryToModelInfo,
   capabilitiesToModelInfo,
 } from '../capability-detection';
+import type { ModelRegistryEntry } from '../registries/openai-registry';
 
 // ============================================================================
 // Tests
@@ -244,10 +245,10 @@ describe('capability factories', () => {
 describe('conversion utilities', () => {
   describe('registryEntryToCapabilities', () => {
     it('should convert registry entry to ModelCapabilities', () => {
-      const entry = {
+      const entry: ModelRegistryEntry = {
         id: 'gpt-4o',
         name: 'GPT-4o',
-        capabilities: ['text-generation' as const, 'vision' as const],
+        capabilities: [ProviderCapability.TEXT_GENERATION, ProviderCapability.VISION],
         contextWindow: 128000,
         maxOutputTokens: 16384,
       };
@@ -262,10 +263,10 @@ describe('conversion utilities', () => {
     });
 
     it('should handle embedding dimensions', () => {
-      const entry = {
+      const entry: ModelRegistryEntry = {
         id: 'text-embedding-3-small',
         name: 'Embedding Small',
-        capabilities: ['embeddings' as const],
+        capabilities: [ProviderCapability.EMBEDDINGS],
         embeddingDimensions: 1536,
       };
 
@@ -277,10 +278,10 @@ describe('conversion utilities', () => {
 
   describe('registryEntryToModelInfo', () => {
     it('should convert registry entry to ModelInfo', () => {
-      const entry = {
+      const entry: ModelRegistryEntry = {
         id: 'gpt-4o',
         name: 'GPT-4o',
-        capabilities: ['text-generation' as const],
+        capabilities: [ProviderCapability.TEXT_GENERATION],
         contextWindow: 128000,
         maxOutputTokens: 16384,
       };

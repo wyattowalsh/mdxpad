@@ -13,6 +13,7 @@ import type { DocumentFileHandle, DocumentId } from '@shared/types/document';
 import type { FileExportError } from '@shared/contracts/file-schemas';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
+import { isFeatureEnabled } from '../stores/feature-flags-store';
 
 // =============================================================================
 // COMMAND IDS
@@ -361,6 +362,14 @@ const exportFileCommand: Command = {
   shortcut: { key: 'e', modifiers: ['Mod', 'Shift'] },
   icon: '📤',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    if (!isFeatureEnabled('export')) {
+      ctx.notify({
+        type: 'warning',
+        message: 'Export feature is disabled',
+      });
+      return { ok: false, error: 'Export feature is disabled' };
+    }
+
     try {
       const result = await ctx.api.exportFile(ctx.document.content, {
         sourcePath: ctx.document.filePath,
@@ -402,7 +411,7 @@ const exportFileCommand: Command = {
       return { ok: false, error: message };
     }
   },
-  enabled: () => true,
+  enabled: () => isFeatureEnabled('export'),
 };
 
 /**

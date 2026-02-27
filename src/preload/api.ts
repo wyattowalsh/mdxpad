@@ -51,7 +51,18 @@ import type {
   ConflictResolveResponse,
 } from '@shared/contracts/autosave-ipc';
 import type { AutosaveSettings, AutosaveStatus } from '@shared/contracts/autosave-schemas';
+import type {
+  ExportCliInvokeRequest,
+  ExportCliInvokeResponse,
+  ExportJobLifecycleRequest,
+  ExportJobLifecycleResponse,
+  ExportPresetCrudRequest,
+  ExportPresetCrudResponse,
+  LlmsGenerationRequest,
+  LlmsGenerationResponse,
+} from '@shared/contracts/export-schemas';
 import type { AIApi } from './ai-api';
+import type { WorkspaceApi } from './workspace-api';
 import type {
   TemplateMetadata,
   Template,
@@ -72,6 +83,13 @@ export interface FileChangeEvent {
 export interface MenuFileOpenEvent {
   handle: import('@shared/types/file').FileHandle;
   content: string;
+}
+
+export interface ExportOperationsApi {
+  jobLifecycle(request: ExportJobLifecycleRequest): Promise<ExportJobLifecycleResponse>;
+  presetCrud(request: ExportPresetCrudRequest): Promise<ExportPresetCrudResponse>;
+  cliInvoke(request: ExportCliInvokeRequest): Promise<ExportCliInvokeResponse>;
+  llmsGenerate(request: LlmsGenerationRequest): Promise<LlmsGenerationResponse>;
 }
 
 /**
@@ -334,6 +352,11 @@ export interface MdxpadAPI {
    */
   ai: AIApi;
 
+  /**
+   * Workspace graph and metadata collection operations.
+   */
+  workspace?: WorkspaceApi;
+
   // === Template Operations (Spec 016) ===
   /**
    * Template API namespace.
@@ -481,6 +504,11 @@ export interface MdxpadAPI {
     listProvenance(request?: PublishListProvenanceRequest): Promise<PublishListProvenanceResponse>;
     getBacklinks(canonicalUrl: string): Promise<PublishBacklinksResponse>;
   };
+
+  /**
+   * Export orchestration API (jobs, presets, CLI invocation, llms generation).
+   */
+  export?: ExportOperationsApi;
 }
 
 /**

@@ -156,7 +156,7 @@ async function runBenchmark(): Promise<BenchmarkResult> {
 
     return result;
   } finally {
-    await closeElectronApp(electronApp);
+    await closeElectronApp(electronApp as ClosableElectronApp);
     if (existsSync(userDataDir)) {
       rmSync(userDataDir, { recursive: true, force: true });
     }

@@ -5,9 +5,10 @@
  * loading state, and settings persistence.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { SettingsPanel } from '../settings-panel';
+import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
 
 // =============================================================================
 // MOCKS
@@ -97,6 +98,47 @@ afterEach(() => {
 // =============================================================================
 
 describe('SettingsPanel', () => {
+  beforeEach(() => {
+    useFeatureFlagsStore.getState().reset();
+    useFeatureFlagsStore.getState().setFlags({
+      workspace: true,
+      ai: true,
+      export: true,
+      authoring: true,
+    });
+  });
+
+  it('should render feature flag toggles', async () => {
+    render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('feature-flag-workspace-switch')).toBeTruthy();
+      expect(screen.getByTestId('feature-flag-ai-switch')).toBeTruthy();
+      expect(screen.getByTestId('feature-flag-export-switch')).toBeTruthy();
+      expect(screen.getByTestId('feature-flag-authoring-switch')).toBeTruthy();
+    });
+  });
+
+  it('should update feature flags when toggles are changed', async () => {
+    render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
+
+    const aiSwitch = await screen.findByTestId('feature-flag-ai-switch');
+    fireEvent.click(aiSwitch);
+
+    await waitFor(() => {
+      expect(useFeatureFlagsStore.getState().flags.ai).toBe(false);
+    });
+  });
+
+  it('should hide AI settings section when AI feature flag is disabled', async () => {
+    useFeatureFlagsStore.getState().setFlag('ai', false);
+    render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('open-ai-provider-settings-button')).toBeNull();
+    });
+  });
+
   it('should not render when closed', () => {
     const { container } = render(<SettingsPanel isOpen={false} onClose={vi.fn()} />);
     expect(container.querySelector('[data-testid="settings-panel"]')).toBeNull();

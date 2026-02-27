@@ -12,6 +12,7 @@ import type { FileHandle, FileResult, FileError } from '@shared/types/file';
 import type { MdxpadAPI } from '../../preload/api';
 import type { AIApi } from '../../preload/ai-api';
 import { INITIAL_DOCUMENT_STATE } from '@shared/types/document';
+import { useFeatureFlagsStore } from '../stores/feature-flags-store';
 
 // Enable Immer MapSet plugin for Map/Set support in stores
 enableMapSet();
@@ -93,6 +94,17 @@ function createMockAIApi(overrides: Partial<AIApi> = {}): AIApi {
     getCapability: vi.fn().mockResolvedValue({ capabilities: [], modelInfo: null }),
     listModels: vi.fn().mockResolvedValue({ models: [] }),
     refreshCapabilities: vi.fn().mockResolvedValue({ success: true }),
+    // Session + Prompt + Instruction Management
+    createSession: vi.fn().mockResolvedValue({ success: true }),
+    listSessions: vi.fn().mockResolvedValue({ sessions: [] }),
+    getSession: vi.fn().mockResolvedValue({ session: null }),
+    archiveSession: vi.fn().mockResolvedValue({ success: true }),
+    restoreSession: vi.fn().mockResolvedValue({ session: null }),
+    listPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
+    attachPrompt: vi.fn().mockResolvedValue({ success: true }),
+    listInstructions: vi.fn().mockResolvedValue({ instructions: [] }),
+    loadInstruction: vi.fn().mockResolvedValue({ instruction: null }),
+    attachInstruction: vi.fn().mockResolvedValue({ success: true }),
     // Streaming Events
     onStreamChunk: vi.fn(() => () => {}),
     onStreamComplete: vi.fn(() => () => {}),
@@ -234,6 +246,11 @@ function createMockContext(overrides: Partial<CommandContext> = {}): CommandCont
 // =============================================================================
 
 describe('FILE_COMMAND_IDS', () => {
+  beforeEach(() => {
+    useFeatureFlagsStore.getState().reset();
+    useFeatureFlagsStore.getState().setFlag('export', true);
+  });
+
   it('should have correct command IDs', () => {
     expect(FILE_COMMAND_IDS.new).toBe('file.new');
     expect(FILE_COMMAND_IDS.open).toBe('file.open');
@@ -514,6 +531,7 @@ describe('closeWindowCommand', () => {
 describe('exportFileCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useFeatureFlagsStore.getState().setFlag('export', true);
   });
 
   it('should have correct command ID', () => {
@@ -536,6 +554,35 @@ describe('exportFileCommand', () => {
     expect(result).toEqual({ ok: true });
     expect(mockApi.exportFile).toHaveBeenCalledWith('# Export me', {
       sourcePath: '/test/new-file.mdx',
+    });
+  });
+
+  it('should be disabled when export feature flag is off', () => {
+    useFeatureFlagsStore.getState().setFlag('export', false);
+    const ctx = createMockContext();
+
+    expect(exportFileCommand.enabled?.(ctx)).toBe(false);
+  });
+
+  it('should return an error when export feature flag is off', async () => {
+    useFeatureFlagsStore.getState().setFlag('export', false);
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        ...INITIAL_DOCUMENT_STATE,
+        content: '# Export me',
+        filePath: '/test/new-file.mdx',
+      },
+    });
+
+    const result = await exportFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'Export feature is disabled' });
+    expect(mockApi.exportFile).not.toHaveBeenCalled();
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'Export feature is disabled',
     });
   });
 });

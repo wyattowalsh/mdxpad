@@ -18,6 +18,51 @@ describe('preview boundary schemas', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects unknown keys in compile request plugin config envelope', () => {
+    const result = compileRequestSchema.safeParse({
+      id: VALID_ID,
+      source: '# hello',
+      pluginConfig: {
+        plugins: {},
+        unexpected: 'x',
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unknown keys in compile request plugin entries', () => {
+    const result = compileRequestSchema.safeParse({
+      id: VALID_ID,
+      source: '# hello',
+      pluginConfig: {
+        plugins: {
+          'remark-gfm': {
+            enabled: true,
+            unexpected: 'x',
+          },
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('keeps plugin options payload dynamic', () => {
+    const result = compileRequestSchema.safeParse({
+      id: VALID_ID,
+      source: '# hello',
+      pluginConfig: {
+        plugins: {
+          'remark-gfm': {
+            options: {
+              nested: { any: ['shape', 1, true] },
+            },
+          },
+        },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('rejects unknown keys in parent-to-iframe envelope', () => {
     const result = parentToIframeMessageSchema.safeParse({
       type: 'theme',

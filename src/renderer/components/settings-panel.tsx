@@ -19,6 +19,11 @@ import { Slider } from './ui/slider';
 import { Button } from './ui/button';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
+import {
+  useFeatureFlagsStore,
+  selectFeatureFlags,
+  type FeatureFlagKey,
+} from '../stores/feature-flags-store';
 
 // ============================================================================
 // Types
@@ -41,6 +46,33 @@ export interface SettingsPanelProps {
  * Per FR-009: range 5s to 10min, slider shows common use 5s-30s.
  */
 const INTERVAL_STEPS = [5000, 10000, 15000, 20000, 30000] as const;
+
+const FEATURE_FLAG_OPTIONS: readonly {
+  key: FeatureFlagKey;
+  label: string;
+  description: string;
+}[] = [
+  {
+    key: 'workspace',
+    label: 'Workspace Surface',
+    description: 'Workspace status and workspace-linked interactions.',
+  },
+  {
+    key: 'ai',
+    label: 'AI Surface',
+    description: 'AI provider settings and AI-assisted authoring actions.',
+  },
+  {
+    key: 'export',
+    label: 'Export Surface',
+    description: 'Export actions from the command palette and file flows.',
+  },
+  {
+    key: 'authoring',
+    label: 'Authoring Surface',
+    description: 'Frontmatter authoring and related writing workflows.',
+  },
+] as const;
 
 // ============================================================================
 // IPC Helpers (Stubs until preload is updated)
@@ -157,6 +189,8 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
   const [settings, setLocalSettings] = useState<AutosaveSettings>(DEFAULT_AUTOSAVE_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const featureFlags = useFeatureFlagsStore(selectFeatureFlags);
+  const setFeatureFlag = useFeatureFlagsStore((state) => state.setFlag);
 
   // Load settings when dialog opens
   useEffect(() => {
@@ -230,10 +264,13 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
   );
 
   const handleOpenAiProviders = useCallback(() => {
+    if (!featureFlags.ai) {
+      return;
+    }
     void import('../features/ai-provider/store').then(({ useAIProviderStore }) => {
       useAIProviderStore.getState().openSettings();
     });
-  }, []);
+  }, [featureFlags.ai]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -321,21 +358,50 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
               </div>
             </div>
 
-            <div className="space-y-2 border-t pt-4">
-              <h3 className="text-sm font-medium">AI</h3>
-              <p className="text-xs text-muted-foreground">
-                Configure providers used for AI features in MDXPad.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleOpenAiProviders}
-                data-testid="open-ai-provider-settings-button"
-              >
-                Open AI Provider Settings
-              </Button>
+            <div className="space-y-4 border-t pt-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium">Feature Flags</h3>
+                <p className="text-xs text-muted-foreground">
+                  Toggle staged surfaces for incremental rollout.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {FEATURE_FLAG_OPTIONS.map((flag) => (
+                  <div key={flag.key} className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <Label htmlFor={`feature-flag-${flag.key}`}>{flag.label}</Label>
+                      <p className="text-xs text-muted-foreground">{flag.description}</p>
+                    </div>
+                    <Switch
+                      id={`feature-flag-${flag.key}`}
+                      checked={featureFlags[flag.key]}
+                      onCheckedChange={(checked) => {
+                        setFeatureFlag(flag.key, checked);
+                      }}
+                      data-testid={`feature-flag-${flag.key}-switch`}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {featureFlags.ai && (
+              <div className="space-y-2 border-t pt-4">
+                <h3 className="text-sm font-medium">AI</h3>
+                <p className="text-xs text-muted-foreground">
+                  Configure providers used for AI features in MDXPad.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenAiProviders}
+                  data-testid="open-ai-provider-settings-button"
+                >
+                  Open AI Provider Settings
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

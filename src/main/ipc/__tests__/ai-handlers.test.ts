@@ -6,6 +6,7 @@ import { registerAIHandlers } from '../ai-handlers';
 import { registerProviderHandlers } from '../ai-provider-handlers';
 import { registerGenerationHandlers } from '../ai-generation-handlers';
 import { registerUsageHandlers } from '../ai-usage-handlers';
+import { registerSessionHandlers } from '../ai-session-handlers';
 
 vi.mock('../ai-provider-handlers', () => ({
   registerProviderHandlers: vi.fn(),
@@ -17,6 +18,10 @@ vi.mock('../ai-generation-handlers', () => ({
 
 vi.mock('../ai-usage-handlers', () => ({
   registerUsageHandlers: vi.fn(),
+}));
+
+vi.mock('../ai-session-handlers', () => ({
+  registerSessionHandlers: vi.fn(),
 }));
 
 function createMockWindow(): BrowserWindow {
@@ -40,6 +45,7 @@ describe('registerAIHandlers', () => {
     registerAIHandlers(services, window);
 
     expect(registerProviderHandlers).toHaveBeenCalledWith(services, window);
+    expect(registerSessionHandlers).toHaveBeenCalledWith(services, window);
     expect(registerGenerationHandlers).toHaveBeenCalledWith(services, window);
     expect(registerUsageHandlers).toHaveBeenCalledWith(services, window);
   });

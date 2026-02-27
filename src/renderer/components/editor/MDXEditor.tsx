@@ -12,11 +12,16 @@
 import { useEffect, useRef, useCallback, useState, useMemo, memo } from 'react';
 import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { useCodeMirror, type UseCodeMirrorOptions, type EditorTheme } from '../../hooks/useCodeMirror';
+import {
+  useCodeMirror,
+  type UseCodeMirrorOptions,
+  type EditorTheme,
+} from '../../hooks/useCodeMirror';
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
 import type { EditorError } from '../../lib/editor/errors';
 import { lineHighlightExtension } from '../../lib/editor/line-highlight';
 import { placeholderMarkerExtension } from '../../lib/editor/placeholder-markers';
+import { WorkspaceEditorStatus } from './WorkspaceEditorStatus';
 
 // Re-export for consumer convenience
 export type { EditorTheme } from '../../hooks/useCodeMirror';
@@ -177,7 +182,15 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
 const ERROR_ANNOUNCEMENT_DURATION_MS = 5000;
 
 function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
-  const { value, onChange, onError, className, height = '100%', ariaLabel = 'MDX Editor', editorRef } = props;
+  const {
+    value,
+    onChange,
+    onError,
+    className,
+    height = '100%',
+    ariaLabel = 'MDX Editor',
+    editorRef,
+  } = props;
   const isFirstRender = useRef(true);
   const isInternalChange = useRef(false);
   // Track version of external value to prevent race conditions with rapid updates
@@ -261,9 +274,10 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         indentationGuides,
         ...(onSelectionChange !== undefined && { onSelectionChange }),
         // Always include built-in extensions (line highlight, placeholder markers), plus any user extensions
-        extensions: extensions !== undefined
-          ? [lineHighlightExtension, placeholderMarkerExtension, ...extensions]
-          : [lineHighlightExtension, placeholderMarkerExtension],
+        extensions:
+          extensions !== undefined
+            ? [lineHighlightExtension, placeholderMarkerExtension, ...extensions]
+            : [lineHighlightExtension, placeholderMarkerExtension],
       }),
     [
       value,
@@ -289,7 +303,8 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
   useEffect(() => {
     if (editorRef) {
       // Update editorRef to point to current view
-      (editorRef as React.RefObject<EditorView | null> & { current: EditorView | null }).current = getView();
+      (editorRef as React.RefObject<EditorView | null> & { current: EditorView | null }).current =
+        getView();
     }
   }, [editorRef, getView]);
 
@@ -334,6 +349,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         aria-label={ariaLabel}
         aria-multiline="true"
       />
+      <WorkspaceEditorStatus />
       {/* ARIA live region for error announcements - visually hidden but accessible to screen readers */}
       <div
         role="alert"

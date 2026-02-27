@@ -28,9 +28,9 @@ export const BuiltInComponents = {
   CardGrid,
   FileTree,
 
-  // Code block alias (for fenced code blocks)
+  // Fenced code blocks render as <pre><code> in compiled MDX.
+  // Override only <pre> so inline <code> remains inline text.
   pre: CodeBlock,
-  code: CodeBlock,
 } as const;
 
 // Re-export individual components for direct use
