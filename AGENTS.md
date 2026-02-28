@@ -18,7 +18,8 @@ MDXPad follows Electron's multi-process architecture with strict separation:
 │ - File system operations (file-service.ts)              │
 │ - Native OS integration (menu.ts, window.ts)            │
 │ - IPC handlers (ipc/)                                   │
-│ - Services: AI, templates, autosave, recovery           │
+│ - Services: AI, templates, autosave, recovery,          │
+│   export, git, search, collab, plugins, history          │
 └─────────────────────────────────────────────────────────┘
                         │
                         │ IPC (Zod validated)
@@ -26,7 +27,7 @@ MDXPad follows Electron's multi-process architecture with strict separation:
 ┌─────────────────────────────────────────────────────────┐
 │ Preload Script (src/preload/)                          │
 │ - Context bridge (contextIsolation enabled)            │
-│ - Type-safe API exposure via window.api                │
+│ - Type-safe API exposure via window.mdxpad              │
 │ - Request/response validation                           │
 └─────────────────────────────────────────────────────────┘
                         │
@@ -60,65 +61,162 @@ mdxpad/
 │   │   ├── menu.ts        # Native menus
 │   │   ├── ipc/           # IPC handlers
 │   │   │   ├── file-handlers.ts
-│   │   │   ├── ai-handlers.ts
-│   │   │   ├── template-handlers.ts
-│   │   │   ├── autosave-handlers.ts
-│   │   │   └── window-handlers.ts
+│   │   │   ├── ai-handlers.ts, ai-generation-handlers.ts
+│   │   │   ├── ai-provider-handlers.ts, ai-session-handlers.ts, ai-usage-handlers.ts
+│   │   │   ├── autosave-handlers.ts, template-handlers.ts, window-handlers.ts
+│   │   │   ├── collab-handlers.ts    # Wave 3: collaboration
+│   │   │   ├── export-handlers.ts    # Wave 1: export orchestration
+│   │   │   ├── history-handlers.ts   # Wave 3: version history
+│   │   │   ├── link-handlers.ts      # Workspace link graph
+│   │   │   ├── notification-handlers.ts  # Wave 3: notifications
+│   │   │   ├── platform-handlers.ts  # Cloud sync, collab, extensions, publish
+│   │   │   ├── share-handlers.ts     # Wave 3: share links
+│   │   │   ├── workspace-handlers.ts # Workspace model
+│   │   │   └── ipc-sender-authorization.ts  # Sender validation
 │   │   └── services/      # Business logic
-│   │       ├── file-service.ts
-│   │       ├── file-watcher.ts
-│   │       ├── recent-files.ts
-│   │       ├── autosave-service.ts
-│   │       ├── recovery-service.ts
-│   │       ├── template-service.ts
-│   │       └── ai/        # AI provider abstraction
-│   │           ├── ai-service.ts
-│   │           ├── provider-service.ts
-│   │           ├── capability-service.ts
-│   │           ├── credential-service.ts
-│   │           ├── usage-service.ts
-│   │           └── onboarding-service.ts
+│   │       ├── file-service.ts, file-watcher.ts, recent-files.ts
+│   │       ├── autosave-service.ts, recovery-service.ts, template-service.ts
+│   │       ├── workspace-service.ts, file-index-service.ts
+│   │       ├── export-service.ts, export-orchestrator.ts, llms-generator.ts
+│   │       ├── collaboration-service.ts, collab-server.ts, collab-awareness.ts
+│   │       ├── share-link-service.ts, static-site-generator.ts
+│   │       ├── version-history-service.ts, notification-service.ts
+│   │       ├── cloud-sync-service.ts, extension-platform-service.ts
+│   │       ├── template-marketplace-service.ts, publish-provenance-service.ts
+│   │       ├── cli-service.ts, cli-engine.ts, zip-utils.ts
+│   │       ├── ai/        # AI provider abstraction
+│   │       │   ├── ai-service.ts, agent-service.ts
+│   │       │   ├── provider-service.ts, provider-session-service.ts
+│   │       │   ├── capability-service.ts, capability-detection.ts
+│   │       │   ├── credential-service.ts, usage-service.ts
+│   │       │   ├── embedding-service.ts, embedding.ts, vector-store.ts
+│   │       │   ├── text-generation.ts, image.ts
+│   │       │   ├── ai-session-storage-service.ts, onboarding-service.ts
+│   │       │   ├── semantic-search-handlers.ts
+│   │       │   ├── instruction-loader-service.ts, prompt-file-loader-service.ts
+│   │       │   └── registries/  # Provider model registries
+│   │       ├── citation/  # Wave 1: citation management
+│   │       │   ├── citation-service.ts, citation-formatter.ts, citation-handlers.ts
+│   │       ├── export-formats/  # Wave 1: multi-format export
+│   │       │   ├── pdf-exporter.ts, docx-exporter.ts, epub-exporter.ts
+│   │       │   ├── latex-exporter.ts, pandoc-bridge.ts, pandoc-detector.ts
+│   │       ├── git/       # Wave 1: git integration
+│   │       │   ├── git-service.ts, git-handlers.ts
+│   │       ├── import/    # Wave 1: document import
+│   │       │   ├── notion-importer.ts, google-docs-importer.ts
+│   │       │   ├── html-to-mdx-converter.ts, import-handlers.ts
+│   │       ├── plugin/    # Wave 2: plugin system
+│   │       │   ├── plugin-registry.ts, plugin-loader.ts
+│   │       │   ├── plugin-manifest.ts, plugin-handlers.ts
+│   │       ├── search/    # Wave 1: full-text search
+│   │       │   ├── search-service.ts, search-handlers.ts
+│   │       └── template/  # Template management (modularized)
+│   │           ├── loader.ts, parser.ts, paths.ts, errors.ts, handlers.ts
 │   ├── preload/           # Context bridge
-│   │   ├── index.ts       # Main bridge
-│   │   └── ai-api.ts      # AI-specific APIs
+│   │   ├── index.ts       # API composition → window.mdxpad
+│   │   ├── api.ts         # MdxpadAPI type definition
+│   │   ├── file-api.ts, recovery-api.ts, template-api.ts, event-api.ts
+│   │   ├── ai-api.ts, ai-session-api.ts
+│   │   ├── workspace-api.ts, export-api.ts, platform-api.ts
+│   │   ├── git-api.ts, search-api.ts, import-api.ts, citation-api.ts
+│   │   ├── collab-api.ts, share-api.ts, history-api.ts
+│   │   ├── plugin-api.ts, notification-api.ts, semantic-search-api.ts
+│   │   └── validated-invoke.ts  # Zod-validated IPC helper
 │   ├── renderer/          # React application
 │   │   ├── App.tsx        # Root component
 │   │   ├── main.tsx       # React entry
 │   │   ├── components/    # UI components
-│   │   │   ├── editor/    # CodeMirror integration
+│   │   │   ├── editor/    # CodeMirror + WYSIWYG editors
+│   │   │   │   ├── MDXEditor.tsx, WysiwygEditor.tsx, WysiwygToolbar.tsx
+│   │   │   │   ├── EditorModeToggle.tsx, WorkspaceEditorStatus.tsx
 │   │   │   ├── preview/   # MDX preview
 │   │   │   ├── outline/   # Document outline
-│   │   │   ├── command-palette/
-│   │   │   ├── template-browser/
-│   │   │   └── frontmatter/
-│   │   ├── stores/        # Zustand state
-│   │   │   ├── document-store.ts
-│   │   │   ├── preview-store.ts
-│   │   │   ├── template-store.ts
-│   │   │   ├── frontmatter-store.ts
-│   │   │   ├── autosave-store.ts
-│   │   │   └── settings-store.ts
+│   │   │   ├── CommandPalette/
+│   │   │   ├── template-browser/, template-marketplace/
+│   │   │   ├── frontmatter/
+│   │   │   ├── ai/        # AI chat, multi-file edit
+│   │   │   ├── breadcrumb/ # Wave 1: breadcrumb navigation
+│   │   │   ├── collaboration/ # Wave 3: collab status, cursors
+│   │   │   ├── comments/  # Wave 3: comment threads
+│   │   │   ├── export/    # Wave 1: export panel, presets
+│   │   │   ├── history/   # Wave 3: version timeline, diff
+│   │   │   ├── publish/   # Wave 3: static site publishing
+│   │   │   ├── share/     # Wave 3: share dialog
+│   │   │   ├── shortcuts/ # Wave 3: keyboard shortcut editor
+│   │   │   ├── shell/     # App shell, status bar
+│   │   │   │   └── StatusBar/  # Word count, reading time, cursor
+│   │   │   ├── tabs/      # Wave 1: editor tabs
+│   │   │   ├── tags/      # Wave 3: tag management
+│   │   │   ├── voice/     # Wave 3: voice input
+│   │   │   ├── workspace/ # Workspace management
+│   │   │   └── ui/        # Shared Radix UI primitives
+│   │   ├── features/      # Feature modules
+│   │   │   ├── ai-agent/  # Wave 2: AI agent mode
+│   │   │   ├── ai-provider/ # AI provider settings
+│   │   │   ├── code-execution/ # Wave 2: inline code execution
+│   │   │   ├── diagrams/  # Wave 2: diagram generation
+│   │   │   ├── playground/ # Wave 2: component playground
+│   │   │   ├── plugins/   # Wave 2: plugin system UI
+│   │   │   └── semantic-search/ # Wave 2: semantic search
+│   │   ├── stores/        # Zustand state (25+ stores)
+│   │   │   ├── document-store.ts, preview-store.ts, template-store.ts
+│   │   │   ├── frontmatter-store.ts, autosave-store.ts, settings-store.ts
+│   │   │   ├── tab-store.ts, tag-store.ts, keybinding-store.ts
+│   │   │   ├── collab-store.ts, comments-store.ts, version-history-store.ts
+│   │   │   ├── multi-file-ai-store.ts, marketplace-store.ts
+│   │   │   ├── editor-mode-store.ts, editor-preferences-store.ts
+│   │   │   ├── ai-session-store.ts, accessibility-store.ts
+│   │   │   ├── export-store.ts, feature-flags-store.ts
+│   │   │   ├── workspace-store.ts, command-registry-store.ts
+│   │   │   ├── outline-store.ts, ui-layout-store.ts, sync-store.ts
+│   │   │   └── file-explorer-store.ts
 │   │   ├── hooks/         # React hooks
+│   │   │   ├── useCodeMirror/  # CM setup, extensions, themes
+│   │   │   ├── useVoiceInput.ts, useKeyboardShortcuts.ts
+│   │   │   ├── useAccessibility.ts, useBreadcrumb.ts, useTextStats.ts
+│   │   │   └── ... (autosave, recovery, filtering, outline, scroll sync)
 │   │   ├── lib/           # Utilities
-│   │   │   └── mdx/       # MDX compilation
-│   │   │       └── compiler.ts (worker pool)
+│   │   │   ├── editor/    # Editor library code
+│   │   │   │   ├── extensions/  # 14 CM extensions (see docs/features/editor-extensions.md)
+│   │   │   │   ├── keymaps/     # Vim, Emacs keymaps
+│   │   │   │   ├── prosemirror-mdx-*.ts  # WYSIWYG schema/parser/serializer
+│   │   │   │   ├── yjs-binding.ts  # Yjs-CodeMirror bridge
+│   │   │   │   └── comment-decorations.ts, state-bridge.ts, etc.
+│   │   │   ├── mdx/       # MDX compilation
+│   │   │   │   ├── compiler.ts, compile.ts, worker-pool.ts, request-queue.ts
+│   │   │   │   ├── plugin-pipeline.ts, math-plugins.ts
+│   │   │   │   └── outline-extractor.ts, fallback-outline-parser.ts
+│   │   │   └── frontmatter/, fuzzy-match/, sync/, telemetry/
+│   │   ├── commands/      # Command palette commands
+│   │   ├── preview-frame/ # Preview iframe content
 │   │   └── workers/       # Web workers
 │   └── shared/            # Cross-process code
 │       ├── types/         # TypeScript definitions
-│       ├── contracts/     # IPC schemas
+│       ├── contracts/     # IPC schemas (Zod)
+│       │   ├── file-schemas.ts, autosave-schemas.ts, template-schemas.ts
+│       │   ├── ai-schemas.ts, agent-schemas.ts, workspace-schemas.ts
+│       │   ├── export-schemas.ts, export-format-schemas.ts
+│       │   ├── git-schemas.ts, search-schemas.ts, import-schemas.ts
+│       │   ├── citation-schemas.ts, collab-schemas.ts, share-schemas.ts
+│       │   ├── plugin-schemas.ts, history-schemas.ts, notification-schemas.ts
+│       │   ├── platform-schemas.ts, semantic-search-schemas.ts
+│       │   └── autosave-ipc.ts
 │       ├── lib/           # Shared utilities
-│       │   ├── atomic-write.ts
-│       │   └── checksum.ts
+│       │   ├── atomic-write.ts, checksum.ts, error-utils.ts
+│       │   ├── events.ts, ipc.ts, metadata.ts, result.ts, utils.ts
+│       ├── security/      # Security utilities
+│       │   ├── origin-validator.ts, rate-limiter.ts, sanitizer.ts
+│       │   ├── csp-nonce.ts, message-validator.ts, integrity.ts
 │       └── ai/            # AI-related shared code
 ├── tests/                 # Test files
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
+│   ├── unit/, integration/, e2e/
 ├── scripts/               # Build and utility scripts
 ├── .github/workflows/     # CI/CD
 └── docs/                  # Documentation
     ├── constitution/      # Architectural principles
-    └── specs/             # SDD specifications
+    ├── specs/             # SDD specifications
+    ├── adr/               # Architecture Decision Records
+    └── features/          # Feature documentation
 ```
 
 ### Key Patterns
@@ -336,24 +434,33 @@ YOU MUST FOLLOW ALL OF THE RULES BELOW (7/7 total rules) AT ALL TIMES!!!
 
 ### Editor & Preview
 - **Editor**: CodeMirror 6.x with language support
+- **WYSIWYG**: ProseMirror (prosemirror-state, prosemirror-view, prosemirror-markdown)
 - **MDX**: @mdx-js/mdx 3.x + @mdx-js/react 3.x
-- **Markdown**: remark-gfm 4.x, remark-frontmatter 5.x
+- **Markdown**: remark-gfm 4.x, remark-frontmatter 5.x, remark-math 6.x
 - **Syntax Highlighting**: rehype-highlight 7.x
+- **Math**: KaTeX 0.16.x (rehype-katex 7.x, remark-math 6.x)
+- **Diagrams**: mermaid 11.x
 
 ### State & UI
-- **State**: Zustand 5.x with Immer 11.x
+- **State**: Zustand 5.x with Immer 11.x (25+ stores)
 - **UI Components**: Radix UI primitives
 - **Styling**: Tailwind CSS 4.x
 - **Icons**: Lucide React
 - **Panels**: react-resizable-panels 4.1.0
+- **Drag & Drop**: @dnd-kit/core 6.x, @dnd-kit/sortable 10.x
 
 ### AI & Services
 - **AI SDK**: Vercel AI SDK v6 (@ai-sdk/anthropic, @ai-sdk/openai, ollama-ai-provider)
+- **Search**: fzf 0.5.2, minisearch 7.x (full-text), vector-store (semantic)
+- **Collaboration**: yjs 13.x, y-websocket 3.x, y-indexeddb 9.x
+- **Export**: docx 9.x, epub-gen-memory 1.x
+- **Git**: simple-git 3.x
+- **Citations**: @citation-js/core 0.7.x
+- **Diff**: diff 8.x
 - **File Watching**: chokidar 5.0.0
 - **Validation**: zod 3.24.x
 - **YAML**: yaml 2.8.x, gray-matter 4.0.x
 - **Storage**: electron-store 11.0.2
-- **Search**: fzf 0.5.2
 
 ### Development & Testing
 - **Testing**: Vitest 2.x + @testing-library/react 16.x
@@ -364,62 +471,56 @@ YOU MUST FOLLOW ALL OF THE RULES BELOW (7/7 total rules) AT ALL TIMES!!!
 
 ## Recent Changes
 
+### 2026-02-27: Wave 3 — Collaboration, Publishing & Polish
+- **Collaboration**: Yjs WebSocket server, collab-store, cursor overlay, comment threads, suggestions
+- **Share Links**: Token-based share link service with expiration and access modes
+- **Static Site Publishing**: MDX-to-HTML static site generator with index page and CSS
+- **Version History**: Aggregated history from autosave snapshots and git commits
+- **Tags/Taxonomy**: Hierarchical tag store with file assignment and tree view
+- **Keyboard Shortcut Editor**: Customizable keybindings with conflict detection
+- **WYSIWYG Editor**: ProseMirror-based editor with MDX schema, toolbar, mode toggle
+- **Multi-File AI Editing**: Per-file accept/reject workflow for AI-driven edits
+- **Template Marketplace**: Browse and install document templates
+- **Accessibility**: High contrast theme, focus traps, accessibility store
+- **Voice Input**: Web Speech API integration for voice-to-text
+- **Notifications**: Native system notification service with queue management
+
+### 2026-02-25: Wave 2 — Intelligence & Extensibility
+- **AI Agent Mode**: Tool-using agent with plan steps, approval workflow, streaming
+- **Semantic Search**: Embedding-based workspace search with vector store
+- **Next-Edit Prediction**: AI ghost text completions in CodeMirror
+- **Diagrams**: AI-powered diagram generation (Mermaid)
+- **Plugin System**: Registry, loader, manifest validation, theme manager
+- **Slash Commands**: `/command` autocomplete in editor
+- **Code Execution**: Sandboxed inline JS/TS execution with output widgets
+- **Component Playground**: Interactive component preview and experimentation
+- **Go-to-Definition**: Navigate to component/import definitions
+
+### 2026-02-20: Wave 1 — Editor Extensions, Export & Backend Services
+- **CM Extensions**: Multi-cursor, code folding, regex find/replace, snippets, minimap, focus mode, distraction-free, spellcheck, font settings, word wrap
+- **Keymaps**: Vim and Emacs keymap modes
+- **Export Formats**: PDF, DOCX, EPUB, LaTeX, Pandoc bridge with detection
+- **Git Integration**: Git service with simple-git, status, diff, commit
+- **Full-Text Search**: MiniSearch-based workspace search
+- **Document Import**: Notion, Google Docs, HTML-to-MDX converters
+- **Citations**: BibTeX parsing, CSL formatting via citation-js
+- **Editor Tabs**: Multi-tab editing with tab store and context menus
+- **Breadcrumb Navigation**: File path breadcrumb component
+- **Math Support**: KaTeX rendering via remark-math + rehype-katex
+- **Word Count/Reading Time**: Text statistics in status bar
+- **Export Orchestration**: Job lifecycle, presets, CLI orchestration, llms.txt generation
+- **Workspace Model**: Projects, link graph, metadata collections, file indexing
+- **Feature Flags**: Runtime feature surface toggles
+
 ### 2026-02-16: Full Codebase Audit
-Major quality and architecture improvements across 34 files:
+- Split 5 monolithic files into focused modules (<400 lines each)
+- Reduced ESLint errors from 528 to 0, type casts from 65 to <10
+- Added 106+ new tests (2610+ total passing, 80%+ coverage)
+- Fixed security, concurrency, and error handling defects
 
-**Architecture Refactoring**
-- Split 5 monolithic files (>700 lines each) into focused modules:
-  - `compiler.ts` → worker pool, request queue, telemetry
-  - `preload/index.ts` → file-api, recovery-api, template-api, event-api
-  - `App.tsx` → extracted hooks and containers
-  - `ai-service.ts` → text generation, embedding, image services
-  - `ai-handlers.ts` → provider, generation, usage handlers
-  - `capability-service.ts` → model capabilities, detection
-  - `provider-service.ts` → config manager, validation
-- Extracted shared utilities to `src/shared/lib/`:
-  - `atomic-write.ts` (atomic file writes with checksums)
-  - `checksum.ts` (content checksums for integrity)
-
-**Defects Fixed**
-- Security: Fixed hardcoded security info in IPC handlers
-- Concurrency: Fixed file save lock race condition
-- Race conditions: Fixed template store stale async requests
-- Error handling: Fixed menu error swallowing, watcher error handling
-- Type safety: Eliminated unsafe `any` casts in frontmatter store
-
-**Code Quality**
-- Linting: Reduced from 528 errors to 0 errors
-- Type casts: Reduced from 65 to <10 (only justified cases)
-- ESLint suppressions: Reduced from 49 to <15 (documented)
-- File size: All files now under 400 lines
-
-**Testing**
-- Added 106+ new store tests (autosave, file-explorer, preview, settings, sync, template)
-- Added comprehensive hook tests (recovery, error reporting, scroll sync)
-- Total: 2610+ tests passing
-- Coverage: Improved to 80%+ overall
-
-**CI/CD**
-- Eliminated duplicate builds in CI (2min savings per run)
-- Added coverage reporting with HTML artifacts
-- Optimized caching (node_modules, Electron, Playwright)
-- Added JUnit reporter for test results
-
-**Documentation**
-- Rewrote README.md (10 → 250+ lines)
-- Created comprehensive CONTRIBUTING.md
-- Updated architecture diagrams and guides
-- Added testing and development workflow docs
-
-### Previous Changes
-- 028-ai-provider-abstraction: BYOK AI provider abstraction with Vercel AI SDK, safeStorage credentials
-- 020-frontmatter-editor: Visual frontmatter editor with schema validation
-- 016-template-library: Template system with custom and built-in templates
-- 014-smart-filtering: FZF-based fuzzy search for files and content
-- 007-mdx-content-outline: Live document outline navigation
-- 006-application-shell: Integrated editor, preview, and file operations
-- 005-command-palette: Keyboard-driven command interface
-- 004-file-system-shell: File system operations with watching
-- 003-preview-pane: Live MDX preview with worker compilation
-- 001-interface-contracts: Type-safe IPC contracts
-- 000-foundational-setup: TypeScript strict mode foundation
+### Foundation (pre-Wave)
+- 028: BYOK AI provider abstraction with Vercel AI SDK
+- 020: Visual frontmatter editor with schema validation
+- 016: Template library with custom and built-in templates
+- 014: FZF-based fuzzy search
+- 007-000: Application shell, command palette, file system, live preview, IPC contracts, TypeScript strict foundation
