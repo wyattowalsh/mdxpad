@@ -338,13 +338,167 @@ async function verifySecuritySettings(): Promise<VerificationResult> {
   }
 }
 
+// ============================================================================
+// Static Source Verification (Wave 3 Security Checks)
+// ============================================================================
+
+interface StaticCheckResult {
+  passed: boolean;
+  violations: string[];
+}
+
+/**
+ * Run static source analysis to verify security invariants
+ * introduced with Wave 3 features (collaboration, sharing, plugins, IPC).
+ */
+async function verifyStaticSecurityChecks(): Promise<StaticCheckResult> {
+  const { readFileSync } = await import('node:fs');
+  const violations: string[] = [];
+
+  console.log('\nStatic Security Checks:');
+  console.log('========================\n');
+
+  // --- Collab Server: room IDs are validated ---
+  try {
+    const collabServerSrc = readFileSync(
+      join(process.cwd(), 'src/main/services/collab-server.ts'),
+      'utf-8'
+    );
+
+    // Verify the server checks for missing docId before creating rooms
+    if (!collabServerSrc.includes("'Missing docId parameter'")) {
+      violations.push('collab-server: missing docId validation on connection');
+    } else {
+      console.log('  [pass] Collab server validates room IDs (docId parameter check)');
+    }
+
+    // Verify max rooms/clients limits exist
+    if (!collabServerSrc.includes('maxClientsPerRoom') || !collabServerSrc.includes('maxRooms')) {
+      violations.push('collab-server: missing room/client capacity limits');
+    } else {
+      console.log('  [pass] Collab server enforces room/client capacity limits');
+    }
+  } catch {
+    violations.push('collab-server: could not read source file');
+  }
+
+  // --- Share Links: tokens use crypto.randomBytes ---
+  try {
+    const shareLinkSrc = readFileSync(
+      join(process.cwd(), 'src/main/services/share-link-service.ts'),
+      'utf-8'
+    );
+
+    if (!shareLinkSrc.includes('randomBytes')) {
+      violations.push('share-link-service: tokens not generated with crypto.randomBytes');
+    } else {
+      console.log('  [pass] Share link tokens use crypto.randomBytes');
+    }
+
+    if (!shareLinkSrc.includes('randomUUID')) {
+      violations.push('share-link-service: link IDs not generated with crypto.randomUUID');
+    } else {
+      console.log('  [pass] Share link IDs use crypto.randomUUID');
+    }
+  } catch {
+    violations.push('share-link-service: could not read source file');
+  }
+
+  // --- IPC Handlers: new handlers have Zod validation ---
+  const handlerFiles = [
+    'src/main/ipc/collab-handlers.ts',
+    'src/main/ipc/share-handlers.ts',
+    'src/main/ipc/history-handlers.ts',
+    'src/main/ipc/notification-handlers.ts',
+  ];
+
+  for (const handlerFile of handlerFiles) {
+    try {
+      const src = readFileSync(join(process.cwd(), handlerFile), 'utf-8');
+      const fileName = handlerFile.split('/').pop() ?? handlerFile;
+
+      if (!src.includes('createValidatedHandler')) {
+        violations.push(`${fileName}: does not use createValidatedHandler for Zod validation`);
+      } else {
+        console.log(`  [pass] ${fileName} uses createValidatedHandler (Zod validation)`);
+      }
+    } catch {
+      violations.push(`${handlerFile}: could not read source file`);
+    }
+  }
+
+  // --- Plugin System: sandbox uses vm.createContext ---
+  try {
+    const pluginLoaderSrc = readFileSync(
+      join(process.cwd(), 'src/main/services/plugin/plugin-loader.ts'),
+      'utf-8'
+    );
+
+    if (!pluginLoaderSrc.includes('vm.createContext')) {
+      violations.push('plugin-loader: does not use vm.createContext for sandboxing');
+    } else {
+      console.log('  [pass] Plugin loader uses vm.createContext for sandboxing');
+    }
+
+    if (!pluginLoaderSrc.includes('vm.Script')) {
+      violations.push('plugin-loader: does not use vm.Script for code execution');
+    } else {
+      console.log('  [pass] Plugin loader uses vm.Script for code execution');
+    }
+
+    if (!pluginLoaderSrc.includes('timeout')) {
+      violations.push('plugin-loader: no execution timeout for plugin scripts');
+    } else {
+      console.log('  [pass] Plugin loader enforces execution timeout');
+    }
+  } catch {
+    violations.push('plugin-loader: could not read source file');
+  }
+
+  // --- Plugin Manifest: uses Zod schema validation ---
+  try {
+    const pluginManifestSrc = readFileSync(
+      join(process.cwd(), 'src/main/services/plugin/plugin-manifest.ts'),
+      'utf-8'
+    );
+
+    if (!pluginManifestSrc.includes('PluginManifestSchema.safeParse')) {
+      violations.push('plugin-manifest: does not use Zod schema validation');
+    } else {
+      console.log('  [pass] Plugin manifest loader validates with Zod schema');
+    }
+  } catch {
+    violations.push('plugin-manifest: could not read source file');
+  }
+
+  console.log('');
+  const passed = violations.length === 0;
+
+  if (passed) {
+    console.log('All static security checks passed.');
+  } else {
+    console.log('Static security check FAILURES:');
+    violations.forEach((v) => console.log(`  - ${v}`));
+  }
+
+  return { passed, violations };
+}
+
 // Run verification
-verifySecuritySettings()
-  .then((result) => {
-    if (!result.passed) {
+Promise.all([verifySecuritySettings(), verifyStaticSecurityChecks()])
+  .then(([runtimeResult, staticResult]) => {
+    const allPassed = runtimeResult.passed && staticResult.passed;
+
+    if (!allPassed) {
+      if (!runtimeResult.passed) {
+        console.error('\nRuntime security verification failed.');
+      }
+      if (!staticResult.passed) {
+        console.error('\nStatic security checks failed.');
+      }
       process.exit(1);
     }
-    console.log('\nSecurity verification complete.');
+    console.log('\nAll security verifications complete.');
     process.exit(0);
   })
   .catch((error: unknown) => {

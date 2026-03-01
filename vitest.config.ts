@@ -14,6 +14,8 @@ export default defineConfig({
       ['src/preload/**/*.test.tsx', 'node'],
       ['tests/integration/**/*.test.ts', 'node'],
       ['tests/integration/**/*.test.tsx', 'node'],
+      ['tests/security/**/*.test.ts', 'node'],
+      ['tests/security/**/*.test.tsx', 'node'],
     ],
     include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
     coverage: {
