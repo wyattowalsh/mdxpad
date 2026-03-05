@@ -1,9 +1,20 @@
 /**
- * Integration tests for Accessibility Store.
+ * Accessibility Store State Transition & Persistence Tests
  *
- * Tests high contrast toggle, reduced motion, large text,
- * preference persistence, system sync, screen reader announcements,
- * and reset to defaults.
+ * Tests high contrast toggle, reduced motion, large text, preference
+ * persistence to localStorage, system preference sync with user-override
+ * guards, screen reader announcement queue management, and reset to defaults.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand accessibility-store in isolation with
+ * a mocked localStorage and a minimal `window` shim. No real CSS class
+ * application, media query listeners, or screen reader ARIA live-region
+ * rendering is involved. True integration tests would toggle accessibility
+ * preferences in a rendered UI, verify that the correct CSS custom properties
+ * and class names are applied to the document root, confirm that
+ * `prefers-reduced-motion` and `prefers-contrast` media query changes propagate
+ * through the sync mechanism, and validate that ARIA live regions announce
+ * messages to assistive technology.
  *
  * @module tests/integration/accessibility.test
  */

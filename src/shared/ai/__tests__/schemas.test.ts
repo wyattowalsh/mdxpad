@@ -22,11 +22,16 @@ import {
   // Base objects
   CapabilityConstraintsSchema,
   ProviderConfigSchema,
+  SidecarConfigSchema,
+  SidecarLifecycleStatusSchema,
+  SidecarLifecycleStatusResponseSchema,
   ErrorObjectSchema,
   UsageTokensSchema,
   // Provider management
   ProviderListResponseSchema,
   AddProviderRequestSchema,
+  SidecarConfigureRequestSchema,
+  SidecarStatusRequestSchema,
   UpdateProviderRequestSchema,
   RemoveProviderRequestSchema,
   SetActiveProviderRequestSchema,
@@ -68,13 +73,14 @@ import {
   createValidator,
 } from '../schemas';
 import { z } from 'zod';
+import { AIChannels, getInvokeChannels, isInvokeChannel } from '../ipc-channels';
 
 // =============================================================================
 // ENUM SCHEMAS
 // =============================================================================
 
 describe('ProviderTypeSchema', () => {
-  const validTypes = ['openai', 'anthropic', 'ollama', 'lmstudio', 'openai-compatible'];
+  const validTypes = ['openai', 'anthropic', 'ollama', 'lmstudio', 'openai-compatible', 'sidecar'];
   for (const type of validTypes) {
     it(`should accept "${type}"`, () => {
       expect(ProviderTypeSchema.safeParse(type).success).toBe(true);
@@ -199,6 +205,59 @@ describe('ProviderConfigSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('should accept sidecar config for sidecar provider', () => {
+    const result = ProviderConfigSchema.safeParse({
+      ...validConfig,
+      type: 'sidecar',
+      sidecarConfig: {
+        modelPath: '/models/llama.gguf',
+        contextSize: 4096,
+        threads: 8,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Sidecar schemas', () => {
+  it('should accept valid sidecar config', () => {
+    const result = SidecarConfigSchema.safeParse({
+      modelPath: '/models/llama.gguf',
+      contextSize: 4096,
+      gpuLayers: 20,
+      threads: 8,
+      port: 11435,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('should reject invalid sidecar config port', () => {
+    const result = SidecarConfigSchema.safeParse({
+      modelPath: '/models/llama.gguf',
+      port: 70000,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('should accept lifecycle status enum values', () => {
+    for (const status of ['stopped', 'starting', 'running', 'stopping', 'error']) {
+      expect(SidecarLifecycleStatusSchema.safeParse(status).success).toBe(true);
+    }
+  });
+
+  it('should accept sidecar lifecycle status response', () => {
+    const result = SidecarLifecycleStatusResponseSchema.safeParse({
+      success: true,
+      status: 'running',
+      pid: 1234,
+      endpoint: 'http://127.0.0.1:11435',
+      config: {
+        modelPath: '/models/llama.gguf',
+      },
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('ErrorObjectSchema', () => {
@@ -260,6 +319,33 @@ describe('AddProviderRequestSchema', () => {
       type: 'openai',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('should accept sidecar provider with sidecar config', () => {
+    const result = AddProviderRequestSchema.safeParse({
+      displayName: 'Local Llama',
+      type: 'sidecar',
+      sidecarConfig: {
+        modelPath: '/models/llama.gguf',
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Sidecar lifecycle request schemas', () => {
+  it('should accept sidecar configure request', () => {
+    const result = SidecarConfigureRequestSchema.safeParse({
+      config: {
+        modelPath: '/models/llama.gguf',
+        threads: 8,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('should accept sidecar status request', () => {
+    expect(SidecarStatusRequestSchema.safeParse(undefined).success).toBe(true);
   });
 });
 
@@ -614,5 +700,20 @@ describe('createValidator', () => {
 
   it('isValid should return false for invalid data', () => {
     expect(validator.isValid({ value: 'bad' })).toBe(false);
+  });
+});
+
+describe('Sidecar IPC channels', () => {
+  it('should expose sidecar channels', () => {
+    expect(AIChannels.SIDECAR_CONFIGURE).toBe('mdxpad:ai:sidecar:configure');
+    expect(AIChannels.SIDECAR_STATUS).toBe('mdxpad:ai:sidecar:status');
+  });
+
+  it('should include sidecar channels in invoke channel utilities', () => {
+    const invokeChannels = getInvokeChannels();
+    expect(invokeChannels).toContain(AIChannels.SIDECAR_CONFIGURE);
+    expect(invokeChannels).toContain(AIChannels.SIDECAR_STATUS);
+    expect(isInvokeChannel(AIChannels.SIDECAR_CONFIGURE)).toBe(true);
+    expect(isInvokeChannel(AIChannels.SIDECAR_STATUS)).toBe(true);
   });
 });

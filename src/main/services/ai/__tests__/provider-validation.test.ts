@@ -332,6 +332,48 @@ describe('performValidation', () => {
       expect(result.valid).toBe(true);
     });
   });
+
+  describe('Sidecar', () => {
+    it('should return missing URL result when no sidecar baseUrl', async () => {
+      const result = await performValidation(makeProvider('sidecar'), null);
+
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe('MISSING_BASE_URL');
+    });
+
+    it('should validate sidecar endpoint with OpenAI-compatible model response', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ data: [{ id: 'llama-3.2' }] }),
+        })
+      );
+
+      const result = await performValidation(
+        makeProvider('sidecar', 'http://127.0.0.1:11470'),
+        null
+      );
+
+      expect(result.valid).toBe(true);
+      expect(result.status).toBe('connected');
+      expect(result.models).toContain('llama-3.2');
+    });
+
+    it('should surface sidecar connection failures', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+      const result = await performValidation(
+        makeProvider('sidecar', 'http://127.0.0.1:11470'),
+        null
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.error?.code).toBe('CONNECTION_ERROR');
+      expect(result.error?.message).toBe('Connection error: 503');
+    });
+  });
 });
 
 // ============================================================================

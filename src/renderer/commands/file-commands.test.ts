@@ -55,6 +55,7 @@ import {
   saveFileCommand,
   saveFileAsCommand,
   exportFileCommand,
+  managePluginsCommand,
   closeWindowCommand,
   FILE_COMMANDS,
   registerFileCommands,
@@ -76,6 +77,10 @@ function createMockAIApi(overrides: Partial<AIApi> = {}): AIApi {
     removeProvider: vi.fn().mockResolvedValue({ success: true }),
     setActiveProvider: vi.fn().mockResolvedValue({ success: true }),
     validateProvider: vi.fn().mockResolvedValue({ valid: true, error: null }),
+    configureSidecar: vi.fn().mockResolvedValue({ success: true, status: 'running' }),
+    getSidecarStatus: vi.fn().mockResolvedValue({ success: true, status: 'stopped' }),
+    startSidecar: vi.fn().mockResolvedValue({ success: true, status: 'running' }),
+    stopSidecar: vi.fn().mockResolvedValue({ success: true, status: 'stopped' }),
     // Credential Management
     setCredential: vi.fn().mockResolvedValue({ success: true }),
     hasCredential: vi.fn().mockResolvedValue({ hasCredential: false }),
@@ -257,13 +262,26 @@ describe('FILE_COMMAND_IDS', () => {
     expect(FILE_COMMAND_IDS.save).toBe('file.save');
     expect(FILE_COMMAND_IDS.saveAs).toBe('file.save-as');
     expect(FILE_COMMAND_IDS.export).toBe('file.export');
+    expect(FILE_COMMAND_IDS.plugins).toBe('file.plugins');
     expect(FILE_COMMAND_IDS.close).toBe('file.close');
   });
 });
 
 describe('checkDirtyState', () => {
-  it('should return true (placeholder always proceeds)', () => {
+  it('should return false when user cancels', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    expect(checkDirtyState()).toBe(false);
+
+    confirmSpy.mockRestore();
+  });
+
+  it('should return true when user confirms', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
     expect(checkDirtyState()).toBe(true);
+
+    confirmSpy.mockRestore();
   });
 });
 
@@ -280,9 +298,9 @@ describe('newFileCommand', () => {
     expect(newFileCommand.shortcut).toEqual({ key: 'n', modifiers: ['Mod'] });
   });
 
-  it('should create untitled document', () => {
+  it('should create untitled document', async () => {
     const ctx = createMockContext();
-    const result = newFileCommand.execute(ctx);
+    const result = await newFileCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
     expect(mockNewDocument).toHaveBeenCalledTimes(1);
@@ -290,6 +308,29 @@ describe('newFileCommand', () => {
       type: 'info',
       message: 'New file created',
     });
+  });
+
+  it('should discard dirty untitled changes without prompting and create a new document', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: null,
+        filePath: null,
+        content: '# Unsaved',
+        isDirty: true,
+      },
+    });
+
+    const result = await newFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(mockApi.saveFileAs).not.toHaveBeenCalled();
+    expect(mockMarkSaved).not.toHaveBeenCalled();
+    expect(mockNewDocument).toHaveBeenCalledTimes(1);
+    confirmSpy.mockRestore();
   });
 
   it('should always be enabled', () => {
@@ -337,6 +378,26 @@ describe('openFileCommand', () => {
 
     expect(result).toEqual({ ok: true }); // Cancelled is not an error
     expect(mockOpenDocument).not.toHaveBeenCalled();
+  });
+
+  it('should not open a file when dirty and user cancels', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: null,
+        filePath: null,
+        content: '# Unsaved',
+        isDirty: true,
+      },
+    });
+
+    const result = await openFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.openFile).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 
   it('should handle file not found error', async () => {
@@ -522,6 +583,26 @@ describe('closeWindowCommand', () => {
     expect(mockApi.closeWindow).toHaveBeenCalledTimes(1);
   });
 
+  it('should not close window when dirty and user cancels', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: null,
+        filePath: null,
+        content: '# Unsaved',
+        isDirty: true,
+      },
+    });
+
+    const result = await closeWindowCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.closeWindow).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
   it('should always be enabled', () => {
     const ctx = createMockContext();
     expect(closeWindowCommand.enabled?.(ctx)).toBe(true);
@@ -587,14 +668,50 @@ describe('exportFileCommand', () => {
   });
 });
 
+describe('managePluginsCommand', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useFeatureFlagsStore.getState().setFlag('plugin', true);
+  });
+
+  it('lists plugins when plugin surface is enabled', async () => {
+    const pluginList = vi.fn().mockResolvedValue({ plugins: [] });
+    const mockApi = createMockApi({
+      plugin: {
+        list: pluginList,
+        install: vi.fn(),
+        uninstall: vi.fn(),
+        enable: vi.fn(),
+        disable: vi.fn(),
+      },
+    });
+    const ctx = createMockContext({ api: mockApi });
+
+    const result = await managePluginsCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(pluginList).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an error when plugin surface is disabled', async () => {
+    useFeatureFlagsStore.getState().setFlag('plugin', false);
+    const ctx = createMockContext();
+
+    const result = await managePluginsCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'Plugin surface is disabled' });
+  });
+});
+
 describe('FILE_COMMANDS', () => {
   it('should contain all file commands', () => {
-    expect(FILE_COMMANDS).toHaveLength(6);
+    expect(FILE_COMMANDS).toHaveLength(7);
     expect(FILE_COMMANDS).toContain(newFileCommand);
     expect(FILE_COMMANDS).toContain(openFileCommand);
     expect(FILE_COMMANDS).toContain(saveFileCommand);
     expect(FILE_COMMANDS).toContain(saveFileAsCommand);
     expect(FILE_COMMANDS).toContain(exportFileCommand);
+    expect(FILE_COMMANDS).toContain(managePluginsCommand);
     expect(FILE_COMMANDS).toContain(closeWindowCommand);
   });
 });

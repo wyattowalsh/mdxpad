@@ -15,7 +15,11 @@ import type {
   RemoveProviderRequestSchema, RemoveProviderResponseSchema,
   SetActiveProviderRequestSchema, SetActiveProviderResponseSchema,
   ValidateProviderRequestSchema, ValidateProviderResponseSchema,
-  SetCredentialRequestSchema, SetCredentialResponseSchema,
+   SidecarConfigureRequestSchema, SidecarConfigureResponseSchema,
+   SidecarStatusRequestSchema, SidecarStatusResponseSchema,
+   SidecarStartRequestSchema, SidecarStartResponseSchema,
+   SidecarStopRequestSchema, SidecarStopResponseSchema,
+   SetCredentialRequestSchema, SetCredentialResponseSchema,
   HasCredentialRequestSchema, HasCredentialResponseSchema,
   ClearCredentialRequestSchema, ClearCredentialResponseSchema,
   GenerateTextRequestSchema, GenerateTextResponseSchema,
@@ -44,6 +48,11 @@ export const AIChannels = {
   PROVIDER_REMOVE: 'mdxpad:ai:provider:remove',
   PROVIDER_SET_ACTIVE: 'mdxpad:ai:provider:set-active',
   PROVIDER_VALIDATE: 'mdxpad:ai:provider:validate',
+  // Sidecar Runtime (invoke/handle)
+  SIDECAR_CONFIGURE: 'mdxpad:ai:sidecar:configure',
+  SIDECAR_STATUS: 'mdxpad:ai:sidecar:status',
+  SIDECAR_START: 'mdxpad:ai:sidecar:start',
+  SIDECAR_STOP: 'mdxpad:ai:sidecar:stop',
   // Credential Management (invoke/handle)
   CREDENTIAL_SET: 'mdxpad:ai:credential:set',
   CREDENTIAL_HAS: 'mdxpad:ai:credential:has',
@@ -112,6 +121,22 @@ export interface AIProviderApi {
   [AIChannels.PROVIDER_VALIDATE]: {
     request: z.infer<typeof ValidateProviderRequestSchema>;
     response: z.infer<typeof ValidateProviderResponseSchema>;
+  };
+  [AIChannels.SIDECAR_CONFIGURE]: {
+    request: z.infer<typeof SidecarConfigureRequestSchema>;
+    response: z.infer<typeof SidecarConfigureResponseSchema>;
+  };
+  [AIChannels.SIDECAR_STATUS]: {
+    request: z.infer<typeof SidecarStatusRequestSchema>;
+    response: z.infer<typeof SidecarStatusResponseSchema>;
+  };
+  [AIChannels.SIDECAR_START]: {
+    request: z.infer<typeof SidecarStartRequestSchema>;
+    response: z.infer<typeof SidecarStartResponseSchema>;
+  };
+  [AIChannels.SIDECAR_STOP]: {
+    request: z.infer<typeof SidecarStopRequestSchema>;
+    response: z.infer<typeof SidecarStopResponseSchema>;
   };
   [AIChannels.CREDENTIAL_SET]: {
     request: z.infer<typeof SetCredentialRequestSchema>;
@@ -247,6 +272,10 @@ export const AIChannelRegistry = {
   providerRemove: { channel: AIChannels.PROVIDER_REMOVE, description: 'Remove an AI provider' },
   providerSetActive: { channel: AIChannels.PROVIDER_SET_ACTIVE, description: 'Set the active AI provider' },
   providerValidate: { channel: AIChannels.PROVIDER_VALIDATE, description: 'Validate AI provider credentials' },
+  sidecarConfigure: { channel: AIChannels.SIDECAR_CONFIGURE, description: 'Configure sidecar runtime' },
+  sidecarStatus: { channel: AIChannels.SIDECAR_STATUS, description: 'Get sidecar runtime status' },
+  sidecarStart: { channel: AIChannels.SIDECAR_START, description: 'Start sidecar runtime' },
+  sidecarStop: { channel: AIChannels.SIDECAR_STOP, description: 'Stop sidecar runtime' },
   credentialSet: { channel: AIChannels.CREDENTIAL_SET, description: 'Store a credential securely' },
   credentialHas: { channel: AIChannels.CREDENTIAL_HAS, description: 'Check if a credential exists' },
   credentialClear: { channel: AIChannels.CREDENTIAL_CLEAR, description: 'Remove a credential' },

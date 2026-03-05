@@ -1,0 +1,119 @@
+---
+title: "ADR 001: IPC Validation Pattern"
+description: "Decision to use Zod schemas for all IPC validation between processes."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+**Status:** `Accepted` &nbsp;|&nbsp; **Date:** 2025-01-01
+
+<Callout type="info">
+  This decision establishes Zod schemas in `src/shared/contracts/` as the single source of truth for all IPC request and response types. Every message crossing the Electron IPC boundary is validated at runtime on both sides, regardless of TypeScript's compile-time guarantees.
+</Callout>
+
+## Context
+
+Electron applications communicate between the Main process (Node.js) and the Renderer process (browser) via Inter-Process Communication (IPC). This boundary is a critical security surface:
+
+- The renderer process is **untrusted** — it runs web content that could be compromised.
+- Messages crossing the IPC boundary can be tampered with or malformed.
+- **TypeScript types are erased at runtime**, providing no actual validation.
+- Without runtime validation, the main process could act on invalid or malicious input.
+
+MDXPad needed a strategy that provides both compile-time type safety and runtime validation at every IPC boundary.
+
+## Decision
+
+All IPC communication in MDXPad uses **Zod schemas** defined in `src/shared/contracts/` as the single source of truth for request and response types.
+
+The pattern operates in four layers:
+
+1. **Schema definition** (`src/shared/contracts/*.ts`) — Zod schemas define the shape of every IPC request and response.
+2. **Type derivation** — TypeScript types are inferred from schemas using `z.infer<>`, ensuring types and runtime validation are always in sync.
+3. **Main process handlers** (`src/main/ipc/*.ts`) — Every `ipcMain.handle` call parses the incoming request with the schema before processing, and parses the response before returning.
+4. **Preload bridge** (`src/preload/index.ts`) — The `validatedInvoke` helper validates the response from the main process before passing it to the renderer.
+
+### Implementation
+
+```typescript
+// src/shared/contracts/file-schemas.ts
+import { z } from 'zod';
+
+export const ReadFileRequestSchema = z.object({
+  filePath: z.string().min(1),
+});
+export type ReadFileRequest = z.infer<typeof ReadFileRequestSchema>;
+
+export const ReadFileResponseSchema = z.object({
+  content: z.string(),
+  mtime: z.number(),
+});
+export type ReadFileResponse = z.infer<typeof ReadFileResponseSchema>;
+```
+
+```typescript
+// src/main/ipc/file-handlers.ts
+import { ipcMain } from 'electron';
+import { ReadFileRequestSchema, ReadFileResponseSchema } from '../../shared/contracts/file-schemas';
+
+ipcMain.handle('file:read', async (_, request) => {
+  const validated = ReadFileRequestSchema.parse(request); // throws on invalid input
+  const result = await fileService.read(validated.filePath);
+  return ReadFileResponseSchema.parse(result);             // validates output
+});
+```
+
+```typescript
+// src/preload/index.ts
+import { validatedInvoke } from './validated-invoke';
+import { ReadFileResponseSchema } from '../shared/contracts/file-schemas';
+
+export const fileApi = {
+  readFile: (filePath: string) =>
+    validatedInvoke('file:read', { filePath }, ReadFileResponseSchema),
+};
+```
+
+## Consequences
+
+### Positive
+
+- **Defense in depth** — Both sides of the IPC boundary validate messages, catching bugs and preventing injection attacks even if one side is compromised.
+- **Single source of truth** — Types are derived from schemas, so type mismatches between processes are structurally impossible.
+- **Clear error messages** — Zod provides detailed validation errors (`ZodError`) that make debugging straightforward during development.
+- **Incremental adoption** — New IPC channels can adopt the pattern without modifying existing ones.
+- **Self-documenting** — Schemas in `src/shared/contracts/` serve as living documentation of the entire IPC API surface.
+
+### Negative
+
+- **Runtime overhead** — Every IPC call incurs Zod parsing cost. In practice this is negligible (sub-millisecond for typical payloads) but is a real cost.
+- **Boilerplate** — Each channel requires schema + derived type + handler + preload wiring. This was mitigated by centralizing schemas in `contracts/`.
+- **Zod coupling** — The pattern couples the codebase to Zod. Switching validation libraries would require updating all contracts.
+
+### Neutral
+
+- The pattern naturally encourages small, focused IPC messages — large objects are awkward to fully schema-define.
+- Schemas can be reused for other validation purposes (e.g., file content validation, user input in forms).
+
+## Alternatives Considered
+
+### Runtime type assertions (`assert` / manual checks)
+
+Manual `typeof` checks and assertions are error-prone, verbose, and do not compose well. They also diverge from TypeScript types over time as the codebase evolves. Rejected.
+
+### io-ts / superstruct
+
+These libraries serve a similar purpose. Zod was chosen over them for its superior TypeScript inference, simpler and more ergonomic API, larger ecosystem and community support, and better error messages out of the box.
+
+### No runtime validation (trust TypeScript types)
+
+TypeScript types are erased at runtime. This leaves the IPC boundary completely unprotected. A bug in the renderer or a compromised renderer process could send arbitrary data to the main process, potentially triggering file system operations or shell commands with attacker-controlled arguments. **Rejected — violates the Security by Default principle in the Architectural Constitution.**
+
+## References
+
+- [Electron Security Best Practices](https://www.electronjs.org/docs/latest/tutorial/security)
+- [Zod Documentation](https://zod.dev)
+- `src/shared/contracts/` — IPC schema definitions
+- `src/preload/validated-invoke.ts` — `validatedInvoke` helper implementation
+- [Architectural Constitution](/docs/architecture/constitution) — Security by Default principle
+- Spec 001: Interface Contracts

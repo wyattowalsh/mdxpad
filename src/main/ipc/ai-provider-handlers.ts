@@ -12,7 +12,11 @@ import { ipcMain, type BrowserWindow } from 'electron';
 import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
 import type { AIServices } from '@main/services/ai';
-import type { ProviderConfig } from '@shared/ai/types';
+import type {
+  ProviderConfig,
+  SidecarConfig,
+  SidecarLifecycleStatusResponse,
+} from '@shared/ai/types';
 
 import { toErrorResponse } from './ai-handler-utils';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
@@ -27,6 +31,7 @@ import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 function buildProviderUpdates(updates: {
   displayName?: string | undefined;
   baseUrl?: string | undefined;
+  sidecarConfig?: schemas.SidecarConfigSchemaType | undefined;
   isActive?: boolean | undefined;
 }): Partial<ProviderConfig> {
   const result: Partial<ProviderConfig> = {};
@@ -35,6 +40,9 @@ function buildProviderUpdates(updates: {
   }
   if (updates.baseUrl !== undefined) {
     result.baseUrl = updates.baseUrl;
+  }
+  if (updates.sidecarConfig !== undefined) {
+    result.sidecarConfig = normalizeSidecarConfig(updates.sidecarConfig);
   }
   if (updates.isActive !== undefined) {
     result.isActive = updates.isActive;
@@ -70,12 +78,17 @@ async function handleProviderAdd(
 ): Promise<schemas.AddProviderResponseSchemaType> {
   try {
     const request = schemas.AddProviderRequestSchema.parse(rawRequest);
+    const sidecarConfig =
+      request.sidecarConfig !== undefined
+        ? normalizeSidecarConfig(request.sidecarConfig)
+        : undefined;
 
     const provider = await services.providerService.addProvider(
       {
         displayName: request.displayName,
         type: request.type,
         ...(request.baseUrl !== undefined && { baseUrl: request.baseUrl }),
+        ...(sidecarConfig !== undefined && { sidecarConfig }),
         isActive: false,
       },
       request.apiKey
@@ -90,6 +103,82 @@ async function handleProviderAdd(
       success: false,
       error: toErrorResponse(error),
     });
+  }
+}
+
+/**
+ * Handles SIDECAR_CONFIGURE: Configure and start sidecar runtime.
+ */
+async function handleSidecarConfigure(
+  services: AIServices,
+  rawRequest: unknown
+): Promise<schemas.SidecarConfigureResponseSchemaType> {
+  try {
+    const request = schemas.SidecarConfigureRequestSchema.parse(rawRequest);
+    const config = normalizeSidecarConfig(request.config);
+    await services.sidecarService.configure(config);
+    const status = await services.sidecarService.start(config);
+    await syncActiveSidecarProviderEndpoint(services, config, status);
+    return schemas.SidecarConfigureResponseSchema.parse(status);
+  } catch (error) {
+    return schemas.SidecarConfigureResponseSchema.parse(
+      createSidecarErrorResponse(error)
+    );
+  }
+}
+
+/**
+ * Handles SIDECAR_STATUS: Return current sidecar lifecycle status.
+ */
+function handleSidecarStatus(
+  services: AIServices,
+  rawRequest: unknown
+): Promise<schemas.SidecarStatusResponseSchemaType> {
+  try {
+    schemas.SidecarStatusRequestSchema.parse(rawRequest);
+    const status = services.sidecarService.getStatus();
+    return Promise.resolve(schemas.SidecarStatusResponseSchema.parse(status));
+  } catch (error) {
+    return Promise.resolve(
+      schemas.SidecarStatusResponseSchema.parse(createSidecarErrorResponse(error))
+    );
+  }
+}
+
+/**
+ * Handles SIDECAR_START: Start sidecar runtime with optional config.
+ */
+async function handleSidecarStart(
+  services: AIServices,
+  rawRequest: unknown
+): Promise<schemas.SidecarStartResponseSchemaType> {
+  try {
+    const request = schemas.SidecarStartRequestSchema.parse(rawRequest ?? {});
+    const config =
+      request.config !== undefined
+        ? normalizeSidecarConfig(request.config)
+        : undefined;
+    const status = await services.sidecarService.start(config);
+    await syncActiveSidecarProviderEndpoint(services, config, status);
+    return schemas.SidecarStartResponseSchema.parse(status);
+  } catch (error) {
+    return schemas.SidecarStartResponseSchema.parse(createSidecarErrorResponse(error));
+  }
+}
+
+/**
+ * Handles SIDECAR_STOP: Stop sidecar runtime.
+ */
+async function handleSidecarStop(
+  services: AIServices,
+  rawRequest: unknown
+): Promise<schemas.SidecarStopResponseSchemaType> {
+  try {
+    schemas.SidecarStopRequestSchema.parse(rawRequest);
+    const status = await services.sidecarService.stop();
+    return schemas.SidecarStopResponseSchema.parse(status);
+  } catch (error) {
+    return schemas.SidecarStopResponseSchema.parse(createSidecarErrorResponse(error));
   }
 }
 
@@ -373,13 +462,12 @@ function registerAuthorizedHandler(
 }
 
 /**
- * Registers all provider, credential, and capability IPC handlers.
+ * Registers provider management handlers.
  */
-export function registerProviderHandlers(
+function registerProviderManagementHandlers(
   services: AIServices,
   window: BrowserWindow
 ): void {
-  // Provider management
   registerAuthorizedHandler(AIChannels.PROVIDER_LIST, window, () =>
     handleProviderList(services)
   );
@@ -398,8 +486,36 @@ export function registerProviderHandlers(
   registerAuthorizedHandler(AIChannels.PROVIDER_VALIDATE, window, (request) =>
     handleProviderValidate(services, request)
   );
+}
 
-  // Credential management
+/**
+ * Registers sidecar lifecycle handlers.
+ */
+function registerSidecarHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
+  registerAuthorizedHandler(AIChannels.SIDECAR_CONFIGURE, window, (request) =>
+    handleSidecarConfigure(services, request)
+  );
+  registerAuthorizedHandler(AIChannels.SIDECAR_STATUS, window, (request) =>
+    handleSidecarStatus(services, request)
+  );
+  registerAuthorizedHandler(AIChannels.SIDECAR_START, window, (request) =>
+    handleSidecarStart(services, request)
+  );
+  registerAuthorizedHandler(AIChannels.SIDECAR_STOP, window, (request) =>
+    handleSidecarStop(services, request)
+  );
+}
+
+/**
+ * Registers credential management handlers.
+ */
+function registerCredentialHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
   registerAuthorizedHandler(AIChannels.CREDENTIAL_SET, window, (request) =>
     handleCredentialSet(services, request)
   );
@@ -409,8 +525,15 @@ export function registerProviderHandlers(
   registerAuthorizedHandler(AIChannels.CREDENTIAL_CLEAR, window, (request) =>
     handleCredentialClear(services, request)
   );
+}
 
-  // Capability detection
+/**
+ * Registers capability detection handlers.
+ */
+function registerCapabilityHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
   registerAuthorizedHandler(AIChannels.CAPABILITY_GET, window, (request) =>
     handleCapabilityGet(services, request)
   );
@@ -420,4 +543,61 @@ export function registerProviderHandlers(
   registerAuthorizedHandler(AIChannels.CAPABILITY_REFRESH, window, (request) =>
     handleCapabilityRefresh(services, request)
   );
+}
+
+/**
+ * Registers all provider, credential, and capability IPC handlers.
+ */
+export function registerProviderHandlers(
+  services: AIServices,
+  window: BrowserWindow
+): void {
+  registerProviderManagementHandlers(services, window);
+  registerSidecarHandlers(services, window);
+  registerCredentialHandlers(services, window);
+  registerCapabilityHandlers(services, window);
+}
+
+function createSidecarErrorResponse(error: unknown): SidecarLifecycleStatusResponse {
+  const normalizedError = toErrorResponse(error);
+  return {
+    success: false,
+    status: 'error',
+    error: {
+      code: normalizedError.code,
+      message: normalizedError.message,
+    },
+  };
+}
+
+function normalizeSidecarConfig(config: schemas.SidecarConfigSchemaType): SidecarConfig {
+  return {
+    modelPath: config.modelPath,
+    ...(config.binaryPath !== undefined && { binaryPath: config.binaryPath }),
+    ...(config.contextSize !== undefined && { contextSize: config.contextSize }),
+    ...(config.gpuLayers !== undefined && { gpuLayers: config.gpuLayers }),
+    ...(config.threads !== undefined && { threads: config.threads }),
+    ...(config.port !== undefined && { port: config.port }),
+  };
+}
+
+async function syncActiveSidecarProviderEndpoint(
+  services: AIServices,
+  config: SidecarConfig | undefined,
+  status: SidecarLifecycleStatusResponse
+): Promise<void> {
+  const configToPersist = config ?? status.config;
+  if (!status.endpoint || !configToPersist) {
+    return;
+  }
+
+  const activeProvider = await services.providerService.getActiveProvider();
+  if (activeProvider?.type !== 'sidecar') {
+    return;
+  }
+
+  await services.providerService.updateProvider(activeProvider.id, {
+    baseUrl: status.endpoint,
+    sidecarConfig: configToPersist,
+  });
 }

@@ -1,20 +1,17 @@
-/**
- * ProviderForm Component
- *
- * Form for adding or editing AI provider configuration.
- *
- * @module src/renderer/features/ai-provider/components/ProviderForm
- */
-
 import { useState, useCallback } from 'react';
-import type { ProviderConfig, ProviderType } from '@shared/ai/types';
+import type { ProviderConfig, ProviderType, SidecarConfig } from '@shared/ai/types';
 
 interface ProviderFormProps {
   /** Existing provider to edit, or undefined for new provider */
   provider?: ProviderConfig;
   /** Called when form is submitted */
   onSubmit: (
-    config: { displayName: string; type: ProviderType; baseUrl?: string },
+    config: {
+      displayName: string;
+      type: ProviderType;
+      baseUrl?: string;
+      sidecarConfig?: SidecarConfig;
+    },
     apiKey?: string
   ) => Promise<void>;
   /** Called when form is cancelled */
@@ -26,10 +23,11 @@ interface ProviderFormProps {
 }
 
 const PROVIDER_TYPES: { value: ProviderType; label: string; requiresApiKey: boolean }[] = [
-  { value: 'openai', label: 'OpenAI', requiresApiKey: true },
-  { value: 'anthropic', label: 'Anthropic', requiresApiKey: true },
   { value: 'ollama', label: 'Ollama (Local)', requiresApiKey: false },
   { value: 'lmstudio', label: 'LM Studio (Local)', requiresApiKey: false },
+  { value: 'sidecar', label: 'Sidecar (Bundled llama.cpp)', requiresApiKey: false },
+  { value: 'openai', label: 'OpenAI', requiresApiKey: true },
+  { value: 'anthropic', label: 'Anthropic', requiresApiKey: true },
   { value: 'openai-compatible', label: 'OpenAI Compatible', requiresApiKey: true },
 ];
 
@@ -46,31 +44,67 @@ export function ProviderForm({
   error,
 }: ProviderFormProps) {
   const isEditing = !!provider;
+  const initialType = provider?.type ?? 'ollama';
 
   const [displayName, setDisplayName] = useState(provider?.displayName ?? '');
-  const [type, setType] = useState<ProviderType>(provider?.type ?? 'openai');
-  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? '');
+  const [type, setType] = useState<ProviderType>(initialType);
+  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? DEFAULT_BASE_URLS[initialType] ?? '');
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [modelPath, setModelPath] = useState(provider?.sidecarConfig?.modelPath ?? '');
+  const [contextSize, setContextSize] = useState(
+    provider?.sidecarConfig?.contextSize !== undefined
+      ? String(provider.sidecarConfig.contextSize)
+      : ''
+  );
+  const [gpuLayers, setGpuLayers] = useState(
+    provider?.sidecarConfig?.gpuLayers !== undefined ? String(provider.sidecarConfig.gpuLayers) : ''
+  );
+  const [threads, setThreads] = useState(
+    provider?.sidecarConfig?.threads !== undefined ? String(provider.sidecarConfig.threads) : ''
+  );
+  const [port, setPort] = useState(
+    provider?.sidecarConfig?.port !== undefined ? String(provider.sidecarConfig.port) : ''
+  );
 
   const selectedType = PROVIDER_TYPES.find((t) => t.value === type);
   const requiresApiKey = selectedType?.requiresApiKey ?? true;
   const requiresBaseUrl = type === 'openai-compatible' || type === 'ollama' || type === 'lmstudio';
+  const requiresSidecarConfig = type === 'sidecar';
+  const existingBinaryPath = provider?.sidecarConfig?.binaryPath;
 
-  const handleTypeChange = useCallback((newType: ProviderType) => {
-    setType(newType);
-    // Set default base URL for local providers
-    const defaultUrl = DEFAULT_BASE_URLS[newType];
-    if (defaultUrl && !baseUrl) {
-      setBaseUrl(defaultUrl);
+  const parseOptionalInt = useCallback((value: string): number | undefined => {
+    const normalized = value.trim();
+    if (!normalized) {
+      return undefined;
     }
-  }, [baseUrl]);
+
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }, []);
+
+  const handleTypeChange = useCallback(
+    (newType: ProviderType) => {
+      setType(newType);
+      // Set default base URL for local providers
+      const defaultUrl = DEFAULT_BASE_URLS[newType];
+      if (defaultUrl && !baseUrl) {
+        setBaseUrl(defaultUrl);
+      }
+    },
+    [baseUrl]
+  );
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
 
-      const config: { displayName: string; type: ProviderType; baseUrl?: string } = {
+      const config: {
+        displayName: string;
+        type: ProviderType;
+        baseUrl?: string;
+        sidecarConfig?: SidecarConfig;
+      } = {
         displayName: displayName.trim(),
         type,
       };
@@ -79,17 +113,63 @@ export function ProviderForm({
         config.baseUrl = baseUrl.trim();
       }
 
-      await onSubmit(
-        config,
-        requiresApiKey && apiKey.trim() ? apiKey.trim() : undefined
-      );
+      if (requiresSidecarConfig) {
+        const sidecarConfig: SidecarConfig = {
+          modelPath: modelPath.trim(),
+        };
+
+        const parsedContextSize = parseOptionalInt(contextSize);
+        const parsedGpuLayers = parseOptionalInt(gpuLayers);
+        const parsedThreads = parseOptionalInt(threads);
+        const parsedPort = parseOptionalInt(port);
+
+        if (existingBinaryPath) {
+          sidecarConfig.binaryPath = existingBinaryPath;
+        }
+        if (parsedContextSize !== undefined) {
+          sidecarConfig.contextSize = parsedContextSize;
+        }
+        if (parsedGpuLayers !== undefined) {
+          sidecarConfig.gpuLayers = parsedGpuLayers;
+        }
+        if (parsedThreads !== undefined) {
+          sidecarConfig.threads = parsedThreads;
+        }
+        if (parsedPort !== undefined) {
+          sidecarConfig.port = parsedPort;
+        }
+
+        config.sidecarConfig = sidecarConfig;
+      }
+
+      await onSubmit(config, requiresApiKey && apiKey.trim() ? apiKey.trim() : undefined);
     },
-    [displayName, type, baseUrl, apiKey, requiresBaseUrl, requiresApiKey, onSubmit]
+    [
+      apiKey,
+      baseUrl,
+      contextSize,
+      displayName,
+      gpuLayers,
+      modelPath,
+      onSubmit,
+      parseOptionalInt,
+      port,
+      requiresApiKey,
+      requiresBaseUrl,
+      requiresSidecarConfig,
+      threads,
+      type,
+      existingBinaryPath,
+    ]
   );
 
   return (
-    <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
-      {/* Display Name */}
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(e);
+      }}
+      className="space-y-4"
+    >
       <div>
         <label
           htmlFor="displayName"
@@ -108,7 +188,6 @@ export function ProviderForm({
         />
       </div>
 
-      {/* Provider Type */}
       {!isEditing && (
         <div>
           <label
@@ -132,7 +211,6 @@ export function ProviderForm({
         </div>
       )}
 
-      {/* Base URL (for compatible/local providers) */}
       {requiresBaseUrl && (
         <div>
           <label
@@ -150,10 +228,116 @@ export function ProviderForm({
             required
             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
+          {(type === 'ollama' || type === 'lmstudio') && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Prefer Ollama for local setup. For llama.cpp-compatible servers, use OpenAI Compatible
+              with your local endpoint.
+            </p>
+          )}
         </div>
       )}
 
-      {/* API Key */}
+      {requiresSidecarConfig && (
+        <div className="space-y-3">
+          <div>
+            <label
+              htmlFor="modelPath"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Model Path
+            </label>
+            <input
+              id="modelPath"
+              type="text"
+              value={modelPath}
+              onChange={(e) => setModelPath(e.target.value)}
+              placeholder="/absolute/path/to/model.gguf"
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Provide an absolute path to a local GGUF model file.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="contextSize"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Context Size
+              </label>
+              <input
+                id="contextSize"
+                type="number"
+                min={1}
+                step={1}
+                value={contextSize}
+                onChange={(e) => setContextSize(e.target.value)}
+                placeholder="8192"
+                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="gpuLayers"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                GPU Layers
+              </label>
+              <input
+                id="gpuLayers"
+                type="number"
+                min={0}
+                step={1}
+                value={gpuLayers}
+                onChange={(e) => setGpuLayers(e.target.value)}
+                placeholder="0"
+                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="threads"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Threads
+              </label>
+              <input
+                id="threads"
+                type="number"
+                min={1}
+                step={1}
+                value={threads}
+                onChange={(e) => setThreads(e.target.value)}
+                placeholder="8"
+                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="port"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Port
+              </label>
+              <input
+                id="port"
+                type="number"
+                min={1}
+                max={65535}
+                step={1}
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                placeholder="11434"
+                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {requiresApiKey && (
         <div>
           <label
@@ -187,14 +371,12 @@ export function ProviderForm({
         </div>
       )}
 
-      {/* Error message */}
       {error && (
         <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
           <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex justify-end gap-3 pt-2">
         <button
           type="button"

@@ -1,8 +1,17 @@
 /**
- * Integration tests for Keyboard Shortcuts.
+ * Keybinding Store State Transition & Conflict Detection Tests
  *
- * Tests default bindings, rebinding, conflict detection, reset,
- * import/export, and category filtering.
+ * Tests default binding initialization, rebinding, conflict detection,
+ * single/all reset, import/export, category filtering, normalization,
+ * and localStorage persistence.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand keybinding-store in isolation with a
+ * mocked localStorage. No real keyboard events are dispatched, no CodeMirror
+ * keymaps are wired, and no Electron accelerators are registered. True
+ * integration tests would render the editor, press actual key combinations, and
+ * verify that the bound command executes, including conflict resolution when two
+ * commands share the same shortcut in different contexts.
  *
  * @module tests/integration/keyboard-shortcuts.test
  */

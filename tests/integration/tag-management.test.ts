@@ -1,8 +1,17 @@
 /**
- * Integration tests for Tag Management.
+ * Tag Store State Transition & Selector Tests
  *
  * Tests tag CRUD, file assignment, search by tag, nested taxonomy,
- * and parent-child relationships.
+ * parent-child relationships, tag selection/filtering, and localStorage
+ * persistence.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand tag-store in isolation with a mocked
+ * localStorage. All operations are performed directly on the store API without
+ * any real filesystem, IPC communication, or UI rendering. True integration
+ * tests would assign tags through the UI, verify persistence via the main
+ * process (electron-store or filesystem), and confirm that tag-based file
+ * filtering updates the sidebar and search results end-to-end.
  *
  * @module tests/integration/tag-management.test
  */

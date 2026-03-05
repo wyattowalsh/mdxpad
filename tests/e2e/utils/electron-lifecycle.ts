@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { _electron as electron, type ElectronApplication } from 'playwright';
+import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 
 export interface LaunchedMdxpadApp {
   app: ElectronApplication;
@@ -102,4 +102,93 @@ export async function safeCloseElectronApp(
   if (userDataDir && existsSync(userDataDir)) {
     rmSync(userDataDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Send an IPC event to the first BrowserWindow's renderer process.
+ */
+export async function dispatchIpcEvent(
+  app: ElectronApplication,
+  channel: string,
+  ...args: unknown[]
+): Promise<void> {
+  await app.evaluate(
+    ({ BrowserWindow }, { ch, a }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win?.webContents.send(ch, ...a);
+    },
+    { ch: channel, a: args }
+  );
+}
+
+/**
+ * Launch mdxpad and wait for the first window to reach domcontentloaded,
+ * optionally waiting for an additional selector.
+ */
+export async function launchMdxpadAndWait(
+  options: LaunchMdxpadOptions & { waitForSelector?: string } = {}
+): Promise<LaunchedMdxpadApp & { page: Page }> {
+  const launched = await launchMdxpad(options);
+  try {
+    const page = await launched.app.firstWindow();
+    await page.waitForLoadState('domcontentloaded');
+    if (options.waitForSelector) {
+      await page.waitForSelector(options.waitForSelector);
+    }
+    return { ...launched, page };
+  } catch (error) {
+    await safeCloseElectronApp(launched.app, launched.userDataDir);
+    throw error;
+  }
+}
+
+export interface DialogSpy {
+  wasCalled(): Promise<boolean>;
+  restore(): Promise<void>;
+}
+
+/**
+ * Monkey-patch an Electron dialog method so tests can assert it was invoked
+ * without triggering a native OS dialog.
+ */
+export async function spyOnElectronDialog(
+  app: ElectronApplication,
+  method: 'showOpenDialog' | 'showSaveDialog',
+  returnValue?: { canceled: boolean; filePath?: string; filePaths?: string[] }
+): Promise<DialogSpy> {
+  const flagKey = `__${method}Called`;
+  const restoreKey = `__restore_${method}`;
+
+  await app.evaluate(
+    ({ dialog }, { m, fk, rk, rv }) => {
+      const state = globalThis as Record<string, unknown>;
+      state[fk] = false;
+      const original = (dialog as any)[m].bind(dialog);
+      state[rk] = () => {
+        (dialog as any)[m] = original;
+        state[fk] = undefined;
+        state[rk] = undefined;
+      };
+      (dialog as any)[m] = async () => {
+        state[fk] = true;
+        return rv;
+      };
+    },
+    {
+      m: method,
+      fk: flagKey,
+      rk: restoreKey,
+      rv: returnValue ?? { canceled: true, filePaths: [], filePath: '' },
+    }
+  );
+
+  return {
+    wasCalled: () =>
+      app.evaluate((_e, fk) => Boolean((globalThis as any)[fk]), flagKey),
+    restore: () =>
+      app.evaluate((_e, rk) => {
+        const r = (globalThis as any)[rk];
+        if (r) r();
+      }, restoreKey),
+  };
 }

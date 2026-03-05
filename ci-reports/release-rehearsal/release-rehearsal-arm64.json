@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-03-02T20:33:22.705Z",
+  "arch": "arm64",
+  "requireSecrets": false,
+  "summary": {
+    "status": "pass",
+    "totalFindings": 1,
+    "blockingFindings": 0
+  },
+  "env": {
+    "missingSigningVars": [
+      "CSC_LINK",
+      "CSC_KEY_PASSWORD"
+    ],
+    "missingNotarizationVars": [
+      "APPLE_ID",
+      "APPLE_APP_SPECIFIC_PASSWORD",
+      "APPLE_TEAM_ID"
+    ]
+  },
+  "artifacts": {
+    "matched": [
+      "release/mdxpad-0.1.0-arm64.dmg",
+      "release/mdxpad-0.1.0-arm64.dmg.blockmap"
+    ]
+  },
+  "findings": [
+    {
+      "severity": "warning",
+      "message": "Release signing/notarization secrets missing: CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID"
+    }
+  ]
+}

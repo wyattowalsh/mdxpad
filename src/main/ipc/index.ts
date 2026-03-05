@@ -24,6 +24,8 @@ import { registerGitHandlers } from '@main/services/git/git-handlers';
 import { registerSearchHandlers } from '@main/services/search/search-handlers';
 import { registerImportHandlers } from '@main/services/import/import-handlers';
 import { registerCitationHandlers } from '@main/services/citation/citation-handlers';
+import { registerPluginHandlers, PLUGIN_CHANNELS } from '@main/services/plugin/plugin-handlers';
+import { PluginLoader } from '@main/services/plugin/plugin-loader';
 import { GitChannels } from '@shared/contracts/git-schemas';
 import { SearchChannels } from '@shared/contracts/search-schemas';
 import { ImportChannels } from '@shared/contracts/import-schemas';
@@ -33,7 +35,7 @@ import { AutosaveService } from '@main/services/autosave-service';
 import { RecoveryService } from '@main/services/recovery-service';
 import { createAIServices } from '@main/services/ai';
 import { WorkspaceService } from '@main/services/workspace-service';
-import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
+import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
 /** Singleton autosave service instances */
 const settingsService = new AutosaveSettingsService();
@@ -41,6 +43,7 @@ const autosaveService = new AutosaveService(settingsService);
 const recoveryService = new RecoveryService(settingsService, autosaveService);
 const aiServices = createAIServices();
 const workspaceService = new WorkspaceService();
+const pluginLoader = new PluginLoader();
 
 const RECREATION_SENSITIVE_CHANNELS = [
   IPC_CHANNELS.app.getSecurityInfo,
@@ -69,6 +72,7 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(SearchChannels),
   ...Object.values(ImportChannels),
   ...Object.values(CitationChannels),
+  ...Object.values(PLUGIN_CHANNELS),
 ] as const;
 
 function removeLifecycleBoundHandlers(): void {
@@ -88,8 +92,7 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   removeLifecycleBoundHandlers();
 
   // App security info handler
-  ipcMain.handle(IPC_CHANNELS.app.getSecurityInfo, (event) => {
-    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.app.getSecurityInfo);
+  registerAuthorizedIpcHandler(ipcMain, window, IPC_CHANNELS.app.getSecurityInfo, () => {
     // Return security configuration matching window.ts BrowserWindow webPreferences
     // These values are verified by scripts/verify-security.ts
     return {
@@ -138,4 +141,5 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   registerSearchHandlers(ipcMain, window);
   registerImportHandlers(ipcMain, window);
   registerCitationHandlers(ipcMain, window);
+  registerPluginHandlers(ipcMain, window, pluginLoader);
 }

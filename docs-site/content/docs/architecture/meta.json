@@ -1,0 +1,4 @@
+{
+  "title": "Architecture",
+  "pages": ["index", "constitution", "process-model", "adr"]
+}

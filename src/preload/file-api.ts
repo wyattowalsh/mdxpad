@@ -117,7 +117,7 @@ export const fileOperations = {
       content,
       sourcePath: options?.sourcePath ?? null,
       ...(options?.format !== undefined && { format: options.format }),
-    }) as Promise<FileExportResult>,
+    }),
 };
 
 // ============================================================================

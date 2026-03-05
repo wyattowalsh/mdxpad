@@ -51,6 +51,47 @@ function TabBarComponent() {
     setContextMenuOpen(true);
   }, []);
 
+  const focusTab = useCallback((tabId: string) => {
+    requestAnimationFrame(() => {
+      const element = document.querySelector<HTMLElement>(`[data-testid="tab-item-${tabId}"]`);
+      element?.focus();
+    });
+  }, []);
+
+  const handleTabKeyDown = useCallback(
+    (event: React.KeyboardEvent, index: number) => {
+      if (tabs.length === 0) {
+        return;
+      }
+
+      let targetIndex = index;
+      switch (event.key) {
+        case 'ArrowRight':
+          targetIndex = index < tabs.length - 1 ? index + 1 : 0;
+          break;
+        case 'ArrowLeft':
+          targetIndex = index > 0 ? index - 1 : tabs.length - 1;
+          break;
+        case 'Home':
+          targetIndex = 0;
+          break;
+        case 'End':
+          targetIndex = tabs.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      const nextTab = tabs[targetIndex];
+      if (nextTab) {
+        setActiveTab(nextTab.id);
+        focusTab(nextTab.id);
+      }
+    },
+    [tabs, setActiveTab, focusTab]
+  );
+
   // Keyboard shortcuts: Cmd+1-9 to switch tabs, Cmd+W to close active tab
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -93,7 +134,7 @@ function TabBarComponent() {
     >
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
-          {tabs.map((tab) => {
+          {tabs.map((tab, index) => {
             const isContextTarget = contextMenuTabId === tab.id;
             const tabElement = (
               <TabItem
@@ -103,6 +144,7 @@ function TabBarComponent() {
                 isDirty={tab.isDirty}
                 isActive={tab.id === activeTabId}
                 onClick={() => setActiveTab(tab.id)}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
                 onClose={() => removeTab(tab.id)}
                 onContextMenu={(e) => handleContextMenu(tab.id, e)}
               />

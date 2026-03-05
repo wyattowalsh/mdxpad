@@ -29,6 +29,13 @@ export { cn, debounce, throttle, uid } from './utils';
 
 // Atomic file operations
 export { atomicWrite } from './atomic-write';
+export {
+  type WriteLock,
+  type WriteLockAcquireOptions,
+  type WriteLockLease,
+  WriteLockTimeoutError,
+  createWriteLock,
+} from './write-lock';
 
 // Content integrity
 export { computeChecksum } from './checksum';

@@ -49,7 +49,11 @@ export default defineConfig({
   renderer: {
     plugins: [react(), tailwindcss()],
     base: './',
+    worker: {
+      format: 'es',
+    },
     resolve: {
+      conditions: ['worker'],
       alias: {
         '@renderer': resolve(__dirname, 'src/renderer'),
         '@shared': resolve(__dirname, 'src/shared'),

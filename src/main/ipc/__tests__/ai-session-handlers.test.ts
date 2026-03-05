@@ -101,6 +101,15 @@ function createMockAIServices(): AIServices {
     aiService: {} as AIServices['aiService'],
     usageService: {} as AIServices['usageService'],
     onboardingService: {} as AIServices['onboardingService'],
+    sidecarService: {
+      configure: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      getStatus: vi.fn().mockReturnValue({
+        success: true,
+        status: 'stopped',
+      }),
+    } as unknown as AIServices['sidecarService'],
     promptFileLoaderService: {
       discoverPromptFiles: vi.fn().mockResolvedValue([]),
     } as unknown as AIServices['promptFileLoaderService'],

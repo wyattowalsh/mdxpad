@@ -144,6 +144,7 @@ export class ProviderService implements IProviderService {
       displayName: config.displayName,
       type: config.type,
       ...(trustedBaseUrl !== undefined && { baseUrl: trustedBaseUrl }),
+      ...(config.sidecarConfig !== undefined && { sidecarConfig: config.sidecarConfig }),
       isActive: config.isActive,
       status: 'disconnected',
       createdAt: now,

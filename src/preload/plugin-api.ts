@@ -7,11 +7,20 @@
  */
 
 import {
+  type PluginDisableRequest,
+  type PluginDisableResponse,
   PluginListResponseSchema,
+  type PluginListResponse,
+  type PluginInstallRequest,
+  type PluginInstallResponse,
   PluginInstallRequestSchema,
   PluginInstallResponseSchema,
+  type PluginUninstallRequest,
+  type PluginUninstallResponse,
   PluginUninstallRequestSchema,
   PluginUninstallResponseSchema,
+  type PluginEnableRequest,
+  type PluginEnableResponse,
   PluginEnableRequestSchema,
   PluginEnableResponseSchema,
   PluginDisableRequestSchema,
@@ -29,15 +38,19 @@ const CHANNELS = {
 } as const;
 
 export const pluginApi = {
-  list: () => validatedInvoke(CHANNELS.list, null, PluginListResponseSchema),
+  list: () =>
+    validatedInvoke<void, PluginListResponse>(CHANNELS.list, null, PluginListResponseSchema),
 
   install: (pluginPath: string) =>
-    validatedInvoke(CHANNELS.install, PluginInstallRequestSchema, PluginInstallResponseSchema, {
-      pluginPath,
-    }),
+    validatedInvoke<PluginInstallRequest, PluginInstallResponse>(
+      CHANNELS.install,
+      PluginInstallRequestSchema,
+      PluginInstallResponseSchema,
+      { pluginPath }
+    ),
 
   uninstall: (pluginId: string) =>
-    validatedInvoke(
+    validatedInvoke<PluginUninstallRequest, PluginUninstallResponse>(
       CHANNELS.uninstall,
       PluginUninstallRequestSchema,
       PluginUninstallResponseSchema,
@@ -45,12 +58,18 @@ export const pluginApi = {
     ),
 
   enable: (pluginId: string) =>
-    validatedInvoke(CHANNELS.enable, PluginEnableRequestSchema, PluginEnableResponseSchema, {
-      pluginId,
-    }),
+    validatedInvoke<PluginEnableRequest, PluginEnableResponse>(
+      CHANNELS.enable,
+      PluginEnableRequestSchema,
+      PluginEnableResponseSchema,
+      { pluginId }
+    ),
 
   disable: (pluginId: string) =>
-    validatedInvoke(CHANNELS.disable, PluginDisableRequestSchema, PluginDisableResponseSchema, {
-      pluginId,
-    }),
+    validatedInvoke<PluginDisableRequest, PluginDisableResponse>(
+      CHANNELS.disable,
+      PluginDisableRequestSchema,
+      PluginDisableResponseSchema,
+      { pluginId }
+    ),
 };

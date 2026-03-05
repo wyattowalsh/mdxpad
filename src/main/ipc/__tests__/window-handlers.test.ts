@@ -126,6 +126,19 @@ describe('window:close Handler', () => {
 
     expect(window.close).not.toHaveBeenCalled();
   });
+
+  it('should reject unauthorized sender frame', async () => {
+    expect(() =>
+      handlers[IPC_CHANNELS.window.close]!(
+        createInvokeEvent(window, {
+          senderFrameRoutingId: window.webContents.mainFrame.routingId + 1,
+        }),
+        undefined
+      )
+    ).toThrow('Unauthorized IPC sender');
+
+    expect(window.close).not.toHaveBeenCalled();
+  });
 });
 
 // ============================================================================

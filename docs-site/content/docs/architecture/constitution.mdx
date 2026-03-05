@@ -1,0 +1,102 @@
+---
+title: "Architectural Constitution"
+description: "Non-negotiable architectural principles for MDXPad."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+The constitution defines the architectural principles and constraints that guide MDXPad development. These are non-negotiable rules that all contributions must respect. They exist to ensure consistency, security, and maintainability across the codebase.
+
+<Callout type="warn">
+  These principles are non-negotiable. Pull requests that violate any of the six principles below will not be merged regardless of other quality.
+</Callout>
+
+## Core Principles
+
+<Steps>
+  <Step>
+    ### Type Safety First
+
+    Strict TypeScript mode is enforced across every file in the codebase. There is no `any`, no unsafe type casts, and no `@ts-ignore` without an explicit justification comment. TypeScript types at IPC boundaries are always derived from Zod schemas using `z.infer<>` so runtime validation and compile-time types are permanently in sync.
+
+    - `strict: true` in `tsconfig.json` — never relaxed
+    - No `any` type; use `unknown` and narrow explicitly
+    - Minimal type casts; prefer type guards
+    - Run `pnpm typecheck` before every commit
+  </Step>
+
+  <Step>
+    ### Process Isolation
+
+    Main, Preload, and Renderer processes are strictly separated. The Renderer is treated as an untrusted web context. The Preload script is the only sanctioned bridge, and it validates every message in both directions using Zod schemas from `src/shared/contracts/`.
+
+    <Callout type="warn">
+      No code in `src/renderer/` may import from `src/main/`. Cross-process access happens exclusively through the `window.mdxpad` API exposed by the Preload bridge.
+    </Callout>
+
+    - Renderer imports only from `src/renderer/` and `src/shared/`
+    - Main process imports only from `src/main/` and `src/shared/`
+    - All IPC uses `validatedInvoke` with a matching Zod response schema
+  </Step>
+
+  <Step>
+    ### Security by Default
+
+    Security is not an afterthought — it is the default state. Every attack surface is hardened from the start.
+
+    - Context isolation enabled (`contextIsolation: true`)
+    - Node integration disabled in renderer (`nodeIntegration: false`)
+    - Content Security Policy nonces on all inline scripts
+    - IPC sender origin validation on every handler
+    - Rate limiting on high-frequency IPC channels
+    - Input sanitization before any file system or shell operation
+    - API keys stored in macOS Keychain via `safeStorage`, never in plain text
+  </Step>
+
+  <Step>
+    ### Modularity
+
+    Each file has a single clear responsibility and stays under 400 lines. This limit is enforced by ESLint. Large features are split into focused modules with barrel `index.ts` exports.
+
+    - Max 400 lines per file (ESLint rule: `max-lines`)
+    - Naming: `kebab-case.ts` for files, `PascalCase.tsx` for components
+    - Use barrel exports (`index.ts`) to expose a module's public surface
+    - Avoid deep cross-feature imports; prefer well-defined module boundaries
+  </Step>
+
+  <Step>
+    ### Testability
+
+    Every non-trivial module is designed to be testable in isolation. The target coverage is 80% overall and 90% for critical paths (IPC handlers, services, stores).
+
+    - Unit tests colocated in `__tests__/` directories or `*.test.ts` siblings
+    - Follow the **Arrange-Act-Assert** (AAA) pattern
+    - Test behavior, not implementation details
+    - Zustand stores: test state transitions and side effects
+    - React hooks: use `@testing-library/react` `renderHook` + `act`
+    - IPC handlers: mock `ipcMain` and verify Zod parsing
+    - Run `pnpm coverage` to check coverage thresholds
+
+    <Callout type="warn">
+      Coverage below 80% on any PR will block merge. Coverage below 90% on files in `src/main/ipc/` or `src/main/services/` will block merge.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Specification-Driven Development
+
+    Non-trivial features require a written specification in `docs/specs/` before implementation begins. Specs use the `spec-kit` format and go through a clarify → plan → tasks → implement cycle.
+
+    - Create a spec file in `docs/specs/` before writing any code for a new feature
+    - Reference the spec in the PR description
+    - Architectural decisions with lasting consequences are recorded as ADRs in `docs/adr/`
+    - See the [Decision Records](/docs/architecture/adr) for existing ADRs
+  </Step>
+</Steps>
+
+## Related Documents
+
+- [Process Model](/docs/architecture/process-model) — Detailed process architecture
+- [Decision Records](/docs/architecture/adr) — Architectural decisions with rationale
+- [AGENTS.md](https://github.com/ww/mdxpad/blob/main/AGENTS.md) — Full architecture reference and coding standards

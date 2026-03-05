@@ -23,6 +23,8 @@ import { gitApi } from './git-api';
 import { searchApi } from './search-api';
 import { importApi } from './import-api';
 import { citationApi } from './citation-api';
+import { semanticSearchApi } from './semantic-search-api';
+import { pluginApi } from './plugin-api';
 
 // ============================================================================
 // Platform Detection
@@ -130,6 +132,8 @@ const api: MdxpadAPI = {
   search: searchApi,
   import: importApi,
   citation: citationApi,
+  semanticSearch: semanticSearchApi,
+  plugin: pluginApi,
 };
 
 // ============================================================================

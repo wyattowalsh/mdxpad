@@ -10,6 +10,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BuiltInComponents } from './components';
 import { createMermaidRenderScheduler } from './mermaid-render-scheduler';
+import { createModuleFromCode } from './mdx-module-runtime';
 import {
   assertNever,
   type ReadySignal,
@@ -71,13 +72,13 @@ interface MDXContentProps {
 // ============================================================================
 
 /** Cache for compiled MDX modules to avoid re-evaluation */
-const moduleCache = new Map<string, MDXModule>();
+const moduleCache = new Map<string, Promise<MDXModule>>();
 const MAX_CACHE_SIZE = 10;
 
 /**
  * Gets or creates an MDX module from compiled code with caching
  */
-function getOrCreateModule(code: string): MDXModule {
+function getOrCreateModule(code: string): Promise<MDXModule> {
   // Check cache first
   const cachedModule = moduleCache.get(code);
   if (cachedModule !== undefined) {
@@ -85,7 +86,7 @@ function getOrCreateModule(code: string): MDXModule {
   }
 
   // Create new module
-  const mdxModule = createModuleFromCode(code);
+  const mdxModulePromise = createModuleFromCode(code);
 
   // Manage cache size (simple LRU: delete oldest when full)
   if (moduleCache.size >= MAX_CACHE_SIZE) {
@@ -95,8 +96,8 @@ function getOrCreateModule(code: string): MDXModule {
     }
   }
 
-  moduleCache.set(code, mdxModule);
-  return mdxModule;
+  moduleCache.set(code, mdxModulePromise);
+  return mdxModulePromise;
 }
 
 // ============================================================================
@@ -105,9 +106,6 @@ function getOrCreateModule(code: string): MDXModule {
 
 /** React root instance */
 let root: Root | null = null;
-
-/** Current frontmatter for component access */
-let currentFrontmatter: Record<string, unknown> = {};
 
 /** ResizeObserver instance for tracking content size */
 let resizeObserver: ResizeObserver | null = null;
@@ -120,6 +118,9 @@ let currentMessageHandler: ((event: MessageEvent) => void) | null = null;
 
 /** Render counter for ErrorBoundary resetKey (enables recovery from errors) */
 let renderCounter = 0;
+
+/** Monotonically increasing render request id to ignore stale async completions */
+let latestRenderRequestId = 0;
 
 /** Cached Mermaid module promise. */
 let mermaidPromise: Promise<MermaidApi | null> | null = null;
@@ -211,32 +212,6 @@ function sendRuntimeErrorSignal(message: string, componentStack?: string): void 
 // ============================================================================
 
 /**
- * Creates an MDX module from compiled code string using new Function()
- * Passes React and components to the module scope for MDX runtime.
- *
- * Note: Using Function constructor is intentional here - MDX compiles to JavaScript
- * that must be evaluated at runtime. The iframe sandbox provides security isolation.
- */
-function createModuleFromCode(code: string): MDXModule {
-  // The compiled MDX code expects React and components to be available
-  // We use new Function() to evaluate the compiled code in a controlled scope
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- MDX runtime requires dynamic code evaluation
-  const moduleFactory = new Function(
-    'React',
-    'components',
-    `
-    const exports = {};
-    const module = { exports };
-    ${code}
-    return module.exports;
-  `
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Function constructor returns typed module
-  return moduleFactory(React, BuiltInComponents) as MDXModule;
-}
-
-/**
  * Renders MDX content with error boundary
  */
 async function loadMermaid(): Promise<MermaidApi | null> {
@@ -281,21 +256,23 @@ function requestMermaidRender(): void {
   mermaidRenderScheduler.requestRender();
 }
 
-function renderContent(command: RenderCommand): void {
+async function renderContent(command: RenderCommand): Promise<void> {
   if (!root) {
     console.error('React root not initialized');
     return;
   }
 
+  const renderRequestId = ++latestRenderRequestId;
+
   // Increment render counter to reset any previous error state in ErrorBoundary
   renderCounter++;
 
   try {
-    // Store frontmatter for component access
-    currentFrontmatter = command.frontmatter;
-
     // Get module from cache or create new one
-    const mdxModule = getOrCreateModule(command.code);
+    const mdxModule = await getOrCreateModule(command.code);
+    if (renderRequestId !== latestRenderRequestId) {
+      return;
+    }
     const MDXContent = mdxModule.default;
 
     // Render with error boundary, passing BuiltInComponents to MDXContent
@@ -309,15 +286,22 @@ function renderContent(command: RenderCommand): void {
       >
         <MDXContent
           components={BuiltInComponents as unknown as NonNullable<MDXContentProps['components']>}
-          frontmatter={currentFrontmatter}
+          frontmatter={command.frontmatter}
         />
       </ErrorBoundary>
     );
 
     window.requestAnimationFrame(() => {
+      if (renderRequestId !== latestRenderRequestId) {
+        return;
+      }
       requestMermaidRender();
     });
   } catch (error) {
+    if (renderRequestId !== latestRenderRequestId) {
+      return;
+    }
+
     // Handle synchronous errors during module creation or initial render
     const message = error instanceof Error ? error.message : String(error);
     console.error('MDX Runtime Error:', error);
@@ -499,7 +483,7 @@ function handleValidatedMessage(message: ParentToIframeMessage): void {
   // Handle message types with exhaustive switch
   switch (message.type) {
     case 'render':
-      renderContent(message);
+      void renderContent(message);
       break;
     case 'theme':
       applyTheme(message.value);
@@ -548,7 +532,12 @@ function createMessageHandler(): (event: MessageEvent) => void {
       },
     },
     validateParentToIframeMessage,
-    handleValidatedMessage
+    (message: ParentToIframeMessage, event: MessageEvent) => {
+      if (event.source !== window.parent) {
+        return;
+      }
+      handleValidatedMessage(message);
+    }
   );
 }
 

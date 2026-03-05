@@ -7,10 +7,26 @@ vi.mock('electron', () => ({
   },
 }));
 
-const mockValidatedInvoke = vi.fn();
+const { mockValidatedInvoke, mockCreateTypedValidatedInvoke } = vi.hoisted(() => {
+  const hoistedMockValidatedInvoke = vi.fn();
+  const hoistedMockCreateTypedValidatedInvoke = vi.fn(
+    (channel: unknown, requestSchema: unknown, responseSchema: unknown) =>
+      (request: unknown) =>
+        hoistedMockValidatedInvoke(channel, requestSchema, responseSchema, request)
+  );
+
+  return {
+    mockValidatedInvoke: hoistedMockValidatedInvoke,
+    mockCreateTypedValidatedInvoke: hoistedMockCreateTypedValidatedInvoke,
+  };
+});
 
 vi.mock('../validated-invoke', () => ({
-  validatedInvoke: (...args: unknown[]) => mockValidatedInvoke(...args),
+  createTypedValidatedInvoke: (
+    channel: unknown,
+    requestSchema: unknown,
+    responseSchema: unknown
+  ) => mockCreateTypedValidatedInvoke(channel, requestSchema, responseSchema),
 }));
 
 import { EXPORT_IPC_CHANNELS, exportApi } from '../export-api';

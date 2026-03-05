@@ -1,0 +1,190 @@
+---
+title: "Process Model"
+description: "MDXPad's Electron process architecture: Main, Preload, and Renderer."
+---
+
+import { Mermaid } from '@/components/mermaid';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
+MDXPad follows Electron's multi-process architecture with four distinct layers. Each layer has a clearly defined responsibility and a restricted import surface — code from one layer cannot directly call into another except through the sanctioned IPC bridge.
+
+## IPC Flow
+
+<Mermaid chart={`
+sequenceDiagram
+  participant R as Renderer<br/>(React)
+  participant P as Preload<br/>(Context Bridge)
+  participant M as Main<br/>(Node.js)
+
+  R->>P: window.mdxpad.files.readFile(path)
+  P->>P: Build IPC payload
+  P->>M: ipcRenderer.invoke("file:read", payload)
+  M->>M: ReadFileRequestSchema.parse(payload)
+  M->>M: fileService.read(validated.filePath)
+  M->>M: ReadFileResponseSchema.parse(result)
+  M-->>P: Serialized response
+  P->>P: ReadFileResponseSchema.parse(response)
+  P-->>R: Typed FileContent object
+`} />
+
+## Main Process
+
+The Main process runs in Node.js with full system access. It owns all privileged operations: file system I/O, native OS integration, and service orchestration.
+
+**Entry point**: `src/main/index.ts`
+
+**Responsibilities:**
+- Application lifecycle (ready, window management, quit)
+- Native macOS menus (`menu.ts`)
+- File system operations via `FileService`
+- IPC handler registration (`src/main/ipc/`)
+- All backend services: AI, collaboration, export, git, search, plugins, version history, notifications
+
+**IPC handlers** (`src/main/ipc/`): Every `ipcMain.handle` call validates the incoming payload with the corresponding Zod request schema and validates the outgoing response with the response schema before returning. Sender origin is validated by `ipc-sender-authorization.ts`.
+
+## Preload Script
+
+The Preload script runs in the renderer's context but with Node.js access still available. It constructs the `window.mdxpad` API surface that the renderer uses to communicate with the main process.
+
+**Entry point**: `src/preload/index.ts`
+
+**Key exports:**
+- `window.mdxpad` — The complete typed API object
+- `validatedInvoke` — Zod-validated IPC invoke helper
+
+```typescript
+// src/preload/validated-invoke.ts
+export async function validatedInvoke<T>(
+  channel: string,
+  payload: unknown,
+  schema: z.ZodType<T>
+): Promise<T> {
+  const raw = await ipcRenderer.invoke(channel, payload);
+  return schema.parse(raw); // throws ZodError on invalid response
+}
+```
+
+<Callout type="info">
+  Context isolation is enabled (`contextIsolation: true`) and Node integration is disabled (`nodeIntegration: false`) in the renderer. The Preload script is the only path from renderer to system APIs.
+</Callout>
+
+## Renderer Process
+
+The Renderer process is a standard browser context running the React application. It has no direct Node.js or file system access — everything goes through `window.mdxpad`.
+
+**Entry point**: `src/renderer/main.tsx`
+
+**Responsibilities:**
+- React 19 application shell (`App.tsx`)
+- CodeMirror 6 editor with 14 custom extensions
+- ProseMirror WYSIWYG editor
+- MDX preview with Web Worker compilation pool
+- Zustand + Immer state management (25+ stores)
+- Radix UI + Tailwind CSS components
+
+## Shared Layer
+
+The Shared layer contains code that is imported by both the Main and Preload processes. It must contain no platform-specific code — everything here must be importable in either Node.js or a browser context.
+
+**Location**: `src/shared/`
+
+**Contents:**
+- `contracts/` — Zod schemas for every IPC channel (request + response)
+- `types/` — TypeScript type definitions
+- `lib/` — Utilities: `atomic-write.ts`, `checksum.ts`, `error-utils.ts`, `result.ts`
+- `security/` — Origin validator, rate limiter, CSP nonce, sanitizer
+- `ai/` — AI-related shared schemas and constants
+
+## Source Tree
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <Folder name="main" defaultOpen>
+      <File name="index.ts" />
+      <File name="window.ts" />
+      <File name="menu.ts" />
+      <Folder name="ipc">
+        <File name="file-handlers.ts" />
+        <File name="ai-handlers.ts" />
+        <File name="collab-handlers.ts" />
+        <File name="export-handlers.ts" />
+        <File name="share-handlers.ts" />
+        <File name="history-handlers.ts" />
+        <File name="ipc-sender-authorization.ts" />
+      </Folder>
+      <Folder name="services">
+        <File name="file-service.ts" />
+        <File name="autosave-service.ts" />
+        <File name="export-service.ts" />
+        <File name="collab-server.ts" />
+        <File name="collaboration-service.ts" />
+        <File name="share-link-service.ts" />
+        <File name="version-history-service.ts" />
+        <Folder name="ai">
+          <File name="ai-service.ts" />
+          <File name="agent-service.ts" />
+          <File name="embedding-service.ts" />
+          <File name="vector-store.ts" />
+        </Folder>
+        <Folder name="plugin">
+          <File name="plugin-registry.ts" />
+          <File name="plugin-loader.ts" />
+          <File name="plugin-manifest.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="preload">
+      <File name="index.ts" />
+      <File name="api.ts" />
+      <File name="validated-invoke.ts" />
+      <File name="file-api.ts" />
+      <File name="ai-api.ts" />
+      <File name="collab-api.ts" />
+    </Folder>
+    <Folder name="renderer">
+      <File name="main.tsx" />
+      <File name="App.tsx" />
+      <Folder name="components">
+        <Folder name="editor" />
+        <Folder name="preview" />
+        <Folder name="collaboration" />
+        <Folder name="export" />
+      </Folder>
+      <Folder name="stores">
+        <File name="document-store.ts" />
+        <File name="collab-store.ts" />
+        <File name="export-store.ts" />
+      </Folder>
+      <Folder name="lib">
+        <Folder name="editor">
+          <Folder name="extensions" />
+          <Folder name="keymaps" />
+        </Folder>
+        <Folder name="mdx">
+          <File name="compiler.ts" />
+          <File name="worker-pool.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="shared">
+      <Folder name="contracts">
+        <File name="file-schemas.ts" />
+        <File name="ai-schemas.ts" />
+        <File name="collab-schemas.ts" />
+        <File name="export-schemas.ts" />
+        <File name="plugin-schemas.ts" />
+      </Folder>
+      <Folder name="lib">
+        <File name="atomic-write.ts" />
+        <File name="checksum.ts" />
+        <File name="result.ts" />
+      </Folder>
+      <Folder name="security">
+        <File name="origin-validator.ts" />
+        <File name="rate-limiter.ts" />
+        <File name="sanitizer.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</Files>

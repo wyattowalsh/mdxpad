@@ -5,28 +5,85 @@
  * @module git-api
  */
 
-import { ipcRenderer } from 'electron';
-import { GitChannels } from '@shared/contracts/git-schemas';
+import { z } from 'zod';
+import {
+  GitChannels,
+  GitStatusRequestSchema,
+  GitAddRequestSchema,
+  GitCommitRequestSchema,
+  GitLogRequestSchema,
+  GitDiffRequestSchema,
+  GitBranchesRequestSchema,
+  GitCheckoutRequestSchema,
+  GitIsRepoRequestSchema,
+  GitStatusResponseSchema,
+  GitAddResponseSchema,
+  GitCommitResponseSchema,
+  GitLogResponseSchema,
+  GitDiffResponseSchema,
+  GitBranchesResponseSchema,
+  GitCheckoutResponseSchema,
+  GitIsRepoResponseSchema,
+  GitErrorSchema,
+} from '@shared/contracts/git-schemas';
+import { validatedInvoke } from './validated-invoke';
+
+const createGitOperationResultSchema = <T extends z.ZodTypeAny>(valueSchema: T) =>
+  z.discriminatedUnion('ok', [
+    z.object({ ok: z.literal(true), value: valueSchema }),
+    z.object({ ok: z.literal(false), error: GitErrorSchema }),
+  ]);
+
+const GitStatusResultSchema = createGitOperationResultSchema(GitStatusResponseSchema);
+const GitAddResultSchema = createGitOperationResultSchema(GitAddResponseSchema);
+const GitCommitResultSchema = createGitOperationResultSchema(GitCommitResponseSchema);
+const GitLogResultSchema = createGitOperationResultSchema(GitLogResponseSchema);
+const GitDiffResultSchema = createGitOperationResultSchema(GitDiffResponseSchema);
+const GitBranchesResultSchema = createGitOperationResultSchema(GitBranchesResponseSchema);
+const GitCheckoutResultSchema = createGitOperationResultSchema(GitCheckoutResponseSchema);
+const GitIsRepoResultSchema = createGitOperationResultSchema(GitIsRepoResponseSchema);
 
 export const gitApi = {
-  status: (workingDir: string) => ipcRenderer.invoke(GitChannels.status, { workingDir }),
+  status: (workingDir: string) =>
+    validatedInvoke(GitChannels.status, GitStatusRequestSchema, GitStatusResultSchema, {
+      workingDir,
+    }),
 
   add: (workingDir: string, files: string[]) =>
-    ipcRenderer.invoke(GitChannels.add, { workingDir, files }),
+    validatedInvoke(GitChannels.add, GitAddRequestSchema, GitAddResultSchema, {
+      workingDir,
+      files,
+    }),
 
   commit: (workingDir: string, message: string) =>
-    ipcRenderer.invoke(GitChannels.commit, { workingDir, message }),
+    validatedInvoke(GitChannels.commit, GitCommitRequestSchema, GitCommitResultSchema, {
+      workingDir,
+      message,
+    }),
 
   log: (workingDir: string, maxCount?: number) =>
-    ipcRenderer.invoke(GitChannels.log, { workingDir, maxCount }),
+    validatedInvoke(GitChannels.log, GitLogRequestSchema, GitLogResultSchema, {
+      workingDir,
+      ...(maxCount !== undefined && { maxCount }),
+    }),
 
   diff: (workingDir: string, staged?: boolean) =>
-    ipcRenderer.invoke(GitChannels.diff, { workingDir, staged }),
+    validatedInvoke(GitChannels.diff, GitDiffRequestSchema, GitDiffResultSchema, {
+      workingDir,
+      ...(staged !== undefined && { staged }),
+    }),
 
-  branches: (workingDir: string) => ipcRenderer.invoke(GitChannels.branches, { workingDir }),
+  branches: (workingDir: string) =>
+    validatedInvoke(GitChannels.branches, GitBranchesRequestSchema, GitBranchesResultSchema, {
+      workingDir,
+    }),
 
   checkout: (workingDir: string, branch: string) =>
-    ipcRenderer.invoke(GitChannels.checkout, { workingDir, branch }),
+    validatedInvoke(GitChannels.checkout, GitCheckoutRequestSchema, GitCheckoutResultSchema, {
+      workingDir,
+      branch,
+    }),
 
-  isRepo: (path: string) => ipcRenderer.invoke(GitChannels.isRepo, { path }),
+  isRepo: (path: string) =>
+    validatedInvoke(GitChannels.isRepo, GitIsRepoRequestSchema, GitIsRepoResultSchema, { path }),
 };

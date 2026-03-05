@@ -477,6 +477,10 @@ export function TemplateBrowser({
             className="w-2/5 min-w-[240px] border-r border-border flex flex-col"
             role="listbox"
             aria-label="Template list"
+            aria-activedescendant={
+              selectedId !== null ? `template-option-${selectedId}` : undefined
+            }
+            aria-busy={isLoading}
             tabIndex={0}
           >
             {showLoading && <LoadingState isVisible={true} />}

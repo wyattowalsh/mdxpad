@@ -26,6 +26,10 @@ import {
   AIInstructionLoadResponseSchema,
   AIInstructionListRequestSchema,
   AIInstructionScopeSchema,
+  AISidecarConfigSchema,
+  AISidecarConfigureRequestSchema,
+  AISidecarLifecycleStatusResponseSchema,
+  AISidecarStatusRequestSchema,
   AIStreamStartRequestSchema,
   AIStreamStartResponseSchema,
   AIStreamCancelRequestSchema,
@@ -57,6 +61,59 @@ describe('Provider contracts', () => {
 
   it('should reject set-active request with invalid provider id', () => {
     expect(AIProviderSetActiveRequestSchema.safeParse({ id: 'not-a-uuid' }).success).toBe(false);
+  });
+
+  it('should accept sidecar provider type in prompt model selection metadata', () => {
+    const result = AIPromptFileMetadataSchema.safeParse({
+      id: 'prompt-sidecar',
+      kind: 'prompt',
+      filePath: '/Users/test/prompts/local.md',
+      fileName: 'local.md',
+      createdAt: isoNow(),
+      updatedAt: isoNow(),
+      title: 'Local Prompt',
+      variables: [],
+      modelSelection: {
+        providerId: uuidv4(),
+        modelId: 'llama-3.1',
+        providerType: 'sidecar',
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Sidecar contracts', () => {
+  it('should accept sidecar config schema', () => {
+    const result = AISidecarConfigSchema.safeParse({
+      modelPath: '/models/llama.gguf',
+      contextSize: 4096,
+      threads: 8,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('should accept sidecar configure request', () => {
+    const result = AISidecarConfigureRequestSchema.safeParse({
+      config: {
+        modelPath: '/models/llama.gguf',
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('should accept sidecar status request and lifecycle status response', () => {
+    expect(AISidecarStatusRequestSchema.safeParse(undefined).success).toBe(true);
+
+    const response = AISidecarLifecycleStatusResponseSchema.safeParse({
+      success: true,
+      status: 'running',
+      endpoint: 'http://127.0.0.1:11435',
+      config: {
+        modelPath: '/models/llama.gguf',
+      },
+    });
+    expect(response.success).toBe(true);
   });
 });
 

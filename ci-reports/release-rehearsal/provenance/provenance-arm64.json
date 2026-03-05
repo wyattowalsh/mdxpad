@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.1.0",
+  "generatedAt": "2026-03-02T20:33:22.311Z",
+  "generator": "scripts/generate-supplychain-scaffold.ts",
+  "architecture": "arm64",
+  "repository": null,
+  "ref": null,
+  "sha": null,
+  "run": {
+    "workflow": null,
+    "runId": null,
+    "runAttempt": null,
+    "actor": null
+  },
+  "artifactDigests": [
+    {
+      "path": "release/mdxpad-0.1.0-arm64.dmg",
+      "sha256": "4e32a7ea6dead09e8fcd02ed526d5f77982316c28c5b8358d3fec37931d6c7d3"
+    },
+    {
+      "path": "release/mdxpad-0.1.0-arm64.dmg.blockmap",
+      "sha256": "a00987895cd2edf8faf45daa26f9ef02d9030bf357bf221a2c2e470a8e99b5bd"
+    }
+  ],
+  "notes": [
+    "Scaffold output for future provenance attestations.",
+    "For signed/notarized release artifacts set CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets.",
+    "To publish attestations, enable GitHub artifact attestations with id-token and attestations permissions."
+  ]
+}

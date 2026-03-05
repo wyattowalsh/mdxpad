@@ -4,7 +4,7 @@
  * @module ipc-sender-authorization
  */
 
-import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import type { BrowserWindow, IpcMain, IpcMainInvokeEvent } from 'electron';
 
 /**
  * Error thrown when an IPC invoke call comes from an unauthorized sender/frame.
@@ -15,6 +15,13 @@ export class IpcSenderAuthorizationError extends Error {
     this.name = 'IpcSenderAuthorizationError';
   }
 }
+
+export type AuthorizedIpcMain = Pick<IpcMain, 'handle'>;
+
+export type AuthorizedIpcInvokeHandler<TRequest = unknown, TResult = unknown> = (
+  event: IpcMainInvokeEvent,
+  request: TRequest
+) => TResult | Promise<TResult>;
 
 /**
  * Safely extracts an origin from a URL string.
@@ -68,4 +75,19 @@ export function assertAuthorizedIpcSender(
   if (!isAuthorizedSender || !isAuthorizedMainFrame || !isAuthorizedOrigin) {
     throw new IpcSenderAuthorizationError(channel);
   }
+}
+
+/**
+ * Registers an invoke handler with sender/frame authorization applied centrally.
+ */
+export function registerAuthorizedIpcHandler<TRequest = unknown, TResult = unknown>(
+  ipcMainInstance: AuthorizedIpcMain,
+  window: BrowserWindow,
+  channel: string,
+  handler: AuthorizedIpcInvokeHandler<TRequest, TResult>
+): void {
+  ipcMainInstance.handle(channel, (event, request) => {
+    assertAuthorizedIpcSender(event, window, channel);
+    return handler(event, request as TRequest);
+  });
 }

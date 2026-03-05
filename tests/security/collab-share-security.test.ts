@@ -1,12 +1,26 @@
 /**
  * Security tests for Collaboration Server and Share Link Service.
  * Validates room ID handling, token generation, expiry, access modes, revocation.
+ *
+ * HR-3 audit (2026-03-01): Verified that CollaborationServer.docId is never used
+ * in filesystem paths. See "docId filesystem isolation invariant" tests below.
+ *
  * @module tests/security/collab-share-security
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { IncomingMessage } from 'node:http';
 import { CollaborationServer } from '@main/services/collab-server';
 import { ShareLinkService } from '@main/services/share-link-service';
+import {
+  SafeDocumentIdSchema,
+  CollaborationListRequestSchema,
+  CollaborationAddCommentRequestSchema,
+  CollaborationAddSuggestionRequestSchema,
+  CollaborationApplySuggestionRequestSchema,
+  CollaborationResolveThreadRequestSchema,
+} from '@shared/contracts/platform-schemas';
 
 // ============================================================================
 // Mock WebSocket helpers
@@ -115,6 +129,14 @@ describe('CollaborationServer security', () => {
     });
 
     it('handles docId with path traversal as opaque identifier', () => {
+      // SAFETY: docId is used only as an in-memory Map key in CollaborationServer.
+      // It is never passed to path.join(), fs.*, or any file system operation.
+      // CollaborationServer (collab-server.ts) imports only 'node:http' — no 'fs',
+      // no 'path', no file I/O modules. The rooms Map<string, CollabRoom> stores
+      // docId purely for in-memory lookup and WebSocket message routing.
+      // NOTE: CollaborationService (collaboration-service.ts) is a SEPARATE class
+      // that DOES use documentId in filesystem paths — it has its own validation.
+      // See HR-3 audit (2026-03-01) for verification.
       const ws = createMockSocket();
       simulateConnection(ws, createMockRequest('docId=../../../etc/passwd&username=eve'));
       const room = server.getRoom('../../../etc/passwd');
@@ -134,6 +156,47 @@ describe('CollaborationServer security', () => {
         simulateConnection(ws, createMockRequest(`docId=${encodeURIComponent(docId)}&username=t`));
         expect(ws.close).not.toHaveBeenCalled();
       }
+    });
+  });
+
+  describe('docId filesystem isolation invariant', () => {
+    // HR-3 audit (2026-03-01): Static verification that CollaborationServer
+    // never imports filesystem modules and therefore cannot use docId in paths.
+    // This is a defense-in-depth test that will break if someone adds fs/path
+    // imports to collab-server.ts, forcing an explicit security review.
+
+    it('collab-server.ts does not import node:fs or node:path', () => {
+      const serverSource = readFileSync(
+        resolve(__dirname, '../../src/main/services/collab-server.ts'),
+        'utf-8'
+      );
+      // Must not import any filesystem or path modules
+      expect(serverSource).not.toMatch(/import\s.*from\s+['"](?:node:)?fs['"]/);
+      expect(serverSource).not.toMatch(/import\s.*from\s+['"](?:node:)?path['"]/);
+      expect(serverSource).not.toMatch(/require\s*\(\s*['"](?:node:)?fs['"]\s*\)/);
+      expect(serverSource).not.toMatch(/require\s*\(\s*['"](?:node:)?path['"]\s*\)/);
+    });
+
+    it('collab-server.ts does not call path.join or fs.* operations', () => {
+      const serverSource = readFileSync(
+        resolve(__dirname, '../../src/main/services/collab-server.ts'),
+        'utf-8'
+      );
+      expect(serverSource).not.toMatch(/path\.join\s*\(/);
+      expect(serverSource).not.toMatch(/path\.resolve\s*\(/);
+      expect(serverSource).not.toMatch(/fs\.\w+\s*\(/);
+      expect(serverSource).not.toMatch(/writeFile|readFile|mkdir|unlink|readdir/);
+    });
+
+    it('share-link-service.ts does not import node:fs or node:path', () => {
+      const serviceSource = readFileSync(
+        resolve(__dirname, '../../src/main/services/share-link-service.ts'),
+        'utf-8'
+      );
+      expect(serviceSource).not.toMatch(/import\s.*from\s+['"](?:node:)?fs['"]/);
+      expect(serviceSource).not.toMatch(/import\s.*from\s+['"](?:node:)?path['"]/);
+      expect(serviceSource).not.toMatch(/require\s*\(\s*['"](?:node:)?fs['"]\s*\)/);
+      expect(serviceSource).not.toMatch(/require\s*\(\s*['"](?:node:)?path['"]\s*\)/);
     });
   });
 
@@ -297,6 +360,121 @@ describe('ShareLinkService security', () => {
       expect(() => service.createLink(linkOpts('doc-max', 'read-only', null))).toThrow(
         /Maximum share links.*reached/
       );
+    });
+  });
+});
+
+// ============================================================================
+// SafeDocumentIdSchema — path traversal prevention for CollaborationService
+// ============================================================================
+
+describe('SafeDocumentIdSchema path traversal prevention', () => {
+  // HR-3 audit (2026-03-01): CollaborationService (collaboration-service.ts)
+  // uses documentId in path.join(baseDir, `${documentId}.json`), making it
+  // vulnerable to path traversal. SafeDocumentIdSchema blocks this at the
+  // Zod validation boundary before the value reaches any filesystem operation.
+
+  describe('rejects dangerous documentId values', () => {
+    const dangerousIds = [
+      { value: '../../../etc/passwd', reason: 'path traversal with ..' },
+      { value: 'doc/../secret', reason: 'embedded path traversal' },
+      { value: '..', reason: 'bare parent directory reference' },
+      { value: 'foo/bar', reason: 'forward slash path separator' },
+      { value: 'foo\\bar', reason: 'backslash path separator' },
+      { value: 'doc\x00evil', reason: 'null byte injection' },
+    ];
+
+    for (const { value, reason } of dangerousIds) {
+      it(`rejects "${value.replace(/\0/g, '\\0')}" (${reason})`, () => {
+        const result = SafeDocumentIdSchema.safeParse(value);
+        expect(result.success).toBe(false);
+      });
+    }
+  });
+
+  describe('accepts safe documentId values', () => {
+    const safeIds = [
+      'doc-123',
+      'my_document',
+      'abc123',
+      'UUID-4f9a-bc12',
+      'a-long-document-identifier-with-dashes',
+      'doc.with.dots',
+    ];
+
+    for (const id of safeIds) {
+      it(`accepts "${id}"`, () => {
+        const result = SafeDocumentIdSchema.safeParse(id);
+        expect(result.success).toBe(true);
+      });
+    }
+  });
+
+  describe('rejects empty and missing values', () => {
+    it('rejects empty string', () => {
+      expect(SafeDocumentIdSchema.safeParse('').success).toBe(false);
+    });
+  });
+
+  describe('request schemas use SafeDocumentIdSchema', () => {
+    // Verify that all collaboration request schemas reject path traversal in documentId.
+    // These schemas gate input to CollaborationService which uses documentId in path.join().
+
+    const traversalDocId = '../../../etc/passwd';
+
+    it('CollaborationListRequestSchema rejects path traversal documentId', () => {
+      const result = CollaborationListRequestSchema.safeParse({ documentId: traversalDocId });
+      expect(result.success).toBe(false);
+    });
+
+    it('CollaborationAddCommentRequestSchema rejects path traversal documentId', () => {
+      const result = CollaborationAddCommentRequestSchema.safeParse({
+        documentId: traversalDocId,
+        anchor: {
+          blockId: 'b1',
+          startOffset: 0,
+          endOffset: 5,
+          headingPath: [],
+        },
+        author: 'alice',
+        message: 'test',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('CollaborationAddSuggestionRequestSchema rejects path traversal documentId', () => {
+      const result = CollaborationAddSuggestionRequestSchema.safeParse({
+        documentId: traversalDocId,
+        anchor: {
+          blockId: 'b1',
+          startOffset: 0,
+          endOffset: 5,
+          headingPath: [],
+        },
+        patch: 'diff',
+        rationale: 'reason',
+        author: 'alice',
+        baseChecksum: 'abc123',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('CollaborationApplySuggestionRequestSchema rejects path traversal documentId', () => {
+      const result = CollaborationApplySuggestionRequestSchema.safeParse({
+        documentId: traversalDocId,
+        suggestionId: 'sug-1',
+        currentChecksum: 'abc123',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('CollaborationResolveThreadRequestSchema rejects path traversal documentId', () => {
+      const result = CollaborationResolveThreadRequestSchema.safeParse({
+        documentId: traversalDocId,
+        threadId: 'thread-1',
+        resolved: true,
+      });
+      expect(result.success).toBe(false);
     });
   });
 });

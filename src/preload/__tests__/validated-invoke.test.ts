@@ -23,7 +23,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { validatedInvoke } from '../validated-invoke';
+import { createTypedValidatedInvoke, validatedInvoke } from '../validated-invoke';
 
 // ============================================================================
 // Test Schemas
@@ -67,6 +67,20 @@ describe('validatedInvoke', () => {
 
       expect(result).toEqual({ greeting: 'Hello Alice', success: true });
       expect(mockInvoke).toHaveBeenCalledWith('test:channel', { name: 'Alice', age: 30 });
+    });
+
+    it('should support typed invoke helper for contract-bound channels', async () => {
+      mockInvoke.mockResolvedValue({ greeting: 'Hello Bob', success: true });
+      const invokeTestChannel = createTypedValidatedInvoke(
+        'test:typed',
+        TestRequestSchema,
+        TestResponseSchema
+      );
+
+      const result = await invokeTestChannel({ name: 'Bob', age: 40 });
+
+      expect(result).toEqual({ greeting: 'Hello Bob', success: true });
+      expect(mockInvoke).toHaveBeenCalledWith('test:typed', { name: 'Bob', age: 40 });
     });
 
     it('should allow null request schema for void requests', async () => {

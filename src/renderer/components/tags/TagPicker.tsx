@@ -34,6 +34,7 @@ const TAG_COLORS = [
   '#3b82f6',
   '#6b7280',
 ] as const;
+const EMPTY_TAG_IDS: readonly string[] = [];
 
 // =============================================================================
 // TYPES
@@ -74,12 +75,17 @@ const ColorPicker: React.FC<{
 ColorPicker.displayName = 'ColorPicker';
 
 const TagDropdownItem: React.FC<{
+  readonly id: string;
   readonly tag: Tag;
+  readonly isActive: boolean;
   readonly onSelect: (tag: Tag) => void;
-}> = ({ tag, onSelect }) => (
+}> = ({ id, tag, isActive, onSelect }) => (
   <button
+    id={id}
     type="button"
     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+    role="option"
+    aria-selected={isActive}
     onMouseDown={(e) => e.preventDefault()}
     onClick={() => onSelect(tag)}
   >
@@ -90,28 +96,53 @@ const TagDropdownItem: React.FC<{
 TagDropdownItem.displayName = 'TagDropdownItem';
 
 const TagDropdown: React.FC<{
+  readonly listboxId: string;
   readonly filteredTags: readonly Tag[];
   readonly allTags: readonly Tag[];
   readonly query: string;
+  readonly highlightedIndex: number;
   readonly selectedColor: string;
   readonly onSelect: (tag: Tag) => void;
   readonly onCreate: () => void;
   readonly onColorSelect: (color: string) => void;
-}> = ({ filteredTags, allTags, query, selectedColor, onSelect, onCreate, onColorSelect }) => {
+}> = ({
+  listboxId,
+  filteredTags,
+  allTags,
+  query,
+  highlightedIndex,
+  selectedColor,
+  onSelect,
+  onCreate,
+  onColorSelect,
+}) => {
   const trimmedQuery = query.trim();
   const isNewTag =
     trimmedQuery && !allTags.some((t) => t.name.toLowerCase() === trimmedQuery.toLowerCase());
 
   return (
-    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-      {filteredTags.slice(0, 8).map((tag) => (
-        <TagDropdownItem key={tag.id} tag={tag} onSelect={onSelect} />
+    <div
+      id={listboxId}
+      role="listbox"
+      className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+    >
+      {filteredTags.slice(0, 8).map((tag, index) => (
+        <TagDropdownItem
+          key={tag.id}
+          id={`${listboxId}-option-${tag.id}`}
+          tag={tag}
+          isActive={highlightedIndex === index}
+          onSelect={onSelect}
+        />
       ))}
       {isNewTag ? (
         <div className="border-t pt-1">
           <button
+            id={`${listboxId}-create`}
             type="button"
             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+            role="option"
+            aria-selected={highlightedIndex === filteredTags.length}
             onMouseDown={(e) => e.preventDefault()}
             onClick={onCreate}
           >
@@ -132,10 +163,9 @@ TagDropdown.displayName = 'TagDropdown';
 
 function useTagData(filePath: string) {
   const allTags = useTagStore(selectAllTags);
-  const fileTagMap = useTagStore((s) => s.fileTagMap);
-  const assignedTagIds = React.useMemo(() => fileTagMap[filePath] ?? [], [fileTagMap, filePath]);
+  const assignedTagIds = useTagStore((state) => state.fileTagMap[filePath] ?? EMPTY_TAG_IDS);
   const assignedTags = React.useMemo(
-    () => allTags.filter((t) => assignedTagIds.includes(t.id)),
+    () => allTags.filter((tag) => assignedTagIds.includes(tag.id)),
     [allTags, assignedTagIds]
   );
   return { allTags, assignedTagIds, assignedTags };
@@ -151,6 +181,7 @@ function useTagPickerActions(
   const removeTagFromFile = useTagStore((s) => s.removeTagFromFile);
   const [query, setQuery] = React.useState('');
   const [showDropdown, setShowDropdown] = React.useState(false);
+  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
   const [selectedColor, setSelectedColor] = React.useState<string>(TAG_COLORS[0]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -167,6 +198,7 @@ function useTagPickerActions(
       assignTagToFile(filePath, tag.id);
       setQuery('');
       setShowDropdown(false);
+      setHighlightedIndex(-1);
       inputRef.current?.focus();
     },
     [filePath, assignTagToFile]
@@ -178,6 +210,7 @@ function useTagPickerActions(
     assignTagToFile(filePath, addTag(name, selectedColor));
     setQuery('');
     setShowDropdown(false);
+    setHighlightedIndex(-1);
     inputRef.current?.focus();
   }, [query, selectedColor, addTag, assignTagToFile, filePath]);
 
@@ -193,6 +226,8 @@ function useTagPickerActions(
     setQuery,
     showDropdown,
     setShowDropdown,
+    highlightedIndex,
+    setHighlightedIndex,
     selectedColor,
     setSelectedColor,
     inputRef,
@@ -222,22 +257,58 @@ AssignedTagList.displayName = 'AssignedTagList';
 export const TagPicker: React.FC<TagPickerProps> = ({ filePath, className }) => {
   const data = useTagData(filePath);
   const actions = useTagPickerActions(filePath, data.allTags, data.assignedTagIds);
+  const dropdownId = React.useId();
+  const canCreateTag =
+    actions.query.trim().length > 0 &&
+    !data.allTags.some((tag) => tag.name.toLowerCase() === actions.query.trim().toLowerCase());
+  const optionCount = actions.filteredTags.length + (canCreateTag ? 1 : 0);
+  const highlightedTag = actions.filteredTags[actions.highlightedIndex];
+  const activeDescendant =
+    actions.showDropdown && actions.highlightedIndex >= 0
+      ? actions.highlightedIndex < actions.filteredTags.length
+        ? highlightedTag
+          ? `${dropdownId}-option-${highlightedTag.id}`
+          : undefined
+        : canCreateTag && actions.highlightedIndex === actions.filteredTags.length
+          ? `${dropdownId}-create`
+          : undefined
+      : undefined;
 
   const handleInputKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        actions.setShowDropdown(true);
+        if (optionCount > 0) {
+          actions.setHighlightedIndex((prev) => (prev < optionCount - 1 ? prev + 1 : 0));
+        }
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        actions.setShowDropdown(true);
+        if (optionCount > 0) {
+          actions.setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : optionCount - 1));
+        }
+        return;
+      }
       if (e.key === 'Enter') {
         e.preventDefault();
-        const first = actions.filteredTags[0];
-        if (actions.filteredTags.length > 0 && first) {
-          actions.handleSelectTag(first);
-        } else if (actions.query.trim()) {
+        const activeIndex = actions.highlightedIndex >= 0 ? actions.highlightedIndex : 0;
+        const selectedTag = actions.filteredTags[activeIndex];
+        if (selectedTag) {
+          actions.handleSelectTag(selectedTag);
+        } else if (canCreateTag) {
           actions.handleCreateTag();
         }
-      } else if (e.key === 'Escape') {
+        return;
+      }
+      if (e.key === 'Escape') {
         actions.setShowDropdown(false);
+        actions.setHighlightedIndex(-1);
       }
     },
-    [actions]
+    [actions, optionCount, canCreateTag]
   );
 
   return (
@@ -247,22 +318,38 @@ export const TagPicker: React.FC<TagPickerProps> = ({ filePath, className }) => 
         <input
           ref={actions.inputRef}
           type="text"
+          role="combobox"
+          aria-expanded={actions.showDropdown}
+          aria-controls={dropdownId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeDescendant}
           className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           placeholder="Add tag..."
           value={actions.query}
           onChange={(e) => {
             actions.setQuery(e.target.value);
             actions.setShowDropdown(true);
+            actions.setHighlightedIndex(0);
           }}
-          onFocus={() => actions.setShowDropdown(true)}
-          onBlur={() => setTimeout(() => actions.setShowDropdown(false), 200)}
+          onFocus={() => {
+            actions.setShowDropdown(true);
+            actions.setHighlightedIndex(optionCount > 0 ? 0 : -1);
+          }}
+          onBlur={() =>
+            setTimeout(() => {
+              actions.setShowDropdown(false);
+              actions.setHighlightedIndex(-1);
+            }, 200)
+          }
           onKeyDown={handleInputKeyDown}
         />
         {actions.showDropdown && (actions.query.trim() || actions.filteredTags.length > 0) ? (
           <TagDropdown
+            listboxId={dropdownId}
             filteredTags={actions.filteredTags}
             allTags={data.allTags}
             query={actions.query}
+            highlightedIndex={actions.highlightedIndex}
             selectedColor={actions.selectedColor}
             onSelect={actions.handleSelectTag}
             onCreate={actions.handleCreateTag}

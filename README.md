@@ -133,6 +133,13 @@ This compiles the TypeScript code and packages the application using electron-bu
 - `pnpm audit:types` - Audit type safety escapes (as any, as unknown as, eslint-disable)
 - `pnpm bench` - Run performance benchmarks
 - `pnpm verify-security` - Verify security settings and configurations
+- `pnpm verify-lockfiles` - Validate lockfile policy before merging
+- `pnpm rehearse:hardening` - Run save/recovery integrity, message validation, and security rehearsal checks
+- `pnpm rehearse:release -- --arch <arm64|x64>` - Rehearse release arch validation + signing/notarization readiness
+- `pnpm verify-actions-pinning --mode enforce` - Enforce SHA pinning policy failures
+- `CI_ACTION_PINNING_MODE=advisory pnpm verify-actions-pinning` - Emergency escape hatch for advisory-only mode
+- `pnpm verify-audit-baseline` - Compare current high/critical audit findings with the tracked baseline
+- `pnpm check:quality-gates` - Run CI-aligned quality gates locally (policy checks + typecheck + lint + tests)
 
 ## Advanced Feature Usage
 

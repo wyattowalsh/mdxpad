@@ -1,0 +1,334 @@
+---
+title: Contributing
+description: How to contribute to MDXPad.
+---
+
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Thank you for your interest in contributing to MDXPad. This page covers setup, conventions, testing requirements, and the pull request process.
+
+## Before you begin
+
+1. **Read the README**: Familiarize yourself with the project
+2. **Check existing issues**: Look for existing issues or discussions related to your contribution
+3. **Create an issue**: For significant changes, open an issue to discuss your approach before writing code
+4. **Review the architecture**: Check `AGENTS.md` and `docs/constitution/` for architectural principles
+
+## Development setup
+
+<Steps>
+  <Step>
+    ### Install prerequisites
+
+    - **Node.js** >= 20.19.0
+    - **pnpm** >= 10.0.0
+    - **macOS** 11.0 (Big Sur) or later
+    - **Xcode Command Line Tools**
+
+    ```bash
+    xcode-select --install
+    ```
+  </Step>
+
+  <Step>
+    ### Clone and install
+
+    ```bash
+    git clone <repository-url>
+    cd mdxpad
+    pnpm install
+    ```
+  </Step>
+
+  <Step>
+    ### Verify your setup
+
+    ```bash
+    pnpm check
+    ```
+
+    This runs `typecheck`, `lint`, and `test` in sequence. All must pass.
+  </Step>
+
+  <Step>
+    ### Start development
+
+    ```bash
+    pnpm dev
+    ```
+  </Step>
+</Steps>
+
+## Commands
+
+<Tabs items={['Dev', 'Test', 'Build']}>
+  <Tab value="Dev">
+    ```bash
+    # Start development with hot reload
+    pnpm dev
+
+    # Type checking
+    pnpm typecheck
+
+    # Lint
+    pnpm lint
+
+    # Auto-fix lint issues
+    pnpm lint:fix
+
+    # Format with Prettier
+    pnpm format
+
+    # Audit type safety escapes
+    pnpm audit:types
+    ```
+  </Tab>
+  <Tab value="Test">
+    ```bash
+    # Run all tests
+    pnpm test
+
+    # Watch mode
+    pnpm test:watch
+
+    # Unit tests only
+    pnpm test:unit
+
+    # Integration tests
+    pnpm test:integration
+
+    # E2E tests (Playwright)
+    pnpm test:e2e
+
+    # Coverage report
+    pnpm coverage
+    ```
+  </Tab>
+  <Tab value="Build">
+    ```bash
+    # Full quality check (typecheck + lint + test)
+    pnpm check
+
+    # Production build
+    pnpm build
+
+    # Run benchmarks
+    pnpm bench
+
+    # Verify security settings
+    pnpm verify-security
+    ```
+  </Tab>
+</Tabs>
+
+## Development methodology
+
+MDXPad follows **Specification-Driven Development (SDD)**:
+
+<Steps>
+  <Step>
+    ### Specification phase
+
+    Write a detailed specification in `docs/specs/`. Include rationale, architecture, acceptance criteria, and a testing strategy. Review against `AGENTS.md` and `docs/constitution/` for consistency. Get feedback before implementation.
+  </Step>
+
+  <Step>
+    ### Implementation phase
+
+    Implement according to the specification. Follow established patterns and conventions. Write tests alongside implementation. Keep all modules under 400 lines.
+  </Step>
+
+  <Step>
+    ### Verification phase
+
+    All tests must pass. TypeScript must compile with no errors. ESLint must pass with zero errors. All acceptance criteria from the specification must be met.
+  </Step>
+
+  <Step>
+    ### Documentation phase
+
+    Update relevant documentation. Add JSDoc comments for public APIs. Update `CHANGELOG.md` if applicable.
+  </Step>
+</Steps>
+
+## Code conventions
+
+### TypeScript
+
+- **Strict mode**: Always enabled — no exceptions
+- **Explicit types**: Prefer explicit types over inference for function signatures
+- **No `any`**: Use `unknown` if necessary and narrow with type guards
+- **Interfaces over types**: Prefer `interface` for object shapes, `type` for unions/intersections
+
+```typescript
+// Good
+interface UserData {
+  id: string;
+  name: string;
+}
+
+function getUser(id: string): Promise<UserData> {
+  // implementation
+}
+```
+
+### File organization
+
+- **Max file size**: 400 lines (enforced via ESLint)
+- **Single responsibility**: Each file should have one clear purpose
+- **Naming**: `kebab-case.ts` for files, `PascalCase.tsx` for components, `*.test.ts` for tests
+
+```
+feature/
+├── index.ts           # Public exports
+├── types.ts           # Type definitions
+├── component.tsx      # Main component
+├── hooks.ts           # React hooks
+├── store.ts           # Zustand store
+└── __tests__/
+    └── component.test.tsx
+```
+
+### React conventions
+
+- Functional components only
+- React 19 hooks; prefer custom hooks for complex logic
+- Explicit interfaces for all component props
+- Zustand for global state, `useState` for local state
+- Minimize `useEffect`; prefer derived state
+
+### Error handling
+
+- Use Zod for runtime validation at all IPC boundaries
+- Create custom error classes for domain errors
+- Provide clear, actionable error messages
+
+```typescript
+const FilePathSchema = z.string().min(1);
+
+export async function readFile(path: unknown): Promise<string> {
+  const validPath = FilePathSchema.parse(path);
+  try {
+    return await fs.readFile(validPath, 'utf-8');
+  } catch (error) {
+    throw new FileReadError(`Failed to read file: ${validPath}`, { cause: error });
+  }
+}
+```
+
+## Testing requirements
+
+### Coverage targets
+
+- **Minimum**: 80% overall coverage
+- **Critical paths**: 90%+ for security and data integrity code
+
+### Test types
+
+- **Unit tests**: Required for all services, utilities, and stores
+- **Component tests**: Required for complex UI components
+- **Integration tests**: Required for IPC communication
+- **E2E tests**: Required for critical user flows
+
+### Test structure
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useDocumentStore } from '../document-store';
+
+describe('useDocumentStore', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+  });
+
+  it('should update content when setContent is called', () => {
+    const { result } = renderHook(() => useDocumentStore());
+
+    act(() => {
+      result.current.setContent('new content');
+    });
+
+    expect(result.current.content).toBe('new content');
+  });
+});
+```
+
+## Commit message format
+
+MDXPad uses **Conventional Commits**:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+### Types
+
+| Type | Purpose |
+|------|---------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation changes |
+| `style` | Code style changes |
+| `refactor` | Refactoring without functional changes |
+| `perf` | Performance improvements |
+| `test` | Adding or updating tests |
+| `chore` | Maintenance tasks, dependency updates |
+
+### Scopes
+
+`editor`, `preview`, `fs`, `ai`, `ui`, `ipc`, `store`
+
+### Examples
+
+```bash
+feat(editor): add syntax highlighting for MDX components
+
+Implements syntax highlighting for JSX-like components in MDX files
+using CodeMirror's language support. Integrates with existing theme system.
+
+Closes #123
+```
+
+## Pull request process
+
+<Steps>
+  <Step>
+    ### Update from main and run checks
+
+    ```bash
+    git fetch origin
+    git rebase origin/main
+    pnpm check
+    pnpm audit:types
+    ```
+  </Step>
+
+  <Step>
+    ### Submit the PR
+
+    - Title in Conventional Commits format
+    - Description explaining what changed and why
+    - Screenshots for UI changes
+    - Links to related issues
+  </Step>
+
+  <Step>
+    ### Review process
+
+    All CI checks must pass. At least one approval required. Reviewer tests changes locally. Merge via squash with a descriptive commit message.
+  </Step>
+</Steps>
+
+## Getting help
+
+- **Issues**: Open an issue for bugs or feature requests
+- **Discussions**: Use GitHub Discussions for questions
+- **Documentation**: Check `docs/` for detailed information
+- **Code Comments**: Read JSDoc comments for API documentation

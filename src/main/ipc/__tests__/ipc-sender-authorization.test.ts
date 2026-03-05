@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { describe, expect, it, vi } from 'vitest';
+import type { BrowserWindow, IpcMain, IpcMainInvokeEvent } from 'electron';
 
 import {
   assertAuthorizedIpcSender,
   IpcSenderAuthorizationError,
+  registerAuthorizedIpcHandler,
 } from '../ipc-sender-authorization';
 
 function createWindow(url = 'http://localhost:5173'): BrowserWindow {
@@ -34,6 +35,24 @@ function createEvent(options?: {
 }
 
 describe('assertAuthorizedIpcSender', () => {
+  it('rejects sender when sender ID mismatches', () => {
+    const window = createWindow();
+    const event = createEvent({ senderId: 1000 });
+
+    expect(() => {
+      assertAuthorizedIpcSender(event, window, 'test:channel');
+    }).toThrow(IpcSenderAuthorizationError);
+  });
+
+  it('rejects sender when main frame routing ID mismatches', () => {
+    const window = createWindow();
+    const event = createEvent({ senderFrameRoutingId: 1000 });
+
+    expect(() => {
+      assertAuthorizedIpcSender(event, window, 'test:channel');
+    }).toThrow(IpcSenderAuthorizationError);
+  });
+
   it('allows authorized sender/frame/origin', () => {
     const window = createWindow();
     const event = createEvent({ senderFrameUrl: 'http://localhost:5173/app' });
@@ -68,5 +87,45 @@ describe('assertAuthorizedIpcSender', () => {
     expect(() => {
       assertAuthorizedIpcSender(event, window, 'test:channel');
     }).toThrow(IpcSenderAuthorizationError);
+  });
+});
+
+describe('registerAuthorizedIpcHandler', () => {
+  it('registers handler and executes for authorized sender/frame', async () => {
+    const handle = vi.fn();
+    const ipcMain = { handle } as unknown as Pick<IpcMain, 'handle'>;
+    const window = createWindow();
+    const handler = vi.fn().mockResolvedValue({ ok: true });
+
+    registerAuthorizedIpcHandler(ipcMain, window, 'test:channel', handler);
+
+    const registeredHandler = handle.mock.calls[0]?.[1] as
+      | ((event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>)
+      | undefined;
+
+    expect(registeredHandler).toBeDefined();
+    await expect(registeredHandler!(createEvent(), { value: 1 })).resolves.toEqual({ ok: true });
+    expect(handler).toHaveBeenCalledWith(expect.any(Object), { value: 1 });
+  });
+
+  it('rejects unauthorized sender/frame consistently', () => {
+    const handle = vi.fn();
+    const ipcMain = { handle } as unknown as Pick<IpcMain, 'handle'>;
+    const window = createWindow();
+
+    registerAuthorizedIpcHandler(ipcMain, window, 'test:channel', () => ({ ok: true }));
+
+    const registeredHandler = handle.mock.calls[0]?.[1] as
+      | ((event: IpcMainInvokeEvent, request: unknown) => unknown)
+      | undefined;
+
+    expect(registeredHandler).toBeDefined();
+
+    expect(() => registeredHandler!(createEvent({ senderId: 123 }), {})).toThrow(
+      IpcSenderAuthorizationError
+    );
+    expect(() => registeredHandler!(createEvent({ senderFrameRoutingId: 123 }), {})).toThrow(
+      IpcSenderAuthorizationError
+    );
   });
 });

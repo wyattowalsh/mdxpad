@@ -11,10 +11,12 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type {
   ProviderConfig,
+  SidecarConfig,
   ProviderType,
   TimeRange,
   UsageStats,
 } from '@shared/ai/types';
+import type { SidecarLifecycleStatusResponseSchemaType } from '@shared/ai/schemas';
 
 // =============================================================================
 // WINDOW TYPE DECLARATION
@@ -46,6 +48,10 @@ export interface AIProviderState {
   usageStats: UsageStats | null;
   usageStatsTimeRange: TimeRange;
 
+  /** Sidecar lifecycle status (fetched on demand) */
+  sidecarStatus: SidecarLifecycleStatusResponseSchemaType | null;
+  isSidecarLoading: boolean;
+
   /** Error state */
   error: string | null;
 }
@@ -63,6 +69,7 @@ export interface AIProviderActions {
       displayName: string;
       type: ProviderType;
       baseUrl?: string;
+      sidecarConfig?: SidecarConfig;
     },
     apiKey?: string
   ) => Promise<void>;
@@ -70,7 +77,7 @@ export interface AIProviderActions {
   /** Update an existing provider */
   updateProvider: (
     id: string,
-    updates: { displayName?: string; baseUrl?: string }
+    updates: { displayName?: string; baseUrl?: string; sidecarConfig?: SidecarConfig }
   ) => Promise<void>;
 
   /** Remove a provider */
@@ -81,6 +88,22 @@ export interface AIProviderActions {
 
   /** Validate a provider's connection */
   validateProvider: (id: string) => Promise<boolean>;
+
+  /** Fetch sidecar runtime status */
+  fetchSidecarStatus: () => Promise<SidecarLifecycleStatusResponseSchemaType | null>;
+
+  /** Configure sidecar runtime */
+  configureSidecar: (
+    config: SidecarConfig
+  ) => Promise<SidecarLifecycleStatusResponseSchemaType | null>;
+
+  /** Start sidecar runtime */
+  startSidecar: (
+    config?: SidecarConfig
+  ) => Promise<SidecarLifecycleStatusResponseSchemaType | null>;
+
+  /** Stop sidecar runtime */
+  stopSidecar: () => Promise<SidecarLifecycleStatusResponseSchemaType | null>;
 
   /** Fetch usage statistics */
   fetchUsageStats: (timeRange: TimeRange) => Promise<void>;
@@ -157,6 +180,8 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     selectedProviderId: null,
     usageStats: null,
     usageStatsTimeRange: 'week',
+    sidecarStatus: null,
+    isSidecarLoading: false,
     error: null,
 
     // =========================================================================
@@ -197,6 +222,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
           displayName: config.displayName,
           type: config.type,
           baseUrl: config.baseUrl,
+          sidecarConfig: config.sidecarConfig,
           apiKey,
         });
 
@@ -230,7 +256,14 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
       });
 
       try {
-        const result = await getAIApi().updateProvider({ id, updates });
+        const result = await getAIApi().updateProvider({
+          id,
+          updates: {
+            displayName: updates.displayName,
+            baseUrl: updates.baseUrl,
+            sidecarConfig: updates.sidecarConfig,
+          },
+        });
 
         if (result.success && result.provider) {
           const provider = normalizeProviderConfig(result.provider);
@@ -362,12 +395,113 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
           const provider = state.providers.find((p) => p.id === id);
           if (provider) {
             provider.status = 'error';
-            provider.errorMessage = error instanceof Error ? error.message : 'Failed to validate provider';
+            provider.errorMessage =
+              error instanceof Error ? error.message : 'Failed to validate provider';
           }
           state.isValidating = false;
           state.error = error instanceof Error ? error.message : 'Failed to validate provider';
         });
         return false;
+      }
+    },
+
+    fetchSidecarStatus: async () => {
+      set((state) => {
+        state.isSidecarLoading = true;
+        state.error = null;
+      });
+
+      try {
+        const status = await getAIApi().getSidecarStatus();
+        set((state) => {
+          state.sidecarStatus = status;
+          state.isSidecarLoading = false;
+          if (!status.success && status.error) {
+            state.error = status.error.message;
+          }
+        });
+        return status;
+      } catch (error) {
+        set((state) => {
+          state.isSidecarLoading = false;
+          state.error = error instanceof Error ? error.message : 'Failed to fetch sidecar status';
+        });
+        return null;
+      }
+    },
+
+    configureSidecar: async (config) => {
+      set((state) => {
+        state.isSidecarLoading = true;
+        state.error = null;
+      });
+
+      try {
+        const status = await getAIApi().configureSidecar(config);
+        set((state) => {
+          state.sidecarStatus = status;
+          state.isSidecarLoading = false;
+          if (!status.success && status.error) {
+            state.error = status.error.message;
+          }
+        });
+        return status;
+      } catch (error) {
+        set((state) => {
+          state.isSidecarLoading = false;
+          state.error = error instanceof Error ? error.message : 'Failed to configure sidecar';
+        });
+        return null;
+      }
+    },
+
+    startSidecar: async (config) => {
+      set((state) => {
+        state.isSidecarLoading = true;
+        state.error = null;
+      });
+
+      try {
+        const status = await getAIApi().startSidecar(config);
+        set((state) => {
+          state.sidecarStatus = status;
+          state.isSidecarLoading = false;
+          if (!status.success && status.error) {
+            state.error = status.error.message;
+          }
+        });
+        return status;
+      } catch (error) {
+        set((state) => {
+          state.isSidecarLoading = false;
+          state.error = error instanceof Error ? error.message : 'Failed to start sidecar';
+        });
+        return null;
+      }
+    },
+
+    stopSidecar: async () => {
+      set((state) => {
+        state.isSidecarLoading = true;
+        state.error = null;
+      });
+
+      try {
+        const status = await getAIApi().stopSidecar();
+        set((state) => {
+          state.sidecarStatus = status;
+          state.isSidecarLoading = false;
+          if (!status.success && status.error) {
+            state.error = status.error.message;
+          }
+        });
+        return status;
+      } catch (error) {
+        set((state) => {
+          state.isSidecarLoading = false;
+          state.error = error instanceof Error ? error.message : 'Failed to stop sidecar';
+        });
+        return null;
       }
     },
 

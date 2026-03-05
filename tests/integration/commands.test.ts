@@ -1,8 +1,19 @@
 /**
- * Integration tests for command system.
- * Tests command registry, execution flow, and shortcut handling.
+ * Command Registry Store Tests
+ *
+ * Tests command registration, lookup, execution flow, shortcut conflict
+ * detection, recent command tracking, and unregistration.
  *
  * Per spec 005: FR-001 through FR-004 command registry requirements.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand command-registry-store in isolation
+ * with a mocked localStorage. Command execution is tested with mock functions
+ * and manually constructed CommandContext objects — no real editor instance,
+ * keyboard event dispatch, or Electron menu/accelerator wiring is involved.
+ * True integration tests would register commands, bind shortcuts, simulate real
+ * keyboard events in a rendered editor, and verify that the correct command
+ * handler fires end-to-end through the shortcut resolution pipeline.
  *
  * @module tests/integration/commands.test
  */

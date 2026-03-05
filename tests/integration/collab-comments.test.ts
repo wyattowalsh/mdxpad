@@ -1,8 +1,17 @@
 /**
- * Integration tests for Collaboration + Comments flow.
+ * Collaboration + Comments Store State Transition Tests
  *
  * Tests cross-store interactions between collab-store and comments-store:
- * connecting to room, adding comments, awareness state updates, disconnecting.
+ * connecting to room, adding comments, awareness state updates, disconnecting,
+ * thread lifecycle (create/resolve/unresolve/delete), and selector filtering.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising Zustand store state transitions and selector logic
+ * in isolation with a mocked localStorage and no real network layer. No actual
+ * Yjs documents, WebSocket connections, or CRDT synchronization is exercised.
+ * True integration tests would stand up a y-websocket server, connect multiple
+ * clients with real Yjs documents, and verify that comment threads and awareness
+ * state propagate correctly across peers via the WebSocket transport.
  *
  * @module tests/integration/collab-comments.test
  */

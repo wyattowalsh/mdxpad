@@ -19,6 +19,25 @@ import { EditorView } from '@codemirror/view';
 import { MDXEditor } from './MDXEditor';
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
 
+if (typeof globalThis.requestAnimationFrame !== 'function') {
+  Object.defineProperty(globalThis, 'requestAnimationFrame', {
+    configurable: true,
+    writable: true,
+    value: (callback: FrameRequestCallback): number =>
+      globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number,
+  });
+}
+
+if (typeof globalThis.cancelAnimationFrame !== 'function') {
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', {
+    configurable: true,
+    writable: true,
+    value: (handle: number): void => {
+      globalThis.clearTimeout(handle);
+    },
+  });
+}
+
 // Helper to wait for CodeMirror initialization
 async function waitForCodeMirror(container: HTMLElement, timeout = 2000): Promise<HTMLElement | null> {
   const start = Date.now();
@@ -97,7 +116,9 @@ describe('MDXEditor', () => {
   // Helper to cleanup a specific tracked container
   function cleanupTrackedContainer(container: HTMLElement, root: Root): void {
     try {
-      root.unmount();
+      act(() => {
+        root.unmount();
+      });
     } catch {
       // Ignore unmount errors
     }
@@ -117,7 +138,9 @@ describe('MDXEditor', () => {
     // Clean up any orphaned manual containers (from failed tests)
     for (const root of manualRoots) {
       try {
-        root.unmount();
+        act(() => {
+          root.unmount();
+        });
       } catch {
         // Ignore unmount errors
       }
@@ -793,35 +816,34 @@ describe('MDXEditor', () => {
     });
 
     it('should allow changing theme between renders', async () => {
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-      const root = createRoot(container);
+      const { container, root } = createTrackedContainer();
 
-      // Start with light theme
-      await act(async () => {
-        root.render(createElement(MDXEditor, { value: 'Theme change', theme: 'light' }));
-      });
+      try {
+        // Start with light theme
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'Theme change', theme: 'light' }));
+        });
 
-      await waitForCodeMirror(container);
-      let editor = getCMEditor(container);
-      expect(editor).toBeTruthy();
+        await waitForCodeMirror(container);
+        let editor = getCMEditor(container);
+        expect(editor).toBeTruthy();
 
-      // Switch to dark theme
-      await act(async () => {
-        root.render(createElement(MDXEditor, { value: 'Theme change', theme: 'dark' }));
-      });
+        // Switch to dark theme
+        await act(async () => {
+          root.render(createElement(MDXEditor, { value: 'Theme change', theme: 'dark' }));
+        });
 
-      // Wait for editor to update with new theme
-      await waitFor(
-        () => {
-          editor = getCMEditor(container);
-          expect(editor).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
-
-      root.unmount();
-      document.body.removeChild(container);
+        // Wait for editor to update with new theme
+        await waitFor(
+          () => {
+            editor = getCMEditor(container);
+            expect(editor).toBeTruthy();
+          },
+          { timeout: 2000 }
+        );
+      } finally {
+        cleanupTrackedContainer(container, root);
+      }
     });
 
     it('different themes should produce valid editor instances', async () => {
@@ -847,14 +869,16 @@ describe('MDXEditor', () => {
     });
 
     afterEach(() => {
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      vi.clearAllTimers();
       vi.useRealTimers();
     });
 
     it('should debounce onChange calls with default 150ms', async () => {
       const onChange = vi.fn();
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-      const root = createRoot(container);
+      const { container, root } = createTrackedContainer();
 
       await act(async () => {
         root.render(createElement(MDXEditor, { value: 'Debounce test', onChange }));
@@ -888,15 +912,12 @@ describe('MDXEditor', () => {
         expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(callCountImmediate);
       }
 
-      root.unmount();
-      document.body.removeChild(container);
+      cleanupTrackedContainer(container, root);
     });
 
     it('should respect custom debounceMs value', async () => {
       const onChange = vi.fn();
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-      const root = createRoot(container);
+      const { container, root } = createTrackedContainer();
 
       // Use 500ms debounce
       await act(async () => {
@@ -933,15 +954,12 @@ describe('MDXEditor', () => {
         expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(callCountBefore500);
       }
 
-      root.unmount();
-      document.body.removeChild(container);
+      cleanupTrackedContainer(container, root);
     });
 
     it('should reset debounce timer on rapid input', async () => {
       const onChange = vi.fn();
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-      const root = createRoot(container);
+      const { container, root } = createTrackedContainer();
 
       await act(async () => {
         root.render(createElement(MDXEditor, { value: 'Rapid input', onChange, debounceMs: 200 }));
@@ -991,15 +1009,12 @@ describe('MDXEditor', () => {
         expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(callCountMidway);
       }
 
-      root.unmount();
-      document.body.removeChild(container);
+      cleanupTrackedContainer(container, root);
     });
 
     it('should accept 0ms debounce (immediate)', async () => {
       const onChange = vi.fn();
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-      const root = createRoot(container);
+      const { container, root } = createTrackedContainer();
 
       await act(async () => {
         root.render(createElement(MDXEditor, { value: 'Zero debounce', onChange, debounceMs: 0 }));
@@ -1028,15 +1043,12 @@ describe('MDXEditor', () => {
         expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(0);
       }
 
-      root.unmount();
-      document.body.removeChild(container);
+      cleanupTrackedContainer(container, root);
     });
 
     it('should handle large debounceMs values', async () => {
       const onChange = vi.fn();
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-      const root = createRoot(container);
+      const { container, root } = createTrackedContainer();
 
       // Note: debounce is clamped to 2000ms max
       await act(async () => {
@@ -1072,8 +1084,7 @@ describe('MDXEditor', () => {
         expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(callCountBefore1000);
       }
 
-      root.unmount();
-      document.body.removeChild(container);
+      cleanupTrackedContainer(container, root);
     });
   });
 

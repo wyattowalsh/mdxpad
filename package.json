@@ -4,12 +4,17 @@
   "description": "A macOS-first MDX editor",
   "type": "module",
   "main": "dist/main/index.js",
-  "packageManager": "pnpm@10.11.1",
+  "packageManager": "pnpm@10.30.3",
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron",
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "minimatch@<3.1.4": "3.1.4",
+      "minimatch@>=9.0.0 <9.0.7": "9.0.7",
+      "rollup@<4.59.0": "4.59.0"
+    }
   },
   "engines": {
     "node": ">=20.19.0",
@@ -30,12 +35,23 @@
     "test:e2e": "playwright test",
     "bench": "tsx scripts/bench.ts",
     "verify-security": "tsx scripts/verify-security.ts",
+    "rehearse:hardening": "tsx scripts/rehearse-hardening.ts",
+    "rehearse:release": "tsx scripts/rehearse-release.ts",
+    "verify-lockfiles": "node scripts/verify-lockfiles.mjs",
+    "verify-actions-pinning": "tsx scripts/verify-actions-pinning.ts",
+    "verify-audit-baseline": "tsx scripts/verify-audit-baseline.ts",
+    "check:quality-gates": "pnpm verify-lockfiles && pnpm verify-actions-pinning && pnpm verify-audit-baseline && pnpm typecheck && pnpm lint && pnpm test",
+    "generate-supplychain-scaffold": "tsx scripts/generate-supplychain-scaffold.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "clean": "rm -rf dist out .vite coverage",
     "coverage": "vitest run --coverage",
+    "coverage:critical": "tsx scripts/check-critical-coverage.ts",
     "audit:types": "echo '=== Type Safety Audit ===' && echo 'as unknown as:' && grep -r 'as unknown as' src/ --include='*.ts' --include='*.tsx' -c 2>/dev/null | tail -1 && echo 'as any:' && grep -r 'as any' src/ --include='*.ts' --include='*.tsx' -c 2>/dev/null | tail -1 && echo 'eslint-disable:' && grep -r 'eslint-disable' src/ --include='*.ts' --include='*.tsx' -c 2>/dev/null | tail -1",
     "lint:report": "eslint . --format json 2>/dev/null | node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const r={};d.forEach(f=>f.messages.forEach(m=>{r[m.ruleId]=(r[m.ruleId]||0)+1}));Object.entries(r).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>console.log(v+'\\t'+k))\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "docs:dev": "cd docs-site && pnpm dev",
+    "docs:build": "cd docs-site && pnpm build",
+    "docs:start": "cd docs-site && pnpm start"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.15",
@@ -84,7 +100,7 @@
     "electron-store": "11.0.2",
     "epub-gen-memory": "^1.1.2",
     "fzf": "^0.5.2",
-    "glob": "11.0.0",
+    "glob": "13.0.6",
     "gray-matter": "^4.0.3",
     "immer": "^10.0.0",
     "katex": "^0.16.33",
@@ -123,6 +139,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
+    "@electron/notarize": "^3.1.1",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.49.0",
     "@tailwindcss/vite": "^4.0.0",
@@ -134,12 +151,12 @@
     "@vitejs/plugin-react": "^4.0.0",
     "@vitest/coverage-v8": "^2.0.0",
     "electron": "^39.0.0",
-    "electron-builder": "^25.0.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^3.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.0.0",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "happy-dom": "^15.0.0",
+    "happy-dom": "^20.7.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "mdast-util-mdx-jsx": "^3.2.0",

@@ -99,6 +99,8 @@ export async function performValidation(
       return validateOllama(provider.baseUrl);
     case 'lmstudio':
       return validateLMStudio(provider.baseUrl);
+    case 'sidecar':
+      return validateLMStudio(provider.baseUrl);
     case 'openai-compatible':
       return validateOpenAICompatible(provider.baseUrl, apiKey);
     default:

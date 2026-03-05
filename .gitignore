@@ -386,6 +386,11 @@ test-results/
 # Re-include project scripts (overrides venv [Ss]cripts pattern)
 !scripts/
 
+# Docs site build artifacts
+docs-site/.next
+docs-site/node_modules
+docs-site/.source
+
 # Additional patterns
 *.tmp
 *.bak

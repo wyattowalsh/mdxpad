@@ -50,10 +50,16 @@ function mockWindow(): BrowserWindow {
   } as unknown as BrowserWindow;
 }
 
+/** Verify error messages don't leak host environment details.
+ *  macOS-only — extend for cross-platform if needed. */
 function assertNoInternalLeaks(msg: string): void {
   expect(msg).not.toMatch(/\/Users\//);
   expect(msg).not.toMatch(/\/home\//);
+  expect(msg).not.toMatch(/\/var\/folders\//);
+  expect(msg).not.toMatch(/\/tmp\//);
+  expect(msg).not.toMatch(/\/opt\//);
   expect(msg).not.toMatch(/node:internal/);
+  expect(msg).not.toMatch(/node_modules\//);
   expect(msg).not.toMatch(/at\s+\S+\s+\(/);
 }
 

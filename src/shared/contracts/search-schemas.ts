@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { FilePathSchema } from './file-schemas';
 
 // ============================================================================
 // Channel Definitions
@@ -23,18 +24,18 @@ export const SearchChannels = {
 
 export const SearchQueryRequestSchema = z.object({
   query: z.string().min(1),
-  workspaceDir: z.string().min(1),
+  workspaceDir: FilePathSchema,
   maxResults: z.number().int().positive().optional(),
   fuzzy: z.boolean().optional(),
 });
 
 export const SearchIndexRequestSchema = z.object({
-  workspaceDir: z.string().min(1),
+  workspaceDir: FilePathSchema,
   fileExtensions: z.array(z.string()).optional(),
 });
 
 export const SearchStatusRequestSchema = z.object({
-  workspaceDir: z.string().min(1),
+  workspaceDir: FilePathSchema,
 });
 
 // ============================================================================

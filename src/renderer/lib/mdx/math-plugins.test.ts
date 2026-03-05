@@ -57,7 +57,7 @@ describe('rehypeKatexPluginDefinition', () => {
   it('should create a plugin with default options', () => {
     const context = { frontmatter: {}, setOutline: () => {} };
     const plugin = rehypeKatexPluginDefinition.create(context, undefined);
-    expect(Array.isArray(plugin)).toBe(true);
+    expect(typeof plugin).toBe('function');
   });
 
   it('should create a plugin with custom options', () => {
@@ -65,6 +65,6 @@ describe('rehypeKatexPluginDefinition', () => {
     const plugin = rehypeKatexPluginDefinition.create(context, {
       throwOnError: true,
     });
-    expect(Array.isArray(plugin)).toBe(true);
+    expect(typeof plugin).toBe('function');
   });
 });

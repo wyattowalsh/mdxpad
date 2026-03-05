@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved `ideas.md` to `docs/ideas.md`
 - Fixed CONTRIBUTING.md coverage threshold (70% to 80%) to match project standards
 - Updated AGENTS.md, CLAUDE.md, and CHANGELOG.md for Waves 1-3
+- Updated README and hardening runbook command docs for lockfile/actions pinning/audit baseline quality gates and rehearsal flow
+
+### Fixed
+- Restored `tests/integration/ipc/file-handlers.test.ts` save/write coverage after write-capability bootstrap now reads files before granting write capability
 
 ### Removed
 - Stale wave4/wave5 orchestration logs from `docs/`

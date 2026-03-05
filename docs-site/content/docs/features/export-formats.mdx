@@ -1,0 +1,217 @@
+---
+title: "Export Formats"
+description: "Multi-format export: PDF, DOCX, EPUB, LaTeX, Pandoc, and llms.txt."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
+MDXPad supports exporting documents to multiple formats through a modular exporter system with job lifecycle management, preset support, and a CLI interface.
+
+## Supported Formats
+
+<Cards>
+  <Card
+    title="PDF"
+    description="Rendered via Electron's printToPDF API. Content is compiled to HTML first, then printed to PDF with full CSS styling."
+    href="#pdf-export"
+  />
+  <Card
+    title="Word (DOCX)"
+    description="Generated via the docx npm package. Supports headings, paragraphs with inline formatting, code blocks, and lists."
+    href="#docx-export"
+  />
+  <Card
+    title="EPUB"
+    description="E-book generation via epub-gen-memory. Supports frontmatter metadata, chapter splitting, and basic formatting."
+    href="#epub-export"
+  />
+  <Card
+    title="LaTeX"
+    description="Converts MDX to LaTeX markup with document class, heading commands, code listings, and inline formatting."
+    href="#latex-export"
+  />
+  <Card
+    title="Pandoc"
+    description="Integrates with Pandoc CLI when installed, enabling any format Pandoc supports as a custom export target."
+    href="#pandoc-bridge"
+  />
+  <Card
+    title="HTML / MD / MDX"
+    description="Built-in plain-text exporters for HTML, Markdown, and MDX output formats."
+    href="#built-in-formats"
+  />
+  <Card
+    title="llms.txt"
+    description="Generates llms.txt and llms-full.txt files for AI consumption of workspace content."
+    href="#llmstxt-generation"
+  />
+</Cards>
+
+## Format Table
+
+| Format | Exporter | Entry File | Extension |
+|--------|----------|-----------|-----------|
+| HTML | Built-in | `export-service.ts` | `.html` |
+| Markdown | Built-in | `export-service.ts` | `.md` |
+| MDX | Built-in | `export-service.ts` | `.mdx` |
+| PDF | `PdfExporter` | `pdf-exporter.ts` | `.pdf` |
+| Word | `DocxExporter` | `docx-exporter.ts` | `.docx` |
+| EPUB | `EpubExporter` | `epub-exporter.ts` | `.epub` |
+| LaTeX | `LatexExporter` | `latex-exporter.ts` | `.tex` |
+| Pandoc | `PandocRawExporter` | `pandoc-bridge.ts` | varies |
+
+## Source Structure
+
+<Files>
+  <Folder name="src/main/services" defaultOpen>
+    <File name="export-service.ts" />
+    <File name="export-orchestrator.ts" />
+    <File name="export-document-builders.ts" />
+    <File name="llms-generator.ts" />
+    <File name="cli-service.ts" />
+    <File name="cli-engine.ts" />
+    <Folder name="export-formats" defaultOpen>
+      <File name="index.ts" />
+      <File name="types.ts" />
+      <File name="pdf-exporter.ts" />
+      <File name="docx-exporter.ts" />
+      <File name="epub-exporter.ts" />
+      <File name="latex-exporter.ts" />
+      <File name="pandoc-bridge.ts" />
+      <File name="pandoc-detector.ts" />
+    </Folder>
+  </Folder>
+</Files>
+
+## Exporter Interface
+
+All format exporters implement a common `Exporter` interface, making them pluggable and testable in isolation:
+
+```typescript
+interface Exporter {
+  readonly format: string;
+  readonly label: string;
+  readonly extensions: string[];
+  export(content: string, options: ExportOptions): Promise<ExportResult>;
+}
+```
+
+## PDF Export
+
+Uses Electron's `printToPDF` API. The document content is compiled to HTML using the MDX pipeline first, then fed to `printToPDF` to produce a PDF that matches the preview rendering.
+
+## DOCX Export
+
+Uses the `docx` npm package (`^9.x`) to generate Word documents. Supported elements:
+
+- Headings H1–H6 (mapped to Word heading styles)
+- Paragraphs with inline formatting (bold, italic, code)
+- Fenced code blocks
+- Ordered and unordered lists
+
+## EPUB Export
+
+Uses `epub-gen-memory` for in-memory e-book generation without intermediate disk writes. Features:
+
+- Title and author pulled from YAML frontmatter
+- Automatic chapter splitting
+- Basic inline formatting
+
+## LaTeX Export
+
+Converts MDX content to LaTeX markup:
+
+- Document class and package declarations
+- Heading commands: `\section`, `\subsection`, `\subsubsection`, etc.
+- Code listings via `listings` or `verbatim`
+- Inline formatting: `\textbf`, `\textit`, `\texttt`
+
+## Pandoc Bridge
+
+The `PandocRawExporter` integrates with Pandoc when it is installed on the system.
+
+### Detection
+
+```typescript
+import { detectPandoc } from './pandoc-detector';
+
+const result = await detectPandoc();
+// { available: boolean, version?: string, path?: string }
+```
+
+`pandoc-detector.ts` checks for Pandoc availability at runtime. If Pandoc is not found, the Pandoc export option is hidden in the UI.
+
+### Custom Formats
+
+The `PandocRawExporter` passes content through the Pandoc CLI with user-specified output format flags, enabling any format Pandoc supports: reStructuredText, AsciiDoc, ODT, Textile, etc.
+
+## Built-in Formats
+
+The `ExportService` (`export-service.ts`) handles HTML, Markdown, and MDX exports directly:
+
+- **HTML**: Full HTML page with embedded CSS
+- **Markdown**: Strips MDX-specific syntax, outputs plain Markdown
+- **MDX**: Identity export — copies the source with normalized line endings
+
+## Export Orchestration
+
+The `ExportOrchestrator` (`export-orchestrator.ts`) manages export jobs with a full lifecycle:
+
+- **Job lifecycle**: create, get, list, cancel, update-status
+- **Preset management**: create, get, list, update, delete named export presets
+- **Progress tracking**: real-time progress updates via IPC events
+
+## CLI Orchestration
+
+The `CLIService` and `CLIEngine` provide command-line export capabilities accessible from the renderer:
+
+```typescript
+window.mdxpad.export.cliInvoke({
+  command: 'mdxpad-export',
+  args: ['--format', 'pdf', '--output', '/path/to/output.pdf'],
+})
+```
+
+## llms.txt Generation
+
+<Callout type="info">
+  `llms.txt` is a community convention for making documentation accessible to AI language models. See [llmstxt.org](https://llmstxt.org) for the specification.
+</Callout>
+
+The `LlmsGenerator` produces two files from the workspace:
+
+- **`llms.txt`** — Concise index of workspace files with titles and descriptions
+- **`llms-full.txt`** — Full content of all workspace files concatenated
+
+```typescript
+window.mdxpad.export.llmsGenerate({
+  workspacePath: '/path/to/workspace',
+  outputDir: '/path/to/output',
+})
+```
+
+## IPC API
+
+Export features are exposed via `window.mdxpad.export`:
+
+| Method | Description |
+|--------|-------------|
+| `export.jobLifecycle` | Create, get, list, cancel, and update-status on export jobs |
+| `export.presetCrud` | Create, get, list, update, and delete named presets |
+| `export.cliInvoke` | Run an export command via the CLI engine |
+| `export.llmsGenerate` | Generate `llms.txt` and `llms-full.txt` |
+
+IPC schemas are in `src/shared/contracts/export-schemas.ts` and `src/shared/contracts/export-format-schemas.ts`.
+
+## Renderer Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `ExportPanel` | `src/renderer/components/export/ExportPanel.tsx` | Main export UI |
+| `ExportJobList` | `src/renderer/components/export/ExportJobList.tsx` | Active/completed job listing |
+| `ExportPresetActions` | `src/renderer/components/export/ExportPresetActions.tsx` | Preset management |
+| `ExportCliInvocation` | `src/renderer/components/export/ExportCliInvocation.tsx` | CLI command builder |
+| `LlmsGenerationAction` | `src/renderer/components/export/LlmsGenerationAction.tsx` | llms.txt generation trigger |
+| `useExportStore` | `src/renderer/stores/export-store.ts` | Export state management |

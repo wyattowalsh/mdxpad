@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0.0",
+  "updatedAt": "2026-03-05T04:25:00.000Z",
+  "entries": [
+    {
+      "id": 1112329,
+      "package": "tar",
+      "severity": "high",
+      "rationale": "Observed at .>electron-builder>app-builder-lib>tar via pnpm audit --json. In-major update attempt kept electron-builder at latest 25.1.8, where app-builder-lib@25.1.8 requires tar^6.1.12; patched advisories require tar>=7.5.8. Resolution needs electron-builder 26.x or forced tar major override (risky churn)."
+    },
+    {
+      "id": 1112659,
+      "package": "tar",
+      "severity": "high",
+      "rationale": "Observed at .>electron-builder>app-builder-lib>tar via pnpm audit --json. In-major update attempt kept electron-builder at latest 25.1.8, where app-builder-lib@25.1.8 requires tar^6.1.12; patched advisories require tar>=7.5.8. Resolution needs electron-builder 26.x or forced tar major override (risky churn)."
+    },
+    {
+      "id": 1113300,
+      "package": "tar",
+      "severity": "high",
+      "rationale": "Observed at .>electron-builder>app-builder-lib>tar via pnpm audit --json. In-major update attempt kept electron-builder at latest 25.1.8, where app-builder-lib@25.1.8 requires tar^6.1.12; patched advisories require tar>=7.5.8. Resolution needs electron-builder 26.x or forced tar major override (risky churn)."
+    },
+    {
+      "id": 1113375,
+      "package": "tar",
+      "severity": "high",
+      "rationale": "Observed at .>electron-builder>app-builder-lib>tar via pnpm audit --json. In-major update attempt kept electron-builder at latest 25.1.8, where app-builder-lib@25.1.8 requires tar^6.1.12; patched advisories require tar>=7.5.8. Resolution needs electron-builder 26.x or forced tar major override (risky churn)."
+    },
+    {
+      "id": 1113992,
+      "package": "tar",
+      "severity": "high",
+      "rationale": "Observed at .>electron-builder>app-builder-lib>tar via pnpm audit --json. Current electron-builder 25.1.8 path still pins app-builder-lib to tar^6.1.12, while this advisory is patched at tar>=7.5.10. Resolution needs electron-builder 26.x or forced tar major override (risky churn)."
+    }
+  ]
+}

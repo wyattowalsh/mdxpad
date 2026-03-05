@@ -423,6 +423,43 @@ YOU MUST FOLLOW ALL OF THE RULES BELOW (7/7 total rules) AT ALL TIMES!!!
 
 ---
 
+## Requirements Index
+
+Test files reference these requirement codes. Authoritative definitions:
+
+### File Operations (US)
+- **US1**: Cmd+O opens file dialog and loads selected file
+- **US2**: Cmd+S saves current document (prompts Save As for untitled)
+- **US3**: Cmd+Shift+S opens Save As dialog
+- **US4**: Cmd+N creates new untitled document
+- **US5**: Close with unsaved changes prompts save/discard/cancel
+- **US6**: External file modification triggers notification
+- **US7**: Recent Files menu shows last 10 opened files
+
+### Command Palette (FR)
+- **FR-005**: Cmd+Shift+P opens command palette
+- **FR-006**: Palette filters commands by typed query (case-insensitive)
+- **FR-007**: Arrow keys navigate command list, highlighting selection
+- **FR-008**: Enter executes selected command and closes palette
+- **FR-009**: Recently executed commands appear at top of list
+
+### Template Browser (FR)
+- **FR-001**: Template browser opens from command palette
+- **FR-003**: Displays list of built-in templates
+- **FR-004**: Search filters templates by name/description
+- **FR-005-TB**: Preview renders template content (< 1s)
+- **FR-019**: Keyboard navigation (arrows, Escape to close)
+
+### Success Criteria (SC)
+- **SC-001**: File open (1MB) completes in < 500ms
+- **SC-002**: File open (10MB) completes in < 2s
+- **SC-100**: Recovery file preserves 100% of content (checksum verified)
+- **SC-TB-001**: Template browsing to first document < 30s
+- **SC-TB-004**: Template search completes < 200ms
+- **SC-TB-007**: Keyboard navigation response < 100ms
+
+---
+
 ## Active Technologies
 
 ### Core Stack

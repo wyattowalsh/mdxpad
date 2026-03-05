@@ -165,6 +165,84 @@ describe('Provider Management API', () => {
       expect(result.success).toBe(true);
     });
   });
+
+  describe('sidecar lifecycle methods', () => {
+    it('should configure sidecar', async () => {
+      const config = {
+        modelPath: '/models/llama.gguf',
+        port: 11470,
+      };
+
+      vi.mocked(validatedInvoke).mockResolvedValue({
+        success: true,
+        status: 'running',
+      });
+
+      const result = await aiApi.configureSidecar(config);
+
+      expect(validatedInvoke).toHaveBeenCalledWith(
+        AIChannels.SIDECAR_CONFIGURE,
+        expect.any(Object),
+        expect.any(Object),
+        { config }
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should fetch sidecar status', async () => {
+      vi.mocked(validatedInvoke).mockResolvedValue({
+        success: true,
+        status: 'running',
+      });
+
+      const result = await aiApi.getSidecarStatus();
+
+      expect(validatedInvoke).toHaveBeenCalledWith(
+        AIChannels.SIDECAR_STATUS,
+        null,
+        expect.any(Object)
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should start sidecar', async () => {
+      const config = {
+        modelPath: '/models/llama.gguf',
+        port: 11470,
+      };
+
+      vi.mocked(validatedInvoke).mockResolvedValue({
+        success: true,
+        status: 'running',
+      });
+
+      const result = await aiApi.startSidecar(config);
+
+      expect(validatedInvoke).toHaveBeenCalledWith(
+        AIChannels.SIDECAR_START,
+        expect.any(Object),
+        expect.any(Object),
+        { config }
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should stop sidecar', async () => {
+      vi.mocked(validatedInvoke).mockResolvedValue({
+        success: true,
+        status: 'stopped',
+      });
+
+      const result = await aiApi.stopSidecar();
+
+      expect(validatedInvoke).toHaveBeenCalledWith(
+        AIChannels.SIDECAR_STOP,
+        null,
+        expect.any(Object)
+      );
+      expect(result.success).toBe(true);
+    });
+  });
 });
 
 // ============================================================================

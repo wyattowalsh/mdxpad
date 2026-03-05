@@ -21,6 +21,7 @@ import { ProviderSessionService } from './provider-session-service';
 import { AISessionStorageService } from './ai-session-storage-service';
 import { AIPromptFileLoaderService } from './prompt-file-loader-service';
 import { InstructionLoaderService } from './instruction-loader-service';
+import { SidecarLifecycleService } from './sidecar-service';
 
 // =============================================================================
 // SERVICE EXPORTS
@@ -88,6 +89,12 @@ export {
   type LoadedInstructionFile,
 } from './instruction-loader-service';
 
+export {
+  SidecarLifecycleService,
+  type ISidecarLifecycleService,
+  type SidecarLifecycleServiceOptions,
+} from './sidecar-service';
+
 // =============================================================================
 // REGISTRY EXPORTS
 // =============================================================================
@@ -138,7 +145,13 @@ export function createAIServices(): AIServices {
   const aiSessionStorageService = new AISessionStorageService();
   const promptFileLoaderService = new AIPromptFileLoaderService();
   const instructionLoaderService = new InstructionLoaderService(aiSessionStorageService);
-  const aiService = new AIService(credentialService, providerService, usageService);
+  const sidecarService = new SidecarLifecycleService();
+  const aiService = new AIService(
+    credentialService,
+    providerService,
+    usageService,
+    sidecarService
+  );
 
   return {
     credentialService,
@@ -151,6 +164,7 @@ export function createAIServices(): AIServices {
     aiSessionStorageService,
     promptFileLoaderService,
     instructionLoaderService,
+    sidecarService,
   };
 }
 
@@ -168,4 +182,5 @@ export interface AIServices {
   aiSessionStorageService: AISessionStorageService;
   promptFileLoaderService: AIPromptFileLoaderService;
   instructionLoaderService: InstructionLoaderService;
+  sidecarService: SidecarLifecycleService;
 }

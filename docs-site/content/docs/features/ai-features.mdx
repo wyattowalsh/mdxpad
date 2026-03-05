@@ -1,0 +1,231 @@
+---
+title: "AI Features"
+description: "MDXPad's AI capabilities: BYOK provider support, agent mode, semantic search, and next-edit prediction."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Mermaid } from '@/components/mermaid';
+
+MDXPad integrates AI capabilities through the Vercel AI SDK v6 with BYOK (bring-your-own-key) provider support. API keys are stored in the macOS Keychain via Electron's `safeStorage` — they never touch disk in plain text.
+
+## Provider Architecture
+
+<Mermaid chart={`
+graph LR
+  subgraph Renderer
+    PS[ProviderSettings]
+    CP[AIChatWritePanel]
+    AP[AgentPanel]
+    SS[SemanticSearch]
+    ME[MultiFileEdit]
+  end
+
+  subgraph Preload
+    AA[aiApi]
+    ASA[ai-session-api]
+  end
+
+  subgraph Main["Main Process"]
+    AIS[AIService]
+    PRS[ProviderService]
+    CS[CredentialService]
+    US[UsageService]
+    ES[EmbeddingService]
+  end
+
+  PS & CP & AP & SS & ME <-->|IPC| AA & ASA
+  AA & ASA <-->|Zod IPC| AIS & PRS & CS & US & ES
+`} />
+
+### Main Process Services
+
+All AI logic runs in the Main process (`src/main/services/ai/`) to keep sensitive credentials and API calls out of the renderer.
+
+| Service | File | Purpose |
+|---------|------|---------|
+| `AIService` | `ai-service.ts` | Core AI operations: text generation, embeddings, image |
+| `ProviderService` | `provider-service.ts` | Provider config management and validation |
+| `CredentialService` | `credential-service.ts` | API key storage via macOS Keychain |
+| `CapabilityService` | `capability-service.ts` | Model capability detection |
+| `UsageService` | `usage-service.ts` | Token usage tracking and cost estimation |
+| `AgentService` | `agent-service.ts` | AI agent mode with tool execution |
+| `EmbeddingService` | `embedding-service.ts` | Text embedding generation |
+| `VectorStore` | `vector-store.ts` | In-memory vector storage for semantic search |
+| `OnboardingService` | `onboarding-service.ts` | First-run provider setup flow |
+| `ProviderSessionService` | `provider-session-service.ts` | Session-scoped provider instances |
+| `AISessionStorageService` | `ai-session-storage-service.ts` | Conversation persistence |
+
+## Supported Providers
+
+<Tabs items={["Anthropic", "OpenAI", "Ollama", "OpenAI-Compatible"]}>
+  <Tab value="Anthropic">
+    **Package**: `@ai-sdk/anthropic`
+
+    Provides access to Claude models (claude-3-5-sonnet, claude-3-opus, etc.). Streaming responses are supported for chat, write actions, and agent mode.
+
+    **Configuration**: Enter your Anthropic API key in **Settings → AI → Providers → Anthropic**. The key is stored in macOS Keychain via `safeStorage`.
+
+    **Capabilities**: Text generation, streaming, embeddings (via third-party models).
+  </Tab>
+  <Tab value="OpenAI">
+    **Package**: `@ai-sdk/openai`
+
+    Provides access to GPT-4o, GPT-4 Turbo, GPT-3.5 Turbo, and text-embedding models. Supports streaming and function calling for agent mode tools.
+
+    **Configuration**: Enter your OpenAI API key in **Settings → AI → Providers → OpenAI**.
+
+    **Capabilities**: Text generation, streaming, embeddings (text-embedding-3-small / large), function calling.
+  </Tab>
+  <Tab value="Ollama">
+    **Package**: `ollama-ai-provider`
+
+    Runs local models via [Ollama](https://ollama.com). No API key required — models run entirely on your machine.
+
+    **Configuration**: Ensure the Ollama daemon is running (`ollama serve`). Select **Ollama** as the provider in settings and choose an installed model.
+
+    **Capabilities**: Text generation, streaming. Embedding support depends on the installed model.
+  </Tab>
+  <Tab value="OpenAI-Compatible">
+    **Package**: `@ai-sdk/openai-compatible`
+
+    Connects to any OpenAI-compatible API endpoint (e.g., LM Studio, vLLM, Together AI, Groq).
+
+    **Configuration**: In **Settings → AI → Providers**, select **OpenAI-Compatible** and enter the base URL and API key.
+
+    **Capabilities**: Text generation and streaming. Tool use and embeddings depend on the endpoint's capabilities.
+  </Tab>
+</Tabs>
+
+## AI Agent Mode
+
+The agent mode enables autonomous multi-step AI operations with tool use. The agent can read files, search the workspace, and propose file writes — all with a human-in-the-loop approval step for destructive actions.
+
+### Agent Status Flow
+
+<Mermaid chart={`
+stateDiagram-v2
+  [*] --> idle
+  idle --> thinking : user sends message
+  thinking --> executing : tool call emitted
+  executing --> waiting_for_approval : write tool called
+  waiting_for_approval --> executing : user approves
+  waiting_for_approval --> idle : user rejects
+  executing --> thinking : tool result returned
+  thinking --> idle : final response
+  executing --> error : tool execution fails
+  error --> idle : user dismisses
+`} />
+
+### Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `AgentPanel` | `src/renderer/features/ai-agent/AgentPanel.tsx` | Agent conversation UI |
+| `useAgentModeStore` | `src/renderer/features/ai-agent/agent-mode-store.ts` | Conversation and status state |
+| `AGENT_TOOLS` | `src/renderer/features/ai-agent/agent-tools.ts` | Tool registry |
+
+### Available Agent Tools
+
+| Tool | Description | Approval Required |
+|------|-------------|-------------------|
+| `readFile` | Read file contents | No |
+| `writeFile` | Write content to a file | Yes |
+| `searchFiles` | Search files by pattern | No |
+| `listDirectory` | List directory contents | No |
+
+## AI Write Actions
+
+Command palette write actions for in-editor AI operations that stream output directly into the document:
+
+| Command | ID | Description |
+|---------|-----|-------------|
+| AI: Rewrite Selection | `edit.ai-rewrite` | Rewrite selected text |
+| AI: Summarize Selection | `edit.ai-summarize` | Summarize selected text |
+| AI: Fix Grammar | `edit.ai-fix-grammar` | Fix grammar in selection |
+| AI: Adjust Tone | `edit.ai-adjust-tone` | Change tone of selection |
+| AI: Cancel Write Action | `edit.ai-cancel-write-action` | Cancel an active write |
+
+Write actions stream output to replace the selected text in-place. The `AIChatWritePanel` (`src/renderer/components/ai/AIChatWritePanel.tsx`) also provides preset actions: Continue writing, Rewrite, Summarize, and Custom prompt.
+
+## Semantic Search
+
+Semantic search uses AI embeddings to find conceptually related content across the workspace — not just keyword matches.
+
+### Workflow
+
+<Mermaid chart={`
+graph LR
+  A[Workspace Files] -->|chunk + embed| B[VectorStore]
+  Q[User Query] -->|embed| C[Query Vector]
+  C -->|cosine similarity| B
+  B -->|ranked results| D[SearchPanel]
+`} />
+
+### State Shape
+
+```typescript
+interface SemanticSearchState {
+  query: string;
+  results: SemanticSearchResult[];
+  isSearching: boolean;
+  isIndexing: boolean;
+  isIndexed: boolean;
+  fileCount: number;
+  chunkCount: number;
+  lastIndexedAt: string | null;
+}
+```
+
+### Components
+
+| Component | Location |
+|-----------|----------|
+| `SemanticSearchPanel` | `src/renderer/features/semantic-search/SemanticSearchPanel.tsx` |
+| `useSemanticSearchStore` | `src/renderer/features/semantic-search/semantic-search-store.ts` |
+| `VectorStore` | `src/main/services/ai/vector-store.ts` |
+
+## Next-Edit Prediction
+
+Ghost text completions powered by AI, shown inline after a 500 ms typing pause. Press **Tab** to accept, **Escape** to dismiss.
+
+**Extension**: `src/renderer/lib/editor/extensions/next-edit-prediction.ts`
+
+- Implemented as a CodeMirror `StateField` with `Decoration.widget`
+- Debounced at 500 ms with `AbortController` cancellation on new keystrokes
+- Configurable via a `PredictionProvider` callback
+
+```typescript
+const provider: PredictionProvider = async (text, cursorPos, signal) => {
+  // Call AI API for completion; respect AbortSignal
+  return predictedText;
+};
+
+const extension = nextEditPrediction(provider);
+```
+
+## Multi-File AI Editing
+
+Enables AI-driven edits across multiple files simultaneously with a per-file accept/reject review workflow.
+
+### Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `useMultiFileAiStore` | `src/renderer/stores/multi-file-ai-store.ts` | Edit tracking per file |
+| `MultiFileEditPanel` | `src/renderer/components/ai/MultiFileEditPanel.tsx` | Diff review UI |
+| `FileEditDiff` | `src/renderer/components/ai/FileEditDiff.tsx` | Per-file diff view |
+
+Each file edit has a status: `pending`, `applied`, or `rejected`. Users can apply or reject individual files, or use bulk operations (`applyAll`, `rejectAll`).
+
+## IPC Schemas
+
+AI-related IPC contracts:
+
+| File | Contents |
+|------|----------|
+| `src/shared/ai/schemas.ts` | Provider, model, and session schemas |
+| `src/shared/ai/ipc-channels.ts` | Channel name constants |
+| `src/shared/contracts/ai-schemas.ts` | Validation schemas for AI operations |
+| `src/shared/contracts/agent-schemas.ts` | Agent mode request/response schemas |
+| `src/shared/contracts/semantic-search-schemas.ts` | Semantic search schemas |

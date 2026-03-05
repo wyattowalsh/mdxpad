@@ -102,6 +102,10 @@ const MAX_SPLIT_RATIO = 0.9;
 const DEFAULT_SPLIT_RATIO = 0.5;
 /** Debounce delay for split ratio persistence (ms) */
 const SPLIT_RATIO_DEBOUNCE_MS = 500;
+/** Storage key for sidebar visibility */
+const SIDEBAR_VISIBLE_STORAGE_KEY = 'mdxpad:ui:sidebar-visible';
+/** Storage key for frontmatter visibility */
+const FRONTMATTER_VISIBLE_STORAGE_KEY = 'mdxpad:ui:frontmatter-visible';
 
 // =============================================================================
 // INITIAL STATE
@@ -141,6 +145,17 @@ function clampZoom(level: number): number {
  */
 function clampSplitRatio(ratio: number): number {
   return Math.max(MIN_SPLIT_RATIO, Math.min(MAX_SPLIT_RATIO, ratio));
+}
+
+/**
+ * Persist a single UI layout value to localStorage.
+ */
+function persistLayoutValue(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Silently fail if localStorage is unavailable
+  }
 }
 
 // =============================================================================
@@ -237,6 +252,32 @@ function loadPersistedState(): Partial<UILayoutStoreState> {
   }
 
   try {
+    // Load and validate sidebarVisible
+    const sidebarVisibleRaw = localStorage.getItem(SIDEBAR_VISIBLE_STORAGE_KEY);
+    if (sidebarVisibleRaw !== null) {
+      const parsed = JSON.parse(sidebarVisibleRaw) as unknown;
+      if (typeof parsed === 'boolean') {
+        result.sidebarVisible = parsed;
+      }
+    }
+  } catch {
+    // Ignore invalid sidebarVisible, will use default
+  }
+
+  try {
+    // Load and validate frontmatterVisible
+    const frontmatterVisibleRaw = localStorage.getItem(FRONTMATTER_VISIBLE_STORAGE_KEY);
+    if (frontmatterVisibleRaw !== null) {
+      const parsed = JSON.parse(frontmatterVisibleRaw) as unknown;
+      if (typeof parsed === 'boolean') {
+        result.frontmatterVisible = parsed;
+      }
+    }
+  } catch {
+    // Ignore invalid frontmatterVisible, will use default
+  }
+
+  try {
     // Load and validate zoomLevel
     const zoomLevelRaw = localStorage.getItem(STORAGE_KEYS.zoomLevel);
     if (zoomLevelRaw !== null) {
@@ -300,61 +341,73 @@ export const useUILayoutStore = create<UILayoutStore>()(
     togglePreview: () =>
       set((draft) => {
         draft.previewVisible = !draft.previewVisible;
+        persistLayoutValue(STORAGE_KEYS.previewVisible, draft.previewVisible);
       }),
 
     setPreviewVisible: (visible) =>
       set((draft) => {
         draft.previewVisible = visible;
+        persistLayoutValue(STORAGE_KEYS.previewVisible, draft.previewVisible);
       }),
 
     toggleSidebar: () =>
       set((draft) => {
         draft.sidebarVisible = !draft.sidebarVisible;
+        persistLayoutValue(SIDEBAR_VISIBLE_STORAGE_KEY, draft.sidebarVisible);
       }),
 
     setSidebarVisible: (visible) =>
       set((draft) => {
         draft.sidebarVisible = visible;
+        persistLayoutValue(SIDEBAR_VISIBLE_STORAGE_KEY, draft.sidebarVisible);
       }),
 
     toggleOutline: () =>
       set((draft) => {
         draft.outlineVisible = !draft.outlineVisible;
+        persistLayoutValue(STORAGE_KEYS.outlineVisible, draft.outlineVisible);
       }),
 
     setOutlineVisible: (visible) =>
       set((draft) => {
         draft.outlineVisible = visible;
+        persistLayoutValue(STORAGE_KEYS.outlineVisible, draft.outlineVisible);
       }),
 
     toggleFrontmatter: () =>
       set((draft) => {
         draft.frontmatterVisible = !draft.frontmatterVisible;
+        persistLayoutValue(FRONTMATTER_VISIBLE_STORAGE_KEY, draft.frontmatterVisible);
       }),
 
     setFrontmatterVisible: (visible) =>
       set((draft) => {
         draft.frontmatterVisible = visible;
+        persistLayoutValue(FRONTMATTER_VISIBLE_STORAGE_KEY, draft.frontmatterVisible);
       }),
 
     setZoomLevel: (level) =>
       set((draft) => {
         draft.zoomLevel = clampZoom(level);
+        persistLayoutValue(STORAGE_KEYS.zoomLevel, draft.zoomLevel);
       }),
 
     zoomIn: () =>
       set((draft) => {
         draft.zoomLevel = clampZoom(draft.zoomLevel + ZOOM_STEP);
+        persistLayoutValue(STORAGE_KEYS.zoomLevel, draft.zoomLevel);
       }),
 
     zoomOut: () =>
       set((draft) => {
         draft.zoomLevel = clampZoom(draft.zoomLevel - ZOOM_STEP);
+        persistLayoutValue(STORAGE_KEYS.zoomLevel, draft.zoomLevel);
       }),
 
     resetZoom: () =>
       set((draft) => {
         draft.zoomLevel = DEFAULT_ZOOM;
+        persistLayoutValue(STORAGE_KEYS.zoomLevel, draft.zoomLevel);
       }),
 
     setSplitRatio: (ratio) => {
@@ -383,6 +436,12 @@ export const useUILayoutStore = create<UILayoutStore>()(
         if (persisted.outlineVisible !== undefined) {
           draft.outlineVisible = persisted.outlineVisible;
         }
+        if (persisted.sidebarVisible !== undefined) {
+          draft.sidebarVisible = persisted.sidebarVisible;
+        }
+        if (persisted.frontmatterVisible !== undefined) {
+          draft.frontmatterVisible = persisted.frontmatterVisible;
+        }
         if (persisted.zoomLevel !== undefined) {
           draft.zoomLevel = persisted.zoomLevel;
         }
@@ -402,6 +461,14 @@ export const useUILayoutStore = create<UILayoutStore>()(
         localStorage.setItem(
           STORAGE_KEYS.outlineVisible,
           JSON.stringify(state.outlineVisible)
+        );
+        localStorage.setItem(
+          SIDEBAR_VISIBLE_STORAGE_KEY,
+          JSON.stringify(state.sidebarVisible)
+        );
+        localStorage.setItem(
+          FRONTMATTER_VISIBLE_STORAGE_KEY,
+          JSON.stringify(state.frontmatterVisible)
         );
         localStorage.setItem(
           STORAGE_KEYS.zoomLevel,

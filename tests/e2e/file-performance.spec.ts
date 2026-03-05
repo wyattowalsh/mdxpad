@@ -15,7 +15,7 @@ import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
+import { launchMdxpad, safeCloseElectronApp, spyOnElectronDialog } from './utils/electron-lifecycle';
 
 // Test configuration
 const TEMP_DIR = join(tmpdir(), 'mdxpad-perf-test');
@@ -84,6 +84,12 @@ test.beforeAll(async () => {
   await page.waitForLoadState('domcontentloaded');
 });
 
+test.afterEach(async () => {
+  // Performance tests are read-only — no state to reset
+  // but verify app is still responsive
+  await expect(page.evaluate(() => true)).resolves.toBe(true);
+});
+
 test.afterAll(async () => {
   // Close Electron app
   await safeCloseElectronApp(electronApp, userDataDir);
@@ -103,11 +109,9 @@ test.describe('File Performance Benchmarks', () => {
     expect(hasReadFile).toBe(true);
   });
 
-  test('SC-001: 1MB file opens in < 500ms', async () => {
+  test('microbenchmark: readFile 1MB in < 500ms', async () => {
     const filePath = FILE_1MB;
 
-    // Perform the read and measure time using page.evaluate
-    // We use performance.now() in the browser context for accurate timing
     const result = await page.evaluate(async (path: string) => {
       const start = performance.now();
       const fileResult = await (window as any).mdxpad.readFile(path);
@@ -121,21 +125,15 @@ test.describe('File Performance Benchmarks', () => {
       };
     }, filePath);
 
-    // Log performance metrics
-    console.log(`1MB file read time: ${result.elapsed.toFixed(2)}ms`);
-
-    // Verify the read succeeded
+    console.log(`1MB readFile microbenchmark: ${result.elapsed.toFixed(2)}ms`);
     expect(result.ok).toBe(true);
-    expect(result.contentLength).toBeGreaterThanOrEqual(SIZE_1MB - 100); // Allow small variance
-
-    // Verify performance budget
+    expect(result.contentLength).toBeGreaterThanOrEqual(SIZE_1MB - 100);
     expect(result.elapsed).toBeLessThan(BUDGET_1MB_MS);
   });
 
-  test('SC-002: 10MB file opens in < 2s', async () => {
+  test('microbenchmark: readFile 10MB in < 2s', async () => {
     const filePath = FILE_10MB;
 
-    // Perform the read and measure time using page.evaluate
     const result = await page.evaluate(async (path: string) => {
       const start = performance.now();
       const fileResult = await (window as any).mdxpad.readFile(path);
@@ -149,19 +147,67 @@ test.describe('File Performance Benchmarks', () => {
       };
     }, filePath);
 
-    // Log performance metrics
-    console.log(`10MB file read time: ${result.elapsed.toFixed(2)}ms`);
-
-    // Verify the read succeeded
+    console.log(`10MB readFile microbenchmark: ${result.elapsed.toFixed(2)}ms`);
     expect(result.ok).toBe(true);
-    expect(result.contentLength).toBeGreaterThanOrEqual(SIZE_10MB - 100); // Allow small variance
-
-    // Verify performance budget
+    expect(result.contentLength).toBeGreaterThanOrEqual(SIZE_10MB - 100);
     expect(result.elapsed).toBeLessThan(BUDGET_10MB_MS);
   });
 
+  test('SC-001: open flow 1MB in < 500ms', async () => {
+    const openSpy = await spyOnElectronDialog(electronApp, 'showOpenDialog', {
+      canceled: false,
+      filePaths: [FILE_1MB],
+    });
+
+    try {
+      const result = await page.evaluate(async () => {
+        const start = performance.now();
+        const openResult = await (window as any).mdxpad.openFile();
+        const elapsed = performance.now() - start;
+        return {
+          elapsed,
+          ok: openResult.ok,
+          path: openResult.ok ? openResult.value.path : null,
+        };
+      });
+
+      console.log(`1MB open flow benchmark: ${result.elapsed.toFixed(2)}ms`);
+      expect(result.ok).toBe(true);
+      expect(result.path).toBe(FILE_1MB);
+      expect(result.elapsed).toBeLessThan(BUDGET_1MB_MS);
+    } finally {
+      await openSpy.restore();
+    }
+  });
+
+  test('SC-002: open flow 10MB in < 2s', async () => {
+    const openSpy = await spyOnElectronDialog(electronApp, 'showOpenDialog', {
+      canceled: false,
+      filePaths: [FILE_10MB],
+    });
+
+    try {
+      const result = await page.evaluate(async () => {
+        const start = performance.now();
+        const openResult = await (window as any).mdxpad.openFile();
+        const elapsed = performance.now() - start;
+        return {
+          elapsed,
+          ok: openResult.ok,
+          path: openResult.ok ? openResult.value.path : null,
+        };
+      });
+
+      console.log(`10MB open flow benchmark: ${result.elapsed.toFixed(2)}ms`);
+      expect(result.ok).toBe(true);
+      expect(result.path).toBe(FILE_10MB);
+      expect(result.elapsed).toBeLessThan(BUDGET_10MB_MS);
+    } finally {
+      await openSpy.restore();
+    }
+  });
+
   test('reports accurate file content length', async () => {
-    // Additional validation that the file sizes are as expected
     const result1MB = await page.evaluate(async (path: string) => {
       const fileResult = await (window as any).mdxpad.readFile(path);
       return fileResult.ok ? fileResult.value.length : 0;
@@ -172,7 +218,6 @@ test.describe('File Performance Benchmarks', () => {
       return fileResult.ok ? fileResult.value.length : 0;
     }, FILE_10MB);
 
-    // Verify file sizes are approximately correct
     expect(result1MB).toBeGreaterThanOrEqual(SIZE_1MB * 0.99);
     expect(result1MB).toBeLessThanOrEqual(SIZE_1MB * 1.01);
 

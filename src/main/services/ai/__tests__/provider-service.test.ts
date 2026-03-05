@@ -419,6 +419,27 @@ describe('ProviderService', () => {
       expect(result.baseUrl).toBe('http://localhost:11434');
     });
 
+    it('should persist sidecarConfig when adding sidecar provider', async () => {
+      const config = {
+        displayName: 'Sidecar',
+        type: 'sidecar' as ProviderType,
+        sidecarConfig: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+          threads: 8,
+        },
+        isActive: false,
+      };
+
+      const result = await service.addProvider(config);
+
+      expect(result.sidecarConfig).toEqual({
+        modelPath: '/models/test.gguf',
+        port: 11470,
+        threads: 8,
+      });
+    });
+
     it('should ignore baseUrl override for openai provider', async () => {
       const config = {
         displayName: 'OpenAI',

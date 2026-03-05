@@ -27,6 +27,13 @@ import {
   SetActiveProviderResponseSchema,
   ValidateProviderRequestSchema,
   ValidateProviderResponseSchema,
+  SidecarConfigSchema,
+  SidecarConfigureRequestSchema,
+  SidecarConfigureResponseSchema,
+  SidecarStatusResponseSchema,
+  SidecarStartRequestSchema,
+  SidecarStartResponseSchema,
+  SidecarStopResponseSchema,
   // Credential Management Schemas
   SetCredentialRequestSchema,
   SetCredentialResponseSchema,
@@ -72,6 +79,9 @@ import {
 export type {
   AddProviderRequestSchemaType as AddProviderRequest,
   UpdateProviderRequestSchemaType as UpdateProviderRequest,
+  SidecarConfigSchemaType as SidecarConfig,
+  SidecarConfigureRequestSchemaType as SidecarConfigureRequest,
+  SidecarStartRequestSchemaType as SidecarStartRequest,
   GenerateTextRequestSchemaType as GenerateTextRequest,
   GenerateStreamRequestSchemaType as GenerateStreamRequest,
   GenerateEmbedRequestSchemaType as GenerateEmbedRequest,
@@ -90,6 +100,10 @@ export type {
   RemoveProviderResponseSchemaType as RemoveProviderResponse,
   SetActiveProviderResponseSchemaType as SetActiveProviderResponse,
   ValidateProviderResponseSchemaType as ValidateProviderResponse,
+  SidecarConfigureResponseSchemaType as SidecarConfigureResponse,
+  SidecarStatusResponseSchemaType as SidecarStatusResponse,
+  SidecarStartResponseSchemaType as SidecarStartResponse,
+  SidecarStopResponseSchemaType as SidecarStopResponse,
   SetCredentialResponseSchemaType as SetCredentialResponse,
   HasCredentialResponseSchemaType as HasCredentialResponse,
   ClearCredentialResponseSchemaType as ClearCredentialResponse,
@@ -203,6 +217,14 @@ export interface AIApi extends AISessionApi {
   removeProvider(providerId: string): Promise<z.infer<typeof RemoveProviderResponseSchema>>;
   setActiveProvider(providerId: string): Promise<z.infer<typeof SetActiveProviderResponseSchema>>;
   validateProvider(providerId: string): Promise<z.infer<typeof ValidateProviderResponseSchema>>;
+  configureSidecar(
+    config: z.infer<typeof SidecarConfigSchema>
+  ): Promise<z.infer<typeof SidecarConfigureResponseSchema>>;
+  getSidecarStatus(): Promise<z.infer<typeof SidecarStatusResponseSchema>>;
+  startSidecar(
+    config?: z.infer<typeof SidecarConfigSchema>
+  ): Promise<z.infer<typeof SidecarStartResponseSchema>>;
+  stopSidecar(): Promise<z.infer<typeof SidecarStopResponseSchema>>;
 
   // Credential Management
   setCredential(
@@ -309,6 +331,27 @@ export const aiApi: AIApi = {
       ValidateProviderResponseSchema,
       { id: providerId }
     ),
+
+  configureSidecar: (config) =>
+    validatedInvoke(
+      AIChannels.SIDECAR_CONFIGURE,
+      SidecarConfigureRequestSchema,
+      SidecarConfigureResponseSchema,
+      { config }
+    ),
+
+  getSidecarStatus: () =>
+    validatedInvoke(AIChannels.SIDECAR_STATUS, null, SidecarStatusResponseSchema),
+
+  startSidecar: (config) =>
+    validatedInvoke(
+      AIChannels.SIDECAR_START,
+      SidecarStartRequestSchema,
+      SidecarStartResponseSchema,
+      config ? { config } : {}
+    ),
+
+  stopSidecar: () => validatedInvoke(AIChannels.SIDECAR_STOP, null, SidecarStopResponseSchema),
 
   // =========================================================================
   // Credential Management

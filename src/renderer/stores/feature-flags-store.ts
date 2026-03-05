@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 
 export const FEATURE_FLAG_STORAGE_KEY = 'mdxpad.feature-flags';
 
-export const FEATURE_FLAG_KEYS = ['workspace', 'ai', 'export', 'authoring'] as const;
+export const FEATURE_FLAG_KEYS = ['workspace', 'ai', 'export', 'authoring', 'plugin'] as const;
 
 export type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[number];
 
@@ -12,6 +12,7 @@ export interface FeatureFlags {
   ai: boolean;
   export: boolean;
   authoring: boolean;
+  plugin: boolean;
 }
 
 interface FeatureFlagsState {
@@ -34,6 +35,7 @@ type FeatureFlagsEnv = ImportMetaEnv & {
   readonly VITE_FEATURE_AI?: string;
   readonly VITE_FEATURE_EXPORT?: string;
   readonly VITE_FEATURE_AUTHORING?: string;
+  readonly VITE_FEATURE_PLUGIN?: string;
 };
 
 function parseBoolean(value: unknown): boolean | undefined {
@@ -95,6 +97,7 @@ function getEnvFlagOverrides(): Partial<FeatureFlags> {
     ai: env.VITE_FEATURE_AI,
     export: env.VITE_FEATURE_EXPORT,
     authoring: env.VITE_FEATURE_AUTHORING,
+    plugin: env.VITE_FEATURE_PLUGIN,
   });
 }
 
@@ -115,6 +118,7 @@ function createDefaultFlags(): FeatureFlags {
     ai: baseEnabled,
     export: baseEnabled,
     authoring: baseEnabled,
+    plugin: baseEnabled,
     ...getEnvFlagOverrides(),
     ...getWindowFlagOverrides(),
   };

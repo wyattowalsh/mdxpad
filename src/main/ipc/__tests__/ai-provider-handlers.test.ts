@@ -14,6 +14,7 @@ import { AIChannels } from '@shared/ai/ipc-channels';
 import * as schemas from '@shared/ai/schemas';
 import { registerProviderHandlers } from '../ai-provider-handlers';
 import type { AIServices } from '@main/services/ai';
+import { AIProviderError } from '@shared/ai/errors';
 import { ProviderCapability, type ProviderConfig } from '@shared/ai/types';
 
 // ============================================================================
@@ -87,6 +88,28 @@ function createMockAIServices(): AIServices {
       generateEmbedding: vi.fn(),
       generateImage: vi.fn(),
     },
+    sidecarService: {
+      configure: vi.fn().mockResolvedValue({
+        success: true,
+        status: 'stopped',
+      }),
+      start: vi.fn().mockResolvedValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+        pid: 4242,
+      }),
+      stop: vi.fn().mockResolvedValue({
+        success: true,
+        status: 'stopped',
+      }),
+      getStatus: vi.fn().mockReturnValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+        pid: 4242,
+      }),
+    },
     usageService: {
       queryStats: vi.fn(),
       exportData: vi.fn(),
@@ -144,6 +167,13 @@ describe('registerProviderHandlers', () => {
       expect.any(Function)
     );
     expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.PROVIDER_VALIDATE, expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      AIChannels.SIDECAR_CONFIGURE,
+      expect.any(Function)
+    );
+    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.SIDECAR_STATUS, expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.SIDECAR_START, expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(AIChannels.SIDECAR_STOP, expect.any(Function));
   });
 
   it('should register all credential management handlers', () => {
@@ -524,6 +554,262 @@ describe('Provider Management Handlers', () => {
       expect(result.status).toBe('error');
       expect(result.error).toBeDefined();
     });
+
+    it('should preserve AI provider error metadata for validation failures', async () => {
+      const request = { id: '550e8400-e29b-41d4-a716-446655440000' };
+
+      vi.mocked(services.providerService.validateProvider).mockRejectedValue(
+        new AIProviderError('Provider unreachable', 'PROVIDER_UNREACHABLE')
+      );
+
+      const handler = handlers[AIChannels.PROVIDER_VALIDATE]!;
+      const result = await handler(null, request);
+
+      expect(result).toEqual({
+        success: false,
+        status: 'error',
+        error: {
+          code: 'PROVIDER_UNREACHABLE',
+          message: 'Provider unreachable',
+        },
+      });
+    });
+  });
+
+  describe('SIDECAR_CONFIGURE', () => {
+    it('should configure/start sidecar and return lifecycle status', async () => {
+      const request = {
+        config: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+        },
+      };
+      vi.mocked(services.providerService.getActiveProvider).mockResolvedValue({
+        ...createMockProviderConfig(),
+        type: 'sidecar',
+      });
+
+      const handler = handlers[AIChannels.SIDECAR_CONFIGURE]!;
+      const result = await handler(null, request);
+
+      expect(services.sidecarService.configure).toHaveBeenCalledWith(request.config);
+      expect(services.sidecarService.start).toHaveBeenCalledWith(request.config);
+      expect(services.providerService.updateProvider).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000',
+        {
+          baseUrl: 'http://127.0.0.1:11470',
+          sidecarConfig: request.config,
+        }
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: 'running',
+          endpoint: 'http://127.0.0.1:11470',
+          pid: 4242,
+        })
+      );
+    });
+
+    it('should return validation error when sidecar config payload is missing', async () => {
+      const handler = handlers[AIChannels.SIDECAR_CONFIGURE]!;
+      const result = await handler(null, {});
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: false,
+          status: 'error',
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+          }),
+        })
+      );
+      expect(services.sidecarService.configure).not.toHaveBeenCalled();
+      expect(services.sidecarService.start).not.toHaveBeenCalled();
+    });
+
+    it('should not sync provider endpoint when sidecar start returns stopped status', async () => {
+      const request = {
+        config: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+        },
+      };
+
+      vi.mocked(services.providerService.getActiveProvider).mockResolvedValue({
+        ...createMockProviderConfig(),
+        type: 'sidecar',
+      });
+      vi.mocked(services.sidecarService.start).mockResolvedValue({
+        success: true,
+        status: 'stopped',
+        config: request.config,
+      });
+
+      const handler = handlers[AIChannels.SIDECAR_CONFIGURE]!;
+      const result = await handler(null, request);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: 'stopped',
+        })
+      );
+      expect(services.providerService.updateProvider).not.toHaveBeenCalled();
+    });
+
+    it('should propagate explicit sidecar configure errors', async () => {
+      const request = {
+        config: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+        },
+      };
+
+      vi.mocked(services.sidecarService.start).mockRejectedValue(
+        new AIProviderError('Sidecar failed to start', 'SIDECAR_START_FAILED')
+      );
+
+      const handler = handlers[AIChannels.SIDECAR_CONFIGURE]!;
+      const result = await handler(null, request);
+
+      expect(result).toEqual({
+        success: false,
+        status: 'error',
+        error: {
+          code: 'SIDECAR_START_FAILED',
+          message: 'Sidecar failed to start',
+        },
+      });
+    });
+  });
+
+  describe('SIDECAR_STATUS', () => {
+    it('should return sidecar lifecycle status', async () => {
+      const handler = handlers[AIChannels.SIDECAR_STATUS]!;
+      const result = await handler();
+
+      expect(services.sidecarService.getStatus).toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: 'running',
+          endpoint: 'http://127.0.0.1:11470',
+          pid: 4242,
+        })
+      );
+    });
+
+    it('should return stopped status payload from sidecar service', async () => {
+      vi.mocked(services.sidecarService.getStatus).mockReturnValue({
+        success: true,
+        status: 'stopped',
+        config: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+        },
+      });
+
+      const handler = handlers[AIChannels.SIDECAR_STATUS]!;
+      const result = await handler();
+
+      expect(result).toEqual({
+        success: true,
+        status: 'stopped',
+        config: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+        },
+      });
+    });
+  });
+
+  describe('SIDECAR_START', () => {
+    it('should start sidecar with provided config and return lifecycle status', async () => {
+      const request = {
+        config: {
+          modelPath: '/models/test.gguf',
+          port: 11470,
+        },
+      };
+
+      const handler = handlers[AIChannels.SIDECAR_START]!;
+      const result = await handler(null, request);
+
+      expect(services.sidecarService.start).toHaveBeenCalledWith(request.config);
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: 'running',
+          endpoint: 'http://127.0.0.1:11470',
+          pid: 4242,
+        })
+      );
+    });
+
+    it('should start sidecar without config when request is omitted', async () => {
+      const handler = handlers[AIChannels.SIDECAR_START]!;
+      const result = await handler();
+
+      expect(services.sidecarService.start).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: 'running',
+        })
+      );
+    });
+
+    it('should propagate explicit sidecar start errors', async () => {
+      vi.mocked(services.sidecarService.start).mockRejectedValue(
+        new AIProviderError('Missing configuration', 'SIDECAR_CONFIG_MISSING')
+      );
+
+      const handler = handlers[AIChannels.SIDECAR_START]!;
+      const result = await handler();
+
+      expect(result).toEqual({
+        success: false,
+        status: 'error',
+        error: {
+          code: 'SIDECAR_CONFIG_MISSING',
+          message: 'Missing configuration',
+        },
+      });
+    });
+  });
+
+  describe('SIDECAR_STOP', () => {
+    it('should stop sidecar and return lifecycle status', async () => {
+      const handler = handlers[AIChannels.SIDECAR_STOP]!;
+      const result = await handler();
+
+      expect(services.sidecarService.stop).toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: 'stopped',
+        })
+      );
+    });
+
+    it('should propagate explicit sidecar stop errors', async () => {
+      vi.mocked(services.sidecarService.stop).mockRejectedValue(
+        new AIProviderError('Sidecar process is not running', 'SIDECAR_NOT_RUNNING')
+      );
+
+      const handler = handlers[AIChannels.SIDECAR_STOP]!;
+      const result = await handler();
+
+      expect(result).toEqual({
+        success: false,
+        status: 'error',
+        error: {
+          code: 'SIDECAR_NOT_RUNNING',
+          message: 'Sidecar process is not running',
+        },
+      });
+    });
   });
 });
 
@@ -704,6 +990,28 @@ describe('Capability Detection Handlers', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
+    });
+
+    it('should preserve AI provider error details from capability lookups', async () => {
+      const request = {
+        providerId: '550e8400-e29b-41d4-a716-446655440000',
+        modelId: 'gpt-4',
+      };
+
+      vi.mocked(services.capabilityService.getCapabilities).mockRejectedValue(
+        new AIProviderError('Provider disconnected', 'PROVIDER_DISCONNECTED')
+      );
+
+      const handler = handlers[AIChannels.CAPABILITY_GET]!;
+      const result = await handler(null, request);
+
+      expect(result).toEqual({
+        success: false,
+        error: {
+          code: 'PROVIDER_DISCONNECTED',
+          message: 'Provider disconnected',
+        },
+      });
     });
   });
 

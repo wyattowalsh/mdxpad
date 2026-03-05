@@ -22,6 +22,7 @@ import type { EditorError } from '../../lib/editor/errors';
 import { lineHighlightExtension } from '../../lib/editor/line-highlight';
 import { placeholderMarkerExtension } from '../../lib/editor/placeholder-markers';
 import { WorkspaceEditorStatus } from './WorkspaceEditorStatus';
+import type { KeymapMode } from '../../lib/editor/keymaps';
 
 // Re-export for consumer convenience
 export type { EditorTheme } from '../../hooks/useCodeMirror';
@@ -59,6 +60,20 @@ export interface MDXEditorProps {
   readonly indentationGuides?: boolean;
   /** Additional CSS class name(s). */
   readonly className?: string;
+  /** Keymap mode for editor shortcuts. */
+  readonly keymapMode?: KeymapMode;
+  /** Enable minimap overview. */
+  readonly enableMinimap?: boolean;
+  /** Enable focus mode. */
+  readonly enableFocusMode?: boolean;
+  /** Enable spellcheck extension. */
+  readonly enableSpellcheck?: boolean;
+  /** Editor font family. */
+  readonly fontFamily?: string;
+  /** Editor font size in pixels. */
+  readonly fontSize?: number;
+  /** Editor line height multiplier. */
+  readonly fontLineHeight?: number;
   /** Editor height as CSS value. @default '100%' */
   readonly height?: string;
   /**
@@ -125,6 +140,13 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
     bracketMatching = true,
     closeBrackets = true,
     indentationGuides = true,
+    keymapMode,
+    enableMinimap,
+    enableFocusMode,
+    enableSpellcheck,
+    fontFamily,
+    fontSize,
+    fontLineHeight,
     extensions,
   } = props;
 
@@ -139,6 +161,13 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
     bracketMatching,
     closeBrackets,
     indentationGuides,
+    ...(keymapMode !== undefined && { keymapMode }),
+    ...(enableMinimap !== undefined && { enableMinimap }),
+    ...(enableFocusMode !== undefined && { enableFocusMode }),
+    ...(enableSpellcheck !== undefined && { enableSpellcheck }),
+    ...(fontFamily !== undefined && { fontFamily }),
+    ...(fontSize !== undefined && { fontSize }),
+    ...(fontLineHeight !== undefined && { fontLineHeight }),
     ...(onChange !== undefined && { onChange }),
     ...(onError !== undefined && { onError }),
     ...(onSelectionChange !== undefined && { onSelectionChange }),
@@ -253,6 +282,13 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
     bracketMatching = true,
     closeBrackets = true,
     indentationGuides = true,
+    keymapMode,
+    enableMinimap,
+    enableFocusMode,
+    enableSpellcheck,
+    fontFamily,
+    fontSize,
+    fontLineHeight,
     onSelectionChange,
     extensions,
   } = props;
@@ -272,6 +308,13 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         bracketMatching,
         closeBrackets,
         indentationGuides,
+        ...(keymapMode !== undefined && { keymapMode }),
+        ...(enableMinimap !== undefined && { enableMinimap }),
+        ...(enableFocusMode !== undefined && { enableFocusMode }),
+        ...(enableSpellcheck !== undefined && { enableSpellcheck }),
+        ...(fontFamily !== undefined && { fontFamily }),
+        ...(fontSize !== undefined && { fontSize }),
+        ...(fontLineHeight !== undefined && { fontLineHeight }),
         ...(onSelectionChange !== undefined && { onSelectionChange }),
         // Always include built-in extensions (line highlight, placeholder markers), plus any user extensions
         extensions:
@@ -293,6 +336,13 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
       bracketMatching,
       closeBrackets,
       indentationGuides,
+      keymapMode,
+      enableMinimap,
+      enableFocusMode,
+      enableSpellcheck,
+      fontFamily,
+      fontSize,
+      fontLineHeight,
       extensions,
     ]
   );
@@ -321,12 +371,14 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
       return;
     }
 
-    // Skip if this was an internal change (user typing)
-    if (isInternalChange.current) {
+    // Skip if this was an internal change (user typing).
+    // If value differs from editor state, treat it as an external override (e.g. Cmd+N reset).
+    if (isInternalChange.current && (!state || value === state.doc)) {
       isInternalChange.current = false;
       lastSyncedVersionRef.current = valueVersionRef.current;
       return;
     }
+    isInternalChange.current = false;
 
     // Skip if we've already synced this version (prevents duplicate updates from rapid changes)
     if (lastSyncedVersionRef.current === valueVersionRef.current) {

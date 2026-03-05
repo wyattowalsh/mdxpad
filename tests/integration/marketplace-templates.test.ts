@@ -1,8 +1,18 @@
 /**
- * Integration tests for Marketplace + Templates.
+ * Marketplace Store State Transition & Mock API Tests
  *
- * Tests search templates, install, verify in store,
- * category filtering, and error handling.
+ * Tests template fetching, search/filter, category filtering, template
+ * installation, error handling (fetch failure, install failure, exceptions),
+ * and store reset.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand marketplace-store in isolation with a
+ * mocked localStorage and a mock MarketplaceApi injected via `setApi()`. No
+ * real HTTP requests, template downloads, or filesystem writes occur. True
+ * integration tests would hit a real or locally-served marketplace API, download
+ * a template archive, extract it to disk via the main process, and verify that
+ * the installed template appears in the template picker and can be used to
+ * scaffold a new document.
  *
  * @module tests/integration/marketplace-templates.test
  */

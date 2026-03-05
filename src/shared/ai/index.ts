@@ -24,12 +24,15 @@ export {
   ProviderCapability,
   type ProviderType,
   type ConnectionStatus,
+  type SidecarLifecycleStatus,
   type OperationType,
   type TimeRange,
 } from './types';
 
 // Types - Configuration and Credentials
 export type {
+  SidecarConfig,
+  SidecarLifecycleStatusResponse,
   ProviderConfig,
   CredentialMetadata,
 } from './types';
@@ -67,6 +70,7 @@ export type {
 export {
   ProviderTypeSchema,
   ConnectionStatusSchema,
+  SidecarLifecycleStatusSchema,
   OperationTypeSchema,
   TimeRangeSchema,
   ProviderCapabilitySchema,
@@ -75,6 +79,7 @@ export {
   OnboardingStepSchema,
   type ProviderTypeSchemaType,
   type ConnectionStatusSchemaType,
+  type SidecarLifecycleStatusSchemaType,
   type OperationTypeSchemaType,
   type TimeRangeSchemaType,
   type ProviderCapabilitySchemaType,
@@ -86,10 +91,12 @@ export {
 // Zod Schemas - Base Objects
 export {
   CapabilityConstraintsSchema,
+  SidecarConfigSchema,
   ProviderConfigSchema,
   ErrorObjectSchema,
   UsageTokensSchema,
   type CapabilityConstraintsSchemaType,
+  type SidecarConfigSchemaType,
   type ProviderConfigSchemaType,
   type ErrorObjectSchemaType,
   type UsageTokensSchemaType,
@@ -108,6 +115,15 @@ export {
   SetActiveProviderResponseSchema,
   ValidateProviderRequestSchema,
   ValidateProviderResponseSchema,
+  SidecarConfigureRequestSchema,
+  SidecarConfigureResponseSchema,
+  SidecarStatusRequestSchema,
+  SidecarStatusResponseSchema,
+  SidecarStartRequestSchema,
+  SidecarStartResponseSchema,
+  SidecarStopRequestSchema,
+  SidecarStopResponseSchema,
+  SidecarLifecycleStatusResponseSchema,
   type ProviderListResponseSchemaType,
   type AddProviderRequestSchemaType,
   type AddProviderResponseSchemaType,
@@ -119,6 +135,15 @@ export {
   type SetActiveProviderResponseSchemaType,
   type ValidateProviderRequestSchemaType,
   type ValidateProviderResponseSchemaType,
+  type SidecarConfigureRequestSchemaType,
+  type SidecarConfigureResponseSchemaType,
+  type SidecarStatusRequestSchemaType,
+  type SidecarStatusResponseSchemaType,
+  type SidecarStartRequestSchemaType,
+  type SidecarStartResponseSchemaType,
+  type SidecarStopRequestSchemaType,
+  type SidecarStopResponseSchemaType,
+  type SidecarLifecycleStatusResponseSchemaType,
 } from './schemas';
 
 // Zod Schemas - Credential Management

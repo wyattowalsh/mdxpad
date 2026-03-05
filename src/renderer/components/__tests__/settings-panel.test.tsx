@@ -85,6 +85,10 @@ vi.mock('../ui/slider', () => ({
   ),
 }));
 
+vi.mock('../../features/plugins/PluginMarketplace', () => ({
+  PluginMarketplace: () => <div data-testid="plugin-marketplace-component" />,
+}));
+
 // =============================================================================
 // CLEANUP
 // =============================================================================
@@ -105,6 +109,7 @@ describe('SettingsPanel', () => {
       ai: true,
       export: true,
       authoring: true,
+      plugin: true,
     });
   });
 
@@ -116,6 +121,7 @@ describe('SettingsPanel', () => {
       expect(screen.getByTestId('feature-flag-ai-switch')).toBeTruthy();
       expect(screen.getByTestId('feature-flag-export-switch')).toBeTruthy();
       expect(screen.getByTestId('feature-flag-authoring-switch')).toBeTruthy();
+      expect(screen.getByTestId('feature-flag-plugin-switch')).toBeTruthy();
     });
   });
 
@@ -136,6 +142,26 @@ describe('SettingsPanel', () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId('open-ai-provider-settings-button')).toBeNull();
+    });
+  });
+
+  it('should show plugin section when plugin feature flag is enabled', async () => {
+    useFeatureFlagsStore.getState().setFlag('plugin', true);
+    expect(useFeatureFlagsStore.getState().flags.plugin).toBe(true);
+    render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('plugin-settings-section')).toBeTruthy();
+      expect(screen.getByTestId('toggle-plugin-marketplace-button')).toBeTruthy();
+    });
+  });
+
+  it('should hide plugin section when plugin feature flag is disabled', async () => {
+    useFeatureFlagsStore.getState().setFlag('plugin', false);
+    render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('plugin-settings-section')).toBeNull();
     });
   });
 

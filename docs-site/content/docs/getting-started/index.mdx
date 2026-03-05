@@ -1,0 +1,44 @@
+---
+title: Introduction
+description: What MDXPad is and why it was built.
+---
+
+MDXPad is a macOS-native MDX editor designed for developers and technical writers who work with MDX files daily. It combines a powerful code editor with live preview, AI-powered writing assistance, and native macOS integration — all in a single desktop application.
+
+## What is MDXPad?
+
+MDX is Markdown with JSX — it lets you write rich content alongside React components in a single file. MDXPad is purpose-built to make working with MDX files feel native and fast on macOS.
+
+## Key Capabilities
+
+- **AI Writing Assistance**: Streaming AI chat panel, rewrite/summarize/grammar actions, multi-file AI editing with per-file accept/reject, and next-edit ghost text prediction
+- **Real-Time Collaboration**: Yjs WebSocket-based collaboration with cursor overlay, comment threads, and inline suggestions
+- **13+ Editor Extensions**: Multi-cursor, code folding, regex find/replace, snippets, minimap, focus mode, distraction-free mode, spellcheck, Vim/Emacs keymaps, and more
+- **Multi-Format Export**: PDF, DOCX, EPUB, LaTeX, and Pandoc bridge for custom formats
+- **Plugin System**: Registry-based plugin system with manifest validation, sandboxed execution, and a marketplace UI
+- **WYSIWYG Editing**: ProseMirror-based rich text mode with source/WYSIWYG toggle
+- **Git Integration**: Commit, diff, and history via simple-git, integrated into the command palette
+- **Full-Text & Semantic Search**: MiniSearch-based workspace search and embedding-based semantic search
+- **Version History**: Aggregated history from autosave snapshots and git commits with browse, diff, and restore
+
+## Technology Stack
+
+MDXPad is built on a carefully chosen stack optimized for macOS desktop performance:
+
+| Layer | Technology |
+|-------|-----------|
+| Desktop runtime | Electron 39 |
+| UI framework | React 19 |
+| Language | TypeScript 5.9 (strict) |
+| Editor | CodeMirror 6 |
+| State management | Zustand 5 + Immer 11 |
+| Build tooling | electron-vite 3, Vite 6 |
+| MDX compilation | @mdx-js/mdx 3 (Web Worker pool) |
+| AI | Vercel AI SDK v6 (BYOK) |
+| Collaboration | Yjs 13, y-websocket 3 |
+
+## Why MDXPad?
+
+Most text editors treat MDX as an afterthought — syntax highlighting is bolted on and preview is an extension. MDXPad was built from the ground up with MDX as the primary format, meaning the editor understands MDX structure, the preview runs a real compilation pipeline, and every feature is designed around the MDX authoring workflow.
+
+Ready to get started? See the [Installation guide](/docs/getting-started/installation).

@@ -61,6 +61,7 @@ const MANIFEST_FILE = 'manifest.json';
 
 /** Delay before scheduled retention cleanup runs */
 const CLEANUP_SCHEDULE_DELAY_MS = 0;
+const MAX_RECOVERY_PATH_LENGTH = 4_096;
 
 /**
  * Service for managing crash recovery operations.
@@ -673,7 +674,13 @@ export class RecoveryService {
         return null;
       }
 
-      return result.data;
+      const sanitizedFile = this.sanitizeRecoveryFile(result.data, documentId);
+      if (!sanitizedFile) {
+        await fs.unlink(filePath).catch(() => undefined);
+        return null;
+      }
+
+      return sanitizedFile;
     } catch (error) {
       if (this.isEnoentError(error)) {
         return null;
@@ -802,5 +809,37 @@ export class RecoveryService {
       'code' in error &&
       (error as NodeJS.ErrnoException).code === 'ENOENT'
     );
+  }
+
+  private sanitizeRecoveryFile(
+    recoveryFile: RecoveryFile,
+    expectedDocumentId: DocumentId
+  ): RecoveryFile | null {
+    if (recoveryFile.documentId !== expectedDocumentId) {
+      console.warn(
+        `[RecoveryService] Recovery file documentId mismatch (expected ${expectedDocumentId}, got ${recoveryFile.documentId})`
+      );
+      return null;
+    }
+
+    if (recoveryFile.filePath !== null && !this.isSaneRecoveryPath(recoveryFile.filePath)) {
+      console.warn(
+        `[RecoveryService] Invalid recovery file path detected for ${expectedDocumentId}; treating as untitled.`
+      );
+      return {
+        ...recoveryFile,
+        filePath: null,
+      };
+    }
+
+    return recoveryFile;
+  }
+
+  private isSaneRecoveryPath(filePath: string): boolean {
+    if (filePath.length === 0 || filePath.length > MAX_RECOVERY_PATH_LENGTH || filePath.includes('\0')) {
+      return false;
+    }
+
+    return path.isAbsolute(path.normalize(filePath));
   }
 }

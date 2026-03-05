@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { render, screen, waitFor, cleanup, act, fireEvent } from '@testing-library/react';
-import { PreviewFrame } from '../components/preview/PreviewFrame';
+import { PreviewFrame, getPreviewFrameSrc } from '../components/preview/PreviewFrame';
 import {
   IFRAME_SANDBOX,
   IFRAME_TITLE,
@@ -27,12 +27,13 @@ import {
  */
 function createMessageEvent(
   data: unknown,
-  source: Window | null = null
+  source: Window | null = null,
+  origin = 'null'
 ): MessageEvent {
   return new MessageEvent('message', {
     data,
     source,
-    origin: 'null', // Sandboxed iframes have 'null' as origin per HTML spec
+    origin, // Sandboxed iframes have 'null' as origin per HTML spec
   });
 }
 
@@ -131,6 +132,11 @@ describe('PreviewFrame', () => {
   // ============================================================================
 
   describe('iframe attributes', () => {
+    it('resolves preview frame source for development and production', () => {
+      expect(getPreviewFrameSrc(true)).toBe('./preview-frame/index.html');
+      expect(getPreviewFrameSrc(false)).toBe('mdxpad-preview://local/preview-frame/index.html');
+    });
+
     it('renders iframe with correct sandbox attribute', () => {
       render(<PreviewFrame />);
       const iframe = screen.getByTitle(IFRAME_TITLE);
@@ -163,6 +169,13 @@ describe('PreviewFrame', () => {
       expect(iframe.style.height).toBe('100%');
       // happy-dom normalizes 'none' to 'none none' for border shorthand
       expect(iframe.style.border).toContain('none');
+    });
+
+    it('renders iframe with resolved source path', () => {
+      render(<PreviewFrame />);
+      const iframe = screen.getByTitle(IFRAME_TITLE);
+
+      expect(iframe.getAttribute('src')).toBe(getPreviewFrameSrc(import.meta.env.DEV));
     });
   });
 
@@ -511,6 +524,27 @@ describe('PreviewFrame', () => {
       // Create event with different source
       const sizeSignal: SizeSignal = { type: 'size', height: 500 };
       const sizeEvent = createMessageEvent(sizeSignal, null);
+
+      act(() => {
+        messageHandler?.(sizeEvent);
+      });
+
+      expect(onSizeChange).not.toHaveBeenCalled();
+    });
+
+    it('ignores messages from untrusted origins', () => {
+      const onSizeChange = vi.fn();
+      render(<PreviewFrame onSizeChange={onSizeChange} />);
+
+      const iframe = getIframeWithMockWindow();
+      simulateIframeReady(iframe);
+
+      const sizeSignal: SizeSignal = { type: 'size', height: 500 };
+      const sizeEvent = createMessageEvent(
+        sizeSignal,
+        mockContentWindow as unknown as Window,
+        'https://evil.example'
+      );
 
       act(() => {
         messageHandler?.(sizeEvent);

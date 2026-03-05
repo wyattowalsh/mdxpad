@@ -1,7 +1,9 @@
 /**
- * Integration tests for WYSIWYG components.
+ * ProseMirror MDX Schema Structure & JSX Extraction Tests
  *
- * Tests the ProseMirror MDX schema structure and JSX extraction.
+ * Tests the ProseMirror MDX schema node types, mark types, document
+ * structure constraints, and the `extractJsxBlocks` utility for pulling
+ * JSX components out of MDX source text.
  *
  * NOTE: The prosemirror-mdx-parser.ts has a token spec mapping issue
  * (MDX_TOKENS uses suffixed keys like `paragraph_open` instead of
@@ -9,6 +11,15 @@
  * handlers). The serializer is also missing a `text` node handler.
  * These are pre-existing issues in the WYSIWYG subsystem; these tests
  * focus on the schema and JSX extraction which work correctly.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the ProseMirror schema definition object and a
+ * pure-function JSX regex extractor in isolation. No ProseMirror EditorView is
+ * instantiated, no markdown-to-ProseMirror parsing round-trip is performed, and
+ * no serialization back to MDX source is tested. True integration tests would
+ * parse an MDX document into a ProseMirror document, render it in an
+ * EditorView, apply user edits, serialize back to MDX, and verify lossless
+ * round-trip fidelity including JSX blocks, frontmatter, and inline components.
  *
  * @vitest-environment happy-dom
  * @module tests/integration/wysiwyg-roundtrip.test

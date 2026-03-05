@@ -58,7 +58,7 @@ export const recoveryOperations = {
       AutosaveChannels.RECOVERY_LIST,
       null,
       RecoveryListResponseSchema
-    ) as Promise<RecoveryListResponse>,
+    ),
 
   recoveryPreview: (request: RecoveryPreviewRequest): Promise<RecoveryPreviewResponse> =>
     validatedInvoke(
@@ -66,7 +66,7 @@ export const recoveryOperations = {
       RecoveryPreviewRequestSchema,
       RecoveryPreviewResponseSchema,
       request
-    ) as Promise<RecoveryPreviewResponse>,
+    ),
 
   recoveryRestore: (request: RecoveryRestoreRequest): Promise<RecoveryRestoreResponse> =>
     validatedInvoke(
@@ -74,7 +74,7 @@ export const recoveryOperations = {
       RecoveryRestoreRequestSchema,
       RecoveryRestoreResponseSchema,
       request
-    ) as Promise<RecoveryRestoreResponse>,
+    ),
 
   recoveryDiscard: (request: RecoveryDiscardRequest) =>
     validatedInvoke(

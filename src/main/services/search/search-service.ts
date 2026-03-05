@@ -206,6 +206,7 @@ async function updateSingleFile(
   if (!matchesExtensions(filePath, extensions)) return;
 
   const docId = relative(workspaceDir, filePath);
+  const existedBefore = index.miniSearch.has(docId);
 
   // Remove old version if it exists
   try {
@@ -222,7 +223,14 @@ async function updateSingleFile(
       fileName: basename(filePath),
       content,
     });
+    if (!existedBefore) {
+      index.fileCount += 1;
+    }
+  } else if (existedBefore) {
+    index.fileCount = Math.max(0, index.fileCount - 1);
   }
+
+  index.lastIndexedAt = new Date().toISOString();
 }
 
 export function search(

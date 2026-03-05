@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { ProviderType, TimeRange } from '@shared/ai/types';
+import type { ProviderType, SidecarConfig, TimeRange } from '@shared/ai/types';
 import { useAIProviderStore, selectActiveProvider, selectSelectedProvider } from './store';
 
 // =============================================================================
@@ -28,6 +28,8 @@ export function useAIProvider() {
       activeProviderId: state.activeProviderId,
       isLoading: state.isLoading,
       isValidating: state.isValidating,
+      sidecarStatus: state.sidecarStatus,
+      isSidecarLoading: state.isSidecarLoading,
       error: state.error,
       fetchProviders: state.fetchProviders,
       addProvider: state.addProvider,
@@ -35,6 +37,10 @@ export function useAIProvider() {
       removeProvider: state.removeProvider,
       setActiveProvider: state.setActiveProvider,
       validateProvider: state.validateProvider,
+      fetchSidecarStatus: state.fetchSidecarStatus,
+      configureSidecar: state.configureSidecar,
+      startSidecar: state.startSidecar,
+      stopSidecar: state.stopSidecar,
       clearError: state.clearError,
     }))
   );
@@ -102,6 +108,7 @@ export function useAddProvider() {
         displayName: string;
         type: ProviderType;
         baseUrl?: string;
+        sidecarConfig?: SidecarConfig;
       },
       apiKey?: string
     ): Promise<void> => {
@@ -128,7 +135,10 @@ export function useUpdateProvider() {
   const clearError = useAIProviderStore((state) => state.clearError);
 
   const update = useCallback(
-    async (id: string, updates: { displayName?: string; baseUrl?: string }): Promise<void> => {
+    async (
+      id: string,
+      updates: { displayName?: string; baseUrl?: string; sidecarConfig?: SidecarConfig }
+    ): Promise<void> => {
       await updateProvider(id, updates);
     },
     [updateProvider]

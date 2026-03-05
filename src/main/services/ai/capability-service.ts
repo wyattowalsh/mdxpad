@@ -92,6 +92,7 @@ export class CapabilityService implements ICapabilityService {
       case 'ollama':
         return this.listOllamaModels(provider);
       case 'lmstudio':
+      case 'sidecar':
       case 'openai-compatible':
         return this.listOpenAICompatibleModels(provider);
       default:
@@ -157,6 +158,7 @@ export class CapabilityService implements ICapabilityService {
       case 'ollama':
         return this.getOllamaCapabilities(provider, modelId);
       case 'lmstudio':
+      case 'sidecar':
       case 'openai-compatible':
         return this.getLocalCapabilities(provider, modelId);
       default:
@@ -260,6 +262,7 @@ export class CapabilityService implements ICapabilityService {
           m.capabilities.includes(capability)
         );
       case 'lmstudio':
+      case 'sidecar':
       case 'openai-compatible':
         // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
         return capability === 'text-generation' || capability === 'streaming';

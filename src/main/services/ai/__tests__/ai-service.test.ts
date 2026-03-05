@@ -55,6 +55,13 @@ const mockUsageService = {
   getEstimatedCost: vi.fn(),
 };
 
+const mockSidecarService = {
+  configure: vi.fn(),
+  start: vi.fn(),
+  stop: vi.fn(),
+  getStatus: vi.fn(),
+};
+
 // Mock text-generation module
 vi.mock('../text-generation', () => ({
   performTextGeneration: mockPerformTextGeneration,
@@ -87,6 +94,7 @@ vi.mock('@ai-sdk/anthropic', () => ({
 // Import after mocks
 import { AIService } from '../ai-service';
 import { NoActiveProviderError, AIProviderError } from '../../../../shared/ai/errors';
+import { createOpenAI } from '@ai-sdk/openai';
 
 // =============================================================================
 // Test Utilities
@@ -137,6 +145,26 @@ function resetMocks(): void {
   mockPerformImageGeneration.mockResolvedValue({
     imageUrl: 'https://example.com/image.png',
   });
+  mockSidecarService.configure.mockResolvedValue({
+    success: true,
+    status: 'stopped',
+  });
+  mockSidecarService.start.mockResolvedValue({
+    success: true,
+    status: 'running',
+    endpoint: 'http://127.0.0.1:11470',
+    pid: 4242,
+  });
+  mockSidecarService.getStatus.mockReturnValue({
+    success: true,
+    status: 'running',
+    endpoint: 'http://127.0.0.1:11470',
+    pid: 4242,
+  });
+  mockSidecarService.stop.mockResolvedValue({
+    success: true,
+    status: 'stopped',
+  });
 }
 
 // =============================================================================
@@ -148,7 +176,12 @@ describe('AIService', () => {
 
   beforeEach(() => {
     resetMocks();
-    service = new AIService(mockCredentialService, mockProviderService, mockUsageService);
+    service = new AIService(
+      mockCredentialService,
+      mockProviderService,
+      mockUsageService,
+      mockSidecarService
+    );
   });
 
   afterEach(() => {
@@ -463,6 +496,31 @@ describe('AIService', () => {
       await service.generateText({ prompt: 'test' });
 
       expect(mockPerformTextGeneration).toHaveBeenCalled();
+    });
+
+    it('should use sidecar endpoint as baseUrl when sidecar is running', async () => {
+      const provider = createMockProvider({
+        type: 'sidecar',
+        sidecarConfig: { modelPath: '/models/test.gguf', port: 11470 },
+      });
+      mockProviderService.getActiveProvider.mockResolvedValue(provider);
+      mockCredentialService.getCredential.mockResolvedValue(null);
+      mockSidecarService.getStatus.mockReturnValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+        pid: 4242,
+      });
+
+      await service.generateText({ prompt: 'test' });
+
+      expect(mockPerformTextGeneration).toHaveBeenCalled();
+      expect(vi.mocked(createOpenAI)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiKey: '',
+          baseURL: 'http://127.0.0.1:11470',
+        })
+      );
     });
   });
 

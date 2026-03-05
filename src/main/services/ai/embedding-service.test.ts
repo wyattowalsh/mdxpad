@@ -2,8 +2,12 @@
  * Unit tests for Embedding Service - chunkText function.
  */
 
-import { describe, it, expect } from 'vitest';
-import { chunkText } from './embedding-service';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import type { IAIService } from './ai-types';
+import { chunkText, EmbeddingService } from './embedding-service';
 
 describe('chunkText', () => {
   it('should return single chunk for short text', () => {
@@ -56,5 +60,48 @@ describe('chunkText', () => {
     for (const chunk of chunks) {
       expect(chunk.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('EmbeddingService#indexWorkspace', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of tempDirs) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    tempDirs.length = 0;
+  });
+
+  it('should report successful indexed file count when some files fail', async () => {
+    const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-service-'));
+    tempDirs.push(workspacePath);
+
+    fs.writeFileSync(path.join(workspacePath, 'success.md'), 'SUCCESS', 'utf-8');
+    fs.writeFileSync(path.join(workspacePath, 'failure.md'), 'FAIL', 'utf-8');
+
+    const aiService = {
+      generateEmbedding: vi.fn(async ({ texts }: { texts: string[] }) => {
+        if (texts.includes('FAIL')) {
+          throw new Error('Embedding failed');
+        }
+        return {
+          embeddings: texts.map(() => [0.1, 0.2]),
+          dimensions: 2,
+          modelId: 'test-model',
+        };
+      }),
+      generateText: vi.fn(),
+      streamText: vi.fn(),
+      generateImage: vi.fn(),
+      getActiveModel: vi.fn(),
+      isReady: vi.fn(),
+    } as unknown as IAIService;
+
+    const embeddingService = new EmbeddingService(aiService);
+    const result = await embeddingService.indexWorkspace(workspacePath);
+
+    expect(result.indexedFiles).toBe(1);
+    expect(result.totalChunks).toBe(1);
   });
 });

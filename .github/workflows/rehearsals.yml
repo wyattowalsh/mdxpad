@@ -1,0 +1,144 @@
+name: Rehearsals
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_hardening_rehearsal:
+        description: Run save/recovery, message validation, and security rehearsal checks
+        required: false
+        default: true
+        type: boolean
+      run_runtime_security_probe:
+        description: Also run runtime verify-security probe (requires build output)
+        required: false
+        default: false
+        type: boolean
+      run_release_rehearsal:
+        description: Run release scaffolding rehearsal across arm64 and x64
+        required: false
+        default: true
+        type: boolean
+      require_release_secrets:
+        description: Fail release rehearsal when signing/notarization secrets are missing
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  hardening_rehearsal:
+    if: ${{ inputs.run_hardening_rehearsal == true }}
+    name: Hardening Rehearsal
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@c5ba7f7862a0f64c1b1a05fbac13e0b8e86ba08c
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run hardening rehearsal
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          mkdir -p ci-reports
+          if [[ "${{ inputs.run_runtime_security_probe }}" == "true" ]]; then
+            pnpm build
+            pnpm rehearse:hardening -- --runtime-security --report ci-reports/hardening-rehearsal-report.json
+          else
+            pnpm rehearse:hardening -- --report ci-reports/hardening-rehearsal-report.json
+          fi
+
+      - name: Upload hardening rehearsal diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hardening-rehearsal
+          path: ci-reports/hardening-rehearsal-report.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  release_rehearsal:
+    if: ${{ inputs.run_release_rehearsal == true }}
+    name: Release Rehearsal (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@c5ba7f7862a0f64c1b1a05fbac13e0b8e86ba08c
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Run release rehearsal
+        shell: bash
+        run: |
+          report_dir="ci-reports/release-rehearsal/${{ matrix.arch }}"
+          mkdir -p "$report_dir"
+          if [[ "${{ inputs.require_release_secrets }}" == "true" ]]; then
+            pnpm rehearse:release -- --arch "${{ matrix.arch }}" --report-dir "$report_dir" --require-secrets
+          else
+            pnpm rehearse:release -- --arch "${{ matrix.arch }}" --report-dir "$report_dir"
+          fi
+
+      - name: Upload release rehearsal diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-rehearsal-${{ matrix.arch }}
+          path: ci-reports/release-rehearsal/${{ matrix.arch }}/
+          retention-days: 7
+          if-no-files-found: warn

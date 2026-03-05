@@ -66,6 +66,8 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unnecessary-condition': 'off',
       '@typescript-eslint/restrict-plus-operands': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-dynamic-delete': 'off',
       'max-lines-per-function': 'off',
     },
   },
@@ -120,6 +122,9 @@ export default tseslint.config(
       '*.config.js',
       '*.config.ts',
       'electron.vite.config.*.mjs',
+      'scripts/**/*.mjs',
+      'scripts/**/*.cjs',
+      'docs-site/**',
       '.specify/**',
     ],
   }

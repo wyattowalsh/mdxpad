@@ -8,7 +8,7 @@
  * - Autosave Flow: edit -> autosave -> verify recovery file
  * - Recovery Dialog Flow: restart with recovery data -> dialog -> restore/decline
  * - Crash Simulation: force-kill -> restart -> recovery
- * - SC-001 Validation: verify recovery file contains 100% content via checksum
+ * - SC-100 Validation: verify recovery file contains 100% content via checksum
  *
  * Prerequisites:
  * - Build the app first: `pnpm build`
@@ -68,12 +68,14 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 const UNIQUE_MARKER = `UNIQUE_TEST_MARKER_${randomUUID()}`;
 const TEST_CONTENT_WITH_MARKER = `${TEST_CONTENT}\n<!-- ${UNIQUE_MARKER} -->`;
 
+// TODO(HR-S-011): Override AUTOSAVE_DEBOUNCE_MS via env for faster test runs.
+// Currently 2000ms + 3000ms buffer = 9s minimum per debounce test.
+// Future: read from process.env.MDXPAD_TEST_DEBOUNCE_MS if NODE_ENV=test.
 /** Default autosave debounce period in ms */
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 
 /** Additional buffer time for autosave to complete */
 const AUTOSAVE_BUFFER_MS = 3000;
-const ALLOW_CRITICAL_E2E_RUNTIME_SKIP = process.env.MDXPAD_ALLOW_CRITICAL_E2E_SKIP === '1';
 
 interface LaunchedTestApp {
   app: ElectronApplication;
@@ -115,13 +117,6 @@ function getActiveRecoveryDir(targetRecoveryDir?: string): string {
     throw new Error('Recovery directory is not initialized for this test');
   }
   return resolved;
-}
-
-function failOrSkipCritical(reason: string): never {
-  if (ALLOW_CRITICAL_E2E_RUNTIME_SKIP) {
-    test.skip(true, `[governed-runtime-skip] ${reason}`);
-  }
-  throw new Error(`${reason}. Set MDXPAD_ALLOW_CRITICAL_E2E_SKIP=1 to allow a governed skip.`);
 }
 
 function createIsolatedRecoveryDir(label: string): string {
@@ -192,7 +187,7 @@ async function prepareRecoveryProfile(
   const resolvedRecoveryDir = resolved.recoveryDir;
 
   // Close without removing userData so we can seed recovery data for the next startup.
-  await safeCloseElectronApp(resolved.app);
+  await safeCloseElectronApp(resolved.app, profileDir);
   electronApp = null;
   page = null;
   userDataDir = profileDir;
@@ -406,9 +401,8 @@ test.describe('Autosave and Recovery', () => {
         return typeof mdxpad?.autosaveTrigger === 'function';
       });
 
-      if (!hasAutosaveSupport) {
-        failOrSkipCritical('Autosave API missing for critical autosave debounce flow');
-      }
+      expect(hasAutosaveSupport).toBe(true);
+      if (!hasAutosaveSupport) return;
 
       cleanupRecoveryDir(targetRecoveryDir);
       ensureDir(targetRecoveryDir);
@@ -438,13 +432,13 @@ test.describe('Autosave and Recovery', () => {
         .toBe(true);
 
       const recoveryData = getRecoveryFileContent(targetRecoveryDir, testDocId);
-      if (!recoveryData) {
-        failOrSkipCritical('Autosave recovery artifact was not created within debounce budget');
-      }
-      expect(recoveryData.content).toContain(UNIQUE_MARKER);
+      expect(recoveryData).not.toBeNull();
+      expect(recoveryData!.content).toContain(UNIQUE_MARKER);
+      // Verify content integrity via checksum
+      expect(computeChecksum(recoveryData!.content)).toBe(recoveryData!.checksum);
     });
 
-    test('should include 100% of content in recovery file (SC-001)', async () => {
+    test('should include 100% of content in recovery file (SC-100)', async () => {
       const { page: win, recoveryDir: targetRecoveryDir } =
         await launchTestApp('autosave-flow-sc001');
 
@@ -453,9 +447,7 @@ test.describe('Autosave and Recovery', () => {
         return typeof (window as unknown as Record<string, unknown>).mdxpad !== 'undefined';
       });
 
-      if (!hasAutosaveSupport) {
-        failOrSkipCritical('Autosave API missing for SC-001 recovery integrity flow');
-      }
+      expect(hasAutosaveSupport).toBe(true);
 
       // Create a document with known content
       const testDocId = randomUUID();
@@ -705,13 +697,18 @@ Special chars: <>&"'\`\\n\\t
         }
       }
 
+      // Wait for process to actually terminate (replaces hardcoded 1s sleep)
+      if (pid) {
+        for (let i = 0; i < 20; i++) {
+          try { process.kill(pid, 0); } catch { break; }
+          await new Promise((r) => setTimeout(r, 100));
+        }
+      }
+
       // Close Playwright's handle to avoid dangling worker resources.
       await safeCloseElectronApp(crashedApp);
       electronApp = null;
       page = null;
-
-      // Wait for process to fully terminate
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Crash restarts can leave Chromium singleton artifacts behind.
       cleanupChromiumSingletonArtifacts(profileDir);
@@ -760,10 +757,10 @@ Special chars: <>&"'\`\\n\\t
   });
 
   // ==========================================================================
-  // Checksum Validation Tests (SC-001)
+  // Checksum Validation Tests (SC-100)
   // ==========================================================================
 
-  test.describe('Checksum Validation (SC-001)', () => {
+  test.describe('Checksum Validation (SC-100)', () => {
     test('should generate consistent checksums for same content', () => {
       const content = '# Test Content\n\nSame content should produce same checksum.';
 

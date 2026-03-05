@@ -24,6 +24,7 @@ export const ProviderTypeSchema = z.enum([
   'anthropic',
   'ollama',
   'lmstudio',
+  'sidecar',
   'openai-compatible',
 ]);
 export type ProviderTypeSchemaType = z.infer<typeof ProviderTypeSchema>;
@@ -38,6 +39,18 @@ export const ConnectionStatusSchema = z.enum([
   'validating',
 ]);
 export type ConnectionStatusSchemaType = z.infer<typeof ConnectionStatusSchema>;
+
+/**
+ * Lifecycle status for the bundled sidecar runtime.
+ */
+export const SidecarLifecycleStatusSchema = z.enum([
+  'stopped',
+  'starting',
+  'running',
+  'stopping',
+  'error',
+]);
+export type SidecarLifecycleStatusSchemaType = z.infer<typeof SidecarLifecycleStatusSchema>;
 
 /**
  * Type of AI operation performed.
@@ -111,6 +124,19 @@ export const CapabilityConstraintsSchema = z.object({
 export type CapabilityConstraintsSchemaType = z.infer<typeof CapabilityConstraintsSchema>;
 
 /**
+ * Bundled sidecar runtime configuration.
+ */
+export const SidecarConfigSchema = z.object({
+  binaryPath: z.string().min(1).optional(),
+  modelPath: z.string().min(1),
+  contextSize: z.number().int().positive().optional(),
+  gpuLayers: z.number().int().nonnegative().optional(),
+  threads: z.number().int().positive().optional(),
+  port: z.number().int().positive().max(65535).optional(),
+});
+export type SidecarConfigSchemaType = z.infer<typeof SidecarConfigSchema>;
+
+/**
  * Full Provider Configuration.
  */
 export const ProviderConfigSchema = z.object({
@@ -118,6 +144,7 @@ export const ProviderConfigSchema = z.object({
   displayName: z.string(),
   type: ProviderTypeSchema,
   baseUrl: z.string().url().optional(),
+  sidecarConfig: SidecarConfigSchema.optional(),
   isActive: z.boolean(),
   status: ConnectionStatusSchema,
   lastConnectedAt: z.string().datetime().optional(),
@@ -168,6 +195,7 @@ export const AddProviderRequestSchema = z.object({
   displayName: z.string().min(1).max(50),
   type: ProviderTypeSchema,
   baseUrl: z.string().url().optional(),
+  sidecarConfig: SidecarConfigSchema.optional(),
   apiKey: z.string().min(1).optional(),
 });
 export type AddProviderRequestSchemaType = z.infer<typeof AddProviderRequestSchema>;
@@ -193,6 +221,7 @@ export const UpdateProviderRequestSchema = z.object({
   updates: z.object({
     displayName: z.string().min(1).max(50).optional(),
     baseUrl: z.string().url().optional(),
+    sidecarConfig: SidecarConfigSchema.optional(),
     isActive: z.boolean().optional(),
   }),
 });
@@ -274,6 +303,75 @@ export const ValidateProviderResponseSchema = z.object({
   }).optional(),
 });
 export type ValidateProviderResponseSchemaType = z.infer<typeof ValidateProviderResponseSchema>;
+
+/**
+ * Request to update sidecar runtime configuration.
+ */
+export const SidecarConfigureRequestSchema = z.object({
+  config: SidecarConfigSchema,
+});
+export type SidecarConfigureRequestSchemaType = z.infer<typeof SidecarConfigureRequestSchema>;
+
+/**
+ * Request to fetch current sidecar runtime status.
+ */
+export const SidecarStatusRequestSchema = z.void();
+export type SidecarStatusRequestSchemaType = z.infer<typeof SidecarStatusRequestSchema>;
+
+/**
+ * Request to start sidecar runtime.
+ */
+export const SidecarStartRequestSchema = z.object({
+  config: SidecarConfigSchema.optional(),
+});
+export type SidecarStartRequestSchemaType = z.infer<typeof SidecarStartRequestSchema>;
+
+/**
+ * Request to stop sidecar runtime.
+ */
+export const SidecarStopRequestSchema = z.void();
+export type SidecarStopRequestSchemaType = z.infer<typeof SidecarStopRequestSchema>;
+
+/**
+ * Response payload for sidecar lifecycle status operations.
+ */
+export const SidecarLifecycleStatusResponseSchema = z.object({
+  success: z.boolean(),
+  status: SidecarLifecycleStatusSchema,
+  pid: z.number().int().positive().optional(),
+  endpoint: z.string().url().optional(),
+  config: SidecarConfigSchema.optional(),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }).optional(),
+});
+export type SidecarLifecycleStatusResponseSchemaType =
+  z.infer<typeof SidecarLifecycleStatusResponseSchema>;
+
+/**
+ * Response for sidecar configuration updates.
+ */
+export const SidecarConfigureResponseSchema = SidecarLifecycleStatusResponseSchema;
+export type SidecarConfigureResponseSchemaType = z.infer<typeof SidecarConfigureResponseSchema>;
+
+/**
+ * Response for sidecar status queries.
+ */
+export const SidecarStatusResponseSchema = SidecarLifecycleStatusResponseSchema;
+export type SidecarStatusResponseSchemaType = z.infer<typeof SidecarStatusResponseSchema>;
+
+/**
+ * Response for sidecar start operations.
+ */
+export const SidecarStartResponseSchema = SidecarLifecycleStatusResponseSchema;
+export type SidecarStartResponseSchemaType = z.infer<typeof SidecarStartResponseSchema>;
+
+/**
+ * Response for sidecar stop operations.
+ */
+export const SidecarStopResponseSchema = SidecarLifecycleStatusResponseSchema;
+export type SidecarStopResponseSchemaType = z.infer<typeof SidecarStopResponseSchema>;
 
 // =============================================================================
 // CREDENTIAL MANAGEMENT SCHEMAS

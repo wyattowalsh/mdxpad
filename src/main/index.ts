@@ -5,9 +5,11 @@
 
 import { app, BrowserWindow, dialog } from 'electron';
 import { promises as fs } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createWindow, loadContent } from './window';
 import { registerIpcHandlers } from './ipc';
 import { initializeApplicationMenu } from './menu';
+import { registerPreviewFrameProtocol } from './preview-frame-protocol';
 import { AutoSaveManager } from './services/auto-save';
 
 /** Global AutoSaveManager instance for crash recovery and auto-saving */
@@ -86,6 +88,19 @@ if (!gotTheLock) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let hasCreatedInitialWindow = false;
+
+function getActiveMainWindow(): BrowserWindow | null {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
+  }
+
+  const fallbackWindow =
+    BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ?? null;
+
+  mainWindow = fallbackWindow;
+  return fallbackWindow;
+}
 
 /**
  * Create main window, register IPC handlers, initialize menu, and load content.
@@ -93,6 +108,7 @@ let mainWindow: BrowserWindow | null = null;
  */
 function createMainWindow(): void {
   mainWindow = createWindow();
+  hasCreatedInitialWindow = true;
   registerIpcHandlers(mainWindow);
   initializeApplicationMenu(mainWindow);
   loadContent(mainWindow);
@@ -109,44 +125,60 @@ function createMainWindow(): void {
   }
 }
 
-// App ready - check for crash recovery, then create window
-void app.whenReady().then(async () => {
-  // Check for recoverable files BEFORE creating the main window
-  await checkCrashRecovery();
+if (gotTheLock) {
+  // App ready - check for crash recovery, then create window
+  void app.whenReady().then(async () => {
+    // Check for recoverable files BEFORE creating the main window
+    try {
+      await checkCrashRecovery();
+    } catch (error) {
+      console.error('Crash recovery check failed, continuing launch:', error);
+    }
 
-  createMainWindow();
+    registerPreviewFrameProtocol(fileURLToPath(new URL('../renderer', import.meta.url)));
+    createMainWindow();
 
-  // Start auto-save manager for this session
-  autoSaveManager.start();
+    // Start auto-save manager for this session
+    autoSaveManager.start();
 
-  // macOS: Re-create window when dock icon clicked and no windows open
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+    // macOS: Re-create window when dock icon clicked and no windows open
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow();
+      }
+    });
+  });
+
+  // Quit when all windows are closed (except macOS)
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
     }
   });
-});
 
-// Quit when all windows are closed (except macOS)
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  // Stop auto-save manager before quitting
+  app.on('before-quit', () => {
+    autoSaveManager.stop();
+  });
 
-// Stop auto-save manager before quitting
-app.on('before-quit', () => {
-  autoSaveManager.stop();
-});
+  // Handle second instance attempt
+  app.on('second-instance', () => {
+    const targetWindow = getActiveMainWindow();
 
-// Handle second instance attempt
-app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
+    if (!targetWindow) {
+      if (!hasCreatedInitialWindow) {
+        return;
+      }
+      createMainWindow();
+      return;
     }
-    mainWindow.focus();
-  }
-});
+
+    if (targetWindow.isMinimized()) {
+      targetWindow.restore();
+    }
+
+    targetWindow.focus();
+  });
+}
 
 console.log('mdxpad main process starting...');

@@ -21,6 +21,7 @@ vi.mock('chokidar', () => ({
 }));
 
 import { readFile, readdir, stat } from 'node:fs/promises';
+import { watch } from 'chokidar';
 import { indexWorkspace, search, getStatus, closeIndex } from './search-service';
 
 describe('search-service', () => {
@@ -154,6 +155,51 @@ describe('search-service', () => {
       expect(status.indexed).toBe(true);
       expect(status.fileCount).toBe(1);
       expect(status.lastIndexedAt).toBeTruthy();
+    });
+
+    it('should update fileCount and lastIndexedAt after incremental watcher update', async () => {
+      vi.useFakeTimers();
+
+      try {
+        type AllEventHandler = (eventName: string, filePath: string) => void;
+        const eventHandlers: { all?: AllEventHandler } = {};
+        const watcher = {
+          on: vi.fn((eventName: string, callback: AllEventHandler) => {
+            if (eventName === 'all') eventHandlers.all = callback;
+            return watcher;
+          }),
+          close: vi.fn().mockResolvedValue(undefined),
+        };
+        vi.mocked(watch).mockReturnValue(watcher as never);
+
+        vi.mocked(readdir).mockResolvedValue([
+          { name: 'doc.md', isDirectory: () => false, isFile: () => true },
+        ] as never);
+        vi.mocked(stat).mockResolvedValue({ size: 50, isDirectory: () => false } as never);
+        vi.mocked(readFile).mockResolvedValue('content');
+
+        await indexWorkspace('/workspace');
+
+        const before = getStatus('/workspace');
+        expect(before.fileCount).toBe(1);
+        const beforeLastIndexedAt = before.lastIndexedAt;
+
+        const onAll = eventHandlers.all;
+        expect(onAll).toBeDefined();
+        if (!onAll) throw new Error('Expected watcher all handler');
+
+        vi.mocked(stat).mockResolvedValue({ size: 40, isDirectory: () => false } as never);
+        vi.mocked(readFile).mockResolvedValue('new content');
+
+        onAll('add', '/workspace/new.md');
+        await vi.advanceTimersByTimeAsync(500);
+
+        const after = getStatus('/workspace');
+        expect(after.fileCount).toBe(2);
+        expect(after.lastIndexedAt).not.toBe(beforeLastIndexedAt);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

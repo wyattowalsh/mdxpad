@@ -1,0 +1,46 @@
+---
+title: "Architecture"
+description: "MDXPad's multi-process Electron architecture with Zod-validated IPC."
+---
+
+import { Mermaid } from '@/components/mermaid';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+MDXPad follows Electron's multi-process architecture with strict separation between the Main Process (Node.js), the Preload script (context bridge), and the Renderer Process (React). All communication across process boundaries uses Zod-validated IPC contracts defined in `src/shared/contracts/`, ensuring both compile-time type safety and runtime validation at every boundary.
+
+## Process Model Overview
+
+<Mermaid chart={`
+graph LR
+  R["Renderer Process<br/>(React + CodeMirror)"]
+  P["Preload Script<br/>(Context Bridge)"]
+  M["Main Process<br/>(Node.js Services)"]
+  S["Shared<br/>(Types + IPC Contracts)"]
+
+  R <-->|"window.mdxpad API"| P
+  P <-->|"IPC / Zod validated"| M
+  S -.->|"schemas & types"| P
+  S -.->|"schemas & types"| M
+`} />
+
+The Preload script is the only bridge between the untrusted renderer and the privileged main process. Every message crossing this boundary is parsed against a Zod schema before being processed, preventing malformed or malicious data from reaching Node.js APIs.
+
+## Explore Further
+
+<Cards>
+  <Card
+    title="Architectural Constitution"
+    description="The six non-negotiable principles every contributor must follow."
+    href="/docs/architecture/constitution"
+  />
+  <Card
+    title="Process Model"
+    description="Detailed breakdown of Main, Preload, Renderer, and Shared layers with file tree."
+    href="/docs/architecture/process-model"
+  />
+  <Card
+    title="Decision Records"
+    description="Architecture Decision Records tracking key design choices with context and rationale."
+    href="/docs/architecture/adr"
+  />
+</Cards>

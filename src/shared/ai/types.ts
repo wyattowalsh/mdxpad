@@ -17,6 +17,7 @@
  * - anthropic: Anthropic API (Claude models)
  * - ollama: Local Ollama instance
  * - lmstudio: Local LM Studio instance
+ * - sidecar: Bundled llama.cpp sidecar runtime
  * - openai-compatible: Any OpenAI-compatible API endpoint
  */
 export type ProviderType =
@@ -24,6 +25,7 @@ export type ProviderType =
   | 'anthropic'
   | 'ollama'
   | 'lmstudio'
+  | 'sidecar'
   | 'openai-compatible';
 
 /**
@@ -34,6 +36,11 @@ export type ProviderType =
  * - validating: Currently testing connection
  */
 export type ConnectionStatus = 'connected' | 'disconnected' | 'error' | 'validating';
+
+/**
+ * Lifecycle status for the bundled sidecar runtime.
+ */
+export type SidecarLifecycleStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error';
 
 /**
  * Type of AI operation performed.
@@ -81,6 +88,55 @@ export enum ProviderCapability {
 // =============================================================================
 
 /**
+ * Configuration for the bundled llama.cpp sidecar runtime.
+ */
+export interface SidecarConfig {
+  /** Absolute path to llama.cpp server binary */
+  binaryPath?: string;
+
+  /** Absolute path to the selected GGUF model file */
+  modelPath: string;
+
+  /** Context window size passed to the runtime */
+  contextSize?: number;
+
+  /** Number of GPU layers to offload */
+  gpuLayers?: number;
+
+  /** Number of CPU threads used by runtime */
+  threads?: number;
+
+  /** Runtime HTTP port */
+  port?: number;
+}
+
+/**
+ * Lifecycle status response payload for sidecar runtime operations.
+ */
+export interface SidecarLifecycleStatusResponse {
+  /** Whether the lifecycle operation succeeded */
+  success: boolean;
+
+  /** Current sidecar lifecycle status */
+  status: SidecarLifecycleStatus;
+
+  /** Sidecar process identifier when running */
+  pid?: number;
+
+  /** Runtime HTTP endpoint when running */
+  endpoint?: string;
+
+  /** Effective sidecar configuration */
+  config?: SidecarConfig;
+
+  /** Error payload when operation failed */
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+/**
  * Configuration for an AI provider.
  * Represents a configured provider with its settings and connection status.
  *
@@ -102,6 +158,9 @@ export interface ProviderConfig {
 
   /** Base URL for API requests (required for local/custom providers) */
   baseUrl?: string;
+
+  /** Optional sidecar runtime configuration */
+  sidecarConfig?: SidecarConfig;
 
   /** Whether this is the active provider for AI features */
   isActive: boolean;

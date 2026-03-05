@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mdxpad.dev/schemas/actions-sha-pinning-report.schema.json",
+  "title": "MDXPad GitHub Actions SHA Pinning Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "schema",
+    "generatedAt",
+    "repository",
+    "mode",
+    "summary",
+    "violations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "schema": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "repository": {
+      "type": ["string", "null"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["advisory", "enforce"]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflowFiles",
+        "totalActionUsages",
+        "pinnedActionUsages",
+        "unpinnedActionUsages"
+      ],
+      "properties": {
+        "workflowFiles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalActionUsages": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pinnedActionUsages": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unpinnedActionUsages": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workflow", "line", "uses", "reference", "policy"],
+        "properties": {
+          "workflow": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uses": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "policy": {
+            "type": "string",
+            "const": "sha-pinned-action-ref"
+          }
+        }
+      }
+    }
+  }
+}

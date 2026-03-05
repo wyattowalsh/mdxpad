@@ -1,0 +1,101 @@
+---
+title: "ADR Template"
+description: "Template for writing Architecture Decision Records."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout type="info">
+  This page documents the standard template for writing Architecture Decision Records in MDXPad. Copy the structure below when creating a new ADR. Each section is required — do not omit sections even if the content seems obvious. Clarity and completeness are more valuable than brevity in ADRs because future contributors will not have your context.
+</Callout>
+
+## How to Use This Template
+
+1. Copy `docs/adr/000-template.md` from the repository root.
+2. Rename the file to the next sequential ID: `NNN-short-title.md` (e.g. `002-state-management.md`).
+3. Fill in every section below.
+4. Set the status to `Proposed` initially. Update to `Accepted` once the decision is ratified.
+5. Add the corresponding MDX page to `content/docs/architecture/adr/` and update the [ADR index](/docs/architecture/adr).
+
+---
+
+## Template Structure
+
+```markdown
+# ADR-NNN: [Title]
+
+## Status
+
+[Proposed | Accepted | Deprecated | Rejected]
+
+## Date
+
+YYYY-MM-DD
+
+## Context
+
+What is the issue or decision that needs to be made? What forces are at play
+(technical, business, team)? Write 2–5 sentences that give a future reader
+enough background to understand the decision without needing additional context.
+
+## Decision
+
+What is the change that is being proposed or decided? State it clearly and
+concisely. Avoid implementation details here — focus on the decision itself.
+
+## Consequences
+
+### Positive
+
+- What becomes easier or possible as a result of this decision?
+- List each positive consequence as a bullet point.
+
+### Negative
+
+- What becomes harder or is given up?
+- List each trade-off honestly — no decision is without cost.
+
+### Neutral
+
+- What other effects does this decision have that are neither clearly positive
+  nor negative?
+
+## Alternatives Considered
+
+### Alternative A: [Name]
+
+Description of the alternative and the reason it was not chosen. Be specific —
+"we preferred X" is not sufficient; explain why X is preferable in this context.
+
+### Alternative B: [Name]
+
+Description and reason not chosen.
+
+## References
+
+- Links to related issues, specs, or documents
+- Links to external resources that informed the decision
+```
+
+---
+
+## Naming Conventions
+
+| Field | Convention |
+|-------|-----------|
+| File name | `NNN-short-title.md` (kebab-case, numeric prefix) |
+| ADR number | Zero-padded three digits: `001`, `002`, ... |
+| Title | Short imperative phrase: "Use Zod for IPC validation" |
+| Date | ISO 8601: `YYYY-MM-DD` |
+
+## Status Lifecycle
+
+```
+Proposed ──► Accepted
+    │
+    └──► Rejected
+
+Accepted ──► Deprecated (when superseded by a later ADR)
+```
+
+A `Deprecated` ADR is never deleted. Add a note at the top of the deprecated ADR pointing to the ADR that superseded it.

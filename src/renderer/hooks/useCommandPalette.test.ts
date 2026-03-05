@@ -709,6 +709,57 @@ describe('useCommandPalette', () => {
       // With empty query, recent commands (cmd.1) should appear first
       expect(result.current.results[0]?.item.id).toBe('cmd.one');
     });
+
+    it('should exclude commands hidden by visibility predicate', () => {
+      const visibleContext = createMockContext();
+      const hiddenCommand = createMockCommand({
+        id: 'view.hidden' as CommandId,
+        name: 'Hidden Command',
+        visible: () => false,
+      });
+      const visibleCommand = createMockCommand({
+        id: 'view.visible' as CommandId,
+        name: 'Visible Command',
+        visible: () => true,
+      });
+
+      useCommandRegistry.getState().register(hiddenCommand);
+      useCommandRegistry.getState().register(visibleCommand);
+
+      const { result } = renderHook(() => useCommandPalette(() => visibleContext));
+      const commandIds = result.current.results.map((entry) => entry.item.id);
+
+      expect(commandIds).toContain('view.visible');
+      expect(commandIds).not.toContain('view.hidden');
+    });
+
+    it('should recompute visibility when context changes without query changes', () => {
+      let hasOpenDocument = false;
+      const context = createMockContext();
+      const contextProvider = () => ({
+        ...context,
+        document: {
+          ...context.document,
+          filePath: hasOpenDocument ? '/notes/example.mdx' : null,
+        },
+      });
+
+      const conditionalCommand = createMockCommand({
+        id: 'file.only-when-open' as CommandId,
+        name: 'Open-Document Command',
+        visible: (ctx) => ctx.document.filePath !== null,
+      });
+      useCommandRegistry.getState().register(conditionalCommand);
+
+      const { result, rerender } = renderHook(() => useCommandPalette(contextProvider));
+
+      expect(result.current.results.map((entry) => entry.item.id)).not.toContain('file.only-when-open');
+
+      hasOpenDocument = true;
+      rerender();
+
+      expect(result.current.results.map((entry) => entry.item.id)).toContain('file.only-when-open');
+    });
   });
 
   describe('stability', () => {

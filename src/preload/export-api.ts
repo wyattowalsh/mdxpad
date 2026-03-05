@@ -31,7 +31,7 @@ import {
   type LlmsGenerationRequest,
   type LlmsGenerationResponse,
 } from '@shared/contracts/export-schemas';
-import { validatedInvoke } from './validated-invoke';
+import { createTypedValidatedInvoke } from './validated-invoke';
 
 export interface ExportApi {
   jobLifecycle(request: ExportJobLifecycleRequest): Promise<ExportJobLifecycleResponse>;
@@ -40,36 +40,33 @@ export interface ExportApi {
   llmsGenerate(request: LlmsGenerationRequest): Promise<LlmsGenerationResponse>;
 }
 
+const invokeExportJobLifecycle = createTypedValidatedInvoke(
+  EXPORT_IPC_CHANNELS.jobLifecycle,
+  ExportJobLifecycleRequestSchema,
+  ExportJobLifecycleResponseSchema
+);
+
+const invokeExportPresetCrud = createTypedValidatedInvoke(
+  EXPORT_IPC_CHANNELS.presetCrud,
+  ExportPresetCrudRequestSchema,
+  ExportPresetCrudResponseSchema
+);
+
+const invokeExportCli = createTypedValidatedInvoke(
+  EXPORT_IPC_CHANNELS.cliInvoke,
+  ExportCliInvokeRequestSchema,
+  ExportCliInvokeResponseSchema
+);
+
+const invokeLlmsGenerate = createTypedValidatedInvoke(
+  EXPORT_IPC_CHANNELS.llmsGenerate,
+  LlmsGenerationRequestSchema,
+  LlmsGenerationResponseSchema
+);
+
 export const exportApi: ExportApi = {
-  jobLifecycle: (request) =>
-    validatedInvoke(
-      EXPORT_IPC_CHANNELS.jobLifecycle,
-      ExportJobLifecycleRequestSchema,
-      ExportJobLifecycleResponseSchema,
-      request
-    ),
-
-  presetCrud: (request) =>
-    validatedInvoke(
-      EXPORT_IPC_CHANNELS.presetCrud,
-      ExportPresetCrudRequestSchema,
-      ExportPresetCrudResponseSchema,
-      request
-    ),
-
-  cliInvoke: (request) =>
-    validatedInvoke(
-      EXPORT_IPC_CHANNELS.cliInvoke,
-      ExportCliInvokeRequestSchema,
-      ExportCliInvokeResponseSchema,
-      request
-    ),
-
-  llmsGenerate: (request) =>
-    validatedInvoke(
-      EXPORT_IPC_CHANNELS.llmsGenerate,
-      LlmsGenerationRequestSchema,
-      LlmsGenerationResponseSchema,
-      request
-    ),
+  jobLifecycle: invokeExportJobLifecycle,
+  presetCrud: invokeExportPresetCrud,
+  cliInvoke: invokeExportCli,
+  llmsGenerate: invokeLlmsGenerate,
 };

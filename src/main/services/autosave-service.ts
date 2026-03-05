@@ -24,6 +24,7 @@ import { statfs } from 'node:fs/promises';
 import path from 'node:path';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import { computeChecksum } from '@shared/lib/checksum';
+import { createWriteLock } from '@shared/lib/write-lock';
 
 import type { AutosaveSettingsService } from './autosave-settings';
 import {
@@ -48,6 +49,26 @@ const RECOVERY_DIR_NAME = 'recovery';
 
 /** Manifest file name */
 const MANIFEST_FILE = 'manifest.json';
+
+const autosaveWriteLock = createWriteLock();
+
+async function atomicWriteWithLock(targetPath: string, content: string): Promise<void> {
+  const lease = await autosaveWriteLock.acquire(path.resolve(targetPath));
+  try {
+    await atomicWrite(targetPath, content, {
+      durabilityContract: {
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[AutosaveService] Atomic write contract reported failure for "${path.basename(targetPath)}": ${message}`
+          );
+        },
+      },
+    });
+  } finally {
+    lease.release();
+  }
+}
 
 
 /**
@@ -163,7 +184,7 @@ export class AutosaveService {
       const fullRecoveryPath = path.join(recoveryDir, recoveryFilePath);
 
       // Write recovery file using atomic pattern (FR-015)
-      await atomicWrite(fullRecoveryPath, JSON.stringify(validated, null, 2));
+      await atomicWriteWithLock(fullRecoveryPath, JSON.stringify(validated, null, 2));
 
       // Update manifest entry
       const manifestEntry: ManifestEntry = {
@@ -325,7 +346,7 @@ export class AutosaveService {
       const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
 
       // Atomic write for manifest
-      await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+      await atomicWriteWithLock(manifestPath, JSON.stringify(updatedManifest, null, 2));
     });
   }
 
@@ -353,7 +374,7 @@ export class AutosaveService {
       const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
 
       // Atomic write for manifest
-      await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+      await atomicWriteWithLock(manifestPath, JSON.stringify(updatedManifest, null, 2));
     });
   }
 

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-03-05T21:15:03.917Z",
+  "baselinePath": "/Users/ww/dev/projects/mdxpad/.github/policies/npm-audit-baseline.json",
+  "summary": {
+    "observedHighOrCritical": 5,
+    "baselineEntries": 5,
+    "unexpectedFindings": 0,
+    "resolvedFindings": 0
+  },
+  "unexpectedFindings": [],
+  "baselineMatches": [
+    {
+      "id": 1112329,
+      "package": "tar",
+      "severity": "high"
+    },
+    {
+      "id": 1112659,
+      "package": "tar",
+      "severity": "high"
+    },
+    {
+      "id": 1113300,
+      "package": "tar",
+      "severity": "high"
+    },
+    {
+      "id": 1113375,
+      "package": "tar",
+      "severity": "high"
+    },
+    {
+      "id": 1113992,
+      "package": "tar",
+      "severity": "high"
+    }
+  ],
+  "resolvedFindings": []
+}

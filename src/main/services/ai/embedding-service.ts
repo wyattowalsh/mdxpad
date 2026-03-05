@@ -146,6 +146,7 @@ export class EmbeddingService {
 
     const files = await findIndexableFiles(workspacePath);
     let totalChunks = 0;
+    let indexedFiles = 0;
 
     // Process files in batches to avoid overwhelming the AI provider
     const batchSize = 5;
@@ -176,6 +177,7 @@ export class EmbeddingService {
             });
           }
           totalChunks += chunks.length;
+          indexedFiles += 1;
         } catch (error) {
           console.error(`[EmbeddingService] Failed to index ${filePath}:`, error);
         }
@@ -185,7 +187,7 @@ export class EmbeddingService {
     }
 
     await store.saveToDisk();
-    return { indexedFiles: files.length, totalChunks };
+    return { indexedFiles, totalChunks };
   }
 
   /**

@@ -10,9 +10,13 @@ import type { BrowserWindow } from 'electron';
 import type { FileHandle, FileResult, FileError, FileId } from '@shared/types/file';
 import { createFileId } from '@shared/types/file';
 import { atomicWrite } from '@shared/lib/atomic-write';
+import type { WriteLockLease } from '@shared/lib/write-lock';
+import { createWriteLock } from '@shared/lib/write-lock';
 import { FileWatcher } from './file-watcher';
 import { RecentFilesService } from './recent-files';
 import { AutoSaveManager } from './auto-save';
+
+const fileWriteLock = createWriteLock();
 
 /**
  * Maps Node.js file system error codes to FileError types.
@@ -65,14 +69,28 @@ export async function writeFile(
   filePath: string,
   content: string
 ): Promise<FileResult<void>> {
+  let lockLease: WriteLockLease | null = null;
+
   try {
-    await atomicWrite(filePath, content);
+    lockLease = await fileWriteLock.acquire(path.resolve(filePath));
+    await atomicWrite(filePath, content, {
+      durabilityContract: {
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[FileService] Atomic write contract reported failure for "${path.basename(filePath)}": ${message}`
+          );
+        },
+      },
+    });
     return { ok: true, value: undefined };
   } catch (error: unknown) {
     const fileError = mapFsError(error, filePath);
     // SEC-2: Only log basename to avoid exposing full paths in logs
     console.error(`[FileService] Failed to write file "${path.basename(filePath)}":`, fileError);
     return { ok: false, error: fileError };
+  } finally {
+    lockLease?.release();
   }
 }
 

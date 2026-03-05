@@ -9,6 +9,25 @@
 import { z } from 'zod';
 
 // ============================================================================
+// Safe Document ID (path-traversal-safe, used where documentId becomes a filename)
+// ============================================================================
+
+/**
+ * Document ID schema safe for use in filesystem paths.
+ * Rejects path traversal sequences (..), null bytes, and path separators.
+ * HR-3 audit (2026-03-01): Added because CollaborationService and CloudSyncService
+ * use documentId in path.join() to construct filesystem paths.
+ */
+export const SafeDocumentIdSchema = z
+  .string()
+  .min(1)
+  .refine((val) => !val.includes('..'), { message: 'documentId must not contain ".."' })
+  .refine((val) => !val.includes('\0'), { message: 'documentId must not contain null bytes' })
+  .refine((val) => !val.includes('/') && !val.includes('\\'), {
+    message: 'documentId must not contain path separators',
+  });
+
+// ============================================================================
 // Cloud Sync
 // ============================================================================
 
@@ -82,7 +101,7 @@ export type CloudSyncStatusResponse = z.infer<typeof CloudSyncStatusResponseSche
 
 export const CloudSyncPushRequestSchema = z.object({
   providerId: CloudSyncProviderIdSchema,
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
   filePath: z.string().min(1),
   content: z.string(),
   baseRevision: z.number().int().nonnegative().optional(),
@@ -99,7 +118,7 @@ export type CloudSyncPushResponse = z.infer<typeof CloudSyncPushResponseSchema>;
 
 export const CloudSyncPullRequestSchema = z.object({
   providerId: CloudSyncProviderIdSchema,
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
 });
 export type CloudSyncPullRequest = z.infer<typeof CloudSyncPullRequestSchema>;
 
@@ -163,7 +182,7 @@ export const CollaborationSuggestionSchema = z.object({
 export type CollaborationSuggestion = z.infer<typeof CollaborationSuggestionSchema>;
 
 export const CollaborationListRequestSchema = z.object({
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
 });
 export type CollaborationListRequest = z.infer<typeof CollaborationListRequestSchema>;
 
@@ -174,7 +193,7 @@ export const CollaborationListResponseSchema = z.object({
 export type CollaborationListResponse = z.infer<typeof CollaborationListResponseSchema>;
 
 export const CollaborationAddCommentRequestSchema = z.object({
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
   threadId: z.string().min(1).optional(),
   anchor: CollaborationAnchorSchema,
   author: z.string().min(1),
@@ -188,7 +207,7 @@ export const CollaborationAddCommentResponseSchema = z.object({
 export type CollaborationAddCommentResponse = z.infer<typeof CollaborationAddCommentResponseSchema>;
 
 export const CollaborationResolveThreadRequestSchema = z.object({
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
   threadId: z.string().min(1),
   resolved: z.boolean(),
 });
@@ -204,7 +223,7 @@ export type CollaborationResolveThreadResponse = z.infer<
 >;
 
 export const CollaborationAddSuggestionRequestSchema = z.object({
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
   anchor: CollaborationAnchorSchema,
   patch: z.string().min(1),
   rationale: z.string().min(1),
@@ -223,7 +242,7 @@ export type CollaborationAddSuggestionResponse = z.infer<
 >;
 
 export const CollaborationApplySuggestionRequestSchema = z.object({
-  documentId: z.string().min(1),
+  documentId: SafeDocumentIdSchema,
   suggestionId: z.string().min(1),
   currentChecksum: z.string().min(1),
 });

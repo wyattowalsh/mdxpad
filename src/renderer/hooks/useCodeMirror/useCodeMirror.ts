@@ -19,6 +19,11 @@ import { executeCommand as execCmd, markdownKeymap, type EditorCommandName, type
 import { toEditorState, toSelectionInfo, debounce, type DebouncedFunction } from '../../lib/editor/state-bridge';
 import type { EditorError } from '../../lib/editor/errors';
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
+import {
+  reconfigureRuntimeExtensions,
+  type RuntimeCompartments,
+} from './runtime-reconfigure';
+import type { KeymapMode } from '../../lib/editor/keymaps';
 
 // =============================================================================
 // Types
@@ -35,6 +40,13 @@ export interface UseCodeMirrorOptions {
   readonly bracketMatching?: boolean;
   readonly closeBrackets?: boolean;
   readonly indentationGuides?: boolean;
+  readonly keymapMode?: KeymapMode;
+  readonly enableMinimap?: boolean;
+  readonly enableFocusMode?: boolean;
+  readonly enableSpellcheck?: boolean;
+  readonly fontFamily?: string;
+  readonly fontSize?: number;
+  readonly fontLineHeight?: number;
   readonly debounceMs?: number;
   readonly onChange?: (state: EditorState) => void;
   readonly onSelectionChange?: (selection: SelectionInfo) => void;
@@ -114,6 +126,13 @@ function buildExtensionConfig(options: UseCodeMirrorOptions): Partial<MDXEditorC
       bracketMatching: options.bracketMatching,
       closeBrackets: options.closeBrackets,
       indentationGuides: options.indentationGuides,
+      keymapMode: options.keymapMode,
+      enableMinimap: options.enableMinimap,
+      enableFocusMode: options.enableFocusMode,
+      enableSpellcheck: options.enableSpellcheck,
+      fontFamily: options.fontFamily,
+      fontSize: options.fontSize,
+      fontLineHeight: options.fontLineHeight,
       extensions: options.extensions,
     }).filter(([, value]) => value !== undefined)
   );
@@ -152,14 +171,33 @@ function initializeEditor(
   setState: React.Dispatch<React.SetStateAction<EditorState | null>>,
   setSelection: React.Dispatch<React.SetStateAction<SelectionInfo | null>>,
   setIsFocused: React.Dispatch<React.SetStateAction<boolean>>,
-  viewRef: React.RefObject<EditorView | null>
+  viewRef: React.RefObject<EditorView | null>,
+  runtimeCompartmentsRef: React.RefObject<RuntimeCompartments | null>
 ): () => void {
   const debouncedOnChange = options.onChange
     ? debounce(options.onChange, options.debounceMs ?? DEFAULT_DEBOUNCE_MS)
     : undefined;
 
   // Get extensions and per-instance theme compartment (fixes singleton issue with multiple editors)
-  const { extensions: configExtensions, themeCompartment } = buildExtensions(buildExtensionConfig(options));
+  const {
+    extensions: configExtensions,
+    themeCompartment,
+    minimapCompartment,
+    focusModeCompartment,
+    spellcheckCompartment,
+    wordWrapCompartment,
+    fontSettingsCompartment,
+    keymapCompartment,
+  } = buildExtensions(buildExtensionConfig(options));
+  runtimeCompartmentsRef.current = {
+    themeCompartment,
+    minimapCompartment,
+    focusModeCompartment,
+    spellcheckCompartment,
+    wordWrapCompartment,
+    fontSettingsCompartment,
+    keymapCompartment,
+  };
   const updateListener = createUpdateListener(
     setState,
     setSelection,
@@ -190,6 +228,7 @@ function initializeEditor(
     cleanupThemeListener();
     view.destroy();
     viewRef.current = null;
+    runtimeCompartmentsRef.current = null;
   };
 }
 
@@ -267,6 +306,7 @@ function initializeEditor(
 export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirrorReturn {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const runtimeCompartmentsRef = useRef<RuntimeCompartments | null>(null);
   const onErrorRef = useRef<OnErrorCallback | undefined>(options.onError);
   const [state, setState] = useState<EditorState | null>(null);
   const [selection, setSelectionState] = useState<SelectionInfo | null>(null);
@@ -277,60 +317,7 @@ export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirror
     onErrorRef.current = options.onError;
   }, [options.onError]);
 
-  /**
-   * Editor Initialization Effect - INTENTIONAL EMPTY DEPENDENCY ARRAY
-   *
-   * This effect creates the CodeMirror EditorView exactly once on mount and destroys
-   * it on unmount. The empty dependency array (`[]`) is deliberate and critical to
-   * the hook's design.
-   *
-   * ## Why Config Options Won't Reconfigure After Mount
-   *
-   * Configuration options passed to `useCodeMirror` (such as `lineNumbers`,
-   * `lineWrapping`, `tabSize`, `highlightActiveLine`, `bracketMatching`,
-   * `closeBrackets`, `indentationGuides`) are only read during initial EditorView
-   * creation. Changing these props after mount will NOT update the editor because:
-   *
-   * 1. **EditorView is created once**: The EditorView instance is created with
-   *    extensions built from the initial options. CodeMirror's extension system
-   *    requires explicit reconfiguration via `view.dispatch({ effects: ... })`
-   *    with compartment reconfiguration to change extensions at runtime.
-   *
-   * 2. **Performance by design**: Rebuilding the entire extension stack on every
-   *    prop change would be expensive and could cause editor state loss (undo
-   *    history, scroll position, etc.).
-   *
-   * ## Exception: Theme Changes ARE Reactive
-   *
-   * The `theme` option is the exception—it uses a CodeMirror Compartment
-   * (`themeCompartment`) with a listener that responds to system preference
-   * changes. Theme switching works because it's explicitly wired up via
-   * `createThemeListener()` which dispatches compartment reconfiguration effects.
-   *
-   * ## If You Need Full Reconfiguration
-   *
-   * To force a complete editor reconfiguration with new options, use React's `key`
-   * prop on the parent component containing the editor:
-   *
-   * ```tsx
-   * // Changing the key forces React to unmount and remount the editor
-   * <EditorComponent key={`editor-${configVersion}`} {...newOptions} />
-   * ```
-   *
-   * This unmounts the old editor (triggering cleanup) and mounts a fresh instance
-   * with the new configuration. Use sparingly as it resets all editor state
-   * including undo history, scroll position, and cursor position.
-   *
-   * ## Alternative: Extend with More Compartments
-   *
-   * For options that need runtime reconfiguration, the recommended approach is to:
-   * 1. Wrap the relevant extension in a Compartment (like `themeCompartment`)
-   * 2. Store the compartment reference
-   * 3. Add a useEffect that dispatches compartment reconfiguration on prop changes
-   *
-   * @see buildExtensions() for how extensions are constructed
-   * @see createThemeListener() for an example of compartment-based reconfiguration
-   */
+  // Initialize EditorView once and retain runtime compartments for live reconfiguration.
   useEffect(() => {
     if (!containerRef.current) return;
     return initializeEditor(
@@ -339,17 +326,51 @@ export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirror
       setState,
       setSelectionState,
       setIsFocused,
-      viewRef
+      viewRef,
+      runtimeCompartmentsRef
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- INTENTIONAL: Empty deps creates EditorView once on mount. Config options (except theme) are baked into extensions at creation time and won't reconfigure on prop changes. See JSDoc above for full explanation and workarounds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialize once; runtime updates handled below.
   }, []);
+
+  useEffect(() => {
+    if (!viewRef.current || !runtimeCompartmentsRef.current) return;
+    reconfigureRuntimeExtensions(viewRef.current, runtimeCompartmentsRef.current, {
+      theme: options.theme,
+      lineWrapping: options.lineWrapping,
+      keymapMode: options.keymapMode,
+      enableMinimap: options.enableMinimap,
+      enableFocusMode: options.enableFocusMode,
+      enableSpellcheck: options.enableSpellcheck,
+      fontFamily: options.fontFamily,
+      fontSize: options.fontSize,
+      fontLineHeight: options.fontLineHeight,
+    });
+  }, [
+    options.theme,
+    options.lineWrapping,
+    options.keymapMode,
+    options.enableMinimap,
+    options.enableFocusMode,
+    options.enableSpellcheck,
+    options.fontFamily,
+    options.fontSize,
+    options.fontLineHeight,
+  ]);
 
   const setValue = useCallback((value: string): void => {
     const view = viewRef.current;
     if (!view) return;
     // Skip if content is already identical
     if (view.state.doc.toString() === value) return;
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
+    const { anchor, head } = view.state.selection.main;
+    const nextDocLength = value.length;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: value },
+      selection: {
+        anchor: Math.max(0, Math.min(nextDocLength, anchor)),
+        head: Math.max(0, Math.min(nextDocLength, head)),
+      },
+    });
   }, []);
 
   const setSelection = useCallback((anchor: number, head?: number): void => {

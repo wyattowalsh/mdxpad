@@ -80,4 +80,33 @@ describe('TabBar', () => {
 
     expect(screen.getByTestId('dirty-indicator')).toBeTruthy();
   });
+
+  it('should support ArrowLeft/ArrowRight keyboard navigation', () => {
+    const id1 = addTab('file1.mdx');
+    const id2 = addTab('file2.mdx');
+
+    useTabStore.getState().setActiveTab(id1);
+    render(<TabBar />);
+
+    fireEvent.keyDown(screen.getByTestId(`tab-item-${id1}`), { key: 'ArrowRight' });
+    expect(useTabStore.getState().activeTabId).toBe(id2);
+
+    fireEvent.keyDown(screen.getByTestId(`tab-item-${id2}`), { key: 'ArrowLeft' });
+    expect(useTabStore.getState().activeTabId).toBe(id1);
+  });
+
+  it('should support Home/End keyboard navigation', () => {
+    const id1 = addTab('file1.mdx');
+    addTab('file2.mdx');
+    const id3 = addTab('file3.mdx');
+
+    useTabStore.getState().setActiveTab(id3);
+    render(<TabBar />);
+
+    fireEvent.keyDown(screen.getByTestId(`tab-item-${id3}`), { key: 'Home' });
+    expect(useTabStore.getState().activeTabId).toBe(id1);
+
+    fireEvent.keyDown(screen.getByTestId(`tab-item-${id1}`), { key: 'End' });
+    expect(useTabStore.getState().activeTabId).toBe(id3);
+  });
 });

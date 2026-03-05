@@ -1,8 +1,17 @@
 /**
- * Integration tests for Multi-File AI Editing.
+ * Multi-File AI Edit Store State Transition Tests
  *
- * Tests session lifecycle: start session, add file edits,
- * accept/reject per file, apply all, reject all, and progress tracking.
+ * Tests session lifecycle: starting a multi-file edit session, per-file
+ * accept/reject, bulk apply/reject, progress tracking, idempotency guards,
+ * edit content access, and store reset.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand multi-file-ai-store in isolation with
+ * a mocked localStorage. No AI model calls, file reads/writes, or diff
+ * computations are performed. Edit objects are synthetic constants passed
+ * directly to the store. True integration tests would invoke an AI edit session
+ * via the AI SDK, receive real diffs, apply accepted edits to actual files on
+ * disk through the main process, and verify the resulting file contents.
  *
  * @module tests/integration/multi-file-ai.test
  */

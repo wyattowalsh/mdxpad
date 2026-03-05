@@ -47,6 +47,42 @@ const REQUIRED_SETTINGS: SecurityInfo = {
 };
 const CLOSE_TIMEOUT_MS = 5000;
 
+interface VerifySecurityRunOptions {
+  runRuntime: boolean;
+  runStatic: boolean;
+}
+
+function parseRunOptions(args: string[]): VerifySecurityRunOptions {
+  let runRuntime = true;
+  let runStatic = true;
+
+  for (const arg of args) {
+    if (!arg || arg === '--') {
+      continue;
+    }
+
+    if (arg === '--runtime-only') {
+      runRuntime = true;
+      runStatic = false;
+      continue;
+    }
+
+    if (arg === '--static-only') {
+      runRuntime = false;
+      runStatic = true;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (!runRuntime && !runStatic) {
+    throw new Error('At least one verification mode must be enabled');
+  }
+
+  return { runRuntime, runStatic };
+}
+
 function validateSettings(
   source: string,
   settings: SecurityInfo | null,
@@ -484,24 +520,42 @@ async function verifyStaticSecurityChecks(): Promise<StaticCheckResult> {
   return { passed, violations };
 }
 
-// Run verification
-Promise.all([verifySecuritySettings(), verifyStaticSecurityChecks()])
-  .then(([runtimeResult, staticResult]) => {
-    const allPassed = runtimeResult.passed && staticResult.passed;
+async function runVerifications(): Promise<void> {
+  const options = parseRunOptions(process.argv.slice(2));
+  const runtimeCheck = options.runRuntime
+    ? verifySecuritySettings()
+    : Promise.resolve<VerificationResult | null>(null);
+  const staticCheck = options.runStatic
+    ? verifyStaticSecurityChecks()
+    : Promise.resolve<StaticCheckResult | null>(null);
 
-    if (!allPassed) {
-      if (!runtimeResult.passed) {
-        console.error('\nRuntime security verification failed.');
-      }
-      if (!staticResult.passed) {
-        console.error('\nStatic security checks failed.');
-      }
-      process.exit(1);
+  if (!options.runRuntime) {
+    console.log('Skipping runtime security verification (--static-only).');
+  }
+  if (!options.runStatic) {
+    console.log('Skipping static security checks (--runtime-only).');
+  }
+
+  const [runtimeResult, staticResult] = await Promise.all([runtimeCheck, staticCheck]);
+
+  const runtimePassed = runtimeResult?.passed ?? true;
+  const staticPassed = staticResult?.passed ?? true;
+
+  if (!runtimePassed || !staticPassed) {
+    if (!runtimePassed) {
+      console.error('\nRuntime security verification failed.');
     }
-    console.log('\nAll security verifications complete.');
-    process.exit(0);
-  })
-  .catch((error: unknown) => {
-    console.error('Security verification failed with error:', error);
-    process.exit(1);
-  });
+    if (!staticPassed) {
+      console.error('\nStatic security checks failed.');
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log('\nAll security verifications complete.');
+}
+
+runVerifications().catch((error: unknown) => {
+  console.error('Security verification failed with error:', error);
+  process.exitCode = 1;
+});

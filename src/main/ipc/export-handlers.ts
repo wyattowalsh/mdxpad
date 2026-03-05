@@ -17,7 +17,7 @@ import {
 import { ExportOrchestratorService } from '@main/services/export-orchestrator';
 import { generateLlmsFile, invokeExportCli } from '@main/services/cli-service';
 
-import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
+import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
 export interface ExportCliService {
   invokeExportCli: typeof invokeExportCli;
@@ -27,18 +27,6 @@ export interface ExportCliService {
 interface ExportHandlerDependencies {
   orchestratorService?: ExportOrchestratorService;
   cliService?: ExportCliService;
-}
-
-function registerAuthorizedHandler(
-  ipcMain: IpcMain,
-  window: BrowserWindow,
-  channel: string,
-  handler: (request: unknown) => unknown
-): void {
-  ipcMain.handle(channel, (event, request) => {
-    assertAuthorizedIpcSender(event, window, channel);
-    return handler(request);
-  });
 }
 
 export function registerExportHandlers(
@@ -73,8 +61,16 @@ export function registerExportHandlers(
     return LlmsGenerationResponseSchema.parse(response);
   };
 
-  registerAuthorizedHandler(ipcMain, window, EXPORT_IPC_CHANNELS.jobLifecycle, handleJobLifecycle);
-  registerAuthorizedHandler(ipcMain, window, EXPORT_IPC_CHANNELS.presetCrud, handlePresetCrud);
-  registerAuthorizedHandler(ipcMain, window, EXPORT_IPC_CHANNELS.cliInvoke, handleCliInvoke);
-  registerAuthorizedHandler(ipcMain, window, EXPORT_IPC_CHANNELS.llmsGenerate, handleLlmsGenerate);
+  registerAuthorizedIpcHandler(ipcMain, window, EXPORT_IPC_CHANNELS.jobLifecycle, (_event, request) =>
+    handleJobLifecycle(request)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, EXPORT_IPC_CHANNELS.presetCrud, (_event, request) =>
+    handlePresetCrud(request)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, EXPORT_IPC_CHANNELS.cliInvoke, (_event, request) =>
+    handleCliInvoke(request)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, EXPORT_IPC_CHANNELS.llmsGenerate, (_event, request) =>
+    handleLlmsGenerate(request)
+  );
 }

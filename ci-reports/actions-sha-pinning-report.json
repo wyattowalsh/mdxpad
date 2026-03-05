@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "schema": ".github/policies/actions-sha-pinning-report.schema.json",
+  "generatedAt": "2026-03-05T04:28:45.432Z",
+  "repository": null,
+  "mode": "enforce",
+  "summary": {
+    "workflowFiles": 2,
+    "totalActionUsages": 37,
+    "pinnedActionUsages": 37,
+    "unpinnedActionUsages": 0
+  },
+  "violations": []
+}

@@ -1,0 +1,82 @@
+---
+title: Installation
+description: Prerequisites and setup for MDXPad development.
+---
+
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout type="info">
+  MDXPad is macOS-only. It relies on Electron native APIs, macOS Keychain (via `safeStorage`), and macOS-specific system integrations that are not available on other platforms.
+</Callout>
+
+## Prerequisites
+
+- **macOS** 11.0 (Big Sur) or later
+- **Node.js** >= 20.19.0
+- **pnpm** 10.11.1
+- **Xcode Command Line Tools** (required for native dependencies)
+
+## Setup
+
+<Steps>
+  <Step>
+    ### Install Xcode Command Line Tools
+
+    ```bash
+    xcode-select --install
+    ```
+
+    This is required for native Node.js dependencies. If already installed, this command will inform you.
+  </Step>
+
+  <Step>
+    ### Clone the repository
+
+    ```bash
+    git clone <repository-url>
+    cd mdxpad
+    ```
+  </Step>
+
+  <Step>
+    ### Install dependencies
+
+    ```bash
+    pnpm install
+    ```
+
+    pnpm will install all workspace dependencies including Electron, CodeMirror, and native modules. Expect this to take a minute on first install.
+  </Step>
+
+  <Step>
+    ### Start development mode
+
+    ```bash
+    pnpm dev
+    ```
+
+    This starts electron-vite with hot module replacement. The Electron app window will open automatically. Changes to renderer code update instantly; changes to main process code trigger an app restart.
+  </Step>
+</Steps>
+
+## Verify your setup
+
+After installation, run the full quality check to confirm everything is working:
+
+```bash
+pnpm check
+```
+
+This runs `typecheck`, `lint`, and `test` in sequence. All three must pass before submitting any changes.
+
+## Individual commands
+
+| Command | Purpose |
+|---------|---------|
+| `pnpm typecheck` | TypeScript type checking (strict mode) |
+| `pnpm lint` | ESLint (zero errors enforced) |
+| `pnpm test` | Vitest unit tests |
+| `pnpm test:e2e` | Playwright E2E tests |
+| `pnpm coverage` | Test coverage report (80% minimum) |
+| `pnpm build` | Production build and package |

@@ -26,6 +26,7 @@ export const DEFAULT_MODELS: Record<ProviderType, string> = {
   anthropic: 'claude-3-5-sonnet-20241022',
   ollama: 'llama3',
   lmstudio: 'default',
+  sidecar: 'llama3',
   'openai-compatible': 'gpt-3.5-turbo',
 };
 

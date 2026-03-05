@@ -134,6 +134,31 @@ describe('registerExportHandlers', () => {
       })
     ).toThrow('Unauthorized IPC sender');
   });
+
+  it('rejects unauthorized frame for export handlers', () => {
+    const window = createMockWindow();
+    const dependencies = createDependencies();
+    registerExportHandlers(mockIpcMain, window, dependencies);
+
+    const lifecycleCall = vi
+      .mocked(mockIpcMain.handle)
+      .mock.calls.find(([channel]) => channel === EXPORT_IPC_CHANNELS.jobLifecycle);
+    const lifecycleHandler = lifecycleCall?.[1] as
+      | ((event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>)
+      | undefined;
+
+    expect(lifecycleHandler).toBeDefined();
+    expect(() =>
+      lifecycleHandler!(
+        createInvokeEvent(window, {
+          senderFrameRoutingId: window.webContents.mainFrame.routingId + 1,
+        }),
+        {
+          action: 'list',
+        }
+      )
+    ).toThrow('Unauthorized IPC sender');
+  });
 });
 
 describe('export lifecycle handlers', () => {

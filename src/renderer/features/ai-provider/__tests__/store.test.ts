@@ -18,6 +18,10 @@ const mockAIApi = {
   removeProvider: vi.fn(),
   setActiveProvider: vi.fn(),
   validateProvider: vi.fn(),
+  getSidecarStatus: vi.fn(),
+  configureSidecar: vi.fn(),
+  startSidecar: vi.fn(),
+  stopSidecar: vi.fn(),
   queryUsage: vi.fn(),
 };
 
@@ -33,6 +37,8 @@ beforeEach(() => {
     selectedProviderId: null,
     usageStats: null,
     usageStatsTimeRange: 'week',
+    sidecarStatus: null,
+    isSidecarLoading: false,
     error: null,
   });
 
@@ -128,14 +134,121 @@ describe('AI Provider Store', () => {
       });
 
       const { addProvider } = useAIProviderStore.getState();
-      await addProvider(
-        { displayName: 'New Provider', type: 'anthropic' },
-        'sk-test-key'
-      );
+      await addProvider({ displayName: 'New Provider', type: 'anthropic' }, 'sk-test-key');
 
       const state = useAIProviderStore.getState();
       expect(state.providers).toHaveLength(1);
       expect(state.providers[0]!.displayName).toBe('New Provider');
+    });
+
+    it('should add a sidecar provider with sidecar config', async () => {
+      const sidecarProvider: ProviderConfig = {
+        id: 'sidecar-1',
+        displayName: 'Local Sidecar',
+        type: 'sidecar',
+        sidecarConfig: {
+          modelPath: '/models/llama.gguf',
+          port: 11470,
+        },
+        isActive: false,
+        status: 'disconnected',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      };
+
+      mockAIApi.addProvider.mockResolvedValue({
+        success: true,
+        provider: sidecarProvider,
+      });
+
+      const { addProvider } = useAIProviderStore.getState();
+      await addProvider({
+        displayName: 'Local Sidecar',
+        type: 'sidecar',
+        sidecarConfig: {
+          modelPath: '/models/llama.gguf',
+          port: 11470,
+        },
+      });
+
+      expect(mockAIApi.addProvider).toHaveBeenCalledWith({
+        displayName: 'Local Sidecar',
+        type: 'sidecar',
+        baseUrl: undefined,
+        sidecarConfig: {
+          modelPath: '/models/llama.gguf',
+          port: 11470,
+        },
+        apiKey: undefined,
+      });
+      expect(useAIProviderStore.getState().providers[0]?.type).toBe('sidecar');
+    });
+  });
+
+  describe('sidecar lifecycle actions', () => {
+    it('should fetch and store sidecar status', async () => {
+      mockAIApi.getSidecarStatus.mockResolvedValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+        config: {
+          modelPath: '/models/llama.gguf',
+          port: 11470,
+        },
+      });
+
+      const { fetchSidecarStatus } = useAIProviderStore.getState();
+      const status = await fetchSidecarStatus();
+
+      expect(status?.status).toBe('running');
+      expect(useAIProviderStore.getState().sidecarStatus?.endpoint).toBe('http://127.0.0.1:11470');
+      expect(useAIProviderStore.getState().isSidecarLoading).toBe(false);
+    });
+
+    it('should configure sidecar and persist status', async () => {
+      const config = {
+        modelPath: '/models/llama.gguf',
+        port: 11470,
+      };
+      mockAIApi.configureSidecar.mockResolvedValue({
+        success: true,
+        status: 'stopped',
+        config,
+      });
+
+      const { configureSidecar } = useAIProviderStore.getState();
+      const status = await configureSidecar(config);
+
+      expect(mockAIApi.configureSidecar).toHaveBeenCalledWith(config);
+      expect(status?.status).toBe('stopped');
+      expect(useAIProviderStore.getState().sidecarStatus?.config?.modelPath).toBe('/models/llama.gguf');
+      expect(useAIProviderStore.getState().error).toBeNull();
+    });
+
+    it('should handle missing model path failure from startSidecar', async () => {
+      mockAIApi.startSidecar.mockResolvedValue({
+        success: false,
+        status: 'error',
+        error: { code: 'INVALID_CONFIG', message: 'Model path is required' },
+      });
+
+      const { startSidecar } = useAIProviderStore.getState();
+      const status = await startSidecar({ modelPath: '' });
+
+      expect(mockAIApi.startSidecar).toHaveBeenCalledWith({ modelPath: '' });
+      expect(status?.success).toBe(false);
+      expect(useAIProviderStore.getState().error).toBe('Model path is required');
+    });
+
+    it('should handle stopSidecar API errors', async () => {
+      mockAIApi.stopSidecar.mockRejectedValue(new Error('Failed to stop sidecar process'));
+
+      const { stopSidecar } = useAIProviderStore.getState();
+      const status = await stopSidecar();
+
+      expect(status).toBeNull();
+      expect(useAIProviderStore.getState().error).toBe('Failed to stop sidecar process');
+      expect(useAIProviderStore.getState().isSidecarLoading).toBe(false);
     });
   });
 

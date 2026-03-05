@@ -206,7 +206,14 @@ export interface PreviewFrameProps {
 const READY_TIMEOUT_MS = 5000;
 // Preview frame is under renderer directory (dist/renderer/preview-frame/)
 // In dev, electron-vite serves it at /preview-frame/index.html
-const PREVIEW_FRAME_SRC = './preview-frame/index.html';
+const PREVIEW_FRAME_PROTOCOL_SRC = 'mdxpad-preview://local/preview-frame/index.html';
+const PREVIEW_FRAME_DEV_SRC = './preview-frame/index.html';
+
+export function getPreviewFrameSrc(isDev: boolean = import.meta.env.DEV): string {
+  return isDev ? PREVIEW_FRAME_DEV_SRC : PREVIEW_FRAME_PROTOCOL_SRC;
+}
+
+const PREVIEW_FRAME_SRC = getPreviewFrameSrc();
 
 // ============================================================================
 // Hooks

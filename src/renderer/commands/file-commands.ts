@@ -29,6 +29,7 @@ export const FILE_COMMAND_IDS = {
   save: 'file.save' as CommandId,
   saveAs: 'file.save-as' as CommandId,
   export: 'file.export' as CommandId,
+  plugins: 'file.plugins' as CommandId,
   close: 'file.close' as CommandId,
 } as const;
 
@@ -37,17 +38,15 @@ export const FILE_COMMAND_IDS = {
 // =============================================================================
 
 /**
- * Placeholder function to check if user wants to proceed when document is dirty.
+ * Check if user wants to proceed when document has unsaved changes.
  * Returns true to proceed, false to cancel.
- *
- * TODO: Integrate with T008 (unsaved changes dialog) to show actual confirmation.
- *
- * @returns true - always proceeds (placeholder behavior)
  */
 export function checkDirtyState(): boolean {
-  // Placeholder: always proceed for now
-  // Will be integrated with unsaved changes dialog in T008
-  return true;
+  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
+    return true;
+  }
+
+  return window.confirm('You have unsaved changes. Continue without saving?');
 }
 
 /**
@@ -117,6 +116,73 @@ async function loadFileIntoStore(
   return { ok: true };
 }
 
+/**
+ * Save current document with Save As and report whether a save actually happened.
+ */
+// eslint-disable-next-line max-lines-per-function
+async function executeSaveFileAs(
+  ctx: CommandContext
+): Promise<{ result: CommandResult; saved: boolean }> {
+  try {
+    const result = await ctx.api.saveFileAs(ctx.document.content);
+
+    if (!result.ok) {
+      // User cancelled Save As dialog
+      if (result.error.code === 'CANCELLED') {
+        return { result: { ok: true }, saved: false };
+      }
+      const errorMessage = formatFileError(result.error);
+      ctx.notify({
+        type: 'error',
+        message: `Failed to save: ${errorMessage}`,
+      });
+      return { result: { ok: false, error: errorMessage }, saved: false };
+    }
+
+    // Ensure path exists (should always be set when saveFileAs returns success)
+    const savedPath = result.value.path;
+    if (!savedPath) {
+      ctx.notify({
+        type: 'error',
+        message: 'Failed to save: No file path returned',
+      });
+      return { result: { ok: false, error: 'No file path returned' }, saved: false };
+    }
+
+    // Convert FileHandle to DocumentFileHandle and mark as saved with new handle
+    const docHandle: DocumentFileHandle = {
+      fileId: result.value.id as unknown as DocumentId,
+      filePath: savedPath,
+      mtime: Date.now(), // Use current time as mtime
+    };
+    useDocumentStore.getState().markSaved(docHandle);
+
+    ctx.notify({
+      type: 'success',
+      message: `Saved as: ${result.value.name}`,
+    });
+    return { result: { ok: true }, saved: true };
+  } catch (error) {
+    // Check if error has FileError shape (with code property)
+    if (error && typeof error === 'object' && 'code' in error) {
+      const fileError = error as FileError;
+      const message = formatFileError(fileError);
+      ctx.notify({
+        type: 'error',
+        message: `Failed to save: ${message}`,
+      });
+      return { result: { ok: false, error: message }, saved: false };
+    }
+    // Fallback for non-FileError errors
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.notify({
+      type: 'error',
+      message: `Failed to save: ${message}`,
+    });
+    return { result: { ok: false, error: message }, saved: false };
+  }
+}
+
 // =============================================================================
 // COMMAND DEFINITIONS
 // =============================================================================
@@ -132,10 +198,10 @@ const newFileCommand: Command = {
   category: 'file',
   shortcut: { key: 'n', modifiers: ['Mod'] },
   icon: '📄',
-  execute: (ctx: CommandContext): CommandResult => {
-    // Check dirty state before creating new document
-    if (ctx.document.isDirty && !checkDirtyState()) {
-      return { ok: true }; // User cancelled
+  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    // Dirty saved docs: keep existing confirm behavior
+    if (ctx.document.filePath && ctx.document.isDirty && !checkDirtyState()) {
+      return { ok: true };
     }
 
     // Reset document store to new document state
@@ -286,66 +352,9 @@ const saveFileAsCommand: Command = {
   category: 'file',
   shortcut: { key: 's', modifiers: ['Mod', 'Shift'] },
   icon: '💾',
-  // eslint-disable-next-line max-lines-per-function
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    try {
-      const result = await ctx.api.saveFileAs(ctx.document.content);
-
-      if (!result.ok) {
-        // User cancelled or error occurred
-        if (result.error.code === 'CANCELLED') {
-          return { ok: true }; // Cancelled is not an error
-        }
-        const errorMessage = formatFileError(result.error);
-        ctx.notify({
-          type: 'error',
-          message: `Failed to save: ${errorMessage}`,
-        });
-        return { ok: false, error: errorMessage };
-      }
-
-      // Ensure path exists (should always be set when saveFileAs returns success)
-      const savedPath = result.value.path;
-      if (!savedPath) {
-        ctx.notify({
-          type: 'error',
-          message: 'Failed to save: No file path returned',
-        });
-        return { ok: false, error: 'No file path returned' };
-      }
-
-      // Convert FileHandle to DocumentFileHandle and mark as saved with new handle
-      const docHandle: DocumentFileHandle = {
-        fileId: result.value.id as unknown as DocumentId,
-        filePath: savedPath,
-        mtime: Date.now(), // Use current time as mtime
-      };
-      useDocumentStore.getState().markSaved(docHandle);
-
-      ctx.notify({
-        type: 'success',
-        message: `Saved as: ${result.value.name}`,
-      });
-      return { ok: true };
-    } catch (error) {
-      // Check if error has FileError shape (with code property)
-      if (error && typeof error === 'object' && 'code' in error) {
-        const fileError = error as FileError;
-        const message = formatFileError(fileError);
-        ctx.notify({
-          type: 'error',
-          message: `Failed to save: ${message}`,
-        });
-        return { ok: false, error: message };
-      }
-      // Fallback for non-FileError errors
-      const message = error instanceof Error ? error.message : String(error);
-      ctx.notify({
-        type: 'error',
-        message: `Failed to save: ${message}`,
-      });
-      return { ok: false, error: message };
-    }
+    const saveResult = await executeSaveFileAs(ctx);
+    return saveResult.result;
   },
   enabled: () => true,
 };
@@ -414,6 +423,48 @@ const exportFileCommand: Command = {
   enabled: () => isFeatureEnabled('export'),
 };
 
+const managePluginsCommand: Command = {
+  id: FILE_COMMAND_IDS.plugins,
+  name: 'Manage Plugins',
+  description: 'View installed plugins and plugin surface status',
+  category: 'file',
+  icon: '🧩',
+  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    if (!isFeatureEnabled('plugin')) {
+      ctx.notify({
+        type: 'warning',
+        message: 'Plugin surface is disabled',
+      });
+      return { ok: false, error: 'Plugin surface is disabled' };
+    }
+
+    if (!ctx.api.plugin) {
+      ctx.notify({
+        type: 'error',
+        message: 'Plugin API is unavailable',
+      });
+      return { ok: false, error: 'Plugin API is unavailable' };
+    }
+
+    try {
+      const { plugins } = await ctx.api.plugin.list();
+      ctx.notify({
+        type: 'info',
+        message: `${plugins.length} plugin${plugins.length === 1 ? '' : 's'} installed`,
+      });
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      ctx.notify({
+        type: 'error',
+        message: `Failed to load plugins: ${message}`,
+      });
+      return { ok: false, error: message };
+    }
+  },
+  enabled: () => isFeatureEnabled('plugin'),
+};
+
 /**
  * Close window command.
  * Prompts for unsaved changes before closing.
@@ -470,6 +521,7 @@ const FILE_COMMANDS: readonly Command[] = [
   saveFileCommand,
   saveFileAsCommand,
   exportFileCommand,
+  managePluginsCommand,
   closeWindowCommand,
 ];
 
@@ -510,6 +562,7 @@ export {
   saveFileCommand,
   saveFileAsCommand,
   exportFileCommand,
+  managePluginsCommand,
   closeWindowCommand,
   FILE_COMMANDS,
 };

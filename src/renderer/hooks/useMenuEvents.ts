@@ -193,32 +193,27 @@ export function useMenuEvents(
   editorRef: React.RefObject<EditorView | null>,
   handleNotification: (n: NotificationInput) => void
 ): MenuEventsResult {
+  // Build command context from latest document state snapshot
+  const getCommandContext = useCallback(
+    (): CommandContext => {
+      const { fileId, filePath, content, isDirty } = useDocumentStore.getState();
+      return buildCommandContext(
+        editorRef.current,
+        getMdxpadApi() as typeof window.mdxpad,
+        { fileId, filePath, content, isDirty },
+        handleNotification
+      );
+    },
+    [editorRef, handleNotification]
+  );
+
   // Command palette state
-  const palette = useCommandPalette();
+  const palette = useCommandPalette(getCommandContext);
   const { isOpen, toggle, executeCommand } = palette;
 
   // Register built-in commands and subscribe to version / palette menu event
   useBuiltInCommands(toggle);
   const { version, platform } = useAppVersionAndPaletteMenu(toggle);
-
-  // Document state needed for building CommandContext
-  const fileId = useDocumentStore((s) => s.fileId);
-  const filePath = useDocumentStore((s) => s.filePath);
-  const isDirty = useDocumentStore((s) => s.isDirty);
-  const documentContent = useDocumentStore((s) => s.content);
-  const handleExternalChange = useDocumentStore((s) => s.handleExternalChange);
-
-  // Build command context
-  const getCommandContext = useCallback(
-    (): CommandContext =>
-      buildCommandContext(
-        editorRef.current,
-        getMdxpadApi() as typeof window.mdxpad,
-        { fileId, filePath, content: documentContent, isDirty },
-        handleNotification
-      ),
-    [editorRef, fileId, filePath, documentContent, isDirty, handleNotification]
-  );
 
   // Keyboard shortcuts
   const handleShortcut = useCallback(
@@ -297,6 +292,7 @@ export function useMenuEvents(
     const mdxpad = getMdxpadApi();
 
     const unsubscribe = mdxpad.onFileChange((event) => {
+      const { fileId, handleExternalChange } = useDocumentStore.getState();
       if (!fileId || event.fileId !== fileId || event.type !== 'change') return;
 
       void (async () => {
@@ -310,7 +306,7 @@ export function useMenuEvents(
     return () => {
       unsubscribe();
     };
-  }, [fileId, handleExternalChange]);
+  }, []);
 
   return { palette, version, platform, getCommandContext };
 }

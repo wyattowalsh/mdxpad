@@ -206,7 +206,13 @@ describe('writeFile', () => {
     const result = await writeFile('/test/file.mdx', '# Test Content');
 
     expect(result.ok).toBe(true);
-    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/file.mdx', '# Test Content');
+    expect(mockAtomicWrite).toHaveBeenCalledWith(
+      '/test/file.mdx',
+      '# Test Content',
+      expect.objectContaining({
+        durabilityContract: expect.any(Object),
+      })
+    );
   });
 
   it('should handle permission denied error', async () => {
@@ -254,7 +260,13 @@ describe('writeFile', () => {
     const result = await writeFile('/test/unicode.mdx', unicodeContent);
 
     expect(result.ok).toBe(true);
-    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/unicode.mdx', unicodeContent);
+    expect(mockAtomicWrite).toHaveBeenCalledWith(
+      '/test/unicode.mdx',
+      unicodeContent,
+      expect.objectContaining({
+        durabilityContract: expect.any(Object),
+      })
+    );
   });
 
   it('should write empty content', async () => {
@@ -263,7 +275,13 @@ describe('writeFile', () => {
     const result = await writeFile('/test/empty.mdx', '');
 
     expect(result.ok).toBe(true);
-    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/empty.mdx', '');
+    expect(mockAtomicWrite).toHaveBeenCalledWith(
+      '/test/empty.mdx',
+      '',
+      expect.objectContaining({
+        durabilityContract: expect.any(Object),
+      })
+    );
   });
 
   it('should preserve line endings', async () => {
@@ -273,7 +291,13 @@ describe('writeFile', () => {
     const result = await writeFile('/test/file.mdx', content);
 
     expect(result.ok).toBe(true);
-    expect(mockAtomicWrite).toHaveBeenCalledWith('/test/file.mdx', content);
+    expect(mockAtomicWrite).toHaveBeenCalledWith(
+      '/test/file.mdx',
+      content,
+      expect.objectContaining({
+        durabilityContract: expect.any(Object),
+      })
+    );
   });
 });
 

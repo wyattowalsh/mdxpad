@@ -5,16 +5,55 @@
  * @module citation-api
  */
 
-import { ipcRenderer } from 'electron';
-import { CitationChannels } from '@shared/contracts/citation-schemas';
-import type { CitationEntry, CitationStyle } from '@shared/contracts/citation-schemas';
+import { z } from 'zod';
+import {
+  CitationChannels,
+  ParseBibtexRequestSchema,
+  FormatCitationRequestSchema,
+  GenerateBibliographyRequestSchema,
+  ParseBibtexResponseSchema,
+  FormatCitationResponseSchema,
+  GenerateBibliographyResponseSchema,
+  CitationErrorSchema,
+  type CitationEntry,
+  type CitationStyle,
+} from '@shared/contracts/citation-schemas';
+import { validatedInvoke } from './validated-invoke';
+
+const createCitationOperationResultSchema = <T extends z.ZodTypeAny>(valueSchema: T) =>
+  z.discriminatedUnion('ok', [
+    z.object({ ok: z.literal(true), value: valueSchema }),
+    z.object({ ok: z.literal(false), error: CitationErrorSchema }),
+  ]);
+
+const ParseBibtexResultSchema = createCitationOperationResultSchema(ParseBibtexResponseSchema);
+const FormatCitationResultSchema = createCitationOperationResultSchema(FormatCitationResponseSchema);
+const GenerateBibliographyResultSchema = createCitationOperationResultSchema(
+  GenerateBibliographyResponseSchema
+);
 
 export const citationApi = {
-  parseBibtex: (bibtex: string) => ipcRenderer.invoke(CitationChannels.parseBibtex, { bibtex }),
+  parseBibtex: (bibtex: string) =>
+    validatedInvoke(
+      CitationChannels.parseBibtex,
+      ParseBibtexRequestSchema,
+      ParseBibtexResultSchema,
+      { bibtex }
+    ),
 
   formatCitation: (entry: CitationEntry, style: CitationStyle) =>
-    ipcRenderer.invoke(CitationChannels.formatCitation, { entry, style }),
+    validatedInvoke(
+      CitationChannels.formatCitation,
+      FormatCitationRequestSchema,
+      FormatCitationResultSchema,
+      { entry, style }
+    ),
 
   generateBibliography: (entries: CitationEntry[], style: CitationStyle) =>
-    ipcRenderer.invoke(CitationChannels.generateBibliography, { entries, style }),
+    validatedInvoke(
+      CitationChannels.generateBibliography,
+      GenerateBibliographyRequestSchema,
+      GenerateBibliographyResultSchema,
+      { entries, style }
+    ),
 };

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-03-02T12:18:02.710Z",
+  "runtimeSecurity": false,
+  "summary": {
+    "totalSteps": 3,
+    "passedSteps": 3,
+    "failedSteps": 0
+  },
+  "steps": [
+    {
+      "id": "recovery-integrity",
+      "title": "Save/recovery integrity rehearsal tests",
+      "command": "pnpm exec vitest run src/main/services/__tests__/recovery-service.test.ts",
+      "durationMs": 1629,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "id": "message-validation",
+      "title": "Message validation rehearsal tests",
+      "command": "pnpm exec vitest run src/shared/security/__tests__/message-validator.test.ts",
+      "durationMs": 1564,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "id": "security-static",
+      "title": "Static security verification",
+      "command": "pnpm verify-security -- --static-only",
+      "durationMs": 887,
+      "status": "pass",
+      "exitCode": 0
+    }
+  ]
+}

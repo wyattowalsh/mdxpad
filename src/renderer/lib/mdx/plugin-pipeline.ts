@@ -1,6 +1,5 @@
 import remarkGfm from 'remark-gfm';
 import remarkFrontmatter from 'remark-frontmatter';
-import rehypeHighlight from 'rehype-highlight';
 import type { Root } from 'mdast';
 import { z } from 'zod';
 import type { OutlineAST } from '@shared/types/outline';
@@ -219,6 +218,63 @@ const highlightOptionsSchema = z
   .strict();
 
 type HighlightOptions = z.infer<typeof highlightOptionsSchema>;
+type RehypeHighlightTransformer = (tree: unknown, file: unknown) => unknown;
+type RehypeHighlightFactory = (
+  options: HighlightOptions | undefined
+) => RehypeHighlightTransformer | undefined;
+
+interface HastNodeLike {
+  readonly type?: unknown;
+  readonly tagName?: unknown;
+  readonly children?: unknown;
+}
+
+function containsCodeNodes(tree: unknown): boolean {
+  const stack: unknown[] = [tree];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || typeof current !== 'object') {
+      continue;
+    }
+
+    const node = current as HastNodeLike;
+    if (node.type === 'element' && node.tagName === 'code') {
+      return true;
+    }
+
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) {
+        stack.push(child);
+      }
+    }
+  }
+
+  return false;
+}
+
+function createDeferredHighlightPlugin(options: HighlightOptions | undefined): MdxPipelinePlugin {
+  return () => {
+    let transformerPromise: Promise<RehypeHighlightTransformer> | null = null;
+
+    const loadTransformer = async (): Promise<RehypeHighlightTransformer> => {
+      const module = (await import('rehype-highlight')) as { default: RehypeHighlightFactory };
+      const transformer = module.default(options);
+      if (typeof transformer === 'function') {
+        return transformer;
+      }
+      return () => undefined;
+    };
+
+    return async (tree: unknown, file: unknown): Promise<void> => {
+      if (!containsCodeNodes(tree)) {
+        return;
+      }
+      transformerPromise ??= loadTransformer();
+      const transformer = await transformerPromise;
+      await Promise.resolve(transformer(tree, file));
+    };
+  };
+}
 
 function registerDefaultPlugins(registry: MdxPluginRegistry): MdxPluginRegistry {
   registry.register({
@@ -254,14 +310,8 @@ function registerDefaultPlugins(registry: MdxPluginRegistry): MdxPluginRegistry 
     defaultOptions: undefined,
     optionsSchema: highlightOptionsSchema,
     create: (_context, options) => {
-      if (!options || Object.keys(options).length === 0) {
-        return rehypeHighlight as MdxPipelinePluginFactory;
-      }
-      const pluginWithOptions: MdxPipelinePluginTuple = [
-        rehypeHighlight as MdxPipelinePluginFactory,
-        options,
-      ];
-      return pluginWithOptions;
+      const normalizedOptions = !options || Object.keys(options).length === 0 ? undefined : options;
+      return createDeferredHighlightPlugin(normalizedOptions);
     },
   });
 

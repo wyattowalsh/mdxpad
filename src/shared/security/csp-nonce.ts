@@ -23,7 +23,7 @@ export interface NonceCSPResult {
  * Generates a cryptographically secure nonce.
  *
  * Uses Web Crypto API (crypto.getRandomValues) for secure random generation.
- * Falls back to Math.random() only if crypto is unavailable (not recommended).
+ * Throws when secure randomness is unavailable.
  *
  * The nonce is base64 encoded and URL-safe.
  *
@@ -31,24 +31,13 @@ export interface NonceCSPResult {
  * @returns Base64-encoded nonce string
  */
 export function generateNonce(byteLength: number = SECURITY_CONSTANTS.nonceByteLength): string {
-  // Use Web Crypto API if available (preferred)
-  if (typeof crypto !== 'undefined') {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
     const bytes = new Uint8Array(byteLength);
     crypto.getRandomValues(bytes);
     return bytesToBase64(bytes);
   }
 
-  // Fallback for environments without Web Crypto (Node.js < 15, older browsers)
-  // This is less secure but better than nothing
-  console.warn(
-    '[Security] Web Crypto API not available. Using less secure fallback for nonce generation.'
-  );
-
-  const bytes = new Uint8Array(byteLength);
-  for (let i = 0; i < byteLength; i++) {
-    bytes[i] = Math.floor(Math.random() * 256);
-  }
-  return bytesToBase64(bytes);
+  throw new Error('Secure random source unavailable for nonce generation');
 }
 
 /**

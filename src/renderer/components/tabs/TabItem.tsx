@@ -20,6 +20,7 @@ export interface TabItemProps {
   readonly isActive: boolean;
   readonly onClick: () => void;
   readonly onClose: () => void;
+  readonly onKeyDown?: (e: React.KeyboardEvent) => void;
   readonly onMouseDown?: (e: React.MouseEvent) => void;
   readonly onContextMenu?: (e: React.MouseEvent) => void;
 }
@@ -31,6 +32,7 @@ function TabItemComponent({
   isActive,
   onClick,
   onClose,
+  onKeyDown,
   onMouseDown,
   onContextMenu,
 }: TabItemProps) {
@@ -84,6 +86,7 @@ function TabItemComponent({
       tabIndex={isActive ? 0 : -1}
       data-testid={`tab-item-${id}`}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       onMouseDown={handleMouseDown}
       onContextMenu={onContextMenu}
     >

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mdxpad.dev/schemas/ci-diagnostic-report.schema.json",
+  "title": "MDXPad CI Diagnostic Report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "category",
+    "check",
+    "status",
+    "generatedAt",
+    "run",
+    "summary",
+    "findings",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["security", "quality"]
+    },
+    "check": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "warn", "fail"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run": {
+      "type": "object",
+      "required": ["repository", "workflow", "runId", "runAttempt", "sha", "ref", "job"],
+      "properties": {
+        "repository": { "type": "string" },
+        "workflow": { "type": "string" },
+        "runId": { "type": "string" },
+        "runAttempt": { "type": "string" },
+        "sha": { "type": "string" },
+        "ref": { "type": "string" },
+        "job": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["totalFindings", "blockingFindings"],
+      "properties": {
+        "totalFindings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blockingFindings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowlistedFindings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["warn", "enforce"]
+        },
+        "jobStatus": {
+          "type": "string",
+          "enum": ["success", "failure", "cancelled", "skipped", "unknown"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message"],
+        "properties": {
+          "workflowPath": { "type": "string" },
+          "lineNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uses": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["warning", "error"]
+          },
+          "message": { "type": "string" },
+          "allowlisted": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

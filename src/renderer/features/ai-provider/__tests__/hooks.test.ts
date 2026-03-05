@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAIProviderStore, selectConnectedProviders } from '../store';
 import {
+  useAIProvider,
   useActiveProvider,
   useProviderById,
   useProviderSettings,
@@ -26,6 +27,10 @@ const mockAIApi = {
   removeProvider: vi.fn(),
   setActiveProvider: vi.fn(),
   validateProvider: vi.fn(),
+  getSidecarStatus: vi.fn(),
+  configureSidecar: vi.fn(),
+  startSidecar: vi.fn(),
+  stopSidecar: vi.fn(),
   queryUsage: vi.fn(),
 };
 
@@ -72,6 +77,8 @@ beforeEach(() => {
     selectedProviderId: null,
     usageStats: null,
     usageStatsTimeRange: 'week',
+    sidecarStatus: null,
+    isSidecarLoading: false,
     error: null,
   });
 
@@ -212,6 +219,65 @@ describe('AI Provider Hooks', () => {
       });
 
       expect(result.current.selectedProvider?.id).toBe('provider-2');
+    });
+  });
+
+  describe('useAIProvider sidecar lifecycle actions', () => {
+    it('dispatches sidecar lifecycle actions through the store', async () => {
+      const sidecarConfig = { modelPath: '/models/llama.gguf', port: 11470 };
+      mockAIApi.getSidecarStatus.mockResolvedValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+        config: sidecarConfig,
+      });
+      mockAIApi.configureSidecar.mockResolvedValue({
+        success: true,
+        status: 'stopped',
+        config: sidecarConfig,
+      });
+      mockAIApi.startSidecar.mockResolvedValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+        config: sidecarConfig,
+      });
+      mockAIApi.stopSidecar.mockResolvedValue({
+        success: true,
+        status: 'stopped',
+        config: sidecarConfig,
+      });
+
+      const { result } = renderHook(() => useAIProvider());
+
+      await act(async () => {
+        await result.current.fetchSidecarStatus();
+        await result.current.configureSidecar(sidecarConfig);
+        await result.current.startSidecar(sidecarConfig);
+        await result.current.stopSidecar();
+      });
+
+      expect(mockAIApi.getSidecarStatus).toHaveBeenCalledTimes(1);
+      expect(mockAIApi.configureSidecar).toHaveBeenCalledWith(sidecarConfig);
+      expect(mockAIApi.startSidecar).toHaveBeenCalledWith(sidecarConfig);
+      expect(mockAIApi.stopSidecar).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces sidecar API failure state through hook error', async () => {
+      mockAIApi.startSidecar.mockResolvedValue({
+        success: false,
+        status: 'error',
+        error: { code: 'INVALID_CONFIG', message: 'Model path is required' },
+      });
+
+      const { result } = renderHook(() => useAIProvider());
+
+      await act(async () => {
+        await result.current.startSidecar({ modelPath: '' });
+      });
+
+      expect(mockAIApi.startSidecar).toHaveBeenCalledWith({ modelPath: '' });
+      expect(result.current.error).toBe('Model path is required');
     });
   });
 });

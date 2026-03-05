@@ -163,6 +163,14 @@ export function executeSandboxed(
     }, timeoutMs);
 
     const onMessage = (event: MessageEvent) => {
+      if (!iframe.contentWindow || event.source !== iframe.contentWindow) return;
+      if (
+        event.origin !== 'null' &&
+        event.origin !== window.location.origin &&
+        event.origin !== 'file://'
+      ) {
+        return;
+      }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (event.data?.type !== MESSAGE_TYPE) return;
       if (settled) return;

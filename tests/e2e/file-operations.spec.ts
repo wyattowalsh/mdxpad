@@ -17,7 +17,7 @@
 
 import type { ElectronApplication, Page } from 'playwright';
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   writeFileSync,
   readFileSync,
@@ -28,7 +28,12 @@ import {
   chmodSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
+import {
+  launchMdxpad,
+  safeCloseElectronApp,
+  spyOnElectronDialog,
+  dispatchIpcEvent,
+} from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
@@ -76,6 +81,9 @@ async function installWindowOperationTracker(): Promise<boolean> {
     const originalMaximize = win.maximize.bind(win) as (...args: unknown[]) => unknown;
     const originalUnmaximize = win.unmaximize.bind(win) as (...args: unknown[]) => unknown;
     const originalIsMaximized = win.isMaximized.bind(win) as () => boolean;
+
+    // Synthetic isMaximized tracking is required because headless Electron windows
+    // report isMaximized()=false even after maximize() since there's no window manager.
     let syntheticIsMaximized = originalIsMaximized();
 
     state.__windowOperationMetrics = {
@@ -171,6 +179,33 @@ test.afterAll(async () => {
   }
 });
 
+test.afterEach(async () => {
+  // Restore any dialog mocks
+  await electronApp.evaluate(() => {
+    const restoreOpen = (globalThis as any).__restoreOpenDialog;
+    if (restoreOpen) restoreOpen();
+    const restoreSave = (globalThis as any).__restoreSaveDialog;
+    if (restoreSave) restoreSave();
+    // Also check for the new spy pattern restore keys
+    const restoreOpen2 = (globalThis as any).__restore_showOpenDialog;
+    if (restoreOpen2) restoreOpen2();
+    const restoreSave2 = (globalThis as any).__restore_showSaveDialog;
+    if (restoreSave2) restoreSave2();
+    // Clear any tracking flags
+    delete (globalThis as any).__openDialogCalled;
+    delete (globalThis as any).__saveDialogCalled;
+    delete (globalThis as any).__showOpenDialogCalled;
+    delete (globalThis as any).__showSaveDialogCalled;
+  });
+  // Clear renderer-side flags
+  if (!page.isClosed()) {
+    await page.evaluate(() => {
+      delete (window as any).__fileChangeEvent;
+      delete (window as any).__fileChangeSetupError;
+    });
+  }
+});
+
 test.describe('File Operations E2E', () => {
   test.describe('US1: Open File (Cmd+O)', () => {
     test('should have mdxpad API with openFile method', async () => {
@@ -181,63 +216,22 @@ test.describe('File Operations E2E', () => {
     });
 
     test('Cmd+O should trigger file open dialog', async () => {
-      // Spy native open dialog in main process (contextBridge API is immutable in renderer).
-      await electronApp.evaluate(({ dialog }) => {
-        (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled = false;
-        const originalOpenDialog = dialog.showOpenDialog.bind(dialog);
-        (globalThis as { __restoreOpenDialog?: () => void }).__restoreOpenDialog = () => {
-          dialog.showOpenDialog = originalOpenDialog;
-        };
-        dialog.showOpenDialog = async () => {
-          (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled = true;
-          return { canceled: true, filePaths: [] };
-        };
-      });
+      const spy = await spyOnElectronDialog(electronApp, 'showOpenDialog');
+      try {
+        // Simulate accelerator pathway: File menu event routed to renderer command execution.
+        await dispatchMenuAcceleratorEvent('mdxpad:menu:open-file-dialog');
 
-      // Simulate accelerator pathway: File menu event routed to renderer command execution.
-      await dispatchMenuAcceleratorEvent('mdxpad:menu:open-file-dialog');
-
-      // Wait for event propagation by polling for the expected state
-      await expect
-        .poll(async () => {
-          return await electronApp.evaluate(() => {
-            return (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled === true;
-          });
-        })
-        .toBe(true);
-
-      // Check if native dialog handler was invoked
-      const wasCalled = await electronApp.evaluate(() => {
-        return (globalThis as { __openDialogCalled?: boolean }).__openDialogCalled === true;
-      });
-
-      // Restore original dialog implementation
-      await electronApp.evaluate(() => {
-        const restore = (globalThis as { __restoreOpenDialog?: () => void }).__restoreOpenDialog;
-        if (restore) {
-          restore();
-        }
-      });
-
-      expect(wasCalled).toBe(true);
+        // Wait for event propagation by polling for the expected state
+        await expect.poll(() => spy.wasCalled()).toBe(true);
+      } finally {
+        await spy.restore();
+      }
     });
 
     test('cancelled file dialog should not change document state', async () => {
       const fileNameBefore = (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
 
-      await electronApp.evaluate(({ dialog }) => {
-        (globalThis as { __openDialogCancelled?: boolean }).__openDialogCancelled = false;
-        const originalOpenDialog = dialog.showOpenDialog.bind(dialog);
-        (globalThis as { __restoreOpenDialogCancelled?: () => void }).__restoreOpenDialogCancelled =
-          () => {
-            dialog.showOpenDialog = originalOpenDialog;
-          };
-        dialog.showOpenDialog = async () => {
-          (globalThis as { __openDialogCancelled?: boolean }).__openDialogCancelled = true;
-          return { canceled: true, filePaths: [] };
-        };
-      });
-
+      const spy = await spyOnElectronDialog(electronApp, 'showOpenDialog');
       try {
         const result = await page.evaluate(async () => {
           return await (window as any).mdxpad.openFile();
@@ -250,13 +244,7 @@ test.describe('File Operations E2E', () => {
           (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
         expect(fileNameAfter).toBe(fileNameBefore);
       } finally {
-        await electronApp.evaluate(() => {
-          const restore = (globalThis as { __restoreOpenDialogCancelled?: () => void })
-            .__restoreOpenDialogCancelled;
-          if (restore) {
-            restore();
-          }
-        });
+        await spy.restore();
       }
     });
   });
@@ -270,49 +258,22 @@ test.describe('File Operations E2E', () => {
     });
 
     test('Cmd+S on clean untitled document should not trigger save dialog', async () => {
-      // Spy native save dialog in main process.
-      await electronApp.evaluate(({ dialog }) => {
-        (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled = false;
-        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
-        (globalThis as { __restoreSaveDialog?: () => void }).__restoreSaveDialog = () => {
-          dialog.showSaveDialog = originalSaveDialog;
-        };
-        dialog.showSaveDialog = async () => {
-          (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled = true;
-          return { canceled: true, filePath: '' };
-        };
-      });
+      const spy = await spyOnElectronDialog(electronApp, 'showSaveDialog');
+      try {
+        // Simulate accelerator pathway: File menu event routed to renderer command execution.
+        await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file');
 
-      // Simulate accelerator pathway: File menu event routed to renderer command execution.
-      await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file');
+        // Wait briefly for IPC event propagation, then check state.
+        // For a clean untitled doc, the save dialog should NOT be triggered,
+        // so we poll a few times to confirm it stays false.
+        await expect
+          .poll(() => spy.wasCalled(), { timeout: 1000, intervals: [100, 200, 300] })
+          .toBe(false);
 
-      // Wait briefly for IPC event propagation, then check state.
-      // For a clean untitled doc, the save dialog should NOT be triggered,
-      // so we poll a few times to confirm it stays false.
-      await expect
-        .poll(
-          async () => {
-            return await electronApp.evaluate(() => {
-              return (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled === true;
-            });
-          },
-          { timeout: 1000, intervals: [100, 200, 300] }
-        )
-        .toBe(false);
-
-      const wasCalled = await electronApp.evaluate(() => {
-        return (globalThis as { __saveDialogCalled?: boolean }).__saveDialogCalled === true;
-      });
-
-      // Restore original dialog implementation
-      await electronApp.evaluate(() => {
-        const restore = (globalThis as { __restoreSaveDialog?: () => void }).__restoreSaveDialog;
-        if (restore) {
-          restore();
-        }
-      });
-
-      expect(wasCalled).toBe(false);
+        expect(await spy.wasCalled()).toBe(false);
+      } finally {
+        await spy.restore();
+      }
     });
 
     test('saveFile should return success result for valid operations', async () => {
@@ -348,43 +309,16 @@ test.describe('File Operations E2E', () => {
     });
 
     test('Cmd+Shift+S should trigger Save As dialog', async () => {
-      await electronApp.evaluate(({ dialog }) => {
-        (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled = false;
-        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
-        (globalThis as { __restoreSaveAsDialog?: () => void }).__restoreSaveAsDialog = () => {
-          dialog.showSaveDialog = originalSaveDialog;
-        };
-        dialog.showSaveDialog = async () => {
-          (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled = true;
-          return { canceled: true, filePath: '' };
-        };
-      });
+      const spy = await spyOnElectronDialog(electronApp, 'showSaveDialog');
+      try {
+        // Simulate accelerator pathway: File menu event routed to renderer command execution.
+        await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file-as');
 
-      // Simulate accelerator pathway: File menu event routed to renderer command execution.
-      await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file-as');
-
-      // Wait for event propagation by polling for the expected state
-      await expect
-        .poll(async () => {
-          return await electronApp.evaluate(() => {
-            return (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled === true;
-          });
-        })
-        .toBe(true);
-
-      const wasCalled = await electronApp.evaluate(() => {
-        return (globalThis as { __saveAsDialogCalled?: boolean }).__saveAsDialogCalled === true;
-      });
-
-      await electronApp.evaluate(() => {
-        const restore = (globalThis as { __restoreSaveAsDialog?: () => void })
-          .__restoreSaveAsDialog;
-        if (restore) {
-          restore();
-        }
-      });
-
-      expect(wasCalled).toBe(true);
+        // Wait for event propagation by polling for the expected state
+        await expect.poll(() => spy.wasCalled()).toBe(true);
+      } finally {
+        await spy.restore();
+      }
     });
 
     test('cancelled Save As should preserve original file path', async () => {
@@ -392,44 +326,16 @@ test.describe('File Operations E2E', () => {
       await expect(page.getByTestId('file-info-name')).toHaveText('Untitled');
       const fileNameBefore = (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
 
-      await electronApp.evaluate(({ dialog }) => {
-        (globalThis as { __saveAsDialogCancelled?: boolean }).__saveAsDialogCancelled = false;
-        const originalSaveDialog = dialog.showSaveDialog.bind(dialog);
-        (
-          globalThis as { __restoreSaveAsDialogCancelled?: () => void }
-        ).__restoreSaveAsDialogCancelled = () => {
-          dialog.showSaveDialog = originalSaveDialog;
-        };
-        dialog.showSaveDialog = async () => {
-          (globalThis as { __saveAsDialogCancelled?: boolean }).__saveAsDialogCancelled = true;
-          return { canceled: true, filePath: '' };
-        };
-      });
-
+      const spy = await spyOnElectronDialog(electronApp, 'showSaveDialog');
       try {
         await dispatchMenuAcceleratorEvent('mdxpad:menu:save-file-as');
-        await expect
-          .poll(async () => {
-            return await electronApp.evaluate(() => {
-              return (
-                (globalThis as { __saveAsDialogCancelled?: boolean }).__saveAsDialogCancelled ===
-                true
-              );
-            });
-          })
-          .toBe(true);
+        await expect.poll(() => spy.wasCalled()).toBe(true);
 
         const fileNameAfter =
           (await page.getByTestId('file-info-name').textContent())?.trim() ?? '';
         expect(fileNameAfter).toBe(fileNameBefore);
       } finally {
-        await electronApp.evaluate(() => {
-          const restore = (globalThis as { __restoreSaveAsDialogCancelled?: () => void })
-            .__restoreSaveAsDialogCancelled;
-          if (restore) {
-            restore();
-          }
-        });
+        await spy.restore();
       }
     });
   });
@@ -607,25 +513,70 @@ test.describe('File Operations E2E', () => {
   });
 
   test.describe('US7: Recent Files Menu', () => {
-    test('should track recently opened files', async () => {
-      // The Recent Files feature is managed by the main process
-      // RecentFilesService maintains the list
-      // This test verifies the menu integration
+    test('should track and open recently opened files from menu', async () => {
+      const recentFileA = join(TEST_FIXTURES_DIR, `recent-a-${Date.now()}.mdx`);
+      const recentFileB = join(TEST_FIXTURES_DIR, `recent-b-${Date.now()}.mdx`);
+      writeFileSync(recentFileA, '# Recent A\n', 'utf-8');
+      writeFileSync(recentFileB, '# Recent B\n', 'utf-8');
 
-      // Attempt to access the app menu (Electron-specific)
-      const menuExists = await electronApp.evaluate(async ({ Menu }) => {
+      const openA = await spyOnElectronDialog(electronApp, 'showOpenDialog', {
+        canceled: false,
+        filePaths: [recentFileA],
+      });
+      try {
+        const result = await page.evaluate(async () => (window as any).mdxpad.openFile());
+        expect(result.ok).toBe(true);
+      } finally {
+        await openA.restore();
+      }
+
+      const openB = await spyOnElectronDialog(electronApp, 'showOpenDialog', {
+        canceled: false,
+        filePaths: [recentFileB],
+      });
+      try {
+        const result = await page.evaluate(async () => (window as any).mdxpad.openFile());
+        expect(result.ok).toBe(true);
+      } finally {
+        await openB.restore();
+      }
+
+      const recentLabels = await electronApp.evaluate(async ({ Menu }) => {
         const appMenu = Menu.getApplicationMenu();
-        if (!appMenu) return false;
+        if (!appMenu) return [];
 
-        // Find File menu
         const fileMenu = appMenu.items.find(
           (item) => item.label === 'File' || item.role === 'fileMenu'
         );
-        return !!fileMenu;
+        if (!fileMenu?.submenu) return [];
+        const recentMenu = fileMenu.submenu.items.find((item) => item.label === 'Recent Files');
+        if (!recentMenu?.submenu) return [];
+
+        return recentMenu.submenu.items
+          .filter((item) => item.type !== 'separator' && item.label !== 'Clear Recent')
+          .map((item) => item.label ?? '');
+      });
+      expect(recentLabels).toContain(basename(recentFileA));
+      expect(recentLabels).toContain(basename(recentFileB));
+      expect(recentLabels[0]).toBe(basename(recentFileB));
+
+      await electronApp.evaluate(({ Menu }) => {
+        const appMenu = Menu.getApplicationMenu();
+        if (!appMenu) return;
+        const fileMenu = appMenu.items.find(
+          (item) => item.label === 'File' || item.role === 'fileMenu'
+        );
+        const recentMenu = fileMenu?.submenu?.items.find((item) => item.label === 'Recent Files');
+        const latestItem = recentMenu?.submenu?.items.find(
+          (item) => item.type !== 'separator' && item.label !== 'Clear Recent'
+        );
+        latestItem?.click?.();
       });
 
-      // Menu should exist
-      expect(menuExists).toBe(true);
+      await expect(page.getByTestId('file-info-name')).toHaveText(basename(recentFileB));
+
+      if (existsSync(recentFileA)) unlinkSync(recentFileA);
+      if (existsSync(recentFileB)) unlinkSync(recentFileB);
     });
   });
 
@@ -644,9 +595,8 @@ test.describe('File Operations E2E', () => {
     test('PERMISSION_DENIED error should be user-friendly', async () => {
       const restrictedPath = join(TEST_FIXTURES_DIR, `restricted-${Date.now()}.mdx`);
       writeFileSync(restrictedPath, 'restricted', 'utf-8');
-      chmodSync(restrictedPath, 0o000);
-
       try {
+        chmodSync(restrictedPath, 0o000);
         const result = await page.evaluate(async (path) => {
           return await (window as any).mdxpad.readFile(path);
         }, restrictedPath);
@@ -654,35 +604,24 @@ test.describe('File Operations E2E', () => {
         expect(result.error.code).toBe('PERMISSION_DENIED');
         expect(result.error.path).toBe(restrictedPath);
       } finally {
-        if (existsSync(restrictedPath)) {
-          chmodSync(restrictedPath, 0o600);
-          unlinkSync(restrictedPath);
-        }
+        try { chmodSync(restrictedPath, 0o600); } catch { /* already accessible */ }
+        try { unlinkSync(restrictedPath); } catch { /* best effort */ }
       }
     });
 
     test('CANCELLED should not show error message', async () => {
-      await electronApp.evaluate(({ dialog }) => {
-        const originalOpenDialog = dialog.showOpenDialog.bind(dialog);
-        (globalThis as { __restoreCancelledDialog?: () => void }).__restoreCancelledDialog = () => {
-          dialog.showOpenDialog = originalOpenDialog;
-        };
-        dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
-      });
-      const result = await page.evaluate(async () => {
-        return await (window as any).mdxpad.openFile();
-      });
-      await electronApp.evaluate(() => {
-        const restore = (globalThis as { __restoreCancelledDialog?: () => void })
-          .__restoreCancelledDialog;
-        if (restore) {
-          restore();
-        }
-      });
+      const spy = await spyOnElectronDialog(electronApp, 'showOpenDialog');
+      try {
+        const result = await page.evaluate(async () => {
+          return await (window as any).mdxpad.openFile();
+        });
 
-      expect(result.ok).toBe(false);
-      expect(result.error.code).toBe('CANCELLED');
-      expect(result.error.message).toBeUndefined();
+        expect(result.ok).toBe(false);
+        expect(result.error.code).toBe('CANCELLED');
+        expect(result.error.message).toBeUndefined();
+      } finally {
+        await spy.restore();
+      }
     });
 
     test('UNKNOWN error should include message', async () => {

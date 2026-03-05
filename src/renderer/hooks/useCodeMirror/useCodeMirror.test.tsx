@@ -12,6 +12,25 @@ import { useCodeMirror, type UseCodeMirrorOptions, type UseCodeMirrorReturn } fr
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
 import React, { useEffect } from 'react';
 
+if (typeof globalThis.requestAnimationFrame !== 'function') {
+  Object.defineProperty(globalThis, 'requestAnimationFrame', {
+    configurable: true,
+    writable: true,
+    value: (callback: FrameRequestCallback): number =>
+      globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number,
+  });
+}
+
+if (typeof globalThis.cancelAnimationFrame !== 'function') {
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', {
+    configurable: true,
+    writable: true,
+    value: (handle: number): void => {
+      globalThis.clearTimeout(handle);
+    },
+  });
+}
+
 /**
  * Test component that properly mounts the editor and exposes hook return value.
  */
@@ -42,9 +61,13 @@ function renderTestEditor(options: UseCodeMirrorOptions = {}) {
   });
 
   const renderResult = render(<TestEditor options={options} onReady={onReady} />);
+  const updateOptions = (nextOptions: UseCodeMirrorOptions): void => {
+    renderResult.rerender(<TestEditor options={nextOptions} onReady={onReady} />);
+  };
 
   return {
     ...renderResult,
+    updateOptions,
     getHookReturn: () => hookReturn,
     waitForState: async (timeout = 2000): Promise<EditorState> => {
       await waitFor(
@@ -264,6 +287,72 @@ describe('useCodeMirror', () => {
 
         await waitFor(() => {
           expect(getHookReturn()?.state?.doc).toBe(multilineContent);
+        });
+      } finally {
+        unmount();
+      }
+    });
+
+    it('preserves cursor position when syncing external value', async () => {
+      const { getHookReturn, waitForState, unmount } = renderTestEditor({
+        initialDoc: '<div></div>',
+      });
+
+      try {
+        await waitForState();
+        const hookReturn = getHookReturn();
+        expect(hookReturn).not.toBeNull();
+        if (!hookReturn) return;
+
+        act(() => {
+          hookReturn.setSelection(4);
+        });
+
+        await waitFor(() => {
+          expect(getHookReturn()?.selection?.from).toBe(4);
+          expect(getHookReturn()?.selection?.to).toBe(4);
+        });
+
+        act(() => {
+          hookReturn.setValue('<div class="x"></div>');
+        });
+
+        await waitFor(() => {
+          expect(getHookReturn()?.selection?.from).toBe(4);
+          expect(getHookReturn()?.selection?.to).toBe(4);
+        });
+      } finally {
+        unmount();
+      }
+    });
+
+    it('clamps cursor position when synced value is shorter', async () => {
+      const { getHookReturn, waitForState, unmount } = renderTestEditor({
+        initialDoc: '<long-html-tag></long-html-tag>',
+      });
+
+      try {
+        await waitForState();
+        const hookReturn = getHookReturn();
+        expect(hookReturn).not.toBeNull();
+        if (!hookReturn) return;
+
+        act(() => {
+          hookReturn.setSelection(20);
+        });
+
+        await waitFor(() => {
+          expect(getHookReturn()?.selection?.from).toBe(20);
+          expect(getHookReturn()?.selection?.to).toBe(20);
+        });
+
+        act(() => {
+          hookReturn.setValue('<a>');
+        });
+
+        await waitFor(() => {
+          expect(getHookReturn()?.selection?.from).toBe(3);
+          expect(getHookReturn()?.selection?.to).toBe(3);
         });
       } finally {
         unmount();
@@ -806,13 +895,18 @@ describe('useCodeMirror', () => {
           expect(getHookReturn()?.selection?.from).toBe(0);
         });
 
+        let commandResult = false;
         act(() => {
-          hookReturn.executeCommand('heading2');
+          commandResult = hookReturn.executeCommand('heading2');
         });
+        expect(commandResult).toBe(true);
 
-        await waitFor(() => {
-          expect(getHookReturn()?.state?.doc).toBe('## Subtitle');
-        });
+        await waitFor(
+          () => {
+            expect(getHookReturn()?.state?.doc).toBe('## Subtitle');
+          },
+          { timeout: 3000 }
+        );
       } finally {
         unmount();
       }
@@ -1362,6 +1456,31 @@ describe('useCodeMirror', () => {
           },
           { timeout: 1000 }
         );
+      } finally {
+        unmount();
+      }
+    });
+
+    it('reconfigures line wrapping without remounting', async () => {
+      const { container, waitForState, updateOptions, unmount } = renderTestEditor({
+        initialDoc: 'this is a line that can wrap',
+        lineWrapping: false,
+      });
+
+      try {
+        await waitForState();
+        expect(container.querySelector('.cm-lineWrapping')).toBeNull();
+
+        act(() => {
+          updateOptions({
+            initialDoc: 'this is a line that can wrap',
+            lineWrapping: true,
+          });
+        });
+
+        await waitFor(() => {
+          expect(container.querySelector('.cm-lineWrapping')).not.toBeNull();
+        });
       } finally {
         unmount();
       }

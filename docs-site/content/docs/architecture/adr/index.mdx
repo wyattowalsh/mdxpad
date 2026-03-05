@@ -1,0 +1,62 @@
+---
+title: "Decision Records"
+description: "Architecture Decision Records tracking key design choices in MDXPad."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+Architecture Decision Records (ADRs) capture important architectural decisions alongside their context, rationale, and consequences. They exist so future contributors can understand not just _what_ the codebase does, but _why_ it is structured the way it is.
+
+## What is an ADR?
+
+An ADR is a short document that answers three questions about a significant architectural decision:
+
+1. **Context** — What situation prompted this decision? What constraints or forces were at play?
+2. **Decision** — What exactly was decided?
+3. **Consequences** — What becomes easier, harder, or different as a result?
+
+ADRs are written _after_ a decision is made (or while it is being finalized) and are never deleted — even superseded decisions are preserved with a `Deprecated` status so the history remains intact.
+
+## ADR Statuses
+
+| Status | Meaning |
+|--------|---------|
+| **Proposed** | Under discussion — not yet adopted |
+| **Accepted** | Decision adopted and in effect |
+| **Deprecated** | Superseded by a later ADR |
+| **Rejected** | Considered but not adopted |
+
+## Index
+
+| ID | Title | Status | Date |
+|----|-------|--------|------|
+| 000 | [ADR Template](/docs/architecture/adr/000-template) | Template | — |
+| 001 | [IPC Validation with Zod](/docs/architecture/adr/001-ipc-validation) | Accepted | 2025-01-01 |
+
+## Browse ADRs
+
+<Cards>
+  <Card
+    title="ADR Template"
+    description="The standard template for writing new Architecture Decision Records."
+    href="/docs/architecture/adr/000-template"
+  />
+  <Card
+    title="ADR 001: IPC Validation Pattern"
+    description="Decision to use Zod schemas for all IPC validation between Electron processes."
+    href="/docs/architecture/adr/001-ipc-validation"
+  />
+</Cards>
+
+## Writing a New ADR
+
+<Callout type="info">
+  Copy `docs/adr/000-template.md` from the repository, rename it to the next sequential ID (e.g. `002-my-decision.md`), and fill in each section. Add a corresponding MDX page here and update the index table above.
+</Callout>
+
+## Related Documents
+
+- [Architectural Constitution](/docs/architecture/constitution) — Non-negotiable principles
+- [Process Model](/docs/architecture/process-model) — Electron process architecture
+- `docs/specs/` in the repository — Feature specifications

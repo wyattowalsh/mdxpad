@@ -1,0 +1,198 @@
+---
+title: "Plugin System"
+description: "MDXPad's plugin architecture: manifest schema, registry, loader, and theme system."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
+MDXPad has a plugin system for extending editor functionality, visual themes, and the MDX compilation pipeline. Plugins are discovered from a local directory, validated against a Zod schema, and managed through a persistent registry.
+
+## Architecture
+
+<Files>
+  <Folder name="src/main/services/plugin" defaultOpen>
+    <File name="plugin-registry.ts" />
+    <File name="plugin-loader.ts" />
+    <File name="plugin-manifest.ts" />
+    <File name="plugin-handlers.ts" />
+  </Folder>
+  <Folder name="src/renderer/features/plugins" defaultOpen>
+    <File name="plugin-store.ts" />
+    <File name="PluginCard.tsx" />
+    <File name="PluginMarketplace.tsx" />
+    <File name="ThemePicker.tsx" />
+    <File name="CssEditorDialog.tsx" />
+    <File name="theme-manager.ts" />
+    <File name="theme-definitions.ts" />
+    <File name="css-injector.ts" />
+  </Folder>
+</Files>
+
+## Plugin Types
+
+MDXPad supports four plugin types, declared in the manifest:
+
+| Type | Effect |
+|------|--------|
+| `theme` | Provides a visual theme (CSS variables + editor colors) |
+| `extension` | Adds CodeMirror extensions or renderer features |
+| `remark` | Adds a remark plugin to the MDX compilation pipeline |
+| `rehype` | Adds a rehype plugin to the MDX compilation pipeline |
+
+## Plugin Manifest
+
+Every plugin requires a `manifest.json` that conforms to the `PluginManifest` Zod schema defined in `src/shared/contracts/plugin-schemas.ts`:
+
+```typescript
+interface PluginManifest {
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  main?: string;           // Entry point (optional for theme-only plugins)
+  type: 'theme' | 'extension' | 'remark' | 'rehype';
+  permissions?: string[];  // Required permissions
+}
+```
+
+A minimal theme plugin manifest:
+
+```json
+{
+  "name": "my-dark-theme",
+  "version": "1.0.0",
+  "description": "A custom dark theme for MDXPad",
+  "author": "Your Name",
+  "type": "theme",
+  "permissions": []
+}
+```
+
+### Plugin Directory Layout
+
+<Files>
+  <Folder name="~/.mdxpad/plugins" defaultOpen>
+    <Folder name="my-dark-theme" defaultOpen>
+      <File name="manifest.json" />
+      <File name="theme.css" />
+    </Folder>
+    <Folder name="my-remark-plugin">
+      <File name="manifest.json" />
+      <File name="index.js" />
+    </Folder>
+  </Folder>
+</Files>
+
+## Plugin Registry
+
+The `PluginRegistry` (`plugin-registry.ts`) persists all installed plugin state to a JSON file. It is the source of truth for what is installed and enabled.
+
+```typescript
+interface PluginRecord {
+  id: string;
+  manifest: PluginManifest;
+  state: PluginState;  // 'installed' | 'active' | 'disabled' | 'error'
+  installedAt: number;
+  error?: string;
+}
+```
+
+### Registry Operations
+
+| Method | Description |
+|--------|-------------|
+| `listPlugins()` | Return all installed plugin records |
+| `getPlugin(id)` | Get a single plugin record by ID |
+| `addPlugin(id, manifest)` | Register a newly installed plugin |
+| `removePlugin(id)` | Uninstall and deregister a plugin |
+| `setState(id, state)` | Enable or disable a plugin |
+| `setError(id, error)` | Mark a plugin as errored with a message |
+
+## Plugin Loader
+
+The `PluginLoader` (`plugin-loader.ts`) handles the runtime plugin lifecycle:
+
+1. **Discovery** — Scans the plugin directory for `manifest.json` files
+2. **Validation** — Parses manifests against the Zod schema; invalid manifests are rejected with an error state
+3. **Loading** — Imports the plugin's `main` entry point (if present)
+4. **Lifecycle** — Calls `activate()` on enable, `deactivate()` on disable
+
+<Callout type="warn">
+  Plugin entry points run in the Main process context. Plugins that declare `permissions` require explicit user approval before activation. Malformed or unverified plugins are marked with state `error` and are not loaded.
+</Callout>
+
+## Theme System
+
+### Built-in Themes
+
+Theme definitions in `theme-definitions.ts` provide pre-configured editor color schemes. The `ThemePicker` component lets users preview and select themes without restarting the application.
+
+### Custom CSS
+
+The `CssEditorDialog` allows users to write arbitrary CSS that is injected at runtime by `css-injector.ts`. This is the fastest path to minor visual customizations without building a full theme plugin.
+
+### Theme Manager
+
+`theme-manager.ts` handles theme switching in three steps:
+
+1. Load the theme definition (built-in or plugin-provided)
+2. Generate CSS custom properties from the theme token map
+3. Inject the generated styles into the document head
+
+## MDX Plugin Pipeline
+
+The MDX compilation pipeline in the renderer supports remark and rehype plugins configured via `src/renderer/lib/mdx/plugin-pipeline.ts`.
+
+### Default Pipeline
+
+| Plugin | Type | Purpose |
+|--------|------|---------|
+| `remark-gfm` | remark | GitHub Flavored Markdown |
+| `remark-frontmatter` | remark | YAML frontmatter parsing |
+| `remark-math` | remark | Math block/inline syntax |
+| `rehype-highlight` | rehype | Syntax highlighting |
+| `rehype-katex` | rehype | KaTeX math rendering |
+
+### Plugin Configuration
+
+Each plugin in the pipeline can be individually enabled, disabled, or configured with options via `pluginConfig.plugins`. Invalid plugin options fall back to defaults automatically.
+
+## Extension Platform
+
+The `ExtensionPlatformService` (`src/main/services/extension-platform-service.ts`) provides the infrastructure layer:
+
+- Extension directory management (`~/.mdxpad/plugins/`)
+- Extension discovery and validation
+- Hot-reload support in development mode
+
+## IPC API
+
+Plugin operations are exposed via `window.mdxpad.extensions`:
+
+```typescript
+// List all installed plugins
+window.mdxpad.extensions.listPlugins()
+
+// Install a plugin from a local path
+window.mdxpad.extensions.installPlugin({ path: '/path/to/plugin-dir' })
+
+// Uninstall a plugin by ID
+window.mdxpad.extensions.removePlugin({ id: 'my-dark-theme' })
+
+// Enable or disable a plugin
+window.mdxpad.extensions.setPluginState({ id: 'my-dark-theme', state: 'active' })
+```
+
+IPC schemas are in `src/shared/contracts/plugin-schemas.ts`.
+
+## Template Marketplace
+
+The template marketplace extends the plugin concept to document templates.
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `MarketplacePanel` | `src/renderer/components/template-marketplace/MarketplacePanel.tsx` | Browse available templates |
+| `TemplateInstallDialog` | `src/renderer/components/template-marketplace/TemplateInstallDialog.tsx` | Install confirmation |
+| `useMarketplaceStore` | `src/renderer/stores/marketplace-store.ts` | Marketplace state |
+| `template-marketplace-service.ts` | `src/main/services/` | Template discovery and installation |

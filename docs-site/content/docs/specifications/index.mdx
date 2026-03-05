@@ -1,0 +1,52 @@
+---
+title: Specifications
+description: "Specification-driven development: all implemented feature specs."
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+MDXPad follows **Specification-Driven Development (SDD)** — every non-trivial feature begins with a written specification before any implementation starts.
+
+## Philosophy
+
+Writing a specification first forces clarity about what a feature should do and why, before the complexity of implementation is introduced. Specifications serve as:
+
+- A design review artifact that can be critiqued and revised cheaply
+- A contract between the author and reviewer about what "done" means
+- Living documentation that explains the rationale behind implementation choices
+- The source of acceptance criteria for tests
+
+## Specification Structure
+
+Each specification covers:
+
+1. **Overview** — What the feature does and why it is needed
+2. **Rationale** — Why this approach was chosen over alternatives
+3. **Architecture** — How it fits into the existing system (process model, data flow)
+4. **API / Interface** — Public APIs, IPC channels, component props
+5. **Acceptance Criteria** — Testable conditions that define "done"
+6. **Testing Strategy** — Unit, integration, and E2E test plans
+7. **Security Considerations** — Any security implications
+
+## Implemented Specifications
+
+<Cards>
+  <Card title="000 — Foundational Setup" href="/docs/specifications" description="TypeScript 5.9 strict mode, Electron 39, React 19, electron-vite baseline." />
+  <Card title="001 — Interface Contracts (IPC)" href="/docs/specifications" description="Type-safe IPC communication with Zod schema validation at every boundary." />
+  <Card title="003 — Preview Pane" href="/docs/specifications" description="Live MDX preview with Web Worker compilation pool." />
+  <Card title="004 — File System Shell" href="/docs/specifications" description="File operations with external change watching via chokidar." />
+  <Card title="005 — Command Palette" href="/docs/specifications" description="Keyboard-driven command interface with fuzzy search." />
+  <Card title="006 — Application Shell" href="/docs/specifications" description="Integrated editor, preview, and file operations layout." />
+  <Card title="007 — MDX Content Outline" href="/docs/specifications" description="Live document outline with heading, component, and frontmatter navigation." />
+  <Card title="011 — Autosave & Recovery" href="/docs/specifications" description="Configurable autosave with atomic writes and crash recovery." />
+  <Card title="014 — Smart Filtering (FZF)" href="/docs/specifications" description="FZF-based fuzzy search for files and document content." />
+  <Card title="016 — Template Library" href="/docs/specifications" description="Built-in and custom template system with variable support." />
+  <Card title="020 — Frontmatter Editor" href="/docs/specifications" description="Visual YAML frontmatter editor with schema validation." />
+  <Card title="028 — AI Provider Abstraction (BYOK)" href="/docs/specifications" description="Bring-your-own-key support for Anthropic, OpenAI, and compatible providers via Vercel AI SDK v6." />
+</Cards>
+
+## Related Documents
+
+- [Architecture Decision Records](/docs/architecture/adr) — ADRs documenting key design choices
+- [Architecture](/docs/architecture) — System architecture and process model
+- [Contributing](/docs/development/contributing) — SDD workflow for writing new specs

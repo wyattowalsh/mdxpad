@@ -237,9 +237,10 @@ function TemplateCardComponent({
 
   return (
     <div
-      role="button"
+      id={`template-option-${template.id}`}
+      role="option"
       tabIndex={0}
-      aria-pressed={isSelected}
+      aria-selected={isSelected}
       className={cn(
         // Base styles
         'group relative flex flex-col p-4 rounded-lg border cursor-pointer transition-all duration-150',

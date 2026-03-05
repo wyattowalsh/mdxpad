@@ -1,0 +1,163 @@
+---
+title: Wave 4 Execution
+description: Multi-session parallel development runbook for Wave 4.
+---
+
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This runbook operationalizes the Wave 4 model:
+
+- One integration branch: `codex/wave4-integration`
+- Five isolated session branches/worktrees
+- Deterministic merge-captain reconciliation with rollback on failed gates
+
+## Bootstrap
+
+```bash
+pnpm wave4:bootstrap
+```
+
+This command:
+
+1. Syncs `codex/wave3-integration` (if remote exists)
+2. Creates/switches `codex/wave4-integration`
+3. Creates tag `wave4-freeze-2026-02-15` (if missing)
+4. Creates the five worktrees and session branches if missing
+
+## Daily Session Cycle
+
+Each session runs:
+
+<Steps>
+  <Step>
+    ### Rebase session branch
+
+    ```bash
+    pnpm wave4:rebase sN
+    ```
+
+    Where `sN` is one of `s1..s5`. Rebases the session branch onto the current integration branch HEAD.
+  </Step>
+
+  <Step>
+    ### Verify ownership
+
+    ```bash
+    pnpm wave4:ownership sN
+    ```
+
+    Checks that the session only touches files in its ownership scope as defined in `scripts/wave4/common.sh`.
+  </Step>
+
+  <Step>
+    ### Run session gates
+
+    ```bash
+    pnpm wave4:session-gates sN
+    ```
+
+    Runs fast gates scoped to the session's owned files: typecheck, ownership-scoped lint, targeted tests, and targeted E2E where mapped.
+  </Step>
+</Steps>
+
+## Reconciliation (S1 Merge Captain)
+
+```bash
+pnpm wave4:reconcile
+```
+
+Default merge order:
+
+1. `codex/wave4-s1-foundation`
+2. `codex/wave4-s2-reliability`
+3. `codex/wave4-s4-templates`
+4. `codex/wave4-s3-ai`
+5. `codex/wave4-s5-ux-extensibility`
+
+For each merged branch:
+
+<Steps>
+  <Step>
+    ### Merge with no-fast-forward
+
+    ```bash
+    git merge --no-ff codex/wave4-sN
+    ```
+
+    Creates an explicit merge commit to preserve branch history.
+  </Step>
+
+  <Step>
+    ### Run full integration gates
+
+    All seven integration gates must pass (see Gates section below). Any failure is fatal for that branch.
+  </Step>
+
+  <Step>
+    ### Rollback on failure
+
+    ```bash
+    git revert -m 1 <merge-commit>
+    ```
+
+    The merge commit is immediately reverted. The failing session branch is excluded from the integration branch until fixed.
+  </Step>
+</Steps>
+
+## Gates
+
+### Session fast gates
+
+Run after each session work block before committing:
+
+1. `pnpm typecheck`
+2. Ownership-scoped lint
+3. Targeted tests
+4. Targeted E2E where mapped
+
+### Integration full gates
+
+<Callout type="warn">
+  All seven integration gates must pass before a session branch is considered merged. A single failure triggers immediate revert of the merge commit. Do not skip gates — the integration branch must always be in a buildable, passing state.
+</Callout>
+
+Run by the merge captain during reconciliation:
+
+1. `pnpm typecheck`
+2. `pnpm lint`
+3. `pnpm test`
+4. `pnpm test:e2e`
+5. `pnpm build`
+6. `pnpm verify-security`
+7. `pnpm bench`
+
+## Session ownership map
+
+The ownership map is embedded in `scripts/wave4/common.sh`. Key assignments:
+
+| Session | Focus area |
+|---------|-----------|
+| S1 — Foundation | Core infrastructure, `docs/wave4`, `scripts/wave4` |
+| S2 — Reliability | Preload settings API, stability work |
+| S3 — AI | AI provider features, agent mode |
+| S4 — Templates | Template marketplace and authoring |
+| S5 — UX & Extensibility | UI polish, plugin system extensions |
+
+<Callout type="warn">
+  The reliability lane (S2) includes preload settings API ownership because it is required for settings canonicalization. If S2 and another session both touch settings-related files, S2 takes precedence and the other session must coordinate with the merge captain.
+</Callout>
+
+## Cleanup
+
+After wave completion:
+
+```bash
+pnpm wave4:cleanup
+```
+
+Use force mode only if normal cleanup fails (e.g., unmerged worktrees with uncommitted changes):
+
+```bash
+bash scripts/wave4/cleanup.sh --force
+```

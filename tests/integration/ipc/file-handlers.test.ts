@@ -60,6 +60,8 @@ import {
   FileSaveAsRequestSchema,
 } from '@shared/contracts/file-schemas';
 
+type RegisteredHandler = (event: unknown, args?: unknown) => Promise<unknown>;
+
 // Type assertion helpers for mocks
 const mockDialog = dialog as unknown as {
   showOpenDialog: Mock;
@@ -90,8 +92,32 @@ function createInvokeEvent(
   };
 }
 
+async function grantWriteCapabilityForPath(
+  handlers: Map<string, RegisteredHandler>,
+  event: ReturnType<typeof createInvokeEvent>,
+  filePath: string
+): Promise<void> {
+  const openHandler = handlers.get('mdxpad:file:open');
+  const openedHandle = {
+    id: '123e4567-e89b-12d3-a456-426614174099',
+    path: filePath,
+    name: 'file.mdx',
+  };
+
+  mockDialog.showOpenDialog.mockResolvedValue({
+    canceled: false,
+    filePaths: [filePath],
+  });
+  mockReadFile.mockResolvedValue({ ok: true, value: '# Existing Content' });
+  mockCreateFileHandle.mockReturnValue(openedHandle);
+
+  expect(openHandler).toBeDefined();
+  const openResult = await openHandler!(event);
+  expect(openResult).toEqual({ ok: true, value: openedHandle });
+}
+
 describe('file-handlers', () => {
-  let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
+  let registeredHandlers: Map<string, RegisteredHandler>;
   let mockBrowserWindow: BrowserWindow;
   let authorizedInvokeEvent: ReturnType<typeof createInvokeEvent>;
 
@@ -125,6 +151,7 @@ describe('file-handlers', () => {
       onFileSaved: vi.fn().mockResolvedValue(undefined),
       close: vi.fn(),
     });
+    mockReadFile.mockResolvedValue({ ok: true, value: '' });
 
     // Register handlers
     registerFileHandlers(ipcMain, mockBrowserWindow);
@@ -271,6 +298,7 @@ describe('file-handlers', () => {
       };
       const testContent = '# Updated Content';
 
+      await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, testHandle.path);
       mockWriteFile.mockResolvedValue({ ok: true, value: undefined });
 
       const handler = registeredHandlers.get('mdxpad:file:save');
@@ -310,6 +338,7 @@ describe('file-handlers', () => {
         name: 'file.mdx',
       };
 
+      await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, testHandle.path);
       mockWriteFile.mockResolvedValue({
         ok: false,
         error: { code: 'PERMISSION_DENIED', path: testHandle.path },
@@ -318,6 +347,7 @@ describe('file-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:file:save');
       const result = await handler!(authorizedInvokeEvent, { handle: testHandle, content: 'test' });
 
+      expect(mockWriteFile).toHaveBeenCalledWith(testHandle.path, 'test');
       expect(result).toEqual({
         ok: false,
         error: { code: 'PERMISSION_DENIED', path: testHandle.path },
@@ -426,6 +456,7 @@ describe('file-handlers', () => {
       const testPath = '/test/file.mdx';
       const testContent = '# Test Content';
 
+      await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, testPath);
       mockWriteFile.mockResolvedValue({ ok: true, value: undefined });
 
       const handler = registeredHandlers.get('mdxpad:file:write');
@@ -438,9 +469,36 @@ describe('file-handlers', () => {
       expect(result).toEqual({ ok: true, value: undefined });
     });
 
-    it('should return error on write failure', async () => {
+    it('should deny write when path is outside bootstrap write scope', async () => {
+      const testPath = '/restricted/file.bin';
+
+      const handler = registeredHandlers.get('mdxpad:file:write');
+      const result = await handler!(authorizedInvokeEvent, { path: testPath, content: 'test' });
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'PERMISSION_DENIED', path: testPath },
+      });
+      expect(mockWriteFile).not.toHaveBeenCalled();
+    });
+
+    it('should deny write to markdown path without explicit grant', async () => {
+      const testPath = '/restricted/file.mdx';
+
+      const handler = registeredHandlers.get('mdxpad:file:write');
+      const result = await handler!(authorizedInvokeEvent, { path: testPath, content: 'test' });
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'PERMISSION_DENIED', path: testPath },
+      });
+      expect(mockWriteFile).not.toHaveBeenCalled();
+    });
+
+    it('should return error on write failure after explicit grant', async () => {
       const testPath = '/protected/file.mdx';
 
+      await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, testPath);
       mockWriteFile.mockResolvedValue({
         ok: false,
         error: { code: 'PERMISSION_DENIED', path: testPath },
@@ -449,6 +507,7 @@ describe('file-handlers', () => {
       const handler = registeredHandlers.get('mdxpad:file:write');
       const result = await handler!(authorizedInvokeEvent, { path: testPath, content: 'test' });
 
+      expect(mockWriteFile).toHaveBeenCalledWith(testPath, 'test');
       expect(result).toEqual({
         ok: false,
         error: { code: 'PERMISSION_DENIED', path: testPath },
@@ -602,7 +661,7 @@ describe('zod validation (Constitution Section 3.3 compliance)', () => {
 });
 
 describe('error code mapping', () => {
-  let registeredHandlers: Map<string, (event: unknown, args?: unknown) => Promise<unknown>>;
+  let registeredHandlers: Map<string, RegisteredHandler>;
   let mockBrowserWindow: BrowserWindow;
   let authorizedInvokeEvent: ReturnType<typeof createInvokeEvent>;
 
@@ -649,6 +708,7 @@ describe('error code mapping', () => {
   });
 
   it('should map write errors to PERMISSION_DENIED', async () => {
+    await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, '/protected.mdx');
     mockWriteFile.mockResolvedValue({
       ok: false,
       error: { code: 'PERMISSION_DENIED', path: '/protected.mdx' },
@@ -660,6 +720,7 @@ describe('error code mapping', () => {
       content: 'content',
     });
 
+    expect(mockWriteFile).toHaveBeenCalledWith('/protected.mdx', 'content');
     expect(result).toEqual({
       ok: false,
       error: { code: 'PERMISSION_DENIED', path: '/protected.mdx' },

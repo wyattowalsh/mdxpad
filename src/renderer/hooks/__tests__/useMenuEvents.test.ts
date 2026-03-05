@@ -134,8 +134,13 @@ vi.mock('../../stores/document-store', () => {
     content: '# Hello',
     handleExternalChange: vi.fn(),
   };
+  const useDocumentStore = ((selector: (s: typeof state) => unknown) => selector(state)) as {
+    (selector: (s: typeof state) => unknown): unknown;
+    getState: () => typeof state;
+  };
+  useDocumentStore.getState = () => state;
   return {
-    useDocumentStore: (selector: (s: typeof state) => unknown) => selector(state),
+    useDocumentStore,
   };
 });
 

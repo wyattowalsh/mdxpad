@@ -34,6 +34,7 @@ describe('useUILayoutStore', () => {
       previewVisible: true,
       sidebarVisible: true,
       outlineVisible: false,
+      frontmatterVisible: true,
       zoomLevel: 100,
       splitRatio: 0.5,
     });
@@ -252,6 +253,7 @@ describe('useUILayoutStore', () => {
       useUILayoutStore.setState({
         previewVisible: false,
         sidebarVisible: false,
+        frontmatterVisible: false,
         zoomLevel: 150,
         splitRatio: 0.7,
       });
@@ -259,14 +261,20 @@ describe('useUILayoutStore', () => {
 
       // Store uses separate keys per STORAGE_KEYS
       const previewStored = mockStorage.get('mdxpad:ui:preview-visible');
+      const sidebarStored = mockStorage.get('mdxpad:ui:sidebar-visible');
+      const frontmatterStored = mockStorage.get('mdxpad:ui:frontmatter-visible');
       const zoomStored = mockStorage.get('mdxpad:ui:zoom-level');
       const splitRatioStored = mockStorage.get('mdxpad:ui:split-ratio');
 
       expect(previewStored).toBeDefined();
+      expect(sidebarStored).toBeDefined();
+      expect(frontmatterStored).toBeDefined();
       expect(zoomStored).toBeDefined();
       expect(splitRatioStored).toBeDefined();
 
       expect(JSON.parse(previewStored!)).toBe(false);
+      expect(JSON.parse(sidebarStored!)).toBe(false);
+      expect(JSON.parse(frontmatterStored!)).toBe(false);
       expect(JSON.parse(zoomStored!)).toBe(150);
       expect(JSON.parse(splitRatioStored!)).toBe(0.7);
     });
@@ -274,6 +282,8 @@ describe('useUILayoutStore', () => {
     it('loadFromStorage() should load from localStorage', () => {
       // Store uses separate keys per STORAGE_KEYS
       mockStorage.set('mdxpad:ui:preview-visible', JSON.stringify(false));
+      mockStorage.set('mdxpad:ui:sidebar-visible', JSON.stringify(false));
+      mockStorage.set('mdxpad:ui:frontmatter-visible', JSON.stringify(false));
       mockStorage.set('mdxpad:ui:zoom-level', JSON.stringify(175));
       mockStorage.set('mdxpad:ui:split-ratio', JSON.stringify(0.3));
 
@@ -281,6 +291,8 @@ describe('useUILayoutStore', () => {
       const state = useUILayoutStore.getState();
 
       expect(state.previewVisible).toBe(false);
+      expect(state.sidebarVisible).toBe(false);
+      expect(state.frontmatterVisible).toBe(false);
       expect(state.zoomLevel).toBe(175);
       expect(state.splitRatio).toBe(0.3);
     });
@@ -527,6 +539,7 @@ describe('selectors', () => {
       previewVisible: true,
       sidebarVisible: true,
       outlineVisible: false,
+      frontmatterVisible: true,
       zoomLevel: 100,
       splitRatio: 0.5,
     });

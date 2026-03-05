@@ -1,10 +1,7 @@
 /**
- * Autosave IPC Integration Tests
+ * Autosave IPC Handler Registration & Zod Validation Tests
  *
- * Integration tests for all autosave-related IPC channels.
- * Per Constitution VI.4: All IPC must be tested.
- *
- * Tests all 10 channels per tasks.md T024:
+ * Tests all 10 autosave-related IPC channels per tasks.md T024:
  * 1. mdxpad:recovery:check
  * 2. mdxpad:recovery:list
  * 3. mdxpad:recovery:preview
@@ -16,7 +13,17 @@
  * 9. mdxpad:autosave:settings:set
  * 10. mdxpad:recovery:conflict:resolve
  *
- * Per Constitution Section 3.3: All payloads validated with zod on both ends.
+ * Per Constitution VI.4: All IPC must be tested.
+ * Per Constitution Section 3.3: All payloads validated with Zod on both ends.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising IPC handler registration, Zod schema validation,
+ * sender authorization checks, and channel naming conventions in isolation with
+ * fully mocked Electron IPC, filesystem, crypto, and service dependencies.
+ * True integration tests would exercise the full round-trip from a renderer
+ * process `ipcRenderer.invoke()` call through the preload bridge, across the
+ * actual Electron IPC channel, into the main-process handler, through real
+ * service implementations performing filesystem I/O, and back.
  *
  * @module tests/integration/autosave-ipc
  */

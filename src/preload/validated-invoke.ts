@@ -83,8 +83,8 @@ async function invokeWithGuards(
  */
 export async function validatedInvoke<TReq, TRes>(
   channel: string,
-  requestSchema: z.ZodType<TReq> | null,
-  responseSchema: z.ZodType<TRes>,
+  requestSchema: z.ZodType<TReq, z.ZodTypeDef, unknown> | null,
+  responseSchema: z.ZodType<TRes, z.ZodTypeDef, unknown>,
   args?: unknown,
   options?: ValidatedInvokeOptions
 ): Promise<TRes> {
@@ -106,4 +106,16 @@ export async function validatedInvoke<TReq, TRes>(
   }
 
   return resParsed.data;
+}
+
+/**
+ * Creates a typed invoke helper for channels with request/response contracts.
+ */
+export function createTypedValidatedInvoke<TReq, TRes>(
+  channel: string,
+  requestSchema: z.ZodType<TReq, z.ZodTypeDef, unknown>,
+  responseSchema: z.ZodType<TRes, z.ZodTypeDef, unknown>
+): (request: TReq, options?: ValidatedInvokeOptions) => Promise<TRes> {
+  return (request, options) =>
+    validatedInvoke(channel, requestSchema, responseSchema, request, options);
 }

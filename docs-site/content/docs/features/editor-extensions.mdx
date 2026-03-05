@@ -1,0 +1,299 @@
+---
+title: "Editor Extensions"
+description: "14 CodeMirror 6 extensions powering MDXPad's editing experience."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+MDXPad's editor is built on CodeMirror 6 with a rich set of custom extensions located in `src/renderer/lib/editor/extensions/`. All extensions are composed in `src/renderer/hooks/useCodeMirror/extensions.ts` and assembled dynamically based on user preferences stored in `useEditorPreferencesStore`.
+
+<Callout type="info">
+  A WYSIWYG editing mode (ProseMirror) is also available as an alternative to the CodeMirror source view. See the [WYSIWYG Editor](#wysiwyg-editor) section below.
+</Callout>
+
+## Extension Overview
+
+<Cards>
+  <Card
+    title="Multi-Cursor"
+    description="VS Code-style multi-cursor selection: select next or all occurrences of the current selection."
+    href="#multi-cursor"
+  />
+  <Card
+    title="Code Folding"
+    description="Fold frontmatter blocks, fenced code blocks, and JSX/MDX component blocks."
+    href="#code-folding"
+  />
+  <Card
+    title="Regex Find/Replace"
+    description="Enhanced search with regex support and capture group expansion in replacements."
+    href="#regex-findreplace"
+  />
+  <Card
+    title="Snippets Engine"
+    description="Expandable MDX snippets with tab-stop navigation and custom snippet support."
+    href="#snippets-engine"
+  />
+  <Card
+    title="Minimap"
+    description="Scaled-down document overview rendered as a sidebar for navigation."
+    href="#minimap"
+  />
+  <Card
+    title="Focus Mode"
+    description="Dims non-focused paragraphs to reduce visual noise during writing."
+    href="#focus-mode"
+  />
+  <Card
+    title="Distraction-Free"
+    description="Hides sidebar, status bar, and tabs for an immersive full-screen writing experience."
+    href="#distraction-free-mode"
+  />
+  <Card
+    title="Spellcheck"
+    description="Real-time spell checking with custom dictionary support."
+    href="#spellcheck"
+  />
+  <Card
+    title="Font Settings"
+    description="Runtime-configurable font family, size, and line height."
+    href="#font-settings"
+  />
+  <Card
+    title="Code Execution"
+    description="Execute JavaScript/TypeScript code blocks inline with sandboxed output."
+    href="#code-execution"
+  />
+  <Card
+    title="Go-to-Definition"
+    description="Navigate to component or import definitions directly from the editor."
+    href="#go-to-definition"
+  />
+  <Card
+    title="Slash Commands"
+    description="Type / to trigger an autocomplete menu of available editor commands."
+    href="#slash-commands"
+  />
+  <Card
+    title="Next-Edit Prediction"
+    description="AI ghost text completions shown after a 500 ms pause. Tab to accept."
+    href="#next-edit-prediction"
+  />
+  <Card
+    title="Word Wrap"
+    description="Configurable word wrapping toggled per-document or globally."
+    href="#word-wrap"
+  />
+</Cards>
+
+## Extension Reference
+
+<Tabs items={["Writing & Focus", "Navigation & Search", "Editing Power", "AI & Code"]}>
+  <Tab value="Writing & Focus">
+    ### Focus Mode
+
+    Dims non-focused paragraphs to reduce visual noise, keeping attention on the paragraph under the cursor.
+
+    ```typescript
+    import { focusModeExtension } from './focus-mode';
+    ```
+
+    ### Distraction-Free Mode
+
+    Hides all UI chrome — sidebar, status bar, tabs — for immersive writing sessions.
+
+    ```typescript
+    import { distractionFreeExtension, createDistractionFreeState } from './distraction-free';
+    ```
+
+    Managed via the `DistractionFreeState` interface with a toggle command.
+
+    ### Spellcheck
+
+    Real-time spell checking with support for a custom project dictionary.
+
+    ```typescript
+    import { spellcheckExtension } from './spellcheck';
+
+    interface SpellcheckOptions {
+      language?: string;
+      customDictionary?: string[];
+    }
+    ```
+
+    Custom dictionary words are defined in `spellcheck-dictionary.ts`.
+
+    ### Font Settings
+
+    Runtime-configurable editor font properties — changes apply immediately without a reload.
+
+    ```typescript
+    import { createFontSettingsExtension } from './font-settings';
+
+    interface FontSettings {
+      fontFamily: string;
+      fontSize: number;
+      lineHeight: number;
+    }
+    ```
+
+    ### Word Wrap
+
+    Configurable word wrapping, toggled via the command palette or editor preferences.
+
+    ```typescript
+    import { wordWrapExtension } from './word-wrap';
+    ```
+
+    ### Minimap
+
+    Document overview rendered as a scaled-down sidebar panel, useful for long documents.
+
+    ```typescript
+    import { minimapExtension } from './minimap';
+    ```
+  </Tab>
+  <Tab value="Navigation & Search">
+    ### Regex Find/Replace
+
+    Enhanced search panel with regex support and capture group expansion in replacement strings.
+
+    ```typescript
+    import {
+      regexSearchExtension,
+      toggleRegex,
+      toggleCaseSensitive,
+      expandCaptureGroups,
+    } from './find-replace-regex';
+    ```
+
+    State is managed via `regexSearchField` with toggle effects for regex mode and case sensitivity.
+
+    ### Go-to-Definition
+
+    Navigate to the definition of an imported component or module directly from the editor.
+
+    ```typescript
+    import { goToDefinitionExtension } from './go-to-definition';
+    ```
+
+    ### Slash Commands
+
+    Type `/` to trigger an autocomplete menu of available editor commands. Command definitions live in `slash-command-definitions.ts`.
+
+    ```typescript
+    import { slashCommandExtension } from './slash-commands';
+    ```
+  </Tab>
+  <Tab value="Editing Power">
+    ### Multi-Cursor
+
+    VS Code-style multi-cursor selection: add a cursor at the next occurrence of the current selection, or select all occurrences simultaneously.
+
+    ```typescript
+    import {
+      multiCursorExtension,
+      selectNextOccurrence,
+      selectAllOccurrences,
+    } from './multi-cursor';
+    ```
+
+    ### Code Folding
+
+    MDX-aware fold strategies for frontmatter, code fences, and JSX blocks.
+
+    ```typescript
+    import {
+      codeFoldingExtension,
+      foldFrontmatter,
+      foldCodeFence,
+      foldJsxBlock,
+    } from './code-folding';
+    ```
+
+    Supports folding:
+    - YAML frontmatter blocks (`---`)
+    - Fenced code blocks (`` ``` ``)
+    - JSX/MDX component blocks
+
+    ### Snippets Engine
+
+    Predefined MDX snippets with tab-stop expansion. Custom snippets can be provided via `createSnippetSource()`.
+
+    ```typescript
+    import { createSnippetCompletionSource, MDX_SNIPPETS } from './snippets-engine';
+
+    interface Snippet {
+      label: string;      // Trigger text
+      template: string;   // Expansion with $1, $2 tab-stop placeholders
+      description: string;
+    }
+    ```
+  </Tab>
+  <Tab value="AI & Code">
+    ### Next-Edit Prediction
+
+    AI ghost text completions shown inline after a 500 ms typing pause. Press **Tab** to accept, **Escape** to dismiss.
+
+    ```typescript
+    import { nextEditPrediction } from './next-edit-prediction';
+
+    const provider: PredictionProvider = async (text, cursorPos, signal) => {
+      return predictedText;
+    };
+
+    const extension = nextEditPrediction(provider);
+    ```
+
+    Implemented as a CodeMirror `StateField` with `Decoration.widget`. Debounced with `AbortController` cancellation.
+
+    ### Code Execution
+
+    Execute JavaScript/TypeScript code blocks directly in the editor. Output is displayed inline below the code block in a sandboxed environment.
+
+    **Components:**
+    - Extension: `src/renderer/lib/editor/extensions/code-execution.ts`
+    - Sandbox runner: `src/renderer/features/code-execution/sandbox-runner.ts`
+    - Output widget: `src/renderer/features/code-execution/CodeOutputWidget.tsx`
+  </Tab>
+</Tabs>
+
+## Keymaps
+
+Alternative keymap modes in `src/renderer/lib/editor/keymaps/`:
+
+| Keymap | File | Description |
+|--------|------|-------------|
+| Vim | `vim-keymap.ts` | Full Vim modal editing emulation (normal/insert/visual) |
+| Emacs | `emacs-keymap.ts` | Emacs key binding layer |
+
+Keymaps are exported from `src/renderer/lib/editor/keymaps/index.ts` and selected via the editor preferences store.
+
+## WYSIWYG Editor
+
+ProseMirror-based WYSIWYG editing mode as an alternative to the CodeMirror source view. Toggle between modes with **EditorModeToggle** or the command palette.
+
+### Components
+
+| Component | Location |
+|-----------|----------|
+| `WysiwygEditor` | `src/renderer/components/editor/WysiwygEditor.tsx` |
+| `WysiwygToolbar` | `src/renderer/components/editor/WysiwygToolbar.tsx` |
+| `EditorModeToggle` | `src/renderer/components/editor/EditorModeToggle.tsx` |
+| `prosemirror-mdx-schema.ts` | `src/renderer/lib/editor/` |
+| `prosemirror-mdx-parser.ts` | `src/renderer/lib/editor/` |
+| `prosemirror-mdx-serializer.ts` | `src/renderer/lib/editor/` |
+
+### Dependencies
+
+- `prosemirror-state`, `prosemirror-view`, `prosemirror-model`
+- `prosemirror-commands`, `prosemirror-keymap`
+- `prosemirror-markdown`, `prosemirror-schema-basic`
+
+The `useEditorModeStore` (`src/renderer/stores/editor-mode-store.ts`) tracks the current mode (`source` or `wysiwyg`).
+
+## High Contrast Theme
+
+High contrast theme support is provided in `src/renderer/hooks/useCodeMirror/high-contrast-theme.ts` and is toggled via the accessibility store (`useAccessibilityStore`).

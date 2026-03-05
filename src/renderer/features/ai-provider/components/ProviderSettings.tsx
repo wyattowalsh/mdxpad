@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import type { ProviderType } from '@shared/ai/types';
+import type { ProviderType, SidecarConfig } from '@shared/ai/types';
 import {
   useAIProvider,
   useProviderSettings,
@@ -44,11 +44,17 @@ export function ProviderSettings() {
     providers,
     activeProviderId,
     isLoading,
+    isSidecarLoading,
+    sidecarStatus,
     error,
     addProvider,
     updateProvider,
     removeProvider,
     setActiveProvider,
+    fetchSidecarStatus,
+    configureSidecar,
+    startSidecar,
+    stopSidecar,
     clearError,
   } = useAIProvider();
 
@@ -61,10 +67,21 @@ export function ProviderSettings() {
     void refreshStats();
   }, [refreshStats]);
 
+  useEffect(() => {
+    if (selectedProvider?.type === 'sidecar') {
+      void fetchSidecarStatus();
+    }
+  }, [fetchSidecarStatus, selectedProvider?.id, selectedProvider?.type]);
+
   // Handle add provider
   const handleAdd = useCallback(
     async (
-      config: { displayName: string; type: ProviderType; baseUrl?: string },
+      config: {
+        displayName: string;
+        type: ProviderType;
+        baseUrl?: string;
+        sidecarConfig?: SidecarConfig;
+      },
       apiKey?: string
     ) => {
       await addProvider(config, apiKey);
@@ -76,17 +93,30 @@ export function ProviderSettings() {
   // Handle update provider
   const handleUpdate = useCallback(
     async (
-      config: { displayName: string; type: ProviderType; baseUrl?: string },
+      config: {
+        displayName: string;
+        type: ProviderType;
+        baseUrl?: string;
+        sidecarConfig?: SidecarConfig;
+      },
       _apiKey?: string
     ) => {
       if (!selectedProvider) return;
 
-      const updates: { displayName?: string; baseUrl?: string } = {
+      const updates: {
+        displayName?: string;
+        baseUrl?: string;
+        sidecarConfig?: SidecarConfig;
+      } = {
         displayName: config.displayName,
       };
 
       if (config.baseUrl !== undefined) {
         updates.baseUrl = config.baseUrl;
+      }
+
+      if (config.sidecarConfig !== undefined) {
+        updates.sidecarConfig = config.sidecarConfig;
       }
 
       await updateProvider(selectedProvider.id, updates);
@@ -122,6 +152,27 @@ export function ProviderSettings() {
     await validate(selectedProvider.id);
   }, [selectedProvider, validate]);
 
+  const handleSidecarConfigure = useCallback(async () => {
+    if (selectedProvider?.type !== 'sidecar' || !selectedProvider.sidecarConfig) {
+      return;
+    }
+    await configureSidecar(selectedProvider.sidecarConfig);
+  }, [configureSidecar, selectedProvider]);
+
+  const handleSidecarStart = useCallback(async () => {
+    if (selectedProvider?.type !== 'sidecar') {
+      return;
+    }
+    await startSidecar(selectedProvider.sidecarConfig);
+  }, [selectedProvider, startSidecar]);
+
+  const handleSidecarStop = useCallback(async () => {
+    if (selectedProvider?.type !== 'sidecar') {
+      return;
+    }
+    await stopSidecar();
+  }, [selectedProvider, stopSidecar]);
+
   // Handle select provider
   const handleSelectProvider = useCallback(
     (id: string) => {
@@ -142,9 +193,7 @@ export function ProviderSettings() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          AI Providers
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">AI Providers</h2>
         {viewMode === 'list' && (
           <button
             onClick={() => setViewMode('add')}
@@ -208,6 +257,67 @@ export function ProviderSettings() {
                   error={error}
                 />
 
+                {selectedProvider.type === 'sidecar' && (
+                  <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Sidecar Runtime Status:{' '}
+                        <span className="font-medium capitalize">
+                          {sidecarStatus?.status ?? 'unknown'}
+                        </span>
+                      </p>
+                      <button
+                        onClick={() => void fetchSidecarStatus()}
+                        disabled={isSidecarLoading}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    {sidecarStatus?.endpoint && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Endpoint: {sidecarStatus.endpoint}
+                      </p>
+                    )}
+                    {sidecarStatus?.error?.message && (
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        {sidecarStatus.error.message}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <button
+                        onClick={() => void handleSidecarConfigure()}
+                        disabled={isSidecarLoading || !selectedProvider.sidecarConfig}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      >
+                        Apply Config
+                      </button>
+                      <button
+                        onClick={() => void handleSidecarStart()}
+                        disabled={
+                          isSidecarLoading ||
+                          sidecarStatus?.status === 'running' ||
+                          sidecarStatus?.status === 'starting'
+                        }
+                        className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      >
+                        Start Runtime
+                      </button>
+                      <button
+                        onClick={() => void handleSidecarStop()}
+                        disabled={
+                          isSidecarLoading ||
+                          sidecarStatus?.status === 'stopped' ||
+                          sidecarStatus?.status === 'stopping'
+                        }
+                        className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      >
+                        Stop Runtime
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Additional actions */}
                 <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                   <button
@@ -252,7 +362,11 @@ export function ProviderSettings() {
             <Button variant="outline" onClick={handleRemoveCancel} disabled={isLoading}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => void handleRemoveConfirm()} disabled={isLoading}>
+            <Button
+              variant="destructive"
+              onClick={() => void handleRemoveConfirm()}
+              disabled={isLoading}
+            >
               {isLoading ? 'Removing...' : 'Remove'}
             </Button>
           </DialogFooter>

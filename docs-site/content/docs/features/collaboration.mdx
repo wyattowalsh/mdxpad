@@ -1,0 +1,178 @@
+---
+title: "Collaboration"
+description: "Real-time collaborative editing with Yjs WebSocket, cursor overlays, comments, and suggestions."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Mermaid } from '@/components/mermaid';
+
+MDXPad supports real-time collaborative editing using Yjs CRDTs and a WebSocket server running inside Electron's Main process. Multiple editors can edit the same document simultaneously with automatic conflict resolution, remote cursor visibility, threaded comments, and an inline suggestion system.
+
+## Architecture
+
+<Mermaid chart={`
+graph LR
+  subgraph RendererA["Renderer A"]
+    CSA[CollabStore]
+    YBA[YjsBinding]
+    COA[CursorOverlay]
+  end
+
+  subgraph Main["Main Process"]
+    WS[CollaborationServer<br/>WebSocket]
+    RM[Room Manager]
+    SVCB[CollaborationService<br/>Comments & Suggestions]
+  end
+
+  subgraph RendererB["Renderer B"]
+    CSB[CollabStore]
+    YBB[YjsBinding]
+    COB[CursorOverlay]
+  end
+
+  CSA <-->|IPC| WS
+  CSB <-->|IPC| WS
+  WS --- RM
+  SVCB --- RM
+`} />
+
+## Component Map
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `CollaborationServer` | `src/main/services/collab-server.ts` | Yjs WebSocket server inside Main |
+| `CollaborationService` | `src/main/services/collaboration-service.ts` | Comment threads and suggestions persistence |
+| `collab-awareness.ts` | `src/main/services/collab-awareness.ts` | Peer presence/awareness protocol |
+| `collab-handlers.ts` | `src/main/ipc/collab-handlers.ts` | IPC handlers for collaboration operations |
+| `useCollabStore` | `src/renderer/stores/collab-store.ts` | Zustand store for collaboration state |
+| `yjs-binding.ts` | `src/renderer/lib/editor/yjs-binding.ts` | Binds Yjs document to CodeMirror state |
+| `CollabStatusBar` | `src/renderer/components/collaboration/CollabStatusBar.tsx` | Connection status indicator |
+| `CursorOverlay` | `src/renderer/components/collaboration/CursorOverlay.tsx` | Remote cursor and selection rendering |
+
+## Dependencies
+
+| Package | Version | Role |
+|---------|---------|------|
+| `yjs` | `^13.6.29` | CRDT document model |
+| `y-websocket` | `^3.0.0` | WebSocket sync provider |
+| `y-indexeddb` | `^9.0.12` | Offline persistence |
+| `lib0` | `^0.2.117` | Yjs utility library |
+
+## WebSocket Server
+
+The `CollaborationServer` runs inside Electron's Main process. Each document gets its own room identified by `docId`.
+
+### Room Limits
+
+| Limit | Default | Config |
+|-------|---------|--------|
+| Maximum rooms | 50 | `maxRooms` |
+| Maximum clients per room | 20 | `maxClientsPerRoom` |
+| Buffered updates per room | 1000 | — |
+
+Document updates are buffered for late-joining clients. Empty rooms are automatically cleaned up.
+
+### Connection Protocol
+
+Clients connect via WebSocket with query parameters:
+
+```
+ws://localhost:{port}?docId={docId}&username={username}&color={color}
+```
+
+Connection status values: `connected` | `connecting` | `disconnected` | `error`
+
+## Joining a Room
+
+<Steps>
+  <Step>
+    ### Start or join a session
+
+    Open a document and use the command palette (`Cmd+K`) to search for **Collaboration: Start Session**. MDXPad starts the WebSocket server (if not already running) and creates a room for the current document.
+  </Step>
+  <Step>
+    ### Share the session link
+
+    The `CollabStatusBar` displays the room ID and connection port. Share the room details with collaborators so they can join.
+  </Step>
+  <Step>
+    ### Collaborators join
+
+    Other MDXPad instances call `collaboration.join({ docId, username, color })` via the preload API. The Yjs WebSocket provider connects and the document state is synchronized.
+  </Step>
+  <Step>
+    ### Edit together
+
+    All edits are merged automatically via Yjs CRDTs. Remote cursors appear via the `CursorOverlay` component. The `CollabStatusBar` lists connected peers in real time.
+  </Step>
+  <Step>
+    ### Leave the session
+
+    Call `collaboration.leave({ docId })` or close the document. The room is cleaned up automatically once all clients disconnect.
+  </Step>
+</Steps>
+
+## Preload API
+
+```typescript
+// window.mdxpad.collaboration
+
+// Session management
+collaboration.join({ docId, username, color })
+collaboration.leave({ docId })
+
+// Comment operations
+collaboration.addComment({ documentId, author, message, anchor })
+collaboration.resolveThread({ documentId, threadId, resolved })
+
+// Suggestion operations
+collaboration.addSuggestion({ documentId, anchor, patch, rationale, author })
+```
+
+## Collab Store State
+
+The `useCollabStore` (Zustand + Immer) tracks:
+
+```typescript
+interface CollabState {
+  roomId: string | null;
+  peers: PeerInfo[];          // { clientId, username, color }
+  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  localUser: { username: string; color: string };
+  port: number | null;        // WebSocket server port
+}
+```
+
+## Comments and Suggestions
+
+The `CollaborationService` manages threaded comments and inline change suggestions with persistence to `~/.mdxpad/collaboration/`.
+
+### Comment Threads
+
+<Callout type="info">
+  Comment threads are anchored to document positions. Each thread persists as a JSON file and survives application restarts.
+</Callout>
+
+- Anchored to document positions
+- Threaded replies with author and timestamp
+- Open / resolved state tracking
+- Persisted as JSON files in `~/.mdxpad/collaboration/`
+
+### Suggestion Workflow
+
+- Inline change proposals represented as diff patches
+- Accept / reject per suggestion
+- Checksum-based staleness detection — suggestions are marked `outdated` if the underlying document changed since the suggestion was made
+
+### UI Components
+
+| Component | Location |
+|-----------|----------|
+| `CommentPanel` | `src/renderer/components/comments/CommentPanel.tsx` |
+| `CommentThread` | `src/renderer/components/comments/CommentThread.tsx` |
+| `CommentGutter` | `src/renderer/components/comments/CommentGutter.tsx` |
+
+## IPC Schemas
+
+Collaboration IPC contracts are defined in `src/shared/contracts/collab-schemas.ts`.

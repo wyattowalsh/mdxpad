@@ -106,6 +106,22 @@ test.beforeAll(async () => {
   await page.waitForSelector('[data-testid="status-bar"]');
 });
 
+test.afterEach(async () => {
+  // Close palette if open
+  const isOpen = await isPaletteOpen(page);
+  if (isOpen) await closePalette(page);
+  // Clear test globals
+  await page.evaluate(() => {
+    delete (window as any).__commandExecuted;
+    delete (window as any).__executedCommandId;
+  });
+  // Restore any dialog mocks
+  await electronApp.evaluate(() => {
+    const r = (globalThis as any).__restoreSaveDialog;
+    if (r) r();
+  });
+});
+
 test.afterAll(async () => {
   await safeCloseElectronApp(electronApp, userDataDir);
   userDataDir = null;
@@ -284,44 +300,27 @@ test.describe('Command Palette E2E', () => {
     });
 
     test('Enter should execute selected command', async () => {
-      await page.evaluate(() => {
-        (window as any).__commandExecuted = false;
-        (window as any).__executedCommandId = null;
-      });
-
       await openPalette(page);
-
       await page.keyboard.type('toggle preview');
       await waitForCommandItems(page);
-
       await page.keyboard.press('Enter');
       await waitForPaletteClosed(page);
 
-      const paletteOpen = await page.evaluate(
-        (sel) => document.querySelector(sel) !== null,
-        PALETTE_SELECTOR
-      );
-
-      expect(paletteOpen).toBe(false);
+      // Palette auto-closes only on successful command execution (disabled commands keep it open)
+      expect(await isPaletteOpen(page)).toBe(false);
     });
   });
 
   test.describe('FR-008: Command Execution', () => {
     test('should execute view commands from palette', async () => {
       await openPalette(page);
-
       await page.keyboard.type('zoom in');
       await waitForCommandItems(page);
-
       await page.keyboard.press('Enter');
       await waitForPaletteClosed(page);
 
-      const paletteOpen = await page.evaluate(
-        (sel) => document.querySelector(sel) !== null,
-        PALETTE_SELECTOR
-      );
-
-      expect(paletteOpen).toBe(false);
+      // Palette auto-closes only on successful command execution
+      expect(await isPaletteOpen(page)).toBe(false);
     });
 
     test('disabled commands should not execute', async () => {
@@ -375,6 +374,14 @@ test.describe('Command Palette E2E', () => {
 
   test.describe('FR-009: Recent Commands', () => {
     test('recently executed commands should appear in list', async () => {
+      // Seed recent commands explicitly (removes ordering dependency)
+      await page.evaluate(() => {
+        const key = 'mdxpad:recent-commands';
+        localStorage.setItem(key, JSON.stringify([
+          { commandId: 'toggle-preview', lastUsed: Date.now(), useCount: 1 }
+        ]));
+      });
+
       // Execute a command first
       await openPalette(page);
       await page.keyboard.type('toggle preview');

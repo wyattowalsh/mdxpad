@@ -73,7 +73,7 @@ export const aiSessionApi: AISessionApi = {
       AISessionCreateRequestSchema,
       AISessionCreateResponseSchema,
       request
-    ) as ReturnType<AISessionApi['createSession']>,
+    ),
 
   listSessions: (request) =>
     validatedInvoke(
@@ -81,7 +81,7 @@ export const aiSessionApi: AISessionApi = {
       AISessionListRequestSchema,
       AISessionListResponseSchema,
       request ?? {}
-    ) as ReturnType<AISessionApi['listSessions']>,
+    ),
 
   getSession: (sessionId) =>
     validatedInvoke(
@@ -89,7 +89,7 @@ export const aiSessionApi: AISessionApi = {
       AISessionGetRequestSchema,
       AISessionGetResponseSchema,
       { sessionId }
-    ) as ReturnType<AISessionApi['getSession']>,
+    ),
 
   archiveSession: (request) =>
     validatedInvoke(
@@ -97,7 +97,7 @@ export const aiSessionApi: AISessionApi = {
       AISessionArchiveRequestSchema,
       AISessionArchiveResponseSchema,
       request
-    ) as ReturnType<AISessionApi['archiveSession']>,
+    ),
 
   restoreSession: (request) =>
     validatedInvoke(
@@ -105,7 +105,7 @@ export const aiSessionApi: AISessionApi = {
       AISessionRestoreRequestSchema,
       AISessionRestoreResponseSchema,
       request
-    ) as ReturnType<AISessionApi['restoreSession']>,
+    ),
 
   listPrompts: (request) =>
     validatedInvoke(
@@ -113,7 +113,7 @@ export const aiSessionApi: AISessionApi = {
       AIPromptListRequestSchema,
       AIPromptListResponseSchema,
       request ?? {}
-    ) as ReturnType<AISessionApi['listPrompts']>,
+    ),
 
   attachPrompt: (request) =>
     validatedInvoke(
@@ -121,7 +121,7 @@ export const aiSessionApi: AISessionApi = {
       AIPromptAttachRequestSchema,
       AIPromptAttachResponseSchema,
       request
-    ) as ReturnType<AISessionApi['attachPrompt']>,
+    ),
 
   listInstructions: (request) =>
     validatedInvoke(
@@ -129,7 +129,7 @@ export const aiSessionApi: AISessionApi = {
       AIInstructionListRequestSchema,
       AIInstructionListResponseSchema,
       request ?? {}
-    ) as ReturnType<AISessionApi['listInstructions']>,
+    ),
 
   loadInstruction: (instructionFileId) =>
     validatedInvoke(
@@ -137,7 +137,7 @@ export const aiSessionApi: AISessionApi = {
       AIInstructionLoadRequestSchema,
       AIInstructionLoadResponseSchema,
       { instructionFileId }
-    ) as ReturnType<AISessionApi['loadInstruction']>,
+    ),
 
   attachInstruction: (request) =>
     validatedInvoke(
@@ -145,5 +145,5 @@ export const aiSessionApi: AISessionApi = {
       AIInstructionAttachRequestSchema,
       AIInstructionAttachResponseSchema,
       request
-    ) as ReturnType<AISessionApi['attachInstruction']>,
+    ),
 };

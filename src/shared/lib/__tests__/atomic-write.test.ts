@@ -12,7 +12,7 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
-import { atomicWrite } from '../atomic-write';
+import { atomicWrite, type AtomicWritePhase } from '../atomic-write';
 
 describe('atomicWrite', () => {
   let tempDir: string;
@@ -91,6 +91,57 @@ describe('atomicWrite', () => {
 
       // No temp file with custom suffix should remain
       expect(existsSync(`${targetPath}.bak`)).toBe(false);
+    });
+  });
+
+  describe('durability contract', () => {
+    it('should call durability hooks in write/commit order', async () => {
+      const targetPath = join(tempDir, 'durability.txt');
+      const phases: AtomicWritePhase[] = [];
+      const tempPaths: string[] = [];
+
+      await atomicWrite(targetPath, 'content', {
+        durabilityContract: {
+          onPhase: (phase, context) => {
+            phases.push(phase);
+            tempPaths.push(context.tempPath);
+          },
+        },
+      });
+
+      expect(phases).toEqual([
+        'before-write-temp',
+        'after-write-temp',
+        'before-commit',
+        'after-commit',
+      ]);
+      expect(tempPaths.every((tempPath) => tempPath === `${targetPath}.tmp`)).toBe(true);
+    });
+
+    it('should call durability error hook when write fails', async () => {
+      const targetPath = join(tempDir, 'durability-error.txt');
+      const onError = vi.fn();
+
+      vi.spyOn(fs, 'writeFile').mockRejectedValue(new Error('Disk full'));
+
+      await expect(
+        atomicWrite(targetPath, 'content', {
+          durabilityContract: {
+            onError,
+          },
+        })
+      ).rejects.toThrow('Disk full');
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          targetPath,
+          tempPath: `${targetPath}.tmp`,
+        })
+      );
+
+      vi.restoreAllMocks();
     });
   });
 

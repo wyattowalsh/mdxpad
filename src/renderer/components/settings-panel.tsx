@@ -19,6 +19,7 @@ import { Slider } from './ui/slider';
 import { Button } from './ui/button';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
+import { PluginMarketplace } from '../features/plugins/PluginMarketplace';
 import {
   useFeatureFlagsStore,
   selectFeatureFlags,
@@ -73,6 +74,11 @@ const FEATURE_FLAG_OPTIONS: readonly {
     key: 'authoring',
     label: 'Authoring Surface',
     description: 'Frontmatter authoring and related writing workflows.',
+  },
+  {
+    key: 'plugin',
+    label: 'Plugin Surface',
+    description: 'Plugin discovery and management flows.',
   },
 ] as const;
 
@@ -191,6 +197,7 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
   const [settings, setLocalSettings] = useState<AutosaveSettings>(DEFAULT_AUTOSAVE_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
   const featureFlags = useFeatureFlagsStore(selectFeatureFlags);
   const setFeatureFlag = useFeatureFlagsStore((state) => state.setFlag);
 
@@ -273,6 +280,10 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
       useAIProviderStore.getState().openSettings();
     });
   }, [featureFlags.ai]);
+
+  const togglePluginMarketplace = useCallback(() => {
+    setShowPluginMarketplace((current) => !current);
+  }, []);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -405,6 +416,32 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                 >
                   Open AI Provider Settings
                 </Button>
+              </div>
+            )}
+
+            {featureFlags.plugin && (
+              <div className="space-y-2 border-t pt-4" data-testid="plugin-settings-section">
+                <h3 className="text-sm font-medium">Plugins</h3>
+                <p className="text-xs text-muted-foreground">
+                  Browse installed plugins and discover available extensions.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={togglePluginMarketplace}
+                  data-testid="toggle-plugin-marketplace-button"
+                >
+                  {showPluginMarketplace ? 'Hide Plugin Marketplace' : 'Open Plugin Marketplace'}
+                </Button>
+                {showPluginMarketplace && (
+                  <div
+                    className="max-h-72 overflow-y-auto rounded-md border border-border p-2"
+                    data-testid="plugin-marketplace-panel"
+                  >
+                    <PluginMarketplace />
+                  </div>
+                )}
               </div>
             )}
           </div>

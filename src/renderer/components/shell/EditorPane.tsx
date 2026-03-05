@@ -12,6 +12,17 @@ import { useCallback, memo, useRef, useEffect } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
+import {
+  useEditorPreferencesStore,
+  selectKeymapMode,
+  selectFontFamily,
+  selectFontSize,
+  selectLineHeight,
+  selectSpellcheckEnabled,
+  selectMinimapEnabled,
+  selectFocusModeEnabled,
+  selectWordWrapEnabled,
+} from '@renderer/stores/editor-preferences-store';
 import type { EditorState, SelectionInfo } from '@shared/types/editor';
 
 // =============================================================================
@@ -111,6 +122,14 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   // Connect to document store
   const content = useDocumentStore(selectContent);
   const setContent = useDocumentStore((state) => state.setContent);
+  const keymapMode = useEditorPreferencesStore(selectKeymapMode);
+  const fontFamily = useEditorPreferencesStore(selectFontFamily);
+  const fontSize = useEditorPreferencesStore(selectFontSize);
+  const lineHeight = useEditorPreferencesStore(selectLineHeight);
+  const spellcheckEnabled = useEditorPreferencesStore(selectSpellcheckEnabled);
+  const minimapEnabled = useEditorPreferencesStore(selectMinimapEnabled);
+  const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
+  const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
 
   // Use ref to track content for stable callback dependency
   const contentRef = useRef(content);
@@ -156,12 +175,19 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     theme,
     height,
     lineNumbers: true,
-    lineWrapping: false,
+    lineWrapping: wordWrapEnabled,
     tabSize: 2,
     highlightActiveLine: true,
     bracketMatching: true,
     closeBrackets: true,
     indentationGuides: true,
+    keymapMode,
+    enableMinimap: minimapEnabled,
+    enableFocusMode: focusModeEnabled,
+    enableSpellcheck: spellcheckEnabled,
+    fontFamily,
+    fontSize,
+    fontLineHeight: lineHeight,
     ariaLabel: 'MDX Document Editor',
     ...(className !== undefined && { className }),
     ...(editorRef !== undefined && { editorRef }),

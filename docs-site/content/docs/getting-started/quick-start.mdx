@@ -1,0 +1,59 @@
+---
+title: Quick Start
+description: Open your first MDX file and explore the editor.
+---
+
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+Once you have MDXPad running (`pnpm dev`), follow these steps to get oriented.
+
+<Steps>
+  <Step>
+    ### Launch the app
+
+    Run `pnpm dev` from the repository root. The MDXPad window opens with a welcome document. The interface shows the editor on the left and live preview on the right.
+  </Step>
+
+  <Step>
+    ### Open an MDX file
+
+    Press `Cmd+O` to open a file, or use the command palette (`Cmd+K`) and type "open". Select any `.mdx` file from your filesystem. The editor loads the file with full syntax highlighting and the preview renders immediately.
+  </Step>
+
+  <Step>
+    ### Try the AI chat panel
+
+    Press `Cmd+Shift+A` or open the command palette and run "Toggle AI Panel". Type a prompt like "Summarize this document" or select text and choose "Rewrite selection". AI features require an API key configured in Settings (`Cmd+,`).
+  </Step>
+
+  <Step>
+    ### Toggle the preview
+
+    Press `Cmd+Shift+P` to toggle between editor-only, split, and preview-only modes. In split mode, scrolling in the editor syncs the preview position. Click elements in the preview to jump to the corresponding source line.
+  </Step>
+
+  <Step>
+    ### Export your document
+
+    Open the command palette (`Cmd+K`) and type "export". Choose a format: PDF, DOCX, EPUB, LaTeX, or Pandoc. The export dialog lets you configure options before generating the output file.
+  </Step>
+</Steps>
+
+## Useful shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+K` | Command palette |
+| `Cmd+O` | Open file |
+| `Cmd+S` | Save (autosave also runs every 30s) |
+| `Cmd+Shift+P` | Toggle preview layout |
+| `Cmd+Shift+A` | Toggle AI panel |
+| `Cmd+F` | Find in document |
+| `Cmd+Shift+F` | Workspace full-text search |
+| `Cmd+,` | Open settings |
+
+## Next steps
+
+- Read about [Editor Extensions](/docs/features/editor-extensions) to learn what the editor can do
+- Configure AI providers in Settings under the AI tab
+- Explore the [Plugin System](/docs/features/plugin-system) to extend MDXPad

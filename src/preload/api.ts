@@ -68,7 +68,13 @@ import type { searchApi } from './search-api';
 import type { importApi } from './import-api';
 import type { citationApi } from './citation-api';
 import type { SemanticSearchApi } from './semantic-search-api';
-import type { PluginRecord } from '@shared/contracts/plugin-schemas';
+import type {
+  PluginDisableResponse,
+  PluginEnableResponse,
+  PluginInstallResponse,
+  PluginListResponse,
+  PluginUninstallResponse,
+} from '@shared/contracts/plugin-schemas';
 import type {
   TemplateMetadata,
   Template,
@@ -101,11 +107,11 @@ export interface AgentApi {
 
 /** Plugin system API shape */
 export interface PluginApi {
-  list(): Promise<{ plugins: PluginRecord[] }>;
-  install(pluginPath: string): Promise<{ ok: boolean; plugin?: PluginRecord }>;
-  uninstall(pluginId: string): Promise<{ ok: boolean }>;
-  enable(pluginId: string): Promise<{ ok: boolean; plugin?: PluginRecord }>;
-  disable(pluginId: string): Promise<{ ok: boolean; plugin?: PluginRecord }>;
+  list(): Promise<PluginListResponse>;
+  install(pluginPath: string): Promise<PluginInstallResponse>;
+  uninstall(pluginId: string): Promise<PluginUninstallResponse>;
+  enable(pluginId: string): Promise<PluginEnableResponse>;
+  disable(pluginId: string): Promise<PluginDisableResponse>;
 }
 
 export interface ExportOperationsApi {

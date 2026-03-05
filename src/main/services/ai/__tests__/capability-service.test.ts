@@ -291,6 +291,21 @@ describe('CapabilityService', () => {
       expect(result.modelId).toBe('custom-model');
       expect(result.capabilities.has(ProviderCapability.TEXT_GENERATION)).toBe(true);
     });
+
+    it('should return basic capabilities for sidecar provider', async () => {
+      const provider = createMockProvider({
+        id: 'sidecar-1',
+        type: 'sidecar',
+        baseUrl: 'http://127.0.0.1:11470',
+      });
+      mockProviderService.getProvider.mockResolvedValue(provider);
+
+      const result = await service.getCapabilities('sidecar-1', 'llama-3.2');
+
+      expect(result.modelId).toBe('llama-3.2');
+      expect(result.capabilities.has(ProviderCapability.TEXT_GENERATION)).toBe(true);
+      expect(result.capabilities.has(ProviderCapability.STREAMING)).toBe(true);
+    });
   });
 
   // ===========================================================================
@@ -412,6 +427,28 @@ describe('CapabilityService', () => {
       expect(result).toHaveLength(2);
     });
 
+    it('should list sidecar models via OpenAI-compatible model listing', async () => {
+      const provider = createMockProvider({
+        id: 'sidecar-1',
+        type: 'sidecar',
+        baseUrl: 'http://127.0.0.1:11470',
+      });
+      mockProviderService.getProvider.mockResolvedValue(provider);
+
+      const result = await service.listModels('sidecar-1');
+
+      expect(mockFetchOpenAICompatibleModels).toHaveBeenCalledWith(
+        'http://127.0.0.1:11470'
+      );
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual(
+        expect.objectContaining({
+          id: 'model-1',
+          capabilities: [ProviderCapability.TEXT_GENERATION, ProviderCapability.STREAMING],
+        })
+      );
+    });
+
     it('should return empty array when baseUrl missing for local provider', async () => {
       const provider = createMockProvider({
         id: 'ollama-1',
@@ -423,6 +460,20 @@ describe('CapabilityService', () => {
       const result = await service.listModels('ollama-1');
 
       expect(result).toEqual([]);
+    });
+
+    it('should return empty array when baseUrl missing for sidecar provider', async () => {
+      const provider = createMockProvider({
+        id: 'sidecar-1',
+        type: 'sidecar',
+      });
+      delete (provider as any).baseUrl;
+      mockProviderService.getProvider.mockResolvedValue(provider);
+
+      const result = await service.listModels('sidecar-1');
+
+      expect(result).toEqual([]);
+      expect(mockFetchOpenAICompatibleModels).not.toHaveBeenCalled();
     });
   });
 
@@ -556,6 +607,25 @@ describe('CapabilityService', () => {
 
       expect(mockFetchOllamaModels).toHaveBeenCalled();
       expect(result).toContain('ollama-1');
+    });
+
+    it('should treat sidecar providers as text-generation capable without probing', async () => {
+      const providers = [
+        createMockProvider({
+          id: 'sidecar-1',
+          type: 'sidecar',
+          baseUrl: 'http://127.0.0.1:11470',
+        }),
+      ];
+      mockProviderService.getProviders.mockResolvedValue(providers);
+
+      const result = await service.getProvidersWithCapability(
+        ProviderCapability.TEXT_GENERATION
+      );
+
+      expect(result).toContain('sidecar-1');
+      expect(mockFetchOpenAICompatibleModels).not.toHaveBeenCalled();
+      expect(mockProbeOllamaModel).not.toHaveBeenCalled();
     });
   });
 

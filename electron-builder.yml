@@ -10,6 +10,9 @@ directories:
   buildResources: resources
   output: release
 
+# Keep architecture in artifact names so CI can validate matrix outputs.
+artifactName: '${productName}-${version}-${arch}.${ext}'
+
 # macOS-specific configuration
 mac:
   category: public.app-category.developer-tools
@@ -47,6 +50,13 @@ files:
   - '!dist/main/*.map'
   - '!dist/preload/*.map'
 
+# Keep native sidecar binaries/resources outside app.asar so they remain executable.
+extraResources:
+  - from: resources/sidecar
+    to: sidecar
+    filter:
+      - '**/*'
+
 # ASAR packaging
 asar: true
 asarUnpack:
@@ -55,5 +65,7 @@ asarUnpack:
 # Compression
 compression: normal
 
-# Notarization (requires APPLE_ID and APPLE_APP_SPECIFIC_PASSWORD env vars)
-afterSign: null # Add notarization hook when ready
+# Notarization hook:
+# - Requires APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID.
+# - When missing, scripts/notarize.cjs logs and skips (for PR and unsigned CI builds).
+afterSign: scripts/notarize.cjs

@@ -59,6 +59,20 @@ export interface CommandPaletteActions {
 
 export type UseCommandPaletteReturn = CommandPaletteState & CommandPaletteActions;
 
+function isCommandVisible(command: Command, context: CommandContext | null): boolean {
+  if (!command.visible) {
+    return true;
+  }
+  if (!context) {
+    return true;
+  }
+  try {
+    return command.visible(context);
+  } catch {
+    return false;
+  }
+}
+
 function getCommandMetadataTargets(command: Command): readonly string[] {
   const shortcut = command.shortcut !== undefined ? normalizeShortcut(command.shortcut) : null;
 
@@ -132,7 +146,7 @@ function searchCommands(
  * ```
  */
 
-export function useCommandPalette(): UseCommandPaletteReturn {
+export function useCommandPalette(getContext?: () => CommandContext): UseCommandPaletteReturn {
   // ==========================================================================
   // STATE
   // ==========================================================================
@@ -152,11 +166,13 @@ export function useCommandPalette(): UseCommandPaletteReturn {
   // COMPUTED: FILTERED RESULTS
   // ==========================================================================
 
+  const context = getContext?.() ?? null;
+
   const results = useMemo((): readonly FuzzyMatchResult<Command>[] => {
     const allCommands = getAllCommands();
 
     // Filter out invisible commands
-    const visibleCommands = allCommands;
+    const visibleCommands = allCommands.filter((command) => isCommandVisible(command, context));
 
     if (!query.trim()) {
       // No query: show recent commands first, then all commands
@@ -192,7 +208,7 @@ export function useCommandPalette(): UseCommandPaletteReturn {
 
     // With query: fuzzy search
     return searchCommands(query, visibleCommands);
-  }, [query, getAllCommands, getRecentCommands, getCommand]);
+  }, [query, getAllCommands, getRecentCommands, getCommand, context]);
 
   // ==========================================================================
   // ACTIONS

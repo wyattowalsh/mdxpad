@@ -7,10 +7,14 @@
  * @module shared/security/__tests__/csp-nonce.test
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { generateNonce, createNonceCSP } from '../csp-nonce';
 
 describe('generateNonce', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('should generate a non-empty string', () => {
     const nonce = generateNonce();
     expect(nonce).toBeTruthy();
@@ -55,6 +59,11 @@ describe('generateNonce', () => {
       const nonce = generateNonce();
       expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
     }
+  });
+
+  it('should fail fast when secure randomness is unavailable', () => {
+    vi.stubGlobal('crypto', undefined);
+    expect(() => generateNonce()).toThrow('Secure random source unavailable');
   });
 });
 

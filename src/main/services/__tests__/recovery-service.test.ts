@@ -633,6 +633,21 @@ describe('RecoveryService', () => {
         expect(result.conflict).toBeNull();
       }
     });
+
+    it('should sanitize unsafe recovery file paths and continue preview', async () => {
+      const file = createRecoveryFile(docId, '# Unsafe Path Content', {
+        filePath: '../escape/outside.mdx',
+      });
+      mockFs.readFile.mockResolvedValue(JSON.stringify(file));
+
+      const result = await recoveryService.getPreview(createDocumentId(docId));
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.conflict).toBeNull();
+      }
+      expect(mockFs.stat).not.toHaveBeenCalled();
+    });
   });
 
   // ==========================================================================
@@ -720,6 +735,34 @@ describe('RecoveryService', () => {
       const entry = result.entries[0];
       expect(entry).toBeDefined();
       expect(entry?.isValid).toBe(false);
+    });
+
+    it('should treat unsafe recovery paths as untitled while keeping entry recoverable', async () => {
+      const docId = '123e4567-e89b-12d3-a456-426614174011';
+      const manifest = createManifest({
+        [docId]: { documentId: docId, savedAt: Date.now(), fileName: 'unsafe-path.mdx' },
+      });
+
+      mockFs.readFile.mockImplementation((filePath: string) => {
+        if (filePath.endsWith('manifest.json')) {
+          return Promise.resolve(JSON.stringify(manifest));
+        }
+        return Promise.resolve(
+          JSON.stringify(
+            createRecoveryFile(docId, '# Content', {
+              filePath: '../outside/project/unsafe.mdx',
+            })
+          )
+        );
+      });
+
+      const result = await recoveryService.listRecoverable();
+
+      expect(result.entries).toHaveLength(1);
+      const entry = result.entries[0];
+      expect(entry).toBeDefined();
+      expect(entry?.filePath).toBeNull();
+      expect(entry?.isValid).toBe(true);
     });
 
     it('should include content preview', async () => {

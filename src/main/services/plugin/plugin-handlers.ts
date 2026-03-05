@@ -6,7 +6,7 @@
  * @module main/services/plugin/plugin-handlers
  */
 
-import { ipcMain } from 'electron';
+import type { BrowserWindow, IpcMain } from 'electron';
 
 import {
   PluginInstallRequestSchema,
@@ -23,6 +23,7 @@ import type {
 } from '@shared/contracts/plugin-schemas';
 
 import type { PluginLoader } from './plugin-loader';
+import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
 
 /** IPC channel names for plugin operations */
 export const PLUGIN_CHANNELS = {
@@ -124,10 +125,24 @@ async function handleDisable(
 /**
  * Register all plugin-related IPC handlers.
  */
-export function registerPluginHandlers(loader: PluginLoader): void {
-  ipcMain.handle(PLUGIN_CHANNELS.list, async () => handleList(loader));
-  ipcMain.handle(PLUGIN_CHANNELS.install, async (_, req) => handleInstall(loader, req));
-  ipcMain.handle(PLUGIN_CHANNELS.uninstall, async (_, req) => handleUninstall(loader, req));
-  ipcMain.handle(PLUGIN_CHANNELS.enable, async (_, req) => handleEnable(loader, req));
-  ipcMain.handle(PLUGIN_CHANNELS.disable, async (_, req) => handleDisable(loader, req));
+export function registerPluginHandlers(
+  ipcMain: IpcMain,
+  window: BrowserWindow,
+  loader: PluginLoader
+): void {
+  registerAuthorizedIpcHandler(ipcMain, window, PLUGIN_CHANNELS.list, async () =>
+    handleList(loader)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, PLUGIN_CHANNELS.install, async (_, req) =>
+    handleInstall(loader, req)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, PLUGIN_CHANNELS.uninstall, async (_, req) =>
+    handleUninstall(loader, req)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, PLUGIN_CHANNELS.enable, async (_, req) =>
+    handleEnable(loader, req)
+  );
+  registerAuthorizedIpcHandler(ipcMain, window, PLUGIN_CHANNELS.disable, async (_, req) =>
+    handleDisable(loader, req)
+  );
 }

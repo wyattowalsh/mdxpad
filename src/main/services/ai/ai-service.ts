@@ -22,6 +22,7 @@ import {
 import type { ICredentialService } from './credential-service';
 import type { IProviderService } from './provider-service';
 import type { IUsageService } from './usage-service';
+import type { ISidecarLifecycleService } from './sidecar-service';
 
 // Re-export all public types from ai-types so consumers importing from
 // './ai-service' continue to work unchanged.
@@ -87,6 +88,7 @@ export class AIService implements IAIService {
   private readonly credentialService: ICredentialService;
   private readonly providerService: IProviderService;
   private readonly usageService: IUsageService;
+  private readonly sidecarService: ISidecarLifecycleService;
 
   /** Cached active model instance */
   private cachedModel: LanguageModel | null = null;
@@ -101,11 +103,13 @@ export class AIService implements IAIService {
   constructor(
     credentialService: ICredentialService,
     providerService: IProviderService,
-    usageService: IUsageService
+    usageService: IUsageService,
+    sidecarService: ISidecarLifecycleService
   ) {
     this.credentialService = credentialService;
     this.providerService = providerService;
     this.usageService = usageService;
+    this.sidecarService = sidecarService;
   }
 
   // ===========================================================================
@@ -204,10 +208,15 @@ export class AIService implements IAIService {
     provider: ProviderConfig;
     apiKey: string;
   }> => {
-    const provider = await this.providerService.getActiveProvider();
-    if (!provider) {
+    const activeProvider = await this.providerService.getActiveProvider();
+    if (!activeProvider) {
       throw new NoActiveProviderError();
     }
+
+    const provider =
+      activeProvider.type === 'sidecar'
+        ? await this.resolveSidecarProvider(activeProvider)
+        : activeProvider;
 
     const apiKey = await this.credentialService.getCredential(provider.id);
     if (!apiKey && requiresApiKey(provider.type)) {
@@ -220,6 +229,28 @@ export class AIService implements IAIService {
 
     return { provider, apiKey: apiKey ?? '' };
   };
+
+  private async resolveSidecarProvider(provider: ProviderConfig): Promise<ProviderConfig> {
+    const currentStatus = this.sidecarService.getStatus();
+    const sidecarStatus =
+      currentStatus.status === 'running'
+        ? currentStatus
+        : await this.sidecarService.start(provider.sidecarConfig);
+
+    if (sidecarStatus.status !== 'running' || !sidecarStatus.endpoint) {
+      throw new AIProviderError(
+        'Sidecar runtime is not running',
+        'SIDECAR_NOT_RUNNING',
+        provider.id
+      );
+    }
+
+    return {
+      ...provider,
+      baseUrl: sidecarStatus.endpoint,
+      ...(sidecarStatus.config !== undefined && { sidecarConfig: sidecarStatus.config }),
+    };
+  }
 
   /**
    * Gets alternate provider IDs for rate limit fallback.
@@ -297,6 +328,7 @@ export class AIService implements IAIService {
         return createAnthropic({ apiKey });
       case 'ollama':
       case 'lmstudio':
+      case 'sidecar':
       case 'openai-compatible':
         return createOpenAI({
           apiKey,

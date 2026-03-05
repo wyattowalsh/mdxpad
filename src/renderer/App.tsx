@@ -6,7 +6,7 @@
  * @module renderer/App
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { EditorPane } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
@@ -47,6 +47,7 @@ import { useAppDialogs } from './hooks/useAppDialogs';
 import { useMenuEvents } from './hooks/useMenuEvents';
 import { useFilterDebounce, type FileEntry } from './hooks/useFilterDebounce';
 import { useDragDrop } from './hooks/useDragDrop';
+import { useAccessibility } from './hooks/useAccessibility';
 import { ProviderSettings } from './features/ai-provider/components';
 import { useAIProviderStore } from './features/ai-provider/store';
 import type { DocumentId } from '@shared/types/document';
@@ -82,6 +83,7 @@ function buildExplorerEntries(filePath: string | null, fileName: string): readon
 /** Main App component with split-pane layout. */
 // eslint-disable-next-line max-lines-per-function
 export function App(): React.ReactElement {
+  useAccessibility();
   const state = useAppState();
   const dialogs = useAppDialogs(state);
   const sidebarVisible = useUILayoutStore(selectSidebarVisible);
@@ -100,6 +102,27 @@ export function App(): React.ReactElement {
   const isFilterQueryActive = filterQuery.trim().length > 0;
 
   const isMountedRef = useRef(true);
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return 'light';
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateTheme = (event: MediaQueryListEvent): void => {
+      setPreviewTheme(event.matches ? 'dark' : 'light');
+    };
+    setPreviewTheme(mediaQuery.matches ? 'dark' : 'light');
+    mediaQuery.addEventListener('change', updateTheme);
+    return () => {
+      mediaQuery.removeEventListener('change', updateTheme);
+    };
+  }, []);
 
   const explorerEntries = useMemo(
     () => buildExplorerEntries(state.filePath, state.fileName),
@@ -154,11 +177,14 @@ export function App(): React.ReactElement {
   // Template browser opener for tests
   const openTemplateBrowser = useTemplateBrowserModalStore((s) => s.openTemplateBrowser);
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser =
-      openTemplateBrowser;
-    return () => {
-      delete (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser;
-    };
+    if (process.env.NODE_ENV === 'test') {
+      (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser =
+        openTemplateBrowser;
+      return () => {
+        delete (window as unknown as Record<string, unknown>).__mdxpadTestOpenTemplateBrowser;
+      };
+    }
+    return undefined;
   }, [openTemplateBrowser]);
 
   const { palette, getCommandContext } = useMenuEvents(state.editorRef, state.handleNotification);
@@ -260,7 +286,7 @@ export function App(): React.ReactElement {
               >
                 <PreviewPane
                   className="flex-1 h-full"
-                  theme="dark"
+                  theme={previewTheme}
                   onErrorClick={state.handlePreviewErrorClick}
                   onErrorsChange={state.handleErrorsChange}
                 />

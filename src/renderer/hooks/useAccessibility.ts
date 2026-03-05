@@ -36,7 +36,7 @@ function useContrastMediaQuery(): void {
   const syncHighContrast = useAccessibilityStore((state) => state.syncHighContrast);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
     const query = window.matchMedia('(prefers-contrast: more)');
     syncHighContrast(query.matches);
     const handler = (e: MediaQueryListEvent): void => syncHighContrast(e.matches);
@@ -50,7 +50,7 @@ function useMotionMediaQuery(): void {
   const syncReducedMotion = useAccessibilityStore((state) => state.syncReducedMotion);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
     syncReducedMotion(query.matches);
     const handler = (e: MediaQueryListEvent): void => syncReducedMotion(e.matches);

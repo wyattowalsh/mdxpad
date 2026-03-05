@@ -29,6 +29,10 @@ import {
   ProviderCapabilitySchema,
   ProviderListResponseSchema,
   ProviderTypeSchema,
+  SidecarConfigSchema,
+  SidecarConfigureRequestSchema,
+  SidecarLifecycleStatusResponseSchema,
+  SidecarStatusRequestSchema,
   SetActiveProviderRequestSchema,
   SetActiveProviderResponseSchema,
   StreamCancelRequestSchema,
@@ -55,6 +59,18 @@ export type AIProviderSetActiveRequest = z.infer<typeof AIProviderSetActiveReque
 
 export const AIProviderSetActiveResponseSchema = SetActiveProviderResponseSchema;
 export type AIProviderSetActiveResponse = z.infer<typeof AIProviderSetActiveResponseSchema>;
+
+export const AISidecarConfigSchema = SidecarConfigSchema;
+export type AISidecarConfig = z.infer<typeof AISidecarConfigSchema>;
+
+export const AISidecarConfigureRequestSchema = SidecarConfigureRequestSchema;
+export type AISidecarConfigureRequest = z.infer<typeof AISidecarConfigureRequestSchema>;
+
+export const AISidecarStatusRequestSchema = SidecarStatusRequestSchema;
+export type AISidecarStatusRequest = z.infer<typeof AISidecarStatusRequestSchema>;
+
+export const AISidecarLifecycleStatusResponseSchema = SidecarLifecycleStatusResponseSchema;
+export type AISidecarLifecycleStatusResponse = z.infer<typeof AISidecarLifecycleStatusResponseSchema>;
 
 // ============================================================================
 // Session contracts

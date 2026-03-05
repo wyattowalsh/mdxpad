@@ -1,8 +1,18 @@
 /**
- * Integration tests for Version History.
+ * Version History Store State Transition & Selector Tests
  *
- * Tests version entries, timeline ordering, selection,
- * and restore functionality.
+ * Tests version entry loading, timeline ordering, entry selection,
+ * source-based filtering, loading/error state management, file path
+ * tracking, and store reset.
+ *
+ * NOTE: Scope clarification — despite the `tests/integration/` path, these are
+ * unit-level tests exercising the Zustand version-history-store in isolation
+ * with a mocked localStorage. Version entries are synthetic objects passed
+ * directly to the store — no actual autosave snapshots, git log parsing, or
+ * filesystem reads are involved. True integration tests would trigger autosaves
+ * and git commits through real services, load the resulting history via IPC, and
+ * verify that selecting a version entry restores the correct document content in
+ * the editor.
  *
  * @module tests/integration/version-history.test
  */

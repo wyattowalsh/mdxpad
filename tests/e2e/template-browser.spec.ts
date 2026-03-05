@@ -22,7 +22,7 @@
 import type { ElectronApplication, Page } from 'playwright';
 import type { Locator } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
+import { dispatchIpcEvent, launchMdxpad, safeCloseElectronApp } from './utils/electron-lifecycle';
 
 let electronApp: ElectronApplication;
 let page: Page;
@@ -30,12 +30,14 @@ let userDataDir: string | null = null;
 
 const TEMPLATE_BROWSER_TITLE = 'Template Browser';
 const TEMPLATE_BROWSE_COMMAND = 'Template: Browse Templates';
-const SEARCH_PERFORMANCE_BUDGET_MS = 1500;
-const PREVIEW_PERFORMANCE_BUDGET_MS = 2000;
+const SEARCH_PERFORMANCE_BUDGET_MS = 200;
+const PREVIEW_PERFORMANCE_BUDGET_MS = 1000;
 const FIRST_DOCUMENT_BUDGET_MS = 30_000;
 const OPEN_PALETTE_TIMEOUT_MS = 3000;
 const FEATURE_FLAGS_STORAGE_KEY = 'mdxpad.feature-flags';
-const ALLOW_CRITICAL_E2E_RUNTIME_SKIP = process.env.MDXPAD_ALLOW_CRITICAL_E2E_SKIP === '1';
+const PALETTE_SELECTOR = '[data-testid="command-palette"]';
+
+let originalFeatureFlags: string | null = null;
 
 type TemplateBrowserReadyState = 'cards' | 'empty' | 'error';
 
@@ -43,13 +45,6 @@ interface TemplateInventory {
   totalCount: number;
   builtInCount: number;
   error: string | null;
-}
-
-function failOrSkipCritical(reason: string): never {
-  if (ALLOW_CRITICAL_E2E_RUNTIME_SKIP) {
-    test.skip(true, `[governed-runtime-skip] ${reason}`);
-  }
-  throw new Error(`${reason}. Set MDXPAD_ALLOW_CRITICAL_E2E_SKIP=1 to allow a governed skip.`);
 }
 
 function getTemplateBrowserDialog(target: Page): Locator {
@@ -70,149 +65,27 @@ function getVariableDialog(target: Page): Locator {
 
 async function openTemplateBrowser(target: Page): Promise<void> {
   const templateBrowser = getTemplateBrowserDialog(target);
-  if (await templateBrowser.isVisible()) {
-    return;
-  }
+  if (await templateBrowser.isVisible()) return;
 
   const commandPalette = target.getByTestId('command-palette');
   const commandInput = target.getByTestId('command-palette-input');
-  let isPaletteOpen = await commandPalette.isVisible();
-
-  if (!isPaletteOpen) {
-    await target.evaluate(() => {
-      window.dispatchEvent(
-        new KeyboardEvent('keydown', {
-          key: 'p',
-          metaKey: true,
-          shiftKey: true,
-          bubbles: true,
-          cancelable: true,
-        })
-      );
-    });
-
-    try {
-      await expect(commandPalette).toBeVisible({ timeout: OPEN_PALETTE_TIMEOUT_MS });
-      isPaletteOpen = true;
-    } catch {
-      isPaletteOpen = false;
-    }
-  }
-
-  if (!isPaletteOpen) {
-    await electronApp.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win?.webContents.send('mdxpad:menu:command-palette');
-    });
-
-    try {
-      await expect(commandPalette).toBeVisible({ timeout: OPEN_PALETTE_TIMEOUT_MS });
-      isPaletteOpen = true;
-    } catch {
-      isPaletteOpen = false;
-    }
-  }
-
-  if (!isPaletteOpen) {
-    await electronApp.evaluate(({ Menu, BrowserWindow }) => {
-      const appMenu = Menu.getApplicationMenu();
-      if (!appMenu) {
-        return;
-      }
-      const win = BrowserWindow.getAllWindows()[0] ?? null;
-
-      for (const topLevelItem of appMenu.items) {
-        if (!topLevelItem.submenu) continue;
-        const paletteItem = topLevelItem.submenu.items.find((item) =>
-          item.label?.includes('Command Palette')
-        );
-        if (paletteItem) {
-          paletteItem.click(paletteItem, win, {} as never);
-          break;
-        }
-      }
-    });
-
-    try {
-      await expect(commandPalette).toBeVisible({ timeout: OPEN_PALETTE_TIMEOUT_MS });
-      isPaletteOpen = true;
-    } catch {
-      isPaletteOpen = false;
-    }
-  }
-
-  if (!isPaletteOpen) {
-    await target.evaluate(() => {
-      const maybeOpen = (window as any).__mdxpadTestOpenTemplateBrowser;
-      if (typeof maybeOpen === 'function') {
-        maybeOpen();
-      }
-    });
-
-    if (await templateBrowser.isVisible()) {
-      await expect(commandPalette).toBeHidden();
-      await expect(templateBrowser.getByRole('listbox', { name: 'Template list' })).toBeVisible();
-      return;
-    }
-  }
-
-  expect(isPaletteOpen).toBe(true);
-  await expect(commandInput).toBeVisible();
-
-  await commandInput.fill(TEMPLATE_BROWSE_COMMAND);
-
   const browseCommand = target
     .getByTestId('command-item')
     .filter({ hasText: TEMPLATE_BROWSE_COMMAND })
     .first();
-  await expect(browseCommand).toBeVisible();
+
+  await dispatchIpcEvent(electronApp, 'mdxpad:menu:command-palette');
+  await expect(commandPalette).toBeVisible({ timeout: OPEN_PALETTE_TIMEOUT_MS });
+  await expect(commandInput).toBeVisible();
+  await commandInput.fill(TEMPLATE_BROWSE_COMMAND);
+  await expect(browseCommand).toBeVisible({ timeout: 3000 });
   await browseCommand.click();
-
-  await expect(templateBrowser).toBeVisible();
+  await expect(templateBrowser).toBeVisible({ timeout: 5000 });
   await expect(commandPalette).toBeHidden();
-  await expect(templateBrowser.getByRole('listbox', { name: 'Template list' })).toBeVisible();
-}
-
-async function openTemplateBrowserDirect(target: Page): Promise<boolean> {
-  const templateBrowser = getTemplateBrowserDialog(target);
-  if (await templateBrowser.isVisible()) {
-    return true;
-  }
-
-  await target.evaluate(() => {
-    const maybeOpen = (window as any).__mdxpadTestOpenTemplateBrowser;
-    if (typeof maybeOpen === 'function') {
-      maybeOpen();
-    }
-  });
-  try {
-    await expect(templateBrowser).toBeVisible({ timeout: OPEN_PALETTE_TIMEOUT_MS });
-    await expect(templateBrowser.getByRole('listbox', { name: 'Template list' })).toBeVisible();
-    return true;
-  } catch {
-    // Fall back to the command-palette flow when direct open did not materialize.
-  }
-
-  try {
-    await openTemplateBrowser(target);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function requireTemplateBrowserOpen(target: Page): Promise<void> {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (await openTemplateBrowserDirect(target)) {
-      return;
-    }
-    await closeVariableDialogIfOpen(target);
-    await closeTemplateBrowserIfOpen(target);
-    await closeCommandPaletteIfOpen(target);
-    await target.waitForTimeout(250);
-  }
-
-  failOrSkipCritical('Template browser did not open in this environment');
+  await openTemplateBrowser(target);
 }
 
 async function getTemplateInventory(target: Page): Promise<TemplateInventory> {
@@ -297,7 +170,7 @@ async function closeCommandPaletteIfOpen(target: Page): Promise<void> {
 
 async function getSelectedTemplateId(target: Page): Promise<string | null> {
   const selectedCard = getTemplateBrowserDialog(target)
-    .locator('[data-testid="template-card"][aria-pressed="true"]')
+    .locator('[data-testid="template-card"][aria-selected="true"]')
     .first();
 
   if ((await selectedCard.count()) === 0) {
@@ -315,6 +188,13 @@ test.beforeAll(async () => {
   page = await electronApp.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   await page.waitForSelector('[data-testid="status-bar"]');
+
+  // Capture original feature flags before modifying
+  originalFeatureFlags = await page.evaluate(
+    (key) => localStorage.getItem(key),
+    FEATURE_FLAGS_STORAGE_KEY
+  );
+
   await page.evaluate((storageKey) => {
     const existing = localStorage.getItem(storageKey);
     const parsed = existing ? (JSON.parse(existing) as Record<string, unknown>) : {};
@@ -326,6 +206,14 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  // Restore original feature flags before closing
+  if (page) {
+    await page.evaluate(({ key, val }) => {
+      if (val === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, val);
+    }, { key: FEATURE_FLAGS_STORAGE_KEY, val: originalFeatureFlags });
+  }
+
   await safeCloseElectronApp(electronApp, userDataDir);
   userDataDir = null;
 });
@@ -333,8 +221,21 @@ test.afterAll(async () => {
 test.describe('Template Browser E2E', () => {
   test.afterEach(async () => {
     await closeVariableDialogIfOpen(page);
-    await closeTemplateBrowserIfOpen(page);
-    await closeCommandPaletteIfOpen(page);
+    // Close template browser if open
+    const tbOpen = await page.evaluate(() =>
+      document.querySelector('[data-testid="template-browser"]') !== null
+    );
+    if (tbOpen) {
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-testid="template-browser"]', { state: 'hidden', timeout: 2000 }).catch(() => {});
+    }
+    // Close palette if open
+    const paletteOpen = await page.evaluate(() =>
+      document.querySelector('[data-testid="command-palette"]') !== null
+    );
+    if (paletteOpen) {
+      await page.keyboard.press('Escape');
+    }
   });
 
   test.describe('FR-001: Opening Template Browser', () => {
@@ -387,7 +288,6 @@ test.describe('Template Browser E2E', () => {
 
       const templateBrowser = getTemplateBrowserDialog(page);
       const cards = getTemplateCards(page);
-      const searchStart = Date.now();
       if (readyState === 'cards') {
         const searchInput = page.getByRole('textbox', { name: 'Search templates' }).first();
         const initialCardCount = await cards.count();
@@ -403,7 +303,39 @@ test.describe('Template Browser E2E', () => {
         const searchTerm = termCandidate ?? firstTemplateName.toLowerCase();
 
         await expect(searchInput).toBeVisible();
-        await searchInput.fill(searchTerm);
+        const searchDuration = await page.evaluate(
+          async ({ term, initialCount }) => {
+            const input = document.querySelector('input[aria-label="Search templates"]');
+            if (!(input instanceof HTMLInputElement)) {
+              throw new Error('Search input not found');
+            }
+
+            const start = performance.now();
+            input.focus();
+            input.value = term;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            const timeoutAt = performance.now() + 1500;
+            await new Promise<void>((resolve, reject) => {
+              const tick = () => {
+                const cardCount = document.querySelectorAll('[data-testid="template-card"]').length;
+                if (cardCount <= initialCount) {
+                  resolve();
+                  return;
+                }
+                if (performance.now() > timeoutAt) {
+                  reject(new Error('Search filter did not settle'));
+                  return;
+                }
+                requestAnimationFrame(tick);
+              };
+              requestAnimationFrame(tick);
+            });
+
+            return performance.now() - start;
+          },
+          { term: searchTerm, initialCount: initialCardCount }
+        );
 
         // Wait for search filtering to take effect by polling for card count change
         await expect
@@ -412,13 +344,11 @@ test.describe('Template Browser E2E', () => {
 
         const filteredCount = await cards.count();
         expect(filteredCount).toBeLessThanOrEqual(initialCardCount);
+        expect(searchDuration).toBeLessThan(SEARCH_PERFORMANCE_BUDGET_MS);
       } else {
         await expect(cards).toHaveCount(0);
         await expect(templateBrowser.getByText('No templates available')).toBeVisible();
       }
-
-      const searchDuration = Date.now() - searchStart;
-      expect(searchDuration).toBeLessThan(SEARCH_PERFORMANCE_BUDGET_MS);
     });
   });
 
@@ -441,14 +371,14 @@ test.describe('Template Browser E2E', () => {
         await templateList.click();
         await page.keyboard.press('ArrowDown');
         await expect(
-          templateBrowser.locator('[data-testid="template-card"][aria-pressed="true"]')
+          templateBrowser.locator('[data-testid="template-card"][aria-selected="true"]')
         ).toHaveCount(1);
         await expect(previewPlaceholder).toBeHidden();
       } else {
         await templateList.click();
         await page.keyboard.press('ArrowDown');
         await expect(
-          templateBrowser.locator('[data-testid="template-card"][aria-pressed="true"]')
+          templateBrowser.locator('[data-testid="template-card"][aria-selected="true"]')
         ).toHaveCount(0);
         await expect(previewPlaceholder).toBeVisible();
       }
@@ -471,7 +401,7 @@ test.describe('Template Browser E2E', () => {
 
       if (readyState === 'cards') {
         await expect(
-          templateBrowser.locator('[data-testid="template-card"][aria-pressed="true"]')
+          templateBrowser.locator('[data-testid="template-card"][aria-selected="true"]')
         ).toHaveCount(1);
         const firstSelectedId = await getSelectedTemplateId(page);
         expect(firstSelectedId).not.toBeNull();
@@ -487,7 +417,7 @@ test.describe('Template Browser E2E', () => {
           .toBe(firstSelectedId);
       } else {
         await expect(
-          templateBrowser.locator('[data-testid="template-card"][aria-pressed="true"]')
+          templateBrowser.locator('[data-testid="template-card"][aria-selected="true"]')
         ).toHaveCount(0);
       }
     });
@@ -513,7 +443,7 @@ test.describe('Template Browser E2E', () => {
         await templateBrowser.getByRole('listbox', { name: 'Template list' }).click();
         await page.keyboard.press('ArrowDown');
         await expect(
-          templateBrowser.locator('[data-testid="template-card"][aria-pressed="true"]')
+          templateBrowser.locator('[data-testid="template-card"][aria-selected="true"]')
         ).toHaveCount(1);
 
         await page.keyboard.press('Enter');

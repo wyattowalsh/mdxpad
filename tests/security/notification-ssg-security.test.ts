@@ -74,12 +74,14 @@ describe('NotificationService security', () => {
       '<body onload=alert(1)>',
     ];
 
-    it('passes payloads to Electron Notification safely (plain text rendering)', async () => {
+    it('stores payloads verbatim (relying on OS-level plain text rendering)', async () => {
       for (const p of payloads) {
         const r = await svc.show(p, p);
         expect(r.id).toBeTruthy();
       }
-      // Electron Notification renders plain text, so raw content is safe
+      // INTENTIONAL: No sanitization here — Electron's Notification API renders as OS-native
+      // plain text, not HTML. If this service is ever changed to display in a webview,
+      // these payloads MUST be escaped. See HR-4 audit (2026-03-01).
       for (let i = 0; i < payloads.length; i++) {
         expect(mockInstances[i]?.title).toBe(payloads[i]);
         expect(mockInstances[i]?.body).toBe(payloads[i]);

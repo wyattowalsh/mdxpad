@@ -34,12 +34,13 @@ describe('useFeatureFlagsStore', () => {
   });
 
   it('applies partial overrides through setFlags', () => {
-    useFeatureFlagsStore.getState().setFlags({ ai: false, export: false });
+    useFeatureFlagsStore.getState().setFlags({ ai: false, export: false, plugin: false });
 
     expect(useFeatureFlagsStore.getState().flags).toEqual({
       ...DEFAULT_FEATURE_FLAGS,
       ai: false,
       export: false,
+      plugin: false,
     });
   });
 
