@@ -158,7 +158,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "happy-dom": "^20.7.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
+    "lint-staged": "^17.0.7",
     "mdast-util-mdx-jsx": "^3.2.0",
     "ollama-ai-provider": "^1.2.0",
     "playwright": "^1.49.0",
