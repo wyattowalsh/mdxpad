@@ -162,7 +162,7 @@
     "mdast-util-mdx-jsx": "^3.2.0",
     "ollama-ai-provider": "^1.2.0",
     "playwright": "^1.49.0",
-    "prettier": "^3.4.0",
+    "prettier": "^3.8.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",
