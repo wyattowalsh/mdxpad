@@ -125,7 +125,7 @@
     "remark-math": "^6.0.0",
     "remark-stringify": "^11.0.0",
     "simple-git": "^3.32.3",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.6.0",
     "unified": "^11.0.5",
     "vfile": "^6.0.3",
     "vfile-matter": "^5.0.1",
