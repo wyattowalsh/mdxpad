@@ -105,7 +105,7 @@
     "immer": "^10.0.0",
     "katex": "^0.16.33",
     "lib0": "^0.2.117",
-    "lucide-react": "^0.514.0",
+    "lucide-react": "^1.17.0",
     "mermaid": "^11.12.3",
     "minisearch": "^7.2.0",
     "prosemirror-commands": "^1.7.1",
