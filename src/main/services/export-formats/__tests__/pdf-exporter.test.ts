@@ -182,6 +182,16 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps a wrapped quoted list item together', async () => {
+    await exporter.export({
+      content: '> - ~~hello\n>   world~~',
+      outputPath: '/tmp/quote-list.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><del>hello world</del></li>');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

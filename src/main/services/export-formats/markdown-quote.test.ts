@@ -47,6 +47,13 @@ describe('quoteBody', () => {
     expect(list).toContain('<ul>');
     expect(list).toContain('<li>one</li>');
     expect(list).toContain('<li>two</li>');
+    expect(quoteToHtml(['- hello', '  world'], (line) => line)).toContain('<li>hello world</li>');
+    expect(quoteToHtml(['- hello', '', 'After'], (line) => line)).toContain('<p>After</p>');
+    expect(quoteToHtml(['- item', '', '  continued'], (line) => line)).toContain(
+      '<li>item continued</li>'
+    );
+    expect(quoteToLatex(['- hello', '  world'], (line) => line)).toContain('\\item hello world');
+    expect(quoteToLatex(['- Stay\\', '  put'], (line) => line)).toContain('\\item Stay\\\\\nput');
   });
 
   it('wraps quote lines in a blockquote', () => {

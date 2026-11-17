@@ -447,6 +447,46 @@ function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): vo
   blocks.push(new Table({ rows: [toRow(table.headers), ...table.rows.map((row) => toRow(row))] }));
 }
 
+function appendDocxQuoteList(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  depth: number
+): void {
+  let current: MarkdownListItem | null = null;
+  let hard = false;
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      continue;
+    }
+    const item = parseListItem(line);
+    if (item) {
+      if (current) {
+        blocks.push(listParagraph(current, depth));
+      }
+      current = item;
+      hard = readSourceLine(line).hardBreak;
+      continue;
+    }
+    if (!current) {
+      continue;
+    }
+    const source = readSourceLine(line);
+    const nextText: string = hard
+      ? `${current.text}\n${source.text}`
+      : `${current.text} ${source.text}`;
+    current = {
+      level: current.level,
+      ordered: current.ordered,
+      start: current.start,
+      text: nextText,
+    };
+    hard = source.hardBreak;
+  }
+  if (current) {
+    blocks.push(listParagraph(current, depth));
+  }
+}
+
 function appendDocxQuoteLines(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
@@ -462,12 +502,7 @@ function appendDocxQuoteLines(
       continue;
     }
     if (chunk.kind === 'list') {
-      for (const line of chunk.lines) {
-        const item = parseListItem(line);
-        if (item) {
-          blocks.push(listParagraph(item, depth));
-        }
-      }
+      appendDocxQuoteList(blocks, chunk.lines, depth);
       continue;
     }
     const sources = chunk.lines

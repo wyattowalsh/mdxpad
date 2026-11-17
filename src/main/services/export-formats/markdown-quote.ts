@@ -2,7 +2,7 @@ import { isThematicBreak } from './markdown-break';
 import { openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { renderedSegments } from './markdown-marks';
-import { joinParagraphHtml, readSourceLine } from './markdown-paragraph';
+import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
   isTableRow,
   markdownTableToHtml,
@@ -11,11 +11,15 @@ import {
 } from './markdown-table';
 import {
   closeHtmlLists,
+  isListContinuation,
+  listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  renderListItemHtml,
   type HtmlListFrame,
+  type MarkdownListItem,
 } from './markdown-list';
-import { listItemHtml, splitTaskItem, taskItemLatex } from './markdown-task';
+import { splitTaskItem, taskItemLatex } from './markdown-task';
 
 const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
 
@@ -56,26 +60,49 @@ function takeChunk(chunks: QuoteChunk[], current: QuoteChunk | null): QuoteChunk
   return null;
 }
 
+function listIndent(lines: readonly string[]): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const column = listContentColumn(lines[index] ?? '');
+    if (column !== null) {
+      return column;
+    }
+  }
+  return 2;
+}
+
+function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['kind'] | null {
+  if (quoteBody(line) !== null) {
+    return 'nested';
+  }
+  if (line.length === 0) {
+    return null;
+  }
+  if (parseListItem(line) !== null) {
+    return 'list';
+  }
+  if (current?.kind === 'list' && isListContinuation(line, listIndent(current.lines))) {
+    return 'list';
+  }
+  if (isTableRow(line)) {
+    return 'table';
+  }
+  return 'paragraph';
+}
+
 export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   const chunks: QuoteChunk[] = [];
   let current: QuoteChunk | null = null;
   for (const line of lines) {
-    const inner = quoteBody(line);
-    const kind: QuoteChunk['kind'] | null =
-      inner !== null
-        ? 'nested'
-        : line.length === 0
-          ? null
-          : parseListItem(line)
-            ? 'list'
-            : isTableRow(line)
-              ? 'table'
-              : 'paragraph';
+    const kind = quoteLineKind(line, current);
     if (kind === null) {
+      if (current?.kind === 'list') {
+        current.lines.push(line);
+        continue;
+      }
       current = takeChunk(chunks, current);
       continue;
     }
-    const text = inner ?? line;
+    const text = quoteBody(line) ?? line;
     if (current?.kind === kind) {
       current.lines.push(text);
       continue;
@@ -85,6 +112,27 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   }
   takeChunk(chunks, current);
   return chunks;
+}
+
+function groupQuoteItems(
+  lines: readonly string[]
+): { item: MarkdownListItem; body: SourceLine[] }[] {
+  const groups: { item: MarkdownListItem; body: SourceLine[] }[] = [];
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      continue;
+    }
+    const item = parseListItem(line);
+    if (item) {
+      groups.push({
+        item,
+        body: [{ text: item.text, hardBreak: readSourceLine(line).hardBreak }],
+      });
+      continue;
+    }
+    groups[groups.length - 1]?.body.push(readSourceLine(line));
+  }
+  return groups;
 }
 
 function quoteTableHtml(lines: readonly string[], renderLine: (line: string) => string): string {
@@ -109,26 +157,30 @@ function quoteTableLatex(lines: readonly string[], renderLine: (line: string) =>
 function quoteListHtml(lines: readonly string[], renderLine: (line: string) => string): string {
   const parts: string[] = [];
   const stack: HtmlListFrame[] = [];
-  for (const line of lines) {
-    const item = parseListItem(line);
-    if (item) {
-      pushHtmlListItem(parts, stack, item, listItemHtml(item.text, renderLine));
-    }
+  for (const group of groupQuoteItems(lines)) {
+    pushHtmlListItem(parts, stack, group.item, renderListItemHtml(group.body, renderLine));
   }
   closeHtmlLists(parts, stack);
   return parts.join('\n');
 }
 
-function quoteItemLatex(line: string, renderLine: (line: string) => string): string {
-  const text = parseListItem(line)?.text ?? line;
-  const task = splitTaskItem(text);
-  return task ? taskItemLatex(task.checked, renderLine(task.body)) : renderLine(text);
+function formatQuoteItem(
+  lines: readonly SourceLine[],
+  renderLine: (line: string) => string
+): string {
+  const first = lines[0] ?? { text: '', hardBreak: false };
+  const task = splitTaskItem(first.text);
+  const body = task ? [{ text: task.body, hardBreak: first.hardBreak }, ...lines.slice(1)] : lines;
+  const formatted = renderedSegments(body)
+    .map((text, index) => (index === 0 ? renderLine(text) : `\\\\\n${renderLine(text)}`))
+    .join('');
+  return task ? taskItemLatex(task.checked, formatted) : formatted;
 }
 
 function quoteListLatex(lines: readonly string[], renderLine: (line: string) => string): string {
-  const first = parseListItem(lines[0] ?? '');
-  const env = first?.ordered === true ? 'enumerate' : 'itemize';
-  const items = lines.map((line) => `\\item ${quoteItemLatex(line, renderLine)}`);
+  const groups = groupQuoteItems(lines);
+  const env = groups[0]?.item.ordered === true ? 'enumerate' : 'itemize';
+  const items = groups.map((group) => `\\item ${formatQuoteItem(group.body, renderLine)}`);
   return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`;
 }
 
