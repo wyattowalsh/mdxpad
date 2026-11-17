@@ -28,6 +28,15 @@ describe('built-in export documents', () => {
     expect(pdf.content).not.toContain('NOTE');
   });
 
+  it('keeps a wrapped list item on one line', () => {
+    const pdf = buildPdfDocument('- item\n  **continued**\n\nAfter');
+    expect(pdf.content).toContain('- item continued');
+    expect(pdf.content).not.toContain('**');
+    expect(pdf.content).toContain('After');
+    const docx = Buffer.from(buildDocxDocument('- item\n  continued').content).toString('utf8');
+    expect(docx).toContain('item continued');
+  });
+
   it('writes a table as cells and leaves out the separator', () => {
     const source = 'Name | Value\n--- | ---:\n**A** | 1';
     const pdf = buildPdfDocument(source);

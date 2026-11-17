@@ -4,7 +4,7 @@ import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/ty
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
 import { advanceFence } from './export-formats/markdown-fence';
-import { parseListItem } from './export-formats/markdown-list';
+import { isListContinuation, parseListItem } from './export-formats/markdown-list';
 import { quoteBody } from './export-formats/markdown-quote';
 import { linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
@@ -295,6 +295,26 @@ function takeMarkdownTable(
   return cursor - 1;
 }
 
+function isRenderedListItem(text: string): boolean {
+  return /^\s*(?:[-*+] |\d+\. |\[[ xX]\] )/.test(text);
+}
+
+function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
+  if (!isListContinuation(rawLine)) {
+    return false;
+  }
+  const last = blocks[blocks.length - 1];
+  if (last?.kind !== 'paragraph' || !isRenderedListItem(last.text)) {
+    return false;
+  }
+  blocks[blocks.length - 1] = {
+    kind: 'paragraph',
+    text: `${last.text} ${plainInline(rawLine.trim())}`,
+    setext: false,
+  };
+  return true;
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   const lines = expandLinkReferences(markdown).replaceAll('\r\n', '\n').split('\n');
@@ -314,6 +334,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     const tableEnd = takeMarkdownTable(blocks, lines, index);
     if (tableEnd > index) {
       index = tableEnd;
+      continue;
+    }
+    if (appendBuiltInListContinuation(blocks, rawLine)) {
       continue;
     }
     if (!takeSetextHeading(blocks, rawLine)) {
