@@ -8,7 +8,7 @@
  * @module renderer/components/shell/EditorPane
  */
 
-import { useCallback, memo, useRef, useEffect } from 'react';
+import { useCallback, memo, useMemo, useRef, useEffect, useSyncExternalStore } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { EditorModeToggle } from '../editor/EditorModeToggle';
@@ -29,6 +29,9 @@ import {
 } from '@renderer/stores/editor-preferences-store';
 import type { EditorState, SelectionInfo } from '@shared/types/editor';
 import { cn } from '@shared/lib/utils';
+import { extensionForTheme } from '@renderer/features/plugins/editor-theme';
+import { getActiveTheme, subscribeActiveTheme } from '@renderer/features/plugins/theme-manager';
+import { useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
 
 // =============================================================================
 // TYPES
@@ -136,6 +139,12 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
   const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
   const editorMode = useEditorModeStore(selectEditorMode);
+  const pluginThemesEnabled = useFeatureFlagsStore((state) => state.flags.plugin);
+  const activeTheme = useSyncExternalStore(subscribeActiveTheme, getActiveTheme);
+  const syntaxTheme = useMemo(
+    () => (pluginThemesEnabled && activeTheme ? extensionForTheme(activeTheme) : null),
+    [pluginThemesEnabled, activeTheme]
+  );
 
   // Use ref to track content for stable callback dependency
   const contentRef = useRef(content);
@@ -194,6 +203,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     fontFamily,
     fontSize,
     fontLineHeight: lineHeight,
+    syntaxTheme,
     ariaLabel: 'MDX Document Editor',
     ...(className !== undefined && { className }),
     ...(editorRef !== undefined && { editorRef }),

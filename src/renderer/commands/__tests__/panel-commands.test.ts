@@ -35,6 +35,7 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-playground',
       'view.toggle-marketplace',
       'view.toggle-css',
+      'view.toggle-themes',
       'view.toggle-wysiwyg',
     ]);
     expect(PANEL_COMMANDS.every((command) => command.shortcut === undefined)).toBe(true);

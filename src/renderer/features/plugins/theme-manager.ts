@@ -24,7 +24,29 @@ const STORAGE_KEY = 'mdxpad:active-theme';
 // ============================================================================
 
 let activeThemeId: string | null = null;
+let activeTheme: ThemeDefinition | null = null;
 let userThemes: ThemeDefinition[] = [];
+const themeListeners = new Set<() => void>();
+
+function clearThemeVariables(): void {
+  const root = document.documentElement;
+  for (const theme of getAllThemes()) {
+    if (!theme.cssVariables) {
+      continue;
+    }
+    for (const key of Object.keys(theme.cssVariables)) {
+      root.style.removeProperty(key);
+    }
+  }
+}
+
+function publishActiveTheme(theme: ThemeDefinition | null): void {
+  activeTheme = theme;
+  activeThemeId = theme?.id ?? null;
+  for (const listener of themeListeners) {
+    listener();
+  }
+}
 
 // ============================================================================
 // Public API
@@ -54,6 +76,19 @@ export function getActiveThemeId(): string | null {
   return activeThemeId;
 }
 
+/** Theme definition currently applied to the editor, or null for the built-in theme. */
+export function getActiveTheme(): ThemeDefinition | null {
+  return activeTheme;
+}
+
+/** Subscribe to theme apply and reset. Returns an unsubscribe function. */
+export function subscribeActiveTheme(listener: () => void): () => void {
+  themeListeners.add(listener);
+  return () => {
+    themeListeners.delete(listener);
+  };
+}
+
 /**
  * Apply a theme by ID.
  * Sets CSS variables and generates editor theme styles.
@@ -68,8 +103,8 @@ export function applyTheme(themeId: string): boolean {
   // Generate CSS from theme definition
   const css = generateThemeCss(theme);
   injectCss(THEME_CSS_ID, css, 'app');
+  clearThemeVariables();
 
-  // Apply CSS variables
   if (theme.cssVariables) {
     const root = document.documentElement;
     for (const [key, value] of Object.entries(theme.cssVariables)) {
@@ -77,8 +112,8 @@ export function applyTheme(themeId: string): boolean {
     }
   }
 
-  activeThemeId = themeId;
-  localStorage.setItem(STORAGE_KEY, themeId);
+  localStorage.setItem(STORAGE_KEY, theme.id);
+  publishActiveTheme(theme);
   return true;
 }
 
@@ -87,19 +122,9 @@ export function applyTheme(themeId: string): boolean {
  */
 export function resetTheme(): void {
   removeCss(THEME_CSS_ID);
-  activeThemeId = null;
   localStorage.removeItem(STORAGE_KEY);
-
-  // Clean CSS variables
-  const root = document.documentElement;
-  const allThemes = getAllThemes();
-  for (const theme of allThemes) {
-    if (theme.cssVariables) {
-      for (const key of Object.keys(theme.cssVariables)) {
-        root.style.removeProperty(key);
-      }
-    }
-  }
+  publishActiveTheme(null);
+  clearThemeVariables();
 }
 
 /**

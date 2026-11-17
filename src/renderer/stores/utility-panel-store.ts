@@ -15,7 +15,8 @@ export type UtilityPanelId =
   | 'edits'
   | 'playground'
   | 'marketplace'
-  | 'css';
+  | 'css'
+  | 'themes';
 
 interface UtilityPanelState {
   readonly activeUtilityPanel: UtilityPanelId | null;

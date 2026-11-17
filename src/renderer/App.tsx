@@ -42,6 +42,7 @@ import {
   selectMatchResults,
 } from './stores/file-explorer-store';
 import { useEditorPreferencesStore } from './stores/editor-preferences-store';
+import { initThemeManager } from './features/plugins/theme-manager';
 import { openFileFromPath } from './lib/open-file-from-path';
 import { MountedUtilityPanels } from './components/shell/MountedUtilityPanels';
 import { AiWriteSidebar } from './components/ai/AiWriteSidebar';
@@ -94,6 +95,9 @@ export function App(): React.ReactElement {
   const aiProviderSettingsOpen = useAIProviderStore((s) => s.settingsOpen);
   const closeAiProviderSettings = useAIProviderStore((s) => s.closeSettings);
   const distractionFree = useEditorPreferencesStore((s) => s.distractionFreeEnabled);
+  useEffect(() => {
+    initThemeManager();
+  }, []);
 
   // File explorer filter state
   const filterQuery = useFileExplorerStore(selectFilterQuery);

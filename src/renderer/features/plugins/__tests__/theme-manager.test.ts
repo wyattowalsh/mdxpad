@@ -13,7 +13,9 @@ import {
   getAllThemes,
   getActiveThemeId,
   applyTheme,
+  getActiveTheme,
   resetTheme,
+  subscribeActiveTheme,
   registerUserThemes,
   getTheme,
 } from '../theme-manager';
@@ -95,6 +97,17 @@ describe('theme-manager', () => {
 
       const style = document.querySelector('[data-mdxpad-injected="mdxpad-theme"]');
       expect(style).not.toBeNull();
+    });
+
+    it('notifies subscribers when the active theme changes', () => {
+      const listener = vi.fn();
+      const unsubscribe = subscribeActiveTheme(listener);
+      applyTheme('solarized');
+      expect(getActiveTheme()?.id).toBe('solarized');
+      expect(listener).toHaveBeenCalledTimes(1);
+      resetTheme();
+      expect(getActiveTheme()).toBeNull();
+      unsubscribe();
     });
   });
 

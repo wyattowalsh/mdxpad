@@ -15,14 +15,21 @@ import { EditorState as CMEditorState, Extension } from '@codemirror/state';
 
 import { buildExtensions, type MDXEditorConfig } from './extensions';
 import { createThemeListener, type EditorTheme } from './themes';
-import { executeCommand as execCmd, markdownKeymap, type EditorCommandName, type OnErrorCallback } from './commands';
-import { toEditorState, toSelectionInfo, debounce, type DebouncedFunction } from '../../lib/editor/state-bridge';
+import {
+  executeCommand as execCmd,
+  markdownKeymap,
+  type EditorCommandName,
+  type OnErrorCallback,
+} from './commands';
+import {
+  toEditorState,
+  toSelectionInfo,
+  debounce,
+  type DebouncedFunction,
+} from '../../lib/editor/state-bridge';
 import type { EditorError } from '../../lib/editor/errors';
 import type { EditorState, SelectionInfo } from '../../../shared/types/editor';
-import {
-  reconfigureRuntimeExtensions,
-  type RuntimeCompartments,
-} from './runtime-reconfigure';
+import { reconfigureRuntimeExtensions, type RuntimeCompartments } from './runtime-reconfigure';
 import type { KeymapMode } from '../../lib/editor/keymaps';
 
 // =============================================================================
@@ -60,6 +67,8 @@ export interface UseCodeMirrorOptions {
    * @see MDXEditorConfig.extensions for detailed documentation
    */
   readonly extensions?: Extension[];
+  /** Replaces the light/dark theme when a plugin theme is applied. */
+  readonly syntaxTheme?: Extension | null;
 }
 
 /** Return value from useCodeMirror hook. */
@@ -221,7 +230,11 @@ function initializeEditor(
   setIsFocused(view.hasFocus);
 
   // Use the per-instance themeCompartment for theme switching
-  const cleanupThemeListener = createThemeListener(view, themeCompartment, options.theme ?? 'system');
+  const cleanupThemeListener = createThemeListener(
+    view,
+    themeCompartment,
+    options.theme ?? 'system'
+  );
 
   return () => {
     debouncedOnChange?.cancel();
@@ -344,8 +357,10 @@ export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirror
       fontFamily: options.fontFamily,
       fontSize: options.fontSize,
       fontLineHeight: options.fontLineHeight,
+      syntaxTheme: options.syntaxTheme ?? null,
     });
   }, [
+    options.syntaxTheme,
     options.theme,
     options.lineWrapping,
     options.keymapMode,
@@ -390,11 +405,23 @@ export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirror
     return view ? execCmd(view, command, onErrorRef.current) : false;
   }, []);
 
-  const focus = useCallback((): void => { viewRef.current?.focus(); }, []);
+  const focus = useCallback((): void => {
+    viewRef.current?.focus();
+  }, []);
 
   const getView = useCallback((): EditorView | null => viewRef.current, []);
 
-  return { containerRef, state, selection, setValue, setSelection, executeCommand, focus, isFocused, getView };
+  return {
+    containerRef,
+    state,
+    selection,
+    setValue,
+    setSelection,
+    executeCommand,
+    focus,
+    isFocused,
+    getView,
+  };
 }
 
 // Type Re-exports for Consumers

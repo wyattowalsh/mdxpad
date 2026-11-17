@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { type Compartment, type StateEffect } from '@codemirror/state';
+import { type Compartment, type Extension, type StateEffect } from '@codemirror/state';
 import { createWordWrapExtension } from '../../lib/editor/extensions/word-wrap';
 import { createFontSettingsExtension } from '../../lib/editor/extensions/font-settings';
 import { minimapExtension } from '../../lib/editor/extensions/minimap';
@@ -28,6 +28,7 @@ export interface RuntimeReconfigureOptions {
   readonly fontFamily?: string | undefined;
   readonly fontSize?: number | undefined;
   readonly fontLineHeight?: number | undefined;
+  readonly syntaxTheme?: Extension | null | undefined;
 }
 
 export function reconfigureRuntimeExtensions(
@@ -42,13 +43,21 @@ export function reconfigureRuntimeExtensions(
     ...(options.fontLineHeight !== undefined && { lineHeight: options.fontLineHeight }),
   });
   const effects: StateEffect<unknown>[] = [
-    compartments.themeCompartment.reconfigure(getThemeExtension(options.theme ?? 'system')),
+    compartments.themeCompartment.reconfigure(
+      options.syntaxTheme ?? getThemeExtension(options.theme ?? 'system')
+    ),
     compartments.wordWrapCompartment.reconfigure(wordWrap.extension),
     compartments.fontSettingsCompartment.reconfigure(fontSettings.extension),
     compartments.minimapCompartment.reconfigure(options.enableMinimap ? minimapExtension() : []),
-    compartments.focusModeCompartment.reconfigure(options.enableFocusMode ? focusModeExtension() : []),
-    compartments.spellcheckCompartment.reconfigure(options.enableSpellcheck ? spellcheckExtension() : []),
-    compartments.keymapCompartment.reconfigure(createKeymapExtension(options.keymapMode ?? 'default')),
+    compartments.focusModeCompartment.reconfigure(
+      options.enableFocusMode ? focusModeExtension() : []
+    ),
+    compartments.spellcheckCompartment.reconfigure(
+      options.enableSpellcheck ? spellcheckExtension() : []
+    ),
+    compartments.keymapCompartment.reconfigure(
+      createKeymapExtension(options.keymapMode ?? 'default')
+    ),
   ];
 
   view.dispatch({ effects });

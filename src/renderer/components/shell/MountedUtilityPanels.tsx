@@ -20,6 +20,7 @@ import { MultiFileEditPanel } from '@renderer/components/ai/MultiFileEditPanel';
 import { ComponentPlayground } from '@renderer/features/playground/ComponentPlayground';
 import { MarketplacePanel } from '@renderer/components/template-marketplace/MarketplacePanel';
 import { CssEditorDialog } from '@renderer/features/plugins/CssEditorDialog';
+import { ThemePicker } from '@renderer/features/plugins/ThemePicker';
 import { insertDiagramFence } from '@renderer/lib/insert-document-text';
 import { useAgentModeStore } from '@renderer/features/ai-agent/agent-mode-store';
 import { SemanticSearchPanel } from '@renderer/features/semantic-search/SemanticSearchPanel';
@@ -52,6 +53,7 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   playground: 'Component playground',
   marketplace: 'Template marketplace',
   css: 'Custom CSS',
+  themes: 'Themes',
 };
 
 function revealCommentThread(view: EditorView, anchorFrom: number): void {
@@ -131,6 +133,8 @@ function PanelBody({
       );
     case 'marketplace':
       return <MarketplacePanel />;
+    case 'themes':
+      return <ThemePicker />;
     case 'agent':
       return (
         <div className="h-96">

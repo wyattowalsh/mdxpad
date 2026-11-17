@@ -100,6 +100,8 @@ export interface MDXEditorProps {
    * ```
    */
   readonly extensions?: Extension[];
+  /** Plugin theme that replaces the built-in light, dark, or system theme. */
+  readonly syntaxTheme?: Extension | null;
   /**
    * Optional ref to receive the CodeMirror EditorView instance.
    * Use this for external navigation or advanced editor manipulation.
@@ -148,6 +150,7 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
     fontSize,
     fontLineHeight,
     extensions,
+    syntaxTheme,
   } = props;
 
   return {
@@ -172,6 +175,7 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
     ...(onError !== undefined && { onError }),
     ...(onSelectionChange !== undefined && { onSelectionChange }),
     ...(extensions !== undefined && { extensions }),
+    ...(syntaxTheme !== undefined && { syntaxTheme }),
   };
 }
 
@@ -291,6 +295,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
     fontLineHeight,
     onSelectionChange,
     extensions,
+    syntaxTheme,
   } = props;
 
   const hookOptions = useMemo(
@@ -315,6 +320,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         ...(fontFamily !== undefined && { fontFamily }),
         ...(fontSize !== undefined && { fontSize }),
         ...(fontLineHeight !== undefined && { fontLineHeight }),
+        ...(syntaxTheme !== undefined && { syntaxTheme }),
         ...(onSelectionChange !== undefined && { onSelectionChange }),
         // Always include built-in extensions (line highlight, placeholder markers), plus any user extensions
         extensions:
@@ -344,6 +350,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
       fontSize,
       fontLineHeight,
       extensions,
+      syntaxTheme,
     ]
   );
 

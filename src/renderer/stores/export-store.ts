@@ -17,6 +17,7 @@ import type {
   ExportPreset,
 } from '@shared/types/export-model';
 import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
+import { announceFinishedExport } from './announce-export';
 
 type CliRunStatus = 'idle' | 'running' | 'success' | 'error';
 type LlmsGenerationSuccess = Extract<LlmsGenerationResponse, { ok: true }>;
@@ -275,10 +276,14 @@ export const useExportStore = create<ExportStore>()(
           }
         });
         if (response.ok) {
+          announceFinishedExport(response.output.job);
           recordLocalTelemetryEvent('export', 'invoke-cli', 'succeeded', {
             details: { exitCode: response.output.exitCode },
           });
         } else {
+          if (response.output) {
+            announceFinishedExport(response.output.job);
+          }
           recordLocalTelemetryEvent('export', 'invoke-cli', 'failed', {
             details: { code: response.code },
           });

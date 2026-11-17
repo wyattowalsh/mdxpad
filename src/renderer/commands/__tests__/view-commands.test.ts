@@ -56,6 +56,7 @@ vi.mock('../../stores/command-registry-store', () => ({
 
 // Import after mocking
 import { VIEW_COMMANDS, registerViewCommands } from '../view-commands';
+import { useEditorPreferencesStore } from '../../stores/editor-preferences-store';
 
 // =============================================================================
 // TEST HELPERS
@@ -78,8 +79,8 @@ function createMockContext(overrides: Partial<CommandContext> = {}): CommandCont
 // =============================================================================
 
 describe('VIEW_COMMANDS', () => {
-  it('should contain 8 commands', () => {
-    expect(VIEW_COMMANDS).toHaveLength(8);
+  it('should contain 13 commands', () => {
+    expect(VIEW_COMMANDS).toHaveLength(13);
   });
 
   it('should have unique IDs', () => {
@@ -179,6 +180,13 @@ describe('View command execution', () => {
     const result = cmd.execute(ctx);
     expect(result).toEqual({ ok: true });
     expect(mockResetZoom).toHaveBeenCalledTimes(1);
+  });
+
+  it('toggle-spellcheck should flip the editor preference', () => {
+    useEditorPreferencesStore.setState({ spellcheckEnabled: false });
+    const cmd = VIEW_COMMANDS.find((item) => item.id === 'view.toggle-spellcheck')!;
+    expect(cmd.execute(createMockContext())).toEqual({ ok: true });
+    expect(useEditorPreferencesStore.getState().spellcheckEnabled).toBe(true);
   });
 
   it('toggle-sync should toggle sync, persist, and notify', () => {

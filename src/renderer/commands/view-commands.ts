@@ -9,6 +9,7 @@
 
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import { useCommandRegistry } from '../stores/command-registry-store';
+import { useEditorPreferencesStore } from '../stores/editor-preferences-store';
 import { useUILayoutStore } from '../stores/ui-layout-store';
 import { useSyncStore } from '../stores/sync-store';
 
@@ -120,6 +121,36 @@ const toggleSyncCommand: Command = {
   },
 };
 
+function preferenceToggle(id: string, name: string, toggle: () => void): Command {
+  return {
+    id: id as CommandId,
+    name,
+    category: 'view',
+    execute: () => {
+      toggle();
+      return { ok: true };
+    },
+  };
+}
+
+const editorPreferenceCommands: readonly Command[] = [
+  preferenceToggle('view.toggle-spellcheck', 'Toggle Spellcheck', () =>
+    useEditorPreferencesStore.getState().toggleSpellcheck()
+  ),
+  preferenceToggle('view.toggle-minimap', 'Toggle Minimap', () =>
+    useEditorPreferencesStore.getState().toggleMinimap()
+  ),
+  preferenceToggle('view.toggle-focus-mode', 'Toggle Focus Mode', () =>
+    useEditorPreferencesStore.getState().toggleFocusMode()
+  ),
+  preferenceToggle('view.toggle-word-wrap', 'Toggle Word Wrap', () =>
+    useEditorPreferencesStore.getState().toggleWordWrap()
+  ),
+  preferenceToggle('view.toggle-distraction-free', 'Toggle Distraction Free', () =>
+    useEditorPreferencesStore.getState().toggleDistractionFree()
+  ),
+];
+
 const toggleSettingsCommand: Command = {
   id: 'view.toggle-settings' as CommandId,
   name: 'Open Settings',
@@ -148,6 +179,7 @@ const VIEW_COMMANDS: readonly Command[] = [
   resetZoomCommand,
   toggleSyncCommand,
   toggleSettingsCommand,
+  ...editorPreferenceCommands,
 ];
 
 /**
