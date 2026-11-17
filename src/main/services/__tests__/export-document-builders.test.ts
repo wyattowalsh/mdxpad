@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { buildDocxDocument, buildPdfDocument } from '../export-document-builders';
 
 describe('built-in export documents', () => {
+  it('drops a closing hash run from a heading', () => {
+    const pdf = buildPdfDocument('# Title #\n\n# Hash#');
+    expect(pdf.content).toContain('TITLE');
+    expect(pdf.content).toContain('HASH#');
+    expect(pdf.content).not.toContain('TITLE #');
+    const docx = Buffer.from(buildDocxDocument('# Title #').content).toString('utf8');
+    expect(docx).toContain('Title');
+    expect(docx).not.toContain('Title #');
+  });
+
   it('keeps a fenced comment out of the heading style and shows emphasis as text', () => {
     const source = '```\n# comment\n```\n\n# Title\n\n**bold**';
     const pdf = buildPdfDocument(source);

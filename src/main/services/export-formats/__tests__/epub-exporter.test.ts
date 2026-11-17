@@ -54,6 +54,19 @@ describe('EpubExporter', () => {
     expect(contentArg.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('drops a closing hash run from a chapter title', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '# Chapter #\n\n### Keep ### b',
+      outputPath: '/tmp/closing-hash.epub',
+    });
+    const createFn = epubGen.default as ReturnType<typeof vi.fn>;
+    const contentArg = createFn.mock.calls[0]?.[1] as { title: string; content: string }[];
+    expect(contentArg[0]?.title).toBe('Chapter');
+    expect(contentArg[0]?.content).toContain('<h3>Keep ### b</h3>');
+    expect(contentArg[0]?.content).not.toContain('Keep ### b #');
+  });
+
   it('creates an introduction chapter for content before first heading', async () => {
     const epubGen = await import('epub-gen-memory');
     const options: ExportOptions = {

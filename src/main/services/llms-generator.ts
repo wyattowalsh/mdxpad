@@ -1,8 +1,8 @@
 import type { LlmsTarget } from '@shared/contracts/export-schemas';
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import { extractDocumentMetadata } from '@shared/lib/metadata';
 
 const MAX_SUMMARY_LENGTH = 280;
-const HEADING_REGEX = /^(#{1,6})\s+(.+?)\s*$/;
 const INLINE_TAG_REGEX = /(?:^|\s)#([a-z0-9_-]+)/gi;
 const TAGS_DIRECTIVE_REGEX = /\[tags?\s*:\s*([^\]]+)\]/i;
 
@@ -105,11 +105,11 @@ function parseSections(body: string, sourceTags: readonly string[]): ParsedSecti
   };
 
   for (const line of lines) {
-    const headingMatch = HEADING_REGEX.exec(line);
-    if (headingMatch) {
+    const heading = parseAtxHeading(line);
+    if (heading && /^(#{1,6})[ \t]/.test(line)) {
       commitSection();
-      currentHeading = line.trimEnd();
-      currentTags = parseSectionTags(headingMatch[2] ?? '', sourceTags);
+      currentHeading = `${'#'.repeat(heading.depth)} ${heading.text}`;
+      currentTags = parseSectionTags(heading.text, sourceTags);
       currentLines = [];
       continue;
     }

@@ -8,6 +8,7 @@
  * @module renderer/lib/mdx/fallback-outline-parser
  */
 
+import { stripAtxClosingHashes } from '@shared/lib/markdown-heading';
 import type {
   OutlineAST,
   HeadingNode,
@@ -179,11 +180,11 @@ export function parseFallbackOutline(source: string): OutlineAST {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const hashes = headingMatch[1] || '';
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    const text = headingMatch[2] || '';
+    const text = stripAtxClosingHashes(headingMatch[2] || '');
     const depth = hashes.length as 1 | 2 | 3 | 4 | 5 | 6;
 
     // Skip empty or whitespace-only headings
-    if (!text.trim()) continue;
+    if (!text) continue;
 
     // Skip headings inside frontmatter (before closing ---)
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing

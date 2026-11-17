@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
@@ -204,13 +205,12 @@ function plainParagraph(rawLine: string): string {
 
 function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
   const trimmedLine = rawLine.trim();
-  const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine);
-  const headingText = headingMatch?.[2]?.trim() ?? '';
-  if (headingMatch && headingText.length > 0) {
+  const heading = parseAtxHeading(trimmedLine);
+  if (heading) {
     blocks.push({
       kind: 'heading',
-      level: headingMatch[1]?.length ?? 1,
-      text: plainInline(headingText),
+      level: heading.depth,
+      text: plainInline(heading.text),
     });
     return;
   }

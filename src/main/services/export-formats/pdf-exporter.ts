@@ -1,5 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
+
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -239,12 +241,13 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
     build.parts.push('<hr />');
     return;
   }
-  const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+  const heading = parseAtxHeading(trimmed);
   if (heading) {
     flushPdfParagraph(build);
     closePdfList(build);
-    const level = heading[1]?.length ?? 1;
-    build.parts.push(`<h${level}>${renderMarkdownInline(heading[2] ?? '')}</h${level}>`);
+    build.parts.push(
+      `<h${heading.depth}>${renderMarkdownInline(heading.text)}</h${heading.depth}>`
+    );
     return;
   }
   if (takePdfListBreak(build, raw)) {

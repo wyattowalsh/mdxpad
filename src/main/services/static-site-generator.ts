@@ -12,6 +12,7 @@ import type {
   PublishProgress,
   PublishResult,
 } from '@shared/contracts/share-schemas';
+import { stripAtxClosingHashes } from '@shared/lib/markdown-heading';
 
 // ============================================================================
 // Types
@@ -253,11 +254,14 @@ export class StaticSiteGenerator {
   private convertMarkdownToHtml(content: string): string {
     const escaped = this.escapeHtml(content);
     const withHeadings = escaped
-      .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
-      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      .replace(
+        /^##### (.+)$/gm,
+        (_match, text: string) => `<h5>${stripAtxClosingHashes(text)}</h5>`
+      )
+      .replace(/^#### (.+)$/gm, (_match, text: string) => `<h4>${stripAtxClosingHashes(text)}</h4>`)
+      .replace(/^### (.+)$/gm, (_match, text: string) => `<h3>${stripAtxClosingHashes(text)}</h3>`)
+      .replace(/^## (.+)$/gm, (_match, text: string) => `<h2>${stripAtxClosingHashes(text)}</h2>`)
+      .replace(/^# (.+)$/gm, (_match, text: string) => `<h1>${stripAtxClosingHashes(text)}</h1>`);
 
     const withCode = withHeadings
       .replace(

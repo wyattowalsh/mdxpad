@@ -3,6 +3,12 @@ import { describe, it, expect } from 'vitest';
 import { analyzeMarkdownIntelligence, collectAnchorCompletions } from './markdown-intelligence';
 
 describe('analyzeMarkdownIntelligence', () => {
+  it('drops a closing hash run from the heading label', () => {
+    const result = analyzeMarkdownIntelligence('# Intro #\n# Hash#');
+    expect(result.headings.map((heading) => heading.text)).toEqual(['Intro', 'Hash#']);
+    expect(result.headings.map((heading) => heading.slug)).toEqual(['intro', 'hash']);
+  });
+
   it('extracts headings with stable anchor slugs', () => {
     const result = analyzeMarkdownIntelligence('# Intro\n## Details\n# Intro');
 

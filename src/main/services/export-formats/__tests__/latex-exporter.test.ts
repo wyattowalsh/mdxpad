@@ -115,6 +115,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{enumerate}');
   });
 
+  it('drops a closing hash run from a heading', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '# Title #\n\n# Hash#',
+      outputPath: '/tmp/closing-hash.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\section{Title}');
+    expect(written).toContain('\\section{Hash\\#}');
+    expect(written).not.toContain('Title \\#');
+  });
+
   it('keeps a tilde fence as verbatim', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

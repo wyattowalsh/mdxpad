@@ -12,7 +12,7 @@ import type { CompletionContext } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { linter, type Diagnostic } from '@codemirror/lint';
 
-const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
 const INLINE_LINK_RE = /\[([^\]]*)\]\(([^)]*)\)/g;
 const FENCE_RE = /^(```|~~~)/;
 
@@ -147,30 +147,28 @@ function pushHeading(
   slugCounts: Map<string, number>,
   result: ParseResult
 ): void {
-  const headingMatch = HEADING_RE.exec(line);
-  if (!headingMatch) {
+  const heading = parseAtxHeading(line);
+  if (!heading) {
     return;
   }
 
-  const headingPrefix = headingMatch[1];
-  const rawHeadingText = headingMatch[2];
-  if (headingPrefix === undefined || rawHeadingText === undefined) {
+  const headingText = stripHeadingMarkup(heading.text);
+  if (headingText.length === 0) {
     return;
   }
-
-  const headingText = stripHeadingMarkup(rawHeadingText);
   const baseSlug = slugify(headingText);
   const duplicateCount = slugCounts.get(baseSlug) ?? 0;
   slugCounts.set(baseSlug, duplicateCount + 1);
 
   const slug = duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`;
-  const from = offset + Math.max(0, line.indexOf(rawHeadingText));
-  const to = from + rawHeadingText.length;
+  const contentStart = line.indexOf(heading.text);
+  const from = offset + (contentStart === -1 ? 0 : contentStart);
+  const to = from + heading.text.length;
 
   result.headings.push({
     text: headingText,
     slug,
-    depth: headingPrefix.length,
+    depth: heading.depth,
     line: lineNumber,
     from,
     to,

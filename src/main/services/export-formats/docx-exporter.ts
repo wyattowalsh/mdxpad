@@ -15,6 +15,8 @@ import {
   TextRun,
 } from 'docx';
 
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
+
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
 import { closesFence, openingFence } from './markdown-fence';
@@ -224,12 +226,11 @@ function listItemChildren(text: string): (TextRun | ExternalHyperlink | Math)[] 
 }
 
 function parseLineToParagraph(trimmed: string): Paragraph | undefined {
-  const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-  if (headingMatch) {
-    const level = headingMatch[1]?.length ?? 1;
+  const heading = parseAtxHeading(trimmed);
+  if (heading) {
     return new Paragraph({
-      heading: getHeadingLevel(level),
-      children: createParagraphChildren(headingMatch[2] ?? ''),
+      heading: getHeadingLevel(heading.depth),
+      children: createParagraphChildren(heading.text),
     });
   }
 

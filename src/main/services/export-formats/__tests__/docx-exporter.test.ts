@@ -146,6 +146,27 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('drops a closing hash run from a heading', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '# Title #\n\n# Hash#',
+      outputPath: '/tmp/closing-hash.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Title');
+    expect(xml).toContain('Hash#');
+    expect(xml).not.toContain('Title #');
+  });
+
   it('indents a nested block quote further', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

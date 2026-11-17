@@ -1,5 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
+
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -45,8 +47,8 @@ function splitExpandedChapters(content: string): EpubChapter[] {
   let currentLines: string[] = [];
 
   for (const line of lines) {
-    const headingMatch = /^(#{1,2})\s+(.+)$/.exec(line.trim());
-    if (headingMatch) {
+    const heading = parseAtxHeading(line);
+    if (heading && heading.depth <= 2) {
       // Save previous chapter if it has content
       if (currentLines.length > 0 || chapters.length === 0) {
         chapters.push({
@@ -54,7 +56,7 @@ function splitExpandedChapters(content: string): EpubChapter[] {
           content: currentLines.join('\n'),
         });
       }
-      currentTitle = headingMatch[2] ?? 'Untitled';
+      currentTitle = heading.text;
       currentLines = [];
       continue;
     }
@@ -275,12 +277,11 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
     htmlLines.push('<hr />');
     return;
   }
-  const headingMatch = /^(#{3,6})\s+(.+)$/.exec(trimmed);
-  if (headingMatch) {
+  const heading = parseAtxHeading(trimmed);
+  if (heading && heading.depth >= 3) {
     flushEpubParagraph(htmlLines, state);
     closeHtmlLists(htmlLines, state.lists);
-    const level = headingMatch[1]?.length ?? 3;
-    htmlLines.push(`<h${level}>${renderMarkdownInline(headingMatch[2] ?? '')}</h${level}>`);
+    htmlLines.push(`<h${heading.depth}>${renderMarkdownInline(heading.text)}</h${heading.depth}>`);
     return;
   }
   if (takeEpubListBreak(htmlLines, raw, state)) {

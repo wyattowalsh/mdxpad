@@ -1,5 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
+
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { closesFence, openingFence } from './markdown-fence';
@@ -330,11 +332,11 @@ function processMarkdownLine(raw: string, output: string[], listState: ListState
   }
   listState.break = false;
 
-  const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-  if (headingMatch) {
+  const heading = parseAtxHeading(trimmed);
+  if (heading) {
     resetListState(output, listState);
-    const cmd = getHeadingCommand(headingMatch[1]?.length ?? 1);
-    output.push(`\\${cmd}{${convertInlineFormatting(headingMatch[2] ?? '')}}`);
+    const cmd = getHeadingCommand(heading.depth);
+    output.push(`\\${cmd}{${convertInlineFormatting(heading.text)}}`);
     return;
   }
 

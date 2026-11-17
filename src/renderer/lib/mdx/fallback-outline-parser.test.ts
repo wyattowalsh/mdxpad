@@ -37,6 +37,15 @@ describe('parseFallbackOutline', () => {
   });
 
   describe('heading extraction', () => {
+    it('drops a closing hash run from an ATX heading', () => {
+      const outline = parseFallbackOutline('# Title #\n\n# Hash#\n\n## Keep ### b');
+      expect(outline.headings.map((heading) => heading.text)).toEqual([
+        'Title',
+        'Hash#',
+        'Keep ### b',
+      ]);
+    });
+
     it('should extract an underlined title and ignore a separated rule', () => {
       const outline = parseFallbackOutline(
         'Title\n===\n\nSecond\n---\n\n---\n\n```\nHidden\n===\n```\n'

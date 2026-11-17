@@ -70,6 +70,19 @@ describe('PdfExporter', () => {
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
   });
 
+  it('drops a closing hash run from a heading', async () => {
+    await exporter.export({
+      content: '# Title #\n\n# Hash#\n\n## Keep ### b',
+      outputPath: '/tmp/closing-hash.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<h1>Title</h1>');
+    expect(html).toContain('<h1>Hash#</h1>');
+    expect(html).toContain('<h2>Keep ### b</h2>');
+    expect(html).not.toContain('Title #');
+  });
+
   it('starts an ordered list at its written number', async () => {
     await exporter.export({
       content: '3. third\n4. fourth',
