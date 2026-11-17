@@ -14,8 +14,11 @@ import * as vm from 'node:vm';
 
 import { app } from 'electron';
 
+import { normalizeCapabilityPath } from '@main/ipc/document-capability';
+import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import type { PluginManifest, PluginRecord } from '@shared/contracts/plugin-schemas';
 
+import { resolveWorkspaceFilePath } from '../ai/agent-path';
 import { loadManifest, derivePluginId } from './plugin-manifest';
 import { PluginRegistry } from './plugin-registry';
 
@@ -40,17 +43,41 @@ function getDefaultPluginDir(): string {
 /**
  * Build the sandbox API based on a plugin's declared permissions.
  */
-function buildSandboxApi(manifest: PluginManifest): PluginSandboxApi {
+function isInsidePluginRoot(pluginRoot: string, candidate: string): boolean {
+  const root = normalizeCapabilityPath(pluginRoot);
+  const target = normalizeCapabilityPath(candidate);
+  if (root === null || target === null) {
+    return false;
+  }
+  const relative = path.relative(root, target);
+  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function assertInstallablePluginPath(pluginRoot: string, pluginPath: string): void {
+  if (isInsidePluginRoot(pluginRoot, pluginPath)) {
+    return;
+  }
+  const scopeError = trustedDirectoryError(pluginPath);
+  if (scopeError !== null) {
+    throw new Error(scopeError);
+  }
+}
+
+function buildSandboxApi(manifest: PluginManifest, pluginRoot: string): PluginSandboxApi {
   const log = (...args: unknown[]): void => {
     console.log(`[plugin:${manifest.name}]`, ...args);
   };
 
   const readFile = manifest.permissions.includes('file-read')
-    ? (filePath: string) => fs.readFile(filePath, 'utf-8')
+    ? (filePath: string) => fs.readFile(resolveWorkspaceFilePath(pluginRoot, filePath), 'utf-8')
     : undefined;
 
   const writeFile = manifest.permissions.includes('file-write')
-    ? (filePath: string, content: string) => fs.writeFile(filePath, content, 'utf-8')
+    ? async (filePath: string, content: string) => {
+        const target = resolveWorkspaceFilePath(pluginRoot, filePath);
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        await fs.writeFile(target, content, 'utf-8');
+      }
     : undefined;
 
   return { log, readFile, writeFile };
@@ -90,6 +117,7 @@ export class PluginLoader {
    * Validates the manifest and registers it.
    */
   async installPlugin(pluginPath: string): Promise<PluginRecord> {
+    assertInstallablePluginPath(this.pluginDir, pluginPath);
     const manifest = await loadManifest(pluginPath);
     const id = derivePluginId(pluginPath);
     return this.registry.addPlugin(id, manifest);
@@ -109,7 +137,7 @@ export class PluginLoader {
     }
 
     const pluginPath = path.join(this.pluginDir, pluginId);
-    const entryPath = path.join(pluginPath, record.manifest.entryPoint);
+    const entryPath = resolveWorkspaceFilePath(pluginPath, record.manifest.entryPoint);
 
     let code: string;
     try {
@@ -122,7 +150,7 @@ export class PluginLoader {
       throw new Error(`Plugin entry point not found: ${entryPath}`);
     }
 
-    const sandboxApi = buildSandboxApi(record.manifest);
+    const sandboxApi = buildSandboxApi(record.manifest, pluginPath);
     const sandbox = {
       mdxpad: sandboxApi,
       console: { log: sandboxApi.log, warn: sandboxApi.log, error: sandboxApi.log },

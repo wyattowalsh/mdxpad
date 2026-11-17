@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-loader.test
  */
 
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { access, mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -95,6 +95,23 @@ describe('PluginLoader', () => {
       expect(record.manifest.name).toBe('My Plugin');
     });
 
+    it('does not install a plugin from a folder the user has not opened', async () => {
+      const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-plugin-outside-'));
+      try {
+        await createPluginDir(outside, 'foreign', {
+          name: 'Foreign',
+          version: '1.0.0',
+          description: 'test',
+          permissions: [],
+        });
+        await expect(loader.installPlugin(path.join(outside, 'foreign'))).rejects.toThrow(
+          'open a file'
+        );
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
+
     it('throws for invalid manifest', async () => {
       const pluginDir = path.join(tempDir, 'bad-plugin');
       await mkdir(pluginDir, { recursive: true });
@@ -116,6 +133,39 @@ describe('PluginLoader', () => {
       await loader.loadPlugin('loadable');
 
       expect(loader.isLoaded('loadable')).toBe(true);
+    });
+
+    it('does not load an entry point outside the plugin directory', async () => {
+      await writeFile(path.join(tempDir, 'secret.js'), 'module.exports = { leaked: true };');
+      await createPluginDir(tempDir, 'escape', {
+        name: 'Escape',
+        version: '1.0.0',
+        description: 'test',
+        permissions: [],
+        entryPoint: '../secret.js',
+      });
+      await loader.installPlugin(path.join(tempDir, 'escape'));
+      await expect(loader.loadPlugin('escape')).rejects.toThrow('outside the workspace');
+      expect(loader.isLoaded('escape')).toBe(false);
+    });
+
+    it('does not let a plugin write outside its directory', async () => {
+      const outside = path.join(tempDir, 'escaped.txt');
+      await createPluginDir(
+        tempDir,
+        'writer',
+        {
+          name: 'Writer',
+          version: '1.0.0',
+          description: 'test',
+          permissions: ['file-write'],
+        },
+        `module.exports = { activate: function() { return mdxpad.writeFile(${JSON.stringify(outside)}, 'nope'); }, deactivate: function() {} };`
+      );
+      await loader.installPlugin(path.join(tempDir, 'writer'));
+      await loader.loadPlugin('writer');
+      await expect(loader.activatePlugin('writer')).rejects.toThrow('outside the workspace');
+      await expect(access(outside)).rejects.toThrow();
     });
 
     it('throws for non-existent plugin', async () => {
