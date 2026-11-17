@@ -1,5 +1,5 @@
 import { applyFootnotes } from './markdown-footnote';
-import { advanceFence, fenceIndentedCode } from './markdown-fence';
+import { advanceFence, fenceIndentedCode, openingFence } from './markdown-fence';
 import { quoteBody } from './markdown-quote';
 import { closeOpenTableRows } from './markdown-table';
 
@@ -8,6 +8,8 @@ const LINK_DEFINITION =
 
 const REFERENCE = /^\[([^\]]+)\](?:\[([^\]]*)\])?(?!\()/;
 const TITLE_LINE = /^(?:"[^"]*"|'[^']*'|\([^)]*\))$/;
+const LABEL_ONLY = /^\[([^\]]+)\]:[ \t]*$/;
+const DESTINATION_LINE = /^(<[^>\n]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/;
 
 function referenceLabel(label: string): string {
   return label.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -51,6 +53,40 @@ function titleContinuation(lines: readonly string[], index: number): string | nu
   return TITLE_LINE.test(title) ? title : null;
 }
 
+function splitDefinition(
+  lines: readonly string[],
+  index: number
+): { label: string; destination: string; consumed: number } | null {
+  const sameLine = linkDefinition(lines[index] ?? '');
+  if (sameLine) {
+    const title = titleContinuation(lines, index);
+    return {
+      label: sameLine.label,
+      destination: title ? `${sameLine.destination} ${title}` : sameLine.destination,
+      consumed: title ? 2 : 1,
+    };
+  }
+  const labelMatch = LABEL_ONLY.exec(definitionSource(lines[index] ?? ''));
+  const label = labelMatch?.[1];
+  const next = lines[index + 1];
+  if (!label || label.startsWith('^') || next === undefined || openingFence(next) !== null) {
+    return null;
+  }
+  if (quoteDepth(lines[index] ?? '') !== quoteDepth(next)) {
+    return null;
+  }
+  const destinationLine = definitionSource(next).trim();
+  if (!DESTINATION_LINE.test(destinationLine)) {
+    return null;
+  }
+  const title = titleContinuation(lines, index + 1);
+  return {
+    label,
+    destination: title ? `${destinationLine} ${title}` : destinationLine,
+    consumed: title ? 3 : 2,
+  };
+}
+
 function linkDefinition(line: string): { label: string; destination: string } | null {
   const definition = LINK_DEFINITION.exec(definitionSource(line));
   const label = definition?.[1];
@@ -76,17 +112,14 @@ function collectReferences(lines: readonly string[]): {
     if (fence || boundary || consumed.has(index)) {
       continue;
     }
-    const definition = linkDefinition(line);
+    const definition = splitDefinition(lines, index);
     const label = definition ? referenceLabel(definition.label) : '';
     if (!definition || references.has(label)) {
       continue;
     }
-    const title = titleContinuation(lines, index);
-    const destination = title ? `${definition.destination} ${title}` : definition.destination;
-    references.set(label, referenceDestination(destination));
-    consumed.add(index);
-    if (title) {
-      consumed.add(index + 1);
+    references.set(label, referenceDestination(definition.destination));
+    for (let offset = 0; offset < definition.consumed; offset += 1) {
+      consumed.add(index + offset);
     }
   }
   return { references, consumed };

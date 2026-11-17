@@ -29,6 +29,17 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[guide](https://example.com)');
   });
 
+  it('reads an address written on the following line', () => {
+    const expanded = expandLinkReferences('See [docs].\n\n[docs]:\nhttps://example.com\n');
+    expect(expanded).toContain('[docs](https://example.com)');
+    expect(expanded.replace('[docs](https://example.com)', '')).not.toContain(
+      'https://example.com'
+    );
+    const titled = expandLinkReferences('See [docs].\n\n[docs]:\n/url\n"Guide"\n');
+    expect(titled).toContain('[docs](/url "Guide")');
+    expect(titled).not.toContain('\n"Guide"');
+  });
+
   it('keeps a title written on the following line', () => {
     const expanded = expandLinkReferences(
       'See [docs][guide].\n\n[guide]: https://example.com\n"Guide"\n'
