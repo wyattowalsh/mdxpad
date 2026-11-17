@@ -52,6 +52,9 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
       'Array&lt;Array&lt;T&gt;&gt;'
     );
+    expect(prepareMarkdownSource('Hello {{name}} and `{{name}}`')).toBe(
+      'Hello \\{\\{name\\}\\} and `{{name}}`'
+    );
     expect(prepareMarkdownSource('Use <> fragments and {#anchor}')).toBe(
       'Use &lt;&gt; fragments and \\{#anchor\\}'
     );

@@ -1,6 +1,6 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
-import { escapeLooseTags } from './markdown-tags';
+import { escapeLooseTags, escapeTemplatePlaceholders } from './markdown-tags';
 
 const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const MDX_EXPRESSION_OPTIONS: AcornOptions = {
@@ -163,7 +163,9 @@ function escapeMdxSyntax(value: string): string {
 
 function prepareProse(prose: string): string {
   const cleaned = mapOutsideCode(prose, (text) =>
-    escapeMdxSyntax(closeVoidTags(rewriteAutolinks(stripHtmlComments(text))))
+    escapeMdxSyntax(
+      escapeTemplatePlaceholders(closeVoidTags(rewriteAutolinks(stripHtmlComments(text))))
+    )
   );
   const escaped = mapOutsideCode(cleaned, (text) => escapeLooseTags(text, cleaned));
   return replaceTexMath(escaped);

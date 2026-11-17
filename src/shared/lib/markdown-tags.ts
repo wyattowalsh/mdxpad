@@ -155,6 +155,35 @@ function keepTag(tag: AngleTag, prose: string): boolean {
   );
 }
 
+const TEMPLATE_PLACEHOLDER = /^\{\{\s*\w+\s*\}\}/;
+
+/** Show `{{name}}` as text outside tags so a template placeholder does not run as an object. */
+export function escapeTemplatePlaceholders(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    if (value[index] === '<') {
+      const tag = readAngleTag(value, index);
+      if (tag) {
+        result += value.slice(index, tag.end);
+        index = tag.end;
+        continue;
+      }
+    }
+    if (value.startsWith('{{', index)) {
+      const placeholder = TEMPLATE_PLACEHOLDER.exec(value.slice(index));
+      if (placeholder) {
+        result += placeholder[0].replaceAll('{', '\\{').replaceAll('}', '\\}');
+        index += placeholder[0].length;
+        continue;
+      }
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
 /** Escape `<...>` that is prose, including nested types, and leave real tags in place. */
 export function escapeLooseTags(value: string, prose: string): string {
   let result = '';

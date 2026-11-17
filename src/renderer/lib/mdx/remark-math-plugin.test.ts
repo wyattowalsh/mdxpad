@@ -1,6 +1,9 @@
+import { createElement } from 'react';
+import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { RequestId } from '@shared/types/preview-worker';
+import { createModuleFromCode } from '@renderer/preview-frame/mdx-module-runtime';
 
 import { compileMdx } from './compile';
 
@@ -32,6 +35,26 @@ describe('remark math prices', () => {
     if (result.ok) {
       expect(result.code).toContain('I <3 this');
       expect(result.code).toContain('Array');
+    }
+  });
+
+  it('shows a template placeholder and keeps a style object', async () => {
+    const placeholder = await compileMdx(testId('mdx-template'), 'Hello {{name}}!');
+    expect(placeholder.ok).toBe(true);
+    if (placeholder.ok) {
+      expect(placeholder.code).toContain('{{name}}');
+      const module = await createModuleFromCode(placeholder.code);
+      expect(render(createElement(module.default)).container.textContent).toContain('{{name}}');
+    }
+
+    const styled = await compileMdx(
+      testId('mdx-style'),
+      '<div style={{ color: "red" }}>ok</div>'
+    );
+    expect(styled.ok).toBe(true);
+    if (styled.ok) {
+      expect(styled.code).toContain('color');
+      expect(styled.code).toContain('red');
     }
   });
 
