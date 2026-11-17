@@ -11,7 +11,10 @@
 import { useCallback, memo, useRef, useEffect } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
+import { EditorModeToggle } from '../editor/EditorModeToggle';
+import { WysiwygEditor } from '../editor/WysiwygEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
+import { selectEditorMode, useEditorModeStore } from '@renderer/stores/editor-mode-store';
 import {
   useEditorPreferencesStore,
   selectKeymapMode,
@@ -130,6 +133,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const minimapEnabled = useEditorPreferencesStore(selectMinimapEnabled);
   const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
   const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
+  const editorMode = useEditorModeStore(selectEditorMode);
 
   // Use ref to track content for stable callback dependency
   const contentRef = useRef(content);
@@ -193,7 +197,22 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     ...(editorRef !== undefined && { editorRef }),
   };
 
-  return <MDXEditor {...editorProps} />;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex justify-end border-b px-2 py-1">
+        <EditorModeToggle />
+      </div>
+      {editorMode === 'wysiwyg' ? (
+        <WysiwygEditor
+          content={content}
+          onChange={setContent}
+          {...(className !== undefined ? { className } : {})}
+        />
+      ) : (
+        <MDXEditor {...editorProps} />
+      )}
+    </div>
+  );
 }
 
 /**
