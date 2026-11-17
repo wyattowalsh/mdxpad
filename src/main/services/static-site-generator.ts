@@ -7,7 +7,11 @@
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, basename, extname } from 'node:path';
-import type { PublishConfig, PublishProgress, PublishResult } from '@shared/contracts/share-schemas';
+import type {
+  PublishConfig,
+  PublishProgress,
+  PublishResult,
+} from '@shared/contracts/share-schemas';
 
 // ============================================================================
 // Types
@@ -56,10 +60,7 @@ export class StaticSiteGenerator {
    * @param onProgress - Optional progress callback
    * @returns Publish result with output details
    */
-  async generate(
-    config: PublishConfig,
-    onProgress?: ProgressCallback
-  ): Promise<PublishResult> {
+  async generate(config: PublishConfig, onProgress?: ProgressCallback): Promise<PublishResult> {
     const progress: PublishProgress = {
       totalFiles: config.files.length,
       processedFiles: 0,
@@ -75,9 +76,7 @@ export class StaticSiteGenerator {
       progress.status = 'processing';
       onProgress?.(progress);
 
-      const { processedFiles, errors } = await this.processFiles(
-        config, progress, onProgress
-      );
+      const { processedFiles, errors } = await this.processFiles(config, progress, onProgress);
 
       const indexPath = await this.writeOutputFiles(config, processedFiles);
 
@@ -100,8 +99,11 @@ export class StaticSiteGenerator {
       onProgress?.(progress);
 
       return {
-        success: false, outputDir: config.outputDir,
-        filesGenerated: 0, indexPath: null, errors: [message],
+        success: false,
+        outputDir: config.outputDir,
+        filesGenerated: 0,
+        indexPath: null,
+        errors: [message],
       };
     }
   }
@@ -124,7 +126,10 @@ export class StaticSiteGenerator {
         const title = fileEntry.title ?? this.extractTitle(content, fileEntry.path);
         const slug = this.createSlug(fileEntry.path);
         const htmlContent = this.convertToHtml(
-          content, title, config.includeStyles, config.includeHighlighting
+          content,
+          title,
+          config.includeStyles,
+          config.includeHighlighting
         );
         processedFiles.push({ path: fileEntry.path, title, htmlContent, slug });
         await writeFile(join(config.outputDir, `${slug}.html`), htmlContent, 'utf-8');
@@ -203,9 +208,7 @@ export class StaticSiteGenerator {
     // would use @mdx-js/mdx but that requires a renderer runtime)
     const html = this.convertMarkdownToHtml(content);
 
-    const styleLink = includeStyles
-      ? '<link rel="stylesheet" href="styles.css">'
-      : '';
+    const styleLink = includeStyles ? '<link rel="stylesheet" href="styles.css">' : '';
 
     const highlightStyle = includeHighlighting
       ? '<style>.code-block{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto;font-family:monospace;}</style>'
@@ -229,8 +232,17 @@ export class StaticSiteGenerator {
 </html>`;
   }
 
+  private htmlLink(label: string, href: string): string {
+    const target = href.trim();
+    if (!/^(https?:|mailto:|\/|\.\/|\.\.\/)/i.test(target)) {
+      return `[${label}](${href})`;
+    }
+    return `<a href="${target}">${label}</a>`;
+  }
+
   private convertMarkdownToHtml(content: string): string {
-    const withHeadings = content
+    const escaped = this.escapeHtml(content);
+    const withHeadings = escaped
       .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
       .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -238,22 +250,24 @@ export class StaticSiteGenerator {
       .replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
     const withCode = withHeadings
-      .replace(/```(\w*)\n([\s\S]*?)```/g, (_match, _lang, code) =>
-        `<pre class="code-block"><code>${this.escapeHtml(String(code).trim())}</code></pre>`)
+      .replace(
+        /```(\w*)\n([\s\S]*?)```/g,
+        (_match, _lang, code: string) => `<pre class="code-block"><code>${code.trim()}</code></pre>`
+      )
       .replace(/`([^`]+)`/g, '<code>$1</code>');
 
     const withInline = withCode
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+      .replace(/\[(.+?)\]\((.+?)\)/g, (_match, label: string, href: string) =>
+        this.htmlLink(label, href)
+      );
 
     const withLists = withInline
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
 
-    return withLists
-      .replace(/^(?!<[hupol])([\w].+)$/gm, '<p>$1</p>')
-      .replace(/^---$/gm, '<hr>');
+    return withLists.replace(/^(?!<[hupol])([\w].+)$/gm, '<p>$1</p>').replace(/^---$/gm, '<hr>');
   }
 
   private generateIndexPage(
@@ -261,15 +275,10 @@ export class StaticSiteGenerator {
     files: readonly ProcessedFile[],
     includeStyles: boolean
   ): string {
-    const styleLink = includeStyles
-      ? '<link rel="stylesheet" href="styles.css">'
-      : '';
+    const styleLink = includeStyles ? '<link rel="stylesheet" href="styles.css">' : '';
 
     const links = files
-      .map(
-        (f) =>
-          `    <li><a href="${f.slug}.html">${this.escapeHtml(f.title)}</a></li>`
-      )
+      .map((f) => `    <li><a href="${f.slug}.html">${this.escapeHtml(f.title)}</a></li>`)
       .join('\n');
 
     return `<!DOCTYPE html>

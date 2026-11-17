@@ -27,6 +27,11 @@ import {
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
 import type { ShareLinkService } from '@main/services/share-link-service';
 import { StaticSiteGenerator } from '@main/services/static-site-generator';
+import {
+  directoryWasChosen,
+  publishScopeError,
+  rememberChosenDirectory,
+} from '@main/services/publish-scope';
 import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
 // ============================================================================
@@ -86,6 +91,16 @@ function createGetLinksHandler(service: ShareLinkService) {
  */
 function createPublishHandler(generator: StaticSiteGenerator, window: BrowserWindow) {
   return createValidatedHandler(PublishRequestSchema, async (args): Promise<PublishResponse> => {
+    const scopeError = publishScopeError(args);
+    if (scopeError !== null) {
+      return {
+        success: false,
+        outputDir: args.outputDir,
+        filesGenerated: 0,
+        indexPath: null,
+        errors: [scopeError],
+      };
+    }
     const result = await generator.generate(args, (progress) => {
       if (!window.isDestroyed()) {
         window.webContents.send(ShareChannels.PUBLISH_PROGRESS, progress);
@@ -159,9 +174,13 @@ function registerDirectoryHandlers(ipcMainInstance: IpcMain, window: BrowserWind
       const result = await dialog.showOpenDialog(window, {
         properties: ['openDirectory', 'createDirectory'],
       });
+      const selected = result.canceled ? null : (result.filePaths[0] ?? null);
+      if (selected !== null) {
+        rememberChosenDirectory(selected);
+      }
       return ChooseDirectoryResponseSchema.parse({
         canceled: result.canceled,
-        path: result.canceled ? null : (result.filePaths[0] ?? null),
+        path: selected,
       });
     }
   );
@@ -171,6 +190,12 @@ function registerDirectoryHandlers(ipcMainInstance: IpcMain, window: BrowserWind
     ShareChannels.OPEN_DIRECTORY,
     async (_event, args) => {
       const request = OpenDirectoryRequestSchema.parse(args);
+      if (!directoryWasChosen(request.path)) {
+        return OpenDirectoryResponseSchema.parse({
+          ok: false,
+          error: 'Choose a folder before opening it',
+        });
+      }
       const error = await shell.openPath(request.path);
       return OpenDirectoryResponseSchema.parse(
         error.length === 0 ? { ok: true } : { ok: false, error }
