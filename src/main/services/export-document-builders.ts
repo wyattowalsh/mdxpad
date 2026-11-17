@@ -423,14 +423,15 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
   if (source.text.length === 0) {
     return false;
   }
+  const combined = joinContinued(stripQuoteMarkers(last.source), last.hardBreak, source.text);
   blocks[blocks.length - 1] = {
     kind: 'paragraph',
-    text: joinContinued(last.text, last.hardBreak, plainInline(source.text)),
+    text: plainFromSource(combined),
     setext: false,
     quote: true,
     listColumn: null,
     hardBreak: source.hardBreak,
-    source: joinContinued(last.source, last.hardBreak, source.text),
+    source: combined,
   };
   return true;
 }

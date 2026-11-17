@@ -51,6 +51,16 @@ describe('built-in export documents', () => {
     expect(pdf.content).not.toContain('hello there next');
   });
 
+  it('closes a strike that wraps inside a quote', () => {
+    const struck = buildPdfDocument('> ~~hello\n> world~~');
+    expect(struck.content).toContain('(hello world) Tj');
+    expect(struck.content).not.toContain('~~');
+    const broken = buildPdfDocument('> ~~hello\\\n> world~~');
+    expect(broken.content).toContain('(hello) Tj');
+    expect(broken.content).toContain('(world) Tj');
+    expect(broken.content).not.toContain('~~');
+  });
+
   it('keeps a wrapped quote on one line', () => {
     const pdf = buildPdfDocument('> Keep this\nline too.\n\nAfter');
     expect(pdf.content).toContain('Keep this line too.');
