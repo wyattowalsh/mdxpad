@@ -328,6 +328,38 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<ul><li>');
   });
 
+  it('keeps a lazy line inside the child item', async () => {
+    await exporter.export({
+      content: '- parent\n  - child\n  more\n',
+      outputPath: '/tmp/nested-lazy.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>child more</li>');
+    expect(html).toContain('<li>parent\n<ul>\n<li>child more</li>\n</ul>\n</li>');
+  });
+
+  it('keeps a later paragraph inside the parent item', async () => {
+    await exporter.export({
+      content: '- parent\n\n  - child\n\n  more\n',
+      outputPath: '/tmp/nested-more.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>');
+    const ended = await exporter.export({
+      content: '- parent\n\n  - child\n\nbaz\n',
+      outputPath: '/tmp/nested-ended.pdf',
+    });
+    expect(ended.ok).toBe(true);
+    const endedUrl = mockLoadURL.mock.calls.at(-1)?.[0];
+    const endedHtml = decodeURIComponent(
+      String(endedUrl).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(endedHtml).toContain('</ul>\n<p>baz</p>');
+    expect(endedHtml.indexOf('</ul>\n<p>baz</p>')).toBeGreaterThan(endedHtml.indexOf('<li>child</li>'));
+  });
+
   it('nests a child list under its parent', async () => {
     await exporter.export({
       content: '- parent\n  - child',
@@ -364,17 +396,16 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
-  it('does not pull a short indent into an ordered item', async () => {
+  it('keeps a short following line in the ordered item', async () => {
     await exporter.export({
       content: '1. one\n  outside\n\n1. two\n   inside',
       outputPath: '/tmp/ordered-wrap.pdf',
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<li>one</li>');
-    expect(html).toContain('<p>outside</p>');
+    expect(html).toContain('<li>one outside</li>');
     expect(html).toContain('<li>two inside</li>');
-    expect(html).not.toContain('<li>one outside</li>');
+    expect(html).not.toContain('<p>outside</p>');
   });
 
   it('keeps a loose list continuation with the item', async () => {

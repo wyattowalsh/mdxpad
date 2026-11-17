@@ -267,6 +267,19 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('keeps a later paragraph inside the parent item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- parent\n\n  - child\n\n  more\n',
+      outputPath: '/tmp/nested-more.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>');
+  });
+
   it('nests a child list under its parent', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

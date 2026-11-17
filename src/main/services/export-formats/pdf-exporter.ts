@@ -16,6 +16,7 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
+  continuesList,
   isListContinuation,
   listContentColumn,
   parseListItem,
@@ -25,7 +26,7 @@ import {
 } from './markdown-list';
 import {
   breakListParagraph,
-  continueListItem,
+  continueOpenList,
   finishListItemFence,
   openListItem,
   resetListItem,
@@ -286,11 +287,12 @@ function takePdfListBreak(build: PdfBuild, raw: string): boolean {
   if (
     build.listBreak &&
     parseListItem(raw) === null &&
-    !isListContinuation(raw, build.listColumn ?? 2)
+    !isListContinuation(raw, build.listColumn ?? 2) &&
+    !continuesList(build.lists, raw)
   ) {
     closePdfList(build);
+    build.listBreak = false;
   }
-  build.listBreak = false;
   return false;
 }
 
@@ -306,7 +308,7 @@ function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem):
     build.listColumn = column;
     build.loose = true;
     build.itemHtml = pdfHeading(build, heading.depth, heading.text);
-    pushHtmlListItem(build.parts, build.lists, item, build.itemHtml);
+    pushHtmlListItem(build.parts, build.lists, item, build.itemHtml, column);
     return;
   }
   const html = openListItem(
@@ -317,14 +319,11 @@ function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem):
     listContentColumn(raw) ?? 2,
     renderMarkdownInline
   );
-  pushHtmlListItem(build.parts, build.lists, item, html);
+  pushHtmlListItem(build.parts, build.lists, item, html, listContentColumn(raw) ?? 2);
 }
 
 function continuePdfListItem(build: PdfBuild, raw: string): boolean {
-  if (build.lists.length === 0) {
-    return false;
-  }
-  return continueListItem(build, raw, renderMarkdownInline);
+  return continueOpenList(build.parts, build.lists, build, raw, renderMarkdownInline);
 }
 
 function appendPdfFlow(build: PdfBuild, raw: string): void {

@@ -2,7 +2,14 @@ import { isThematicBreak } from './markdown-break';
 import { setextLevel } from './markdown-setext';
 import { renderFencedCode } from './markdown-code';
 import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
-import { isListContinuation, renderListItemHtml, replaceHtmlListItem } from './markdown-list';
+import {
+  closeHtmlListFrame,
+  isListContinuation,
+  parseListItem,
+  renderListItemHtml,
+  replaceHtmlListItem,
+  type HtmlListFrame,
+} from './markdown-list';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { renderDisplayMathBlock } from './markdown-inline-html';
@@ -208,7 +215,8 @@ export function openListItem(
 export function continueListItem(
   state: HtmlListItemState,
   raw: string,
-  render: (text: string) => string
+  render: (text: string) => string,
+  lazy = false
 ): boolean {
   if (
     state.itemFence ||
@@ -217,7 +225,7 @@ export function continueListItem(
     state.itemMath ||
     state.itemCode ||
     state.listColumn === null ||
-    !isListContinuation(raw, state.listColumn)
+    (!lazy && !isListContinuation(raw, state.listColumn))
   ) {
     return false;
   }
@@ -227,6 +235,70 @@ export function continueListItem(
     state.listLines.pop();
   }
   return replaced;
+}
+
+function leadingSpaces(line: string): number {
+  return /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+}
+
+/** Continue the open item, including a lazy line and a paragraph after a nested list. */
+export function continueOpenList(
+  parts: string[],
+  stack: HtmlListFrame[],
+  state: HtmlListItemState,
+  raw: string,
+  render: (text: string) => string
+): boolean {
+  if (stack.length === 0 || raw.trim().length === 0 || parseListItem(raw) !== null) {
+    return false;
+  }
+  if (!state.listBreak && state.listLines.length > 0 && parts.at(-1)?.startsWith('<p>')) {
+    state.listLines.push(readSourceLine(raw));
+    parts[parts.length - 1] = `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    return true;
+  }
+  if (!state.listBreak) {
+    return continueListItem(state, raw, render, true);
+  }
+  const spaces = leadingSpaces(raw);
+  let depth = stack.length - 1;
+  while (depth >= 0 && spaces < (stack[depth]?.column ?? 0)) {
+    depth -= 1;
+  }
+  if (depth < 0) {
+    return false;
+  }
+  return continueListParagraph(parts, stack, state, raw, render, depth);
+}
+
+function continueListParagraph(
+  parts: string[],
+  stack: HtmlListFrame[],
+  state: HtmlListItemState,
+  raw: string,
+  render: (text: string) => string,
+  depth: number
+): boolean {
+  const frame = stack[depth];
+  if (!frame) {
+    return false;
+  }
+  const returned = stack.length - 1 > depth;
+  while (stack.length - 1 > depth) {
+    closeHtmlListFrame(parts, stack);
+  }
+  state.listColumn = frame.column;
+  state.listBreak = false;
+  state.loose = true;
+  state.listLines = [readSourceLine(raw)];
+  if (!returned) {
+    writeListItem(state, render);
+    state.listLines = [];
+    return true;
+  }
+  state.itemHtml = '';
+  parts.push(`<p>${renderListItemHtml(state.listLines, render)}</p>`);
+  return true;
 }
 
 function sealProse(state: HtmlListItemState, render: (text: string) => string): void {

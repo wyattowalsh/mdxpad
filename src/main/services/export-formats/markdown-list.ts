@@ -91,6 +91,7 @@ export function parseListItem(line: string): MarkdownListItem | null {
 export interface HtmlListFrame {
   readonly kind: 'ul' | 'ol';
   readonly level: number;
+  column: number;
 }
 
 function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string {
@@ -103,13 +104,26 @@ function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string
   return kind === 'ol' ? '<ol>' : '<ul>';
 }
 
+/** A non-blank line indented to an open list item. */
+export function continuesList(stack: readonly HtmlListFrame[], line: string): boolean {
+  const spaces = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  return stack.some((frame) => spaces >= frame.column);
+}
+
+export function closeHtmlListFrame(parts: string[], stack: HtmlListFrame[]): void {
+  if (stack.length === 0) {
+    return;
+  }
+  closeOpenListItem(parts);
+  const frame = stack.pop();
+  if (frame) {
+    parts.push(listTag(frame.kind, true));
+  }
+}
+
 export function closeHtmlLists(parts: string[], stack: HtmlListFrame[]): void {
   while (stack.length > 0) {
-    closeOpenListItem(parts);
-    const frame = stack.pop();
-    if (frame) {
-      parts.push(listTag(frame.kind, true));
-    }
+    closeHtmlListFrame(parts, stack);
   }
 }
 
@@ -117,7 +131,8 @@ export function pushHtmlListItem(
   parts: string[],
   stack: HtmlListFrame[],
   item: MarkdownListItem,
-  itemHtml: string
+  itemHtml: string,
+  column = 2 + item.level * 2
 ): void {
   const kind = item.ordered ? 'ol' : 'ul';
   while (stack.length > 0) {
@@ -132,10 +147,11 @@ export function pushHtmlListItem(
   const top = stack[stack.length - 1];
   if (top?.level === item.level && top.kind === kind) {
     closeOpenListItem(parts);
+    top.column = column;
   }
   if (!top || top.level < item.level) {
     parts.push(listTag(kind, false, item.start));
-    stack.push({ kind, level: item.level });
+    stack.push({ kind, level: item.level, column });
   }
   parts.push(`<li>${itemHtml}`);
 }

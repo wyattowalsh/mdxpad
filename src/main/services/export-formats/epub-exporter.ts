@@ -16,6 +16,7 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
+  continuesList,
   isListContinuation,
   listContentColumn,
   parseListItem,
@@ -25,7 +26,7 @@ import {
 } from './markdown-list';
 import {
   breakListParagraph,
-  continueListItem,
+  continueOpenList,
   finishListItemFence,
   openListItem,
   resetListItem,
@@ -328,12 +329,13 @@ function takeEpubListBreak(htmlLines: string[], raw: string, state: EpubLineStat
   if (
     state.listBreak &&
     parseListItem(raw) === null &&
-    !isListContinuation(raw, state.listColumn ?? 2)
+    !isListContinuation(raw, state.listColumn ?? 2) &&
+    !continuesList(state.lists, raw)
   ) {
     closeEpubList(htmlLines, state);
+    state.listBreak = false;
     htmlLines.push('');
   }
-  state.listBreak = false;
   return false;
 }
 
@@ -350,7 +352,7 @@ function startEpubListItem(
     state.listColumn = column;
     state.loose = true;
     state.itemHtml = epubHeading(state, heading.depth, heading.text);
-    pushHtmlListItem(htmlLines, state.lists, item, state.itemHtml);
+    pushHtmlListItem(htmlLines, state.lists, item, state.itemHtml, column);
     return;
   }
   const html = openListItem(
@@ -361,14 +363,11 @@ function startEpubListItem(
     listContentColumn(raw) ?? 2,
     renderMarkdownInline
   );
-  pushHtmlListItem(htmlLines, state.lists, item, html);
+  pushHtmlListItem(htmlLines, state.lists, item, html, listContentColumn(raw) ?? 2);
 }
 
 function continueEpubListItem(htmlLines: string[], state: EpubLineState, raw: string): boolean {
-  if (state.lists.length === 0) {
-    return false;
-  }
-  return continueListItem(state, raw, renderMarkdownInline);
+  return continueOpenList(htmlLines, state.lists, state, raw, renderMarkdownInline);
 }
 
 function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState): void {
