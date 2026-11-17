@@ -21,11 +21,12 @@ import {
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { normalizeTexMath } from '@shared/lib/markdown-math';
 
+import { highlightCodeHtml } from './markdown-code';
 import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
-import { closesFence, openingFence } from './markdown-fence';
+import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -255,11 +256,65 @@ function createTextRuns(
   });
 }
 
-function createCodeBlockParagraph(codeLines: string[]): Paragraph {
+const CODE_COLORS: Record<string, string> = {
+  'hljs-keyword': '7C3AED',
+  'hljs-string': '047857',
+  'hljs-attr': '047857',
+  'hljs-number': 'B45309',
+  'hljs-literal': 'B45309',
+  'hljs-comment': '6B7280',
+  'hljs-title': '1D4ED8',
+  'hljs-section': '1D4ED8',
+};
+
+function highlightedRuns(html: string): TextRun[] {
+  const runs: TextRun[] = [];
+  const colors: string[] = [];
+  let text = '';
+  const flush = (): void => {
+    if (text.length === 0) {
+      return;
+    }
+    const color = colors[colors.length - 1];
+    runs.push(
+      new TextRun({
+        text: decodeHtmlEntities(text),
+        font: { name: 'Courier New' },
+        size: 20,
+        ...(color ? { color } : {}),
+      })
+    );
+    text = '';
+  };
+  for (const match of html.matchAll(/<span class="([^"]+)">|<\/span>|[^<]+/g)) {
+    const part = match[0];
+    if (part.startsWith('<span')) {
+      flush();
+      const names = (match[1] ?? '').split(/\s+/);
+      const color = names.map((name) => CODE_COLORS[name]).find((value) => value !== undefined);
+      colors.push(color ?? colors[colors.length - 1] ?? '');
+      continue;
+    }
+    if (part === '</span>') {
+      flush();
+      colors.pop();
+      continue;
+    }
+    text += part;
+  }
+  flush();
+  return runs;
+}
+
+function createCodeBlockParagraph(codeLines: string[], language = ''): Paragraph {
+  const source = codeLines.join('\n');
+  const highlighted = highlightCodeHtml(language, source);
+  const runs =
+    highlighted && highlighted.length > 0
+      ? highlightedRuns(highlighted)
+      : [new TextRun({ text: source, font: { name: 'Courier New' }, size: 20 })];
   return new Paragraph({
-    children: [
-      new TextRun({ text: codeLines.join('\n'), font: { name: 'Courier New' }, size: 20 }),
-    ],
+    children: runs,
     spacing: { before: 120, after: 120 },
   });
 }
@@ -570,7 +625,8 @@ function takeDocxFence(
   fence: string | null,
   codeLines: string[],
   tableLines: string[],
-  quoteLines: string[]
+  quoteLines: string[],
+  language: { current: string }
 ): string | null | undefined {
   if (fence) {
     if (!closesFence(line, fence)) {
@@ -578,8 +634,9 @@ function takeDocxFence(
     }
     flushDocxTable(blocks, tableLines);
     flushDocxQuote(blocks, quoteLines);
-    blocks.push(createCodeBlockParagraph(codeLines));
+    blocks.push(createCodeBlockParagraph(codeLines, language.current));
     codeLines.length = 0;
+    language.current = '';
     return null;
   }
   const marker = openingFence(line);
@@ -588,6 +645,7 @@ function takeDocxFence(
   }
   flushDocxTable(blocks, tableLines);
   flushDocxQuote(blocks, quoteLines);
+  language.current = fenceLanguage(line);
   return marker;
 }
 
@@ -605,6 +663,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   };
   let fence: string | null = null;
   const codeLines: string[] = [];
+  const language = { current: '' };
 
   for (const line of expandLinkReferences(normalizeTexMath(content)).split('\n')) {
     const nextFence = takeDocxFence(
@@ -613,7 +672,8 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
       fence,
       codeLines,
       parse.tableLines,
-      parse.quoteLines
+      parse.quoteLines,
+      language
     );
     if (nextFence !== undefined) {
       flushPendingParagraph(parse);
@@ -634,7 +694,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     pushDisplayMath(parse.blocks, parse.displayLines);
   }
   if (fence && codeLines.length > 0) {
-    parse.blocks.push(createCodeBlockParagraph(codeLines));
+    parse.blocks.push(createCodeBlockParagraph(codeLines, language.current));
   }
   return parse.blocks;
 }

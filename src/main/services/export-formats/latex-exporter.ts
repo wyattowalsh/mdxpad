@@ -7,7 +7,7 @@ import { inlineLocalImages } from './export-image';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
-import { closesFence, openingFence } from './markdown-fence';
+import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
@@ -232,6 +232,10 @@ function processCodeBlockLine(
     return null;
   }
   closeLatexLists(output, listState.stack);
+  const language = fenceLanguage(line);
+  if (language.length > 0) {
+    output.push(`{\\footnotesize\\ttfamily ${escapeLatex(language)}}`);
+  }
   output.push('\\begin{verbatim}');
   return marker;
 }

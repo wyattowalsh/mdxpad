@@ -163,6 +163,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\section');
   });
 
+  it('labels a fenced language above the verbatim block', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '```python\nprint(1)\n```',
+      outputPath: '/tmp/code-lang.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\ttfamily python');
+    expect(written).toContain('\\begin{verbatim}');
+    expect(written).toContain('print(1)');
+  });
+
   it('converts code blocks to verbatim', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {

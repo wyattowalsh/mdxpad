@@ -187,6 +187,27 @@ describe('DocxExporter', () => {
     expect(xml).toContain('the start');
   });
 
+  it('colors a fenced TypeScript block', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '```ts\nconst answer = 1;\n```',
+      outputPath: '/tmp/code-color.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('const');
+    expect(xml).toContain('answer');
+    expect(xml).toContain('w:val="7C3AED"');
+  });
+
   it('drops a closing hash run from a heading', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

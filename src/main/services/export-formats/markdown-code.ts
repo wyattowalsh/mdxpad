@@ -21,16 +21,24 @@ function escapeFence(source: string, language: string): string {
   return `<pre><code${className}>${escapeHtml(source)}</code></pre>`;
 }
 
+/** Highlighted HTML for a known language, or null when the fence stays plain. */
+export function highlightCodeHtml(language: string, source: string): string | null {
+  if (language.length === 0 || !hljs.getLanguage(language)) {
+    return null;
+  }
+  try {
+    return hljs.highlight(source, { language, ignoreIllegals: true }).value;
+  } catch {
+    return null;
+  }
+}
+
 /** Render a fenced code block, coloring a known language. */
 export function renderFencedCode(language: string, lines: readonly string[]): string {
   const source = lines.join('\n');
-  if (language.length === 0 || !hljs.getLanguage(language)) {
+  const highlighted = highlightCodeHtml(language, source);
+  if (!highlighted) {
     return escapeFence(source, language);
   }
-  try {
-    const highlighted = hljs.highlight(source, { language, ignoreIllegals: true });
-    return `<pre><code class="language-${language}">${highlighted.value}</code></pre>`;
-  } catch {
-    return escapeFence(source, language);
-  }
+  return `<pre><code class="language-${language}">${highlighted}</code></pre>`;
 }
