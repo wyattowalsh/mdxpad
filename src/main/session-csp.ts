@@ -1,8 +1,9 @@
 import type { BrowserWindow, OnHeadersReceivedListenerDetails, Session } from 'electron';
-import { resolve, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEV_LOCALHOSTS = new Set(['localhost', '127.0.0.1']);
+const DEFAULT_RENDERER_DIR = join(dirname(fileURLToPath(import.meta.url)), '../renderer');
 
 export interface SessionCspOptions {
   readonly rendererDir: string;
@@ -50,7 +51,7 @@ function productionPolicy(): string {
   ].join('; ');
 }
 
-export function selectSessionCsp(requestUrl: string, options: SessionCspOptions): string | null {
+export function selectSessionCsp(requestUrl: string, options?: SessionCspOptions): string | null {
   let url: URL;
   try {
     url = new URL(requestUrl);
@@ -62,11 +63,13 @@ export function selectSessionCsp(requestUrl: string, options: SessionCspOptions)
     return null;
   }
 
-  if (options.rendererUrl) {
+  const resolved = options ?? defaultSessionCspOptions();
+  if (resolved.rendererUrl !== undefined && resolved.rendererUrl.length > 0) {
     try {
-      const allowed = new URL(options.rendererUrl);
+      const allowed = new URL(resolved.rendererUrl);
       if (
-        url.protocol === allowed.protocol &&
+        url.protocol === 'http:' &&
+        allowed.protocol === 'http:' &&
         url.hostname === allowed.hostname &&
         url.port === allowed.port &&
         DEV_LOCALHOSTS.has(url.hostname)
@@ -74,14 +77,14 @@ export function selectSessionCsp(requestUrl: string, options: SessionCspOptions)
         return devPolicy(allowed.origin);
       }
     } catch {
-      return null;
+      // A malformed dev origin does not block the production file policy.
     }
   }
 
   if (url.protocol === 'file:') {
     try {
       const filePath = resolve(fileURLToPath(url));
-      const root = resolve(options.rendererDir);
+      const root = resolve(resolved.rendererDir);
       if (filePath === root || filePath.startsWith(`${root}${sep}`)) {
         return productionPolicy();
       }
@@ -110,46 +113,96 @@ export function withSessionCsp(
   return next;
 }
 
+const liveWindows = new Set<BrowserWindow>();
 let installedSession: Session | null = null;
+
+function defaultSessionCspOptions(): SessionCspOptions {
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (rendererUrl === undefined || rendererUrl.length === 0) {
+    return { rendererDir: DEFAULT_RENDERER_DIR };
+  }
+  return { rendererDir: DEFAULT_RENDERER_DIR, rendererUrl };
+}
 
 function readSession(window: BrowserWindow): Session | null {
   const contents = window.webContents as { session?: Session };
   return contents.session ?? null;
 }
 
-export function installSessionCsp(window: BrowserWindow, rendererDir: string): void {
-  const session = readSession(window);
-  if (session === null || installedSession === session) {
-    return;
-  }
-
-  installedSession = session;
-  session.webRequest.onHeadersReceived((details, callback) => {
+function deliverSessionCsp(
+  details: OnHeadersReceivedListenerDetails,
+  callback: (response: { responseHeaders?: Record<string, string | string[]> }) => void,
+  rendererDir: string
+): void {
+  try {
+    const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+    const policy = selectSessionCsp(details.url, {
+      rendererDir,
+      ...(rendererUrl !== undefined && rendererUrl.length > 0 ? { rendererUrl } : {}),
+    });
+    callback({ responseHeaders: withSessionCsp(details.responseHeaders, policy) });
+  } catch (error) {
+    console.error('[Window] Failed to apply session CSP:', error);
     try {
-      const policy = selectSessionCsp(details.url, {
-        rendererDir,
-        ...(process.env.ELECTRON_RENDERER_URL
-          ? { rendererUrl: process.env.ELECTRON_RENDERER_URL }
-          : {}),
-      });
-      const responseHeaders = withSessionCsp(details.responseHeaders, policy);
-      callback({ responseHeaders });
-    } catch {
       if (details.responseHeaders === undefined) {
         callback({});
         return;
       }
       callback({ responseHeaders: details.responseHeaders });
+    } catch (callbackError) {
+      console.error('[Window] Failed to continue response after CSP error:', callbackError);
     }
-  });
+  }
+}
 
+function bindSessionCleanup(window: BrowserWindow, detach: () => void): void {
+  const contents = window.webContents as {
+    once?: (event: 'destroyed', listener: () => void) => void;
+  };
+  if (typeof contents.once === 'function') {
+    contents.once('destroyed', detach);
+    return;
+  }
   if (typeof window.on === 'function') {
-    window.on('closed', () => {
-      if (installedSession !== session) {
-        return;
-      }
-      session.webRequest.onHeadersReceived(null);
-      installedSession = null;
+    window.on('closed', detach);
+  }
+}
+
+function detachSession(window: BrowserWindow, session: Session): void {
+  liveWindows.delete(window);
+  if (liveWindows.size > 0 || installedSession !== session) {
+    return;
+  }
+
+  installedSession = null;
+  try {
+    // Electron keeps a single listener; null unsubscribes it.
+    session.webRequest.onHeadersReceived(null);
+  } catch (error) {
+    console.error('[Window] Failed to remove session CSP listener:', error);
+  }
+}
+
+/**
+ * Register one listener on the window session, not defaultSession.
+ * Another createWindow on the same session does not stack a second listener.
+ * The listener is removed when the last window is destroyed.
+ */
+export function installSessionCsp(window: BrowserWindow, rendererDir: string): void {
+  const session = readSession(window);
+  if (session === null) {
+    return;
+  }
+
+  if (installedSession !== session) {
+    installedSession = session;
+    session.webRequest.onHeadersReceived((details, callback) => {
+      deliverSessionCsp(details, callback, rendererDir);
     });
   }
+
+  liveWindows.add(window);
+  bindSessionCleanup(window, () => {
+    detachSession(window, session);
+  });
 }

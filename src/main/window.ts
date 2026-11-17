@@ -59,24 +59,39 @@ const DIALOG_BUTTON = {
 /** Allowed localhost hosts for dev-server navigation */
 const DEV_LOCALHOSTS = new Set(['localhost', '127.0.0.1']);
 
+/** Real path of renderer/index.html, refreshed when a window is created. */
+let appDocumentRealPath: string | null = null;
+
 /**
- * Validates whether a target URL is allowed for renderer navigation/window-open.
- * Production allows local app files only; development also allows local dev server origins.
+ * Cache the real app document path. If realpath throws, every file: navigation is denied.
+ */
+function rememberAppDocumentPath(): void {
+  try {
+    appDocumentRealPath = realpathSync(join(__dirname, '../renderer/index.html'));
+  } catch {
+    appDocumentRealPath = null;
+  }
+}
+
+/**
+ * file: is allowed only for the real app document. A hash is allowed. A search is not.
  */
 function isAppDocumentFile(targetUrl: URL): boolean {
-  if (targetUrl.search.length > 0) {
+  if (targetUrl.search.length > 0 || appDocumentRealPath === null) {
     return false;
   }
 
   try {
-    const filePath = fileURLToPath(targetUrl);
-    const appDocument = resolve(join(__dirname, '../renderer/index.html'));
-    return realpathSync(filePath) === realpathSync(appDocument);
+    return realpathSync(fileURLToPath(targetUrl)) === appDocumentRealPath;
   } catch {
     return false;
   }
 }
 
+/**
+ * Main-frame navigation and window.open allowlist.
+ * file: must realpath to the app document. http: must be the configured Vite origin.
+ */
 function isAllowedNavigationUrl(targetUrl: string): boolean {
   try {
     const parsed = new URL(targetUrl);
@@ -85,16 +100,17 @@ function isAllowedNavigationUrl(targetUrl: string): boolean {
     }
 
     const rendererUrl = process.env.ELECTRON_RENDERER_URL;
-    if (
-      rendererUrl !== undefined &&
-      parsed.protocol === 'http:' &&
-      DEV_LOCALHOSTS.has(parsed.hostname)
-    ) {
-      const allowed = new URL(rendererUrl);
-      return parsed.hostname === allowed.hostname && parsed.port === allowed.port;
+    if (rendererUrl === undefined || rendererUrl.length === 0 || parsed.protocol !== 'http:') {
+      return false;
     }
 
-    return false;
+    const allowed = new URL(rendererUrl);
+    return (
+      allowed.protocol === 'http:' &&
+      DEV_LOCALHOSTS.has(parsed.hostname) &&
+      parsed.hostname === allowed.hostname &&
+      parsed.port === allowed.port
+    );
   } catch {
     return false;
   }
@@ -137,6 +153,8 @@ function setupNavigationGuards(window: BrowserWindow): void {
  * - webSecurity: true - Enforces same-origin policy
  */
 export function createWindow(): BrowserWindow {
+  rememberAppDocumentPath();
+
   const windowOptions: BrowserWindowConstructorOptions = {
     width: 1200,
     height: 800,
