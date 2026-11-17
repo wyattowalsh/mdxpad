@@ -39,6 +39,7 @@ import {
   getDefaultExportPath,
   serializeForExport,
 } from '@main/services/export-service';
+import { getExporter } from '@main/services/export-formats';
 import type { FileError, FileId } from '@shared/types/file';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 import {
@@ -137,7 +138,7 @@ async function promptExportFormat(): Promise<ExportFormat | null> {
     type: 'question' as const,
     title: 'Export Document',
     message: 'Choose an export format',
-    detail: 'Supported now: HTML, Markdown, MDX. Unsupported formats return explicit errors.',
+    detail: 'HTML, Markdown, and MDX export source text. PDF and Word use the format exporters.',
     buttons,
     defaultId: 0,
     cancelId: buttons.length - 1,
@@ -355,8 +356,12 @@ const handleFileExport = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' }, support };
     }
 
-    const serialized = serializeForExport(args.content, selectedFormat);
-    if (!serialized.ok) {
+    const binaryExporter =
+      selectedFormat === 'pdf' || selectedFormat === 'docx'
+        ? getExporter(selectedFormat)
+        : undefined;
+    const serialized = binaryExporter ? null : serializeForExport(args.content, selectedFormat);
+    if (serialized && !serialized.ok) {
       return { ok: false, error: serialized.error, support };
     }
 
@@ -374,7 +379,37 @@ const handleFileExport = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' }, support };
     }
 
-    const writeResult = await writeFile(saveDialogResult.filePath, serialized.content);
+    if (binaryExporter) {
+      const exported = await binaryExporter.export({
+        content: args.content,
+        outputPath: saveDialogResult.filePath,
+        title: 'MDXPad Export',
+      });
+      if (!exported.ok) {
+        return {
+          ok: false,
+          error: {
+            code: 'WRITE_FAILED',
+            message: exported.error ?? `Could not export ${selectedFormat}`,
+          },
+          support,
+        };
+      }
+      grantWriteCapability(saveDialogResult.filePath);
+      return {
+        ok: true,
+        value: {
+          path: saveDialogResult.filePath,
+          format: selectedFormat,
+          warnings: [...exported.warnings],
+        },
+      };
+    }
+
+    const writeResult = await writeFile(
+      saveDialogResult.filePath,
+      serialized?.ok ? serialized.content : ''
+    );
     if (!writeResult.ok) {
       return {
         ok: false,
@@ -392,7 +427,7 @@ const handleFileExport = createValidatedHandler(
       value: {
         path: saveDialogResult.filePath,
         format: selectedFormat,
-        warnings: [...serialized.warnings],
+        warnings: serialized?.ok ? [...serialized.warnings] : [],
       },
     };
   }

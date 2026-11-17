@@ -12,6 +12,7 @@ import { EditorPane } from './components/shell/EditorPane';
 import { PreviewPane } from './components/shell/PreviewPane';
 import { StatusBar } from './components/shell/StatusBar';
 import { OutlinePanel } from './components/outline';
+import { WorkspacePanel } from './components/workspace/WorkspacePanel';
 import { FrontmatterPanel } from './components/frontmatter';
 import { FileTreeFilter, FilterHighlight } from './components/file-explorer';
 import { TemplateBrowser } from './components/template-browser/TemplateBrowser';
@@ -89,6 +90,7 @@ export function App(): React.ReactElement {
   const sidebarVisible = useUILayoutStore(selectSidebarVisible);
   const aiFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('ai'));
   const authoringFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('authoring'));
+  const workspaceFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('workspace'));
   const aiProviderSettingsOpen = useAIProviderStore((s) => s.settingsOpen);
   const closeAiProviderSettings = useAIProviderStore((s) => s.closeSettings);
   const distractionFree = useEditorPreferencesStore((s) => s.distractionFreeEnabled);
@@ -248,6 +250,16 @@ export function App(): React.ReactElement {
                 className="flex-shrink-0"
                 onAddFrontmatter={dialogs.handleAddFrontmatter}
                 onApplyAutoFix={dialogs.handleApplyAutoFix}
+              />
+            )}
+            {workspaceFeatureEnabled && (
+              <WorkspacePanel
+                className="min-h-0 flex-1"
+                rootPath={
+                  state.filePath?.includes('/') === true
+                    ? state.filePath.slice(0, state.filePath.lastIndexOf('/'))
+                    : null
+                }
               />
             )}
             {state.outlineVisible && (

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { EXPORT_SUPPORT_MATRIX, getDefaultExportPath, serializeForExport } from '../export-service';
 
 describe('EXPORT_SUPPORT_MATRIX', () => {
-  it('marks html/markdown/mdx as supported and pdf/docx as unsupported', () => {
+  it('marks html, markdown, mdx, pdf, and docx as supported', () => {
     const supportByFormat = new Map(
       EXPORT_SUPPORT_MATRIX.map((entry) => [entry.format, entry.supported])
     );
@@ -11,8 +11,8 @@ describe('EXPORT_SUPPORT_MATRIX', () => {
     expect(supportByFormat.get('html')).toBe(true);
     expect(supportByFormat.get('markdown')).toBe(true);
     expect(supportByFormat.get('mdx')).toBe(true);
-    expect(supportByFormat.get('pdf')).toBe(false);
-    expect(supportByFormat.get('docx')).toBe(false);
+    expect(supportByFormat.get('pdf')).toBe(true);
+    expect(supportByFormat.get('docx')).toBe(true);
   });
 });
 

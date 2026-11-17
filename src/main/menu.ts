@@ -20,6 +20,7 @@ import * as fs from 'node:fs/promises';
 
 import { RecentFilesService, type RecentFileEntry } from './services/recent-files';
 import { readFile, createFileHandle } from './services/file-service';
+import { grantWriteCapability } from './ipc/document-capability';
 import type { FileHandle as SchemaFileHandle } from '@shared/contracts/file-schemas';
 
 /** Singleton instance of RecentFilesService */
@@ -122,6 +123,8 @@ async function openRecentFile(entry: RecentFileEntry, window: BrowserWindow): Pr
     });
     return;
   }
+
+  grantWriteCapability(entry.path);
 
   // Create file handle and update recent files
   const handle = createFileHandle(entry.path);

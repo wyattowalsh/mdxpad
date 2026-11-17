@@ -50,8 +50,7 @@ export const EXPORT_SUPPORT_MATRIX: readonly ExportSupportEntry[] = [
     extension: 'pdf',
     mimeType: 'application/pdf',
     priority: 4,
-    supported: false,
-    unsupportedReason: 'PDF export is not implemented yet',
+    supported: true,
   },
   {
     format: 'docx',
@@ -59,8 +58,7 @@ export const EXPORT_SUPPORT_MATRIX: readonly ExportSupportEntry[] = [
     extension: 'docx',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     priority: 5,
-    supported: false,
-    unsupportedReason: 'DOCX export is not implemented yet',
+    supported: true,
   },
 ] as const;
 
