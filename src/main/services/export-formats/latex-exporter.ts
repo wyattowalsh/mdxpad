@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { parseAtxHeading } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -152,13 +152,22 @@ function formatProtected(raw: string): string {
     } else if (match[7] !== undefined || match[8] !== undefined) {
       result += `\\textit{${formatProtected(match[7] ?? match[8] ?? '')}}`;
     } else if (match[9] !== undefined && match[10] !== undefined) {
-      result += `\\href{${escapeLatex(linkDestination(decodeHtmlEntities(match[10])))}}{${formatProtected(match[9])}}`;
+      result += latexHref(match[9], match[10]);
     } else if (match[11] !== undefined) {
       result += `\\sout{${formatProtected(match[11])}}`;
     }
     cursor = index + match[0].length;
   }
   return result + escapeLatex(decodeHtmlEntities(raw.slice(cursor)));
+}
+
+function latexHref(label: string, rawHref: string): string {
+  const destination = linkDestination(decodeHtmlEntities(rawHref));
+  const anchor = headingAnchor(destination);
+  if (anchor) {
+    return `\\hyperref[${anchor}]{${formatProtected(label)}}`;
+  }
+  return `\\href{${escapeLatex(destination)}}{${formatProtected(label)}}`;
 }
 
 function formatInline(source: string): string {
@@ -290,7 +299,16 @@ function isLatexBoundary(line: string): boolean {
   );
 }
 
-function takeLatexSetext(output: string[], raw: string): boolean {
+function latexLabeledHeading(
+  command: string,
+  formatted: string,
+  slugSource: string,
+  counts: Map<string, number>
+): string {
+  return `\\${command}{${formatted}}\\label{${allocateHeadingSlug(slugSource, counts)}}`;
+}
+
+function takeLatexSetext(output: string[], raw: string, counts: Map<string, number>): boolean {
   const level = setextLevel(raw);
   if (level === null) {
     return false;
@@ -304,40 +322,52 @@ function takeLatexSetext(output: string[], raw: string): boolean {
     return false;
   }
   const command = level === 1 ? 'section' : 'subsection';
-  output.push(`\\${command}{${body.filter((line) => line.length > 0).join(' ')}}`);
+  const text = body.filter((line) => line.length > 0).join(' ');
+  output.push(latexLabeledHeading(command, text, text, counts));
   return true;
 }
 
-function processMarkdownLine(raw: string, output: string[], listState: ListState): void {
-  if (takeLatexSetext(output, raw)) {
+function takeLatexListBreak(raw: string, output: string[], listState: ListState): boolean {
+  const source = readSourceLine(raw);
+  if (source.text !== '') {
+    if (
+      listState.break &&
+      parseListItem(raw) === null &&
+      !isListContinuation(raw, listState.column ?? 2)
+    ) {
+      resetListState(output, listState);
+    }
+    listState.break = false;
+    return false;
+  }
+  if (listState.stack.length > 0 && !listState.break) {
+    listState.break = true;
+  } else {
+    resetListState(output, listState);
+    listState.break = false;
+  }
+  output.push('');
+  return true;
+}
+
+function processMarkdownLine(
+  raw: string,
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>
+): void {
+  if (takeLatexSetext(output, raw, counts) || takeLatexListBreak(raw, output, listState)) {
     return;
   }
   const source = readSourceLine(raw);
   const trimmed = source.text;
-  if (trimmed === '') {
-    if (listState.stack.length > 0 && !listState.break) {
-      listState.break = true;
-    } else {
-      resetListState(output, listState);
-      listState.break = false;
-    }
-    output.push('');
-    return;
-  }
-  if (
-    listState.break &&
-    parseListItem(raw) === null &&
-    !isListContinuation(raw, listState.column ?? 2)
-  ) {
-    resetListState(output, listState);
-  }
-  listState.break = false;
-
   const heading = parseAtxHeading(trimmed);
   if (heading) {
     resetListState(output, listState);
     const cmd = getHeadingCommand(heading.depth);
-    output.push(`\\${cmd}{${convertInlineFormatting(heading.text)}}`);
+    output.push(
+      latexLabeledHeading(cmd, convertInlineFormatting(heading.text), heading.text, counts)
+    );
     return;
   }
 
@@ -420,6 +450,7 @@ interface LatexBuild {
   tableLines: string[];
   quoteLines: string[];
   listState: ListState;
+  slugCounts: Map<string, number>;
 }
 
 function appendLatexSourceLine(build: LatexBuild, line: string): void {
@@ -457,7 +488,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     resetListState(build.output, build.listState);
     return;
   }
-  processMarkdownLine(line, build.output, build.listState);
+  processMarkdownLine(line, build.output, build.listState, build.slugCounts);
 }
 
 function contentToLatex(content: string): string {
@@ -468,6 +499,7 @@ function contentToLatex(content: string): string {
     tableLines: [],
     quoteLines: [],
     listState: { stack: [], break: false, column: null },
+    slugCounts: new Map<string, number>(),
   };
 
   for (const line of expandLinkReferences(content).split('\n')) {

@@ -51,6 +51,12 @@ export function headingTag(depth: number, innerHtml: string, slug: string): stri
   return `<h${depth} id="${slug}">${innerHtml}</h${depth}>`;
 }
 
+/** The slug inside a `#intro` link, when it can be used as a heading label. */
+export function headingAnchor(destination: string): string | null {
+  const fragment = destination.startsWith('#') ? destination.slice(1) : '';
+  return /^[A-Za-z0-9][A-Za-z0-9-]*$/.test(fragment) ? fragment : null;
+}
+
 /** Read an ATX heading and ignore a closing run of hashes. */
 export function parseAtxHeading(line: string): AtxHeading | null {
   const match = ATX_HEADING.exec(line.trim());

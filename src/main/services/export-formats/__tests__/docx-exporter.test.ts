@@ -166,6 +166,27 @@ describe('DocxExporter', () => {
     expect(xml).toContain('AT&amp;amp;T');
   });
 
+  it('bookmarks a heading and links back to it', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '# Intro\n\nSee [the start](#intro).',
+      outputPath: '/tmp/anchor.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('w:name="intro"');
+    expect(xml).toContain('w:anchor="intro"');
+    expect(xml).toContain('the start');
+  });
+
   it('drops a closing hash run from a heading', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

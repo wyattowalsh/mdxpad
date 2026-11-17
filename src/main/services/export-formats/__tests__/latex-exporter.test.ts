@@ -126,6 +126,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\texttt{AT\\&amp;T}');
   });
 
+  it('labels a heading and links back to it', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '# Intro\n\nSee [the start](#intro).\n\n# Intro',
+      outputPath: '/tmp/anchor.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\section{Intro}\\label{intro}');
+    expect(written).toContain('\\hyperref[intro]{the start}');
+    expect(written).toContain('\\label{intro-1}');
+    expect(written).not.toContain('\\href{#intro}');
+  });
+
   it('drops a closing hash run from a heading', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

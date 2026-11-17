@@ -3,9 +3,11 @@ import { writeFile } from 'node:fs/promises';
 import {
   AlignmentType,
   BorderStyle,
+  Bookmark,
   Document,
   ExternalHyperlink,
   HeadingLevel,
+  InternalHyperlink,
   Math,
   Packer,
   Paragraph,
@@ -15,7 +17,7 @@ import {
   TextRun,
 } from 'docx';
 
-import { parseAtxHeading } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
@@ -155,8 +157,10 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
   return segments;
 }
 
-function createParagraphChildren(text: string): (TextRun | ExternalHyperlink | Math)[] {
-  const children: (TextRun | ExternalHyperlink | Math)[] = [];
+function createParagraphChildren(
+  text: string
+): (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] {
+  const children: (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] = [];
   for (const piece of splitDocxPieces(text)) {
     if (piece.kind === 'math') {
       children.push(new Math({ children: mathComponents(piece.tex) }));
@@ -190,7 +194,9 @@ function styledRun(segment: InlineSegment, text: string, style?: string): TextRu
   });
 }
 
-function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink)[] {
+function createTextRuns(
+  segments: InlineSegment[]
+): (TextRun | ExternalHyperlink | InternalHyperlink)[] {
   return segments.map((segment) => {
     if (segment.image) {
       return new ExternalHyperlink({
@@ -199,6 +205,13 @@ function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink
       });
     }
     if (segment.link) {
+      const anchor = headingAnchor(decodeHtmlEntities(segment.link));
+      if (anchor) {
+        return new InternalHyperlink({
+          children: [styledRun(segment, segment.text, 'Hyperlink')],
+          anchor,
+        });
+      }
       return new ExternalHyperlink({
         children: [styledRun(segment, segment.text, 'Hyperlink')],
         link: decodeHtmlEntities(segment.link),
@@ -217,7 +230,9 @@ function createCodeBlockParagraph(codeLines: string[]): Paragraph {
   });
 }
 
-function listItemChildren(text: string): (TextRun | ExternalHyperlink | Math)[] {
+function listItemChildren(
+  text: string
+): (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] {
   const task = splitTaskItem(text);
   if (!task) {
     return createParagraphChildren(text);
@@ -226,13 +241,22 @@ function listItemChildren(text: string): (TextRun | ExternalHyperlink | Math)[] 
   return [mark, ...createParagraphChildren(task.body)];
 }
 
-function parseLineToParagraph(trimmed: string): Paragraph | undefined {
+function bookmarkedHeading(level: number, text: string, slugs: Map<string, number>): Paragraph {
+  return new Paragraph({
+    heading: getHeadingLevel(level),
+    children: [
+      new Bookmark({
+        id: allocateHeadingSlug(text, slugs),
+        children: createParagraphChildren(text),
+      }),
+    ],
+  });
+}
+
+function parseLineToParagraph(trimmed: string, slugs: Map<string, number>): Paragraph | undefined {
   const heading = parseAtxHeading(trimmed);
   if (heading) {
-    return new Paragraph({
-      heading: getHeadingLevel(heading.depth),
-      children: createParagraphChildren(heading.text),
-    });
+    return bookmarkedHeading(heading.depth, heading.text, slugs);
   }
 
   if (isThematicBreak(trimmed)) {
@@ -374,10 +398,11 @@ interface DocxParse {
   openListItem: MarkdownListItem | null;
   listBreak: boolean;
   listColumn: number | null;
+  slugCounts: Map<string, number>;
 }
 
 function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
-  const children: (TextRun | ExternalHyperlink | Math)[] = [];
+  const children: (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] = [];
   lines.forEach((line, index) => {
     if (index > 0) {
       const previous = lines[index - 1];
@@ -420,9 +445,7 @@ function takeDocxSetext(parse: DocxParse, line: string): boolean {
   }
   const text = parse.pending.map((item) => item.text).join(' ');
   parse.pending.length = 0;
-  parse.blocks.push(
-    new Paragraph({ heading: getHeadingLevel(level), children: createParagraphChildren(text) })
-  );
+  parse.blocks.push(bookmarkedHeading(level, text, parse.slugCounts));
   return true;
 }
 
@@ -498,7 +521,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     return;
   }
   parse.listBreak = false;
-  const special = parseLineToParagraph(source.text);
+  const special = parseLineToParagraph(source.text, parse.slugCounts);
   if (special) {
     flushPendingParagraph(parse);
     parse.blocks.push(special);
@@ -544,6 +567,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     openListItem: null,
     listBreak: false,
     listColumn: null,
+    slugCounts: new Map<string, number>(),
   };
   let fence: string | null = null;
   const codeLines: string[] = [];
