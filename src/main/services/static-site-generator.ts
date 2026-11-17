@@ -116,6 +116,7 @@ export class StaticSiteGenerator {
   ): Promise<{ processedFiles: ProcessedFile[]; errors: string[] }> {
     const errors: string[] = [];
     const processedFiles: ProcessedFile[] = [];
+    const usedSlugs = new Set<string>();
 
     for (const fileEntry of config.files) {
       progress.currentFile = fileEntry.path;
@@ -124,7 +125,7 @@ export class StaticSiteGenerator {
       try {
         const content = await readFile(fileEntry.path, 'utf-8');
         const title = fileEntry.title ?? this.extractTitle(content, fileEntry.path);
-        const slug = this.createSlug(fileEntry.path);
+        const slug = this.createSlug(fileEntry.path, usedSlugs);
         const htmlContent = this.convertToHtml(
           content,
           title,
@@ -187,12 +188,21 @@ export class StaticSiteGenerator {
     return basename(filePath, extname(filePath));
   }
 
-  private createSlug(filePath: string): string {
+  private createSlug(filePath: string, usedSlugs: Set<string>): string {
     const name = basename(filePath, extname(filePath));
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+    const base =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'page';
+    let slug = base;
+    let suffix = 2;
+    while (usedSlugs.has(slug)) {
+      slug = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    usedSlugs.add(slug);
+    return slug;
   }
 
   private convertToHtml(
