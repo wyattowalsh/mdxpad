@@ -387,13 +387,16 @@ describe('llms generation helpers', () => {
   });
 
   it('writes llms content and returns bytes written', async () => {
+    const sourcePath = path.join(tempDir, 'post.mdx');
+    await writeFile(sourcePath, SAMPLE_CONTENT, 'utf-8');
+    grantReadCapability(sourcePath);
     const outputPath = path.join(tempDir, 'exports', 'llms.txt');
     const response = await generateLlmsFile({
       action: 'generate',
       target: 'llms.txt',
-      sourcePath: '/tmp/docs/post.mdx',
+      sourcePath,
       content: SAMPLE_CONTENT,
-      outputPath,
+      outputPath: path.join('exports', 'llms.txt'),
       overwrite: false,
     });
 
@@ -411,12 +414,15 @@ describe('llms generation helpers', () => {
   });
 
   it('returns WRITE_FAILED when output exists and overwrite is false', async () => {
+    const sourcePath = path.join(tempDir, 'post.mdx');
     const outputPath = path.join(tempDir, 'llms.txt');
+    await writeFile(sourcePath, SAMPLE_CONTENT, 'utf-8');
     await writeFile(outputPath, 'old content', 'utf-8');
+    grantReadCapability(sourcePath);
     const response = await generateLlmsFile({
       action: 'generate',
       target: 'llms.txt',
-      sourcePath: null,
+      sourcePath,
       content: 'new content',
       outputPath,
       overwrite: false,
@@ -429,12 +435,15 @@ describe('llms generation helpers', () => {
   });
 
   it('overwrites existing llms output when overwrite is true', async () => {
+    const sourcePath = path.join(tempDir, 'post.mdx');
     const outputPath = path.join(tempDir, 'llms-full.txt');
+    await writeFile(sourcePath, SAMPLE_CONTENT, 'utf-8');
     await writeFile(outputPath, 'old content', 'utf-8');
+    grantReadCapability(sourcePath);
     const response = await generateLlmsFile({
       action: 'generate',
       target: 'llms-full.txt',
-      sourcePath: null,
+      sourcePath,
       content: SAMPLE_CONTENT,
       outputPath,
       overwrite: true,
@@ -447,11 +456,14 @@ describe('llms generation helpers', () => {
   });
 
   it('filters llms-full output by requested tags', async () => {
+    const sourcePath = path.join(tempDir, 'post.mdx');
     const outputPath = path.join(tempDir, 'llms-full.txt');
+    await writeFile(sourcePath, 'source', 'utf-8');
+    grantReadCapability(sourcePath);
     const response = await generateLlmsFile({
       action: 'generate',
       target: 'llms-full.txt',
-      sourcePath: '/tmp/docs/post.mdx',
+      sourcePath,
       content: `---
 title: Filter test
 tags: [docs]
@@ -475,5 +487,50 @@ Drop this.
       expect(generated).toContain('## API usage [tags: api]');
       expect(generated).not.toContain('## UI usage [tags: ui]');
     }
+  });
+
+  it('does not write llms output for a file that is not open', async () => {
+    const sourcePath = path.join(tempDir, 'closed.mdx');
+    const outputPath = path.join(tempDir, 'llms.txt');
+    await writeFile(sourcePath, SAMPLE_CONTENT, 'utf-8');
+    const response = await generateLlmsFile({
+      action: 'generate',
+      target: 'llms.txt',
+      sourcePath,
+      content: SAMPLE_CONTENT,
+      outputPath,
+      overwrite: false,
+    });
+
+    expect(response.ok).toBe(false);
+    if (!response.ok) {
+      expect(response.code).toBe('WRITE_FAILED');
+      expect(response.error).toContain('file that is open');
+    }
+    await expect(access(outputPath)).rejects.toThrow();
+  });
+
+  it('does not write llms output outside the opened file directory', async () => {
+    const sourceDir = path.join(tempDir, 'docs');
+    await mkdir(sourceDir);
+    const sourcePath = path.join(sourceDir, 'post.mdx');
+    const outputPath = path.join(tempDir, 'llms.txt');
+    await writeFile(sourcePath, SAMPLE_CONTENT, 'utf-8');
+    grantReadCapability(sourcePath);
+    const response = await generateLlmsFile({
+      action: 'generate',
+      target: 'llms.txt',
+      sourcePath,
+      content: SAMPLE_CONTENT,
+      outputPath,
+      overwrite: false,
+    });
+
+    expect(response.ok).toBe(false);
+    if (!response.ok) {
+      expect(response.code).toBe('WRITE_FAILED');
+      expect(response.error).toContain('outside the workspace');
+    }
+    await expect(access(outputPath)).rejects.toThrow();
   });
 });

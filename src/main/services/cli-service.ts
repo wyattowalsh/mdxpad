@@ -12,10 +12,19 @@ import {
   type LlmsGenerationResponse,
   type LlmsTarget,
 } from '@shared/contracts/export-schemas';
+import { hasReadCapability } from '@main/ipc/document-capability';
 import { atomicWrite } from '@shared/lib/atomic-write';
 
+import { resolveWorkspaceFilePath, WorkspacePathError } from './ai/agent-path';
 import { runCliAutomationCommand } from './cli-engine';
 import { generateLlmsContent } from './llms-generator';
+
+class LlmsScopeError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = 'LlmsScopeError';
+  }
+}
 
 class LlmsOutputExistsError extends Error {
   public constructor(outputPath: string) {
@@ -72,8 +81,23 @@ async function assertLlmsOutputWritable(outputPath: string, overwrite: boolean):
   }
 }
 
+function resolvedLlmsOutput(sourcePath: string | null | undefined, outputPath: string): string {
+  if (sourcePath === null || sourcePath === undefined || !hasReadCapability(sourcePath)) {
+    throw new LlmsScopeError('llms generation can only write beside a file that is open');
+  }
+  const sourceDir = path.dirname(sourcePath);
+  const absoluteOutput = path.isAbsolute(outputPath)
+    ? outputPath
+    : path.resolve(sourceDir, outputPath);
+  return resolveWorkspaceFilePath(sourceDir, path.relative(sourceDir, absoluteOutput));
+}
+
 function llmsErrorCodeFrom(error: unknown): 'WRITE_FAILED' | 'INTERNAL_ERROR' {
-  if (error instanceof LlmsOutputExistsError) {
+  if (
+    error instanceof LlmsOutputExistsError ||
+    error instanceof LlmsScopeError ||
+    error instanceof WorkspacePathError
+  ) {
     return 'WRITE_FAILED';
   }
   if (isErrnoException(error) && typeof error.code === 'string') {
@@ -155,20 +179,21 @@ export async function generateLlmsFile(
   }
 
   try {
-    await assertLlmsOutputWritable(validated.data.outputPath, validated.data.overwrite);
+    const outputPath = resolvedLlmsOutput(validated.data.sourcePath, validated.data.outputPath);
+    await assertLlmsOutputWritable(outputPath, validated.data.overwrite);
     const generatedContent = generateLlmsContent({
       target: validated.data.target,
       content: validated.data.content,
       ...(validated.data.sourcePath !== undefined ? { sourcePath: validated.data.sourcePath } : {}),
       ...(validated.data.tagFilter !== undefined ? { tagFilter: validated.data.tagFilter } : {}),
     });
-    await fs.mkdir(path.dirname(validated.data.outputPath), { recursive: true });
-    await atomicWrite(validated.data.outputPath, generatedContent);
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await atomicWrite(outputPath, generatedContent);
 
     return LlmsGenerationResponseSchema.parse({
       ok: true,
       target: validated.data.target,
-      path: validated.data.outputPath,
+      path: outputPath,
       bytesWritten: Buffer.byteLength(generatedContent, 'utf-8'),
     });
   } catch (error) {
