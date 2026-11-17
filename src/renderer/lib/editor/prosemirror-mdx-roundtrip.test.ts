@@ -100,6 +100,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('| 1 | **2** |');
   });
 
+  it('keeps setext heading levels', () => {
+    expect(roundTrip('Hello\n===\n')).toContain('# Hello');
+    expect(roundTrip('Hello\n===\n')).not.toContain('## Hello');
+    expect(roundTrip('Sub\n---\n')).toContain('## Sub');
+    expect(roundTrip('## Two\n')).toContain('## Two');
+  });
+
   it('keeps a single tilde as text', () => {
     const serialized = roundTrip('H~2~O and `H~2~O`\n');
     expect(serialized).toContain('H~2~O and `H~2~O`');

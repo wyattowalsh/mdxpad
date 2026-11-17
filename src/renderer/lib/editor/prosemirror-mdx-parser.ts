@@ -105,7 +105,9 @@ const MDX_TOKENS: Record<
   list_item: { block: 'list_item' },
   heading: {
     block: 'heading',
-    getAttrs: (tok: MarkdownToken) => ({ level: tok.markup.length }),
+    getAttrs: (tok: MarkdownToken) => ({
+      level: Number(tok.tag.slice(1)) || tok.markup.length,
+    }),
   },
   code_block: { block: 'code_block', noCloseToken: true },
   fence: {
