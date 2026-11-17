@@ -162,6 +162,26 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li>Stay<br />put</li>');
   });
 
+  it('strikes a list item across a hard break', async () => {
+    await exporter.export({
+      content: '- ~~hello  \n  world~~',
+      outputPath: '/tmp/list-strike.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><del>hello</del><br /><del>world</del></li>');
+  });
+
+  it('strikes a wrapped list item', async () => {
+    await exporter.export({
+      content: '- ~~hello\n  world~~',
+      outputPath: '/tmp/list-strike-wrap.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><del>hello world</del></li>');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

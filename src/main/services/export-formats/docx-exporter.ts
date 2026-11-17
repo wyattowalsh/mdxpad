@@ -346,8 +346,12 @@ function createCodeBlockParagraph(codeLines: string[], language = ''): Paragraph
 function runsWithBreaks(
   text: string
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
+  const lines = text.split('\n').map((line, index, all) => ({
+    text: line,
+    hardBreak: index < all.length - 1,
+  }));
   const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
-  text.split('\n').forEach((piece, index) => {
+  renderedSegments(lines).forEach((piece, index) => {
     if (index > 0) {
       children.push(new TextRun({ break: 1 }));
     }

@@ -16,14 +16,15 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
-  appendHtmlListText,
   isListContinuation,
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  renderListItemHtml,
+  replaceHtmlListItem,
   type HtmlListFrame,
+  type MarkdownListItem,
 } from './markdown-list';
-import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 interface EpubChapter {
@@ -95,7 +96,7 @@ interface EpubLineState {
   quoteLines: string[];
   paragraph: SourceLine[];
   listBreak: boolean;
-  listHardBreak: boolean;
+  listLines: SourceLine[];
   listColumn: number | null;
   slugCounts: Map<string, number>;
 }
@@ -278,6 +279,37 @@ function takeEpubListBreak(htmlLines: string[], raw: string, state: EpubLineStat
   return false;
 }
 
+function startEpubListItem(
+  htmlLines: string[],
+  state: EpubLineState,
+  raw: string,
+  item: MarkdownListItem
+): void {
+  state.listLines = [{ text: item.text, hardBreak: readSourceLine(raw).hardBreak }];
+  pushHtmlListItem(
+    htmlLines,
+    state.lists,
+    item,
+    renderListItemHtml(state.listLines, renderMarkdownInline)
+  );
+  state.listColumn = listContentColumn(raw);
+}
+
+function continueEpubListItem(htmlLines: string[], state: EpubLineState, raw: string): boolean {
+  if (state.lists.length === 0 || !isListContinuation(raw, state.listColumn ?? 2)) {
+    return false;
+  }
+  state.listLines.push(readSourceLine(raw));
+  const replaced = replaceHtmlListItem(
+    htmlLines,
+    renderListItemHtml(state.listLines, renderMarkdownInline)
+  );
+  if (!replaced) {
+    state.listLines.pop();
+  }
+  return replaced;
+}
+
 function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState): void {
   const trimmed = raw.trim();
   if (takeEpubSetext(htmlLines, raw, state)) {
@@ -302,17 +334,11 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
   const item = parseListItem(raw);
   if (item) {
     flushEpubParagraph(htmlLines, state);
-    pushHtmlListItem(htmlLines, state.lists, item, listItemHtml(item.text, renderMarkdownInline));
-    state.listColumn = listContentColumn(raw);
-    state.listHardBreak = readSourceLine(raw).hardBreak;
+    startEpubListItem(htmlLines, state, raw, item);
     return;
   }
-  if (state.lists.length > 0 && isListContinuation(raw, state.listColumn ?? 2)) {
-    const source = readSourceLine(raw);
-    if (appendHtmlListText(htmlLines, renderMarkdownInline(source.text), state.listHardBreak)) {
-      state.listHardBreak = source.hardBreak;
-      return;
-    }
+  if (continueEpubListItem(htmlLines, state, raw)) {
+    return;
   }
   closeHtmlLists(htmlLines, state.lists);
   state.paragraph.push(readSourceLine(raw));
@@ -331,7 +357,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     fence: null,
     lists: [],
     listBreak: false,
-    listHardBreak: false,
+    listLines: [],
     listColumn: null,
     displayMath: null,
     tableLines: [],

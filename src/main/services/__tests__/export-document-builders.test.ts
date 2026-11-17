@@ -73,6 +73,10 @@ describe('built-in export documents', () => {
     const pdf = buildPdfDocument('- item\n  **continued**\n\nAfter');
     expect(pdf.content).toContain('- item continued');
     expect(pdf.content).not.toContain('**');
+    const struck = buildPdfDocument('- ~~hello\\\n  world~~');
+    expect(struck.content).toContain('(- hello) Tj');
+    expect(struck.content).toContain('(world) Tj');
+    expect(struck.content).not.toContain('~~');
     expect(pdf.content).toContain('After');
     const docx = Buffer.from(buildDocxDocument('- item\n  continued').content).toString('utf8');
     expect(docx).toContain('item continued');

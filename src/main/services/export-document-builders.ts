@@ -163,6 +163,24 @@ function plainFromSource(source: string): string {
   return plainInline(opened.split(HARD_BREAK).join('\n'));
 }
 
+function plainListFromSource(source: string): string {
+  const pieces = reopenInlineMarks(source.replaceAll('\n', HARD_BREAK)).split(HARD_BREAK);
+  const first = pieces[0] ?? '';
+  const item = parseListItem(first);
+  if (!item) {
+    return pieces.map((piece) => plainInline(piece)).join('\n');
+  }
+  const task = splitTaskItem(item.text);
+  const body = [task ? task.body : item.text, ...pieces.slice(1)];
+  const plain = body.map((piece) => plainInline(piece)).join('\n');
+  const indent = '  '.repeat(item.level);
+  if (task) {
+    return `${indent}[${task.checked ? 'x' : ' '}] ${plain}`;
+  }
+  const marker = item.ordered ? `${item.start}.` : '-';
+  return `${indent}${marker} ${plain}`;
+}
+
 function plainInline(text: string): string {
   const escaped = protectEscapes(text);
   const formatted = decodeHtmlEntities(
@@ -359,14 +377,15 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
     return false;
   }
   const source = readSourceLine(rawLine);
+  const combined = joinContinued(last.source, last.hardBreak, source.text);
   blocks[blocks.length - 1] = {
     kind: 'paragraph',
-    text: joinContinued(last.text, last.hardBreak, plainInline(source.text)),
+    text: plainListFromSource(combined),
     setext: false,
     quote: false,
     listColumn: last.listColumn,
     hardBreak: source.hardBreak,
-    source: joinContinued(last.source, last.hardBreak, source.text),
+    source: combined,
   };
   return true;
 }

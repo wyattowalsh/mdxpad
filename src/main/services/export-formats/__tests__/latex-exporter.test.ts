@@ -88,6 +88,16 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item Stay\\\\\nput');
   });
 
+  it('strikes a list item across a hard break', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- ~~hello  \n  world~~',
+      outputPath: '/tmp/list-strike.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
+  });
+
   it('keeps a wrapped list item on the item line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

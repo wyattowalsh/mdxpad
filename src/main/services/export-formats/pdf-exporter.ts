@@ -16,14 +16,15 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
-  appendHtmlListText,
   isListContinuation,
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  type MarkdownListItem,
+  renderListItemHtml,
+  replaceHtmlListItem,
   type HtmlListFrame,
 } from './markdown-list';
-import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 function escapeHtml(value: string): string {
@@ -43,7 +44,7 @@ interface PdfBuild {
   tableLines: string[];
   quoteLines: string[];
   listBreak: boolean;
-  listHardBreak: boolean;
+  listLines: SourceLine[];
   listColumn: number | null;
   slugCounts: Map<string, number>;
 }
@@ -245,6 +246,32 @@ function pdfHeading(build: PdfBuild, depth: number, text: string): string {
   return headingTag(depth, renderMarkdownInline(text), allocateHeadingSlug(text, build.slugCounts));
 }
 
+function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem): void {
+  build.listLines = [{ text: item.text, hardBreak: readSourceLine(raw).hardBreak }];
+  pushHtmlListItem(
+    build.parts,
+    build.lists,
+    item,
+    renderListItemHtml(build.listLines, renderMarkdownInline)
+  );
+  build.listColumn = listContentColumn(raw);
+}
+
+function continuePdfListItem(build: PdfBuild, raw: string): boolean {
+  if (build.lists.length === 0 || !isListContinuation(raw, build.listColumn ?? 2)) {
+    return false;
+  }
+  build.listLines.push(readSourceLine(raw));
+  const replaced = replaceHtmlListItem(
+    build.parts,
+    renderListItemHtml(build.listLines, renderMarkdownInline)
+  );
+  if (!replaced) {
+    build.listLines.pop();
+  }
+  return replaced;
+}
+
 function appendPdfFlow(build: PdfBuild, raw: string): void {
   const trimmed = raw.trim();
   if (takePdfSetext(build, raw)) {
@@ -269,17 +296,11 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
   const item = parseListItem(raw);
   if (item) {
     flushPdfParagraph(build);
-    pushHtmlListItem(build.parts, build.lists, item, listItemHtml(item.text, renderMarkdownInline));
-    build.listColumn = listContentColumn(raw);
-    build.listHardBreak = readSourceLine(raw).hardBreak;
+    startPdfListItem(build, raw, item);
     return;
   }
-  if (build.lists.length > 0 && isListContinuation(raw, build.listColumn ?? 2)) {
-    const source = readSourceLine(raw);
-    if (appendHtmlListText(build.parts, renderMarkdownInline(source.text), build.listHardBreak)) {
-      build.listHardBreak = source.hardBreak;
-      return;
-    }
+  if (continuePdfListItem(build, raw)) {
+    return;
   }
   closePdfList(build);
   build.paragraph.push(readSourceLine(raw));
@@ -292,7 +313,7 @@ export function markdownToPdfHtml(content: string): string {
     fence: null,
     lists: [],
     listBreak: false,
-    listHardBreak: false,
+    listLines: [],
     listColumn: null,
     displayMath: null,
     tableLines: [],

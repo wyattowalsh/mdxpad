@@ -1,4 +1,6 @@
-import { readSourceLine } from './markdown-paragraph';
+import { joinParagraphHtml } from './markdown-marks';
+import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { splitTaskItem, taskItemHtml } from './markdown-task';
 
 export interface MarkdownListItem {
   readonly level: number;
@@ -32,14 +34,25 @@ export function isListContinuation(line: string, minimumIndent = 2): boolean {
   return parseListItem(expanded) === null;
 }
 
-export function appendHtmlListText(parts: string[], html: string, hardBreak = false): boolean {
+/** Render a list item from its source lines, including a mark that crosses a break. */
+export function renderListItemHtml(
+  lines: readonly SourceLine[],
+  render: (text: string) => string
+): string {
+  const first = lines[0] ?? { text: '', hardBreak: false };
+  const task = splitTaskItem(first.text);
+  const body = task ? [{ text: task.body, hardBreak: first.hardBreak }, ...lines.slice(1)] : lines;
+  const html = joinParagraphHtml(body, render);
+  return task ? taskItemHtml(task.checked, html) : html;
+}
+
+export function replaceHtmlListItem(parts: string[], html: string): boolean {
   const index = parts.length - 1;
   const last = parts[index];
   if (last === undefined || !last.startsWith('<li>') || !last.endsWith('</li>')) {
     return false;
   }
-  const inner = last.slice('<li>'.length, -'</li>'.length);
-  parts[index] = `<li>${inner}${hardBreak ? '<br />' : ' '}${html}</li>`;
+  parts[index] = `<li>${html}</li>`;
   return true;
 }
 

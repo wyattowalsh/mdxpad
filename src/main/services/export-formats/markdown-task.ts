@@ -4,7 +4,7 @@ export interface TaskItem {
 }
 
 export function splitTaskItem(text: string): TaskItem | null {
-  const match = /^\[([ xX])\]\s*(.*)$/.exec(text);
+  const match = /^\[([ xX])\][ \t]*([\s\S]*)$/.exec(text);
   if (!match) {
     return null;
   }

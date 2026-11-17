@@ -228,7 +228,7 @@ interface LatexListFrame {
 interface ListState {
   stack: LatexListFrame[];
   break: boolean;
-  hard: boolean;
+  itemLines: SourceLine[];
   column: number | null;
 }
 
@@ -272,7 +272,8 @@ function resetListState(output: string[], listState: ListState): void {
 function openLatexListItem(
   output: string[],
   stack: LatexListFrame[],
-  item: MarkdownListItem
+  item: MarkdownListItem,
+  formatted: string
 ): void {
   while (stack.length > 0) {
     const top = stack[stack.length - 1];
@@ -296,15 +297,20 @@ function openLatexListItem(
     }
     stack.push({ ordered: item.ordered, level: item.level });
   }
-  output.push(`  \\item ${latexListItem(item.text)}`);
+  output.push(`  \\item ${formatted}`);
 }
 
-function latexListItem(text: string): string {
-  const task = splitTaskItem(text);
-  if (!task) {
-    return convertInlineFormatting(text);
-  }
-  return taskItemLatex(task.checked, convertInlineFormatting(task.body));
+function renderLatexItem(lines: readonly SourceLine[]): string {
+  const first = lines[0] ?? { text: '', hardBreak: false };
+  const task = splitTaskItem(first.text);
+  const body = task ? [{ text: task.body, hardBreak: first.hardBreak }, ...lines.slice(1)] : lines;
+  const formatted = renderedSegments(body)
+    .map((text, index) => {
+      const piece = convertInlineFormatting(text);
+      return index === 0 ? piece : `\\\\\n${piece}`;
+    })
+    .join('');
+  return task ? taskItemLatex(task.checked, formatted) : formatted;
 }
 
 function processListItem(raw: string, output: string[], listState: ListState): boolean {
@@ -312,8 +318,23 @@ function processListItem(raw: string, output: string[], listState: ListState): b
   if (!item) {
     return false;
   }
-  openLatexListItem(output, listState.stack, item);
-  listState.hard = readSourceLine(raw).hardBreak;
+  listState.itemLines = [{ text: item.text, hardBreak: readSourceLine(raw).hardBreak }];
+  openLatexListItem(output, listState.stack, item, renderLatexItem(listState.itemLines));
+  return true;
+}
+
+function takeLatexListContinuation(raw: string, output: string[], listState: ListState): boolean {
+  if (listState.stack.length === 0 || !isListContinuation(raw, listState.column ?? 2)) {
+    return false;
+  }
+  const last = output[output.length - 1];
+  if (!last?.includes('\\item ')) {
+    return false;
+  }
+  listState.itemLines.push(readSourceLine(raw));
+  const at = last.lastIndexOf('\\item ');
+  const prefix = last.slice(0, at + '\\item '.length);
+  output[output.length - 1] = `${prefix}${renderLatexItem(listState.itemLines)}`;
   return true;
 }
 
@@ -438,15 +459,8 @@ function processMarkdownLine(
     listState.column = listContentColumn(raw);
     return;
   }
-  if (listState.stack.length > 0 && isListContinuation(raw, listState.column ?? 2)) {
-    const last = output[output.length - 1];
-    const continued = readSourceLine(raw);
-    if (last?.includes('\\item ')) {
-      const joiner = listState.hard ? '\\\\\n' : ' ';
-      output[output.length - 1] = `${last}${joiner}${convertInlineFormatting(continued.text)}`;
-      listState.hard = continued.hardBreak;
-      return;
-    }
+  if (takeLatexListContinuation(raw, output, listState)) {
+    return;
   }
 
   prose.push(source);
@@ -563,7 +577,7 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: { stack: [], break: false, hard: false, column: null },
+    listState: { stack: [], break: false, itemLines: [], column: null },
     slugCounts: new Map<string, number>(),
   };
 
