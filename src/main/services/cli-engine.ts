@@ -9,6 +9,7 @@ import type { ExportCliEvent, ExportCliOutput } from '@shared/types/export-model
 import { DocxExportPresetOptionsSchema, PdfExportPresetOptionsSchema } from '@shared/types/root';
 
 import { buildDocxDocument, buildPdfDocument } from './export-document-builders';
+import { getExporter } from './export-formats';
 import { serializeForExport } from './export-service';
 
 /**
@@ -206,6 +207,18 @@ async function writeBuiltInExportArtifact(
       return warnings;
     }
     default: {
+      const exporter = getExporter(request.job.format);
+      if (exporter) {
+        const result = await exporter.export({
+          content: sourceContent,
+          outputPath: request.job.targetPath,
+          title: request.job.preset.name,
+        });
+        if (!result.ok) {
+          throw new Error(result.error ?? `Could not export ${request.job.format}`);
+        }
+        return [...result.warnings];
+      }
       const serialized = serializeForExport(sourceContent, request.job.format);
       if (!serialized.ok) {
         throw new Error(serialized.error.message);

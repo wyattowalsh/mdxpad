@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import type { ExportJob, ExportPreset } from '@shared/types/export-model';
+import { BUILT_IN_EXPORT_PRESETS } from '../built-in-export-presets';
 import { ExportOrchestratorService } from '../export-orchestrator';
 
 function createPreset(overrides: Partial<ExportPreset> = {}): ExportPreset {
@@ -169,7 +170,10 @@ describe('ExportOrchestratorService - preset management', () => {
     if (!listed.ok || !('presets' in listed)) {
       throw new Error('Expected list to return presets payload');
     }
-    expect(listed.presets).toHaveLength(1);
+    expect(listed.presets).toHaveLength(BUILT_IN_EXPORT_PRESETS.length + 1);
+    expect(listed.presets.map((preset) => preset.format)).toEqual(
+      expect.arrayContaining(['pdf', 'docx', 'epub', 'latex', 'pandoc'])
+    );
 
     const deleted = service.handlePresetCrud({ action: 'delete', presetId: preset.id });
     expect(deleted).toEqual({

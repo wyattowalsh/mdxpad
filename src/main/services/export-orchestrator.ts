@@ -7,6 +7,7 @@ import {
   type ExportPresetCrudResponse,
 } from '@shared/contracts/export-schemas';
 import type { ExportJob, ExportJobStatus, ExportPreset } from '@shared/types/export-model';
+import { BUILT_IN_EXPORT_PRESETS } from './built-in-export-presets';
 import { getExporter, type ExportResult, type ExportOptions } from './export-formats';
 
 const TERMINAL_JOB_STATUSES: ReadonlySet<ExportJobStatus> = new Set([
@@ -65,6 +66,9 @@ export class ExportOrchestratorService {
 
   public constructor(options: ExportOrchestratorServiceOptions = {}) {
     this.now = options.now ?? (() => new Date().toISOString());
+    for (const preset of BUILT_IN_EXPORT_PRESETS) {
+      this.presets.set(preset.id, preset);
+    }
   }
 
   public handleJobLifecycle(request: ExportJobLifecycleRequest): ExportJobLifecycleResponse {

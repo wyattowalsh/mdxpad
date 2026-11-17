@@ -183,6 +183,44 @@ describe('invokeExportCli', () => {
     }
   });
 
+  it('runs built-in LaTeX export through the format writer', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-latex-export-'));
+    try {
+      const sourcePath = path.join(tempDir, 'source.mdx');
+      const targetPath = path.join(tempDir, 'output.tex');
+      await writeFile(sourcePath, '# Latex Heading\n\nBody text.', 'utf-8');
+
+      const request = createTestRequest({
+        command: 'mdxpad-export',
+        args: [],
+        cwd: tempDir,
+        job: {
+          ...createTestRequest().job,
+          sourcePath,
+          targetPath,
+          format: 'latex',
+          generationMode: 'native',
+          preset: {
+            id: '10000000-0000-4000-8000-000000000007',
+            name: 'LaTeX',
+            format: 'latex',
+            options: {},
+          },
+        },
+      });
+
+      const response = await invokeExportCli(request);
+      expect(response.ok).toBe(true);
+      if (response.ok) {
+        const artifact = await readFile(targetPath, 'utf-8');
+        expect(artifact).toContain('\\documentclass');
+        expect(artifact).toContain('Latex Heading');
+      }
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it('returns TIMEOUT when command exceeds timeoutMs', async () => {
     const response = await invokeExportCli(
       createTestRequest({

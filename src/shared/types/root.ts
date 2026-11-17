@@ -76,10 +76,16 @@ const DocxExportPresetSchema = ExportPresetBaseSchema.extend({
   options: DocxExportPresetOptionsSchema,
 });
 
+const PackagedExportPresetSchema = ExportPresetBaseSchema.extend({
+  format: z.enum(['epub', 'latex', 'pandoc']),
+  options: z.record(z.unknown()),
+});
+
 export const ExportPresetSchema = z.discriminatedUnion('format', [
   TextExportPresetSchema,
   PdfExportPresetSchema,
   DocxExportPresetSchema,
+  PackagedExportPresetSchema,
 ]);
 export type ExportPreset = z.infer<typeof ExportPresetSchema>;
 
