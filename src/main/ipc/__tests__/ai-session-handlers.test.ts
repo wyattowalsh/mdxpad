@@ -99,6 +99,7 @@ function createMockAIServices(): AIServices {
     credentialService: {} as AIServices['credentialService'],
     capabilityService: {} as AIServices['capabilityService'],
     aiService: {} as AIServices['aiService'],
+    embeddingService: {} as AIServices['embeddingService'],
     usageService: {} as AIServices['usageService'],
     onboardingService: {} as AIServices['onboardingService'],
     sidecarService: {

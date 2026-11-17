@@ -35,7 +35,17 @@ const {
   const mockReadFile = vi.fn();
   const mockShowMessageBox = vi.fn(async () => ({ response: 1 }));
   const mockAutoSaveManager = {
-    findRecoverable: vi.fn(async () => []),
+    findRecoverable: vi.fn(
+      async (): Promise<
+        {
+          fileId: string;
+          originalPath: string | null;
+          tempPath: string;
+          savedAt: number;
+          displayName: string;
+        }[]
+      > => []
+    ),
     cleanupEntry: vi.fn(async () => {}),
     start: vi.fn(),
     stop: vi.fn(),

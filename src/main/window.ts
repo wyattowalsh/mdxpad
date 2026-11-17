@@ -10,9 +10,11 @@ import {
   type BrowserWindowConstructorOptions,
   type IpcMainEvent,
 } from 'electron';
+import { realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
+import { installSessionCsp } from './session-csp';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -69,7 +71,7 @@ function isAppDocumentFile(targetUrl: URL): boolean {
   try {
     const filePath = fileURLToPath(targetUrl);
     const appDocument = resolve(join(__dirname, '../renderer/index.html'));
-    return resolve(filePath) === appDocument;
+    return realpathSync(filePath) === realpathSync(appDocument);
   } catch {
     return false;
   }
@@ -167,6 +169,7 @@ export function createWindow(): BrowserWindow {
   // Handle window close with dirty state check
   setupCloseHandler(mainWindow);
   setupNavigationGuards(mainWindow);
+  installSessionCsp(mainWindow, resolve(join(__dirname, '../renderer')));
 
   return mainWindow;
 }

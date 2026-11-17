@@ -10,7 +10,7 @@ const context = {
   platform: { isMac: true, isWindows: false, isLinux: false },
   api: {},
   notify: () => undefined,
-} as CommandContext;
+} as unknown as CommandContext;
 
 describe('PANEL_COMMANDS', () => {
   beforeEach(() => {
