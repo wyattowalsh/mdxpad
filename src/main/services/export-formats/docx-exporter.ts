@@ -41,9 +41,10 @@ interface InlineSegment {
   link?: string;
 }
 
-function parseInlineFormatting(text: string): InlineSegment[] {
+export function parseInlineFormatting(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
-  const regex = /(\*\*(.+?)\*\*|__(.+?)__|`([^`]+)`|\*(.+?)\*|_(.+?)_|\[([^\]]+)\]\(([^)]+)\))/g;
+  const regex =
+    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\))/g;
   let lastIndex = 0;
 
   for (const match of text.matchAll(regex)) {

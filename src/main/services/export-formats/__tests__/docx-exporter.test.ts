@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { DocxExporter } from '../docx-exporter';
+import { DocxExporter, parseInlineFormatting } from '../docx-exporter';
 import type { ExportOptions } from '../types';
 
 vi.mock('node:fs/promises', () => ({
@@ -13,6 +13,17 @@ describe('DocxExporter', () => {
   beforeEach(() => {
     exporter = new DocxExporter();
     vi.clearAllMocks();
+  });
+
+  it('keeps snake_case as plain text and still emphasizes _words_', () => {
+    expect(parseInlineFormatting('use snake_case_name here')).toEqual([
+      { text: 'use snake_case_name here' },
+    ]);
+    expect(parseInlineFormatting('this is _italic_ text')).toEqual([
+      { text: 'this is ' },
+      { text: 'italic', italic: true },
+      { text: ' text' },
+    ]);
   });
 
   it('has correct metadata', () => {
