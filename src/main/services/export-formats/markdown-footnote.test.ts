@@ -12,6 +12,17 @@ describe('applyFootnotes', () => {
     expect(rendered).not.toContain('[^1]');
   });
 
+  it('keeps a table and a quote inside a note', () => {
+    const table = applyFootnotes('A[^1].\n\n[^1]: | A | B |\n    | --- | --- |\n    | 1 | 2 |\n');
+    expect(table).toContain('| A | B |');
+    expect(table).toContain('| --- | --- |');
+    expect(table).not.toContain('1. |');
+    const quote = applyFootnotes('A[^1].\n\n[^1]: > hello\n    > world\n');
+    expect(quote).toContain('> hello');
+    expect(quote).toContain('> world');
+    expect(quote).not.toContain('1. >');
+  });
+
   it('keeps a fenced block inside a note', () => {
     const rendered = applyFootnotes('A[^1].\n\n[^1]: ```js\n    const x = 1\n    ```\n');
     expect(rendered).toContain('```js');

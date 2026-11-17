@@ -340,6 +340,18 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<code>js const');
   });
 
+  it('keeps a table inside a footnote', async () => {
+    await exporter.export({
+      content: 'A[^1].\n\n[^1]: | A | B |\n    | --- | --- |\n    | 1 | 2 |\n',
+      outputPath: '/tmp/note-table.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<table>');
+    expect(html).toContain('<td>1</td>');
+    expect(html).toContain('<td>2</td>');
+  });
+
   it('resolves a reference link', async () => {
     await exporter.export({
       content: 'See [the docs][guide].\n\n[guide]: https://example.com',

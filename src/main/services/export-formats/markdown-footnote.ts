@@ -1,4 +1,5 @@
 import { advanceFence, openingFence } from './markdown-fence';
+import { isTableRow } from './markdown-table';
 
 const DEFINITION = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/;
 const SUPERSCRIPT = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
@@ -114,21 +115,31 @@ function collectNotes(lines: readonly string[]): {
   return { kept, inCode, notes };
 }
 
-function bodyHasFence(body: string): boolean {
-  return body.split('\n').some((line) => openingFence(line) !== null);
+function lineStartsBlock(line: string): boolean {
+  const trimmed = line.trim();
+  return (
+    openingFence(line) !== null ||
+    trimmed === '$$' ||
+    trimmed.startsWith('>') ||
+    isTableRow(trimmed)
+  );
 }
 
-function formatFencedNote(number: number, body: string): string {
+function bodyHasBlock(body: string): boolean {
+  return body.split('\n').some((line) => lineStartsBlock(line));
+}
+
+function formatBlockNote(number: number, body: string): string {
   const [first = '', ...rest] = body.split('\n');
-  if (openingFence(first)) {
+  if (lineStartsBlock(first)) {
     return `**${number}.**\n\n${body}`;
   }
   return `**${number}.** ${first}\n\n${rest.join('\n')}`;
 }
 
 function formatNote(number: number, body: string): string {
-  if (bodyHasFence(body)) {
-    return formatFencedNote(number, body);
+  if (bodyHasBlock(body)) {
+    return formatBlockNote(number, body);
   }
   const [first, ...rest] = body.split('\n');
   const head = `${number}. ${first ?? ''}`;
