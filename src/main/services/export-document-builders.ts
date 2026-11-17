@@ -5,7 +5,7 @@ import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
 import { advanceFence } from './export-formats/markdown-fence';
 import { isListContinuation, parseListItem } from './export-formats/markdown-list';
-import { quoteBody } from './export-formats/markdown-quote';
+import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
 import { linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
@@ -22,6 +22,7 @@ interface MarkdownParagraphBlock {
   readonly kind: 'paragraph';
   readonly text: string;
   readonly setext: boolean;
+  readonly quote: boolean;
 }
 
 interface MarkdownImageBlock {
@@ -223,6 +224,7 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     kind: 'paragraph',
     text: plainParagraph(rawLine),
     setext: isSetextText(rawLine),
+    quote: quoteBody(rawLine) !== null,
   });
 }
 
@@ -311,6 +313,24 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
     kind: 'paragraph',
     text: `${last.text} ${plainInline(rawLine.trim())}`,
     setext: false,
+    quote: false,
+  };
+  return true;
+}
+
+function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
+  if (!isLazyQuoteLine(rawLine)) {
+    return false;
+  }
+  const last = blocks[blocks.length - 1];
+  if (last?.kind !== 'paragraph' || !last.quote) {
+    return false;
+  }
+  blocks[blocks.length - 1] = {
+    kind: 'paragraph',
+    text: `${last.text} ${plainInline(rawLine.trim())}`,
+    setext: false,
+    quote: true,
   };
   return true;
 }
@@ -327,7 +347,7 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     if (fence || next) {
       fence = next;
       if (!boundary) {
-        blocks.push({ kind: 'paragraph', text: rawLine, setext: false });
+        blocks.push({ kind: 'paragraph', text: rawLine, setext: false, quote: false });
       }
       continue;
     }
@@ -336,7 +356,10 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       index = tableEnd;
       continue;
     }
-    if (appendBuiltInListContinuation(blocks, rawLine)) {
+    if (
+      appendBuiltInListContinuation(blocks, rawLine) ||
+      appendBuiltInQuoteContinuation(blocks, rawLine)
+    ) {
       continue;
     }
     if (!takeSetextHeading(blocks, rawLine)) {

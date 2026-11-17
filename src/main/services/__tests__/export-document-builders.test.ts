@@ -28,6 +28,17 @@ describe('built-in export documents', () => {
     expect(pdf.content).not.toContain('NOTE');
   });
 
+  it('keeps a wrapped quote on one line', () => {
+    const pdf = buildPdfDocument('> Keep this\nline too.\n\nAfter');
+    expect(pdf.content).toContain('Keep this line too.');
+    expect(pdf.content).toContain('After');
+    const docx = Buffer.from(buildDocxDocument('> Keep **this**\nline too.').content).toString(
+      'utf8'
+    );
+    expect(docx).toContain('Keep this line too.');
+    expect(docx).not.toContain('**');
+  });
+
   it('keeps a wrapped list item on one line', () => {
     const pdf = buildPdfDocument('- item\n  **continued**\n\nAfter');
     expect(pdf.content).toContain('- item continued');
