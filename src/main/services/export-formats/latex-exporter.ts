@@ -5,6 +5,7 @@ import { isThematicBreak } from './markdown-break';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
+import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { linkDestination } from './markdown-link';
 import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
@@ -103,7 +104,20 @@ function latexImage(src: string, alt: string): string {
   return `\\includegraphics{${path}}`;
 }
 
-function formatInline(raw: string): string {
+function restoreLatexAutolinks(
+  value: string,
+  links: ReturnType<typeof protectAutolinks>['links']
+): string {
+  return expandAutolinkText(value, links)
+    .map((part) =>
+      part.href ? `\\href{${escapeLatex(part.href)}}{${escapeLatex(part.text)}}` : part.text
+    )
+    .join('');
+}
+
+function formatInline(source: string): string {
+  const protectedLinks = protectAutolinks(source);
+  const raw = protectedLinks.text;
   const pattern =
     /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\)|~~(.+?)~~)/g;
   let result = '';
@@ -131,7 +145,7 @@ function formatInline(raw: string): string {
     }
     cursor = index + match[0].length;
   }
-  return result + escapeLatex(raw.slice(cursor));
+  return restoreLatexAutolinks(result + escapeLatex(raw.slice(cursor)), protectedLinks.links);
 }
 
 const HEADING_COMMANDS: Record<number, string> = {

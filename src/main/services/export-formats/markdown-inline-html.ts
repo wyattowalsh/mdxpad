@@ -1,5 +1,6 @@
 import katex from 'katex';
 
+import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { linkDestination } from './markdown-link';
 
 function escapeHtml(value: string): string {
@@ -46,22 +47,37 @@ function renderKatex(interior: string, display: boolean): string {
   }
 }
 
+function restoreAutolinks(
+  html: string,
+  links: ReturnType<typeof protectAutolinks>['links']
+): string {
+  return expandAutolinkText(html, links)
+    .map((part) =>
+      part.href ? `<a href="${escapeHtml(part.href)}">${escapeHtml(part.text)}</a>` : part.text
+    )
+    .join('');
+}
+
 /** Escape text, then apply emphasis, code, and links. Underscores inside words stay plain. */
 function renderText(value: string): string {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/~~(.+?)~~/g, '<del>$1</del>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>')
-    .replace(
-      /!\[([^\]]*)\]\(([^)]+)\)/g,
-      (_match, alt: string, src: string) => `<img src="${linkDestination(src)}" alt="${alt}" />`
-    )
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, href: string) => {
-      return `<a href="${linkDestination(href)}">${text}</a>`;
-    });
+  const protectedLinks = protectAutolinks(value);
+  return restoreAutolinks(
+    escapeHtml(protectedLinks.text)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/~~(.+?)~~/g, '<del>$1</del>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>')
+      .replace(
+        /!\[([^\]]*)\]\(([^)]+)\)/g,
+        (_match, alt: string, src: string) => `<img src="${linkDestination(src)}" alt="${alt}" />`
+      )
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, href: string) => {
+        return `<a href="${linkDestination(href)}">${text}</a>`;
+      }),
+    protectedLinks.links
+  );
 }
 
 function appendMath(

@@ -202,6 +202,17 @@ describe('LatexExporter', () => {
     expect(written.indexOf('\\end{itemize}', child)).toBeGreaterThan(child);
   });
 
+  it('links an autolink', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <https://example.com> and https://example.com.',
+      outputPath: '/tmp/auto.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\href{https://example.com}{https://example.com}');
+    expect(written).toContain('}.');
+  });
+
   it('keeps a link title out of the address', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

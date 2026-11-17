@@ -21,6 +21,13 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('links an autolink and leaves a code span alone', () => {
+    expect(renderMarkdownInline('See <https://example.com> and https://example.com.')).toBe(
+      'See <a href="https://example.com">https://example.com</a> and <a href="https://example.com">https://example.com</a>.'
+    );
+    expect(renderMarkdownInline('`https://example.com`')).toBe('<code>https://example.com</code>');
+  });
+
   it('keeps a link title out of the address', () => {
     expect(renderMarkdownInline('[docs](https://example.com "Docs")')).toBe(
       '<a href="https://example.com">docs</a>'
