@@ -19,6 +19,15 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**bold**');
   });
 
+  it('writes a task and a horizontal rule as plain text', () => {
+    const pdf = buildPdfDocument('- [x] **done**\n\n* * *\n\nBelow');
+    expect(pdf.content).toContain('[x] done');
+    expect(pdf.content).toContain('----------');
+    expect(pdf.content).not.toContain('* * *');
+    expect(pdf.content).not.toContain('**');
+    expect(pdf.content).toContain('Below');
+  });
+
   it('reads a block quote without the marker', () => {
     const pdf = buildPdfDocument('> Keep **this**');
     expect(pdf.content).toContain('Keep this');

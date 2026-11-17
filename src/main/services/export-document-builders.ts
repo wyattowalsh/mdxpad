@@ -1,9 +1,12 @@
 import { Buffer } from 'node:buffer';
 
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
+import { isThematicBreak } from './export-formats/markdown-break';
 import { advanceFence } from './export-formats/markdown-fence';
+import { parseListItem } from './export-formats/markdown-list';
 import { quoteBody } from './export-formats/markdown-quote';
 import { linkDestination } from './export-formats/markdown-link';
+import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
 import { expandLinkReferences } from './export-formats/markdown-reference';
 import { createStoredZip, toUtf8Bytes } from './zip-utils';
@@ -160,6 +163,27 @@ function stripQuoteMarkers(line: string): string {
   return `${'  '.repeat(depth - 1)}${text}`;
 }
 
+function plainParagraph(rawLine: string): string {
+  const quoted = stripQuoteMarkers(rawLine);
+  if (isThematicBreak(quoted.trim())) {
+    return '----------';
+  }
+  const item = parseListItem(quoted);
+  if (!item) {
+    return plainInline(quoted);
+  }
+  const task = splitTaskItem(item.text);
+  const body = plainInline(task ? task.body : item.text);
+  const indent = '  '.repeat(item.level);
+  if (task) {
+    return `${indent}[${task.checked ? 'x' : ' '}] ${body}`;
+  }
+  if (item.ordered) {
+    return `${indent}${item.start}. ${body}`;
+  }
+  return `${indent}- ${body}`;
+}
+
 function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
   const trimmedLine = rawLine.trim();
   const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine);
@@ -183,7 +207,7 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     return;
   }
 
-  blocks.push({ kind: 'paragraph', text: plainInline(stripQuoteMarkers(rawLine)) });
+  blocks.push({ kind: 'paragraph', text: plainParagraph(rawLine) });
 }
 
 function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
