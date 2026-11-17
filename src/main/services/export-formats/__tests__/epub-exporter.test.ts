@@ -365,6 +365,22 @@ describe('EpubExporter', () => {
     expect(html).toContain('<td>A</td>');
   });
 
+  it('keeps a one-line HTML block from being parsed again', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '<div>\n\nhello\n\n</div>\n',
+      outputPath: '/tmp/html-one-line.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html.indexOf('<div>')).toBeLessThan(html.indexOf('<p>hello</p>'));
+    expect(html.indexOf('<p>hello</p>')).toBeLessThan(html.indexOf('</div>'));
+    expect(html).not.toContain('<p><div>');
+    expect(html).not.toContain('<p></div>');
+  });
+
   it('keeps a raw HTML block in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

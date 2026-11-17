@@ -225,13 +225,13 @@ function consumeEpubHtml(
   lines: readonly string[],
   index: number,
   state: EpubLineState
-): number {
+): number | null {
   if (state.fence || state.displayMath) {
-    return index;
+    return null;
   }
   const block = readHtmlBlock(lines, index);
   if (!block) {
-    return index;
+    return null;
   }
   flushEpubParagraph(htmlLines, state);
   flushEpubTable(htmlLines, state);
@@ -436,7 +436,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   const lines = chapter.content.split('\n');
   for (let index = 0; index < lines.length; index += 1) {
     const htmlEnd = consumeEpubHtml(htmlLines, lines, index, state);
-    if (htmlEnd > index) {
+    if (htmlEnd !== null) {
       index = htmlEnd;
       continue;
     }

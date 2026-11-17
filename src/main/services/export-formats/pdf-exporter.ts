@@ -188,13 +188,13 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
   return false;
 }
 
-function consumePdfHtml(build: PdfBuild, lines: readonly string[], index: number): number {
+function consumePdfHtml(build: PdfBuild, lines: readonly string[], index: number): number | null {
   if (build.fence || build.displayMath) {
-    return index;
+    return null;
   }
   const block = readHtmlBlock(lines, index);
   if (!block) {
-    return index;
+    return null;
   }
   finishDisplayMath(build);
   flushPdfTable(build);
@@ -384,7 +384,7 @@ export function markdownToPdfHtml(content: string): string {
   const lines = expandLinkReferences(prepareMarkdownSource(content)).split('\n');
   for (let index = 0; index < lines.length; index += 1) {
     const htmlEnd = consumePdfHtml(build, lines, index);
-    if (htmlEnd > index) {
+    if (htmlEnd !== null) {
       index = htmlEnd;
       continue;
     }

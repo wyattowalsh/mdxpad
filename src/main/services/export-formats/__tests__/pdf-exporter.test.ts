@@ -611,6 +611,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('a &lt; b');
   });
 
+  it('keeps a one-line HTML block from being parsed again', async () => {
+    await exporter.export({
+      content: '<div>\n\nhello\n\n</div>\n',
+      outputPath: '/tmp/html-one-line.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<div>\n<p>hello</p>\n</div>');
+    expect(html).not.toContain('<p><div>');
+    expect(html).not.toContain('<p></div>');
+  });
+
   it('keeps a raw HTML block and escapes one inside code', async () => {
     await exporter.export({
       content: '<div>\nHello\n</div>\n\nAfter\n\n```\n<div>\n```\n',
