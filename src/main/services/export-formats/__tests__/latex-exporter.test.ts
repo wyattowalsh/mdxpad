@@ -98,6 +98,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
   });
 
+  it('keeps a fenced block inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  ```js\n  const x = 1\n  ```\n\n  after\n',
+      outputPath: '/tmp/list-code.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written.indexOf('\\item item')).toBeLessThan(written.indexOf('\\begin{verbatim}'));
+    expect(written).toContain('const x = 1');
+    expect(written.indexOf('\\begin{verbatim}')).toBeLessThan(written.indexOf('after'));
+    expect(written.indexOf('after')).toBeLessThan(written.indexOf('\\end{itemize}'));
+    expect(written).not.toContain('  const x = 1');
+  });
+
   it('keeps a wrapped list item on the item line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

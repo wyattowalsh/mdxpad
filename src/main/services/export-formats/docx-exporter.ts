@@ -43,6 +43,12 @@ import {
   parseListItem,
   type MarkdownListItem,
 } from './markdown-list';
+import {
+  listFenceOnMarker,
+  openListFence,
+  readListFenceLine,
+  type ListFenceState,
+} from './markdown-list-fence';
 import { splitTaskItem } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -595,6 +601,8 @@ interface DocxParse {
   listBreak: boolean;
   listHardBreak: boolean;
   listColumn: number | null;
+  listSealed: boolean;
+  itemFence: ListFenceState | null;
   slugCounts: Map<string, number>;
 }
 
@@ -659,13 +667,25 @@ function takeDocxList(
   const item = source.text.length > 0 && !isThematicBreak(source.text) ? parseListItem(line) : null;
   if (item) {
     flushPendingParagraph(parse);
-    parse.openListItem = item;
-    parse.listColumn = listContentColumn(line);
+    const column = listContentColumn(line) ?? 2;
+    const fence = listFenceOnMarker(line, column);
+    const shown = fence ? { ...item, text: '' } : item;
+    parse.openListItem = shown;
+    parse.listColumn = column;
     parse.listHardBreak = source.hardBreak;
-    parse.blocks.push(listParagraph(item));
+    parse.listSealed = fence !== null;
+    parse.itemFence = fence
+      ? { marker: fence.marker, language: fence.language, indent: fence.indent, lines: [] }
+      : null;
+    parse.blocks.push(listParagraph(shown));
     return true;
   }
   if (openListItem && isListContinuation(line, parse.listColumn ?? 2)) {
+    if (parse.listSealed) {
+      parse.openListItem = openListItem;
+      parse.blocks.push(new Paragraph({ children: createParagraphChildren(source.text) }));
+      return true;
+    }
     const text = parse.listHardBreak
       ? `${openListItem.text}\n${source.text}`
       : `${openListItem.text} ${source.text}`;
@@ -736,6 +756,32 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
   parse.pending.push(source);
 }
 
+function takeDocxItemFence(parse: DocxParse, line: string): boolean {
+  if (parse.itemFence) {
+    if (readListFenceLine(parse.itemFence, line, parse.listColumn ?? 2) === 'closed') {
+      parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
+      parse.itemFence = null;
+      parse.listSealed = true;
+    }
+    return true;
+  }
+  if (parse.openListItem === null || parse.listColumn === null) {
+    return false;
+  }
+  const opened = openListFence(line, parse.listColumn);
+  if (!opened) {
+    return false;
+  }
+  parse.itemFence = {
+    marker: opened.marker,
+    language: opened.language,
+    indent: opened.indent,
+    lines: [],
+  };
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxFence(
   blocks: (Paragraph | Table)[],
   line: string,
@@ -766,6 +812,37 @@ function takeDocxFence(
   return marker;
 }
 
+function readDocxLine(
+  parse: DocxParse,
+  line: string,
+  fence: string | null,
+  codeLines: string[],
+  language: { current: string }
+): string | null {
+  if (takeDocxItemFence(parse, line)) {
+    return fence;
+  }
+  const nextFence = takeDocxFence(
+    parse.blocks,
+    line,
+    fence,
+    codeLines,
+    parse.tableLines,
+    parse.quoteLines,
+    language
+  );
+  if (nextFence !== undefined) {
+    flushPendingParagraph(parse);
+    return nextFence;
+  }
+  if (fence) {
+    codeLines.push(line);
+    return fence;
+  }
+  appendDocxBodyLine(parse, line);
+  return fence;
+}
+
 function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const parse: DocxParse = {
     blocks: [],
@@ -777,6 +854,8 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     listBreak: false,
     listHardBreak: false,
     listColumn: null,
+    listSealed: false,
+    itemFence: null,
     slugCounts: new Map<string, number>(),
   };
   let fence: string | null = null;
@@ -784,25 +863,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const language = { current: '' };
 
   for (const line of expandLinkReferences(prepareMarkdownSource(content)).split('\n')) {
-    const nextFence = takeDocxFence(
-      parse.blocks,
-      line,
-      fence,
-      codeLines,
-      parse.tableLines,
-      parse.quoteLines,
-      language
-    );
-    if (nextFence !== undefined) {
-      flushPendingParagraph(parse);
-      fence = nextFence;
-      continue;
-    }
-    if (fence) {
-      codeLines.push(line);
-      continue;
-    }
-    appendDocxBodyLine(parse, line);
+    fence = readDocxLine(parse, line, fence, codeLines, language);
   }
 
   flushPendingParagraph(parse);
@@ -813,6 +874,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   }
   if (fence && codeLines.length > 0) {
     parse.blocks.push(createCodeBlockParagraph(codeLines, language.current));
+  }
+  if (parse.itemFence) {
+    parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
   }
   return parse.blocks;
 }

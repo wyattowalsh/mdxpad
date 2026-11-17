@@ -23,6 +23,12 @@ import {
   parseListItem,
   type MarkdownListItem,
 } from './markdown-list';
+import {
+  listFenceOnMarker,
+  openListFence,
+  readListFenceLine,
+  type ListFenceState,
+} from './markdown-list-fence';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -232,6 +238,8 @@ interface ListState {
   break: boolean;
   itemLines: SourceLine[];
   column: number | null;
+  itemFence: ListFenceState | null;
+  sealed: boolean;
 }
 
 function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
@@ -328,6 +336,10 @@ function processListItem(raw: string, output: string[], listState: ListState): b
 function takeLatexListContinuation(raw: string, output: string[], listState: ListState): boolean {
   if (listState.stack.length === 0 || !isListContinuation(raw, listState.column ?? 2)) {
     return false;
+  }
+  if (listState.sealed) {
+    output.push(convertInlineFormatting(readSourceLine(raw).text));
+    return true;
   }
   const last = output[output.length - 1];
   if (!last?.includes('\\item ')) {
@@ -459,6 +471,7 @@ function processMarkdownLine(
   }
   if (processListItem(raw, output, listState)) {
     listState.column = listContentColumn(raw);
+    openLatexMarkerFence(raw, output, listState);
     return;
   }
   if (takeLatexListContinuation(raw, output, listState)) {
@@ -529,7 +542,65 @@ interface LatexBuild {
   slugCounts: Map<string, number>;
 }
 
+function openLatexMarkerFence(raw: string, output: string[], listState: ListState): void {
+  const fence = listFenceOnMarker(raw, listState.column ?? 2);
+  listState.sealed = fence !== null;
+  listState.itemFence = null;
+  if (!fence) {
+    return;
+  }
+  const last = output[output.length - 1];
+  if (last?.includes('\\item ')) {
+    const at = last.lastIndexOf('\\item ');
+    output[output.length - 1] = last.slice(0, at + '\\item '.length).trimEnd();
+  }
+  listState.itemLines = [];
+  listState.itemFence = {
+    marker: fence.marker,
+    language: fence.language,
+    indent: fence.indent,
+    lines: [],
+  };
+}
+
+function writeLatexItemFence(output: string[], fence: ListFenceState): void {
+  if (fence.language.length > 0) {
+    output.push(`{\\footnotesize\\ttfamily ${escapeLatex(fence.language)}}`);
+  }
+  output.push('\\begin{verbatim}', ...fence.lines, '\\end{verbatim}');
+}
+
+function takeLatexItemFence(build: LatexBuild, line: string): boolean {
+  const list = build.listState;
+  if (list.itemFence) {
+    if (readListFenceLine(list.itemFence, line, list.column ?? 2) === 'closed') {
+      writeLatexItemFence(build.output, list.itemFence);
+      list.itemFence = null;
+      list.sealed = true;
+    }
+    return true;
+  }
+  if (list.stack.length === 0 || list.column === null || build.fence) {
+    return false;
+  }
+  const opened = openListFence(line, list.column);
+  if (!opened) {
+    return false;
+  }
+  list.itemFence = {
+    marker: opened.marker,
+    language: opened.language,
+    indent: opened.indent,
+    lines: [],
+  };
+  list.break = false;
+  return true;
+}
+
 function appendLatexSourceLine(build: LatexBuild, line: string): void {
+  if (takeLatexItemFence(build, line)) {
+    return;
+  }
   const wasInCodeBlock = build.fence;
   build.fence = processCodeBlockLine(line, build.output, build.fence, build.listState);
   if (wasInCodeBlock !== build.fence) {
@@ -579,7 +650,14 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: { stack: [], break: false, itemLines: [], column: null },
+    listState: {
+      stack: [],
+      break: false,
+      itemLines: [],
+      column: null,
+      itemFence: null,
+      sealed: false,
+    },
     slugCounts: new Map<string, number>(),
   };
 
@@ -595,6 +673,9 @@ function contentToLatex(content: string): string {
   flushLatexQuote(build.output, build.quoteLines);
   if (build.fence) {
     build.output.push('\\end{verbatim}');
+  }
+  if (build.listState.itemFence) {
+    writeLatexItemFence(build.output, build.listState.itemFence);
   }
   closeLatexLists(build.output, build.listState.stack);
 

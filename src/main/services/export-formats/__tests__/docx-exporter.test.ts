@@ -217,6 +217,27 @@ describe('DocxExporter', () => {
     expect(xml).toContain('the start');
   });
 
+  it('keeps a fenced block inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  ```js\n  const x = 1\n  ```\n\n  after\n',
+      outputPath: '/tmp/list-code.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml.indexOf('>item<')).toBeLessThan(xml.indexOf('>const<'));
+    expect(xml.indexOf('>const<')).toBeLessThan(xml.indexOf('>after<'));
+    expect(xml).not.toContain('```');
+  });
+
   it('colors a fenced TypeScript block', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

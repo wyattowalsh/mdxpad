@@ -5,6 +5,7 @@ import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/ty
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
 import { advanceFence, closesFence, openingFence } from './export-formats/markdown-fence';
+import { openListFence, readListFenceLine } from './export-formats/markdown-list-fence';
 import {
   isListContinuation,
   listContentColumn,
@@ -514,6 +515,58 @@ function takeQuotedFence(
   return true;
 }
 
+function takeBuiltInListFence(
+  blocks: MarkdownBlock[],
+  lines: readonly string[],
+  index: number
+): number {
+  const last = blocks[blocks.length - 1];
+  if (last?.kind !== 'paragraph' || last.listColumn === null) {
+    return index;
+  }
+  const opened = openListFence(lines[index] ?? '', last.listColumn);
+  if (!opened) {
+    return index;
+  }
+  const fence = {
+    marker: opened.marker,
+    language: opened.language,
+    indent: opened.indent,
+    lines: [],
+  };
+  let cursor = index + 1;
+  while (
+    cursor < lines.length &&
+    readListFenceLine(fence, lines[cursor] ?? '', last.listColumn) === 'open'
+  ) {
+    cursor += 1;
+  }
+  if (cursor < lines.length) {
+    cursor += 1;
+  }
+  for (const codeLine of fence.lines) {
+    pushRawLine(blocks, codeLine);
+  }
+  return Math.max(index, cursor - 1);
+}
+
+function takeBuilderFenceLine(
+  blocks: MarkdownBlock[],
+  lines: readonly string[],
+  index: number,
+  fence: string | null,
+  quoteFence: { current: string | null }
+): number | null {
+  if (fence) {
+    return null;
+  }
+  if (takeQuotedFence(blocks, lines[index] ?? '', quoteFence)) {
+    return index;
+  }
+  const nested = takeBuiltInListFence(blocks, lines, index);
+  return nested > index ? nested : null;
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   const lines = expandLinkReferences(prepareMarkdownSource(markdown))
@@ -524,7 +577,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? '';
-    if (!fence && takeQuotedFence(blocks, rawLine, quoteFence)) {
+    const consumed = takeBuilderFenceLine(blocks, lines, index, fence, quoteFence);
+    if (consumed !== null) {
+      index = consumed;
       continue;
     }
     const next = advanceFence(rawLine, fence);

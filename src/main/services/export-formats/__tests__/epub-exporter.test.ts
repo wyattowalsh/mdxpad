@@ -118,6 +118,21 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('keeps a fenced block inside a list item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- item\n\n  ```js\n  const x = 1\n  ```\n',
+      outputPath: '/tmp/list-code.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<li>item<pre><code class="language-js">');
+    expect(html.indexOf('<li>item<pre>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).not.toContain('  <span class="hljs-keyword">const');
+  });
+
   it('wraps consecutive list items in one list', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({
