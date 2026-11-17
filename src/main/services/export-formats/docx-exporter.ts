@@ -7,6 +7,7 @@ import {
   Document,
   ExternalHyperlink,
   HeadingLevel,
+  ImageRun,
   InternalHyperlink,
   Math,
   Packer,
@@ -18,6 +19,8 @@ import {
 } from 'docx';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
+
+import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
@@ -159,8 +162,8 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
 
 function createParagraphChildren(
   text: string
-): (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] {
-  const children: (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] = [];
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
+  const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
   for (const piece of splitDocxPieces(text)) {
     if (piece.kind === 'math') {
       children.push(new Math({ children: mathComponents(piece.tex) }));
@@ -194,11 +197,41 @@ function styledRun(segment: InlineSegment, text: string, style?: string): TextRu
   });
 }
 
+function imageKindFromMime(raw: string): ImageKind | null {
+  if (raw === 'png' || raw === 'gif' || raw === 'bmp') {
+    return raw;
+  }
+  if (raw === 'jpg' || raw === 'jpeg') {
+    return 'jpg';
+  }
+  return null;
+}
+
+function docxImage(src: string, alt: string): ImageRun | null {
+  const match = /^data:image\/(png|jpe?g|gif|bmp);base64,([A-Za-z0-9+/=]+)$/i.exec(src);
+  const encoded = match?.[2];
+  const kind = imageKindFromMime(match?.[1]?.toLowerCase() ?? '');
+  if (!encoded || !kind) {
+    return null;
+  }
+  const data = Buffer.from(encoded, 'base64');
+  return new ImageRun({
+    type: kind,
+    data,
+    transformation: imagePixels(data, kind),
+    altText: { name: alt.length > 0 ? alt : 'image', description: alt },
+  });
+}
+
 function createTextRuns(
   segments: InlineSegment[]
-): (TextRun | ExternalHyperlink | InternalHyperlink)[] {
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
   return segments.map((segment) => {
     if (segment.image) {
+      const picture = docxImage(decodeHtmlEntities(segment.image), segment.text);
+      if (picture) {
+        return picture;
+      }
       return new ExternalHyperlink({
         children: [styledRun(segment, segment.text || segment.image, 'Hyperlink')],
         link: decodeHtmlEntities(segment.image),
@@ -232,7 +265,7 @@ function createCodeBlockParagraph(codeLines: string[]): Paragraph {
 
 function listItemChildren(
   text: string
-): (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] {
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
   const task = splitTaskItem(text);
   if (!task) {
     return createParagraphChildren(text);
@@ -402,7 +435,7 @@ interface DocxParse {
 }
 
 function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
-  const children: (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] = [];
+  const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
   lines.forEach((line, index) => {
     if (index > 0) {
       const previous = lines[index - 1];
@@ -617,7 +650,8 @@ export class DocxExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const paragraphs = parseContentToParagraphs(options.content);
+      const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const paragraphs = parseContentToParagraphs(content);
 
       const doc = new Document({
         creator: author,

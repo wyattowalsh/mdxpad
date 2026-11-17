@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 
+import { inlineLocalImages } from './export-image';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -376,7 +377,8 @@ export class EpubExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const split = splitIntoChapters(options.content);
+      const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const split = splitIntoChapters(content);
 
       const epubContent = split.chapters.map((chapter) => ({
         title: chapter.title,

@@ -216,6 +216,7 @@ async function writeBuiltInExportArtifact(
           content: sourceContent,
           outputPath: request.job.targetPath,
           title: request.job.preset.name,
+          sourcePath: request.job.sourcePath,
         });
         if (!result.ok) {
           throw new Error(result.error ?? `Could not export ${request.job.format}`);

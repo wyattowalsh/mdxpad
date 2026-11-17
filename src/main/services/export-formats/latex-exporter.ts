@@ -2,6 +2,8 @@ import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 
+import { inlineLocalImages } from './export-image';
+
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { closesFence, openingFence } from './markdown-fence';
@@ -563,7 +565,8 @@ export class LatexExporter implements Exporter {
     const warnings: string[] = [];
 
     try {
-      const latex = buildLatexDocument(options.content, options);
+      const content = await inlineLocalImages(options.content, options.sourcePath, 'absolute');
+      const latex = buildLatexDocument(content, options);
       await writeFile(options.outputPath, latex, 'utf-8');
       return { ok: true, outputPath: options.outputPath, warnings };
     } catch (error) {

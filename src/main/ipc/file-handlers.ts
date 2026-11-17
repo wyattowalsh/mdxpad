@@ -417,6 +417,7 @@ const handleFileExport = createValidatedHandler(
         content: args.content,
         outputPath: saveDialogResult.filePath,
         title: 'MDXPad Export',
+        sourcePath: args.sourcePath ?? null,
       });
       if (!exported.ok) {
         return {

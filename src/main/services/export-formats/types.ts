@@ -3,6 +3,7 @@ export interface ExportOptions {
   title?: string;
   author?: string;
   outputPath: string;
+  sourcePath?: string | null | undefined;
   metadata?: Record<string, unknown>;
 }
 

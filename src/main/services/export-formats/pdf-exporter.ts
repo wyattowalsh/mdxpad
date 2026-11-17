@@ -2,6 +2,8 @@ import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 
+import { inlineLocalImages } from './export-image';
+
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -409,7 +411,8 @@ export class PdfExporter implements Exporter {
 
     try {
       const title = options.title ?? 'MDXPad Export';
-      const html = contentToHtml(options.content, title);
+      const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const html = contentToHtml(content, title);
 
       win = new BrowserWindow({
         show: false,
