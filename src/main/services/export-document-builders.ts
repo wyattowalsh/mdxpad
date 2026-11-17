@@ -1,6 +1,8 @@
 import { Buffer } from 'node:buffer';
 
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
+import { advanceFence } from './export-formats/markdown-fence';
+import { expandLinkReferences } from './export-formats/markdown-reference';
 import { createStoredZip, toUtf8Bytes } from './zip-utils';
 
 interface MarkdownHeadingBlock {
@@ -93,40 +95,59 @@ function normalizePdfLine(value: string): string {
   return value.trim().length > 0 ? value : ' ';
 }
 
+function plainInline(text: string): string {
+  return text
+    .replace(/!\[([^\]]*)\]\((?:[^()]|\([^()]*\))+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(?<![\w])_(.+?)_(?![\w])/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1');
+}
+
+function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
+  const trimmedLine = rawLine.trim();
+  const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine);
+  const headingText = headingMatch?.[2]?.trim() ?? '';
+  if (headingMatch && headingText.length > 0) {
+    blocks.push({
+      kind: 'heading',
+      level: headingMatch[1]?.length ?? 1,
+      text: plainInline(headingText),
+    });
+    return;
+  }
+
+  const imageMatch = /^!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)\s*$/.exec(trimmedLine);
+  if (imageMatch) {
+    blocks.push({
+      kind: 'image',
+      alt: imageMatch[1]?.trim() ?? '',
+      src: imageMatch[2]?.trim() ?? '',
+    });
+    return;
+  }
+
+  blocks.push({ kind: 'paragraph', text: plainInline(rawLine) });
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
-  const lines = markdown.replaceAll('\r\n', '\n').split('\n');
+  const lines = expandLinkReferences(markdown).replaceAll('\r\n', '\n').split('\n');
+  let fence: string | null = null;
 
   for (const rawLine of lines) {
-    const trimmedLine = rawLine.trim();
-    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine);
-    if (headingMatch) {
-      const text = headingMatch[2]?.trim();
-      if (!text) {
-        continue;
+    const next = advanceFence(rawLine, fence);
+    const boundary = fence !== next;
+    if (fence || next) {
+      fence = next;
+      if (!boundary) {
+        blocks.push({ kind: 'paragraph', text: rawLine });
       }
-      blocks.push({
-        kind: 'heading',
-        level: headingMatch[1]?.length ?? 1,
-        text,
-      });
       continue;
     }
-
-    const imageMatch = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(trimmedLine);
-    if (imageMatch) {
-      blocks.push({
-        kind: 'image',
-        alt: imageMatch[1]?.trim() ?? '',
-        src: imageMatch[2]?.trim() ?? '',
-      });
-      continue;
-    }
-
-    blocks.push({
-      kind: 'paragraph',
-      text: rawLine,
-    });
+    pushTextBlock(blocks, rawLine);
   }
 
   return blocks;
