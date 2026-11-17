@@ -98,6 +98,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
   });
 
+  it('keeps indented code inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n      const x = 1\n\n  after\n',
+      outputPath: '/tmp/list-indent.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written.indexOf('\\item item')).toBeLessThan(written.indexOf('\\begin{verbatim}'));
+    expect(written).toContain('const x = 1');
+    expect(written).not.toContain('  const x = 1');
+    expect(written.indexOf('\\end{verbatim}')).toBeLessThan(written.indexOf('after'));
+    expect(written.indexOf('after')).toBeLessThan(written.indexOf('\\end{itemize}'));
+  });
+
   it('keeps display math inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

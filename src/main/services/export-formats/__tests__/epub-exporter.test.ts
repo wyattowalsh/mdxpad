@@ -118,6 +118,21 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('keeps indented code inside a list item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- item\n\n      const x = 1\n',
+      outputPath: '/tmp/list-indent.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<li><p>item</p><pre><code>const x = 1</code></pre>');
+    expect(html.indexOf('</code></pre>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).not.toContain('  const');
+  });
+
   it('keeps display math inside a list item', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

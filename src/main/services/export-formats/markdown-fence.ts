@@ -88,7 +88,7 @@ export function fenceIndentedCode(content: string): string {
     }
     const previousBlank = output.length === 0 || (output[output.length - 1] ?? '').trim() === '';
     if (code !== null && previousBlank) {
-      if (listColumn !== null && leadingSpaces(line) < listColumn + 4) {
+      if (listColumn !== null && leadingSpaces(line) >= listColumn) {
         output.push(...pendingBlanks.splice(0), line);
         continue;
       }

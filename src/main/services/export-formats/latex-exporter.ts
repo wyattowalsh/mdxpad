@@ -26,6 +26,7 @@ import {
 import {
   dedentToColumn,
   listFenceOnMarker,
+  listIndentedCode,
   openListFence,
   readListFenceLine,
   readListQuoteLine,
@@ -245,6 +246,7 @@ interface ListState {
   itemQuote: string[] | null;
   itemTable: string[] | null;
   itemMath: string[] | null;
+  itemCode: string[] | null;
   sealed: boolean;
   paragraphBreak: boolean;
   tailLines: SourceLine[] | null;
@@ -576,6 +578,43 @@ function takeLatexQuote(output: string[], line: string, quoteLines: string[]): b
   return false;
 }
 
+function takeLatexItemCode(build: LatexBuild, line: string): boolean {
+  const list = build.listState;
+  if (list.itemFence || list.itemQuote || list.itemTable || list.itemMath || build.fence) {
+    return false;
+  }
+  const column = list.column ?? 2;
+  if (list.itemCode) {
+    if (line.trim().length === 0) {
+      list.itemCode.push('');
+      return true;
+    }
+    const body = listIndentedCode(line, column);
+    if (body !== null) {
+      list.itemCode.push(body);
+      return true;
+    }
+    while (list.itemCode[list.itemCode.length - 1] === '') {
+      list.itemCode.pop();
+    }
+    build.output.push('\\begin{verbatim}', ...list.itemCode, '\\end{verbatim}');
+    list.itemCode = null;
+    list.sealed = true;
+    list.paragraphBreak = true;
+    return false;
+  }
+  if (list.stack.length === 0 || list.column === null) {
+    return false;
+  }
+  const opened = listIndentedCode(line, column);
+  if (opened === null) {
+    return false;
+  }
+  list.itemCode = [opened];
+  list.break = false;
+  return true;
+}
+
 function takeLatexItemMath(build: LatexBuild, line: string): boolean {
   const list = build.listState;
   if (list.itemFence || list.itemQuote || list.itemTable || build.fence) {
@@ -731,7 +770,7 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
 }
 
 function appendLatexSourceLine(build: LatexBuild, line: string): void {
-  if (takeLatexItemFence(build, line)) {
+  if (takeLatexItemCode(build, line) || takeLatexItemFence(build, line)) {
     return;
   }
   const wasInCodeBlock = build.fence;
@@ -779,6 +818,7 @@ function emptyListState(): ListState {
     itemQuote: null,
     itemTable: null,
     itemMath: null,
+    itemCode: null,
     sealed: false,
     paragraphBreak: false,
     tailLines: null,
@@ -815,6 +855,12 @@ function contentToLatex(content: string): string {
   }
   if (build.listState.itemQuote) {
     build.output.push(quoteToLatex(build.listState.itemQuote, convertInlineFormatting));
+  }
+  if (build.listState.itemCode) {
+    while (build.listState.itemCode[build.listState.itemCode.length - 1] === '') {
+      build.listState.itemCode.pop();
+    }
+    build.output.push('\\begin{verbatim}', ...build.listState.itemCode, '\\end{verbatim}');
   }
   if (build.listState.itemMath) {
     build.output.push('$$', ...build.listState.itemMath, '$$');

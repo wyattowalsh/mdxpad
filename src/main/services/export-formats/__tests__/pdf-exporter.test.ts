@@ -192,6 +192,19 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps indented code inside a list item', async () => {
+    await exporter.export({
+      content: '- item\n\n      const x = 1\n\n  after\n',
+      outputPath: '/tmp/list-indent.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><p>item</p><pre><code>const x = 1</code></pre>');
+    expect(html).toContain('</code></pre><p>after</p></li>');
+    expect(html.indexOf('</code></pre><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).not.toContain('  const');
+  });
+
   it('keeps display math inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n  $$\n  a < b\n  $$\n\n  after\n',

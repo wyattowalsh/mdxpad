@@ -28,6 +28,7 @@ import {
   continueListItem,
   finishListItemFence,
   openListItem,
+  takeListItemCode,
   takeListItemFence,
   takeListItemMath,
   takeListItemQuote,
@@ -111,6 +112,7 @@ interface EpubLineState {
   itemQuote: string[] | null;
   itemTable: string[] | null;
   itemMath: string[] | null;
+  itemCode: string[] | null;
   loose: boolean;
   parts: string[];
   slugCounts: Map<string, number>;
@@ -245,9 +247,13 @@ function closeEpubList(htmlLines: string[], state: EpubLineState): void {
   state.itemQuote = null;
   state.itemTable = null;
   state.itemMath = null;
+  state.itemCode = null;
 }
 
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
+  if (takeListItemCode(state, line, renderMarkdownInline, state.lists.length > 0)) {
+    return;
+  }
   if (takeListItemFence(state, line, renderMarkdownInline, state.lists.length > 0)) {
     return;
   }
@@ -397,6 +403,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     itemQuote: null,
     itemTable: null,
     itemMath: null,
+    itemCode: null,
     loose: false,
     parts: htmlLines,
     displayMath: null,

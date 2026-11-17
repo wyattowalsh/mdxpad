@@ -27,6 +27,7 @@ export interface HtmlListItemState {
   itemQuote: string[] | null;
   itemTable: string[] | null;
   itemMath: string[] | null;
+  itemCode: string[] | null;
   listColumn: number | null;
   listBreak: boolean;
   loose: boolean;
@@ -103,6 +104,18 @@ function writeListItem(state: HtmlListItemState, render: (text: string) => strin
   return replaceHtmlListItem(state.parts, composedItemHtml(state, render));
 }
 
+/** Text of an indented code line inside a list item, or null when the line is not code. */
+export function listIndentedCode(line: string, contentColumn: number): string | null {
+  if (line.trim().length === 0 || !isListContinuation(line, contentColumn)) {
+    return null;
+  }
+  const { expanded, spaces } = expandedIndent(line);
+  if (spaces < contentColumn + 4) {
+    return null;
+  }
+  return expanded.slice(contentColumn + 4);
+}
+
 export function dedentToColumn(line: string, contentColumn: number): string {
   const { expanded, spaces } = expandedIndent(line);
   return expanded.slice(Math.min(spaces, contentColumn));
@@ -139,6 +152,7 @@ export function resetListItem(state: HtmlListItemState): void {
   state.itemQuote = null;
   state.itemTable = null;
   state.itemMath = null;
+  state.itemCode = null;
   state.loose = false;
 }
 
@@ -190,6 +204,7 @@ export function continueListItem(
     state.itemQuote ||
     state.itemTable ||
     state.itemMath ||
+    state.itemCode ||
     state.listColumn === null ||
     !isListContinuation(raw, state.listColumn)
   ) {
@@ -242,6 +257,57 @@ export function takeListItemFence(
     indent: opened.indent,
     lines: [],
   };
+  state.listBreak = false;
+  return true;
+}
+
+function closeItemCode(state: HtmlListItemState, render: (text: string) => string): void {
+  if (!state.itemCode) {
+    return;
+  }
+  while (state.itemCode[state.itemCode.length - 1] === '') {
+    state.itemCode.pop();
+  }
+  state.itemHtml += renderFencedCode('', state.itemCode);
+  state.itemCode = null;
+  state.listLines = [];
+  state.loose = true;
+  writeListItem(state, render);
+}
+
+/** Keep an indented code block that belongs to the open item inside that item. */
+export function takeListItemCode(
+  state: HtmlListItemState,
+  line: string,
+  render: (text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (state.itemFence || state.itemQuote || state.itemTable || state.itemMath) {
+    return false;
+  }
+  const column = state.listColumn ?? 2;
+  if (state.itemCode) {
+    if (line.trim().length === 0) {
+      state.itemCode.push('');
+      return true;
+    }
+    const body = listIndentedCode(line, column);
+    if (body !== null) {
+      state.itemCode.push(body);
+      return true;
+    }
+    closeItemCode(state, render);
+    return false;
+  }
+  if (!listOpen || state.listColumn === null) {
+    return false;
+  }
+  const opened = listIndentedCode(line, column);
+  if (opened === null) {
+    return false;
+  }
+  sealProse(state, render);
+  state.itemCode = [opened];
   state.listBreak = false;
   return true;
 }
@@ -378,6 +444,7 @@ export function finishListItemFence(
   state: HtmlListItemState,
   render: (text: string) => string
 ): void {
+  closeItemCode(state, render);
   closeItemMath(state, render);
   closeItemTable(state, render);
   closeItemQuote(state, render);

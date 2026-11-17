@@ -46,6 +46,7 @@ import {
 import {
   dedentToColumn,
   listFenceOnMarker,
+  listIndentedCode,
   openListFence,
   readListFenceLine,
   readListQuoteLine,
@@ -568,6 +569,50 @@ function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
   return true;
 }
 
+function closeDocxItemCode(parse: DocxParse): void {
+  if (!parse.itemCode) {
+    return;
+  }
+  while (parse.itemCode[parse.itemCode.length - 1] === '') {
+    parse.itemCode.pop();
+  }
+  parse.blocks.push(createCodeBlockParagraph(parse.itemCode, ''));
+  parse.itemCode = null;
+  parse.listSealed = true;
+  parse.listParagraphBreak = true;
+  parse.tailOpen = false;
+}
+
+function takeDocxItemCode(parse: DocxParse, line: string): boolean {
+  if (parse.itemFence || parse.itemQuote || parse.itemTable || parse.itemMath) {
+    return false;
+  }
+  const column = parse.listColumn ?? 2;
+  if (parse.itemCode) {
+    if (line.trim().length === 0) {
+      parse.itemCode.push('');
+      return true;
+    }
+    const body = listIndentedCode(line, column);
+    if (body !== null) {
+      parse.itemCode.push(body);
+      return true;
+    }
+    closeDocxItemCode(parse);
+    return false;
+  }
+  if (parse.openListItem === null || parse.listColumn === null) {
+    return false;
+  }
+  const opened = listIndentedCode(line, column);
+  if (opened === null) {
+    return false;
+  }
+  parse.itemCode = [opened];
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxItemMath(parse: DocxParse, line: string): boolean {
   if (parse.itemFence || parse.itemQuote || parse.itemTable) {
     return false;
@@ -688,6 +733,7 @@ interface DocxParse {
   itemQuote: string[] | null;
   itemTable: string[] | null;
   itemMath: string[] | null;
+  itemCode: string[] | null;
   listParagraphBreak: boolean;
   tailText: string | null;
   tailHard: boolean;
@@ -747,6 +793,20 @@ function takeDocxSetext(parse: DocxParse, line: string): boolean {
   return true;
 }
 
+function resetDocxItem(parse: DocxParse, fence: ReturnType<typeof listFenceOnMarker>): void {
+  parse.itemFence = fence
+    ? { marker: fence.marker, language: fence.language, indent: fence.indent, lines: [] }
+    : null;
+  parse.itemQuote = null;
+  parse.itemTable = null;
+  parse.itemMath = null;
+  parse.itemCode = null;
+  parse.listParagraphBreak = false;
+  parse.tailText = null;
+  parse.tailHard = false;
+  parse.tailOpen = false;
+}
+
 function takeDocxList(
   parse: DocxParse,
   line: string,
@@ -763,16 +823,7 @@ function takeDocxList(
     parse.listColumn = column;
     parse.listHardBreak = source.hardBreak;
     parse.listSealed = fence !== null;
-    parse.itemFence = fence
-      ? { marker: fence.marker, language: fence.language, indent: fence.indent, lines: [] }
-      : null;
-    parse.itemQuote = null;
-    parse.itemTable = null;
-    parse.itemMath = null;
-    parse.listParagraphBreak = false;
-    parse.tailText = null;
-    parse.tailHard = false;
-    parse.tailOpen = false;
+    resetDocxItem(parse, fence);
     parse.blocks.push(listParagraph(shown));
     return true;
   }
@@ -841,7 +892,10 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
 
 function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
   return (
-    takeDocxItemQuote(parse, line) || takeDocxItemTable(parse, line) || takeDocxItemMath(parse, line)
+    takeDocxItemQuote(parse, line) ||
+    takeDocxItemTable(parse, line) ||
+    takeDocxItemMath(parse, line) ||
+    takeDocxItemCode(parse, line)
   );
 }
 
@@ -998,6 +1052,7 @@ function emptyDocxParse(): DocxParse {
     itemQuote: null,
     itemTable: null,
     itemMath: null,
+    itemCode: null,
     listParagraphBreak: false,
     tailText: null,
     tailHard: false,
@@ -1036,6 +1091,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   }
   if (parse.itemMath) {
     pushDisplayMath(parse.blocks, parse.itemMath);
+  }
+  if (parse.itemCode) {
+    closeDocxItemCode(parse);
   }
   return parse.blocks;
 }
