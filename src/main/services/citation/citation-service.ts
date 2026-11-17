@@ -81,18 +81,69 @@ export function parseBibtex(bibtex: string): ParseBibtexResponse {
   return { entries, warnings };
 }
 
+interface FieldValue {
+  readonly text: string;
+  readonly next: number;
+}
+
+function stripGroupingBraces(value: string): string {
+  return value.replaceAll(/[{}]/g, '').trim();
+}
+
+function readBraced(body: string, start: number): FieldValue | null {
+  let depth = 0;
+  for (let index = start; index < body.length; index += 1) {
+    const char = body[index];
+    if (char === '{') depth += 1;
+    if (char === '}') depth -= 1;
+    if (char === '}' && depth === 0) {
+      return { text: stripGroupingBraces(body.slice(start + 1, index)), next: index + 1 };
+    }
+  }
+  return null;
+}
+
+function readQuoted(body: string, start: number): FieldValue | null {
+  for (let index = start + 1; index < body.length; index += 1) {
+    if (body[index] === '\\') {
+      index += 1;
+      continue;
+    }
+    if (body[index] === '"') {
+      return { text: stripGroupingBraces(body.slice(start + 1, index)), next: index + 1 };
+    }
+  }
+  return null;
+}
+
+function readFieldValue(body: string, start: number): FieldValue | null {
+  const char = body[start];
+  if (char === '{') return readBraced(body, start);
+  if (char === '"') return readQuoted(body, start);
+  const number = /^\d+/.exec(body.slice(start));
+  if (number?.[0] === undefined) return null;
+  return { text: number[0], next: start + number[0].length };
+}
+
 function parseFields(body: string): Map<string, string> {
   const fields = new Map<string, string>();
-  // Match field = {value} or field = "value" or field = number
-  const fieldRegex = /(\w+)\s*=\s*(?:\{([^}]*)\}|"([^"]*)"|(\d+))/g;
-  let fieldMatch: RegExpExecArray | null;
-
-  while ((fieldMatch = fieldRegex.exec(body)) !== null) {
-    const key = fieldMatch[1]?.toLowerCase() ?? '';
-    const value = fieldMatch[2] ?? fieldMatch[3] ?? fieldMatch[4] ?? '';
-    fields.set(key, value.trim());
+  let index = 0;
+  while (index < body.length) {
+    while (index < body.length && /[\s,]/.test(body[index] ?? '')) index += 1;
+    const keyMatch = /^(\w+)\s*=\s*/.exec(body.slice(index));
+    const key = keyMatch?.[1];
+    if (keyMatch === null || key === undefined) {
+      index += 1;
+      continue;
+    }
+    const value = readFieldValue(body, index + keyMatch[0].length);
+    if (value === null) {
+      index += keyMatch[0].length;
+      continue;
+    }
+    fields.set(key.toLowerCase(), value.text);
+    index = value.next;
   }
-
   return fields;
 }
 

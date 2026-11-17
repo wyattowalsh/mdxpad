@@ -59,6 +59,19 @@ describe('citation-service', () => {
       expect(result.entries[0]?.author).toHaveLength(3);
     });
 
+    it('keeps the rest of a title that protects a word in braces', () => {
+      const bibtex = `
+@article{nasa2024,
+  title = {The {NASA} Report},
+  year = {2024},
+  journal = {Space Science}
+}`;
+      const result = parseBibtex(bibtex);
+      expect(result.entries[0]?.title).toBe('The NASA Report');
+      expect(result.entries[0]?.year).toBe(2024);
+      expect(result.entries[0]?.journal).toBe('Space Science');
+    });
+
     it('should parse multiple entries', () => {
       const bibtex = `
 @article{first,
