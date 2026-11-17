@@ -24,6 +24,7 @@ import {
   type MarkdownListItem,
 } from './markdown-list';
 import {
+  breakListParagraph,
   continueListItem,
   finishListItemFence,
   openListItem,
@@ -108,6 +109,7 @@ interface EpubLineState {
   itemFence: { marker: string; language: string; indent: number; lines: string[] } | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  loose: boolean;
   parts: string[];
   slugCounts: Map<string, number>;
 }
@@ -290,6 +292,7 @@ function takeEpubListBreak(htmlLines: string[], raw: string, state: EpubLineStat
   if (trimmed === '') {
     flushEpubParagraph(htmlLines, state);
     if (state.lists.length > 0 && !state.listBreak) {
+      breakListParagraph(state, renderMarkdownInline);
       state.listBreak = true;
     } else {
       closeEpubList(htmlLines, state);
@@ -387,6 +390,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     itemFence: null,
     itemQuote: null,
     itemTable: null,
+    loose: false,
     parts: htmlLines,
     displayMath: null,
     tableLines: [],

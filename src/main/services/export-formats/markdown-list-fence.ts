@@ -27,6 +27,7 @@ export interface HtmlListItemState {
   itemTable: string[] | null;
   listColumn: number | null;
   listBreak: boolean;
+  loose: boolean;
 }
 
 function expandedIndent(line: string): { expanded: string; spaces: number } {
@@ -89,8 +90,11 @@ export function readListFenceLine(
 }
 
 function composedItemHtml(state: HtmlListItemState, render: (text: string) => string): string {
-  const prose = state.listLines.length > 0 ? renderListItemHtml(state.listLines, render) : '';
-  return `${state.itemHtml}${prose}`;
+  if (state.listLines.length === 0) {
+    return state.itemHtml;
+  }
+  const prose = renderListItemHtml(state.listLines, render);
+  return state.loose ? `${state.itemHtml}<p>${prose}</p>` : `${state.itemHtml}${prose}`;
 }
 
 function writeListItem(state: HtmlListItemState, render: (text: string) => string): boolean {
@@ -132,6 +136,19 @@ export function resetListItem(state: HtmlListItemState): void {
   state.itemFence = null;
   state.itemQuote = null;
   state.itemTable = null;
+  state.loose = false;
+}
+
+/** A blank line inside an item ends its paragraph. The next text starts another. */
+export function breakListParagraph(
+  state: HtmlListItemState,
+  render: (text: string) => string
+): void {
+  if (state.listLines.length > 0) {
+    state.itemHtml += `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.listLines = [];
+  }
+  state.loose = true;
 }
 
 /** Start a list item, holding a marker-line fence instead of rendering its backticks. */

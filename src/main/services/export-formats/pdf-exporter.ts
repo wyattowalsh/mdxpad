@@ -24,6 +24,7 @@ import {
   type HtmlListFrame,
 } from './markdown-list';
 import {
+  breakListParagraph,
   continueListItem,
   finishListItemFence,
   openListItem,
@@ -56,6 +57,7 @@ interface PdfBuild {
   itemFence: { marker: string; language: string; indent: number; lines: string[] } | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  loose: boolean;
   slugCounts: Map<string, number>;
 }
 
@@ -249,6 +251,7 @@ function takePdfListBreak(build: PdfBuild, raw: string): boolean {
   if (trimmed.length === 0) {
     flushPdfParagraph(build);
     if (build.lists.length > 0 && !build.listBreak) {
+      breakListParagraph(build, renderMarkdownInline);
       build.listBreak = true;
     } else {
       closePdfList(build);
@@ -337,6 +340,7 @@ export function markdownToPdfHtml(content: string): string {
     itemFence: null,
     itemQuote: null,
     itemTable: null,
+    loose: false,
     displayMath: null,
     tableLines: [],
     quoteLines: [],

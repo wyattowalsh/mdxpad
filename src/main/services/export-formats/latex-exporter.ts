@@ -244,6 +244,8 @@ interface ListState {
   itemQuote: string[] | null;
   itemTable: string[] | null;
   sealed: boolean;
+  paragraphBreak: boolean;
+  tailLines: SourceLine[] | null;
 }
 
 function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
@@ -333,8 +335,22 @@ function processListItem(raw: string, output: string[], listState: ListState): b
     return false;
   }
   listState.itemLines = [{ text: item.text, hardBreak: readSourceLine(raw).hardBreak }];
+  listState.paragraphBreak = false;
+  listState.tailLines = null;
   openLatexListItem(output, listState.stack, item, renderLatexItem(listState.itemLines));
   return true;
+}
+
+function writeLatexTail(output: string[], listState: ListState, raw: string): void {
+  const source = readSourceLine(raw);
+  if (listState.paragraphBreak || !listState.tailLines) {
+    listState.tailLines = [source];
+    listState.paragraphBreak = false;
+    output.push(renderLatexItem(listState.tailLines));
+    return;
+  }
+  listState.tailLines.push(source);
+  output[output.length - 1] = renderLatexItem(listState.tailLines);
 }
 
 function takeLatexListContinuation(raw: string, output: string[], listState: ListState): boolean {
@@ -343,6 +359,10 @@ function takeLatexListContinuation(raw: string, output: string[], listState: Lis
   }
   if (listState.sealed) {
     output.push(convertInlineFormatting(readSourceLine(raw).text));
+    return true;
+  }
+  if (listState.paragraphBreak || listState.tailLines) {
+    writeLatexTail(output, listState, raw);
     return true;
   }
   const last = output[output.length - 1];
@@ -415,6 +435,8 @@ function takeLatexListBreak(raw: string, output: string[], listState: ListState)
   }
   if (listState.stack.length > 0 && !listState.break) {
     listState.break = true;
+    listState.paragraphBreak = true;
+    listState.tailLines = null;
   } else {
     resetListState(output, listState);
     listState.break = false;
@@ -711,6 +733,21 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
   processMarkdownLine(line, build.output, build.listState, build.slugCounts, build.prose);
 }
 
+function emptyListState(): ListState {
+  return {
+    stack: [],
+    break: false,
+    itemLines: [],
+    column: null,
+    itemFence: null,
+    itemQuote: null,
+    itemTable: null,
+    sealed: false,
+    paragraphBreak: false,
+    tailLines: null,
+  };
+}
+
 function contentToLatex(content: string): string {
   const build: LatexBuild = {
     output: [],
@@ -719,16 +756,7 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: {
-      stack: [],
-      break: false,
-      itemLines: [],
-      column: null,
-      itemFence: null,
-      itemQuote: null,
-      itemTable: null,
-      sealed: false,
-    },
+    listState: emptyListState(),
     slugCounts: new Map<string, number>(),
   };
 

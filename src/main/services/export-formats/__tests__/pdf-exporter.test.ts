@@ -199,11 +199,11 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<li>item<table>');
+    expect(html).toContain('<li><p>item</p><table>');
     expect(html).toContain('<th>A</th>');
     expect(html).toContain('<td style="text-align: right">2</td>');
-    expect(html).toContain('</table>after</li>');
-    expect(html.indexOf('</table>after</li>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).toContain('</table><p>after</p></li>');
+    expect(html.indexOf('</table><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
   });
 
   it('keeps a block quote inside a list item', async () => {
@@ -213,10 +213,10 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<li>item<blockquote>');
+    expect(html).toContain('<li><p>item</p><blockquote>');
     expect(html).toContain('<p>quoted line</p>');
-    expect(html).toContain('</blockquote>after</li>');
-    expect(html.indexOf('</blockquote>after</li>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).toContain('</blockquote><p>after</p></li>');
+    expect(html.indexOf('</blockquote><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
   });
 
   it('keeps a fenced block inside a list item', async () => {
@@ -226,9 +226,9 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<li>item<pre><code class="language-js">');
-    expect(html).toContain('</code></pre>after</li>');
-    expect(html.indexOf('</code></pre>after</li>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).toContain('<li><p>item</p><pre><code class="language-js">');
+    expect(html).toContain('</code></pre><p>after</p></li>');
+    expect(html.indexOf('</code></pre><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
     expect(html).not.toContain('  <span class="hljs-keyword">const');
   });
 
@@ -325,7 +325,7 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<li>item continued</li>');
+    expect(html).toContain('<li><p>item</p><p>continued</p></li>');
     expect(html).not.toContain('<pre>');
     expect(html).toContain('After');
   });

@@ -74,7 +74,9 @@ describe('built-in export documents', () => {
 
   it('keeps a loose list continuation on the item', () => {
     const pdf = buildPdfDocument('- item\n\n    continued\n\nAfter');
-    expect(pdf.content).toContain('- item continued');
+    expect(pdf.content).toContain('- item');
+    expect(pdf.content).toContain('continued');
+    expect(pdf.content).not.toContain('item continued');
     expect(pdf.content).not.toContain('```');
     expect(pdf.content).toContain('After');
   });

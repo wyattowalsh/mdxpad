@@ -411,7 +411,12 @@ function skipBuiltInListBreak(
   if (last?.kind !== 'paragraph' || last.listColumn === null) {
     return false;
   }
-  return isListContinuation(lines[index + 1] ?? '', last.listColumn);
+  const next = lines[index + 1] ?? '';
+  if (!isListContinuation(next, last.listColumn)) {
+    return false;
+  }
+  const trimmed = next.trim();
+  return quoteBody(next) !== null || isTableRow(trimmed) || openingFence(next) !== null;
 }
 
 function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {

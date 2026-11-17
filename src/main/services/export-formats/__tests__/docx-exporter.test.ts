@@ -592,6 +592,27 @@ describe('DocxExporter', () => {
     expect(extracted.stdout.toString()).toContain('item continued');
   });
 
+  it('starts a new paragraph after a blank line in a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  second\n  line\n',
+      outputPath: '/tmp/list-paragraph.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('>item<');
+    expect(xml).toContain('>second line<');
+    expect(xml).not.toContain('item second');
+  });
+
   it('keeps a bold link bold', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

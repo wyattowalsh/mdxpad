@@ -139,6 +139,19 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('  const x = 1');
   });
 
+  it('starts a new paragraph after a blank line in a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  second\n  line\n',
+      outputPath: '/tmp/list-paragraph.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\item item');
+    expect(written).toContain('second line');
+    expect(written).not.toContain('\\item item second');
+    expect(written.indexOf('second line')).toBeLessThan(written.indexOf('\\end{itemize}'));
+  });
+
   it('keeps a wrapped list item on the item line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

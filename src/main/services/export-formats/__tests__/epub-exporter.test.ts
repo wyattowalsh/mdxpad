@@ -128,7 +128,7 @@ describe('EpubExporter', () => {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('<li>item<table>');
+    expect(html).toContain('<li><p>item</p><table>');
     expect(html).toContain('<td style="text-align: right">2</td>');
     expect(html.indexOf('</table>')).toBeLessThan(html.indexOf('</ul>'));
   });
@@ -143,7 +143,7 @@ describe('EpubExporter', () => {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('<li>item<blockquote>');
+    expect(html).toContain('<li><p>item</p><blockquote>');
     expect(html).toContain('<p>quoted line</p>');
     expect(html.indexOf('</blockquote>')).toBeLessThan(html.indexOf('</ul>'));
   });
@@ -158,8 +158,8 @@ describe('EpubExporter', () => {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('<li>item<pre><code class="language-js">');
-    expect(html.indexOf('<li>item<pre>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).toContain('<li><p>item</p><pre><code class="language-js">');
+    expect(html.indexOf('<li><p>item</p><pre>')).toBeLessThan(html.indexOf('</ul>'));
     expect(html).not.toContain('  <span class="hljs-keyword">const');
   });
 

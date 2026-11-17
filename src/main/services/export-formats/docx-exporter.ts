@@ -660,6 +660,10 @@ interface DocxParse {
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  listParagraphBreak: boolean;
+  tailText: string | null;
+  tailHard: boolean;
+  tailOpen: boolean;
   slugCounts: Map<string, number>;
 }
 
@@ -736,10 +740,17 @@ function takeDocxList(
       : null;
     parse.itemQuote = null;
     parse.itemTable = null;
+    parse.listParagraphBreak = false;
+    parse.tailText = null;
+    parse.tailHard = false;
+    parse.tailOpen = false;
     parse.blocks.push(listParagraph(shown));
     return true;
   }
   if (openListItem && isListContinuation(line, parse.listColumn ?? 2)) {
+    if (appendDocxTail(parse, openListItem, source)) {
+      return true;
+    }
     if (parse.listSealed) {
       parse.openListItem = openListItem;
       parse.blocks.push(new Paragraph({ children: createParagraphChildren(source.text) }));
@@ -758,11 +769,42 @@ function takeDocxList(
   return false;
 }
 
+function appendDocxTail(
+  parse: DocxParse,
+  openListItem: MarkdownListItem,
+  source: SourceLine
+): boolean {
+  if (parse.listSealed || (!parse.listParagraphBreak && !parse.tailOpen)) {
+    return false;
+  }
+  const text =
+    !parse.tailOpen || parse.tailText === null
+      ? source.text
+      : parse.tailHard
+        ? `${parse.tailText}\n${source.text}`
+        : `${parse.tailText} ${source.text}`;
+  if (parse.tailOpen) {
+    parse.blocks.pop();
+  }
+  parse.blocks.push(new Paragraph({ children: createParagraphChildren(text) }));
+  parse.tailText = text;
+  parse.tailHard = source.hardBreak;
+  parse.tailOpen = true;
+  parse.listParagraphBreak = false;
+  parse.openListItem = openListItem;
+  return true;
+}
+
 function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | null): void {
   flushPendingParagraph(parse);
   if (openListItem && !parse.listBreak) {
     parse.openListItem = openListItem;
     parse.listBreak = true;
+    if (!parse.listSealed) {
+      parse.listParagraphBreak = true;
+      parse.tailText = null;
+      parse.tailOpen = false;
+    }
     return;
   }
   parse.listBreak = false;
@@ -920,6 +962,10 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     itemFence: null,
     itemQuote: null,
     itemTable: null,
+    listParagraphBreak: false,
+    tailText: null,
+    tailHard: false,
+    tailOpen: false,
     slugCounts: new Map<string, number>(),
   };
   let fence: string | null = null;
