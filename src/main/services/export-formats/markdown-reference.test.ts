@@ -29,6 +29,14 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[guide](https://example.com)');
   });
 
+  it('reads an indented definition whose address is on the next line', () => {
+    const expanded = expandLinkReferences('See [docs].\n\n   [docs]:\n   https://example.com\n');
+    expect(expanded).toContain('[docs](https://example.com)');
+    expect(expanded).not.toContain('[docs]:');
+    const coded = expandLinkReferences('See [docs].\n\n    [docs]:\n    https://example.com\n');
+    expect(coded).not.toContain('[docs](https://example.com)');
+  });
+
   it('reads an address written on the following line', () => {
     const expanded = expandLinkReferences('See [docs].\n\n[docs]:\nhttps://example.com\n');
     expect(expanded).toContain('[docs](https://example.com)');

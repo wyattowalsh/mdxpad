@@ -8,7 +8,7 @@ const LINK_DEFINITION =
 
 const REFERENCE = /^\[([^\]]+)\](?:\[([^\]]*)\])?(?!\()/;
 const TITLE_LINE = /^(?:"[^"]*"|'[^']*'|\([^)]*\))$/;
-const LABEL_ONLY = /^\[([^\]]+)\]:[ \t]*$/;
+const LABEL_ONLY = /^ {0,3}\[([^\]]+)\]:[ \t]*$/;
 const DESTINATION_LINE = /^(<[^>\n]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/;
 
 function referenceLabel(label: string): string {
