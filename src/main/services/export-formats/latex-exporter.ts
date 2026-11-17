@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
@@ -357,7 +358,7 @@ function contentToLatex(content: string): string {
     listState: { inUnorderedList: false, inOrderedList: false },
   };
 
-  for (const line of content.split('\n')) {
+  for (const line of expandLinkReferences(content).split('\n')) {
     appendLatexSourceLine(build, line);
   }
 

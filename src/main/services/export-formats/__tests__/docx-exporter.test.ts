@@ -220,6 +220,27 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('resolves a reference link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See [the docs][guide].\n\n[guide]: https://example.com',
+      outputPath: '/tmp/ref.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('the docs');
+    expect(xml).toContain('https://example.com');
+    expect(xml).not.toContain('[guide]:');
+  });
+
   it('keeps a wrapped paragraph and a hard break', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

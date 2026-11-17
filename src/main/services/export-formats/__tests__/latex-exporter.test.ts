@@ -186,6 +186,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{quote}');
   });
 
+  it('resolves a reference link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See [the docs][guide].\n\n[guide]: https://example.com',
+      outputPath: '/tmp/ref.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\href{https://example.com}{the docs}');
+    expect(written).not.toContain('[guide]:');
+  });
+
   it('keeps a hard line break', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

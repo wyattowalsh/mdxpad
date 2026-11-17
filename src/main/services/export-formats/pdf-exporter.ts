@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
 import { listItemHtml } from './markdown-task';
@@ -209,7 +210,7 @@ export function markdownToPdfHtml(content: string): string {
     tableLines: [],
     quoteLines: [],
   };
-  for (const line of content.split('\n')) {
+  for (const line of expandLinkReferences(content).split('\n')) {
     appendPdfLine(build, line);
   }
   finishDisplayMath(build);

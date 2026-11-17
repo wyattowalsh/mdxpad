@@ -17,6 +17,7 @@ import {
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
+import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
@@ -390,7 +391,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   let inCodeBlock = false;
   const codeLines: string[] = [];
 
-  for (const line of content.split('\n')) {
+  for (const line of expandLinkReferences(content).split('\n')) {
     const fence = takeDocxFence(
       parse.blocks,
       line,

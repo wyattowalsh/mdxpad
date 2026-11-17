@@ -96,6 +96,17 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('resolves a reference link', async () => {
+    await exporter.export({
+      content: 'See [the docs][guide].\n\n[guide]: https://example.com',
+      outputPath: '/tmp/ref.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<a href="https://example.com">the docs</a>');
+    expect(html).not.toContain('[guide]:');
+  });
+
   it('keeps a wrapped paragraph and a hard break', async () => {
     await exporter.export({
       content: 'Hello\nworld\n\nStay  \nput',

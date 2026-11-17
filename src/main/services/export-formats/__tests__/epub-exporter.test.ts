@@ -148,6 +148,20 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('resolves a reference link', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: 'See [the docs][guide].\n\n[guide]: https://example.com',
+      outputPath: '/tmp/ref.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<a href="https://example.com">the docs</a>');
+    expect(html).not.toContain('[guide]:');
+  });
+
   it('keeps a wrapped paragraph and a hard break', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

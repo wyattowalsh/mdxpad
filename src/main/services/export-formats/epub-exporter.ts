@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
 import { listItemHtml } from './markdown-task';
@@ -22,6 +23,10 @@ function escapeHtml(value: string): string {
 }
 
 function splitIntoChapters(content: string): EpubChapter[] {
+  return splitExpandedChapters(expandLinkReferences(content));
+}
+
+function splitExpandedChapters(content: string): EpubChapter[] {
   const chapters: EpubChapter[] = [];
   const lines = content.split('\n');
   let currentTitle = 'Introduction';
