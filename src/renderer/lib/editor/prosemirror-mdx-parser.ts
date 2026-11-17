@@ -152,6 +152,8 @@ function imageAlt(token: MarkdownToken): string {
 }
 
 const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+const LINK_DEFINITION = /^\s{0,3}\[[^\]]+\]:\s+\S/;
+const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
 
 export function splitLeadingFrontmatter(content: string): {
   frontmatter: string;
@@ -163,6 +165,21 @@ export function splitLeadingFrontmatter(content: string): {
   }
   const frontmatter = match[0].endsWith('\n') ? match[0] : `${match[0]}\n`;
   return { frontmatter, body: content.slice(match[0].length) };
+}
+
+export function extractLinkDefinitions(body: string): string {
+  const definitions: string[] = [];
+  let inFence = false;
+  for (const line of body.split('\n')) {
+    if (FENCE_LINE.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (!inFence && LINK_DEFINITION.test(line)) {
+      definitions.push(line.trim());
+    }
+  }
+  return definitions.join('\n');
 }
 
 // =============================================================================
@@ -269,10 +286,15 @@ export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tok
  */
 export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { frontmatter, body } = splitLeadingFrontmatter(content);
+  const definitions = extractLinkDefinitions(body);
   const { processedText } = extractJsxBlocks(body);
   const restored = restoreJsxFences(mdxParser.parse(processedText));
-  if (frontmatter.length === 0) {
+  if (frontmatter.length === 0 && definitions.length === 0) {
     return restored;
   }
-  return restored.type.create({ ...restored.attrs, frontmatter }, restored.content, restored.marks);
+  return restored.type.create(
+    { ...restored.attrs, frontmatter, linkDefinitions: definitions },
+    restored.content,
+    restored.marks
+  );
 }

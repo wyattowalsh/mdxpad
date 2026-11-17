@@ -67,6 +67,7 @@ export const PANEL_COMMANDS: readonly Command[] = [
     id: 'view.toggle-wysiwyg' as CommandId,
     name: 'Toggle WYSIWYG Editor',
     category: 'view',
+    shortcut: { key: 'l', modifiers: ['Mod', 'Shift'] },
     execute: () => {
       useEditorModeStore.getState().toggleMode();
       return { ok: true };

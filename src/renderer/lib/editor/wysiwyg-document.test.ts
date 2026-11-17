@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { serializeMdxContent } from './prosemirror-mdx-serializer';
-import { documentFromMarkdown, replaceWysiwygDocument } from './wysiwyg-document';
+import {
+  documentFromMarkdown,
+  insertWysiwygLink,
+  replaceWysiwygDocument,
+} from './wysiwyg-document';
 
 describe('replaceWysiwygDocument', () => {
   const views: EditorView[] = [];
@@ -75,5 +79,17 @@ describe('replaceWysiwygDocument', () => {
     expect(serialized).toContain('title: New');
     expect(serialized).not.toContain('title: Old');
     expect(serialized).toContain('# Changed');
+  });
+
+  it('inserts a link at an empty caret', () => {
+    const view = createView('Hello');
+    const start = TextSelection.near(view.state.doc.resolve(0));
+    view.dispatch(view.state.tr.setSelection(start));
+
+    insertWysiwygLink(view, 'https://example.com');
+
+    expect(serializeMdxContent(view.state.doc)).toContain(
+      '[https://example.com](https://example.com)'
+    );
   });
 });

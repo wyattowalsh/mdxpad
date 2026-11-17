@@ -53,6 +53,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('- one\n\n- two');
   });
 
+  it('keeps a reference link and its definition', () => {
+    const serialized = roundTrip('See [docs][guide].\n\n[guide]: https://example.com/guide\n');
+    expect(serialized).toContain('[docs](https://example.com/guide)');
+    expect(serialized).toContain('[guide]: https://example.com/guide');
+    expect(serialized).not.toContain('\\[');
+  });
+
   it('keeps strikethrough', () => {
     const serialized = roundTrip('~~gone~~\n');
     expect(serialized).toContain('~~gone~~');

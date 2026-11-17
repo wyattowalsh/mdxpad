@@ -17,7 +17,7 @@ import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 
 const DOC_NODE: NodeSpec = {
   content: 'block+',
-  attrs: { frontmatter: { default: '' } },
+  attrs: { frontmatter: { default: '' }, linkDefinitions: { default: '' } },
 };
 
 const PARAGRAPH_NODE: NodeSpec = {

@@ -39,13 +39,28 @@ export function replaceWysiwygDocument(
   }
   const next = documentFromMarkdown(markdown);
   const frontmatter = typeof next.attrs.frontmatter === 'string' ? next.attrs.frontmatter : '';
+  const linkDefinitions =
+    typeof next.attrs.linkDefinitions === 'string' ? next.attrs.linkDefinitions : '';
   const cursor = selection === 'start' ? 0 : view.state.selection.from;
   const tr = view.state.tr
     .replaceWith(0, view.state.doc.content.size, next.content)
     .setDocAttribute('frontmatter', frontmatter)
+    .setDocAttribute('linkDefinitions', linkDefinitions)
     .setMeta('addToHistory', false);
   const position = Math.max(0, Math.min(cursor, tr.doc.content.size));
   tr.setSelection(TextSelection.near(tr.doc.resolve(position)));
   view.dispatch(tr);
   return true;
+}
+
+/** Insert a link. An empty caret uses the URL as the link text. */
+export function insertWysiwygLink(view: EditorView, href: string): void {
+  const { from, to, empty } = view.state.selection;
+  const mark = mdxSchema.marks.link.create({ href });
+  if (empty) {
+    const text = view.state.schema.text(href, [mark]);
+    view.dispatch(view.state.tr.replaceSelectionWith(text, false).scrollIntoView());
+    return;
+  }
+  view.dispatch(view.state.tr.addMark(from, to, mark).scrollIntoView());
 }

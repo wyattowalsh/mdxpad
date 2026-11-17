@@ -235,8 +235,17 @@ export const mdxSerializer = new MarkdownSerializer(nodeSerializers, markSeriali
 export function serializeMdxContent(doc: ProseMirrorNode): string {
   const body = mdxSerializer.serialize(doc, { tightLists: true });
   const frontmatter = typeof doc.attrs.frontmatter === 'string' ? doc.attrs.frontmatter : '';
-  if (frontmatter.length === 0) {
-    return body;
+  const definitions =
+    typeof doc.attrs.linkDefinitions === 'string' ? doc.attrs.linkDefinitions.trim() : '';
+  const withFrontmatter =
+    frontmatter.length === 0
+      ? body
+      : frontmatter.endsWith('\n')
+        ? `${frontmatter}${body}`
+        : `${frontmatter}\n${body}`;
+  if (definitions.length === 0 || withFrontmatter.includes(definitions)) {
+    return withFrontmatter;
   }
-  return frontmatter.endsWith('\n') ? `${frontmatter}${body}` : `${frontmatter}\n${body}`;
+  const separator = withFrontmatter.endsWith('\n') ? '\n' : '\n\n';
+  return `${withFrontmatter}${separator}${definitions}\n`;
 }

@@ -17,7 +17,11 @@ import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-comman
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
 import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer';
-import { documentFromMarkdown, replaceWysiwygDocument } from '../../lib/editor/wysiwyg-document';
+import {
+  documentFromMarkdown,
+  insertWysiwygLink,
+  replaceWysiwygDocument,
+} from '../../lib/editor/wysiwyg-document';
 import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
 import type { ToolbarAction } from './WysiwygToolbar';
 import { cn } from '@shared/lib/utils';
@@ -224,9 +228,7 @@ function useInsertHandlers(viewRef: React.RefObject<EditorView | null>) {
     if (!view) return;
     const href = prompt('Enter URL:');
     if (!href) return;
-    const { from, to } = view.state.selection;
-    const mark = mdxSchema.marks.link.create({ href });
-    view.dispatch(view.state.tr.addMark(from, to, mark));
+    insertWysiwygLink(view, href);
     view.focus();
   }, [viewRef]);
 

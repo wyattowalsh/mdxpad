@@ -38,7 +38,17 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-themes',
       'view.toggle-wysiwyg',
     ]);
-    expect(PANEL_COMMANDS.every((command) => command.shortcut === undefined)).toBe(true);
+    expect(
+      PANEL_COMMANDS.filter((command) => command.shortcut !== undefined).map(
+        (command) => command.id
+      )
+    ).toEqual(['view.toggle-wysiwyg']);
+    expect(
+      PANEL_COMMANDS.find((command) => command.id === 'view.toggle-wysiwyg')?.shortcut
+    ).toEqual({
+      key: 'l',
+      modifiers: ['Mod', 'Shift'],
+    });
   });
 
   it('opens the comments panel', async () => {

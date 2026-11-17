@@ -10,7 +10,10 @@
 import * as React from 'react';
 import { Code, Eye } from 'lucide-react';
 import { cn } from '@shared/lib/utils';
+import { normalizeShortcut } from '../../lib/fuzzy-search';
+import { formatShortcut } from '../../hooks/useKeyboardShortcuts';
 import { useEditorModeStore, selectEditorMode } from '../../stores/editor-mode-store';
+import { PANEL_COMMANDS } from '../../commands/panel-commands';
 
 // =============================================================================
 // TYPES
@@ -23,18 +26,6 @@ export interface EditorModeToggleProps {
 // =============================================================================
 // COMPONENT
 // =============================================================================
-
-/**
- * Detect if the user is on macOS using userAgentData (modern) or userAgent (fallback).
- */
-function detectMac(): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any -- userAgentData is not in all TS DOM libs
-  const uaData = (navigator as any).userAgentData as { platform?: string } | undefined;
-  if (uaData?.platform) {
-    return uaData.platform === 'macOS';
-  }
-  return navigator.userAgent.includes('Mac');
-}
 
 const SourceButton: React.FC<{
   readonly active: boolean;
@@ -99,8 +90,10 @@ export const EditorModeToggle: React.FC<EditorModeToggleProps> = ({ className })
     [toggleMode]
   );
 
-  const isMac = detectMac();
-  const shortcutHint = isMac ? '\u2318E' : 'Ctrl+E';
+  const wysiwygShortcut = PANEL_COMMANDS.find(
+    (command) => command.id === 'view.toggle-wysiwyg'
+  )?.shortcut;
+  const shortcutHint = wysiwygShortcut ? formatShortcut(normalizeShortcut(wysiwygShortcut)) : '';
 
   return (
     <div
