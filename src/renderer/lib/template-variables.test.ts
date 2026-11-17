@@ -40,8 +40,15 @@ describe('getAutoValue', () => {
     expect(getAutoValue('datetime')).toBe('2026-01-17T14:30:00.000Z');
   });
 
-  it('returns null for "author" variable (not yet implemented)', () => {
+  it('returns null for "author" until a name is remembered', () => {
+    localStorage.removeItem('mdxpad:author');
     expect(getAutoValue('author')).toBeNull();
+  });
+
+  it('returns the remembered author name', () => {
+    localStorage.setItem('mdxpad:author', 'Ada Lovelace');
+    expect(getAutoValue('author')).toBe('Ada Lovelace');
+    localStorage.removeItem('mdxpad:author');
   });
 
   it('returns null for non-special variables', () => {

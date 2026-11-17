@@ -29,8 +29,34 @@ const VARIABLE_REGEX = /\{\{(\w+)\}\}/g;
  * Special auto-computed variable names
  */
 const AUTO_VARIABLES = ['date', 'datetime', 'author'] as const;
+const AUTHOR_STORAGE_KEY = 'mdxpad:author';
 
 type AutoVariable = (typeof AUTO_VARIABLES)[number];
+
+function readStoredAuthor(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+    const value = localStorage.getItem(AUTHOR_STORAGE_KEY)?.trim() ?? '';
+    return value.length === 0 ? null : value;
+  } catch {
+    return null;
+  }
+}
+
+/** Remember the name used for the {{author}} template variable. */
+export function rememberAuthorName(name: string): void {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return;
+  }
+  try {
+    localStorage.setItem(AUTHOR_STORAGE_KEY, trimmed);
+  } catch {
+    // Preference storage can be unavailable.
+  }
+}
 
 // =============================================================================
 // Auto-Variable Computation
@@ -45,7 +71,7 @@ type AutoVariable = (typeof AUTO_VARIABLES)[number];
  * Special variables:
  * - `date`: Current date in ISO format (YYYY-MM-DD)
  * - `datetime`: Current datetime in ISO format
- * - `author`: Placeholder for user preferences (returns null for now)
+ * - `author`: The name remembered from the last template
  */
 export function getAutoValue(varName: string): string | null {
   const now = new Date();
@@ -58,8 +84,7 @@ export function getAutoValue(varName: string): string | null {
     case 'datetime':
       return now.toISOString();
     case 'author':
-      // TODO: Integrate with user preferences when available
-      return null;
+      return readStoredAuthor();
     default:
       return null;
   }
@@ -121,10 +146,7 @@ export function extractVariables(content: string): string[] {
  * substituteVariables('Date: {{date}}', {})
  * // Returns: 'Date: 2026-01-17' (auto-computed)
  */
-export function substituteVariables(
-  content: string,
-  values: Record<string, string>
-): string {
+export function substituteVariables(content: string, values: Record<string, string>): string {
   return content.replace(VARIABLE_REGEX, (match, varName: string): string => {
     // Check if explicit value provided
     const providedValue = values[varName];

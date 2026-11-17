@@ -24,7 +24,12 @@ import {
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Label } from '@ui/label';
-import { validateVariables, isAutoVariable, getAutoValue } from '@renderer/lib/template-variables';
+import {
+  validateVariables,
+  isAutoVariable,
+  getAutoValue,
+  rememberAuthorName,
+} from '@renderer/lib/template-variables';
 import type { TemplateVariable } from '@shared/contracts/template-schemas';
 
 // =============================================================================
@@ -60,9 +65,7 @@ type FormErrors = Record<string, string | undefined>;
  * Format variable name for display (convert snake_case to Title Case).
  */
 function formatVariableName(name: string): string {
-  return name
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return name.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 /**
@@ -79,7 +82,7 @@ function getAutoPlaceholder(varName: string): string | undefined {
     case 'datetime':
       return 'Auto-fills with current date and time';
     case 'author':
-      return 'Auto-fills from user preferences';
+      return 'Your name, remembered for the next template';
     default:
       return undefined;
   }
@@ -104,6 +107,8 @@ function getAutoPreview(varName: string): string | null {
     case 'datetime':
       // Truncate datetime for display
       return `Will be: ${autoValue.slice(0, 19)}...`;
+    case 'author':
+      return `Will be: ${autoValue}`;
     default:
       return null;
   }
@@ -144,7 +149,9 @@ export function VariableDialog({
       const initialValues: Record<string, string> = {};
       for (const variable of variables) {
         // Use default value if provided, otherwise empty string
-        initialValues[variable.name] = variable.default ?? '';
+        const stored = getAutoValue(variable.name);
+        initialValues[variable.name] =
+          variable.default && variable.default !== '' ? variable.default : (stored ?? '');
       }
       setValues(initialValues);
       setErrors({});
@@ -214,7 +221,10 @@ export function VariableDialog({
         return;
       }
 
-      // Submit values
+      const author = values.author?.trim();
+      if (author) {
+        rememberAuthorName(author);
+      }
       onSubmit(values);
     },
     [variables, values, onSubmit]
@@ -232,10 +242,7 @@ export function VariableDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="max-w-md w-[90vw]"
-        aria-describedby="variable-dialog-description"
-      >
+      <DialogContent className="max-w-md w-[90vw]" aria-describedby="variable-dialog-description">
         <DialogHeader>
           <DialogTitle>Configure Template Variables</DialogTitle>
           <DialogDescription id="variable-dialog-description">
@@ -250,8 +257,7 @@ export function VariableDialog({
             const errorId = `${inputId}-error`;
             const hasError = touched.has(variable.name) && errors[variable.name];
             const isAuto =
-              isAutoVariable(variable.name) &&
-              (!variable.default || variable.default === '');
+              isAutoVariable(variable.name) && (!variable.default || variable.default === '');
             const autoPlaceholder = getAutoPlaceholder(variable.name);
             const autoPreview = isAuto ? getAutoPreview(variable.name) : null;
 
@@ -280,11 +286,7 @@ export function VariableDialog({
                   aria-required={variable.required}
                   aria-invalid={hasError ? 'true' : undefined}
                   aria-describedby={
-                    hasError
-                      ? errorId
-                      : variable.description
-                        ? `${inputId}-desc`
-                        : undefined
+                    hasError ? errorId : variable.description ? `${inputId}-desc` : undefined
                   }
                   className={hasError ? 'border-destructive' : undefined}
                 />
@@ -316,11 +318,7 @@ export function VariableDialog({
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button
-            type="submit"
-            onClick={handleSubmit}
-            disabled={!isFormValid}
-          >
+          <Button type="submit" onClick={handleSubmit} disabled={!isFormValid}>
             Create Document
           </Button>
         </DialogFooter>
