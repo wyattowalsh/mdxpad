@@ -2,6 +2,7 @@ import type { Command, CommandId } from '@shared/types/commands';
 import { isFeatureEnabled } from '@renderer/stores/feature-flags-store';
 import { useCommandRegistry } from '@renderer/stores/command-registry-store';
 import { useUtilityPanelStore, type UtilityPanelId } from '@renderer/stores/utility-panel-store';
+import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
 
 export const PANEL_COMMAND_IDS = {
   workspace: 'view.toggle-workspace',
@@ -13,6 +14,7 @@ export const PANEL_COMMAND_IDS = {
   shortcuts: 'view.toggle-shortcuts',
   publish: 'view.toggle-publish',
   semanticSearch: 'view.toggle-semantic-search',
+  wysiwyg: 'view.toggle-wysiwyg',
 } as const;
 
 function toggleCommand(
@@ -45,6 +47,15 @@ export const PANEL_COMMANDS: readonly Command[] = [
   toggleCommand('view.toggle-shortcuts', 'Toggle Keyboard Shortcuts', 'shortcuts'),
   toggleCommand('view.toggle-publish', 'Toggle Publish', 'publish'),
   toggleCommand('view.toggle-semantic-search', 'Toggle Semantic Search', 'semantic-search'),
+  {
+    id: 'view.toggle-wysiwyg' as CommandId,
+    name: 'Toggle WYSIWYG Editor',
+    category: 'view',
+    execute: () => {
+      useEditorModeStore.getState().toggleMode();
+      return { ok: true };
+    },
+  },
 ];
 
 export function registerPanelCommands(): () => void {

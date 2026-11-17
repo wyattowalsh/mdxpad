@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CommandContext } from '@shared/types/commands';
 import { PANEL_COMMANDS } from '../panel-commands';
 import { useUtilityPanelStore } from '@renderer/stores/utility-panel-store';
+import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
 
 const context = {
   editor: null,
@@ -28,6 +29,7 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-shortcuts',
       'view.toggle-publish',
       'view.toggle-semantic-search',
+      'view.toggle-wysiwyg',
     ]);
     expect(PANEL_COMMANDS.every((command) => command.shortcut === undefined)).toBe(true);
   });
@@ -36,5 +38,14 @@ describe('PANEL_COMMANDS', () => {
     const comments = PANEL_COMMANDS.find((command) => command.id === 'view.toggle-comments');
     await comments?.execute(context);
     expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('comments');
+  });
+
+  it('toggles the editor between source and WYSIWYG', async () => {
+    useEditorModeStore.getState().setMode('source');
+    const command = PANEL_COMMANDS.find((item) => item.id === 'view.toggle-wysiwyg');
+    await command?.execute(context);
+    expect(useEditorModeStore.getState().mode).toBe('wysiwyg');
+    await command?.execute(context);
+    expect(useEditorModeStore.getState().mode).toBe('source');
   });
 });
