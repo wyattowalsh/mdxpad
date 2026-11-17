@@ -61,6 +61,15 @@ describe('git-schemas', () => {
       expect(result.success).toBe(true);
     });
 
+    it('should accept a commit limited to named files', () => {
+      const result = GitCommitRequestSchema.safeParse({
+        workingDir: '/repo',
+        message: 'Save notes',
+        files: ['readme.md'],
+      });
+      expect(result.success).toBe(true);
+    });
+
     it('should reject empty message', () => {
       const result = GitCommitRequestSchema.safeParse({
         workingDir: '/repo',

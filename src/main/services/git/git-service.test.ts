@@ -129,7 +129,14 @@ describe('git-service', () => {
     it('should commit and return hash + message', async () => {
       mockGit.commit.mockResolvedValue({ commit: 'abc123' });
       const result = await commit('/repo', 'feat: add feature');
+      expect(mockGit.commit).toHaveBeenCalledWith('feat: add feature');
       expect(result).toEqual({ hash: 'abc123', message: 'feat: add feature' });
+    });
+
+    it('commits only the named files', async () => {
+      mockGit.commit.mockResolvedValue({ commit: 'abc123' });
+      await commit('/repo', 'Save notes', ['readme.md']);
+      expect(mockGit.commit).toHaveBeenCalledWith('Save notes', ['readme.md']);
     });
 
     it('should throw GitServiceError on failure', async () => {

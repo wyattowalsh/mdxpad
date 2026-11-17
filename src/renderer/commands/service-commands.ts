@@ -219,7 +219,7 @@ const gitCommitCommand: Command = {
       ctx.notify({ type: 'error', message: added.error.message });
       return { ok: false, error: added.error.message };
     }
-    const result = await ctx.api.git.commit(dir, message.trim());
+    const result = await ctx.api.git.commit(dir, message.trim(), [fileName]);
     if (!result.ok) {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };

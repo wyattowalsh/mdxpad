@@ -91,10 +91,17 @@ export async function addFiles(workingDir: string, files: string[]): Promise<voi
   }
 }
 
-export async function commit(workingDir: string, message: string): Promise<GitCommitResponse> {
+export async function commit(
+  workingDir: string,
+  message: string,
+  files?: readonly string[]
+): Promise<GitCommitResponse> {
   try {
     const git = createGitInstance(workingDir);
-    const result = await git.commit(message);
+    const result =
+      files !== undefined && files.length > 0
+        ? await git.commit(message, [...files])
+        : await git.commit(message);
     return {
       hash: result.commit,
       message,

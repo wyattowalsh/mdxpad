@@ -55,10 +55,11 @@ export const gitApi = {
       files,
     }),
 
-  commit: (workingDir: string, message: string) =>
+  commit: (workingDir: string, message: string, files?: string[]) =>
     validatedInvoke(GitChannels.commit, GitCommitRequestSchema, GitCommitResultSchema, {
       workingDir,
       message,
+      ...(files !== undefined && { files }),
     }),
 
   log: (workingDir: string, maxCount?: number) =>

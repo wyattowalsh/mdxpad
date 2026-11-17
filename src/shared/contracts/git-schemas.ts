@@ -38,6 +38,7 @@ export const GitAddRequestSchema = z.object({
 export const GitCommitRequestSchema = z.object({
   workingDir: z.string().min(1),
   message: z.string().min(1),
+  files: z.array(z.string().min(1)).min(1).optional(),
 });
 
 export const GitLogRequestSchema = z.object({

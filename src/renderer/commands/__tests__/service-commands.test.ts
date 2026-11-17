@@ -93,7 +93,7 @@ describe('git.commit', () => {
     const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
     await expect(command?.execute(context)).resolves.toEqual({ ok: true });
     expect(add).toHaveBeenCalledWith('/notes', ['readme.md']);
-    expect(commit).toHaveBeenCalledWith('/notes', 'Save notes');
+    expect(commit).toHaveBeenCalledWith('/notes', 'Save notes', ['readme.md']);
     expect(notify).toHaveBeenCalledWith({ type: 'success', message: 'Committed abcdef1' });
   });
 });

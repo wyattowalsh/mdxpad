@@ -118,14 +118,37 @@ describe('git-handlers', () => {
       const result = await handler(mockEvent, { workingDir: repoDir, files: ['file.ts'] });
       expect(result).toEqual({ ok: true, value: { success: true } });
     });
+
+    it('does not stage a path that leaves the opened folder', async () => {
+      const handler = handlers.get(GitChannels.add)!;
+      const result = await handler(mockEvent, { workingDir: repoDir, files: ['../secret.md'] });
+      expect(result).toMatchObject({ ok: false, error: { code: 'PERMISSION_DENIED' } });
+      expect(gitService.addFiles).not.toHaveBeenCalled();
+    });
   });
 
   describe('commit handler', () => {
     it('should return hash for valid commit', async () => {
       vi.mocked(gitService.commit).mockResolvedValue({ hash: 'abc', message: 'msg' });
       const handler = handlers.get(GitChannels.commit)!;
-      const result = await handler(mockEvent, { workingDir: repoDir, message: 'msg' });
+      const result = await handler(mockEvent, {
+        workingDir: repoDir,
+        message: 'msg',
+        files: ['note.md'],
+      });
+      expect(gitService.commit).toHaveBeenCalledWith(repoDir, 'msg', ['note.md']);
       expect(result).toEqual({ ok: true, value: { hash: 'abc', message: 'msg' } });
+    });
+
+    it('does not commit a path that leaves the opened folder', async () => {
+      const handler = handlers.get(GitChannels.commit)!;
+      const result = await handler(mockEvent, {
+        workingDir: repoDir,
+        message: 'msg',
+        files: ['../secret.md'],
+      });
+      expect(result).toMatchObject({ ok: false, error: { code: 'PERMISSION_DENIED' } });
+      expect(gitService.commit).not.toHaveBeenCalled();
     });
   });
 

@@ -19,6 +19,7 @@ import {
 } from '@shared/contracts/git-schemas';
 import { assertAuthorizedIpcSender } from '@main/ipc/ipc-sender-authorization';
 import { trustedDirectoryError } from '@main/ipc/trusted-directory';
+import { pathsInsideDirectory } from './git-paths';
 import * as gitService from './git-service';
 import { GitServiceError } from './git-service';
 
@@ -30,6 +31,22 @@ function untrustedDirectoryResult(
     return null;
   }
   return { ok: false, error: { code: 'PERMISSION_DENIED', message } };
+}
+
+function escapedPathsResult(
+  workingDir: string,
+  files: readonly string[] | undefined
+): { ok: false; error: { code: 'PERMISSION_DENIED'; message: string } } | null {
+  if (files === undefined || pathsInsideDirectory(workingDir, files) !== null) {
+    return null;
+  }
+  return {
+    ok: false,
+    error: {
+      code: 'PERMISSION_DENIED',
+      message: 'Git can only change files inside the opened folder',
+    },
+  };
 }
 
 function handleGitError(error: unknown): { ok: false; error: { code: string; message: string } } {
@@ -59,7 +76,7 @@ function registerCoreGitHandlers(ipcMain: IpcMain, window: BrowserWindow): void 
     assertAuthorizedIpcSender(event, window, GitChannels.add);
     try {
       const { workingDir, files } = GitAddRequestSchema.parse(args);
-      const denied = untrustedDirectoryResult(workingDir);
+      const denied = untrustedDirectoryResult(workingDir) ?? escapedPathsResult(workingDir, files);
       if (denied) return denied;
       await gitService.addFiles(workingDir, files);
       return { ok: true, value: { success: true } };
@@ -71,10 +88,10 @@ function registerCoreGitHandlers(ipcMain: IpcMain, window: BrowserWindow): void 
   ipcMain.handle(GitChannels.commit, async (event, args) => {
     assertAuthorizedIpcSender(event, window, GitChannels.commit);
     try {
-      const { workingDir, message } = GitCommitRequestSchema.parse(args);
-      const denied = untrustedDirectoryResult(workingDir);
+      const { workingDir, message, files } = GitCommitRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir) ?? escapedPathsResult(workingDir, files);
       if (denied) return denied;
-      return { ok: true, value: await gitService.commit(workingDir, message) };
+      return { ok: true, value: await gitService.commit(workingDir, message, files) };
     } catch (error) {
       return handleGitError(error);
     }
