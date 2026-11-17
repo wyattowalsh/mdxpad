@@ -7,9 +7,14 @@
  * @module main/services/template-marketplace-service
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import {
+  MARKETPLACE_LIST_CHANNEL,
+  MarketplaceTemplateSchema,
+} from '@shared/contracts/marketplace-schemas';
+import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
 
 // =============================================================================
 // TYPES
@@ -41,129 +46,66 @@ export interface MarketplaceResult<T> {
  * Default catalog URL. Can be overridden via settings.
  */
 const DEFAULT_CATALOG_URL = 'https://mdxpad.dev/api/templates/catalog.json';
-
+const REMOTE_CATALOG_TIMEOUT_MS = 1500;
 /**
  * Local fallback catalog path (bundled with the app).
  */
 const LOCAL_CATALOG_FILENAME = 'template-catalog.json';
-
-/**
- * Installation directory for marketplace templates.
- */
-const TEMPLATES_DIR_NAME = 'marketplace-templates';
 
 // =============================================================================
 // SERVICE
 // =============================================================================
 
 /**
- * Get the templates installation directory.
- */
-function getTemplatesDir(userDataPath: string): string {
-  return path.join(userDataPath, TEMPLATES_DIR_NAME);
-}
-
-/**
- * Ensure the templates directory exists.
- */
-async function ensureTemplatesDir(userDataPath: string): Promise<string> {
-  const dir = getTemplatesDir(userDataPath);
-  await fs.mkdir(dir, { recursive: true });
-  return dir;
-}
-
-/**
  * Fetch the template catalog from remote or local fallback.
  */
+export function sanitizeMarketplaceCatalog(value: unknown): MarketplaceTemplateData[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const templates: MarketplaceTemplateData[] = [];
+  for (const item of value) {
+    const parsed = MarketplaceTemplateSchema.safeParse(item);
+    if (parsed.success) {
+      templates.push(parsed.data);
+    }
+  }
+  return templates;
+}
+
+async function readLocalCatalog(resourcesPath: string): Promise<MarketplaceTemplateData[] | null> {
+  try {
+    const content = await fs.readFile(path.join(resourcesPath, LOCAL_CATALOG_FILENAME), 'utf-8');
+    return sanitizeMarketplaceCatalog(JSON.parse(content) as unknown);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchCatalog(
   catalogUrl: string,
   resourcesPath: string
 ): Promise<MarketplaceResult<readonly MarketplaceTemplateData[]>> {
+  const local = await readLocalCatalog(resourcesPath);
+  if (local !== null) {
+    return { success: true, data: local };
+  }
+
   try {
-    // Try remote first
     const response = await fetch(catalogUrl, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(REMOTE_CATALOG_TIMEOUT_MS),
     });
-
     if (response.ok) {
-      const data = (await response.json()) as MarketplaceTemplateData[];
-      return { success: true, data };
-    }
-  } catch {
-    // Fall through to local catalog
-  }
-
-  // Try local catalog
-  try {
-    const localPath = path.join(resourcesPath, LOCAL_CATALOG_FILENAME);
-    const content = await fs.readFile(localPath, 'utf-8');
-    const data = JSON.parse(content) as MarketplaceTemplateData[];
-    return { success: true, data };
-  } catch {
-    // Return empty catalog if both fail
-    return { success: true, data: [] };
-  }
-}
-
-/**
- * Write template files (content + metadata) to disk.
- */
-async function writeTemplateFiles(
-  template: MarketplaceTemplateData,
-  templateDir: string,
-  content: string
-): Promise<void> {
-  await fs.mkdir(templateDir, { recursive: true });
-  await fs.writeFile(path.join(templateDir, 'template.mdx'), content, 'utf-8');
-  const metadata = {
-    id: template.id,
-    name: template.name,
-    description: template.description,
-    author: template.author,
-    category: template.category,
-    version: template.version,
-    installedAt: new Date().toISOString(),
-  };
-  await fs.writeFile(
-    path.join(templateDir, 'metadata.json'),
-    JSON.stringify(metadata, null, 2),
-    'utf-8'
-  );
-}
-
-/**
- * Download and install a template by its download URL.
- */
-async function downloadAndInstallTemplate(
-  template: MarketplaceTemplateData,
-  templatesDir: string
-): Promise<MarketplaceResult<void>> {
-  try {
-    const response = await fetch(template.downloadUrl, {
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!response.ok) {
       return {
-        success: false,
-        error: `Failed to download template: ${response.statusText}`,
+        success: true,
+        data: sanitizeMarketplaceCatalog((await response.json()) as unknown),
       };
     }
-
-    const content = await response.text();
-    if (!content.trim()) {
-      return { success: false, error: 'Template content is empty' };
-    }
-
-    const templateDir = path.join(templatesDir, template.id);
-    await writeTemplateFiles(template, templateDir, content);
-    return { success: true };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Failed to install template',
-    };
+  } catch {
+    // A missing remote catalog leaves the browser empty. Install stays unavailable.
   }
+
+  return { success: true, data: [] };
 }
 
 // =============================================================================
@@ -171,34 +113,14 @@ async function downloadAndInstallTemplate(
 // =============================================================================
 
 /**
- * Register IPC handlers for the template marketplace service.
+ * Register the marketplace catalog handler.
+ * Install stays unregistered until a real catalog publisher exists.
  *
- * @param userDataPath - Electron app.getPath('userData')
+ * @param window - Window allowed to invoke the handler
  * @param resourcesPath - Path to bundled resources
- * @param catalogUrl - Optional custom catalog URL
  */
-export function registerMarketplaceHandlers(
-  userDataPath: string,
-  resourcesPath: string,
-  catalogUrl: string = DEFAULT_CATALOG_URL
-): void {
-  ipcMain.handle('marketplace:list', async () => {
-    return fetchCatalog(catalogUrl, resourcesPath);
-  });
-
-  ipcMain.handle('marketplace:install', async (_event, id: string) => {
-    // First fetch the catalog to get the template data
-    const catalogResult = await fetchCatalog(catalogUrl, resourcesPath);
-    if (!catalogResult.success || !catalogResult.data) {
-      return { success: false, error: 'Failed to load template catalog' };
-    }
-
-    const template = catalogResult.data.find((t) => t.id === id);
-    if (!template) {
-      return { success: false, error: `Template not found: ${id}` };
-    }
-
-    const templatesDir = await ensureTemplatesDir(userDataPath);
-    return downloadAndInstallTemplate(template, templatesDir);
-  });
+export function registerMarketplaceHandlers(window: BrowserWindow, resourcesPath: string): void {
+  registerAuthorizedIpcHandler(ipcMain, window, MARKETPLACE_LIST_CHANNEL, () =>
+    fetchCatalog(DEFAULT_CATALOG_URL, resourcesPath)
+  );
 }

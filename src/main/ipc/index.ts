@@ -47,6 +47,8 @@ import { RecoveryService } from '@main/services/recovery-service';
 import { createAIServices } from '@main/services/ai';
 import { WorkspaceService } from '@main/services/workspace-service';
 import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
+import { MARKETPLACE_LIST_CHANNEL } from '@shared/contracts/marketplace-schemas';
+import { registerMarketplaceHandlers } from '@main/services/template-marketplace-service';
 
 /** Singleton autosave service instances */
 const settingsService = new AutosaveSettingsService();
@@ -91,6 +93,7 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(HistoryChannels),
   ...Object.values(NotificationChannels),
   ...Object.values(SemanticSearchChannels),
+  MARKETPLACE_LIST_CHANNEL,
 ] as const;
 
 function removeLifecycleBoundHandlers(): void {
@@ -163,4 +166,5 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   registerShareHandlers(ipcMain, shareLinkService, window);
   registerHistoryHandlers(ipcMain, versionHistoryService, window);
   registerNotificationHandlers(ipcMain, notificationService, window);
+  registerMarketplaceHandlers(window, process.resourcesPath);
 }

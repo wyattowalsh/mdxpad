@@ -4,6 +4,7 @@
  */
 
 import type { AgentApi } from './agent-api';
+import type { MarketplaceApi } from './marketplace-api';
 import type { HistoryApi } from './history-api';
 import type { NotificationApi } from './notification-api';
 import type { ShareApi } from './share-api';
@@ -570,6 +571,11 @@ export interface MdxpadAPI {
    * AI agent API (Wave 2).
    */
   agent?: AgentApi;
+
+  /**
+   * Template marketplace catalog. Install is not exposed.
+   */
+  marketplace?: MarketplaceApi;
 
   /**
    * Plugin system API (Wave 2).

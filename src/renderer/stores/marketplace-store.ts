@@ -56,10 +56,17 @@ export interface MarketplaceApi {
 // =============================================================================
 
 const defaultMarketplaceApi: MarketplaceApi = {
-  list: () => {
-    // Will be wired to ipcRenderer.invoke('marketplace:list')
-    // when the preload API is extended
-    return Promise.resolve({ success: true as const, data: [] });
+  list: async () => {
+    const marketplace =
+      typeof window !== 'undefined' && 'mdxpad' in window ? window.mdxpad.marketplace : undefined;
+    if (!marketplace) {
+      return { success: true as const, data: [] };
+    }
+    const result = await marketplace.list();
+    if (!result.success) {
+      return { success: false as const, error: result.error ?? 'Failed to fetch templates' };
+    }
+    return { success: true as const, data: result.data ?? [] };
   },
   install: () => {
     return Promise.resolve({ success: false as const, error: 'Marketplace not configured' });
