@@ -111,7 +111,6 @@ const MDX_TOKENS: Record<
     noCloseToken: true,
   },
   hr: { node: 'horizontal_rule' },
-  hardbreak: { node: 'hard_break' },
 
   // Inline marks
   em: { mark: 'italic' },
@@ -131,7 +130,7 @@ const MDX_TOKENS: Record<
     node: 'image',
     getAttrs: (tok: MarkdownToken) => ({
       src: tok.attrGet('src') ?? '',
-      alt: null,
+      alt: imageAlt(tok),
       title: tok.attrGet('title') ?? null,
     }),
   },
@@ -139,8 +138,31 @@ const MDX_TOKENS: Record<
   // HTML (JSX placeholders) - ignored
   html_block: { ignore: true, noCloseToken: true },
   html_inline: { ignore: true, noCloseToken: true },
-  softbreak: { node: 'hard_break' },
+  hardbreak: { node: 'hard_break', getAttrs: () => ({ hard: true }) },
+  softbreak: { node: 'hard_break', getAttrs: () => ({ hard: false }) },
 };
+
+function imageAlt(token: MarkdownToken): string {
+  if (token.content.length > 0) {
+    return token.content;
+  }
+  const text = token.children?.find((child) => child.type === 'text');
+  return text?.content ?? '';
+}
+
+const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+
+export function splitLeadingFrontmatter(content: string): {
+  frontmatter: string;
+  body: string;
+} {
+  const match = LEADING_FRONTMATTER.exec(content);
+  if (match?.index !== 0) {
+    return { frontmatter: '', body: content };
+  }
+  const frontmatter = match[0].endsWith('\n') ? match[0] : `${match[0]}\n`;
+  return { frontmatter, body: content.slice(match[0].length) };
+}
 
 // =============================================================================
 // PARSER
@@ -160,6 +182,11 @@ export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tok
  * @returns ProseMirror Node representing the document
  */
 export function parseMdxContent(content: string): ProseMirrorNode | null {
-  const { processedText } = extractJsxBlocks(content);
-  return mdxParser.parse(processedText);
+  const { frontmatter, body } = splitLeadingFrontmatter(content);
+  const { processedText } = extractJsxBlocks(body);
+  const parsed = mdxParser.parse(processedText);
+  if (frontmatter.length === 0) {
+    return parsed;
+  }
+  return parsed.type.create({ ...parsed.attrs, frontmatter }, parsed.content, parsed.marks);
 }

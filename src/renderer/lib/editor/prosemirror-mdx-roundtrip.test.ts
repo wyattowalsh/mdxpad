@@ -1,0 +1,36 @@
+import { describe, expect, it } from 'vitest';
+
+import { parseMdxContent } from './prosemirror-mdx-parser';
+import { serializeMdxContent } from './prosemirror-mdx-serializer';
+
+function roundTrip(source: string): string {
+  const doc = parseMdxContent(source);
+  if (!doc) {
+    throw new Error('Expected a document');
+  }
+  return serializeMdxContent(doc);
+}
+
+describe('WYSIWYG markdown round trip', () => {
+  it('keeps a leading frontmatter block', () => {
+    const source = '---\ntitle: Hello\n---\n\n# Body\n';
+    expect(roundTrip(source)).toContain('title: Hello');
+    expect(roundTrip(source)).toContain('# Body');
+    expect(roundTrip(source)).not.toContain('# title: Hello');
+  });
+
+  it('keeps a single newline as a newline', () => {
+    const source = '$$\na^2+b^2\n$$\n';
+    expect(roundTrip(source)).not.toContain('\\\\\n');
+  });
+
+  it('keeps image alt text', () => {
+    expect(roundTrip('![diagram](./a.png "title")\n')).toContain('![diagram](./a.png "title")');
+  });
+
+  it('keeps a task checkbox', () => {
+    const serialized = roundTrip('- [ ] todo\n');
+    expect(serialized).toContain('[ ] todo');
+    expect(serialized).not.toContain('\\[');
+  });
+});

@@ -88,8 +88,13 @@ export class VectorStore {
    * Removes all entries for a given file path.
    */
   removeByFilePath(filePath: string): void {
+    this.removeWhere((entryPath) => entryPath === filePath);
+  }
+
+  /** Removes entries whose file path matches the predicate. */
+  removeWhere(matches: (filePath: string) => boolean): void {
     for (const [id, entry] of this.entries) {
-      if (entry.filePath === filePath) {
+      if (matches(entry.filePath)) {
         this.entries.delete(id);
       }
     }
@@ -98,10 +103,17 @@ export class VectorStore {
   /**
    * Performs top-K cosine similarity search.
    */
-  search(queryEmbedding: number[], topK: number): { entry: VectorEntry; score: number }[] {
+  search(
+    queryEmbedding: number[],
+    topK: number,
+    includeFile: (filePath: string) => boolean = () => true
+  ): { entry: VectorEntry; score: number }[] {
     const scored: { entry: VectorEntry; score: number }[] = [];
 
     for (const entry of this.entries.values()) {
+      if (!includeFile(entry.filePath)) {
+        continue;
+      }
       const score = cosineSimilarity(queryEmbedding, entry.embedding);
       scored.push({ entry, score });
     }

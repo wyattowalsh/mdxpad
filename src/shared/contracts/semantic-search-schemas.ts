@@ -20,6 +20,7 @@ export const SemanticSearchRequestSchema = z.object({
   query: z.string().min(1).max(1000),
   topK: z.number().int().positive().max(50).optional().default(10),
   workspacePath: z.string().min(1),
+  excludePatterns: z.array(z.string().min(1).max(80)).max(40).optional(),
 });
 export type SemanticSearchRequest = z.infer<typeof SemanticSearchRequestSchema>;
 

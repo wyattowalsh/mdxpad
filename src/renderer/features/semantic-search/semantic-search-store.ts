@@ -81,7 +81,12 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
 
       try {
         if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.semanticSearch) {
-          const response = await window.mdxpad.semanticSearch.search(query, workspacePath);
+          const response = await window.mdxpad.semanticSearch.search(
+            query,
+            workspacePath,
+            undefined,
+            readExcludesForDirectory(workspacePath)
+          );
           if (response.success && response.results) {
             set((draft) => {
               draft.results = response.results ?? [];

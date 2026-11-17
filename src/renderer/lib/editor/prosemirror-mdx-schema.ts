@@ -17,6 +17,7 @@ import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 
 const DOC_NODE: NodeSpec = {
   content: 'block+',
+  attrs: { frontmatter: { default: '' } },
 };
 
 const PARAGRAPH_NODE: NodeSpec = {
@@ -162,7 +163,8 @@ const HARD_BREAK_NODE: NodeSpec = {
   inline: true,
   group: 'inline',
   selectable: false,
-  parseDOM: [{ tag: 'br' }],
+  attrs: { hard: { default: true } },
+  parseDOM: [{ tag: 'br', getAttrs: () => ({ hard: true }) }],
   toDOM() {
     return ['br'];
   },

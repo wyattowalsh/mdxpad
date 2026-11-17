@@ -165,6 +165,8 @@ export class EmbeddingService {
 
     if (forceReindex) {
       store.clear();
+    } else if (excludePatterns.length > 0) {
+      store.removeWhere((filePath) => pathMatchesExclude(workspacePath, filePath, excludePatterns));
     }
 
     const files = await findIndexableFiles(workspacePath, excludePatterns);
@@ -219,7 +221,8 @@ export class EmbeddingService {
   async search(
     workspacePath: string,
     query: string,
-    topK = 10
+    topK = 10,
+    excludePatterns: readonly string[] = []
   ): Promise<{ filePath: string; content: string; score: number; chunkIndex: number }[]> {
     await this.assertAvailable();
     const store = await this.getStore(workspacePath);
@@ -237,7 +240,11 @@ export class EmbeddingService {
     if (!queryEmbedding) {
       return [];
     }
-    const results = store.search(queryEmbedding, topK);
+    const results = store.search(
+      queryEmbedding,
+      topK,
+      (filePath) => !pathMatchesExclude(workspacePath, filePath, excludePatterns)
+    );
 
     return results.map(({ entry, score }) => ({
       filePath: entry.filePath,

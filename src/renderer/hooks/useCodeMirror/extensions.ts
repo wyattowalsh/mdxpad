@@ -53,8 +53,28 @@ import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps
 import { codeExecutionExtension } from '../../lib/editor/extensions/code-execution';
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
+import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { openFileFromPath } from '@renderer/lib/open-file-from-path';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { predictNextEdit } from '../../lib/editor/next-edit-provider';
 import { nextEditPrediction } from '../../lib/editor/extensions/next-edit-prediction';
+
+function openImportedFile(specifier: string): void {
+  if (!specifier.startsWith('.')) {
+    return;
+  }
+  const current = useDocumentStore.getState().filePath;
+  if (!current) {
+    return;
+  }
+  try {
+    const resolved = fileURLToPath(new URL(specifier, pathToFileURL(current)));
+    void openFileFromPath(resolved);
+  } catch {
+    return;
+  }
+}
 
 /**
  * Extended configuration for MDX editor, building on shared EditorConfig.
@@ -254,7 +274,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   // Enhanced find & replace with regex
   extensions.push(regexSearchExtension());
   extensions.push(codeExecutionExtension());
-  extensions.push(goToDefinitionExtension());
+  extensions.push(goToDefinitionExtension(openImportedFile));
   extensions.push(nextEditPrediction(predictNextEdit));
 
   // MDX language support

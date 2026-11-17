@@ -23,22 +23,13 @@ function isInsideRoot(root: string, target: string): boolean {
   return relative.length === 0 || !leavesRoot(relative);
 }
 
-function existingAncestor(target: string): string {
-  let current = path.resolve(target);
-  let found: string | undefined;
-  while (found === undefined) {
-    try {
-      found = fs.realpathSync(current);
-    } catch {
-      const parent = path.dirname(current);
-      if (parent === current) {
-        found = path.resolve(target);
-      } else {
-        current = parent;
-      }
-    }
+function canonicalRoot(workspaceRoot: string): string {
+  const resolved = path.resolve(workspaceRoot);
+  try {
+    return fs.realpathSync(resolved);
+  } catch {
+    return resolved;
   }
-  return found;
 }
 
 /**
@@ -54,7 +45,7 @@ export function resolveWorkspaceFilePath(
     throw new WorkspacePathError('Workspace path is required');
   }
 
-  const root = existingAncestor(workspaceRoot);
+  const root = canonicalRoot(workspaceRoot);
   const candidate = path.resolve(root, requestedPath);
   const relative = path.relative(root, candidate);
   if (relative.length === 0) {

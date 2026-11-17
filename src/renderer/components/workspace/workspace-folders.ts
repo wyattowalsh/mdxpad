@@ -36,7 +36,10 @@ export function readExcludesForDirectory(directory: string): readonly string[] {
   for (const [key, value] of Object.entries(readExcludeStore())) {
     const separator = key.indexOf('\n');
     const folderPath = separator === -1 ? key : key.slice(separator + 1);
-    const coversDirectory = folderPath === directory || directory.startsWith(`${folderPath}/`);
+    const coversDirectory =
+      folderPath === directory ||
+      directory.startsWith(`${folderPath}/`) ||
+      folderPath.startsWith(`${directory}/`);
     if (!coversDirectory || !Array.isArray(value)) {
       continue;
     }

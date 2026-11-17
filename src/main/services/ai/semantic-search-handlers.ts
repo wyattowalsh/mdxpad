@@ -51,7 +51,8 @@ function handleSearch(embeddingService: EmbeddingService) {
       const results = await embeddingService.search(
         request.workspacePath,
         request.query,
-        request.topK
+        request.topK,
+        request.excludePatterns ?? []
       );
       return SemanticSearchResponseSchema.parse({ success: true, results });
     } catch (error) {

@@ -26,6 +26,7 @@ import {
   selectMinimapEnabled,
   selectFocusModeEnabled,
   selectWordWrapEnabled,
+  selectDistractionFreeEnabled,
 } from '@renderer/stores/editor-preferences-store';
 import type { EditorState, SelectionInfo } from '@shared/types/editor';
 import { cn } from '@shared/lib/utils';
@@ -139,6 +140,14 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
   const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
   const editorMode = useEditorModeStore(selectEditorMode);
+  const distractionFree = useEditorPreferencesStore(selectDistractionFreeEnabled);
+  useEffect(() => {
+    const dom = editorRef?.current?.dom;
+    if (!dom) {
+      return;
+    }
+    dom.classList.toggle('cm-distraction-free', distractionFree);
+  }, [distractionFree, editorRef]);
   const pluginThemesEnabled = useFeatureFlagsStore((state) => state.flags.plugin);
   const activeTheme = useSyncExternalStore(subscribeActiveTheme, getActiveTheme);
   const syntaxTheme = useMemo(

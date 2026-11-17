@@ -64,6 +64,21 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   list_item(state, node) {
+    const paragraph = node.firstChild;
+    const raw = paragraph?.textContent ?? '';
+    const task = /^(\[[ xX]\])\s+([\s\S]*)$/.exec(raw);
+    if (
+      task?.[1] &&
+      task[2] !== undefined &&
+      paragraph &&
+      node.childCount === 1 &&
+      paragraph.childCount === 1
+    ) {
+      state.write(`${task[1]} `);
+      state.text(task[2]);
+      state.closeBlock(node);
+      return;
+    }
     state.renderContent(node);
   },
 
@@ -74,8 +89,8 @@ const nodeSerializers: NodeSerializerMap = {
     state.write(`![${state.esc(alt)}](${state.esc(src)}${title ? ` "${state.esc(title)}"` : ''})`);
   },
 
-  hard_break(state) {
-    state.write('\\\n');
+  hard_break(state, node) {
+    state.write(node.attrs.hard === false ? '\n' : '\\\n');
   },
 
   text(state, node) {
@@ -202,5 +217,10 @@ export const mdxSerializer = new MarkdownSerializer(nodeSerializers, markSeriali
  * @returns Serialized Markdown/MDX string
  */
 export function serializeMdxContent(doc: ProseMirrorNode): string {
-  return mdxSerializer.serialize(doc);
+  const body = mdxSerializer.serialize(doc);
+  const frontmatter = typeof doc.attrs.frontmatter === 'string' ? doc.attrs.frontmatter : '';
+  if (frontmatter.length === 0) {
+    return body;
+  }
+  return frontmatter.endsWith('\n') ? `${frontmatter}${body}` : `${frontmatter}\n${body}`;
 }

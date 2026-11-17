@@ -15,7 +15,7 @@ import { keymap } from 'prosemirror-keymap';
 import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
-import { mdxParser } from '../../lib/editor/prosemirror-mdx-parser';
+import { parseMdxContent } from '../../lib/editor/prosemirror-mdx-parser';
 import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer';
 import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
 import type { ToolbarAction } from './WysiwygToolbar';
@@ -104,6 +104,14 @@ function computeActiveBlocks(state: EditorState): ActiveBlocks {
 // HOOKS
 // =============================================================================
 
+function documentFromMarkdown(content: string) {
+  const doc = parseMdxContent(content) ?? mdxSchema.nodes.doc.createAndFill();
+  if (!doc) {
+    throw new Error('Could not create a WYSIWYG document');
+  }
+  return doc;
+}
+
 function useEditorView(
   containerRef: React.RefObject<HTMLDivElement | null>,
   content: string,
@@ -116,7 +124,7 @@ function useEditorView(
     const container = containerRef.current;
     if (!container) return undefined;
 
-    const doc = mdxParser.parse(content);
+    const doc = documentFromMarkdown(content);
     const state = EditorState.create({
       doc,
       plugins: [createMdxKeymap(), keymap(baseKeymap)],
@@ -152,7 +160,7 @@ function useEditorView(
     const currentContent = serializeMdxContent(view.state.doc);
     if (currentContent === content) return;
 
-    const doc = mdxParser.parse(content);
+    const doc = documentFromMarkdown(content);
     const newState = EditorState.create({
       doc,
       plugins: view.state.plugins,

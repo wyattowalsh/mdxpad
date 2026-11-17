@@ -119,10 +119,24 @@ function isAllowedNavigationUrl(targetUrl: string): boolean {
 /**
  * Registers navigation/window-open allowlists per Electron security guidance.
  */
+function denyUntrustedNavigation(event: { preventDefault: () => void }, url: string): void {
+  if (isAllowedNavigationUrl(url)) {
+    return;
+  }
+  event.preventDefault();
+  console.warn('[Window] Blocked navigation to untrusted URL:', url);
+}
+
 function setupNavigationGuards(window: BrowserWindow): void {
   if (typeof window.webContents.setWindowOpenHandler === 'function') {
     window.webContents.setWindowOpenHandler(({ url }) => {
-      if (isAllowedNavigationUrl(url)) {
+      let protocol = '';
+      try {
+        protocol = new URL(url).protocol;
+      } catch {
+        protocol = '';
+      }
+      if (protocol !== 'file:' && isAllowedNavigationUrl(url)) {
         return { action: 'allow' };
       }
 
@@ -132,14 +146,13 @@ function setupNavigationGuards(window: BrowserWindow): void {
   }
 
   if (typeof window.webContents.on === 'function') {
-    window.webContents.on('will-navigate', (event, url) => {
-      if (isAllowedNavigationUrl(url)) {
-        return;
-      }
-
-      event.preventDefault();
-      console.warn('[Window] Blocked navigation to untrusted URL:', url);
-    });
+    const listen = window.webContents.on.bind(window.webContents) as (
+      eventName: 'will-navigate' | 'will-redirect' | 'will-frame-navigate',
+      listener: (event: { preventDefault: () => void }, url: string) => void
+    ) => void;
+    listen('will-navigate', denyUntrustedNavigation);
+    listen('will-redirect', denyUntrustedNavigation);
+    listen('will-frame-navigate', denyUntrustedNavigation);
   }
 }
 

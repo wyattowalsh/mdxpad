@@ -53,6 +53,16 @@ describe('resolveWorkspaceFilePath', () => {
     expect(() => resolveWorkspaceFilePath(root, 'alias.md')).toThrow(WorkspacePathError);
   });
 
+  it('keeps a missing workspace directory as the jail', async () => {
+    const parent = await makeTempDir();
+    const root = path.join(parent, 'gone');
+    await mkdir(root);
+    const { rm } = await import('node:fs/promises');
+    await rm(root, { recursive: true, force: true });
+
+    expect(resolveWorkspaceFilePath(root, 'note.md')).toBe(path.join(root, 'note.md'));
+  });
+
   it('keeps a missing nested path inside the workspace', async () => {
     const root = await makeTempDir();
 
