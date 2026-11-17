@@ -52,6 +52,9 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('**[docs](https://example.com)**')).toEqual([
       { text: 'docs', link: 'https://example.com', bold: true },
     ]);
+    expect(parseInlineFormatting('[**docs**](https://example.com)')).toEqual([
+      { text: 'docs', bold: true, link: 'https://example.com' },
+    ]);
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);

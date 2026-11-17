@@ -51,6 +51,21 @@ function getHeadingLevel(level: number): HeadingLevelValue {
   return HEADING_LEVEL_MAP[level] ?? HeadingLevel.HEADING_6;
 }
 
+function attachTarget(
+  segments: InlineSegment[],
+  label: string,
+  target: string,
+  kind: 'link' | 'image'
+): void {
+  const parts = label.length > 0 ? parseInlineFormatting(label) : [{ text: target }];
+  for (const segment of parts) {
+    const text = segment.text.length > 0 ? segment.text : target;
+    segments.push(
+      kind === 'link' ? { ...segment, text, link: target } : { ...segment, text, image: target }
+    );
+  }
+}
+
 function emphasize(
   segments: InlineSegment[],
   text: string,
@@ -97,8 +112,7 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
     if (image) {
       const alt = match[9] ?? '';
       const src = match[10] ?? '';
-      const path = linkDestination(src);
-      segments.push({ text: alt.length > 0 ? alt : path, image: path });
+      attachTarget(segments, alt, linkDestination(src), 'image');
     } else if (match[2] !== undefined) {
       emphasize(segments, match[2], { bold: true, italic: true });
     } else if (match[3] !== undefined) {
@@ -114,7 +128,7 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
     } else if (match[8] !== undefined) {
       emphasize(segments, match[8], { italic: true });
     } else if (match[9] !== undefined && match[10] !== undefined) {
-      segments.push({ text: match[9], link: linkDestination(match[10]) });
+      attachTarget(segments, match[9], linkDestination(match[10]), 'link');
     } else if (match[11] !== undefined) {
       emphasize(segments, match[11], { strike: true });
     }

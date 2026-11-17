@@ -24,6 +24,9 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('**[docs](https://example.com)**')).toBe(
       '<strong><a href="https://example.com">docs</a></strong>'
     );
+    expect(renderMarkdownInline('[**docs**](https://example.com)')).toBe(
+      '<a href="https://example.com"><strong>docs</strong></a>'
+    );
   });
 
   it('renders emphasis, code, and links', () => {

@@ -101,7 +101,8 @@ function convertInlineFormatting(raw: string): string {
 
 function latexImage(src: string, alt: string): string {
   if (/^https?:\/\//i.test(src)) {
-    return `\\href{${escapeLatex(src)}}{${escapeLatex(alt)}}`;
+    const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
+    return `\\href{${escapeLatex(src)}}{${label}}`;
   }
   const path = src.replaceAll('%', '\\%').replaceAll('}', '');
   return `\\includegraphics{${path}}`;
@@ -143,7 +144,7 @@ function formatProtected(raw: string): string {
     } else if (match[7] !== undefined || match[8] !== undefined) {
       result += `\\textit{${formatProtected(match[7] ?? match[8] ?? '')}}`;
     } else if (match[9] !== undefined && match[10] !== undefined) {
-      result += `\\href{${escapeLatex(linkDestination(match[10]))}}{${escapeLatex(match[9])}}`;
+      result += `\\href{${escapeLatex(linkDestination(match[10]))}}{${formatProtected(match[9])}}`;
     } else if (match[11] !== undefined) {
       result += `\\sout{${formatProtected(match[11])}}`;
     }

@@ -334,7 +334,7 @@ describe('LatexExporter', () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
       content:
-        '***both*** and ___too___ and **bold *inner* text** and **[docs](https://example.com)**',
+        '***both*** and ___too___ and **bold *inner* text** and **[docs](https://example.com)** and [**docs**](https://example.com)',
       outputPath: '/tmp/both.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
@@ -342,6 +342,7 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\textbf{\\textit{too}}');
     expect(written).toContain('\\textbf{bold \\textit{inner} text}');
     expect(written).toContain('\\textbf{\\href{https://example.com}{docs}}');
+    expect(written).toContain('\\href{https://example.com}{\\textbf{docs}}');
   });
 
   it('renders a task checkbox', async () => {
