@@ -29,12 +29,15 @@ export async function createModuleFromCode(
   code: string,
   options: CreateModuleFromCodeOptions = {}
 ): Promise<MDXModule> {
-  if (!options.forceBlobRuntime && (import.meta.env.VITEST || typeof URL.createObjectURL !== 'function')) {
+  if (
+    !options.forceBlobRuntime &&
+    (import.meta.env.VITEST || typeof URL.createObjectURL !== 'function')
+  ) {
     return createModuleFromCodeWithFunction(code);
   }
 
   const globalScope = globalThis as Record<string, unknown>;
-  const runtimeScopeKey = `__mdxpadPreviewRuntimeScope_${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
+  const runtimeScopeKey = `__mdxpadPreviewRuntimeScope_${globalThis.crypto.randomUUID()}`;
   const moduleSource = `
     const scope = globalThis[${JSON.stringify(runtimeScopeKey)}];
     function moduleFactory(jsxRuntime, components) {
@@ -59,7 +62,7 @@ export async function createModuleFromCode(
     return { default: module.default };
   } finally {
     URL.revokeObjectURL(blobUrl);
-    delete globalScope[runtimeScopeKey];
+    Reflect.deleteProperty(globalScope, runtimeScopeKey);
   }
 }
 

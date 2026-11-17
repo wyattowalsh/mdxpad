@@ -76,7 +76,7 @@ describe('CI hardening policy checks', () => {
       'utf8'
     );
 
-    writeFileSync(fakePnpmPath, '#!/bin/sh\nprintf "{\\\"advisories\\\":{}}\\n"\n', 'utf8');
+    writeFileSync(fakePnpmPath, '#!/bin/sh\nprintf "{\\"advisories\\":{}}\\n"\n', 'utf8');
     chmodSync(fakePnpmPath, 0o755);
 
     const result = spawnSync(

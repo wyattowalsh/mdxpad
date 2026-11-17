@@ -37,13 +37,8 @@ const VoidRequestSchema = z.void();
  * @param ipcMainInstance - The Electron IpcMain instance
  * @param service - The NotificationService instance
  */
-export function registerNotificationHandlers(
-  ipcMainInstance: IpcMain,
-  service: NotificationService,
-  window: BrowserWindow
-): void {
-  // Show notification handler
-  const handleShow = createValidatedHandler(
+function createNotificationHandlers(service: NotificationService) {
+  const show = createValidatedHandler(
     NotificationRequestSchema,
     async (args): Promise<NotificationResponse> => {
       const result = await service.show(args.title, args.body, {
@@ -60,8 +55,7 @@ export function registerNotificationHandlers(
     }
   );
 
-  // Check permission handler
-  const handleCheckPermission = createValidatedHandler(
+  const checkPermission = createValidatedHandler(
     VoidRequestSchema,
     (): Promise<PermissionCheckResponse> => {
       return Promise.resolve({
@@ -71,8 +65,7 @@ export function registerNotificationHandlers(
     }
   );
 
-  // Request permission handler
-  const handleRequestPermission = createValidatedHandler(
+  const requestPermission = createValidatedHandler(
     VoidRequestSchema,
     (): Promise<PermissionRequestResponse> => {
       return Promise.resolve({
@@ -81,17 +74,27 @@ export function registerNotificationHandlers(
     }
   );
 
+  return { show, checkPermission, requestPermission };
+}
+
+export function registerNotificationHandlers(
+  ipcMainInstance: IpcMain,
+  service: NotificationService,
+  window: BrowserWindow
+): void {
+  const handlers = createNotificationHandlers(service);
+
   registerAuthorizedIpcHandler(ipcMainInstance, window, NotificationChannels.SHOW, (_event, args) =>
-    handleShow(args)
+    handlers.show(args)
   );
   registerAuthorizedIpcHandler(ipcMainInstance, window, NotificationChannels.CHECK_PERMISSION, () =>
-    handleCheckPermission(undefined)
+    handlers.checkPermission(undefined)
   );
   registerAuthorizedIpcHandler(
     ipcMainInstance,
     window,
     NotificationChannels.REQUEST_PERMISSION,
-    () => handleRequestPermission(undefined)
+    () => handlers.requestPermission(undefined)
   );
 
   console.log('[NotificationHandlers] All notification handlers registered');

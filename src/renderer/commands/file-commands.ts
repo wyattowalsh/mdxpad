@@ -198,7 +198,7 @@ const newFileCommand: Command = {
   category: 'file',
   shortcut: { key: 'n', modifiers: ['Mod'] },
   icon: '📄',
-  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+  execute: (ctx: CommandContext): CommandResult => {
     // Dirty saved docs: keep existing confirm behavior
     if (ctx.document.filePath && ctx.document.isDirty && !checkDirtyState()) {
       return { ok: true };

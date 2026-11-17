@@ -42,7 +42,7 @@ describe('createModuleFromCode', () => {
       scopeKeys.set(
         id,
         'text' in blob && typeof blob.text === 'function'
-          ? blob.text().then((source) => source.match(/globalThis\["([^"]+)"\]/)?.[1] ?? '')
+          ? blob.text().then((source) => /globalThis\["([^"]+)"\]/.exec(source)?.[1] ?? '')
           : Promise.resolve('')
       );
       return (

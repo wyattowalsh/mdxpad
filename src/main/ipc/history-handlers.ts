@@ -33,66 +33,59 @@ import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
  * @param ipcMainInstance - The Electron IpcMain instance
  * @param service - The VersionHistoryService instance
  */
+function createHistoryHandlers(service: VersionHistoryService) {
+  return {
+    getHistory: createValidatedHandler(
+      VersionHistoryRequestSchema,
+      async (args): Promise<VersionHistoryResponse> => service.getHistory(args.filePath)
+    ),
+    getVersion: createValidatedHandler(
+      GetVersionRequestSchema,
+      async (args): Promise<GetVersionResponse> => service.getVersion(args.id, args.filePath)
+    ),
+    restoreVersion: createValidatedHandler(
+      RestoreVersionRequestSchema,
+      async (args): Promise<RestoreVersionResponse> =>
+        service.restoreVersion(args.id, args.filePath, args.createBackup)
+    ),
+    createSnapshot: createValidatedHandler(
+      CreateSnapshotRequestSchema,
+      async (args): Promise<CreateSnapshotResponse> =>
+        service.createSnapshot(args.filePath, args.label)
+    ),
+  };
+}
+
 export function registerHistoryHandlers(
   ipcMainInstance: IpcMain,
   service: VersionHistoryService,
   window: BrowserWindow
 ): void {
-  // Get history handler
-  const handleGetHistory = createValidatedHandler(
-    VersionHistoryRequestSchema,
-    async (args): Promise<VersionHistoryResponse> => {
-      return service.getHistory(args.filePath);
-    }
-  );
-
-  // Get version handler
-  const handleGetVersion = createValidatedHandler(
-    GetVersionRequestSchema,
-    async (args): Promise<GetVersionResponse> => {
-      return service.getVersion(args.id, args.filePath);
-    }
-  );
-
-  // Restore version handler
-  const handleRestoreVersion = createValidatedHandler(
-    RestoreVersionRequestSchema,
-    async (args): Promise<RestoreVersionResponse> => {
-      return service.restoreVersion(args.id, args.filePath, args.createBackup);
-    }
-  );
-
-  // Create snapshot handler
-  const handleCreateSnapshot = createValidatedHandler(
-    CreateSnapshotRequestSchema,
-    async (args): Promise<CreateSnapshotResponse> => {
-      return service.createSnapshot(args.filePath, args.label);
-    }
-  );
+  const handlers = createHistoryHandlers(service);
 
   registerAuthorizedIpcHandler(
     ipcMainInstance,
     window,
     HistoryChannels.GET_HISTORY,
-    (_event, args) => handleGetHistory(args)
+    (_event, args) => handlers.getHistory(args)
   );
   registerAuthorizedIpcHandler(
     ipcMainInstance,
     window,
     HistoryChannels.GET_VERSION,
-    (_event, args) => handleGetVersion(args)
+    (_event, args) => handlers.getVersion(args)
   );
   registerAuthorizedIpcHandler(
     ipcMainInstance,
     window,
     HistoryChannels.RESTORE_VERSION,
-    (_event, args) => handleRestoreVersion(args)
+    (_event, args) => handlers.restoreVersion(args)
   );
   registerAuthorizedIpcHandler(
     ipcMainInstance,
     window,
     HistoryChannels.CREATE_SNAPSHOT,
-    (_event, args) => handleCreateSnapshot(args)
+    (_event, args) => handlers.createSnapshot(args)
   );
 
   console.log('[HistoryHandlers] All history handlers registered');
