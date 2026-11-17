@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { renderMarkdownInline } from './markdown-inline-html';
+import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 interface EpubChapter {
@@ -63,11 +63,35 @@ function closeEpubList(htmlLines: string[], list: EpubListKind | null): null {
   return null;
 }
 
-function appendEpubLine(
-  htmlLines: string[],
-  line: string,
-  state: { inCode: boolean; list: EpubListKind | null }
-): void {
+interface EpubLineState {
+  inCode: boolean;
+  list: EpubListKind | null;
+  displayMath: string[] | null;
+}
+
+function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLineState): boolean {
+  if (state.inCode) {
+    return false;
+  }
+  const trimmed = line.trim();
+  if (trimmed === '$$') {
+    state.list = closeEpubList(htmlLines, state.list);
+    if (state.displayMath) {
+      htmlLines.push(renderDisplayMathBlock(state.displayMath));
+      state.displayMath = null;
+    } else {
+      state.displayMath = [];
+    }
+    return true;
+  }
+  if (state.displayMath) {
+    state.displayMath.push(line);
+    return true;
+  }
+  return false;
+}
+
+function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
   const trimmed = line.trim();
   if (trimmed.startsWith('```')) {
     state.list = closeEpubList(htmlLines, state.list);
@@ -77,6 +101,9 @@ function appendEpubLine(
   }
   if (state.inCode) {
     htmlLines.push(escapeHtml(line));
+    return;
+  }
+  if (consumeEpubDisplayMath(htmlLines, line, state)) {
     return;
   }
   const headingMatch = /^(#{3,6})\s+(.+)$/.exec(trimmed);
@@ -108,9 +135,12 @@ function appendEpubLine(
 
 function chapterToHtml(chapter: EpubChapter): string {
   const htmlLines: string[] = [];
-  const state = { inCode: false, list: null as EpubListKind | null };
+  const state: EpubLineState = { inCode: false, list: null, displayMath: null };
   for (const line of chapter.content.split('\n')) {
     appendEpubLine(htmlLines, line, state);
+  }
+  if (state.displayMath) {
+    htmlLines.push(renderDisplayMathBlock(state.displayMath));
   }
   state.list = closeEpubList(htmlLines, state.list);
   if (state.inCode) {

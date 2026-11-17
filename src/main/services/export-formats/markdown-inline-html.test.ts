@@ -12,6 +12,13 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('renders a formula and leaves a price as text', () => {
+    const formula = renderMarkdownInline('See $x^2$ and $5 and $10');
+    expect(formula).toContain('<math');
+    expect(formula).toContain('$5 and $10');
+    expect(formula).not.toContain('$x^2$');
+  });
+
   it('leaves snake_case plain and escapes HTML', () => {
     expect(renderMarkdownInline('use snake_case_name')).toBe('use snake_case_name');
     expect(renderMarkdownInline('a < b & c')).toBe('a &lt; b &amp; c');

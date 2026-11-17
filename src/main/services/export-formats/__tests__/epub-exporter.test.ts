@@ -133,6 +133,21 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('**bold**');
   });
 
+  it('renders a formula in chapter HTML', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: 'See $a + b$.\n$$\nx^2\n$$',
+      outputPath: '/tmp/math.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<math');
+    expect(html).toContain('x^2');
+    expect(html).not.toContain('$a + b$');
+  });
+
   it('handles empty content gracefully', async () => {
     const result = await exporter.export({
       content: '',

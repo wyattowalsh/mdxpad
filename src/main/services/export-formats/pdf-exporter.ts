@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { renderMarkdownInline } from './markdown-inline-html';
+import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 function escapeHtml(value: string): string {
@@ -18,6 +18,7 @@ interface PdfBuild {
   paragraph: string[];
   inCode: boolean;
   list: HtmlListKind | null;
+  displayMath: string[] | null;
 }
 
 function flushPdfParagraph(build: PdfBuild): void {
@@ -46,9 +47,40 @@ function continuePdfList(build: PdfBuild, next: HtmlListKind): void {
   build.list = next;
 }
 
+function finishDisplayMath(build: PdfBuild): void {
+  if (!build.displayMath) {
+    return;
+  }
+  build.parts.push(renderDisplayMathBlock(build.displayMath));
+  build.displayMath = null;
+}
+
+function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
+  if (build.inCode) {
+    return false;
+  }
+  const trimmed = line.trim();
+  if (trimmed === '$$') {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    if (build.displayMath) {
+      finishDisplayMath(build);
+    } else {
+      build.displayMath = [];
+    }
+    return true;
+  }
+  if (build.displayMath) {
+    build.displayMath.push(line);
+    return true;
+  }
+  return false;
+}
+
 function appendPdfLine(build: PdfBuild, line: string): void {
   const trimmed = line.trim();
   if (trimmed.startsWith('```')) {
+    finishDisplayMath(build);
     flushPdfParagraph(build);
     closePdfList(build);
     build.parts.push(build.inCode ? '</code></pre>' : '<pre><code>');
@@ -57,6 +89,9 @@ function appendPdfLine(build: PdfBuild, line: string): void {
   }
   if (build.inCode) {
     build.parts.push(escapeHtml(line));
+    return;
+  }
+  if (consumePdfDisplayMath(build, line)) {
     return;
   }
   const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
@@ -85,10 +120,17 @@ function appendPdfLine(build: PdfBuild, line: string): void {
 }
 
 export function markdownToPdfHtml(content: string): string {
-  const build: PdfBuild = { parts: [], paragraph: [], inCode: false, list: null };
+  const build: PdfBuild = {
+    parts: [],
+    paragraph: [],
+    inCode: false,
+    list: null,
+    displayMath: null,
+  };
   for (const line of content.split('\n')) {
     appendPdfLine(build, line);
   }
+  finishDisplayMath(build);
   flushPdfParagraph(build);
   closePdfList(build);
   if (build.inCode) {

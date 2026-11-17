@@ -83,6 +83,18 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<ul><li>');
   });
 
+  it('renders a formula and a display block', async () => {
+    await exporter.export({
+      content: 'See $x^2$.\n$$\nE = mc^2\n$$',
+      outputPath: '/tmp/math.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<math');
+    expect(html).toContain('E = mc^2');
+    expect(html).not.toContain('$x^2$');
+  });
+
   it('writes PDF buffer to output path', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {
