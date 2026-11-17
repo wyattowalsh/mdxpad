@@ -88,6 +88,11 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);
+    expect(parseInlineFormatting('Use `` a`b `` here')).toEqual([
+      { text: 'Use ' },
+      { text: 'a`b', code: true },
+      { text: ' here' },
+    ]);
     expect(parseInlineFormatting('this is _italic_ text')).toEqual([
       { text: 'this is ' },
       { text: 'italic', italic: true },

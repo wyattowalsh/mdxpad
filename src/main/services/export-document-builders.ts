@@ -20,7 +20,7 @@ import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
 import { HARD_BREAK, reopenInlineMarks } from './export-formats/markdown-marks';
 import { readSourceLine } from './export-formats/markdown-paragraph';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
-import { protectEscapes, restoreEscapes } from './export-formats/markdown-escape';
+import { protectEscapes, restoreEscapes, splitCodeSpans } from './export-formats/markdown-escape';
 import { MARKDOWN_LINK_INSIDE, linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
@@ -187,10 +187,34 @@ function plainListFromSource(source: string): string {
   return `${indent}${marker} ${plain}`;
 }
 
+const PLAIN_CODE = '\uE018';
+
+function shieldPlainCode(value: string): { text: string; spans: string[] } {
+  const spans: string[] = [];
+  let text = '';
+  for (const part of splitCodeSpans(value)) {
+    if (!part.code) {
+      text += part.text;
+      continue;
+    }
+    text += `${PLAIN_CODE}${spans.length}${PLAIN_CODE}`;
+    spans.push(decodeHtmlEntities(part.text));
+  }
+  return { text, spans };
+}
+
+function revealPlainCode(value: string, spans: readonly string[]): string {
+  return value.replaceAll(
+    new RegExp(`${PLAIN_CODE}(\\d+)${PLAIN_CODE}`, 'g'),
+    (_match, index: string) => spans[Number(index)] ?? ''
+  );
+}
+
 function plainInline(text: string): string {
   const escaped = protectEscapes(text);
+  const coded = shieldPlainCode(escaped.text);
   const formatted = decodeHtmlEntities(
-    escaped.text
+    coded.text
       .replace(
         new RegExp(`!\\[([^\\]]*)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
         (_match, alt: string, src: string) => {
@@ -204,13 +228,12 @@ function plainInline(text: string): string {
           return `${label} (${linkDestination(href)})`;
         }
       )
-      .replace(/`([^`]+)`/g, '$1')
       .replace(/~~(.+?)~~/g, '$1')
       .replace(/\*\*(.+?)\*\*/g, '$1')
       .replace(/(?<![\w])_(.+?)_(?![\w])/g, '$1')
       .replace(/\*(.+?)\*/g, '$1')
   );
-  return restoreEscapes(formatted, escaped.chars, (char) => char);
+  return restoreEscapes(revealPlainCode(formatted, coded.spans), escaped.chars, (char) => char);
 }
 
 function stripQuoteMarkers(line: string): string {

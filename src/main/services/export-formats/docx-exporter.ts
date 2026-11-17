@@ -34,7 +34,7 @@ import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
 import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
-import { protectEscapes, restoreEscapes } from './markdown-escape';
+import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
 import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
 import {
@@ -142,6 +142,23 @@ const INLINE_PATTERN = new RegExp(
 );
 
 export function parseInlineFormatting(text: string): InlineSegment[] {
+  const segments: InlineSegment[] = [];
+  for (const part of splitCodeSpans(text)) {
+    if (part.code) {
+      segments.push({ text: part.text, code: true });
+      continue;
+    }
+    if (part.text.length > 0) {
+      segments.push(...parseInlineMarks(part.text));
+    }
+  }
+  if (segments.length === 0) {
+    segments.push({ text });
+  }
+  return segments;
+}
+
+function parseInlineMarks(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   const regex = new RegExp(INLINE_PATTERN.source, 'g');
   let lastIndex = 0;

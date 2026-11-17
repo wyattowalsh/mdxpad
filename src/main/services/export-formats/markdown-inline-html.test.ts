@@ -47,6 +47,13 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a backtick inside a longer code span', () => {
+    expect(renderMarkdownInline('Use `` a`b `` here')).toBe('Use <code>a`b</code> here');
+    expect(renderMarkdownInline('`` ` ``')).toBe('<code>`</code>');
+    expect(renderMarkdownInline('`a < b`')).toBe('<code>a &lt; b</code>');
+    expect(renderMarkdownInline('`` use \\* star ``')).toBe('<code>use \\* star</code>');
+  });
+
   it('renders emphasis, code, and links', () => {
     expect(renderMarkdownInline('**bold** and _italic_ and `code` and ~~gone~~')).toBe(
       '<strong>bold</strong> and <em>italic</em> and <code>code</code> and <del>gone</del>'
@@ -123,6 +130,6 @@ describe('renderMarkdownInline', () => {
   it('keeps an inline HTML tag and escapes one inside code', () => {
     expect(renderMarkdownInline('Say <em>hello</em><br>')).toBe('Say <em>hello</em><br>');
     expect(renderMarkdownInline('<span title="a>b">Hi</span>')).toBe('<span title="a>b">Hi</span>');
-    expect(renderMarkdownInline('` <em>x</em> `')).toBe('<code> &lt;em&gt;x&lt;/em&gt; </code>');
+    expect(renderMarkdownInline('` <em>x</em> `')).toBe('<code>&lt;em&gt;x&lt;/em&gt;</code>');
   });
 });

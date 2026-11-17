@@ -72,6 +72,11 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**');
   });
 
+  it('keeps a backtick inside a longer code span', () => {
+    const pdf = buildPdfDocument('Use `` a`b `` here');
+    expect(pdf.content).toContain('(Use a`b here) Tj');
+  });
+
   it('keeps text after a nested list with its item', () => {
     const tight = buildPdfDocument('- parent\n  - child\n  more\n');
     expect(tight.content).toContain('(  - child more) Tj');

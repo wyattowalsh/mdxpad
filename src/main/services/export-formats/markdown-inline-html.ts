@@ -2,7 +2,7 @@ import katex from 'katex';
 
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
-import { protectEscapes, restoreEscapes } from './markdown-escape';
+import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
 import { findMarkdownTarget, linkDestination, linkTitle, type MarkdownTarget } from './markdown-link';
 
 function escapeHtml(value: string): string {
@@ -107,16 +107,15 @@ function protectInlineHtml(raw: string): { text: string; tags: string[] } {
   const tags: string[] = [];
   let text = '';
   let index = 0;
-  let inCode = false;
   while (index < raw.length) {
     const char = raw[index] ?? '';
     if (char === '`') {
-      inCode = !inCode;
-      text += char;
-      index += 1;
+      const span = readCodeSpan(raw, index);
+      text += span ? raw.slice(index, span.end) : char;
+      index = span ? span.end : index + 1;
       continue;
     }
-    const end = !inCode && char === '<' ? inlineHtmlEnd(raw, index) : -1;
+    const end = char === '<' ? inlineHtmlEnd(raw, index) : -1;
     if (end !== -1) {
       tags.push(raw.slice(index, end));
       text += `${HTML_MARK}${tags.length - 1}${HTML_MARK}`;
@@ -149,7 +148,7 @@ function restoreAutolinks(
 }
 
 const INLINE_PATTERN =
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|~~(.+?)~~)';
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|~~(.+?)~~)';
 
 function escapeText(value: string): string {
   return escapeHtml(decodeHtmlEntities(value));
@@ -172,14 +171,11 @@ function renderRichMatch(match: RegExpMatchArray): string {
   if (match[4] !== undefined || match[5] !== undefined) {
     return `<strong>${renderRich(match[4] ?? match[5] ?? '')}</strong>`;
   }
-  if (match[6] !== undefined) {
-    return `<code>${escapeHtml(match[6])}</code>`;
+  if (match[6] !== undefined || match[7] !== undefined) {
+    return `<em>${renderRich(match[6] ?? match[7] ?? '')}</em>`;
   }
-  if (match[7] !== undefined || match[8] !== undefined) {
-    return `<em>${renderRich(match[7] ?? match[8] ?? '')}</em>`;
-  }
-  if (match[9] !== undefined) {
-    return `<del>${renderRich(match[9])}</del>`;
+  if (match[8] !== undefined) {
+    return `<del>${renderRich(match[8])}</del>`;
   }
   return '';
 }
@@ -200,7 +196,16 @@ function renderRich(raw: string): string {
     marks.lastIndex = cursor;
     const match = marks.exec(raw);
     const target = findMarkdownTarget(raw, cursor);
+    const code = findCodeSpan(raw, cursor);
     const markAt = match?.index ?? raw.length;
+    const targetAt = target?.start ?? raw.length;
+    const codeAt = code?.start ?? raw.length;
+    if (code && codeAt <= markAt && codeAt <= targetAt) {
+      result += escapeText(raw.slice(cursor, code.start));
+      result += `<code>${escapeHtml(code.text)}</code>`;
+      cursor = code.end;
+      continue;
+    }
     if (target && target.start < markAt) {
       result += escapeText(raw.slice(cursor, target.start));
       result += renderTarget(target);
@@ -248,19 +253,13 @@ export function renderMarkdownInline(value: string): string {
   let html = '';
   let index = 0;
   let textStart = 0;
-  let inCode = false;
   while (index < value.length) {
     if (value[index] === '`') {
-      inCode = !inCode;
-      index += 1;
+      const span = readCodeSpan(value, index);
+      index = span ? span.end : index + 1;
       continue;
     }
-    const delimiter =
-      !inCode && value.startsWith('$$', index)
-        ? '$$'
-        : !inCode && value[index] === '$'
-          ? '$'
-          : null;
+    const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : null;
     const end = delimiter === null ? -1 : takeMath(value, index, delimiter);
     if (delimiter !== null && end !== -1) {
       html += renderText(value.slice(textStart, index));

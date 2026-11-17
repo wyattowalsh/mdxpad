@@ -217,6 +217,16 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item item continued');
   });
 
+  it('keeps a backtick inside a longer code span', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Use `` a`b `` here',
+      outputPath: '/tmp/code-span.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\texttt{a`b}');
+  });
+
   it('starts an ordered list at its written number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

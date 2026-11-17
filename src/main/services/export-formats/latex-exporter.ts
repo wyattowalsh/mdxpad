@@ -14,7 +14,7 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
-import { protectEscapes, restoreEscapes } from './markdown-escape';
+import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
 import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
 import {
@@ -171,6 +171,14 @@ const INLINE_PATTERN =
   ')\\)|~~(.+?)~~)';
 
 function formatProtected(raw: string): string {
+  let result = '';
+  for (const part of splitCodeSpans(raw)) {
+    result += part.code ? wrapLatex('texttt', part.text) : formatInlineMarks(part.text);
+  }
+  return result;
+}
+
+function formatInlineMarks(raw: string): string {
   let result = '';
   let cursor = 0;
   for (const match of raw.matchAll(new RegExp(INLINE_PATTERN, 'g'))) {

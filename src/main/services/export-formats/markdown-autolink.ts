@@ -1,3 +1,5 @@
+import { readCodeSpan } from './markdown-escape';
+
 const AUTOLINK_MARK = '\uE010';
 
 export interface Autolink {
@@ -124,26 +126,24 @@ export function protectAutolinks(raw: string): ProtectedAutolinks {
   const links: Autolink[] = [];
   let text = '';
   let index = 0;
-  let inCode = false;
   while (index < raw.length) {
     if (raw[index] === '`') {
-      inCode = !inCode;
-      text += '`';
-      index += 1;
+      const span = readCodeSpan(raw, index);
+      text += span ? raw.slice(index, span.end) : '`';
+      index = span ? span.end : index + 1;
       continue;
     }
-    const destinationEnd = inCode ? null : linkDestinationEnd(raw, index);
+    const destinationEnd = linkDestinationEnd(raw, index);
     if (destinationEnd !== null) {
       text += raw.slice(index, destinationEnd);
       index = destinationEnd;
       continue;
     }
-    const found = inCode
-      ? null
-      : (readAngleAutolink(raw, index) ??
-        readBareAutolink(raw, index) ??
-        readWwwAutolink(raw, index) ??
-        readEmailAutolink(raw, index));
+    const found =
+      readAngleAutolink(raw, index) ??
+      readBareAutolink(raw, index) ??
+      readWwwAutolink(raw, index) ??
+      readEmailAutolink(raw, index);
     if (found) {
       text += `${AUTOLINK_MARK}${links.length}${AUTOLINK_MARK}`;
       links.push({ href: found.href, text: found.text });
