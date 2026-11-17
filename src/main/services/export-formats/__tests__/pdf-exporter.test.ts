@@ -598,6 +598,19 @@ describe('PdfExporter', () => {
     expect(html).toContain('<input type="checkbox" disabled />');
     expect(html).toContain('done');
     expect(html).not.toContain('[x]');
+    const loose = await exporter.export({
+      content: '- [ ] one\n\n- [x] two\n',
+      outputPath: '/tmp/loose-tasks.pdf',
+    });
+    expect(loose.ok).toBe(true);
+    const looseUrl = mockLoadURL.mock.calls.at(-1)?.[0];
+    const looseHtml = decodeURIComponent(
+      String(looseUrl).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(looseHtml).toContain('<li><p><input type="checkbox" disabled /> one</p></li>');
+    expect(looseHtml).toContain(
+      '<li><p><input type="checkbox" disabled checked /> two</p></li>'
+    );
   });
 
   it('renders a markdown table', async () => {

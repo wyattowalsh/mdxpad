@@ -117,6 +117,10 @@ function isListOpenTag(part: string): boolean {
   return part === '<ul>' || part === '<ol>' || part.startsWith('<ol ');
 }
 
+function isBlockItemHtml(html: string): boolean {
+  return /^<(?:h[1-6]|p|ul|ol|pre|blockquote|table|div|hr)\b/.test(html.trimStart());
+}
+
 function wrapLooseItem(parts: string[], index: number): void {
   const part = parts[index] ?? '';
   if (!part.startsWith('<li>') || part.includes('<p>')) {
@@ -124,7 +128,7 @@ function wrapLooseItem(parts: string[], index: number): void {
   }
   const closed = part.endsWith('</li>');
   const inner = closed ? part.slice('<li>'.length, -'</li>'.length) : part.slice('<li>'.length);
-  if (inner.length === 0 || inner.trimStart().startsWith('<')) {
+  if (inner.length === 0 || isBlockItemHtml(inner)) {
     return;
   }
   const wrapped = `<p>${inner}</p>`;
@@ -207,6 +211,8 @@ export function pushHtmlListItem(
   }
   const frame = stack[stack.length - 1];
   const html =
-    frame?.loose && itemHtml.length > 0 && !itemHtml.startsWith('<') ? `<p>${itemHtml}</p>` : itemHtml;
+    frame?.loose && itemHtml.length > 0 && !isBlockItemHtml(itemHtml)
+      ? `<p>${itemHtml}</p>`
+      : itemHtml;
   parts.push(`<li>${html}`);
 }
