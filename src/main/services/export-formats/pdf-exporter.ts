@@ -11,6 +11,8 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
+  appendHtmlListText,
+  isListContinuation,
   parseListItem,
   pushHtmlListItem,
   type HtmlListFrame,
@@ -227,6 +229,13 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
   if (item) {
     flushPdfParagraph(build);
     pushHtmlListItem(build.parts, build.lists, item, listItemHtml(item.text, renderMarkdownInline));
+    return;
+  }
+  if (
+    build.lists.length > 0 &&
+    isListContinuation(raw) &&
+    appendHtmlListText(build.parts, renderMarkdownInline(raw.trim()))
+  ) {
     return;
   }
   closePdfList(build);

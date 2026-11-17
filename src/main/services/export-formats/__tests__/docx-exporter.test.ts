@@ -375,6 +375,24 @@ describe('DocxExporter', () => {
     );
   });
 
+  it('keeps a wrapped list item together', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n  continued',
+      outputPath: '/tmp/list-wrap.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    expect(extracted.stdout.toString()).toContain('item continued');
+  });
+
   it('keeps a bold link bold', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

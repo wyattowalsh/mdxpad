@@ -78,6 +78,16 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{itemize}');
   });
 
+  it('keeps a wrapped list item on the item line', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n  continued',
+      outputPath: '/tmp/list-wrap.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\item item continued');
+  });
+
   it('starts an ordered list at its written number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

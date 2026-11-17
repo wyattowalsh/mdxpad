@@ -155,6 +155,17 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('keeps a wrapped list item together', async () => {
+    await exporter.export({
+      content: '- item\n  continued\n\nAfter',
+      outputPath: '/tmp/list-wrap.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>item continued</li>');
+    expect(html).toContain('After');
+  });
+
   it('keeps a wrapped quote line inside the quote', async () => {
     await exporter.export({
       content: '> Keep this\nline too.\n\nAfter',

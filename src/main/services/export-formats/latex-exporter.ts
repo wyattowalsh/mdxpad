@@ -10,7 +10,7 @@ import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
-import { parseListItem, type MarkdownListItem } from './markdown-list';
+import { isListContinuation, parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -326,6 +326,13 @@ function processMarkdownLine(raw: string, output: string[], listState: ListState
 
   if (processListItem(raw, output, listState)) {
     return;
+  }
+  if (listState.stack.length > 0 && isListContinuation(raw)) {
+    const last = output[output.length - 1];
+    if (last?.includes('\\item ')) {
+      output[output.length - 1] = `${last} ${convertInlineFormatting(raw.trim())}`;
+      return;
+    }
   }
 
   const formatted = convertInlineFormatting(trimmed);

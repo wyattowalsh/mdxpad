@@ -26,7 +26,7 @@ import { isLazyQuoteLine, quoteBody, quoteLineDepth } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
-import { parseListItem, type MarkdownListItem } from './markdown-list';
+import { isListContinuation, parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -364,6 +364,7 @@ interface DocxParse {
   displayLines: string[] | null;
   tableLines: string[];
   quoteLines: string[];
+  openListItem: MarkdownListItem | null;
 }
 
 function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
@@ -416,7 +417,32 @@ function takeDocxSetext(parse: DocxParse, line: string): boolean {
   return true;
 }
 
+function takeDocxList(
+  parse: DocxParse,
+  line: string,
+  openListItem: MarkdownListItem | null
+): boolean {
+  const source = readSourceLine(line);
+  const item = source.text.length > 0 && !isThematicBreak(source.text) ? parseListItem(line) : null;
+  if (item) {
+    flushPendingParagraph(parse);
+    parse.openListItem = item;
+    parse.blocks.push(listParagraph(item));
+    return true;
+  }
+  if (openListItem && isListContinuation(line)) {
+    const combined = { ...openListItem, text: `${openListItem.text} ${line.trim()}` };
+    parse.openListItem = combined;
+    parse.blocks.pop();
+    parse.blocks.push(listParagraph(combined));
+    return true;
+  }
+  return false;
+}
+
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
+  const openListItem = parse.openListItem;
+  parse.openListItem = null;
   const trimmed = line.trim();
   const structural =
     trimmed === '$$' ||
@@ -444,10 +470,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     return;
   }
   const source = readSourceLine(line);
-  const item = source.text.length > 0 && !isThematicBreak(source.text) ? parseListItem(line) : null;
-  if (item) {
-    flushPendingParagraph(parse);
-    parse.blocks.push(listParagraph(item));
+  if (takeDocxList(parse, line, openListItem)) {
     return;
   }
   if (source.text === '') {
@@ -497,6 +520,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     displayLines: null,
     tableLines: [],
     quoteLines: [],
+    openListItem: null,
   };
   let fence: string | null = null;
   const codeLines: string[] = [];

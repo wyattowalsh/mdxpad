@@ -11,6 +11,8 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
+  appendHtmlListText,
+  isListContinuation,
   parseListItem,
   pushHtmlListItem,
   type HtmlListFrame,
@@ -263,6 +265,13 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
   if (item) {
     flushEpubParagraph(htmlLines, state);
     pushHtmlListItem(htmlLines, state.lists, item, listItemHtml(item.text, renderMarkdownInline));
+    return;
+  }
+  if (
+    state.lists.length > 0 &&
+    isListContinuation(raw) &&
+    appendHtmlListText(htmlLines, renderMarkdownInline(raw.trim()))
+  ) {
     return;
   }
   closeHtmlLists(htmlLines, state.lists);

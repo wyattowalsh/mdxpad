@@ -8,6 +8,26 @@ export interface MarkdownListItem {
 const LIST_ITEM = /^( *)([-*+]|\d+\.)[ \t]+(.*)$/;
 
 /** Read a list item, using two spaces of indent for each nested level. */
+/** An indented line that continues the open list item, such as a wrapped sentence. */
+export function isListContinuation(line: string): boolean {
+  const expanded = line.replaceAll('\t', '    ');
+  if (!/^ {2,}\S/.test(expanded)) {
+    return false;
+  }
+  return parseListItem(expanded) === null;
+}
+
+export function appendHtmlListText(parts: string[], html: string): boolean {
+  const index = parts.length - 1;
+  const last = parts[index];
+  if (last === undefined || !last.startsWith('<li>') || !last.endsWith('</li>')) {
+    return false;
+  }
+  const inner = last.slice('<li>'.length, -'</li>'.length);
+  parts[index] = `<li>${inner} ${html}</li>`;
+  return true;
+}
+
 export function parseListItem(line: string): MarkdownListItem | null {
   const match = LIST_ITEM.exec(line.replaceAll('\t', '    '));
   if (!match) {
