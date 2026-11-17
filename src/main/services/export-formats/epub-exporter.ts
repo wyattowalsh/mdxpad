@@ -80,6 +80,7 @@ interface EpubLineState {
   tableLines: string[];
   quoteLines: string[];
   paragraph: SourceLine[];
+  listBreak: boolean;
 }
 
 function flushEpubParagraph(htmlLines: string[], state: EpubLineState): void {
@@ -236,6 +237,27 @@ function takeEpubSetext(htmlLines: string[], raw: string, state: EpubLineState):
   return true;
 }
 
+function takeEpubListBreak(htmlLines: string[], raw: string, state: EpubLineState): boolean {
+  const trimmed = raw.trim();
+  if (trimmed === '') {
+    flushEpubParagraph(htmlLines, state);
+    if (state.lists.length > 0 && !state.listBreak) {
+      state.listBreak = true;
+    } else {
+      closeHtmlLists(htmlLines, state.lists);
+      state.listBreak = false;
+      htmlLines.push('');
+    }
+    return true;
+  }
+  if (state.listBreak && parseListItem(raw) === null && !isListContinuation(raw)) {
+    closeHtmlLists(htmlLines, state.lists);
+    htmlLines.push('');
+  }
+  state.listBreak = false;
+  return false;
+}
+
 function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState): void {
   const trimmed = raw.trim();
   if (takeEpubSetext(htmlLines, raw, state)) {
@@ -255,10 +277,7 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
     htmlLines.push(`<h${level}>${renderMarkdownInline(headingMatch[2] ?? '')}</h${level}>`);
     return;
   }
-  if (trimmed === '') {
-    flushEpubParagraph(htmlLines, state);
-    closeHtmlLists(htmlLines, state.lists);
-    htmlLines.push('');
+  if (takeEpubListBreak(htmlLines, raw, state)) {
     return;
   }
   const item = parseListItem(raw);
@@ -283,6 +302,7 @@ function chapterToHtml(chapter: EpubChapter): string {
   const state: EpubLineState = {
     fence: null,
     lists: [],
+    listBreak: false,
     displayMath: null,
     tableLines: [],
     quoteLines: [],

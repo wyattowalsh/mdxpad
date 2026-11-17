@@ -365,6 +365,7 @@ interface DocxParse {
   tableLines: string[];
   quoteLines: string[];
   openListItem: MarkdownListItem | null;
+  listBreak: boolean;
 }
 
 function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
@@ -440,6 +441,16 @@ function takeDocxList(
   return false;
 }
 
+function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | null): void {
+  flushPendingParagraph(parse);
+  if (openListItem && !parse.listBreak) {
+    parse.openListItem = openListItem;
+    parse.listBreak = true;
+    return;
+  }
+  parse.listBreak = false;
+}
+
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
   const openListItem = parse.openListItem;
   parse.openListItem = null;
@@ -474,9 +485,10 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     return;
   }
   if (source.text === '') {
-    flushPendingParagraph(parse);
+    keepDocxListBreak(parse, openListItem);
     return;
   }
+  parse.listBreak = false;
   const special = parseLineToParagraph(source.text);
   if (special) {
     flushPendingParagraph(parse);
@@ -521,6 +533,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     tableLines: [],
     quoteLines: [],
     openListItem: null,
+    listBreak: false,
   };
   let fence: string | null = null;
   const codeLines: string[] = [];

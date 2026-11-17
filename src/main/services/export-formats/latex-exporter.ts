@@ -183,6 +183,7 @@ interface LatexListFrame {
 
 interface ListState {
   stack: LatexListFrame[];
+  break: boolean;
 }
 
 function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
@@ -305,10 +306,19 @@ function processMarkdownLine(raw: string, output: string[], listState: ListState
   const source = readSourceLine(raw);
   const trimmed = source.text;
   if (trimmed === '') {
-    resetListState(output, listState);
+    if (listState.stack.length > 0 && !listState.break) {
+      listState.break = true;
+    } else {
+      resetListState(output, listState);
+      listState.break = false;
+    }
     output.push('');
     return;
   }
+  if (listState.break && parseListItem(raw) === null && !isListContinuation(raw)) {
+    resetListState(output, listState);
+  }
+  listState.break = false;
 
   const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmed);
   if (headingMatch) {
@@ -443,7 +453,7 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: { stack: [] },
+    listState: { stack: [], break: false },
   };
 
   for (const line of expandLinkReferences(content).split('\n')) {

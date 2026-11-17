@@ -1,4 +1,33 @@
+import { parseListItem } from './markdown-list';
+
 const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
+
+function leadingSpaces(line: string): number {
+  return /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+}
+
+function nextListColumn(current: number | null, line: string): number | null {
+  const column = listContentColumn(line);
+  if (column !== null) {
+    return column;
+  }
+  if (line.trim().length === 0 || (current !== null && leadingSpaces(line) >= current)) {
+    return current;
+  }
+  return null;
+}
+
+function listContentColumn(line: string): number | null {
+  if (parseListItem(line) === null) {
+    return null;
+  }
+  const expanded = line.replaceAll('\t', '    ');
+  const match = /^( *)([-*+]|\d+\.)[ \t]+/.exec(expanded);
+  if (!match) {
+    return null;
+  }
+  return (match[1]?.length ?? 0) + (match[2]?.length ?? 1) + 1;
+}
 
 /** The opening marker of a backtick or tilde fence, such as ` ``` ` or `~~~`. */
 export function openingFence(line: string): string | null {
@@ -40,6 +69,7 @@ export function fenceIndentedCode(content: string): string {
   const pendingBlanks: string[] = [];
   let fence: string | null = null;
   let inIndented = false;
+  let listColumn: number | null = null;
   for (const line of content.split('\n')) {
     const next = advanceFence(line, fence);
     if (fence || next) {
@@ -64,11 +94,17 @@ export function fenceIndentedCode(content: string): string {
     }
     const previousBlank = output.length === 0 || (output[output.length - 1] ?? '').trim() === '';
     if (code !== null && previousBlank) {
+      if (listColumn !== null && leadingSpaces(line) < listColumn + 4) {
+        output.push(...pendingBlanks.splice(0), line);
+        continue;
+      }
+      listColumn = null;
       output.push('```', code);
       inIndented = true;
       continue;
     }
     output.push(line);
+    listColumn = nextListColumn(listColumn, line);
   }
   inIndented = closeIndentedCode(output, inIndented);
   output.push(...pendingBlanks);

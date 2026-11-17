@@ -155,6 +155,18 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('keeps a loose list continuation with the item', async () => {
+    await exporter.export({
+      content: '- item\n\n    continued\n\nAfter',
+      outputPath: '/tmp/loose-list.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>item continued</li>');
+    expect(html).not.toContain('<pre>');
+    expect(html).toContain('After');
+  });
+
   it('keeps a wrapped list item together', async () => {
     await exporter.export({
       content: '- item\n  continued\n\nAfter',

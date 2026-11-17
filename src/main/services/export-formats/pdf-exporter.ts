@@ -36,6 +36,7 @@ interface PdfBuild {
   displayMath: string[] | null;
   tableLines: string[];
   quoteLines: string[];
+  listBreak: boolean;
 }
 
 function flushPdfParagraph(build: PdfBuild): void {
@@ -222,9 +223,18 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
   }
   if (trimmed.length === 0) {
     flushPdfParagraph(build);
-    closePdfList(build);
+    if (build.lists.length > 0 && !build.listBreak) {
+      build.listBreak = true;
+    } else {
+      closePdfList(build);
+      build.listBreak = false;
+    }
     return;
   }
+  if (build.listBreak && parseListItem(raw) === null && !isListContinuation(raw)) {
+    closePdfList(build);
+  }
+  build.listBreak = false;
   const item = parseListItem(raw);
   if (item) {
     flushPdfParagraph(build);
@@ -248,6 +258,7 @@ export function markdownToPdfHtml(content: string): string {
     paragraph: [],
     fence: null,
     lists: [],
+    listBreak: false,
     displayMath: null,
     tableLines: [],
     quoteLines: [],

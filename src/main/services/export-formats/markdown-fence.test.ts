@@ -17,5 +17,9 @@ describe('fences', () => {
       'Intro\n\n```\nconst x = 1\n```\n'
     );
     expect(fenceIndentedCode('hello\n    still text\n')).toBe('hello\n    still text\n');
+    expect(fenceIndentedCode('- item\n\n    continued\n')).toBe('- item\n\n    continued\n');
+    expect(fenceIndentedCode('- item\n\n      const x = 1\n')).toBe(
+      '- item\n\n```\n  const x = 1\n```\n'
+    );
   });
 });
