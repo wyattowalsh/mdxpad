@@ -16,8 +16,8 @@ import { history, redo, undo } from 'prosemirror-history';
 import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
-import { parseMdxContent } from '../../lib/editor/prosemirror-mdx-parser';
 import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer';
+import { documentFromMarkdown, replaceWysiwygDocument } from '../../lib/editor/wysiwyg-document';
 import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
 import type { ToolbarAction } from './WysiwygToolbar';
 import { cn } from '@shared/lib/utils';
@@ -110,14 +110,6 @@ function computeActiveBlocks(state: EditorState): ActiveBlocks {
 // HOOKS
 // =============================================================================
 
-function documentFromMarkdown(content: string) {
-  const doc = parseMdxContent(content) ?? mdxSchema.nodes.doc.createAndFill();
-  if (!doc) {
-    throw new Error('Could not create a WYSIWYG document');
-  }
-  return doc;
-}
-
 function useEditorView(
   containerRef: React.RefObject<HTMLDivElement | null>,
   content: string,
@@ -168,17 +160,8 @@ function useEditorView(
     const view = viewRef.current;
     if (!view) return;
 
-    const currentContent = serializeMdxContent(view.state.doc);
-    if (currentContent === content) return;
-
-    const doc = documentFromMarkdown(content);
-    const newState = EditorState.create({
-      doc,
-      plugins: view.state.plugins,
-    });
-    view.updateState(newState);
-    onStateUpdate(newState);
-  }, [content, onStateUpdate]);
+    replaceWysiwygDocument(view, content);
+  }, [content]);
 
   return viewRef;
 }
