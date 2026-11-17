@@ -29,6 +29,17 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[guide](https://example.com)');
   });
 
+  it('keeps a title written on the following line', () => {
+    const expanded = expandLinkReferences(
+      'See [docs][guide].\n\n[guide]: https://example.com\n"Guide"\n'
+    );
+    expect(expanded).toContain('[docs](https://example.com "Guide")');
+    expect(expanded).not.toContain('\n"Guide"');
+    const quoted = expandLinkReferences('> [foo]: /url\n> "Title"\n>\n> [foo]\n');
+    expect(quoted).toContain('[foo](/url "Title")');
+    expect(quoted).not.toContain('"Title"\n');
+  });
+
   it('resolves a reference defined inside a quote', () => {
     const expanded = expandLinkReferences('> [foo]: /url\n>\n> [foo]\n');
     expect(expanded).toContain('[foo](/url)');

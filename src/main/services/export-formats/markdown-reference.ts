@@ -7,6 +7,7 @@ const LINK_DEFINITION =
   /^ {0,3}\[([^\]]+)\]:[ \t]+(<[^>\s]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/;
 
 const REFERENCE = /^\[([^\]]+)\](?:\[([^\]]*)\])?(?!\()/;
+const TITLE_LINE = /^(?:"[^"]*"|'[^']*'|\([^)]*\))$/;
 
 function referenceLabel(label: string): string {
   return label.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -29,6 +30,27 @@ function definitionSource(line: string): string {
   return text;
 }
 
+function quoteDepth(line: string): number {
+  let depth = 0;
+  let text = line;
+  let inner = quoteBody(text);
+  while (inner !== null) {
+    depth += 1;
+    text = inner;
+    inner = quoteBody(text);
+  }
+  return depth;
+}
+
+function titleContinuation(lines: readonly string[], index: number): string | null {
+  const next = lines[index + 1];
+  if (next === undefined || quoteDepth(lines[index] ?? '') !== quoteDepth(next)) {
+    return null;
+  }
+  const title = definitionSource(next).trim();
+  return TITLE_LINE.test(title) ? title : null;
+}
+
 function linkDefinition(line: string): { label: string; destination: string } | null {
   const definition = LINK_DEFINITION.exec(definitionSource(line));
   const label = definition?.[1];
@@ -39,23 +61,35 @@ function linkDefinition(line: string): { label: string; destination: string } | 
   return { label, destination };
 }
 
-function collectReferences(lines: readonly string[]): Map<string, string> {
+function collectReferences(lines: readonly string[]): {
+  references: Map<string, string>;
+  consumed: Set<number>;
+} {
   const references = new Map<string, string>();
+  const consumed = new Set<number>();
   let fence: string | null = null;
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
     const next = advanceFence(line, fence);
     const boundary = fence !== next;
     fence = next;
-    if (fence || boundary) {
+    if (fence || boundary || consumed.has(index)) {
       continue;
     }
     const definition = linkDefinition(line);
-    if (!definition || references.has(referenceLabel(definition.label))) {
+    const label = definition ? referenceLabel(definition.label) : '';
+    if (!definition || references.has(label)) {
       continue;
     }
-    references.set(referenceLabel(definition.label), referenceDestination(definition.destination));
+    const title = titleContinuation(lines, index);
+    const destination = title ? `${definition.destination} ${title}` : definition.destination;
+    references.set(label, referenceDestination(destination));
+    consumed.add(index);
+    if (title) {
+      consumed.add(index + 1);
+    }
   }
-  return references;
+  return { references, consumed };
 }
 
 function copyCodeSpan(line: string, index: number): { text: string; next: number } | null {
@@ -99,16 +133,16 @@ function rewriteLine(line: string, references: ReadonlyMap<string, string>): str
   return result;
 }
 
-function withoutDefinitions(lines: readonly string[]): string[] {
+function withoutDefinitions(lines: readonly string[], consumed: ReadonlySet<number>): string[] {
   let fence: string | null = null;
-  return lines.map((line) => {
+  return lines.map((line, index) => {
     const next = advanceFence(line, fence);
     const boundary = fence !== next;
     fence = next;
     if (fence || boundary) {
       return line;
     }
-    return linkDefinition(line) ? '' : line;
+    return consumed.has(index) ? '' : line;
   });
 }
 
@@ -116,12 +150,12 @@ function withoutDefinitions(lines: readonly string[]): string[] {
 export function expandLinkReferences(content: string): string {
   const fenced = fenceIndentedCode(applyFootnotes(content));
   const lines = fenced.split('\n');
-  const references = collectReferences(lines);
+  const { references, consumed } = collectReferences(lines);
   if (references.size === 0) {
     return closeOpenTableRows(fenced);
   }
   let fence: string | null = null;
-  const rewritten = withoutDefinitions(lines)
+  const rewritten = withoutDefinitions(lines, consumed)
     .map((line) => {
       const next = advanceFence(line, fence);
       const boundary = fence !== next;
