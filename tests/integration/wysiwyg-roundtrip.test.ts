@@ -17,7 +17,11 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { extractJsxBlocks, mdxParser } from '@renderer/lib/editor/prosemirror-mdx-parser';
+import {
+  extractJsxBlocks,
+  mdxParser,
+  parseMdxContent,
+} from '@renderer/lib/editor/prosemirror-mdx-parser';
 import { mdxSchema } from '@renderer/lib/editor/prosemirror-mdx-schema';
 import { serializeMdxContent } from '@renderer/lib/editor/prosemirror-mdx-serializer';
 
@@ -254,6 +258,19 @@ const n = 1;
 `;
 
 describe('WYSIWYG parse/serialize', () => {
+  it('keeps raw HTML through the visual editor', () => {
+    const source = 'Before\n\n<div>Hello</div>\n\nAfter <kbd>K</kbd>';
+    const doc = parseMdxContent(source);
+    if (!doc) {
+      throw new Error('expected a document');
+    }
+    const serialized = serializeMdxContent(doc);
+    expect(serialized).toContain('<div>Hello</div>');
+    expect(serialized).toContain('<kbd>K</kbd>');
+    expect(serialized).toContain('Before');
+    expect(serialized).toContain('After');
+  });
+
   it('round-trips the commonmark fixture through mdxParser and serializeMdxContent', () => {
     const doc = mdxParser.parse(ROUND_TRIP_SOURCE);
     const serialized = serializeMdxContent(doc);

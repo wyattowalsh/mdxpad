@@ -136,9 +136,18 @@ const MDX_TOKENS: Record<
     }),
   },
 
-  // HTML (JSX placeholders) - ignored
-  html_block: { ignore: true, noCloseToken: true },
-  html_inline: { ignore: true, noCloseToken: true },
+  html_block: {
+    block: 'jsx_block',
+    noCloseToken: true,
+    getAttrs: (tok: MarkdownToken) => ({
+      value: tok.content.endsWith('\n') ? tok.content.slice(0, -1) : tok.content,
+    }),
+  },
+  html_inline: {
+    node: 'jsx_inline',
+    noCloseToken: true,
+    getAttrs: (tok: MarkdownToken) => ({ value: tok.content }),
+  },
   hardbreak: { node: 'hard_break', getAttrs: () => ({ hard: true }) },
   softbreak: { node: 'hard_break', getAttrs: () => ({ hard: false }) },
 };
