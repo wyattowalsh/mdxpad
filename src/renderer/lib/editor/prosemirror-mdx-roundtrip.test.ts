@@ -100,6 +100,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('| 1 | **2** |');
   });
 
+  it('keeps an indented code block indented', () => {
+    const serialized = roundTrip('    const x = 1\n');
+    expect(serialized).toContain('    const x = 1');
+    expect(serialized).not.toContain('```');
+    expect(roundTrip('```js\nconst x = 1\n```\n')).toContain('```js');
+  });
+
   it('keeps setext heading levels', () => {
     expect(roundTrip('Hello\n===\n')).toContain('# Hello');
     expect(roundTrip('Hello\n===\n')).not.toContain('## Hello');

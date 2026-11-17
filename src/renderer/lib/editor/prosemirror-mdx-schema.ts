@@ -55,7 +55,7 @@ const CODE_BLOCK_NODE: NodeSpec = {
   group: 'block',
   code: true,
   defining: true,
-  attrs: { language: { default: '' } },
+  attrs: { language: { default: '' }, indented: { default: false } },
   parseDOM: [
     {
       tag: 'pre',
@@ -64,7 +64,7 @@ const CODE_BLOCK_NODE: NodeSpec = {
         const code = dom.querySelector('code');
         const className = code?.className ?? '';
         const match = /language-(\w+)/.exec(className);
-        return { language: match?.[1] ?? '' };
+        return { language: match?.[1] ?? '', indented: false };
       },
     },
   ],

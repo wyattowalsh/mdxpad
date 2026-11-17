@@ -72,8 +72,15 @@ const nodeSerializers: NodeSerializerMap = {
 
   code_block(state, node) {
     const language = (node.attrs.language as string) || '';
+    const text = node.textContent.endsWith('\n') ? node.textContent.slice(0, -1) : node.textContent;
+    if (node.attrs.indented === true && language.length === 0) {
+      const lines = text.length === 0 ? [] : text.split('\n');
+      state.write(lines.map((line) => `    ${line}`).join('\n'));
+      state.closeBlock(node);
+      return;
+    }
     state.write(`\`\`\`${language}\n`);
-    state.text(node.textContent, false);
+    state.text(text, false);
     state.write('\n```');
     state.closeBlock(node);
   },

@@ -109,10 +109,14 @@ const MDX_TOKENS: Record<
       level: Number(tok.tag.slice(1)) || tok.markup.length,
     }),
   },
-  code_block: { block: 'code_block', noCloseToken: true },
+  code_block: {
+    block: 'code_block',
+    getAttrs: () => ({ language: '', indented: true }),
+    noCloseToken: true,
+  },
   fence: {
     block: 'code_block',
-    getAttrs: (tok: MarkdownToken) => ({ language: tok.info }),
+    getAttrs: (tok: MarkdownToken) => ({ language: tok.info, indented: false }),
     noCloseToken: true,
   },
   hr: { node: 'horizontal_rule' },
