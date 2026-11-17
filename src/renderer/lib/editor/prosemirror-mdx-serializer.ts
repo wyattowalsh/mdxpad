@@ -75,13 +75,19 @@ const nodeSerializers: NodeSerializerMap = {
     const text = node.textContent.endsWith('\n') ? node.textContent.slice(0, -1) : node.textContent;
     if (node.attrs.indented === true && language.length === 0) {
       const lines = text.length === 0 ? [] : text.split('\n');
-      state.write(lines.map((line) => `    ${line}`).join('\n'));
+      lines.forEach((line, index) => {
+        if (index > 0) {
+          state.write('\n');
+        }
+        state.write(`    ${line}`);
+      });
       state.closeBlock(node);
       return;
     }
     state.write(`\`\`\`${language}\n`);
     state.text(text, false);
-    state.write('\n```');
+    state.write('\n');
+    state.write('```');
     state.closeBlock(node);
   },
 

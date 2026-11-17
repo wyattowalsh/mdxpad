@@ -157,10 +157,23 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('| 1 | **2** |');
   });
 
+  it('keeps a fenced block inside a quote', () => {
+    const source = '> ```js\n> const x = 1\n> ```\n>\n> After\n';
+    const serialized = roundTrip(source);
+    expect(serialized).toContain('> ```');
+    expect(serialized).toContain('> After');
+    const doc = parseMdxContent(serialized.endsWith('\n') ? serialized : `${serialized}\n`);
+    expect(doc?.childCount).toBe(1);
+    expect(doc?.firstChild?.type.name).toBe('blockquote');
+  });
+
   it('keeps an indented code block indented', () => {
     const serialized = roundTrip('    const x = 1\n');
     expect(serialized).toContain('    const x = 1');
     expect(serialized).not.toContain('```');
+    const quoted = roundTrip('>     const x = 1\n>     const y = 2\n');
+    expect(quoted).toContain('>     const x = 1');
+    expect(quoted).toContain('>     const y = 2');
     expect(roundTrip('```js\nconst x = 1\n```\n')).toContain('```js');
   });
 
