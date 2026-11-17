@@ -8,6 +8,9 @@ import { atomicWrite } from '@shared/lib/atomic-write';
 import type { ExportCliEvent, ExportCliOutput } from '@shared/types/export-model';
 import { DocxExportPresetOptionsSchema, PdfExportPresetOptionsSchema } from '@shared/types/root';
 
+import { hasReadCapability } from '@main/ipc/document-capability';
+
+import { resolveWorkspaceFilePath } from './ai/agent-path';
 import { buildDocxDocument, buildPdfDocument } from './export-document-builders';
 import { getExporter } from './export-formats';
 import { serializeForExport } from './export-service';
@@ -239,6 +242,14 @@ async function runBuiltInExportCommand(
     if (!request.job.sourcePath) {
       throw new Error('Built-in export requires a sourcePath on the export job');
     }
+    if (!hasReadCapability(request.job.sourcePath)) {
+      throw new Error('Built-in export can only read a file that is open');
+    }
+    const sourceDir = path.dirname(request.job.sourcePath);
+    resolveWorkspaceFilePath(
+      sourceDir,
+      path.relative(sourceDir, path.resolve(request.job.targetPath))
+    );
 
     const sourceContent = await fs.readFile(request.job.sourcePath, 'utf-8');
     assertPathWithinBase(request.job.targetPath, request.cwd, 'Target path');

@@ -1,13 +1,15 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { grantReadCapability } from '@main/ipc/document-capability';
 import {
   ExportCliInvokeResponseSchema,
   LlmsGenerationResponseSchema,
   type ExportCliInvokeRequest,
 } from '@shared/contracts/export-schemas';
+
 import { ALLOWED_COMMANDS } from '../cli-engine';
 import { generateLlmsFile, getDefaultLlmsOutputPath, invokeExportCli } from '../cli-service';
 
@@ -95,6 +97,7 @@ describe('invokeExportCli', () => {
       const sourcePath = path.join(tempDir, 'source.mdx');
       const targetPath = path.join(tempDir, 'output.pdf');
       await writeFile(sourcePath, '# PDF Heading\n\nPreset-based export test.', 'utf-8');
+      grantReadCapability(sourcePath);
 
       const request = createTestRequest({
         command: 'mdxpad-export',
@@ -143,6 +146,7 @@ describe('invokeExportCli', () => {
         '# DOCX Heading\n\n## Section\n\n![diagram](./diagram.png)\n\nBody text.',
         'utf-8'
       );
+      grantReadCapability(sourcePath);
 
       const request = createTestRequest({
         command: 'mdxpad-export',
@@ -189,6 +193,7 @@ describe('invokeExportCli', () => {
       const sourcePath = path.join(tempDir, 'source.mdx');
       const targetPath = path.join(tempDir, 'output.tex');
       await writeFile(sourcePath, '# Latex Heading\n\nBody text.', 'utf-8');
+      grantReadCapability(sourcePath);
 
       const request = createTestRequest({
         command: 'mdxpad-export',
@@ -216,6 +221,80 @@ describe('invokeExportCli', () => {
         expect(artifact).toContain('\\documentclass');
         expect(artifact).toContain('Latex Heading');
       }
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not read a file that is not open', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-closed-export-'));
+    try {
+      const sourcePath = path.join(tempDir, 'secret.md');
+      const targetPath = path.join(tempDir, 'secret.pdf');
+      await writeFile(sourcePath, 'hidden', 'utf-8');
+      const request = createTestRequest({
+        command: 'mdxpad-export',
+        args: [],
+        cwd: tempDir,
+        job: {
+          ...createTestRequest().job,
+          sourcePath,
+          targetPath,
+          format: 'pdf',
+          generationMode: 'native',
+        },
+      });
+
+      const response = await invokeExportCli(request);
+
+      expect(response.ok).toBe(false);
+      if (!response.ok) {
+        expect(
+          response.output?.events.some((event) => event.message.includes('file that is open'))
+        ).toBe(true);
+      }
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not write an export outside the opened file directory', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-escape-'));
+    try {
+      const sourceDir = path.join(tempDir, 'docs');
+      await mkdir(sourceDir);
+      const sourcePath = path.join(sourceDir, 'source.mdx');
+      const targetPath = path.join(tempDir, 'escape.tex');
+      await writeFile(sourcePath, '# Heading\n\nBody.', 'utf-8');
+      grantReadCapability(sourcePath);
+      const request = createTestRequest({
+        command: 'mdxpad-export',
+        args: [],
+        cwd: tempDir,
+        job: {
+          ...createTestRequest().job,
+          sourcePath,
+          targetPath,
+          format: 'latex',
+          generationMode: 'native',
+          preset: {
+            id: '10000000-0000-4000-8000-000000000007',
+            name: 'LaTeX',
+            format: 'latex',
+            options: {},
+          },
+        },
+      });
+
+      const response = await invokeExportCli(request);
+
+      expect(response.ok).toBe(false);
+      if (!response.ok) {
+        expect(
+          response.output?.events.some((event) => event.message.includes('outside the workspace'))
+        ).toBe(true);
+      }
+      await expect(access(targetPath)).rejects.toThrow();
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
