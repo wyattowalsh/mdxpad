@@ -10,7 +10,7 @@ import {
 import { CommentWorkspace } from '@renderer/components/comments/CommentWorkspace';
 import { ExportPanel } from '@renderer/components/export/ExportPanel';
 import { ShortcutEditor } from '@renderer/components/shortcuts/ShortcutEditor';
-import { TagTreePanel } from '@renderer/components/tags/TagTreePanel';
+import { TagsUtilityPanel } from '@renderer/components/tags/TagsUtilityPanel';
 import { WorkspacePanel } from '@renderer/components/workspace/WorkspacePanel';
 import { AgentPanel } from '@renderer/features/ai-agent/AgentPanel';
 import { DiagramDialog } from '@renderer/features/diagrams/DiagramDialog';
@@ -29,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog';
-import { useTagStore } from '@renderer/stores/tag-store';
 import { openFileFromPath } from '@renderer/lib/open-file-from-path';
 import { HistoryUtilityPanel } from './HistoryUtilityPanel';
 import { PublishUtilityPanel } from './PublishUtilityPanel';
@@ -73,9 +72,7 @@ function PanelBody({
     case 'history':
       return <HistoryUtilityPanel />;
     case 'tags':
-      return (
-        <TagTreePanel onTagClick={(tagId) => useTagStore.getState().toggleSelectedTag(tagId)} />
-      );
+      return <TagsUtilityPanel />;
     case 'shortcuts':
       return <ShortcutEditor />;
     case 'publish':

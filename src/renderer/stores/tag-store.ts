@@ -275,8 +275,16 @@ export const selectAllTags = (state: TagStore): readonly Tag[] => state.tags;
 
 export const selectSelectedTags = (state: TagStore): readonly string[] => state.selectedTags;
 
+let cachedTagTreeSource: readonly Tag[] | null = null;
+let cachedTagTree: readonly TagTreeNode[] = [];
+
 export const selectTagTree = (state: TagStore): readonly TagTreeNode[] => {
-  return buildTagTree(state.tags, null);
+  if (state.tags === cachedTagTreeSource) {
+    return cachedTagTree;
+  }
+  cachedTagTreeSource = state.tags;
+  cachedTagTree = buildTagTree(state.tags, null);
+  return cachedTagTree;
 };
 
 export const selectTagsByFile =
