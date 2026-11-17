@@ -144,7 +144,8 @@ export function App(): React.ReactElement {
     };
   }, []);
 
-  const folderFiles = useOpenedFolderFiles(state.filePath);
+  const openedFolder = useOpenedFolderFiles(state.filePath);
+  const folderFiles = openedFolder.files;
   const explorerEntries = useMemo(() => {
     const base = buildExplorerEntries(state.filePath, state.fileName);
     const known = new Set(base.map((entry) => entry.path));
@@ -234,6 +235,11 @@ export function App(): React.ReactElement {
                 <FileTreeFilter />
               </div>
               <div className="max-h-40 overflow-y-auto px-2 pb-2">
+                {openedFolder.error ? (
+                  <p className="px-2 pb-2 text-xs text-destructive" role="alert">
+                    {openedFolder.error}
+                  </p>
+                ) : null}
                 <ul className="space-y-1" data-testid="file-explorer-list">
                   {visibleExplorerEntries.map((entry) => {
                     const match = matchResults.get(entry.id);
