@@ -22,6 +22,10 @@ import type {
   AgentStreamEvent,
   AgentStatus,
 } from '@shared/contracts/agent-schemas';
+import { resolveWorkspaceFilePath, WorkspacePathError } from './agent-path';
+import { createWriteFileTool, executeApprovedWrite, WriteApprovalGate } from './agent-write';
+
+export { resolveWorkspaceFilePath, WorkspacePathError };
 
 // =============================================================================
 // TYPES
@@ -32,73 +36,6 @@ interface ConversationState {
   status: AgentStatus;
   pendingToolCalls: Map<string, AgentToolCall>;
   abortController: AbortController | null;
-}
-
-export class WorkspacePathError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'WorkspacePathError';
-  }
-}
-
-function existingAncestor(target: string): string {
-  let current = path.resolve(target);
-  let found: string | undefined;
-  while (found === undefined) {
-    try {
-      found = fs.realpathSync(current);
-    } catch {
-      const parent = path.dirname(current);
-      if (parent === current) {
-        found = path.resolve(target);
-      } else {
-        current = parent;
-      }
-    }
-  }
-  return found;
-}
-
-/**
- * Resolve a requested path inside a workspace root.
- * Rejects absolute escapes and symlink ancestors that leave the root.
- */
-export function resolveWorkspaceFilePath(
-  workspaceRoot: string,
-  requestedPath: string,
-  options?: { readonly allowRoot?: boolean }
-): string {
-  if (workspaceRoot.trim().length === 0) {
-    throw new WorkspacePathError('Workspace path is required');
-  }
-
-  const root = existingAncestor(workspaceRoot);
-  const candidate = path.resolve(root, requestedPath);
-  const relative = path.relative(root, candidate);
-  const rootAllowed = options?.allowRoot === true && relative.length === 0;
-  if (
-    (!rootAllowed && relative.length === 0) ||
-    relative.startsWith('..') ||
-    path.isAbsolute(relative)
-  ) {
-    throw new WorkspacePathError('Path is outside the workspace');
-  }
-  if (rootAllowed) {
-    return root;
-  }
-
-  const resolvedParent = existingAncestor(path.dirname(candidate));
-  const resolved = path.join(resolvedParent, path.basename(candidate));
-  const resolvedRelative = path.relative(root, resolved);
-  if (
-    resolvedRelative.length === 0 ||
-    resolvedRelative.startsWith('..') ||
-    path.isAbsolute(resolvedRelative)
-  ) {
-    throw new WorkspacePathError('Path is outside the workspace');
-  }
-
-  return resolved;
 }
 
 // =============================================================================
@@ -121,33 +58,6 @@ function createReadFileTool(workspacePath: string | undefined) {
       }
       const resolved = resolveWorkspaceFilePath(workspacePath, filePath);
       return fs.promises.readFile(resolved, 'utf-8');
-    },
-  });
-}
-
-function createWriteFileTool(workspacePath: string | undefined, writesApproved: () => boolean) {
-  return tool({
-    description: 'Write content to a file at the given path',
-    inputSchema: jsonSchema<{ filePath: string; content: string }>({
-      type: 'object',
-      properties: {
-        filePath: { type: 'string', description: 'Workspace-relative file path' },
-        content: { type: 'string', description: 'Content to write' },
-      },
-      required: ['filePath', 'content'],
-    }),
-    execute: async ({ filePath, content }) => {
-      if (!writesApproved()) {
-        throw new Error('Write approval is required before the agent can write files');
-      }
-      if (!workspacePath) {
-        throw new WorkspacePathError('Workspace path is required');
-      }
-      const resolved = resolveWorkspaceFilePath(workspacePath, filePath);
-      const dir = path.dirname(resolved);
-      await fs.promises.mkdir(dir, { recursive: true });
-      await fs.promises.writeFile(resolved, content, 'utf-8');
-      return `File written: ${resolved}`;
     },
   });
 }
@@ -204,10 +114,14 @@ function createListDirectoryTool(workspacePath: string | undefined) {
   });
 }
 
-function createAgentTools(workspacePath: string | undefined, writesApproved: () => boolean) {
+function createAgentTools(
+  workspacePath: string | undefined,
+  gate: WriteApprovalGate,
+  notify: (event: AgentStreamEvent) => void
+) {
   return {
     readFile: createReadFileTool(workspacePath),
-    writeFile: createWriteFileTool(workspacePath, writesApproved),
+    writeFile: createWriteFileTool(workspacePath, gate, notify),
     searchFiles: createSearchFilesTool(workspacePath),
     listDirectory: createListDirectoryTool(workspacePath),
   };
@@ -220,7 +134,7 @@ function createAgentTools(workspacePath: string | undefined, writesApproved: () 
 export class AgentService {
   private conversations = new Map<string, ConversationState>();
   private window: BrowserWindow | null = null;
-  private writesApproved = false;
+  private readonly writeGate = new WriteApprovalGate();
 
   constructor(private readonly aiService: IAIService) {}
 
@@ -229,11 +143,26 @@ export class AgentService {
   }
 
   /**
-   * Allow file writes for this process. Nothing in the IPC layer calls this.
-   * Agent mode stays unable to write until a future approval UI does.
+   * Accept or reject one pending write. A true result means that call was waiting.
    */
-  approveWrites(): void {
-    this.writesApproved = true;
+  decideWrite(toolCallId: string, approved: boolean): boolean {
+    return this.writeGate.decide(toolCallId, approved);
+  }
+
+  beginWrite(
+    workspacePath: string | undefined,
+    filePath: string,
+    content: string
+  ): Promise<string> {
+    return executeApprovedWrite({
+      workspacePath,
+      filePath,
+      content,
+      gate: this.writeGate,
+      notify: (event) => {
+        this.emitEvent(event);
+      },
+    });
   }
 
   async sendMessage(
@@ -265,6 +194,7 @@ export class AgentService {
   }
 
   cancel(): void {
+    this.writeGate.rejectAll();
     const state = this.conversations.get('default');
     if (state?.abortController) {
       state.abortController.abort();
@@ -272,6 +202,7 @@ export class AgentService {
   }
 
   clear(): void {
+    this.writeGate.rejectAll();
     this.conversations.delete('default');
   }
 
@@ -321,7 +252,9 @@ export class AgentService {
     const model = this.aiService.getActiveModel();
     if (!model) throw new Error('No active AI model configured');
 
-    const tools = createAgentTools(workspacePath, () => this.writesApproved);
+    const tools = createAgentTools(workspacePath, this.writeGate, (event) => {
+      this.emitEvent(event);
+    });
     const systemPrompt = buildSystemPrompt(workspacePath, currentFilePath);
 
     const result = streamText({
@@ -392,7 +325,8 @@ function buildSystemPrompt(
 ): string {
   const parts = [
     'You are an AI assistant integrated into MDXPad, a Markdown/MDX editor.',
-    'You can read and write files, search the workspace, and help with editing tasks.',
+    'You can read files, search the workspace, and propose file writes.',
+    'A file write does not happen until the user approves that exact path and content.',
     'Be concise and helpful. When editing files, explain what changes you are making.',
   ];
 

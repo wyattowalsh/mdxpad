@@ -43,6 +43,24 @@ describe('resolveWorkspaceFilePath', () => {
     );
   });
 
+  it('rejects a symlink file that leaves the workspace', async () => {
+    const root = await makeTempDir();
+    const outside = await makeTempDir();
+    const secret = path.join(outside, 'secret.md');
+    await writeFile(secret, 'hidden');
+    await symlink(secret, path.join(root, 'alias.md'));
+
+    expect(() => resolveWorkspaceFilePath(root, 'alias.md')).toThrow(WorkspacePathError);
+  });
+
+  it('keeps a missing nested path inside the workspace', async () => {
+    const root = await makeTempDir();
+
+    expect(resolveWorkspaceFilePath(root, 'nested/note.md')).toBe(
+      path.join(root, 'nested', 'note.md')
+    );
+  });
+
   it('allows the workspace root only when requested', async () => {
     const root = await makeTempDir();
 

@@ -28,6 +28,7 @@ import { importApi } from './import-api';
 import { citationApi } from './citation-api';
 import { semanticSearchApi } from './semantic-search-api';
 import { pluginApi } from './plugin-api';
+import { agentApi } from './agent-api';
 
 // ============================================================================
 // Platform Detection
@@ -140,6 +141,7 @@ const api: MdxpadAPI = {
   share: shareApi,
   history: historyApi,
   notifications: notificationApi,
+  agent: agentApi,
 };
 
 // ============================================================================

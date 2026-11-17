@@ -3,6 +3,7 @@
  * This is the ONLY way renderer can communicate with main process.
  */
 
+import type { AgentApi } from './agent-api';
 import type { HistoryApi } from './history-api';
 import type { NotificationApi } from './notification-api';
 import type { ShareApi } from './share-api';
@@ -87,6 +88,8 @@ import type {
   VariableValues,
 } from '@shared/contracts/template-schemas';
 
+export type { AgentApi };
+
 /** File change event received from main process */
 export interface FileChangeEvent {
   fileId: string;
@@ -98,14 +101,6 @@ export interface FileChangeEvent {
 export interface MenuFileOpenEvent {
   handle: import('@shared/types/file').FileHandle;
   content: string;
-}
-
-/** AI agent mode API shape */
-export interface AgentApi {
-  sendMessage(request: { message: string }): Promise<{ success: boolean; response?: string }>;
-  approveToolCall(request: { callId: string; approved: boolean }): Promise<{ success: boolean }>;
-  cancel(): Promise<void>;
-  clear(): Promise<void>;
 }
 
 /** Plugin system API shape */

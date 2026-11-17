@@ -8,6 +8,7 @@ import { registerGenerationHandlers } from '../ai-generation-handlers';
 import { registerUsageHandlers } from '../ai-usage-handlers';
 import { registerSessionHandlers } from '../ai-session-handlers';
 import { registerSemanticSearchHandlers } from '@main/services/ai/semantic-search-handlers';
+import { registerAgentHandlers } from '../agent-handlers';
 
 vi.mock('../ai-provider-handlers', () => ({
   registerProviderHandlers: vi.fn(),
@@ -27,6 +28,18 @@ vi.mock('../ai-session-handlers', () => ({
 
 vi.mock('@main/services/ai/semantic-search-handlers', () => ({
   registerSemanticSearchHandlers: vi.fn(),
+}));
+
+vi.mock('../agent-handlers', () => ({
+  registerAgentHandlers: vi.fn(),
+}));
+
+vi.mock('@main/services/ai/agent-service', () => ({
+  AgentService: class {
+    setWindow(): void {
+      return undefined;
+    }
+  },
 }));
 
 function createMockWindow(): BrowserWindow {
@@ -54,5 +67,6 @@ describe('registerAIHandlers', () => {
     expect(registerGenerationHandlers).toHaveBeenCalledWith(services, window);
     expect(registerUsageHandlers).toHaveBeenCalledWith(services, window);
     expect(registerSemanticSearchHandlers).toHaveBeenCalledWith(services.embeddingService, window);
+    expect(registerAgentHandlers).toHaveBeenCalledWith(expect.any(Object), window);
   });
 });

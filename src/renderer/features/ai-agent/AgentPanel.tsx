@@ -130,13 +130,29 @@ function MessageBubble({ message }: { message: AgentMessage }) {
 // AGENT PANEL
 // =============================================================================
 
-export function AgentPanel() {
+export function AgentPanel({
+  workspacePath,
+  currentFilePath,
+}: {
+  readonly workspacePath?: string;
+  readonly currentFilePath?: string;
+}) {
   const messages = useAgentModeStore(selectMessages);
   const status = useAgentModeStore(selectStatus);
   const activeToolCalls = useAgentModeStore(selectActiveToolCalls);
   const error = useAgentModeStore(selectError);
   const { sendMessage, approveToolCall, rejectToolCall, clearConversation, cancel } =
     useAgentModeStore();
+
+  useEffect(() => {
+    const agent = window.mdxpad.agent;
+    if (!agent) {
+      return undefined;
+    }
+    return agent.onStreamEvent((event) => {
+      useAgentModeStore.getState().handleStreamEvent(event);
+    });
+  }, []);
 
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -154,9 +170,12 @@ export function AgentPanel() {
     if (!trimmed || isDisabled) return;
 
     setInput('');
-    await sendMessage(trimmed);
+    await sendMessage(trimmed, {
+      ...(workspacePath ? { workspacePath } : {}),
+      ...(currentFilePath ? { currentFilePath } : {}),
+    });
     inputRef.current?.focus();
-  }, [input, isDisabled, sendMessage]);
+  }, [currentFilePath, input, isDisabled, sendMessage, workspacePath]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

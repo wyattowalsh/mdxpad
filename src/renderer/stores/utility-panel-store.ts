@@ -9,7 +9,8 @@ export type UtilityPanelId =
   | 'tags'
   | 'shortcuts'
   | 'publish'
-  | 'semantic-search';
+  | 'semantic-search'
+  | 'agent';
 
 interface UtilityPanelState {
   readonly activeUtilityPanel: UtilityPanelId | null;

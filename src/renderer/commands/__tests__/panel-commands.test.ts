@@ -29,6 +29,7 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-shortcuts',
       'view.toggle-publish',
       'view.toggle-semantic-search',
+      'view.toggle-agent',
       'view.toggle-wysiwyg',
     ]);
     expect(PANEL_COMMANDS.every((command) => command.shortcut === undefined)).toBe(true);
@@ -38,6 +39,12 @@ describe('PANEL_COMMANDS', () => {
     const comments = PANEL_COMMANDS.find((command) => command.id === 'view.toggle-comments');
     await comments?.execute(context);
     expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('comments');
+  });
+
+  it('opens the agent panel', async () => {
+    const command = PANEL_COMMANDS.find((item) => item.id === 'view.toggle-agent');
+    await command?.execute(context);
+    expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('agent');
   });
 
   it('toggles the editor between source and WYSIWYG', async () => {

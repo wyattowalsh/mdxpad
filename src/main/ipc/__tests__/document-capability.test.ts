@@ -20,6 +20,7 @@ import {
   hasWriteCapability,
   normalizeCapabilityPath,
   resetFileCapabilities,
+  trustedAgentFile,
 } from '../document-capability';
 
 function missingPath(code = 'ENOENT'): Error {
@@ -126,5 +127,28 @@ describe('document capability paths', () => {
     expect(canBootstrapReadCapability('/docs/.mdxpad/schema.json')).toBe(true);
     expect(hasReadCapability('/docs/.mdxpad/schema.json')).toBe(true);
     expect(canBootstrapReadCapability('/elsewhere/.mdxpad/schema.json')).toBe(false);
+  });
+
+  it('trusts the directory of a granted file and ignores other paths', () => {
+    realpathSyncMock.mockImplementation((target: string) => {
+      if (target === '/docs/note.mdx' || target === '/private/docs/note.mdx') {
+        return '/private/docs/note.mdx';
+      }
+      if (target === '/docs' || target === '/private/docs') {
+        return '/private/docs';
+      }
+      throw missingPath();
+    });
+
+    expect(trustedAgentFile('/')).toBeUndefined();
+    expect(trustedAgentFile('/docs/note.mdx')).toBeUndefined();
+
+    grantReadCapability('/docs/note.mdx');
+
+    expect(trustedAgentFile('/')).toBeUndefined();
+    expect(trustedAgentFile('/docs/note.mdx')).toEqual({
+      root: '/private/docs',
+      filePath: '/private/docs/note.mdx',
+    });
   });
 });

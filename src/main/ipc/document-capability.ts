@@ -93,6 +93,23 @@ export function grantWriteCapability(filePath: string): void {
   writeCapabilities.add(normalized);
 }
 
+/**
+ * File and directory the agent may use after the user has opened that file.
+ * A renderer-supplied workspace path is not trusted.
+ */
+export function trustedAgentFile(
+  currentFilePath: string | undefined
+): { readonly root: string; readonly filePath: string } | undefined {
+  if (currentFilePath === undefined || !hasReadCapability(currentFilePath)) {
+    return undefined;
+  }
+  const normalized = normalizeCapabilityPath(currentFilePath);
+  if (normalized === null) {
+    return undefined;
+  }
+  return { root: path.dirname(normalized), filePath: normalized };
+}
+
 export function hasReadCapability(filePath: string): boolean {
   const normalized = normalizeCapabilityPath(filePath);
   if (!normalized) {

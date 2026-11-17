@@ -31,8 +31,13 @@ export interface AgentModeState {
   isListenerBound: boolean;
 }
 
+export interface AgentSendContext {
+  readonly workspacePath?: string;
+  readonly currentFilePath?: string;
+}
+
 export interface AgentModeActions {
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string, context?: AgentSendContext) => Promise<void>;
   approveToolCall: (toolCallId: string) => Promise<void>;
   rejectToolCall: (toolCallId: string) => Promise<void>;
   cancel: () => Promise<void>;
@@ -46,6 +51,46 @@ export type AgentModeStore = AgentModeState & AgentModeActions;
 // =============================================================================
 // INITIAL STATE
 // =============================================================================
+
+function readAgentApi(): NonNullable<Window['mdxpad']['agent']> | null {
+  if (typeof window === 'undefined' || !('mdxpad' in window) || !window.mdxpad.agent) {
+    return null;
+  }
+  return window.mdxpad.agent;
+}
+
+async function decideToolCall(
+  toolCallId: string,
+  approved: boolean,
+  set: (updater: (draft: AgentModeStore) => void) => void
+): Promise<void> {
+  try {
+    const agent = readAgentApi();
+    if (!agent) {
+      set((draft) => {
+        draft.error = 'Agent is not available';
+      });
+      return;
+    }
+    const response = await agent.approveToolCall({ callId: toolCallId, approved });
+    if (!response.success) {
+      set((draft) => {
+        draft.error = response.error?.message ?? 'Write approval was not accepted';
+      });
+      return;
+    }
+    set((draft) => {
+      const toolCall = draft.activeToolCalls.find((item) => item.id === toolCallId);
+      if (toolCall) {
+        toolCall.status = approved ? 'approved' : 'rejected';
+      }
+    });
+  } catch (err: unknown) {
+    set((draft) => {
+      draft.error = err instanceof Error ? err.message : 'Failed to decide the tool call';
+    });
+  }
+}
 
 const INITIAL_STATE: AgentModeState = {
   messages: [],
@@ -64,21 +109,31 @@ export const useAgentModeStore = create<AgentModeStore>()(
   immer((set, _get) => ({
     ...INITIAL_STATE,
 
-    sendMessage: async (message: string) => {
+    sendMessage: async (message: string, context?: AgentSendContext) => {
       set((draft) => {
         draft.error = null;
         draft.status = 'thinking';
       });
 
       try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.agent) {
-          const response = await window.mdxpad.agent.sendMessage({ message });
-          if (!response.success) {
-            set((draft) => {
-              draft.error = 'Failed to send message';
-              draft.status = 'error';
-            });
-          }
+        const agent = readAgentApi();
+        if (!agent) {
+          set((draft) => {
+            draft.error = 'Agent is not available';
+            draft.status = 'error';
+          });
+          return;
+        }
+        const response = await agent.sendMessage({
+          message,
+          ...(context?.workspacePath ? { workspacePath: context.workspacePath } : {}),
+          ...(context?.currentFilePath ? { currentFilePath: context.currentFilePath } : {}),
+        });
+        if (!response.success) {
+          set((draft) => {
+            draft.error = response.error?.message ?? 'Failed to send message';
+            draft.status = 'error';
+          });
         }
       } catch (err: unknown) {
         set((draft) => {
@@ -89,47 +144,11 @@ export const useAgentModeStore = create<AgentModeStore>()(
     },
 
     approveToolCall: async (toolCallId: string) => {
-      try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.agent) {
-          await window.mdxpad.agent.approveToolCall({
-            callId: toolCallId,
-            approved: true,
-          });
-        }
-
-        set((draft) => {
-          const tc = draft.activeToolCalls.find((t) => t.id === toolCallId);
-          if (tc) {
-            tc.status = 'approved';
-          }
-        });
-      } catch (err: unknown) {
-        set((draft) => {
-          draft.error = err instanceof Error ? err.message : 'Failed to approve tool call';
-        });
-      }
+      await decideToolCall(toolCallId, true, set);
     },
 
     rejectToolCall: async (toolCallId: string) => {
-      try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.agent) {
-          await window.mdxpad.agent.approveToolCall({
-            callId: toolCallId,
-            approved: false,
-          });
-        }
-
-        set((draft) => {
-          const tc = draft.activeToolCalls.find((t) => t.id === toolCallId);
-          if (tc) {
-            tc.status = 'rejected';
-          }
-        });
-      } catch (err: unknown) {
-        set((draft) => {
-          draft.error = err instanceof Error ? err.message : 'Failed to reject tool call';
-        });
-      }
+      await decideToolCall(toolCallId, false, set);
     },
 
     cancel: async () => {

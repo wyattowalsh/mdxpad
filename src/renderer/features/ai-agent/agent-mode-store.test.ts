@@ -2,7 +2,7 @@
  * Unit tests for Agent Mode Store.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAgentModeStore } from './agent-mode-store';
 import type { AgentStreamEvent } from '@shared/contracts/agent-schemas';
 
@@ -156,6 +156,39 @@ describe('useAgentModeStore', () => {
     expect(state.messages).toHaveLength(0);
     expect(state.status).toBe('idle');
     expect(state.planSteps).toHaveLength(0);
+  });
+
+  it('sends the workspace path with the message', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ success: true });
+    vi.stubGlobal('window', { mdxpad: { agent: { sendMessage } } });
+
+    await useAgentModeStore.getState().sendMessage('hello', { workspacePath: '/work' });
+
+    expect(sendMessage).toHaveBeenCalledWith({ message: 'hello', workspacePath: '/work' });
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps a write pending when approval is not accepted', async () => {
+    const approveToolCall = vi.fn().mockResolvedValue({
+      success: false,
+      error: { code: 'UNKNOWN_TOOL_CALL', message: 'No write is waiting for that approval' },
+    });
+    vi.stubGlobal('window', { mdxpad: { agent: { approveToolCall } } });
+    useAgentModeStore.getState().handleStreamEvent({
+      type: 'tool-call',
+      toolCall: {
+        id: 'tc-1',
+        toolName: 'writeFile',
+        args: { filePath: 'note.md' },
+        status: 'pending',
+      },
+    });
+
+    await useAgentModeStore.getState().approveToolCall('tc-1');
+
+    expect(useAgentModeStore.getState().activeToolCalls[0]?.status).toBe('pending');
+    expect(useAgentModeStore.getState().error).toBe('No write is waiting for that approval');
+    vi.unstubAllGlobals();
   });
 
   it('should reset to initial state', () => {

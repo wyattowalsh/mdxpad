@@ -40,7 +40,7 @@ Renderer                    Preload (ai-api)           Main Process
 
 ## AI Agent Mode
 
-Agent tools can jail file paths inside a workspace. `AgentPanel` is not mounted, and agent IPC is not registered. Writes stay off until an approval step calls `approveWrites()`.
+Agent file paths stay inside the open workspace. The command palette opens `AgentPanel`. A `writeFile` call is sent to that panel and is written only after the user approves that exact path and content. Closing the panel rejects a write that is still waiting.
 
 ### Components
 

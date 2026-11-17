@@ -14,6 +14,7 @@ export const PANEL_COMMAND_IDS = {
   shortcuts: 'view.toggle-shortcuts',
   publish: 'view.toggle-publish',
   semanticSearch: 'view.toggle-semantic-search',
+  agent: 'view.toggle-agent',
   wysiwyg: 'view.toggle-wysiwyg',
 } as const;
 
@@ -47,6 +48,7 @@ export const PANEL_COMMANDS: readonly Command[] = [
   toggleCommand('view.toggle-shortcuts', 'Toggle Keyboard Shortcuts', 'shortcuts'),
   toggleCommand('view.toggle-publish', 'Toggle Publish', 'publish'),
   toggleCommand('view.toggle-semantic-search', 'Toggle Semantic Search', 'semantic-search'),
+  toggleCommand('view.toggle-agent', 'Toggle AI Agent', 'agent', () => isFeatureEnabled('ai')),
   {
     id: 'view.toggle-wysiwyg' as CommandId,
     name: 'Toggle WYSIWYG Editor',

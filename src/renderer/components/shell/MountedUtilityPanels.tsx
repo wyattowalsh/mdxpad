@@ -14,6 +14,8 @@ import { ExportPanel } from '@renderer/components/export/ExportPanel';
 import { ShortcutEditor } from '@renderer/components/shortcuts/ShortcutEditor';
 import { TagTreePanel } from '@renderer/components/tags/TagTreePanel';
 import { WorkspacePanel } from '@renderer/components/workspace/WorkspacePanel';
+import { AgentPanel } from '@renderer/features/ai-agent/AgentPanel';
+import { useAgentModeStore } from '@renderer/features/ai-agent/agent-mode-store';
 import { SemanticSearchPanel } from '@renderer/features/semantic-search/SemanticSearchPanel';
 import {
   Dialog,
@@ -38,6 +40,7 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   shortcuts: 'Keyboard shortcuts',
   publish: 'Publish',
   'semantic-search': 'Semantic search',
+  agent: 'AI agent',
 };
 
 function revealCommentThread(view: EditorView, anchorFrom: number): void {
@@ -107,6 +110,15 @@ function PanelBody({
           }}
         />
       );
+    case 'agent':
+      return (
+        <div className="h-96">
+          <AgentPanel
+            {...(model?.workspace.rootPath ? { workspacePath: model.workspace.rootPath } : {})}
+            {...(filePath ? { currentFilePath: filePath } : {})}
+          />
+        </div>
+      );
     default: {
       const unreachable: never = panel;
       return unreachable;
@@ -128,7 +140,12 @@ export function MountedUtilityPanels({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) useUtilityPanelStore.getState().setActiveUtilityPanel(null);
+        if (!open) {
+          if (panel === 'agent') {
+            void useAgentModeStore.getState().cancel();
+          }
+          useUtilityPanelStore.getState().setActiveUtilityPanel(null);
+        }
       }}
     >
       <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto" data-testid="utility-panel">
