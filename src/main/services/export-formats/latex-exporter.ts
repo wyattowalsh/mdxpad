@@ -15,7 +15,7 @@ import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { linkDestination } from './markdown-link';
+import { linkDestination, linkTitle } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -132,13 +132,14 @@ function convertInlineFormatting(raw: string): string {
   return restoreMath(formatInline(protectedMath.text), protectedMath.slots);
 }
 
-function latexImage(src: string, alt: string): string {
+function latexImage(src: string, alt: string, title: string | null): string {
+  const caption = title ? ` \\textit{${escapeLatex(title)}}` : '';
   if (/^https?:\/\//i.test(src)) {
     const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
-    return `\\href{${escapeLatex(src)}}{${label}}`;
+    return `\\href{${escapeLatex(src)}}{${label}}${caption}`;
   }
   const path = src.replaceAll('%', '\\%').replaceAll('}', '');
-  return `\\includegraphics{${path}}`;
+  return `\\includegraphics{${path}}${caption}`;
 }
 
 function restoreLatexAutolinks(
@@ -167,7 +168,7 @@ function formatProtected(raw: string): string {
       const alt = match[9] ?? '';
       const src = match[10] ?? '';
       const path = linkDestination(decodeHtmlEntities(src));
-      result += latexImage(path, alt.length > 0 ? alt : path);
+      result += latexImage(path, alt.length > 0 ? alt : path, linkTitle(decodeHtmlEntities(src)));
     } else if (match[2] !== undefined || match[3] !== undefined) {
       result += `\\textbf{\\textit{${formatProtected(match[2] ?? match[3] ?? '')}}}`;
     } else if (match[4] !== undefined || match[5] !== undefined) {

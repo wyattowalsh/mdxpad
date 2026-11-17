@@ -289,6 +289,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\usepackage[normalem]{ulem}');
   });
 
+  it('prints an image title beside the picture', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![Local](photo.jpg "Sunset")',
+      outputPath: '/tmp/image-title.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\includegraphics{photo.jpg}');
+    expect(written).toContain('\\textit{Sunset}');
+  });
+
   it('includes a local image and links a remote one', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
