@@ -108,6 +108,24 @@ function normalizePdfLine(value: string): string {
   return plain.trim().length > 0 ? plain : ' ';
 }
 
+function wrapPdfLine(line: string, maxChars: number): string[] {
+  if (maxChars < 1 || line.length <= maxChars) {
+    return [line];
+  }
+  const wrapped: string[] = [];
+  let rest = line;
+  while (rest.length > maxChars) {
+    const space = rest.lastIndexOf(' ', maxChars);
+    const breakAt = space > 0 ? space : maxChars;
+    wrapped.push(rest.slice(0, breakAt));
+    rest = rest.slice(breakAt).trimStart();
+  }
+  if (rest.length > 0) {
+    wrapped.push(rest);
+  }
+  return wrapped;
+}
+
 function plainInline(text: string): string {
   return text
     .replace(/!\[([^\]]*)\]\((?:[^()]|\([^()]*\))+\)/g, '$1')
@@ -288,6 +306,8 @@ export function buildPdfDocument(
   const fontSize = options.fontSizePt ?? 11;
   const lineHeight = Math.max(fontSize * 1.35, 12);
   const usableHeight = Math.max(dimensions.height - marginPoints * 2, lineHeight);
+  const usableWidth = Math.max(dimensions.width - marginPoints * 2, fontSize);
+  const maxChars = Math.max(20, Math.floor(usableWidth / (fontSize * 0.5)));
   const maxLinesPerPage = Math.max(1, Math.floor(usableHeight / lineHeight));
   const blocks = parseMarkdownBlocks(markdown);
 
@@ -295,7 +315,10 @@ export function buildPdfDocument(
     warnings.push('Built-in PDF export currently uses Helvetica for rendering.');
   }
 
-  const pageChunks = chunkLines(toPdfLines(blocks), maxLinesPerPage);
+  const pageChunks = chunkLines(
+    toPdfLines(blocks).flatMap((line) => wrapPdfLine(line, maxChars)),
+    maxLinesPerPage
+  );
   const { objects, pageObjectIds, nextObjectId } = createPdfPageObjects(
     pageChunks,
     dimensions,

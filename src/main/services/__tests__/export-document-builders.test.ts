@@ -19,6 +19,14 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**bold**');
   });
 
+  it('wraps a long line instead of running off the page', () => {
+    const pdf = buildPdfDocument(`word ${'longword '.repeat(40)}`);
+    const drawn = [...pdf.content.matchAll(/\(([^)]*)\) Tj/g)].map((match) => match[1] ?? '');
+    expect(drawn.length).toBeGreaterThan(1);
+    expect(drawn.every((line) => line.length <= 90)).toBe(true);
+    expect(drawn.join(' ')).toContain('longword');
+  });
+
   it('prints a footnote number with the Helvetica-safe marker', () => {
     const pdf = buildPdfDocument('See [^1].\n\n[^1]: Note');
     expect(pdf.content).toContain('[1]');
