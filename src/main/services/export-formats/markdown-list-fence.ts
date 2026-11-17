@@ -3,6 +3,7 @@ import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
 import { isListContinuation, renderListItemHtml, replaceHtmlListItem } from './markdown-list';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { renderDisplayMathBlock } from './markdown-inline-html';
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 
 export interface OpenListFence {
@@ -25,6 +26,7 @@ export interface HtmlListItemState {
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  itemMath: string[] | null;
   listColumn: number | null;
   listBreak: boolean;
   loose: boolean;
@@ -101,7 +103,7 @@ function writeListItem(state: HtmlListItemState, render: (text: string) => strin
   return replaceHtmlListItem(state.parts, composedItemHtml(state, render));
 }
 
-function dedentToColumn(line: string, contentColumn: number): string {
+export function dedentToColumn(line: string, contentColumn: number): string {
   const { expanded, spaces } = expandedIndent(line);
   return expanded.slice(Math.min(spaces, contentColumn));
 }
@@ -136,6 +138,7 @@ export function resetListItem(state: HtmlListItemState): void {
   state.itemFence = null;
   state.itemQuote = null;
   state.itemTable = null;
+  state.itemMath = null;
   state.loose = false;
 }
 
@@ -186,6 +189,7 @@ export function continueListItem(
     state.itemFence ||
     state.itemQuote ||
     state.itemTable ||
+    state.itemMath ||
     state.listColumn === null ||
     !isListContinuation(raw, state.listColumn)
   ) {
@@ -238,6 +242,47 @@ export function takeListItemFence(
     indent: opened.indent,
     lines: [],
   };
+  state.listBreak = false;
+  return true;
+}
+
+function closeItemMath(state: HtmlListItemState, render: (text: string) => string): void {
+  if (!state.itemMath) {
+    return;
+  }
+  state.itemHtml += renderDisplayMathBlock(state.itemMath);
+  state.itemMath = null;
+  state.listLines = [];
+  writeListItem(state, render);
+}
+
+/** Keep a display formula that belongs to the open item inside that item. */
+export function takeListItemMath(
+  state: HtmlListItemState,
+  line: string,
+  render: (text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (state.itemFence || state.itemQuote || state.itemTable) {
+    return false;
+  }
+  const column = state.listColumn ?? 2;
+  if (state.itemMath) {
+    if (line.trim() === '$$') {
+      closeItemMath(state, render);
+      return true;
+    }
+    state.itemMath.push(dedentToColumn(line, column));
+    return true;
+  }
+  if (!listOpen || state.listColumn === null || line.trim() !== '$$') {
+    return false;
+  }
+  if (!isListContinuation(line, column)) {
+    return false;
+  }
+  sealProse(state, render);
+  state.itemMath = [];
   state.listBreak = false;
   return true;
 }
@@ -333,6 +378,7 @@ export function finishListItemFence(
   state: HtmlListItemState,
   render: (text: string) => string
 ): void {
+  closeItemMath(state, render);
   closeItemTable(state, render);
   closeItemQuote(state, render);
   if (!state.itemFence) {

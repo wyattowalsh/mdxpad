@@ -29,6 +29,7 @@ import {
   finishListItemFence,
   openListItem,
   takeListItemFence,
+  takeListItemMath,
   takeListItemQuote,
   takeListItemTable,
 } from './markdown-list-fence';
@@ -57,6 +58,7 @@ interface PdfBuild {
   itemFence: { marker: string; language: string; indent: number; lines: string[] } | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  itemMath: string[] | null;
   loose: boolean;
   slugCounts: Map<string, number>;
 }
@@ -78,6 +80,7 @@ function closePdfList(build: PdfBuild): void {
   build.itemFence = null;
   build.itemQuote = null;
   build.itemTable = null;
+  build.itemMath = null;
 }
 
 function finishDisplayMath(build: PdfBuild): void {
@@ -91,6 +94,9 @@ function finishDisplayMath(build: PdfBuild): void {
 function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   if (build.fence) {
     return false;
+  }
+  if (takeListItemMath(build, line, renderMarkdownInline, build.lists.length > 0)) {
+    return true;
   }
   const trimmed = line.trim();
   if (trimmed === '$$') {
@@ -340,6 +346,7 @@ export function markdownToPdfHtml(content: string): string {
     itemFence: null,
     itemQuote: null,
     itemTable: null,
+    itemMath: null,
     loose: false,
     displayMath: null,
     tableLines: [],

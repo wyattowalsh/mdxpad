@@ -192,6 +192,21 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps display math inside a list item', async () => {
+    await exporter.export({
+      content: '- item\n\n  $$\n  a < b\n  $$\n\n  after\n',
+      outputPath: '/tmp/list-math.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><p>item</p><span class="katex">');
+    expect(html).toContain('<math');
+    expect(html).toContain('application/x-tex">a &lt; b');
+    expect(html).toContain('</span><p>after</p></li>');
+    expect(html.indexOf('</span><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).not.toContain('katex-error');
+  });
+
   it('keeps a table inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n  | A | B |\n  | --- | ---: |\n  | 1 | 2 |\n\n  after\n',

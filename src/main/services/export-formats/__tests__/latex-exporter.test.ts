@@ -98,6 +98,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
   });
 
+  it('keeps display math inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  $$\n  a < b\n  $$\n\n  after\n',
+      outputPath: '/tmp/list-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written.indexOf('\\item item')).toBeLessThan(written.indexOf('$$\na < b\n$$'));
+    expect(written).not.toContain('  a < b');
+    expect(written.indexOf('$$\na < b\n$$')).toBeLessThan(written.indexOf('after'));
+    expect(written.indexOf('after')).toBeLessThan(written.indexOf('\\end{itemize}'));
+  });
+
   it('keeps a table inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

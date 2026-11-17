@@ -44,6 +44,7 @@ import {
   type MarkdownListItem,
 } from './markdown-list';
 import {
+  dedentToColumn,
   listFenceOnMarker,
   openListFence,
   readListFenceLine,
@@ -567,6 +568,32 @@ function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
   return true;
 }
 
+function takeDocxItemMath(parse: DocxParse, line: string): boolean {
+  if (parse.itemFence || parse.itemQuote || parse.itemTable) {
+    return false;
+  }
+  const column = parse.listColumn ?? 2;
+  if (parse.itemMath) {
+    if (line.trim() === '$$') {
+      pushDisplayMath(parse.blocks, parse.itemMath);
+      parse.itemMath = null;
+      parse.listSealed = true;
+      return true;
+    }
+    parse.itemMath.push(dedentToColumn(line, column));
+    return true;
+  }
+  if (parse.openListItem === null || parse.listColumn === null || line.trim() !== '$$') {
+    return false;
+  }
+  if (!isListContinuation(line, column)) {
+    return false;
+  }
+  parse.itemMath = [];
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxItemTable(parse: DocxParse, line: string): boolean {
   if (parse.itemFence || parse.itemQuote) {
     return false;
@@ -660,6 +687,7 @@ interface DocxParse {
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  itemMath: string[] | null;
   listParagraphBreak: boolean;
   tailText: string | null;
   tailHard: boolean;
@@ -740,6 +768,7 @@ function takeDocxList(
       : null;
     parse.itemQuote = null;
     parse.itemTable = null;
+    parse.itemMath = null;
     parse.listParagraphBreak = false;
     parse.tailText = null;
     parse.tailHard = false;
@@ -810,8 +839,14 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
   parse.listBreak = false;
 }
 
+function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
+  return (
+    takeDocxItemQuote(parse, line) || takeDocxItemTable(parse, line) || takeDocxItemMath(parse, line)
+  );
+}
+
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
-  if (takeDocxItemQuote(parse, line) || takeDocxItemTable(parse, line)) {
+  if (takeDocxItemBlock(parse, line)) {
     return;
   }
   const openListItem = parse.openListItem;
@@ -947,8 +982,8 @@ function readDocxLine(
   return fence;
 }
 
-function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
-  const parse: DocxParse = {
+function emptyDocxParse(): DocxParse {
+  return {
     blocks: [],
     pending: [],
     displayLines: null,
@@ -962,12 +997,17 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     itemFence: null,
     itemQuote: null,
     itemTable: null,
+    itemMath: null,
     listParagraphBreak: false,
     tailText: null,
     tailHard: false,
     tailOpen: false,
     slugCounts: new Map<string, number>(),
   };
+}
+
+function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
+  const parse = emptyDocxParse();
   let fence: string | null = null;
   const codeLines: string[] = [];
   const language = { current: '' };
@@ -993,6 +1033,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   }
   if (parse.itemTable) {
     flushDocxTable(parse.blocks, parse.itemTable);
+  }
+  if (parse.itemMath) {
+    pushDisplayMath(parse.blocks, parse.itemMath);
   }
   return parse.blocks;
 }

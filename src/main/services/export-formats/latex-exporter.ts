@@ -24,6 +24,7 @@ import {
   type MarkdownListItem,
 } from './markdown-list';
 import {
+  dedentToColumn,
   listFenceOnMarker,
   openListFence,
   readListFenceLine,
@@ -243,6 +244,7 @@ interface ListState {
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
   itemTable: string[] | null;
+  itemMath: string[] | null;
   sealed: boolean;
   paragraphBreak: boolean;
   tailLines: SourceLine[] | null;
@@ -574,6 +576,33 @@ function takeLatexQuote(output: string[], line: string, quoteLines: string[]): b
   return false;
 }
 
+function takeLatexItemMath(build: LatexBuild, line: string): boolean {
+  const list = build.listState;
+  if (list.itemFence || list.itemQuote || list.itemTable || build.fence) {
+    return false;
+  }
+  const column = list.column ?? 2;
+  if (list.itemMath) {
+    if (line.trim() === '$$') {
+      build.output.push('$$', ...list.itemMath, '$$');
+      list.itemMath = null;
+      list.sealed = true;
+      return true;
+    }
+    list.itemMath.push(dedentToColumn(line, column));
+    return true;
+  }
+  if (list.stack.length === 0 || list.column === null || line.trim() !== '$$') {
+    return false;
+  }
+  if (!isListContinuation(line, column)) {
+    return false;
+  }
+  list.itemMath = [];
+  list.break = false;
+  return true;
+}
+
 function takeLatexItemTable(build: LatexBuild, line: string): boolean {
   const list = build.listState;
   if (list.itemFence || list.itemQuote || build.fence) {
@@ -682,6 +711,25 @@ function takeLatexItemFence(build: LatexBuild, line: string): boolean {
   return true;
 }
 
+function takeLatexDisplay(build: LatexBuild, line: string): boolean {
+  if (line.trim() !== '$$' && !build.inDisplayMath) {
+    return false;
+  }
+  if (line.trim() === '$$') {
+    flushLatexProse(build.output, build.prose);
+    flushLatexTable(build.output, build.tableLines);
+    flushLatexQuote(build.output, build.quoteLines);
+    if (!build.inDisplayMath) {
+      resetListState(build.output, build.listState);
+    }
+    build.output.push('$$');
+    build.inDisplayMath = !build.inDisplayMath;
+    return true;
+  }
+  build.output.push(line);
+  return true;
+}
+
 function appendLatexSourceLine(build: LatexBuild, line: string): void {
   if (takeLatexItemFence(build, line)) {
     return;
@@ -698,19 +746,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     build.output.push(line);
     return;
   }
-  if (line.trim() === '$$') {
-    flushLatexProse(build.output, build.prose);
-    flushLatexTable(build.output, build.tableLines);
-    flushLatexQuote(build.output, build.quoteLines);
-    if (!build.inDisplayMath) {
-      resetListState(build.output, build.listState);
-    }
-    build.output.push('$$');
-    build.inDisplayMath = !build.inDisplayMath;
-    return;
-  }
-  if (build.inDisplayMath) {
-    build.output.push(line);
+  if (takeLatexItemMath(build, line) || takeLatexDisplay(build, line)) {
     return;
   }
   if (takeLatexItemTable(build, line)) {
@@ -742,6 +778,7 @@ function emptyListState(): ListState {
     itemFence: null,
     itemQuote: null,
     itemTable: null,
+    itemMath: null,
     sealed: false,
     paragraphBreak: false,
     tailLines: null,
@@ -778,6 +815,9 @@ function contentToLatex(content: string): string {
   }
   if (build.listState.itemQuote) {
     build.output.push(quoteToLatex(build.listState.itemQuote, convertInlineFormatting));
+  }
+  if (build.listState.itemMath) {
+    build.output.push('$$', ...build.listState.itemMath, '$$');
   }
   if (build.listState.itemTable) {
     const table = parseMarkdownTable(build.listState.itemTable);

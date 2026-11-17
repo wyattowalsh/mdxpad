@@ -118,6 +118,22 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('keeps display math inside a list item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- item\n\n  $$\n  a < b\n  $$\n',
+      outputPath: '/tmp/list-math.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<li><p>item</p><span class="katex">');
+    expect(html).toContain('application/x-tex">a &lt; b');
+    expect(html.indexOf('</span>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).not.toContain('katex-error');
+  });
+
   it('keeps a table inside a list item', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({
