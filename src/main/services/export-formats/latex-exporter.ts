@@ -122,7 +122,7 @@ function formatInline(source: string): string {
   const protectedLinks = protectAutolinks(escaped.text);
   const raw = protectedLinks.text;
   const pattern =
-    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\)|~~(.+?)~~)/g;
+    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
   let result = '';
   let cursor = 0;
   for (const match of raw.matchAll(pattern)) {

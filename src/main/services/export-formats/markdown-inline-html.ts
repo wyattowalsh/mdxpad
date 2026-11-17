@@ -73,12 +73,15 @@ function renderText(value: string): string {
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>')
         .replace(
-          /!\[([^\]]*)\]\(([^)]+)\)/g,
+          /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g,
           (_match, alt: string, src: string) => `<img src="${linkDestination(src)}" alt="${alt}" />`
         )
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, href: string) => {
-          return `<a href="${linkDestination(href)}">${text}</a>`;
-        }),
+        .replace(
+          /\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g,
+          (_match, text: string, href: string) => {
+            return `<a href="${linkDestination(href)}">${text}</a>`;
+          }
+        ),
       protectedLinks.links
     ),
     escaped.chars,

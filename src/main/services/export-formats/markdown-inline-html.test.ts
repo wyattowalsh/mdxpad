@@ -37,6 +37,12 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('`https://example.com`')).toBe('<code>https://example.com</code>');
   });
 
+  it('keeps parentheses inside a link address', () => {
+    expect(renderMarkdownInline('[wiki](https://en.wikipedia.org/wiki/Markdown_(markup))')).toBe(
+      '<a href="https://en.wikipedia.org/wiki/Markdown_(markup)">wiki</a>'
+    );
+  });
+
   it('keeps a link title out of the address', () => {
     expect(renderMarkdownInline('[docs](https://example.com "Docs")')).toBe(
       '<a href="https://example.com">docs</a>'
