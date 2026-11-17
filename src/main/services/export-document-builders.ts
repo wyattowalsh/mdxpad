@@ -11,6 +11,7 @@ import {
   parseListItem,
 } from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
+import { readSourceLine } from './export-formats/markdown-paragraph';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { protectEscapes, restoreEscapes } from './export-formats/markdown-escape';
 import { linkDestination } from './export-formats/markdown-link';
@@ -32,6 +33,7 @@ interface MarkdownParagraphBlock {
   readonly setext: boolean;
   readonly quote: boolean;
   readonly listColumn: number | null;
+  readonly hardBreak: boolean;
 }
 
 interface MarkdownImageBlock {
@@ -192,8 +194,12 @@ function stripQuoteMarkers(line: string): string {
   return `${'  '.repeat(depth - 1)}${text}`;
 }
 
+function joinContinued(previous: string, hardBreak: boolean, next: string): string {
+  return hardBreak ? `${previous}\n${next}` : `${previous} ${next}`;
+}
+
 function plainParagraph(rawLine: string): string {
-  const quoted = stripQuoteMarkers(rawLine);
+  const quoted = stripQuoteMarkers(readSourceLine(rawLine).text);
   if (isThematicBreak(quoted.trim())) {
     return '----------';
   }
@@ -235,12 +241,14 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     return;
   }
 
+  const source = readSourceLine(rawLine);
   blocks.push({
     kind: 'paragraph',
     text: plainParagraph(rawLine),
     setext: isSetextText(rawLine),
     quote: quoteBody(rawLine) !== null,
     listColumn: listContentColumn(rawLine),
+    hardBreak: source.hardBreak,
   });
 }
 
@@ -322,12 +330,14 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
   ) {
     return false;
   }
+  const source = readSourceLine(rawLine);
   blocks[blocks.length - 1] = {
     kind: 'paragraph',
-    text: `${last.text} ${plainInline(rawLine.trim())}`,
+    text: joinContinued(last.text, last.hardBreak, plainInline(source.text)),
     setext: false,
     quote: false,
     listColumn: last.listColumn,
+    hardBreak: source.hardBreak,
   };
   return true;
 }
@@ -360,16 +370,18 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
   if (continued !== null && (quoteBody(continued) !== null || parseListItem(continued) !== null)) {
     return false;
   }
-  const text = continued ?? (isLazyQuoteLine(rawLine) ? rawLine.trim() : '');
-  if (text.length === 0) {
+  const text = continued ?? (isLazyQuoteLine(rawLine) ? rawLine : '');
+  const source = readSourceLine(text);
+  if (source.text.length === 0) {
     return false;
   }
   blocks[blocks.length - 1] = {
     kind: 'paragraph',
-    text: `${last.text} ${plainInline(text.trim())}`,
+    text: joinContinued(last.text, last.hardBreak, plainInline(source.text)),
     setext: false,
     quote: true,
     listColumn: null,
+    hardBreak: source.hardBreak,
   };
   return true;
 }
@@ -394,6 +406,7 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
           setext: false,
           quote: false,
           listColumn: null,
+          hardBreak: false,
         });
       }
       continue;
@@ -432,7 +445,9 @@ function toPdfLines(blocks: readonly MarkdownBlock[]): string[] {
         lines.push(normalizePdfLine(`[Image] ${block.alt} (${block.src})`));
         break;
       case 'paragraph':
-        lines.push(normalizePdfLine(block.text));
+        for (const part of block.text.split('\n')) {
+          lines.push(normalizePdfLine(part));
+        }
         break;
       case 'table':
         for (const row of block.rows) {
@@ -617,6 +632,16 @@ function docxTable(block: MarkdownTableBlock): string {
   return `<w:tbl>${rows.join('')}</w:tbl>`;
 }
 
+function docxTextRuns(text: string): string {
+  return text
+    .split('\n')
+    .map((part, index) => {
+      const breakRun = index > 0 ? '<w:br/>' : '';
+      return `${breakRun}<w:r><w:t xml:space="preserve">${escapeXml(part)}</w:t></w:r>`;
+    })
+    .join('');
+}
+
 function renderDocxParagraphs(
   blocks: readonly MarkdownBlock[],
   options: DocxExportPresetOptions,
@@ -656,9 +681,7 @@ function renderDocxParagraphs(
       continue;
     }
 
-    paragraphs.push(
-      `<w:p><w:r><w:t xml:space="preserve">${escapeXml(block.text)}</w:t></w:r></w:p>`
-    );
+    paragraphs.push(`<w:p>${docxTextRuns(block.text)}</w:p>`);
   }
 
   return paragraphs;

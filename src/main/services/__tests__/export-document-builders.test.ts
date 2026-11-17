@@ -103,6 +103,20 @@ describe('built-in export documents', () => {
     expect(pdf.content).toContain('Below');
   });
 
+  it('keeps a hard break without printing the backslash', () => {
+    const pdf = buildPdfDocument('Hello\\\nworld\n\n> Stay\\\n> put');
+    expect(pdf.content).toContain('(Hello) Tj');
+    expect(pdf.content).toContain('(world) Tj');
+    expect(pdf.content).toContain('(Stay) Tj');
+    expect(pdf.content).toContain('(put) Tj');
+    expect(pdf.content).not.toContain('Hello\\\\');
+    expect(pdf.content).not.toContain('Stay put');
+    const docx = Buffer.from(buildDocxDocument('> Stay\\\n> put').content).toString('utf8');
+    expect(docx).toContain('Stay');
+    expect(docx).toContain('<w:br/>');
+    expect(docx).toContain('put');
+  });
+
   it('keeps an escaped asterisk in a table cell', () => {
     const pdf = buildPdfDocument('| A \\*B\\* |\n| --- |\n| 1 |');
     expect(pdf.content).toContain('A *B*');
