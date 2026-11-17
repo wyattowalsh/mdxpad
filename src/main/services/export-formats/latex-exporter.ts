@@ -2,9 +2,11 @@ import { writeFile } from 'node:fs/promises';
 
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
+const LATEX_BACKSLASH = '\uE000';
+
 function escapeLatex(text: string): string {
   return text
-    .replaceAll('\\', '\\textbackslash{}')
+    .replaceAll('\\', LATEX_BACKSLASH)
     .replaceAll('&', '\\&')
     .replaceAll('%', '\\%')
     .replaceAll('$', '\\$')
@@ -13,7 +15,8 @@ function escapeLatex(text: string): string {
     .replaceAll('{', '\\{')
     .replaceAll('}', '\\}')
     .replaceAll('~', '\\textasciitilde{}')
-    .replaceAll('^', '\\textasciicircum{}');
+    .replaceAll('^', '\\textasciicircum{}')
+    .replaceAll(LATEX_BACKSLASH, '\\textbackslash{}');
 }
 
 function convertInlineFormatting(line: string): string {

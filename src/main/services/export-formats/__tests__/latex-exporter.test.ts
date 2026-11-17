@@ -139,6 +139,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('keeps a backslash as a LaTeX command', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Path C:\\temp and {braces}',
+      outputPath: '/tmp/backslash.tex',
+    });
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\textbackslash{}');
+    expect(written).not.toContain('\\textbackslash\\{\\}');
+    expect(written).toContain('\\{braces\\}');
+  });
+
   it('returns error result on write failure', async () => {
     const { writeFile } = await import('node:fs/promises');
     (writeFile as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('disk full'));
