@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
+import { normalizeTexMath } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
 
@@ -289,7 +290,7 @@ export function markdownToPdfHtml(content: string): string {
     quoteLines: [],
     slugCounts: new Map<string, number>(),
   };
-  const lines = expandLinkReferences(content).split('\n');
+  const lines = expandLinkReferences(normalizeTexMath(content)).split('\n');
   for (let index = 0; index < lines.length; index += 1) {
     const htmlEnd = consumePdfHtml(build, lines, index);
     if (htmlEnd > index) {

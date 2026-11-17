@@ -50,6 +50,12 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('mdxpad-jsx');
   });
 
+  it('keeps TeX math delimiters', () => {
+    expect(roundTrip('The area is \\(x^2\\).\n')).toContain('\\(x^2\\)');
+    expect(roundTrip('\\[\na+b\n\\]\n')).toContain('\\[');
+    expect(roundTrip('\\[\na+b\n\\]\n')).toContain('a+b');
+  });
+
   it('keeps math characters literal', () => {
     expect(roundTrip('The product is $a * b$.\n')).toContain('$a * b$');
     expect(roundTrip('The term is $a_{i}$.\n')).toContain('$a_{i}$');

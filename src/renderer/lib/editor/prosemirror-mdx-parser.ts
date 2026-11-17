@@ -163,20 +163,53 @@ function imageAlt(token: MarkdownToken): string {
 const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
 const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
 const FOOTNOTE_MARK = '\uE010';
+const TEX_INLINE_OPEN = '\uE013';
+const TEX_INLINE_CLOSE = '\uE014';
+const TEX_DISPLAY_OPEN = '\uE015';
+const TEX_DISPLAY_CLOSE = '\uE016';
 
 export function protectFootnoteMarkers(value: string): string {
   return value.replaceAll('[^', `${FOOTNOTE_MARK}^`);
 }
 
+export function protectTexDelimiters(value: string): string {
+  return value
+    .replaceAll('\\[', TEX_DISPLAY_OPEN)
+    .replaceAll('\\]', TEX_DISPLAY_CLOSE)
+    .replaceAll('\\(', TEX_INLINE_OPEN)
+    .replaceAll('\\)', TEX_INLINE_CLOSE);
+}
+
+function restoreTexDelimiters(value: string): string {
+  return value
+    .replaceAll(TEX_DISPLAY_OPEN, '\\[')
+    .replaceAll(TEX_DISPLAY_CLOSE, '\\]')
+    .replaceAll(TEX_INLINE_OPEN, '\\(')
+    .replaceAll(TEX_INLINE_CLOSE, '\\)');
+}
+
+function hasProtectedMarks(text: string): boolean {
+  return (
+    text.includes(FOOTNOTE_MARK) ||
+    text.includes(TEX_INLINE_OPEN) ||
+    text.includes(TEX_INLINE_CLOSE) ||
+    text.includes(TEX_DISPLAY_OPEN) ||
+    text.includes(TEX_DISPLAY_CLOSE)
+  );
+}
+
 function restoreFootnoteMarkers(node: ProseMirrorNode): ProseMirrorNode {
   if (node.isText) {
     const text = node.text ?? '';
-    if (!text.includes(FOOTNOTE_MARK)) {
+    if (!hasProtectedMarks(text)) {
       return node;
     }
-    return node.type.schema.text(text.replaceAll(`${FOOTNOTE_MARK}^`, '[^'), node.marks);
+    return node.type.schema.text(
+      restoreTexDelimiters(text.replaceAll(`${FOOTNOTE_MARK}^`, '[^')),
+      node.marks
+    );
   }
-  if (node.childCount === 0 || !node.textContent.includes(FOOTNOTE_MARK)) {
+  if (node.childCount === 0 || !hasProtectedMarks(node.textContent)) {
     return node;
   }
   const children: ProseMirrorNode[] = [];
@@ -319,7 +352,7 @@ export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tok
 export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { frontmatter, body } = splitLeadingFrontmatter(content);
   const definitions = extractLinkDefinitions(body);
-  const { processedText } = extractJsxBlocks(protectFootnoteMarkers(body));
+  const { processedText } = extractJsxBlocks(protectTexDelimiters(protectFootnoteMarkers(body)));
   const restored = restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText)));
   if (frontmatter.length === 0 && definitions.length === 0) {
     return restored;

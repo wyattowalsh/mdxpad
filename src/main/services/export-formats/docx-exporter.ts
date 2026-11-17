@@ -19,6 +19,7 @@ import {
 } from 'docx';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
+import { normalizeTexMath } from '@shared/lib/markdown-math';
 
 import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 
@@ -605,7 +606,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   let fence: string | null = null;
   const codeLines: string[] = [];
 
-  for (const line of expandLinkReferences(content).split('\n')) {
+  for (const line of expandLinkReferences(normalizeTexMath(content)).split('\n')) {
     const nextFence = takeDocxFence(
       parse.blocks,
       line,

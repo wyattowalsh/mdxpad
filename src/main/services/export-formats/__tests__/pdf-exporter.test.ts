@@ -362,6 +362,17 @@ describe('PdfExporter', () => {
     expect(html).toContain('&lt;div&gt;');
   });
 
+  it('renders a TeX formula', async () => {
+    await exporter.export({
+      content: 'The area is \\(x^2\\).',
+      outputPath: '/tmp/tex-math.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<math');
+    expect(html).not.toContain('\\(x^2\\)');
+  });
+
   it('renders a formula and a display block', async () => {
     await exporter.export({
       content: 'See $x^2$.\n$$\nE = mc^2\n$$',

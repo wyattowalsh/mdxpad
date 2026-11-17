@@ -15,6 +15,15 @@ describe('remark math prices', () => {
     }
   });
 
+  it('renders a TeX inline formula', async () => {
+    const result = await compileMdx(testId('tex-inline'), 'The area is \\(x^2\\).');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('katex');
+      expect(result.code).not.toContain('\\(x^2\\)');
+    }
+  });
+
   it('keeps a real formula', async () => {
     const result = await compileMdx(testId('formula'), 'The area is $x^2$.');
     expect(result.ok).toBe(true);

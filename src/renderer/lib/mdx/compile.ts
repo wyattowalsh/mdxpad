@@ -17,6 +17,7 @@ import type {
   RequestId,
 } from '@shared/types/preview-worker';
 import type { CompileError } from '@shared/types/preview';
+import { normalizeTexMath } from '@shared/lib/markdown-math';
 import type { OutlineAST } from '@shared/types/outline';
 import {
   createDefaultMdxPluginRegistry,
@@ -149,6 +150,7 @@ async function performCompilation(
 ): Promise<CompileResponse> {
   const vfile = new VFile({ value: source });
   matter(vfile, { strip: true });
+  vfile.value = normalizeTexMath(String(vfile.value));
 
   const rawFrontmatter = (vfile.data.matter ?? {}) as Record<string, unknown>;
   const frontmatter = sanitizeFrontmatter(rawFrontmatter);
