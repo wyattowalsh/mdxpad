@@ -10,7 +10,7 @@
 
 import { defaultMarkdownParser, MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
-import type { Node as ProseMirrorNode, Attrs } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type Attrs } from 'prosemirror-model';
 
 /**
  * Minimal markdown-it Token interface matching what prosemirror-markdown expects.
@@ -161,7 +161,30 @@ function imageAlt(token: MarkdownToken): string {
 }
 
 const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
-const LINK_DEFINITION = /^\s{0,3}\[[^\]]+\]:\s+\S/;
+const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
+const FOOTNOTE_MARK = '\uE010';
+
+export function protectFootnoteMarkers(value: string): string {
+  return value.replaceAll('[^', `${FOOTNOTE_MARK}^`);
+}
+
+function restoreFootnoteMarkers(node: ProseMirrorNode): ProseMirrorNode {
+  if (node.isText) {
+    const text = node.text ?? '';
+    if (!text.includes(FOOTNOTE_MARK)) {
+      return node;
+    }
+    return node.type.schema.text(text.replaceAll(`${FOOTNOTE_MARK}^`, '[^'), node.marks);
+  }
+  if (node.childCount === 0 || !node.textContent.includes(FOOTNOTE_MARK)) {
+    return node;
+  }
+  const children: ProseMirrorNode[] = [];
+  node.forEach((child) => {
+    children.push(restoreFootnoteMarkers(child));
+  });
+  return node.copy(Fragment.fromArray(children));
+}
 const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
 
 export function splitLeadingFrontmatter(content: string): {
@@ -296,8 +319,8 @@ export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tok
 export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { frontmatter, body } = splitLeadingFrontmatter(content);
   const definitions = extractLinkDefinitions(body);
-  const { processedText } = extractJsxBlocks(body);
-  const restored = restoreJsxFences(mdxParser.parse(processedText));
+  const { processedText } = extractJsxBlocks(protectFootnoteMarkers(body));
+  const restored = restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText)));
   if (frontmatter.length === 0 && definitions.length === 0) {
     return restored;
   }

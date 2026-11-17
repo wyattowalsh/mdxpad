@@ -60,6 +60,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\[');
   });
 
+  it('keeps a footnote reference and its definition', () => {
+    const serialized = roundTrip('A footnote[^1].\n\n[^1]: The note\n');
+    expect(serialized).toContain('A footnote[^1].');
+    expect(serialized).toContain('[^1]: The note');
+    expect(serialized).not.toContain('](The note)');
+    expect(serialized).not.toContain('\\[');
+  });
+
   it('keeps strikethrough', () => {
     const serialized = roundTrip('~~gone~~\n');
     expect(serialized).toContain('~~gone~~');

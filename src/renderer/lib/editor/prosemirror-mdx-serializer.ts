@@ -186,7 +186,7 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
  * to avoid collisions with backticks in the content.
  */
 function writeTextPreservingMath(state: MarkdownSerializerState, value: string): void {
-  const pattern = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/g;
+  const pattern = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\[\^[^\]]+\]/g;
   let cursor = 0;
   for (const match of value.matchAll(pattern)) {
     const index = match.index;
