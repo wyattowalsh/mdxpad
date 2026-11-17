@@ -76,6 +76,9 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('![A photo](photo.jpg "A photo")')).toBe(
       '<img src="photo.jpg" alt="A photo" title="A photo" />'
     );
+    expect(renderMarkdownInline('[a](b "title with)paren")')).toBe(
+      '<a href="b" title="title with)paren">a</a>'
+    );
   });
 
   it('renders a formula and leaves a price as text', () => {

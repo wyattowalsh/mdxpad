@@ -16,7 +16,7 @@ import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { linkDestination, linkTitle } from './markdown-link';
+import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -155,7 +155,9 @@ function restoreLatexAutolinks(
 }
 
 const INLINE_PATTERN =
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\(((?:[^()]|\\([^()]*\\))+)\\)|~~(.+?)~~)';
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\((' +
+  MARKDOWN_LINK_INSIDE +
+  ')\\)|~~(.+?)~~)';
 
 function formatProtected(raw: string): string {
   let result = '';

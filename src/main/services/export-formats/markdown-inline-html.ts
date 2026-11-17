@@ -3,7 +3,7 @@ import katex from 'katex';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
-import { linkDestination, linkTitle } from './markdown-link';
+import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
 
 function escapeHtml(value: string): string {
   return value
@@ -148,7 +148,9 @@ function restoreAutolinks(
 }
 
 const INLINE_PATTERN =
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\(((?:[^()]|\\([^()]*\\))+)\\)|~~(.+?)~~)';
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\((' +
+  MARKDOWN_LINK_INSIDE +
+  ')\\)|~~(.+?)~~)';
 
 function escapeText(value: string): string {
   return escapeHtml(decodeHtmlEntities(value));

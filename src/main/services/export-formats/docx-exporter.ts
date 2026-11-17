@@ -36,7 +36,7 @@ import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { linkDestination, linkTitle } from './markdown-link';
+import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -123,10 +123,16 @@ interface InlineSegment {
   strike?: boolean;
 }
 
+const INLINE_PATTERN = new RegExp(
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\((' +
+    MARKDOWN_LINK_INSIDE +
+    ')\\)|~~(.+?)~~)',
+  'g'
+);
+
 export function parseInlineFormatting(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
-  const regex =
-    /(\*\*\*(.+?)\*\*\*|(?<![\w])___(.+?)___(?![\w])|\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*([^*]*(?:\*\*[^*]*)*)\*|(?<![\w])_([^_]*(?:__[^_]*)*)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
+  const regex = new RegExp(INLINE_PATTERN.source, 'g');
   let lastIndex = 0;
 
   for (const match of text.matchAll(regex)) {

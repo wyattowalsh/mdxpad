@@ -15,7 +15,7 @@ import { HARD_BREAK, reopenInlineMarks } from './export-formats/markdown-marks';
 import { readSourceLine } from './export-formats/markdown-paragraph';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { protectEscapes, restoreEscapes } from './export-formats/markdown-escape';
-import { linkDestination } from './export-formats/markdown-link';
+import { MARKDOWN_LINK_INSIDE, linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
@@ -185,12 +185,15 @@ function plainInline(text: string): string {
   const escaped = protectEscapes(text);
   const formatted = decodeHtmlEntities(
     escaped.text
-      .replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, alt: string, src: string) => {
-        const label = alt.trim().length > 0 ? alt : 'image';
-        return `${label} (${linkDestination(src)})`;
-      })
       .replace(
-        /\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g,
+        new RegExp(`!\\[([^\\]]*)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
+        (_match, alt: string, src: string) => {
+          const label = alt.trim().length > 0 ? alt : 'image';
+          return `${label} (${linkDestination(src)})`;
+        }
+      )
+      .replace(
+        new RegExp(`\\[([^\\]]+)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
         (_match, label: string, href: string) => {
           return `${label} (${linkDestination(href)})`;
         }
