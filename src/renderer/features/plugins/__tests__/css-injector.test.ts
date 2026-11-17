@@ -30,6 +30,16 @@ describe('css-injector', () => {
       expect(style?.textContent).toBe('body { color: red; }');
     });
 
+    it('keeps preview CSS when a different style is applied to the app', () => {
+      injectCss('preview-css', 'p { color: red; }', 'preview');
+      injectCss('mdxpad-theme', ':root { --cm-background: #111; }', 'app');
+
+      expect(getPreviewCss()).toBe('p { color: red; }');
+      expect(
+        document.querySelector('[data-mdxpad-injected="mdxpad-theme"]')?.textContent
+      ).toContain('--cm-background');
+    });
+
     it('sends preview CSS to the preview document unchanged', () => {
       injectCss('test-scoped', '.content { font-size: 16px; }', 'preview');
 

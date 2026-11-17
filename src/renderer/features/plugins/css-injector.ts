@@ -49,7 +49,6 @@ export function injectCss(id: string, css: string, scope: CssScope = 'app'): voi
     return;
   }
 
-  setPreviewCss('');
   const style = document.createElement('style');
   style.setAttribute('data-mdxpad-injected', id);
   style.setAttribute('data-mdxpad-scope', scope);

@@ -10,13 +10,18 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { injectCss, removeCss, getInjectedCss } from './css-injector';
+import {
+  CUSTOM_CSS_STORAGE_KEY,
+  readSavedCustomCss,
+  writeSavedCustomCss,
+  type CustomCssScope,
+} from './custom-css-storage';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 const CUSTOM_CSS_ID = 'user-custom-css';
-const STORAGE_KEY = 'mdxpad:custom-css';
 
 // ============================================================================
 // Types
@@ -27,7 +32,16 @@ interface CssEditorDialogProps {
   onClose: () => void;
 }
 
-type CssScope = 'app' | 'preview';
+type CssScope = CustomCssScope;
+
+function restoreSavedCss(): void {
+  const saved = readSavedCustomCss();
+  if (saved && saved.css.trim().length > 0) {
+    injectCss(CUSTOM_CSS_ID, saved.css, saved.scope);
+    return;
+  }
+  removeCss(CUSTOM_CSS_ID);
+}
 
 // ============================================================================
 // Component
@@ -40,33 +54,43 @@ export function CssEditorDialog({ isOpen, onClose }: CssEditorDialogProps) {
 
   // Load saved CSS on mount
   useEffect(() => {
-    if (isOpen) {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setCss(saved);
-      } else {
-        const existing = getInjectedCss(CUSTOM_CSS_ID);
-        if (existing) {
-          setCss(existing);
-        }
-      }
+    if (!isOpen) {
+      return;
+    }
+    const saved = readSavedCustomCss();
+    if (saved) {
+      setCss(saved.css);
+      setScope(saved.scope);
+      return;
+    }
+    const existing = getInjectedCss(CUSTOM_CSS_ID);
+    if (existing) {
+      setCss(existing);
     }
   }, [isOpen]);
 
-  // Live preview
   useEffect(() => {
-    if (livePreview && css.trim()) {
-      injectCss(CUSTOM_CSS_ID, css, scope);
+    if (!isOpen) {
+      return;
     }
-  }, [css, scope, livePreview]);
+    if (!livePreview) {
+      restoreSavedCss();
+      return;
+    }
+    if (css.trim()) {
+      injectCss(CUSTOM_CSS_ID, css, scope);
+      return;
+    }
+    removeCss(CUSTOM_CSS_ID);
+  }, [css, isOpen, livePreview, scope]);
 
   const handleApply = useCallback(() => {
     if (css.trim()) {
       injectCss(CUSTOM_CSS_ID, css, scope);
-      localStorage.setItem(STORAGE_KEY, css);
+      writeSavedCustomCss(css, scope);
     } else {
       removeCss(CUSTOM_CSS_ID);
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(CUSTOM_CSS_STORAGE_KEY);
     }
     onClose();
   }, [css, scope, onClose]);
@@ -74,19 +98,14 @@ export function CssEditorDialog({ isOpen, onClose }: CssEditorDialogProps) {
   const handleClear = useCallback(() => {
     setCss('');
     removeCss(CUSTOM_CSS_ID);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CUSTOM_CSS_STORAGE_KEY);
   }, []);
 
   const handleCancel = useCallback(() => {
     // Revert live preview changes
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      injectCss(CUSTOM_CSS_ID, saved, scope);
-    } else {
-      removeCss(CUSTOM_CSS_ID);
-    }
+    restoreSavedCss();
     onClose();
-  }, [scope, onClose]);
+  }, [onClose]);
 
   if (!isOpen) {
     return null;
