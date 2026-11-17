@@ -114,5 +114,24 @@ describe('createModuleFromCode', () => {
     );
 
     expect(container.querySelector('h1')?.textContent).toBe('Heading');
+    expect(container.querySelector('h1')?.id).toBe('heading');
+  });
+
+  it('gives a repeated heading a distinct id', async () => {
+    const result = await compileMdx(testId('preview-heading-ids'), '# Intro\n\n# Intro');
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const MDXContent = module.default;
+    const { container } = render(
+      <MDXContent
+        components={BuiltInComponents as unknown as NonNullable<MDXContentProps['components']>}
+        frontmatter={result.frontmatter}
+      />
+    );
+    const headings = [...container.querySelectorAll('h1')];
+    expect(headings.map((heading) => heading.id)).toEqual(['intro', 'intro-1']);
   });
 });

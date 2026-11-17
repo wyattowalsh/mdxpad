@@ -64,7 +64,7 @@ describe('PdfExporter', () => {
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     expect(typeof loadedUrl).toBe('string');
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<h1>Hello World</h1>');
+    expect(html).toContain('<h1 id="hello-world">Hello World</h1>');
     expect(html).not.toContain('<pre style="white-space: pre-wrap;">');
     expect(mockLoadURL).toHaveBeenCalledOnce();
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
@@ -77,9 +77,9 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<h1>Title</h1>');
-    expect(html).toContain('<h1>Hash#</h1>');
-    expect(html).toContain('<h2>Keep ### b</h2>');
+    expect(html).toContain('<h1 id="title">Title</h1>');
+    expect(html).toContain('<h1 id="hash">Hash#</h1>');
+    expect(html).toContain('<h2 id="keep-b">Keep ### b</h2>');
     expect(html).not.toContain('Title #');
   });
 
@@ -260,7 +260,7 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<h1>Title</h1>');
+    expect(html).toContain('<h1 id="title">Title</h1>');
     expect(html).toContain('<hr />');
     expect(html).not.toContain('===');
   });

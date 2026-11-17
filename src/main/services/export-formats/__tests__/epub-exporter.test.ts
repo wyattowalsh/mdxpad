@@ -63,7 +63,8 @@ describe('EpubExporter', () => {
     const createFn = epubGen.default as ReturnType<typeof vi.fn>;
     const contentArg = createFn.mock.calls[0]?.[1] as { title: string; content: string }[];
     expect(contentArg[0]?.title).toBe('Chapter');
-    expect(contentArg[0]?.content).toContain('<h3>Keep ### b</h3>');
+    expect(contentArg[0]?.content).toContain('<a id="chapter"></a>');
+    expect(contentArg[0]?.content).toContain('<h3 id="keep-b">Keep ### b</h3>');
     expect(contentArg[0]?.content).not.toContain('Keep ### b #');
   });
 

@@ -62,7 +62,7 @@ describe('serializeForExport', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.content).toContain('<h1>Title</h1>');
+      expect(result.content).toContain('<h1 id="title">Title</h1>');
       expect(result.content).toContain('<strong>there</strong>');
       expect(result.content).not.toContain('mdxpad-export-source');
     }

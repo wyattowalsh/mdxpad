@@ -12,7 +12,12 @@ import type { CompletionContext } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { linter, type Diagnostic } from '@codemirror/lint';
 
-import { parseAtxHeading } from '@shared/lib/markdown-heading';
+import {
+  allocateHeadingSlug,
+  headingSlug,
+  parseAtxHeading,
+  stripHeadingMarkup,
+} from '@shared/lib/markdown-heading';
 const INLINE_LINK_RE = /\[([^\]]*)\]\(([^)]*)\)/g;
 const FENCE_RE = /^(```|~~~)/;
 
@@ -51,26 +56,6 @@ export interface AnchorCompletion {
   readonly label: string;
   readonly apply: string;
   readonly detail: string;
-}
-
-function stripHeadingMarkup(value: string): string {
-  return value
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[*_`~]/g, '')
-    .trim();
-}
-
-function slugify(value: string): string {
-  const normalized = value
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/_/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return normalized || 'section';
 }
 
 function normalizeAnchorTarget(target: string): string {
@@ -156,11 +141,7 @@ function pushHeading(
   if (headingText.length === 0) {
     return;
   }
-  const baseSlug = slugify(headingText);
-  const duplicateCount = slugCounts.get(baseSlug) ?? 0;
-  slugCounts.set(baseSlug, duplicateCount + 1);
-
-  const slug = duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`;
+  const slug = allocateHeadingSlug(heading.text, slugCounts);
   const contentStart = line.indexOf(heading.text);
   const from = offset + (contentStart === -1 ? 0 : contentStart);
   const to = from + heading.text.length;
@@ -174,7 +155,7 @@ function pushHeading(
     to,
   });
 
-  if (duplicateCount > 0) {
+  if ((slugCounts.get(headingSlug(heading.text)) ?? 0) > 1) {
     result.diagnostics.push({
       message: `Duplicate heading "${headingText}" creates anchor #${slug}`,
       severity: 'info',

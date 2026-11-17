@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { parseAtxHeading } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
@@ -26,6 +26,7 @@ import type { Exporter, ExportOptions, ExportResult } from './types';
 interface EpubChapter {
   title: string;
   content: string;
+  slug: string | null;
 }
 
 function escapeHtml(value: string): string {
@@ -36,14 +37,22 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
-function splitIntoChapters(content: string): EpubChapter[] {
+function splitIntoChapters(content: string): {
+  chapters: EpubChapter[];
+  slugs: Map<string, number>;
+} {
   return splitExpandedChapters(expandLinkReferences(content));
 }
 
-function splitExpandedChapters(content: string): EpubChapter[] {
+function splitExpandedChapters(content: string): {
+  chapters: EpubChapter[];
+  slugs: Map<string, number>;
+} {
   const chapters: EpubChapter[] = [];
+  const slugs = new Map<string, number>();
   const lines = content.split('\n');
   let currentTitle = 'Introduction';
+  let currentSlug: string | null = null;
   let currentLines: string[] = [];
 
   for (const line of lines) {
@@ -54,8 +63,10 @@ function splitExpandedChapters(content: string): EpubChapter[] {
         chapters.push({
           title: currentTitle,
           content: currentLines.join('\n'),
+          slug: currentSlug,
         });
       }
+      currentSlug = allocateHeadingSlug(heading.text, slugs);
       currentTitle = heading.text;
       currentLines = [];
       continue;
@@ -68,12 +79,17 @@ function splitExpandedChapters(content: string): EpubChapter[] {
     chapters.push({
       title: currentTitle,
       content: currentLines.join('\n'),
+      slug: currentSlug,
     });
   }
 
   // Filter out empty-only chapters, but keep at least one
   const nonEmpty = chapters.filter((ch) => ch.content.trim().length > 0);
-  return nonEmpty.length > 0 ? nonEmpty : [chapters[0] ?? { title: 'Untitled', content: '' }];
+  const kept =
+    nonEmpty.length > 0
+      ? nonEmpty
+      : [chapters[0] ?? { title: 'Untitled', content: '', slug: null }];
+  return { chapters: kept, slugs };
 }
 
 interface EpubLineState {
@@ -85,6 +101,7 @@ interface EpubLineState {
   paragraph: SourceLine[];
   listBreak: boolean;
   listColumn: number | null;
+  slugCounts: Map<string, number>;
 }
 
 function flushEpubParagraph(htmlLines: string[], state: EpubLineState): void {
@@ -237,7 +254,7 @@ function takeEpubSetext(htmlLines: string[], raw: string, state: EpubLineState):
   const text = state.paragraph.map((line) => line.text).join(' ');
   state.paragraph.length = 0;
   closeHtmlLists(htmlLines, state.lists);
-  htmlLines.push(`<h${level}>${renderMarkdownInline(text)}</h${level}>`);
+  htmlLines.push(epubHeading(state, level, text));
   return true;
 }
 
@@ -281,7 +298,7 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
   if (heading && heading.depth >= 3) {
     flushEpubParagraph(htmlLines, state);
     closeHtmlLists(htmlLines, state.lists);
-    htmlLines.push(`<h${heading.depth}>${renderMarkdownInline(heading.text)}</h${heading.depth}>`);
+    htmlLines.push(epubHeading(state, heading.depth, heading.text));
     return;
   }
   if (takeEpubListBreak(htmlLines, raw, state)) {
@@ -305,8 +322,15 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
   state.paragraph.push(readSourceLine(raw));
 }
 
-function chapterToHtml(chapter: EpubChapter): string {
+function epubHeading(state: EpubLineState, depth: number, text: string): string {
+  return headingTag(depth, renderMarkdownInline(text), allocateHeadingSlug(text, state.slugCounts));
+}
+
+function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string {
   const htmlLines: string[] = [];
+  if (chapter.slug) {
+    htmlLines.push(`<a id="${chapter.slug}"></a>`);
+  }
   const state: EpubLineState = {
     fence: null,
     lists: [],
@@ -316,6 +340,7 @@ function chapterToHtml(chapter: EpubChapter): string {
     tableLines: [],
     quoteLines: [],
     paragraph: [],
+    slugCounts: slugs,
   };
   const lines = chapter.content.split('\n');
   for (let index = 0; index < lines.length; index += 1) {
@@ -351,11 +376,11 @@ export class EpubExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const chapters = splitIntoChapters(options.content);
+      const split = splitIntoChapters(options.content);
 
-      const epubContent = chapters.map((chapter) => ({
+      const epubContent = split.chapters.map((chapter) => ({
         title: chapter.title,
-        content: chapterToHtml(chapter),
+        content: chapterToHtml(chapter, split.slugs),
       }));
 
       const epubGen = await import('epub-gen-memory');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAtxHeading, stripAtxClosingHashes } from './markdown-heading';
+import { allocateHeadingSlug, parseAtxHeading, stripAtxClosingHashes } from './markdown-heading';
 
 describe('ATX headings', () => {
   it('drops a closing hash run and keeps a hash that is part of the title', () => {
@@ -14,5 +14,12 @@ describe('ATX headings', () => {
     expect(parseAtxHeading('# Hash#')).toEqual({ depth: 1, text: 'Hash#' });
     expect(parseAtxHeading('#foo')).toBeNull();
     expect(parseAtxHeading('# #')).toBeNull();
+  });
+
+  it('gives duplicate headings distinct slugs', () => {
+    const counts = new Map<string, number>();
+    expect(allocateHeadingSlug('Intro', counts)).toBe('intro');
+    expect(allocateHeadingSlug('**Intro**', counts)).toBe('intro-1');
+    expect(allocateHeadingSlug('[Guide](https://example.com)', counts)).toBe('guide');
   });
 });

@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { parseAtxHeading } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
@@ -41,6 +41,7 @@ interface PdfBuild {
   quoteLines: string[];
   listBreak: boolean;
   listColumn: number | null;
+  slugCounts: Map<string, number>;
 }
 
 function flushPdfParagraph(build: PdfBuild): void {
@@ -203,7 +204,7 @@ function takePdfSetext(build: PdfBuild, raw: string): boolean {
   const text = build.paragraph.map((line) => line.text).join(' ');
   build.paragraph.length = 0;
   closePdfList(build);
-  build.parts.push(`<h${level}>${renderMarkdownInline(text)}</h${level}>`);
+  build.parts.push(pdfHeading(build, level, text));
   return true;
 }
 
@@ -230,6 +231,10 @@ function takePdfListBreak(build: PdfBuild, raw: string): boolean {
   return false;
 }
 
+function pdfHeading(build: PdfBuild, depth: number, text: string): string {
+  return headingTag(depth, renderMarkdownInline(text), allocateHeadingSlug(text, build.slugCounts));
+}
+
 function appendPdfFlow(build: PdfBuild, raw: string): void {
   const trimmed = raw.trim();
   if (takePdfSetext(build, raw)) {
@@ -245,9 +250,7 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
   if (heading) {
     flushPdfParagraph(build);
     closePdfList(build);
-    build.parts.push(
-      `<h${heading.depth}>${renderMarkdownInline(heading.text)}</h${heading.depth}>`
-    );
+    build.parts.push(pdfHeading(build, heading.depth, heading.text));
     return;
   }
   if (takePdfListBreak(build, raw)) {
@@ -282,6 +285,7 @@ export function markdownToPdfHtml(content: string): string {
     displayMath: null,
     tableLines: [],
     quoteLines: [],
+    slugCounts: new Map<string, number>(),
   };
   const lines = expandLinkReferences(content).split('\n');
   for (let index = 0; index < lines.length; index += 1) {

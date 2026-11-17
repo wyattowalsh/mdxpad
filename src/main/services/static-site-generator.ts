@@ -12,7 +12,11 @@ import type {
   PublishProgress,
   PublishResult,
 } from '@shared/contracts/share-schemas';
-import { stripAtxClosingHashes } from '@shared/lib/markdown-heading';
+import {
+  allocateHeadingSlug,
+  headingTag,
+  stripAtxClosingHashes,
+} from '@shared/lib/markdown-heading';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
 
 // ============================================================================
@@ -40,6 +44,22 @@ interface ProcessedFile {
 // ============================================================================
 
 const DEFAULT_TITLE = 'MDXPad Site';
+
+function publishedHeading(level: number, text: string, counts: Map<string, number>): string {
+  const visible = stripAtxClosingHashes(text);
+  return headingTag(level, visible, allocateHeadingSlug(decodeHtmlEntities(visible), counts));
+}
+
+function applyPublishedHeadings(escaped: string): string {
+  const counts = new Map<string, number>();
+  return escaped
+    .replace(/^###### (.+)$/gm, (_match, text: string) => publishedHeading(6, text, counts))
+    .replace(/^##### (.+)$/gm, (_match, text: string) => publishedHeading(5, text, counts))
+    .replace(/^#### (.+)$/gm, (_match, text: string) => publishedHeading(4, text, counts))
+    .replace(/^### (.+)$/gm, (_match, text: string) => publishedHeading(3, text, counts))
+    .replace(/^## (.+)$/gm, (_match, text: string) => publishedHeading(2, text, counts))
+    .replace(/^# (.+)$/gm, (_match, text: string) => publishedHeading(1, text, counts));
+}
 
 // ============================================================================
 // Static Site Generator
@@ -254,15 +274,7 @@ export class StaticSiteGenerator {
 
   private convertMarkdownToHtml(content: string): string {
     const escaped = this.escapeHtml(decodeHtmlEntities(content));
-    const withHeadings = escaped
-      .replace(
-        /^##### (.+)$/gm,
-        (_match, text: string) => `<h5>${stripAtxClosingHashes(text)}</h5>`
-      )
-      .replace(/^#### (.+)$/gm, (_match, text: string) => `<h4>${stripAtxClosingHashes(text)}</h4>`)
-      .replace(/^### (.+)$/gm, (_match, text: string) => `<h3>${stripAtxClosingHashes(text)}</h3>`)
-      .replace(/^## (.+)$/gm, (_match, text: string) => `<h2>${stripAtxClosingHashes(text)}</h2>`)
-      .replace(/^# (.+)$/gm, (_match, text: string) => `<h1>${stripAtxClosingHashes(text)}</h1>`);
+    const withHeadings = applyPublishedHeadings(escaped);
 
     const withCode = withHeadings
       .replace(

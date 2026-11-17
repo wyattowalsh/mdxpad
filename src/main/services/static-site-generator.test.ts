@@ -29,7 +29,7 @@ describe('StaticSiteGenerator', () => {
 
     expect(result.success).toBe(true);
     const html = await readFile(path.join(output, 'note.html'), 'utf-8');
-    expect(html).toContain('<h1>Hello &lt;b&gt;there&lt;/b&gt;</h1>');
+    expect(html).toMatch(/<h1 id="[^"]+">Hello &lt;b&gt;there&lt;\/b&gt;<\/h1>/);
     expect(html).not.toContain('there&lt;/b&gt; #');
     expect(html).toContain('&lt;b&gt;there&lt;/b&gt;');
     expect(html).toContain('<strong>bold</strong>');

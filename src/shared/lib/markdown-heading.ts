@@ -18,6 +18,39 @@ export function stripAtxClosingHashes(raw: string): string {
   return trimmed.replace(/[ \t]+#+[ \t]*$/, '').trim();
 }
 
+/** Remove emphasis and link markers so a heading slug matches its visible words. */
+export function stripHeadingMarkup(value: string): string {
+  return value
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[*_`~]/g, '')
+    .trim();
+}
+
+/** Slug used by editor anchor checks, preview headings, and exported HTML. */
+export function headingSlug(value: string): string {
+  const normalized = stripHeadingMarkup(value)
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/_/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized.length > 0 ? normalized : 'section';
+}
+
+/** Return the next unique slug, using `intro`, then `intro-1`. */
+export function allocateHeadingSlug(value: string, counts: Map<string, number>): string {
+  const base = headingSlug(value);
+  const seen = counts.get(base) ?? 0;
+  counts.set(base, seen + 1);
+  return seen === 0 ? base : `${base}-${seen}`;
+}
+
+export function headingTag(depth: number, innerHtml: string, slug: string): string {
+  return `<h${depth} id="${slug}">${innerHtml}</h${depth}>`;
+}
+
 /** Read an ATX heading and ignore a closing run of hashes. */
 export function parseAtxHeading(line: string): AtxHeading | null {
   const match = ATX_HEADING.exec(line.trim());
