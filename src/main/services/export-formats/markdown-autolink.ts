@@ -41,11 +41,82 @@ function readBareAutolink(raw: string, index: number): FoundAutolink | null {
     return null;
   }
   const match = /^https?:\/\/[^\s<]+/i.exec(raw.slice(index));
-  const url = match?.[0]?.replace(/[.,;:!?)]+$/, '');
+  const url = match?.[0] === undefined ? '' : trimAutolinkTrail(match[0]);
   if (!url) {
     return null;
   }
   return { href: url, text: url, length: url.length };
+}
+
+function boundaryAllowsWww(previous: string): boolean {
+  return previous.length === 0 || /[\s(*_[\]~]/.test(previous);
+}
+
+function readWwwAutolink(raw: string, index: number): FoundAutolink | null {
+  const previous = index === 0 ? '' : (raw[index - 1] ?? '');
+  if (!boundaryAllowsWww(previous)) {
+    return null;
+  }
+  const match = /^www\.[^\s<]+/i.exec(raw.slice(index));
+  const url = match?.[0] === undefined ? '' : trimAutolinkTrail(match[0]);
+  const host = url.slice(4).split(/[/?#]/)[0] ?? '';
+  if (!/^www\.\S/i.test(url) || !/[A-Za-z0-9]/.test(host)) {
+    return null;
+  }
+  return { href: `http://${url}`, text: url, length: url.length };
+}
+
+function readEmailAutolink(raw: string, index: number): FoundAutolink | null {
+  const previous = index === 0 ? '' : (raw[index - 1] ?? '');
+  if (previous === '/' || /[A-Za-z0-9+._-]/.test(previous)) {
+    return null;
+  }
+  const match =
+    /^[A-Za-z0-9+._-]+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
+      raw.slice(index)
+    );
+  const email = match?.[0] ?? '';
+  if (email.length === 0) {
+    return null;
+  }
+  return { href: `mailto:${email}`, text: email, length: email.length };
+}
+
+function trimAutolinkTrail(value: string): string {
+  let url = value;
+  while (url.length > 0) {
+    const trimmed = url.replace(/[.,;:!?_*~'"]+$/, '');
+    const open = trimmed.split('(').length - 1;
+    const close = trimmed.split(')').length - 1;
+    if (close > open && trimmed.endsWith(')')) {
+      url = trimmed.slice(0, -1);
+      continue;
+    }
+    if (trimmed.length === url.length) {
+      return trimmed;
+    }
+    url = trimmed;
+  }
+  return url;
+}
+
+function linkDestinationEnd(raw: string, index: number): number | null {
+  if (raw[index] !== ']' || raw[index + 1] !== '(') {
+    return null;
+  }
+  let depth = 0;
+  for (let cursor = index + 1; cursor < raw.length; cursor += 1) {
+    const char = raw[cursor];
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor + 1;
+      }
+    }
+  }
+  return null;
 }
 
 /** Replace autolinks with markers, leaving code spans and link destinations untouched. */
@@ -61,7 +132,18 @@ export function protectAutolinks(raw: string): ProtectedAutolinks {
       index += 1;
       continue;
     }
-    const found = inCode ? null : (readAngleAutolink(raw, index) ?? readBareAutolink(raw, index));
+    const destinationEnd = inCode ? null : linkDestinationEnd(raw, index);
+    if (destinationEnd !== null) {
+      text += raw.slice(index, destinationEnd);
+      index = destinationEnd;
+      continue;
+    }
+    const found = inCode
+      ? null
+      : (readAngleAutolink(raw, index) ??
+        readBareAutolink(raw, index) ??
+        readWwwAutolink(raw, index) ??
+        readEmailAutolink(raw, index));
     if (found) {
       text += `${AUTOLINK_MARK}${links.length}${AUTOLINK_MARK}`;
       links.push({ href: found.href, text: found.text });

@@ -47,6 +47,12 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('links a www address and a bare email', () => {
+    expect(renderMarkdownInline('Visit www.example.com and ada@example.com.')).toBe(
+      'Visit <a href="http://www.example.com">www.example.com</a> and <a href="mailto:ada@example.com">ada@example.com</a>.'
+    );
+  });
+
   it('links an autolink and leaves a code span alone', () => {
     expect(renderMarkdownInline('See <https://example.com> and https://example.com.')).toBe(
       'See <a href="https://example.com">https://example.com</a> and <a href="https://example.com">https://example.com</a>.'
