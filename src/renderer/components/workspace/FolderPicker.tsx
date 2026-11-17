@@ -19,6 +19,7 @@ import {
 } from '@ui/dialog';
 import { Button } from '@ui/button';
 import { cn } from '@shared/lib/utils';
+import { chooseWorkspaceFolder } from './workspace-folders';
 
 // =============================================================================
 // TYPES
@@ -97,17 +98,19 @@ function useBrowseFolder(onSelect: (p: string) => void, onOpenChange: (o: boolea
   const handleBrowse = React.useCallback(() => {
     setIsSelecting(true);
     setError(null);
-    try {
-      const folderPath = prompt('Enter folder path:');
-      if (folderPath) {
-        onSelect(folderPath);
-        onOpenChange(false);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to open folder picker');
-    } finally {
-      setIsSelecting(false);
-    }
+    void chooseWorkspaceFolder()
+      .then((folderPath) => {
+        if (folderPath) {
+          onSelect(folderPath);
+          onOpenChange(false);
+        }
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Failed to open folder picker');
+      })
+      .finally(() => {
+        setIsSelecting(false);
+      });
   }, [onSelect, onOpenChange]);
 
   const handleSelectRecent = React.useCallback(

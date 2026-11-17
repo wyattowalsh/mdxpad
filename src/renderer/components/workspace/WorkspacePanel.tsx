@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '@ui/button';
-import type { LinkRecord, Project, WorkspaceDocumentId } from '@shared/types/workspace';
+import type { LinkRecord, WorkspaceDocumentId } from '@shared/types/workspace';
 import { FILTER_EVENTS } from '@renderer/commands/filter-commands';
 import {
   filterBacklinksForQuery,
@@ -14,9 +14,9 @@ import {
 } from '@renderer/stores/workspace-store';
 import { selectFeatureFlag, useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
 import { ProjectDialog } from './ProjectDialog';
+import { WorkspaceFolders } from './WorkspaceFolders';
 
 const EMPTY_BACKLINKS: readonly LinkRecord[] = [];
-const EMPTY_PROJECTS: readonly Project[] = [];
 
 export interface WorkspacePanelProps {
   readonly rootPath?: string | null;
@@ -31,7 +31,6 @@ export function WorkspacePanel({
 }: WorkspacePanelProps): React.JSX.Element | null {
   const workspaceFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('workspace'));
   const model = useWorkspaceStore(selectWorkspaceModel);
-  const projects = useWorkspaceStore((state) => state.model?.projects ?? EMPTY_PROJECTS);
   const error = useWorkspaceStore(selectWorkspaceError);
   const isLoading = useWorkspaceStore(selectWorkspaceIsLoading);
   const isSaving = useWorkspaceStore(selectWorkspaceIsSaving);
@@ -118,6 +117,7 @@ export function WorkspacePanel({
           New Project
         </Button>
       </div>
+      <WorkspaceFolders />
 
       {!rootPathLabel && <p className="text-sm text-muted-foreground">No workspace selected.</p>}
 
@@ -135,22 +135,6 @@ export function WorkspacePanel({
           {error.message}
         </p>
       )}
-
-      <div className="mb-4">
-        <h3 className="mb-2 text-sm font-medium">Projects</h3>
-        {projects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No projects yet.</p>
-        ) : (
-          <ul className="space-y-1 text-sm">
-            {projects.map((project) => (
-              <li key={project.id} className="rounded border px-2 py-1">
-                <p className="font-medium">{project.name}</p>
-                <p className="text-xs text-muted-foreground">{project.rootPath}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
       <div>
         <h3 className="mb-2 text-sm font-medium">Backlinks</h3>
