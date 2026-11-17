@@ -39,6 +39,13 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**');
   });
 
+  it('keeps a loose list continuation on the item', () => {
+    const pdf = buildPdfDocument('- item\n\n    continued\n\nAfter');
+    expect(pdf.content).toContain('- item continued');
+    expect(pdf.content).not.toContain('```');
+    expect(pdf.content).toContain('After');
+  });
+
   it('keeps a wrapped list item on one line', () => {
     const pdf = buildPdfDocument('- item\n  **continued**\n\nAfter');
     expect(pdf.content).toContain('- item continued');

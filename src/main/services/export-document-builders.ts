@@ -318,6 +318,21 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
   return true;
 }
 
+function skipBuiltInListBreak(
+  blocks: readonly MarkdownBlock[],
+  lines: readonly string[],
+  index: number
+): boolean {
+  if ((lines[index] ?? '').trim().length !== 0) {
+    return false;
+  }
+  const last = blocks[blocks.length - 1];
+  if (last?.kind !== 'paragraph' || !isRenderedListItem(last.text)) {
+    return false;
+  }
+  return isListContinuation(lines[index + 1] ?? '');
+}
+
 function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
   if (!isLazyQuoteLine(rawLine)) {
     return false;
@@ -354,6 +369,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     const tableEnd = takeMarkdownTable(blocks, lines, index);
     if (tableEnd > index) {
       index = tableEnd;
+      continue;
+    }
+    if (skipBuiltInListBreak(blocks, lines, index)) {
       continue;
     }
     if (
