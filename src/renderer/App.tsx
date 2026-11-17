@@ -45,6 +45,7 @@ import { useEditorPreferencesStore } from './stores/editor-preferences-store';
 import { initThemeManager } from './features/plugins/theme-manager';
 import { openFileFromPath } from './lib/open-file-from-path';
 import { MountedUtilityPanels } from './components/shell/MountedUtilityPanels';
+import { CommentPersistence } from './components/comments/CommentWorkspace';
 import { AiWriteSidebar } from './components/ai/AiWriteSidebar';
 import { useAppState } from './hooks/useAppState';
 import { useAppDialogs } from './hooks/useAppDialogs';
@@ -325,6 +326,7 @@ export function App(): React.ReactElement {
       )}
 
       <CommandPalette getContext={getCommandContext} palette={palette} />
+      <CommentPersistence />
       <MountedUtilityPanels editorRef={state.editorRef} />
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">

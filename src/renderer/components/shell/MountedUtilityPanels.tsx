@@ -1,15 +1,13 @@
 import type { RefObject } from 'react';
-import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { useDocumentStore } from '@renderer/stores/document-store';
-import { useCommentsStore } from '@renderer/stores/comments-store';
 import { selectWorkspaceModel, useWorkspaceStore } from '@renderer/stores/workspace-store';
 import {
   selectActiveUtilityPanel,
   useUtilityPanelStore,
   type UtilityPanelId,
 } from '@renderer/stores/utility-panel-store';
-import { CommentPanel } from '@renderer/components/comments/CommentPanel';
+import { CommentWorkspace } from '@renderer/components/comments/CommentWorkspace';
 import { ExportPanel } from '@renderer/components/export/ExportPanel';
 import { ShortcutEditor } from '@renderer/components/shortcuts/ShortcutEditor';
 import { TagTreePanel } from '@renderer/components/tags/TagTreePanel';
@@ -56,13 +54,6 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   themes: 'Themes',
 };
 
-function revealCommentThread(view: EditorView, anchorFrom: number): void {
-  view.dispatch({
-    selection: EditorSelection.cursor(anchorFrom),
-    scrollIntoView: true,
-  });
-}
-
 function PanelBody({
   panel,
   editorRef,
@@ -72,27 +63,11 @@ function PanelBody({
 }): React.JSX.Element {
   const content = useDocumentStore((state) => state.content);
   const filePath = useDocumentStore((state) => state.filePath);
-  const threads = useCommentsStore((state) => state.threads);
-  const activeThreadId = useCommentsStore((state) => state.activeThreadId);
   const model = useWorkspaceStore(selectWorkspaceModel);
 
   switch (panel) {
     case 'comments':
-      return (
-        <CommentPanel
-          threads={threads}
-          activeThreadId={activeThreadId}
-          onSelectThread={(threadId) => useCommentsStore.getState().setActiveThread(threadId)}
-          onNavigateToThread={(threadId) => {
-            useCommentsStore.getState().setActiveThread(threadId);
-            const thread = threads.find((item) => item.id === threadId);
-            const view = editorRef.current;
-            if (thread && view) {
-              revealCommentThread(view, thread.anchorFrom);
-            }
-          }}
-        />
-      );
+      return <CommentWorkspace editorRef={editorRef} />;
     case 'share':
       return <ShareUtilityPanel />;
     case 'history':
