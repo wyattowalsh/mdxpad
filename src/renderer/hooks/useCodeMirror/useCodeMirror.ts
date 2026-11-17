@@ -13,6 +13,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { EditorView } from '@codemirror/view';
 import { EditorState as CMEditorState, Extension } from '@codemirror/state';
 
+import { selectionAfterDocumentUpdate } from './document-selection';
 import { buildExtensions, type MDXEditorConfig } from './extensions';
 import { createThemeListener, type EditorTheme } from './themes';
 import {
@@ -76,7 +77,7 @@ export interface UseCodeMirrorReturn {
   readonly containerRef: React.RefObject<HTMLDivElement | null>;
   readonly state: EditorState | null;
   readonly selection: SelectionInfo | null;
-  readonly setValue: (value: string) => void;
+  readonly setValue: (value: string, selection?: 'preserve' | 'start') => void;
   readonly setSelection: (anchor: number, head?: number) => void;
   readonly executeCommand: (command: EditorCommandName) => boolean;
   readonly focus: () => void;
@@ -372,21 +373,28 @@ export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirror
     options.fontLineHeight,
   ]);
 
-  const setValue = useCallback((value: string): void => {
-    const view = viewRef.current;
-    if (!view) return;
-    // Skip if content is already identical
-    if (view.state.doc.toString() === value) return;
-    const { anchor, head } = view.state.selection.main;
-    const nextDocLength = value.length;
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: value },
-      selection: {
-        anchor: Math.max(0, Math.min(nextDocLength, anchor)),
-        head: Math.max(0, Math.min(nextDocLength, head)),
-      },
-    });
-  }, []);
+  const setValue = useCallback(
+    (value: string, selection: 'preserve' | 'start' = 'preserve'): void => {
+      const view = viewRef.current;
+      if (!view) return;
+      const nextSelection = selectionAfterDocumentUpdate(
+        view.state.selection.main,
+        value.length,
+        selection
+      );
+      if (view.state.doc.toString() === value) {
+        if (selection === 'start') {
+          view.dispatch({ selection: nextSelection });
+        }
+        return;
+      }
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: value },
+        selection: nextSelection,
+      });
+    },
+    []
+  );
 
   const setSelection = useCallback((anchor: number, head?: number): void => {
     const view = viewRef.current;

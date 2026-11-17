@@ -130,6 +130,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
 
   // Connect to document store
   const content = useDocumentStore(selectContent);
+  const filePath = useDocumentStore((state) => state.filePath);
   const setContent = useDocumentStore((state) => state.setContent);
   const keymapMode = useEditorPreferencesStore(selectKeymapMode);
   const fontFamily = useEditorPreferencesStore(selectFontFamily);
@@ -198,6 +199,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   // This satisfies exactOptionalPropertyTypes
   const editorProps = {
     value: content,
+    documentKey: filePath ?? '',
     onChange: handleChange,
     onSelectionChange: handleSelectionChange,
     theme,

@@ -34,6 +34,11 @@ export type { EditorTheme } from '../../hooks/useCodeMirror';
 export interface MDXEditorProps {
   /** Current document content (controlled). */
   readonly value: string;
+  /**
+   * Identity of the open document. Changing it moves the cursor to the start
+   * so a newly opened file is not left at the previous file's caret.
+   */
+  readonly documentKey?: string;
   /** Called when document content changes (debounced). */
   readonly onChange?: (state: EditorState) => void;
   /** Called when an error occurs in the editor. */
@@ -217,6 +222,7 @@ const ERROR_ANNOUNCEMENT_DURATION_MS = 5000;
 function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
   const {
     value,
+    documentKey,
     onChange,
     onError,
     className,
@@ -397,6 +403,15 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
       setValue(value);
     }
   }, [value, state, setValue]);
+
+  const documentKeyRef = useRef(documentKey);
+  useEffect(() => {
+    if (documentKeyRef.current === documentKey) {
+      return;
+    }
+    documentKeyRef.current = documentKey;
+    setValue(value, 'start');
+  }, [documentKey, setValue, value]);
 
   return (
     <>
