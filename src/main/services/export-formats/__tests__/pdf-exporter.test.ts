@@ -93,6 +93,19 @@ describe('PdfExporter', () => {
     expect(html).toContain('<ul>\n<li>parent</li>\n<ul>\n<li>child</li>\n</ul>\n</ul>');
   });
 
+  it('nests a block quote', async () => {
+    await exporter.export({
+      content: '> outer\n> > inner',
+      outputPath: '/tmp/nested-quote.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain(
+      '<blockquote>\n<p>outer</p>\n<blockquote>\n<p>inner</p>\n</blockquote>\n</blockquote>'
+    );
+    expect(html).not.toContain('&gt;');
+  });
+
   it('renders a block quote', async () => {
     await exporter.export({
       content: '> Keep this\n> and this',

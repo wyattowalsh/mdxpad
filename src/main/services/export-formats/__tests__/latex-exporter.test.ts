@@ -174,6 +174,21 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('![');
   });
 
+  it('nests a block quote', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> outer\n> > inner',
+      outputPath: '/tmp/nested-quote.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const outer = written.indexOf('\\begin{quote}');
+    const inner = written.indexOf('\\begin{quote}', outer + 1);
+    expect(outer).toBeGreaterThan(-1);
+    expect(inner).toBeGreaterThan(outer);
+    expect(written.indexOf('inner')).toBeGreaterThan(inner);
+    expect(written).not.toContain('> inner');
+  });
+
   it('renders a block quote', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

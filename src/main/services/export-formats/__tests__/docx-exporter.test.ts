@@ -112,6 +112,28 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('indents a nested block quote further', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> outer\n> > inner',
+      outputPath: '/tmp/nested-quote.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('w:left="720"');
+    expect(xml).toContain('w:left="1440"');
+    expect(xml).toContain('inner');
+    expect(xml).not.toContain('&gt; inner');
+  });
+
   it('indents a block quote', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
