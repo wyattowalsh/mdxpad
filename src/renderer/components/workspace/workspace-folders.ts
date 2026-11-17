@@ -6,17 +6,71 @@
 import type { Project, WorkspaceModel } from '@shared/types/workspace';
 import type { WorkspaceFolder } from './MultiRootPanel';
 
+const EXCLUDE_STORAGE_KEY = 'mdxpad:workspace-folder-excludes';
+
+function excludeStorageKey(workspaceId: string, folderPath: string): string {
+  return `${workspaceId}\n${folderPath}`;
+}
+
+function readExcludeStore(): Record<string, unknown> {
+  if (typeof localStorage === 'undefined') {
+    return {};
+  }
+  try {
+    const raw = localStorage.getItem(EXCLUDE_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+export function readFolderExcludes(workspaceId: string, folderPath: string): readonly string[] {
+  const value = readExcludeStore()[excludeStorageKey(workspaceId, folderPath)];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
+export function writeFolderExcludes(
+  workspaceId: string,
+  folderPath: string,
+  patterns: readonly string[]
+): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+  const store = readExcludeStore();
+  store[excludeStorageKey(workspaceId, folderPath)] = patterns;
+  localStorage.setItem(EXCLUDE_STORAGE_KEY, JSON.stringify(store));
+}
+
 export function folderName(folderPath: string): string {
   const parts = folderPath.split('/').filter((part) => part.length > 0);
   return parts[parts.length - 1] ?? folderPath;
 }
 
 export function foldersFromWorkspace(
+  workspaceId: string,
   rootPath: string,
   rootName: string,
-  projects: readonly Pick<Project, 'rootPath' | 'name'>[]
+  projects: readonly Pick<Project, 'rootPath' | 'name'>[],
+  _revision = 0
 ): WorkspaceFolder[] {
-  const folders: WorkspaceFolder[] = [{ path: rootPath, name: rootName, excludePatterns: [] }];
+  const folders: WorkspaceFolder[] = [
+    {
+      path: rootPath,
+      name: rootName,
+      excludePatterns: readFolderExcludes(workspaceId, rootPath),
+    },
+  ];
   for (const project of projects) {
     if (folders.some((folder) => folder.path === project.rootPath)) {
       continue;
@@ -24,7 +78,7 @@ export function foldersFromWorkspace(
     folders.push({
       path: project.rootPath,
       name: project.name,
-      excludePatterns: [],
+      excludePatterns: readFolderExcludes(workspaceId, project.rootPath),
     });
   }
   return folders;

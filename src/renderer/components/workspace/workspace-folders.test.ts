@@ -5,7 +5,9 @@ import {
   chooseWorkspaceFolder,
   foldersFromWorkspace,
   projectsInFolderOrder,
+  readFolderExcludes,
   withoutProjectFolder,
+  writeFolderExcludes,
 } from './workspace-folders';
 
 const model = {
@@ -19,7 +21,7 @@ const model = {
 describe('workspace folders', () => {
   it('lists the workspace root once and then each other project', () => {
     expect(
-      foldersFromWorkspace('/notes', 'Notes', model.projects).map((folder) => folder.path)
+      foldersFromWorkspace('ws', '/notes', 'Notes', model.projects).map((folder) => folder.path)
     ).toEqual(['/notes', '/notes/drafts']);
   });
 
@@ -31,6 +33,16 @@ describe('workspace folders', () => {
   it('removes a project folder and keeps the workspace root', () => {
     expect(withoutProjectFolder(model, '/notes')).toBeNull();
     expect(withoutProjectFolder(model, '/notes/drafts')?.projects).toHaveLength(1);
+  });
+
+  it('remembers exclude patterns for a folder', () => {
+    localStorage.clear();
+    writeFolderExcludes('ws', '/notes', ['node_modules', '.git']);
+    expect(readFolderExcludes('ws', '/notes')).toEqual(['node_modules', '.git']);
+    const notes = foldersFromWorkspace('ws', '/notes', 'Notes', []).find(
+      (folder) => folder.path === '/notes'
+    );
+    expect(notes?.excludePatterns).toEqual(['node_modules', '.git']);
   });
 
   it('returns the directory chosen in the native dialog', async () => {

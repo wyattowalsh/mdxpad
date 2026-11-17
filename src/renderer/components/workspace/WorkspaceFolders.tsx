@@ -2,7 +2,7 @@
  * Workspace folder list backed by the open workspace model.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { MultiRootPanel } from './MultiRootPanel';
@@ -11,13 +11,24 @@ import {
   foldersFromWorkspace,
   projectsInFolderOrder,
   withoutProjectFolder,
+  writeFolderExcludes,
 } from './workspace-folders';
 
 export function WorkspaceFolders(): React.JSX.Element {
   const model = useWorkspaceStore((state) => state.model);
-  const folders = model
-    ? foldersFromWorkspace(model.workspace.rootPath, model.workspace.name, model.projects)
-    : [];
+  const [excludeRevision, setExcludeRevision] = useState(0);
+  const folders = useMemo(() => {
+    if (!model) {
+      return [];
+    }
+    return foldersFromWorkspace(
+      model.workspace.id,
+      model.workspace.rootPath,
+      model.workspace.name,
+      model.projects,
+      excludeRevision
+    );
+  }, [excludeRevision, model]);
 
   const handleAddFolder = useCallback((folderPath: string) => {
     const current = useWorkspaceStore.getState().model;
@@ -68,7 +79,14 @@ export function WorkspaceFolders(): React.JSX.Element {
       onAddFolder={handleAddFolder}
       onRemoveFolder={handleRemoveFolder}
       onReorderFolders={handleReorderFolders}
-      onUpdateFolder={() => undefined}
+      onUpdateFolder={(folderPath, updates) => {
+        const current = useWorkspaceStore.getState().model;
+        if (!current || !updates.excludePatterns) {
+          return;
+        }
+        writeFolderExcludes(current.workspace.id, folderPath, updates.excludePatterns);
+        setExcludeRevision((revision) => revision + 1);
+      }}
     />
   );
 }
