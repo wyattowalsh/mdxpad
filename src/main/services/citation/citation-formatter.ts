@@ -39,7 +39,7 @@ function formatAuthors(authors: AuthorRef[], style: CitationStyle): string {
   if (style === 'apa' && authors.length > 7) {
     const first6 = authors.slice(0, 6).map(formatOne);
     const lastAuthor = authors[authors.length - 1];
-    return `${first6.join(', ')}, ... ${lastAuthor ? formatOne(lastAuthor) : 'Unknown'}`;
+    return `${first6.join(', ')}, ... & ${lastAuthor ? formatOne(lastAuthor) : 'Unknown'}`;
   }
 
   if (style === 'ieee') {
@@ -49,7 +49,7 @@ function formatAuthors(authors: AuthorRef[], style: CitationStyle): string {
   const allButLast = authors.slice(0, -1).map(formatOne);
   const lastAuthor = authors[authors.length - 1];
   const last = lastAuthor ? formatOne(lastAuthor) : 'Unknown';
-  const separator = style === 'mla' ? ', and ' : ', and ';
+  const separator = style === 'apa' ? ', & ' : ', and ';
   return `${allButLast.join(', ')}${separator}${last}`;
 }
 

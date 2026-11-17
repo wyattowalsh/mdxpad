@@ -37,10 +37,22 @@ describe('citation-formatter', () => {
     describe('APA style', () => {
       it('should format article citation', () => {
         const result = formatCitation(sampleArticle, 'apa');
-        expect(result.formatted).toContain('Smith, J.');
+        expect(result.formatted).toContain('Smith, J., & Doe, J.');
         expect(result.formatted).toContain('(2024)');
         expect(result.formatted).toContain('Machine Learning Advances');
         expect(result.formatted).toContain('_Nature_');
+      });
+
+      it('uses an ampersand before the last author of a long list', () => {
+        const author = Array.from({ length: 8 }, (_, index) => ({
+          family: `Author${index}`,
+          given: 'A',
+        }));
+        const result = formatCitation(
+          { id: 'long', type: 'article', title: 'Long', author, year: 2024 },
+          'apa'
+        );
+        expect(result.formatted).toContain('... & Author7, A.');
       });
 
       it('should format book citation', () => {
