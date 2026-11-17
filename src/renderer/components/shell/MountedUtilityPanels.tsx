@@ -19,7 +19,7 @@ import { ComponentPlayground } from '@renderer/features/playground/ComponentPlay
 import { MarketplacePanel } from '@renderer/components/template-marketplace/MarketplacePanel';
 import { CssEditorDialog } from '@renderer/features/plugins/CssEditorDialog';
 import { ThemePicker } from '@renderer/features/plugins/ThemePicker';
-import { insertDiagramFence } from '@renderer/lib/insert-document-text';
+import { insertTextAtSelection } from '@renderer/lib/insert-document-text';
 import { useAgentModeStore } from '@renderer/features/ai-agent/agent-mode-store';
 import { SemanticSearchPanel } from '@renderer/features/semantic-search/SemanticSearchPanel';
 import {
@@ -144,8 +144,12 @@ export function MountedUtilityPanels({
         isOpen
         onClose={() => useUtilityPanelStore.getState().setActiveUtilityPanel(null)}
         onInsert={(fence) => {
-          const current = useDocumentStore.getState().content;
-          useDocumentStore.getState().setContent(insertDiagramFence(current, fence));
+          const view = editorRef.current;
+          const current = view ? view.state.doc.toString() : useDocumentStore.getState().content;
+          const selection = view
+            ? { from: view.state.selection.main.from, to: view.state.selection.main.to }
+            : null;
+          useDocumentStore.getState().setContent(insertTextAtSelection(current, fence, selection));
         }}
       />
     );
