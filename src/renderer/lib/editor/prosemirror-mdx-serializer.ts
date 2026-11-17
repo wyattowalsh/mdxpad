@@ -131,9 +131,13 @@ const nodeSerializers: NodeSerializerMap = {
     state.write(`![${markdownAlt(alt)}](${markdownTarget(src, title)})`);
   },
 
-  hard_break(state, node, parent) {
+  hard_break(state, node, parent, index) {
     const first = parent.firstChild?.isText ? (parent.firstChild.text ?? '') : '';
-    const footnote = parent.type.name === 'paragraph' && /^\[\^[^\]]+\]:/.test(first);
+    const next = index + 1 < parent.childCount ? parent.child(index + 1) : null;
+    const nextText = next?.isText ? (next.text ?? '') : '';
+    const anotherDefinition = /^\[\^[^\]]+\]:/.test(nextText);
+    const footnote =
+      parent.type.name === 'paragraph' && /^\[\^[^\]]+\]:/.test(first) && !anotherDefinition;
     const indent = footnote ? '    ' : '';
     state.write(node.attrs.hard === false ? `\n${indent}` : `\\\n${indent}`);
   },

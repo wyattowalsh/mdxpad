@@ -141,6 +141,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(code).not.toContain('mdxpad-footnote');
   });
 
+  it('keeps adjacent footnote definitions separate', () => {
+    const serialized = roundTrip('See [^a] and [^b].\n\n[^a]: One\n[^b]: Two\n');
+    expect(serialized).toContain('[^a]: One');
+    expect(serialized).toContain('[^b]: Two');
+    expect(serialized).not.toContain('    [^b]:');
+  });
+
   it('keeps a footnote reference and its definition', () => {
     const serialized = roundTrip('A footnote[^1].\n\n[^1]: The note\n');
     expect(serialized).toContain('A footnote[^1].');
