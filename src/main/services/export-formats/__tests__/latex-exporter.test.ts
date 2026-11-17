@@ -151,6 +151,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('renders a block quote', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> Keep this',
+      outputPath: '/tmp/quote.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{quote}');
+    expect(written).toContain('Keep this');
+    expect(written).toContain('\\end{quote}');
+  });
+
   it('renders a markdown table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

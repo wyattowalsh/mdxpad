@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
+import { quoteBody, quoteToHtml } from './markdown-quote';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 function escapeHtml(value: string): string {
@@ -21,6 +22,7 @@ interface PdfBuild {
   list: HtmlListKind | null;
   displayMath: string[] | null;
   tableLines: string[];
+  quoteLines: string[];
 }
 
 function flushPdfParagraph(build: PdfBuild): void {
@@ -65,6 +67,7 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   if (trimmed === '$$') {
     flushPdfParagraph(build);
     flushPdfTable(build);
+    flushPdfQuote(build);
     closePdfList(build);
     if (build.displayMath) {
       finishDisplayMath(build);
@@ -109,11 +112,35 @@ function consumePdfTable(build: PdfBuild, trimmed: string): boolean {
   return false;
 }
 
+function flushPdfQuote(build: PdfBuild): void {
+  if (build.quoteLines.length === 0) {
+    return;
+  }
+  const lines = build.quoteLines.splice(0, build.quoteLines.length);
+  build.parts.push(quoteToHtml(lines, renderMarkdownInline));
+}
+
+function consumePdfQuote(build: PdfBuild, line: string): boolean {
+  const body = quoteBody(line);
+  if (body !== null) {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    flushPdfTable(build);
+    build.quoteLines.push(body);
+    return true;
+  }
+  if (build.quoteLines.length > 0) {
+    flushPdfQuote(build);
+  }
+  return false;
+}
+
 function appendPdfLine(build: PdfBuild, line: string): void {
   const trimmed = line.trim();
   if (trimmed.startsWith('```')) {
     finishDisplayMath(build);
     flushPdfTable(build);
+    flushPdfQuote(build);
     flushPdfParagraph(build);
     closePdfList(build);
     build.parts.push(build.inCode ? '</code></pre>' : '<pre><code>');
@@ -128,6 +155,9 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     return;
   }
   if (consumePdfTable(build, trimmed)) {
+    return;
+  }
+  if (consumePdfQuote(build, trimmed)) {
     return;
   }
   const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
@@ -163,12 +193,14 @@ export function markdownToPdfHtml(content: string): string {
     list: null,
     displayMath: null,
     tableLines: [],
+    quoteLines: [],
   };
   for (const line of content.split('\n')) {
     appendPdfLine(build, line);
   }
   finishDisplayMath(build);
   flushPdfTable(build);
+  flushPdfQuote(build);
   flushPdfParagraph(build);
   closePdfList(build);
   if (build.inCode) {
@@ -194,6 +226,7 @@ function contentToHtml(content: string, title: string): string {
     pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; }
     code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
     h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+    blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding-left: 1rem; }
     table { border-collapse: collapse; margin: 1rem 0; }
     th, td { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; text-align: left; }
   </style>

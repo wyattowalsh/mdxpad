@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
+import { quoteBody, quoteToLatex } from './markdown-quote';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 const LATEX_BACKSLASH = '\uE000';
@@ -238,6 +239,26 @@ function flushLatexTable(output: string[], tableLines: string[]): void {
   output.push(markdownTableToLatex(table, convertInlineFormatting));
 }
 
+function flushLatexQuote(output: string[], quoteLines: string[]): void {
+  if (quoteLines.length === 0) {
+    return;
+  }
+  const lines = quoteLines.splice(0, quoteLines.length);
+  output.push(quoteToLatex(lines, convertInlineFormatting));
+}
+
+function takeLatexQuote(output: string[], line: string, quoteLines: string[]): boolean {
+  const body = quoteBody(line);
+  if (body !== null) {
+    quoteLines.push(body);
+    return true;
+  }
+  if (quoteLines.length > 0) {
+    flushLatexQuote(output, quoteLines);
+  }
+  return false;
+}
+
 function takeLatexTable(output: string[], line: string, tableLines: string[]): boolean {
   if (isTableRow(line)) {
     tableLines.push(line);
@@ -249,54 +270,78 @@ function takeLatexTable(output: string[], line: string, tableLines: string[]): b
   return false;
 }
 
+interface LatexBuild {
+  output: string[];
+  inCodeBlock: boolean;
+  inDisplayMath: boolean;
+  tableLines: string[];
+  quoteLines: string[];
+  listState: ListState;
+}
+
+function appendLatexSourceLine(build: LatexBuild, line: string): void {
+  const wasInCodeBlock = build.inCodeBlock;
+  build.inCodeBlock = processCodeBlockLine(line, build.output, build.inCodeBlock, build.listState);
+  if (wasInCodeBlock !== build.inCodeBlock) {
+    flushLatexTable(build.output, build.tableLines);
+    flushLatexQuote(build.output, build.quoteLines);
+    return;
+  }
+  if (build.inCodeBlock) {
+    build.output.push(line);
+    return;
+  }
+  if (line.trim() === '$$') {
+    flushLatexTable(build.output, build.tableLines);
+    flushLatexQuote(build.output, build.quoteLines);
+    if (!build.inDisplayMath) {
+      resetListState(build.output, build.listState);
+    }
+    build.output.push('$$');
+    build.inDisplayMath = !build.inDisplayMath;
+    return;
+  }
+  if (build.inDisplayMath) {
+    build.output.push(line);
+    return;
+  }
+  if (takeLatexTable(build.output, line.trim(), build.tableLines)) {
+    flushLatexQuote(build.output, build.quoteLines);
+    resetListState(build.output, build.listState);
+    return;
+  }
+  if (takeLatexQuote(build.output, line.trim(), build.quoteLines)) {
+    resetListState(build.output, build.listState);
+    return;
+  }
+  processMarkdownLine(line.trim(), build.output, build.listState);
+}
+
 function contentToLatex(content: string): string {
-  const lines = content.split('\n');
-  const output: string[] = [];
-  let inCodeBlock = false;
-  let inDisplayMath = false;
-  const tableLines: string[] = [];
-  const listState: ListState = { inUnorderedList: false, inOrderedList: false };
+  const build: LatexBuild = {
+    output: [],
+    inCodeBlock: false,
+    inDisplayMath: false,
+    tableLines: [],
+    quoteLines: [],
+    listState: { inUnorderedList: false, inOrderedList: false },
+  };
 
-  for (const line of lines) {
-    const wasInCodeBlock: boolean = inCodeBlock;
-    inCodeBlock = processCodeBlockLine(line, output, inCodeBlock, listState);
-    if (wasInCodeBlock !== inCodeBlock) {
-      continue;
-    }
-    if (inCodeBlock) {
-      output.push(line);
-      continue;
-    }
-    if (line.trim() === '$$') {
-      flushLatexTable(output, tableLines);
-      if (!inDisplayMath) {
-        resetListState(output, listState);
-      }
-      output.push('$$');
-      inDisplayMath = !inDisplayMath;
-      continue;
-    }
-    if (inDisplayMath) {
-      output.push(line);
-      continue;
-    }
-    if (takeLatexTable(output, line.trim(), tableLines)) {
-      resetListState(output, listState);
-      continue;
-    }
-    processMarkdownLine(line.trim(), output, listState);
+  for (const line of content.split('\n')) {
+    appendLatexSourceLine(build, line);
   }
 
-  if (inDisplayMath) {
-    output.push('$$');
+  if (build.inDisplayMath) {
+    build.output.push('$$');
   }
-  flushLatexTable(output, tableLines);
-  if (inCodeBlock) {
-    output.push('\\end{verbatim}');
+  flushLatexTable(build.output, build.tableLines);
+  flushLatexQuote(build.output, build.quoteLines);
+  if (build.inCodeBlock) {
+    build.output.push('\\end{verbatim}');
   }
-  closeOpenLists(output, listState.inUnorderedList, listState.inOrderedList);
+  closeOpenLists(build.output, build.listState.inUnorderedList, build.listState.inOrderedList);
 
-  return output.join('\n');
+  return build.output.join('\n');
 }
 
 function buildLatexDocument(content: string, options: ExportOptions): string {

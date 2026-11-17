@@ -16,6 +16,7 @@ import {
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
+import { quoteBody } from './markdown-quote';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 type HeadingLevelValue =
@@ -189,6 +190,36 @@ function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): vo
   blocks.push(new Table({ rows: [toRow(table.headers), ...table.rows.map((row) => toRow(row))] }));
 }
 
+function flushDocxQuote(blocks: (Paragraph | Table)[], quoteLines: string[]): void {
+  if (quoteLines.length === 0) {
+    return;
+  }
+  const lines = quoteLines.splice(0, quoteLines.length);
+  for (const line of lines) {
+    if (line.length === 0) {
+      continue;
+    }
+    blocks.push(
+      new Paragraph({
+        indent: { left: 720 },
+        children: createParagraphChildren(line),
+      })
+    );
+  }
+}
+
+function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: string[]): boolean {
+  const body = quoteBody(line);
+  if (body !== null) {
+    quoteLines.push(body);
+    return true;
+  }
+  if (quoteLines.length > 0) {
+    flushDocxQuote(blocks, quoteLines);
+  }
+  return false;
+}
+
 function takeDocxTable(blocks: (Paragraph | Table)[], line: string, tableLines: string[]): boolean {
   if (isTableRow(line.trim())) {
     tableLines.push(line.trim());
@@ -235,6 +266,27 @@ function appendPlainLine(blocks: (Paragraph | Table)[], trimmed: string): void {
   blocks.push(special ?? new Paragraph({ children: createParagraphChildren(trimmed) }));
 }
 
+function takeDocxFence(
+  blocks: (Paragraph | Table)[],
+  line: string,
+  inCodeBlock: boolean,
+  codeLines: string[],
+  tableLines: string[],
+  quoteLines: string[]
+): boolean | null {
+  if (!line.trimStart().startsWith('```')) {
+    return null;
+  }
+  flushDocxTable(blocks, tableLines);
+  flushDocxQuote(blocks, quoteLines);
+  if (inCodeBlock) {
+    blocks.push(createCodeBlockParagraph(codeLines));
+    codeLines.length = 0;
+    return false;
+  }
+  return true;
+}
+
 function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const paragraphs: (Paragraph | Table)[] = [];
   const lines = content.split('\n');
@@ -242,17 +294,12 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const codeLines: string[] = [];
   let displayLines: string[] | null = null;
   const tableLines: string[] = [];
+  const quoteLines: string[] = [];
 
   for (const line of lines) {
-    if (line.trimStart().startsWith('```')) {
-      flushDocxTable(paragraphs, tableLines);
-      if (inCodeBlock) {
-        paragraphs.push(createCodeBlockParagraph(codeLines));
-        codeLines.length = 0;
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-      }
+    const fence = takeDocxFence(paragraphs, line, inCodeBlock, codeLines, tableLines, quoteLines);
+    if (fence !== null) {
+      inCodeBlock = fence;
       continue;
     }
 
@@ -264,18 +311,24 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     const nextDisplay = takeDisplayLine(paragraphs, line, displayLines);
     if (nextDisplay !== false) {
       flushDocxTable(paragraphs, tableLines);
+      flushDocxQuote(paragraphs, quoteLines);
       displayLines = nextDisplay;
       continue;
     }
 
     const trimmed = line.trim();
     if (takeDocxTable(paragraphs, trimmed, tableLines)) {
+      flushDocxQuote(paragraphs, quoteLines);
+      continue;
+    }
+    if (takeDocxQuote(paragraphs, trimmed, quoteLines)) {
       continue;
     }
     appendPlainLine(paragraphs, trimmed);
   }
 
   flushDocxTable(paragraphs, tableLines);
+  flushDocxQuote(paragraphs, quoteLines);
   if (displayLines) {
     pushDisplayMath(paragraphs, displayLines);
   }
