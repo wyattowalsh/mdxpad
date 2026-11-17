@@ -9,6 +9,18 @@ import { IPC_CHANNELS } from '@shared/lib/ipc';
 import * as FileService from '@main/services/file-service';
 import { registerFileHandlers } from '../file-handlers';
 
+const { realpathSyncMock } = vi.hoisted(() => ({
+  realpathSyncMock: vi.fn((target: string) => target),
+}));
+
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return {
+    ...actual,
+    realpathSync: ((target: string) => realpathSyncMock(target)) as typeof actual.realpathSync,
+  };
+});
+
 const onFileOpenedMock = vi.fn();
 const onFileSavedMock = vi.fn();
 
@@ -78,6 +90,7 @@ describe('registerFileHandlers authorization', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    realpathSyncMock.mockImplementation((target: string) => target);
     handlers = {};
     window = createMockWindow();
 
@@ -184,6 +197,50 @@ describe('registerFileHandlers authorization', () => {
     });
 
     expect(onFileSavedMock).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
+    expect(FileService.writeFile).toHaveBeenCalledWith('/test/file.mdx', '# Updated');
+  });
+
+  it('allows the canonical path after granting its symlink path', async () => {
+    realpathSyncMock.mockImplementation((target: string) => {
+      if (target === '/tmp/a.mdx' || target === '/private/tmp/a.mdx') {
+        return '/private/tmp/a.mdx';
+      }
+      return target;
+    });
+
+    const { dialog } = await import('electron');
+    vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+      canceled: false,
+      filePaths: ['/tmp/a.mdx'],
+    } as never);
+
+    const opened = await handlers[IPC_CHANNELS.file.open]!(createInvokeEvent(window), undefined);
+
+    expect(opened).toEqual({
+      ok: true,
+      value: expect.objectContaining({ path: '/tmp/a.mdx' }),
+    });
+
+    const readCanonical = await handlers[IPC_CHANNELS.file.read]!(createInvokeEvent(window), {
+      path: '/private/tmp/a.mdx',
+    });
+    const readDialogPath = await handlers[IPC_CHANNELS.file.read]!(createInvokeEvent(window), {
+      path: '/tmp/a.mdx',
+    });
+    const saved = await handlers[IPC_CHANNELS.file.save]!(createInvokeEvent(window), {
+      handle: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        path: '/tmp/a.mdx',
+        name: 'a.mdx',
+      },
+      content: '# Updated',
+    });
+
+    expect(readCanonical).toEqual({ ok: true, value: '# Test' });
+    expect(readDialogPath).toEqual({ ok: true, value: '# Test' });
+    expect(saved).toEqual({ ok: true, value: undefined });
+    expect(FileService.readFile).toHaveBeenCalledWith('/private/tmp/a.mdx');
+    expect(FileService.writeFile).toHaveBeenCalledWith('/tmp/a.mdx', '# Updated');
   });
 
   it('denies file:write when path lacks granted capability', async () => {

@@ -42,6 +42,14 @@ vi.mock('@main/menu', () => ({
   addToRecentFiles: vi.fn(),
 }));
 
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return {
+    ...actual,
+    realpathSync: ((target: string) => target) as typeof actual.realpathSync,
+  };
+});
+
 // Import after mocks are set up
 import { registerFileHandlers } from '@main/ipc/file-handlers';
 import {
