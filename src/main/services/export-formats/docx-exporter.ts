@@ -342,15 +342,28 @@ function createCodeBlockParagraph(codeLines: string[], language = ''): Paragraph
   });
 }
 
+function runsWithBreaks(
+  text: string
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
+  const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
+  text.split('\n').forEach((piece, index) => {
+    if (index > 0) {
+      children.push(new TextRun({ break: 1 }));
+    }
+    children.push(...createParagraphChildren(piece));
+  });
+  return children;
+}
+
 function listItemChildren(
   text: string
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
   const task = splitTaskItem(text);
   if (!task) {
-    return createParagraphChildren(text);
+    return runsWithBreaks(text);
   }
   const mark = new TextRun({ text: task.checked ? '☑ ' : '☐ ' });
-  return [mark, ...createParagraphChildren(task.body)];
+  return [mark, ...runsWithBreaks(task.body)];
 }
 
 function bookmarkedHeading(level: number, text: string, slugs: Map<string, number>): Paragraph {
@@ -525,6 +538,7 @@ interface DocxParse {
   quoteLines: string[];
   openListItem: MarkdownListItem | null;
   listBreak: boolean;
+  listHardBreak: boolean;
   listColumn: number | null;
   slugCounts: Map<string, number>;
 }
@@ -593,11 +607,16 @@ function takeDocxList(
     flushPendingParagraph(parse);
     parse.openListItem = item;
     parse.listColumn = listContentColumn(line);
+    parse.listHardBreak = source.hardBreak;
     parse.blocks.push(listParagraph(item));
     return true;
   }
   if (openListItem && isListContinuation(line, parse.listColumn ?? 2)) {
-    const combined = { ...openListItem, text: `${openListItem.text} ${line.trim()}` };
+    const text = parse.listHardBreak
+      ? `${openListItem.text}\n${source.text}`
+      : `${openListItem.text} ${source.text}`;
+    parse.listHardBreak = source.hardBreak;
+    const combined = { ...openListItem, text };
     parse.openListItem = combined;
     parse.blocks.pop();
     parse.blocks.push(listParagraph(combined));
@@ -702,6 +721,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     quoteLines: [],
     openListItem: null,
     listBreak: false,
+    listHardBreak: false,
     listColumn: null,
     slugCounts: new Map<string, number>(),
   };

@@ -78,6 +78,16 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{itemize}');
   });
 
+  it('keeps a hard break inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- Stay\\\n  put',
+      outputPath: '/tmp/list-break.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\item Stay\\\\\nput');
+  });
+
   it('keeps a wrapped list item on the item line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -132,6 +132,16 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<h1>');
   });
 
+  it('keeps a hard break inside a list item', async () => {
+    await exporter.export({
+      content: '- Stay  \n  put',
+      outputPath: '/tmp/list-break.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>Stay<br />put</li>');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

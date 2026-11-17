@@ -25,6 +25,27 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps a hard break inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- Stay  \n  put',
+      outputPath: '/tmp/list-break.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Stay');
+    expect(xml).toContain('<w:br/>');
+    expect(xml).toContain('put');
+  });
+
   it('keeps an ordered list start number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

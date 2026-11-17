@@ -95,6 +95,7 @@ interface EpubLineState {
   quoteLines: string[];
   paragraph: SourceLine[];
   listBreak: boolean;
+  listHardBreak: boolean;
   listColumn: number | null;
   slugCounts: Map<string, number>;
 }
@@ -303,14 +304,15 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
     flushEpubParagraph(htmlLines, state);
     pushHtmlListItem(htmlLines, state.lists, item, listItemHtml(item.text, renderMarkdownInline));
     state.listColumn = listContentColumn(raw);
+    state.listHardBreak = readSourceLine(raw).hardBreak;
     return;
   }
-  if (
-    state.lists.length > 0 &&
-    isListContinuation(raw, state.listColumn ?? 2) &&
-    appendHtmlListText(htmlLines, renderMarkdownInline(raw.trim()))
-  ) {
-    return;
+  if (state.lists.length > 0 && isListContinuation(raw, state.listColumn ?? 2)) {
+    const source = readSourceLine(raw);
+    if (appendHtmlListText(htmlLines, renderMarkdownInline(source.text), state.listHardBreak)) {
+      state.listHardBreak = source.hardBreak;
+      return;
+    }
   }
   closeHtmlLists(htmlLines, state.lists);
   state.paragraph.push(readSourceLine(raw));
@@ -329,6 +331,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     fence: null,
     lists: [],
     listBreak: false,
+    listHardBreak: false,
     listColumn: null,
     displayMath: null,
     tableLines: [],

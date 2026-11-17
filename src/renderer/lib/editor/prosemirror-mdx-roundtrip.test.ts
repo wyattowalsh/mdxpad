@@ -24,6 +24,20 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(source)).not.toContain('\\\\\n');
   });
 
+  it('keeps a quoted title and parentheses in an address', () => {
+    const titled = roundTrip('[text](https://example.com \'say "hi"\')\n');
+    const titledDoc = parseMdxContent(titled);
+    const link = titledDoc?.firstChild?.firstChild?.marks.find((mark) => mark.type.name === 'link');
+    expect(link?.attrs.title).toBe('say "hi"');
+    expect(link?.attrs.href).toBe('https://example.com');
+    const addressed = roundTrip('<https://example.com/a)b>\n');
+    const addressDoc = parseMdxContent(addressed);
+    const auto = addressDoc?.firstChild?.firstChild?.marks.find(
+      (mark) => mark.type.name === 'link'
+    );
+    expect(auto?.attrs.href).toBe('https://example.com/a)b');
+  });
+
   it('keeps image alt text', () => {
     expect(roundTrip('![diagram](./a.png "title")\n')).toContain('![diagram](./a.png "title")');
   });

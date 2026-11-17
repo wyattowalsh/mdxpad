@@ -43,6 +43,7 @@ interface PdfBuild {
   tableLines: string[];
   quoteLines: string[];
   listBreak: boolean;
+  listHardBreak: boolean;
   listColumn: number | null;
   slugCounts: Map<string, number>;
 }
@@ -270,14 +271,15 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
     flushPdfParagraph(build);
     pushHtmlListItem(build.parts, build.lists, item, listItemHtml(item.text, renderMarkdownInline));
     build.listColumn = listContentColumn(raw);
+    build.listHardBreak = readSourceLine(raw).hardBreak;
     return;
   }
-  if (
-    build.lists.length > 0 &&
-    isListContinuation(raw, build.listColumn ?? 2) &&
-    appendHtmlListText(build.parts, renderMarkdownInline(raw.trim()))
-  ) {
-    return;
+  if (build.lists.length > 0 && isListContinuation(raw, build.listColumn ?? 2)) {
+    const source = readSourceLine(raw);
+    if (appendHtmlListText(build.parts, renderMarkdownInline(source.text), build.listHardBreak)) {
+      build.listHardBreak = source.hardBreak;
+      return;
+    }
   }
   closePdfList(build);
   build.paragraph.push(readSourceLine(raw));
@@ -290,6 +292,7 @@ export function markdownToPdfHtml(content: string): string {
     fence: null,
     lists: [],
     listBreak: false,
+    listHardBreak: false,
     listColumn: null,
     displayMath: null,
     tableLines: [],

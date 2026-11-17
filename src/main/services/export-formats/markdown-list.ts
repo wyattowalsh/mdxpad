@@ -1,3 +1,5 @@
+import { readSourceLine } from './markdown-paragraph';
+
 export interface MarkdownListItem {
   readonly level: number;
   readonly ordered: boolean;
@@ -30,14 +32,14 @@ export function isListContinuation(line: string, minimumIndent = 2): boolean {
   return parseListItem(expanded) === null;
 }
 
-export function appendHtmlListText(parts: string[], html: string): boolean {
+export function appendHtmlListText(parts: string[], html: string, hardBreak = false): boolean {
   const index = parts.length - 1;
   const last = parts[index];
   if (last === undefined || !last.startsWith('<li>') || !last.endsWith('</li>')) {
     return false;
   }
   const inner = last.slice('<li>'.length, -'</li>'.length);
-  parts[index] = `<li>${inner} ${html}</li>`;
+  parts[index] = `<li>${inner}${hardBreak ? '<br />' : ' '}${html}</li>`;
   return true;
 }
 
@@ -53,7 +55,7 @@ export function parseListItem(line: string): MarkdownListItem | null {
     level: Math.min(5, Math.floor((match[1]?.length ?? 0) / 2)),
     ordered,
     start: Number.isFinite(parsedStart) && parsedStart > 0 ? parsedStart : 1,
-    text: (match[3] ?? '').trim(),
+    text: readSourceLine(match[3] ?? '').text,
   };
 }
 

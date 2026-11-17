@@ -116,7 +116,7 @@ const nodeSerializers: NodeSerializerMap = {
     const alt = (node.attrs.alt as string) || '';
     const src = node.attrs.src as string;
     const title = node.attrs.title as string | null;
-    state.write(`![${state.esc(alt)}](${state.esc(src)}${title ? ` "${state.esc(title)}"` : ''})`);
+    state.write(`![${state.esc(alt)}](${markdownTarget(src, title)})`);
   },
 
   hard_break(state, node) {
@@ -199,7 +199,7 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
     close(_state, mark) {
       const href = mark.attrs.href as string;
       const title = mark.attrs.title as string | null;
-      return `](${href}${title ? ` "${title}"` : ''})`;
+      return `](${markdownTarget(href, title)})`;
     },
   },
 
@@ -219,6 +219,26 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
  * Determine the number of backticks needed for inline code
  * to avoid collisions with backticks in the content.
  */
+function markdownDestination(href: string): string {
+  const needsAngles = /[()\s]/.test(href) && !href.includes('<') && !href.includes('>');
+  return needsAngles ? `<${href}>` : href;
+}
+
+function markdownTitle(title: string): string {
+  if (!title.includes('"')) {
+    return `"${title}"`;
+  }
+  if (!title.includes("'")) {
+    return `'${title}'`;
+  }
+  return `(${title.replaceAll(')', '\\)')})`;
+}
+
+function markdownTarget(href: string, title: string | null): string {
+  const destination = markdownDestination(href);
+  return title ? `${destination} ${markdownTitle(title)}` : destination;
+}
+
 function writeTextPreservingMath(state: MarkdownSerializerState, value: string): void {
   const pattern = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\[\^[^\]]+\]/g;
   let cursor = 0;

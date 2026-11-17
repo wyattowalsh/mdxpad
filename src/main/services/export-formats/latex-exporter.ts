@@ -204,6 +204,7 @@ interface LatexListFrame {
 interface ListState {
   stack: LatexListFrame[];
   break: boolean;
+  hard: boolean;
   column: number | null;
 }
 
@@ -288,6 +289,7 @@ function processListItem(raw: string, output: string[], listState: ListState): b
     return false;
   }
   openLatexListItem(output, listState.stack, item);
+  listState.hard = readSourceLine(raw).hardBreak;
   return true;
 }
 
@@ -390,8 +392,11 @@ function processMarkdownLine(
   }
   if (listState.stack.length > 0 && isListContinuation(raw, listState.column ?? 2)) {
     const last = output[output.length - 1];
+    const continued = readSourceLine(raw);
     if (last?.includes('\\item ')) {
-      output[output.length - 1] = `${last} ${convertInlineFormatting(raw.trim())}`;
+      const joiner = listState.hard ? '\\\\\n' : ' ';
+      output[output.length - 1] = `${last}${joiner}${convertInlineFormatting(continued.text)}`;
+      listState.hard = continued.hardBreak;
       return;
     }
   }
@@ -505,7 +510,7 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: { stack: [], break: false, column: null },
+    listState: { stack: [], break: false, hard: false, column: null },
     slugCounts: new Map<string, number>(),
   };
 
