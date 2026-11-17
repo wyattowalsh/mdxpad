@@ -2,6 +2,12 @@ import { openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { joinParagraphHtml, readSourceLine } from './markdown-paragraph';
 import {
+  isTableRow,
+  markdownTableToHtml,
+  markdownTableToLatex,
+  parseMarkdownTable,
+} from './markdown-table';
+import {
   closeHtmlLists,
   parseListItem,
   pushHtmlListItem,
@@ -33,6 +39,7 @@ export function quoteBody(line: string): string | null {
 export type QuoteChunk =
   | { readonly kind: 'paragraph'; readonly lines: string[] }
   | { readonly kind: 'list'; readonly lines: string[] }
+  | { readonly kind: 'table'; readonly lines: string[] }
   | { readonly kind: 'nested'; readonly lines: string[] };
 
 function takeChunk(chunks: QuoteChunk[], current: QuoteChunk | null): QuoteChunk | null {
@@ -54,7 +61,9 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
           ? null
           : parseListItem(line)
             ? 'list'
-            : 'paragraph';
+            : isTableRow(line)
+              ? 'table'
+              : 'paragraph';
     if (kind === null) {
       current = takeChunk(chunks, current);
       continue;
@@ -69,6 +78,25 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   }
   takeChunk(chunks, current);
   return chunks;
+}
+
+function quoteTableHtml(lines: readonly string[], renderLine: (line: string) => string): string {
+  const table = parseMarkdownTable(lines);
+  if (!table) {
+    return `<p>${joinParagraphHtml(
+      lines.map((line) => readSourceLine(line)),
+      renderLine
+    )}</p>`;
+  }
+  return markdownTableToHtml(table, renderLine);
+}
+
+function quoteTableLatex(lines: readonly string[], renderLine: (line: string) => string): string {
+  const table = parseMarkdownTable(lines);
+  if (!table) {
+    return joinQuoteLatex(lines, renderLine);
+  }
+  return markdownTableToLatex(table, renderLine);
 }
 
 function quoteListHtml(lines: readonly string[], renderLine: (line: string) => string): string {
@@ -122,6 +150,9 @@ export function quoteToHtml(
       if (chunk.kind === 'list') {
         return quoteListHtml(chunk.lines, renderLine);
       }
+      if (chunk.kind === 'table') {
+        return quoteTableHtml(chunk.lines, renderLine);
+      }
       return `<p>${joinParagraphHtml(
         chunk.lines.map((line) => readSourceLine(line)),
         renderLine
@@ -142,6 +173,9 @@ export function quoteToLatex(
       }
       if (chunk.kind === 'list') {
         return quoteListLatex(chunk.lines, renderLine);
+      }
+      if (chunk.kind === 'table') {
+        return quoteTableLatex(chunk.lines, renderLine);
       }
       return joinQuoteLatex(chunk.lines, renderLine);
     })

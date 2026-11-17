@@ -35,6 +35,12 @@ describe('quoteBody', () => {
     expect(quoteToLatex(['Stay\\', 'put'], (line) => line)).toBe(
       '\\begin{quote}\nStay\\\\\nput\n\\end{quote}'
     );
+    const table = quoteToHtml(['| A | B |', '| --- | --- |', '| 1 | 2 |'], (line) => line);
+    expect(table).toContain('<table>');
+    expect(table).toContain('<td>1</td>');
+    expect(quoteToLatex(['| A | B |', '| --- | ---: |', '| 1 | 2 |'], (line) => line)).toContain(
+      '\\begin{tabular}'
+    );
     expect(quoteToLatex(['- [x] done'], (line) => line)).toContain('$\\boxtimes$');
     expect(quoteToLatex(['- [x] done'], (line) => line)).not.toContain('[x]');
     const list = quoteToHtml(['- one', '- two'], (line) => line);

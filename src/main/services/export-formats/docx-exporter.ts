@@ -452,6 +452,10 @@ function appendDocxQuoteLines(
       appendDocxQuoteLines(blocks, chunk.lines, depth + 1);
       continue;
     }
+    if (chunk.kind === 'table') {
+      flushDocxTable(blocks, [...chunk.lines]);
+      continue;
+    }
     if (chunk.kind === 'list') {
       for (const line of chunk.lines) {
         const item = parseListItem(line);

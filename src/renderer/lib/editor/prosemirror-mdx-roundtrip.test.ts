@@ -109,6 +109,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\[');
   });
 
+  it('keeps an asterisk inside strikethrough', () => {
+    const serialized = roundTrip('~~a*b~~\n');
+    expect(serialized).toContain('~~a*b~~');
+    expect(serialized).not.toContain('\\*');
+    expect(roundTrip('~~`code`~~\n')).toContain('~~`code`~~');
+  });
+
   it('keeps strikethrough', () => {
     const serialized = roundTrip('~~gone~~\n');
     expect(serialized).toContain('~~gone~~');

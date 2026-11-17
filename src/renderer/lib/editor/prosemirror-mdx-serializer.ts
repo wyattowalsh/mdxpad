@@ -206,6 +206,7 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
   strikethrough: {
     open: '~~',
     close: '~~',
+    escape: false,
     mixable: true,
     expelEnclosingWhitespace: true,
   },
