@@ -1,7 +1,9 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+
+import { grantReadCapability, resetFileCapabilities } from '../document-capability';
 import type { BrowserWindow, IpcMain } from 'electron';
 
 import { WorkspaceService } from '@main/services/workspace-service';
@@ -115,6 +117,7 @@ describe('registerWorkspaceHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    grantReadCapability('/workspace/note.md');
     window = createMockWindow();
     handlers = {};
 
@@ -156,6 +159,10 @@ describe('registerWorkspaceHandlers', () => {
     registerWorkspaceHandlers(mockIpcMain, window, workspaceService);
   });
 
+  afterEach(() => {
+    resetFileCapabilities();
+  });
+
   it('registers all workspace handlers', () => {
     expect(mockIpcMain.handle).toHaveBeenCalledWith(WorkspaceChannels.OPEN, expect.any(Function));
     expect(mockIpcMain.handle).toHaveBeenCalledWith(WorkspaceChannels.SAVE, expect.any(Function));
@@ -171,6 +178,15 @@ describe('registerWorkspaceHandlers', () => {
       WorkspaceChannels.AGGREGATE_METADATA_COLLECTION,
       expect.any(Function)
     );
+  });
+
+  it('does not open a folder the user has not chosen', async () => {
+    const result = await handlers[WorkspaceChannels.OPEN]!(createInvokeEvent(window), {
+      rootPath: '/closed',
+    });
+
+    expect(workspaceService.openWorkspace).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, error: { code: 'WORKSPACE_ACCESS_DENIED' } });
   });
 
   it('handles openWorkspace with validated request/response', async () => {
@@ -325,6 +341,7 @@ describe('workspace and link handlers with shared WorkspaceService', () => {
       registerWorkspaceHandlers(mockIpcMain, window, sharedWorkspaceService);
       registerLinkHandlers(mockIpcMain, window, sharedWorkspaceService);
 
+      grantReadCapability(path.join(workspaceRoot, 'note.md'));
       const openResult = await handlers[WorkspaceChannels.OPEN]!(createInvokeEvent(window), {
         rootPath: workspaceRoot,
       });
@@ -401,6 +418,7 @@ describe('workspace and link handlers with shared WorkspaceService', () => {
         value: [link],
       });
     } finally {
+      resetFileCapabilities();
       await rm(tempDir, { recursive: true, force: true });
     }
   });

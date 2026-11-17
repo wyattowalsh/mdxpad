@@ -3,7 +3,12 @@
  * Tests IPC handler registration and Zod validation.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdirSync, rmSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import { grantReadCapability, resetFileCapabilities } from '@main/ipc/document-capability';
 
 // Mock git-service
 vi.mock('./git-service', () => ({
@@ -34,6 +39,7 @@ import * as gitService from './git-service';
 import { GitChannels } from '@shared/contracts/git-schemas';
 
 describe('git-handlers', () => {
+  const repoDir = path.join(os.tmpdir(), 'mdxpad-git-handler-repo');
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
   const mockIpcMain = {
     handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
@@ -51,10 +57,17 @@ describe('git-handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     handlers.clear();
+    mkdirSync(repoDir, { recursive: true });
+    grantReadCapability(path.join(repoDir, 'note.md'));
     registerGitHandlers(
       mockIpcMain as unknown as Electron.IpcMain,
       mockWindow as unknown as Electron.BrowserWindow
     );
+  });
+
+  afterEach(() => {
+    resetFileCapabilities();
+    rmSync(repoDir, { recursive: true, force: true });
   });
 
   it('should register all git handlers', () => {
@@ -80,8 +93,15 @@ describe('git-handlers', () => {
       vi.mocked(gitService.getStatus).mockResolvedValue(statusResult);
 
       const handler = handlers.get(GitChannels.status)!;
-      const result = await handler(mockEvent, { workingDir: '/repo' });
+      const result = await handler(mockEvent, { workingDir: repoDir });
       expect(result).toEqual({ ok: true, value: statusResult });
+    });
+
+    it('does not run git in a folder the user has not opened', async () => {
+      const handler = handlers.get(GitChannels.status)!;
+      const result = await handler(mockEvent, { workingDir: '/other' });
+      expect(result).toMatchObject({ ok: false, error: { code: 'PERMISSION_DENIED' } });
+      expect(gitService.getStatus).not.toHaveBeenCalled();
     });
 
     it('should return error for invalid request', async () => {
@@ -95,7 +115,7 @@ describe('git-handlers', () => {
     it('should return success for valid add request', async () => {
       vi.mocked(gitService.addFiles).mockResolvedValue(undefined);
       const handler = handlers.get(GitChannels.add)!;
-      const result = await handler(mockEvent, { workingDir: '/repo', files: ['file.ts'] });
+      const result = await handler(mockEvent, { workingDir: repoDir, files: ['file.ts'] });
       expect(result).toEqual({ ok: true, value: { success: true } });
     });
   });
@@ -104,7 +124,7 @@ describe('git-handlers', () => {
     it('should return hash for valid commit', async () => {
       vi.mocked(gitService.commit).mockResolvedValue({ hash: 'abc', message: 'msg' });
       const handler = handlers.get(GitChannels.commit)!;
-      const result = await handler(mockEvent, { workingDir: '/repo', message: 'msg' });
+      const result = await handler(mockEvent, { workingDir: repoDir, message: 'msg' });
       expect(result).toEqual({ ok: true, value: { hash: 'abc', message: 'msg' } });
     });
   });
@@ -113,7 +133,7 @@ describe('git-handlers', () => {
     it('should return isRepo result', async () => {
       vi.mocked(gitService.isGitRepo).mockResolvedValue(true);
       const handler = handlers.get(GitChannels.isRepo)!;
-      const result = await handler(mockEvent, { path: '/repo' });
+      const result = await handler(mockEvent, { path: repoDir });
       expect(result).toEqual({ ok: true, value: { isRepo: true } });
     });
   });

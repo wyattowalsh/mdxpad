@@ -3,6 +3,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { grantReadCapability, resetFileCapabilities } from '@main/ipc/document-capability';
+
 import { AIPromptFileLoaderService } from '../prompt-file-loader-service';
 
 describe('AIPromptFileLoaderService', () => {
@@ -13,6 +15,7 @@ describe('AIPromptFileLoaderService', () => {
   });
 
   afterEach(async () => {
+    resetFileCapabilities();
     if (tempDir) {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -62,6 +65,7 @@ Summarize project progress.
 `
     );
 
+    grantReadCapability(path.join(workspaceRootPath, 'note.md'));
     const service = new AIPromptFileLoaderService();
     const prompts = await service.discoverPromptFiles({
       workspaceRootPath,
@@ -105,6 +109,7 @@ Provide a summary for {{audience}} and keep the {{tone}} tone.
 `
     );
 
+    grantReadCapability(path.join(workspaceRootPath, 'note.md'));
     const service = new AIPromptFileLoaderService();
     const prompts = await service.discoverPromptFiles({ workspaceRootPath });
 
@@ -141,6 +146,7 @@ Draft content.
 `
     );
 
+    grantReadCapability(path.join(workspaceRootPath, 'note.md'));
     const service = new AIPromptFileLoaderService();
     const prompts = await service.discoverPromptFiles({ workspaceRootPath });
 

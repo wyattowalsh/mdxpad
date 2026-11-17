@@ -10,6 +10,7 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 
 import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
+import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import {
   SemanticSearchChannels,
   SemanticSearchRequestSchema,
@@ -44,10 +45,22 @@ function errorBody(
 // INDIVIDUAL HANDLERS
 // =============================================================================
 
+function deniedDirectory(directory: string): { code: string; message: string } | null {
+  const message = trustedDirectoryError(directory);
+  if (message === null) {
+    return null;
+  }
+  return { code: 'PERMISSION_DENIED', message };
+}
+
 function handleSearch(embeddingService: EmbeddingService) {
   return async (_event: Electron.IpcMainInvokeEvent, rawRequest: unknown) => {
     try {
       const request = SemanticSearchRequestSchema.parse(rawRequest);
+      const denied = deniedDirectory(request.workspacePath);
+      if (denied) {
+        return SemanticSearchResponseSchema.parse({ success: false, error: denied });
+      }
       const results = await embeddingService.search(
         request.workspacePath,
         request.query,
@@ -68,6 +81,10 @@ function handleIndex(embeddingService: EmbeddingService) {
   return async (_event: Electron.IpcMainInvokeEvent, rawRequest: unknown) => {
     try {
       const request = SemanticIndexRequestSchema.parse(rawRequest);
+      const denied = deniedDirectory(request.workspacePath);
+      if (denied) {
+        return SemanticIndexResponseSchema.parse({ success: false, error: denied });
+      }
       const result = await embeddingService.indexWorkspace(
         request.workspacePath,
         request.forceReindex,
@@ -91,6 +108,10 @@ function handleIndexStatus(embeddingService: EmbeddingService) {
   return async (_event: Electron.IpcMainInvokeEvent, rawRequest: unknown) => {
     try {
       const request = SemanticIndexStatusRequestSchema.parse(rawRequest);
+      const denied = deniedDirectory(request.workspacePath);
+      if (denied) {
+        return SemanticIndexStatusResponseSchema.parse({ success: false, error: denied });
+      }
       const status = await embeddingService.getIndexStatus(request.workspacePath);
       return SemanticIndexStatusResponseSchema.parse({
         success: true,

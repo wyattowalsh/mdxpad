@@ -6,6 +6,8 @@ import {
   AIInstructionFileMetadataSchema,
   AIInstructionScopeSchema,
 } from '@shared/contracts/ai-schemas';
+import { hasReadCapability } from '@main/ipc/document-capability';
+import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import { computeChecksum } from '@shared/lib/checksum';
 import type { AIInstructionFileMetadata } from '@shared/types/ai-session';
 
@@ -130,19 +132,31 @@ export class InstructionLoaderService implements IInstructionLoaderService {
   private async discoverInstructionFiles(options: InstructionLoaderOptions): Promise<void> {
     const discovered: AIInstructionFileMetadata[] = [];
 
-    if (options.projectRootPath && shouldDiscoverScope(options.scope, 'global')) {
+    if (
+      options.projectRootPath &&
+      trustedDirectoryError(options.projectRootPath) === null &&
+      shouldDiscoverScope(options.scope, 'global')
+    ) {
       discovered.push(
         ...(await this.discoverDirectoryInstructionFiles(options.projectRootPath, 'global'))
       );
     }
 
-    if (options.workspaceRootPath && shouldDiscoverScope(options.scope, 'workspace')) {
+    if (
+      options.workspaceRootPath &&
+      trustedDirectoryError(options.workspaceRootPath) === null &&
+      shouldDiscoverScope(options.scope, 'workspace')
+    ) {
       discovered.push(
         ...(await this.discoverDirectoryInstructionFiles(options.workspaceRootPath, 'workspace'))
       );
     }
 
-    if (options.documentPath && shouldDiscoverScope(options.scope, 'document')) {
+    if (
+      options.documentPath &&
+      hasReadCapability(options.documentPath) &&
+      shouldDiscoverScope(options.scope, 'document')
+    ) {
       discovered.push(...(await this.discoverDocumentInstructionFiles(options.documentPath)));
     }
 

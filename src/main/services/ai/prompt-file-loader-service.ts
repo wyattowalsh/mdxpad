@@ -8,6 +8,7 @@ import {
   AIPromptFileMetadataSchema,
   type AIPromptFileMetadata,
 } from '@shared/contracts/ai-schemas';
+import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import { computeChecksum } from '@shared/lib/checksum';
 
 const PROMPT_DIRECTORY_CANDIDATES = ['.mdxpad/prompts', '.mdxpad/ai/prompts', 'prompts'] as const;
@@ -114,23 +115,9 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
       context.workspaceRootPath ? path.resolve(context.workspaceRootPath) : null,
     ].filter((rootPath): rootPath is string => rootPath !== null);
 
-    for (const rootPath of orderedRoots) {
-      this.assertPathBounded(rootPath, 'Context root');
-    }
-
-    return uniqueStrings(orderedRoots);
-  }
-
-  /**
-   * Validate that a resolved path stays within its expected parent directory.
-   * Prevents path traversal via symlinks or ../ in workspace/project root paths.
-   */
-  private assertPathBounded(resolvedPath: string, label: string): void {
-    // Ensure no path components traverse upward after resolution
-    const normalized = path.normalize(resolvedPath);
-    if (normalized !== resolvedPath) {
-      throw new Error(`${label} path contains traversal components: ${resolvedPath}`);
-    }
+    return uniqueStrings(orderedRoots).filter(
+      (rootPath) => trustedDirectoryError(rootPath) === null
+    );
   }
 
   private async findPromptFiles(dirPath: string): Promise<string[]> {

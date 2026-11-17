@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
+import { normalizeCapabilityPath } from '@main/ipc/document-capability';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import {
   type AggregateMetadataCollectionRequest,
@@ -54,6 +55,16 @@ interface WorkspaceModelCacheEntry {
 
 const WORKSPACE_MODEL_CACHE_TTL_MS = 10_000;
 const workspaceModelCache = new Map<string, WorkspaceModelCacheEntry>();
+
+function fileIsInsideWorkspace(rootPath: string, filePath: string): boolean {
+  const root = normalizeCapabilityPath(rootPath);
+  const file = normalizeCapabilityPath(filePath);
+  if (root === null || file === null) {
+    return false;
+  }
+  const relative = path.relative(root, file);
+  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
 
 function createWorkspaceError(code: WorkspaceError['code'], message: string): WorkspaceError {
   return { code, message };
@@ -148,6 +159,9 @@ export class WorkspaceService {
     const indexedDocuments = await Promise.all(
       collectionDocuments.map(async (document): Promise<FileIndexDocumentInput | null> => {
         try {
+          if (!fileIsInsideWorkspace(model.workspace.rootPath, document.filePath)) {
+            return null;
+          }
           const content = await fs.readFile(document.filePath, 'utf-8');
           return {
             id: document.id,

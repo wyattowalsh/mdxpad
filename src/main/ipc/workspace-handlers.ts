@@ -19,6 +19,7 @@ import {
   SaveWorkspaceResponseSchema,
 } from '@shared/contracts/workspace-schemas';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
+import { trustedDirectoryError } from './trusted-directory';
 
 type WorkspaceHandlerService = Pick<
   WorkspaceService,
@@ -41,18 +42,40 @@ function registerAuthorizedHandler(
   });
 }
 
+function deniedWorkspace(message: string): {
+  ok: false;
+  error: { code: 'WORKSPACE_ACCESS_DENIED'; message: string };
+} {
+  return { ok: false, error: { code: 'WORKSPACE_ACCESS_DENIED', message } };
+}
+
+function createOpenWorkspaceHandler(workspaceService: WorkspaceHandlerService) {
+  return createValidatedHandler(OpenWorkspaceRequestSchema, async (args) => {
+    const scopeError = trustedDirectoryError(args.rootPath);
+    if (scopeError !== null) {
+      return OpenWorkspaceResponseSchema.parse(deniedWorkspace(scopeError));
+    }
+    return OpenWorkspaceResponseSchema.parse(await workspaceService.openWorkspace(args));
+  });
+}
+
+function createSaveWorkspaceHandler(workspaceService: WorkspaceHandlerService) {
+  return createValidatedHandler(SaveWorkspaceRequestSchema, async (args) => {
+    const scopeError = trustedDirectoryError(args.model.workspace.rootPath);
+    if (scopeError !== null) {
+      return SaveWorkspaceResponseSchema.parse(deniedWorkspace(scopeError));
+    }
+    return SaveWorkspaceResponseSchema.parse(await workspaceService.saveWorkspace(args));
+  });
+}
+
 export function registerWorkspaceHandlers(
   ipcMainInstance: IpcMain,
   window: BrowserWindow,
   workspaceService: WorkspaceHandlerService = new WorkspaceService()
 ): void {
-  const handleOpenWorkspace = createValidatedHandler(OpenWorkspaceRequestSchema, async (args) =>
-    OpenWorkspaceResponseSchema.parse(await workspaceService.openWorkspace(args))
-  );
-
-  const handleSaveWorkspace = createValidatedHandler(SaveWorkspaceRequestSchema, async (args) =>
-    SaveWorkspaceResponseSchema.parse(await workspaceService.saveWorkspace(args))
-  );
+  const handleOpenWorkspace = createOpenWorkspaceHandler(workspaceService);
+  const handleSaveWorkspace = createSaveWorkspaceHandler(workspaceService);
 
   const handleCreateProject = createValidatedHandler(CreateProjectRequestSchema, async (args) =>
     CreateProjectResponseSchema.parse(await workspaceService.createProject(args))

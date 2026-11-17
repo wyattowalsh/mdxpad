@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { grantReadCapability, resetFileCapabilities } from '@main/ipc/document-capability';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 import { SemanticSearchChannels } from '@shared/contracts/semantic-search-schemas';
@@ -63,6 +65,11 @@ function unavailableService(): EmbeddingService {
 describe('registerSemanticSearchHandlers', () => {
   beforeEach(() => {
     handlers.clear();
+    grantReadCapability('/workspace/note.md');
+  });
+
+  afterEach(() => {
+    resetFileCapabilities();
   });
 
   it('returns EMBEDDINGS_UNAVAILABLE for search and index', async () => {
@@ -123,6 +130,22 @@ describe('registerSemanticSearchHandlers', () => {
       success: true,
       results: [{ score: -0.2 }],
     });
+  });
+
+  it('does not index a folder the user has not opened', async () => {
+    const window = createWindow();
+    const service = unavailableService();
+    registerSemanticSearchHandlers(service, window);
+
+    const index = await handlers.get(SemanticSearchChannels.INDEX)?.(authorizedEvent(window), {
+      workspacePath: '/closed',
+    });
+
+    expect(index).toMatchObject({
+      success: false,
+      error: { code: 'PERMISSION_DENIED' },
+    });
+    expect(service.indexWorkspace).not.toHaveBeenCalled();
   });
 
   it('rejects an unauthorized sender', async () => {

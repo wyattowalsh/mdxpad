@@ -18,8 +18,19 @@ import {
   GitIsRepoRequestSchema,
 } from '@shared/contracts/git-schemas';
 import { assertAuthorizedIpcSender } from '@main/ipc/ipc-sender-authorization';
+import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import * as gitService from './git-service';
 import { GitServiceError } from './git-service';
+
+function untrustedDirectoryResult(
+  directory: string
+): { ok: false; error: { code: 'PERMISSION_DENIED'; message: string } } | null {
+  const message = trustedDirectoryError(directory);
+  if (message === null) {
+    return null;
+  }
+  return { ok: false, error: { code: 'PERMISSION_DENIED', message } };
+}
 
 function handleGitError(error: unknown): { ok: false; error: { code: string; message: string } } {
   if (error instanceof GitServiceError) {
@@ -36,6 +47,8 @@ function registerCoreGitHandlers(ipcMain: IpcMain, window: BrowserWindow): void 
     assertAuthorizedIpcSender(event, window, GitChannels.status);
     try {
       const { workingDir } = GitStatusRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       return { ok: true, value: await gitService.getStatus(workingDir) };
     } catch (error) {
       return handleGitError(error);
@@ -46,6 +59,8 @@ function registerCoreGitHandlers(ipcMain: IpcMain, window: BrowserWindow): void 
     assertAuthorizedIpcSender(event, window, GitChannels.add);
     try {
       const { workingDir, files } = GitAddRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       await gitService.addFiles(workingDir, files);
       return { ok: true, value: { success: true } };
     } catch (error) {
@@ -57,6 +72,8 @@ function registerCoreGitHandlers(ipcMain: IpcMain, window: BrowserWindow): void 
     assertAuthorizedIpcSender(event, window, GitChannels.commit);
     try {
       const { workingDir, message } = GitCommitRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       return { ok: true, value: await gitService.commit(workingDir, message) };
     } catch (error) {
       return handleGitError(error);
@@ -67,6 +84,8 @@ function registerCoreGitHandlers(ipcMain: IpcMain, window: BrowserWindow): void 
     assertAuthorizedIpcSender(event, window, GitChannels.log);
     try {
       const { workingDir, maxCount } = GitLogRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       return { ok: true, value: await gitService.getLog(workingDir, maxCount) };
     } catch (error) {
       return handleGitError(error);
@@ -79,6 +98,8 @@ function registerBranchGitHandlers(ipcMain: IpcMain, window: BrowserWindow): voi
     assertAuthorizedIpcSender(event, window, GitChannels.diff);
     try {
       const { workingDir, staged } = GitDiffRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       return { ok: true, value: await gitService.getDiff(workingDir, staged) };
     } catch (error) {
       return handleGitError(error);
@@ -89,6 +110,8 @@ function registerBranchGitHandlers(ipcMain: IpcMain, window: BrowserWindow): voi
     assertAuthorizedIpcSender(event, window, GitChannels.branches);
     try {
       const { workingDir } = GitBranchesRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       return { ok: true, value: await gitService.getBranches(workingDir) };
     } catch (error) {
       return handleGitError(error);
@@ -99,6 +122,8 @@ function registerBranchGitHandlers(ipcMain: IpcMain, window: BrowserWindow): voi
     assertAuthorizedIpcSender(event, window, GitChannels.checkout);
     try {
       const { workingDir, branch } = GitCheckoutRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(workingDir);
+      if (denied) return denied;
       return { ok: true, value: await gitService.checkout(workingDir, branch) };
     } catch (error) {
       return handleGitError(error);
@@ -109,6 +134,8 @@ function registerBranchGitHandlers(ipcMain: IpcMain, window: BrowserWindow): voi
     assertAuthorizedIpcSender(event, window, GitChannels.isRepo);
     try {
       const { path } = GitIsRepoRequestSchema.parse(args);
+      const denied = untrustedDirectoryResult(path);
+      if (denied) return denied;
       const isRepo = await gitService.isGitRepo(path);
       return { ok: true, value: { isRepo } };
     } catch (error) {

@@ -3,6 +3,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { grantReadCapability, resetFileCapabilities } from '@main/ipc/document-capability';
+
 import { AISessionStorageService } from '../ai-session-storage-service';
 import { InstructionLoaderService } from '../instruction-loader-service';
 
@@ -19,6 +21,7 @@ describe('InstructionLoaderService', () => {
   });
 
   afterEach(async () => {
+    resetFileCapabilities();
     if (tempDir) {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -35,6 +38,9 @@ describe('InstructionLoaderService', () => {
     await writeTextFile(documentPath, '# Note');
     await writeTextFile(documentInstructionPath, 'Document instruction');
 
+    grantReadCapability(path.join(projectRootPath, 'note.md'));
+    grantReadCapability(path.join(workspaceRootPath, 'note.md'));
+    grantReadCapability(documentPath);
     const storage = new AISessionStorageService(path.join(tempDir, 'storage'));
     const loader = new InstructionLoaderService(storage);
 
@@ -65,6 +71,7 @@ describe('InstructionLoaderService', () => {
     const projectInstructionPath = path.join(projectRootPath, 'AGENTS.md');
     await writeTextFile(projectInstructionPath, 'Project instruction body');
 
+    grantReadCapability(path.join(projectRootPath, 'note.md'));
     const storage = new AISessionStorageService(path.join(tempDir, 'storage'));
     const loader = new InstructionLoaderService(storage);
 

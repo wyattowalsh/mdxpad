@@ -13,6 +13,7 @@ import {
   SearchStatusRequestSchema,
 } from '@shared/contracts/search-schemas';
 import { assertAuthorizedIpcSender } from '@main/ipc/ipc-sender-authorization';
+import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import * as searchService from './search-service';
 
 function handleSearchError(
@@ -31,6 +32,10 @@ function registerQueryHandler(ipcMain: IpcMain, window: BrowserWindow): void {
     try {
       const { query, workspaceDir, maxResults, fuzzy, excludePatterns } =
         SearchQueryRequestSchema.parse(args);
+      const scopeError = trustedDirectoryError(workspaceDir);
+      if (scopeError !== null) {
+        return handleSearchError(new Error(scopeError), 'PERMISSION_DENIED');
+      }
       const result = searchService.search(
         workspaceDir,
         query,
@@ -51,6 +56,10 @@ function registerIndexHandlers(ipcMain: IpcMain, window: BrowserWindow): void {
     try {
       const { workspaceDir, fileExtensions, excludePatterns } =
         SearchIndexRequestSchema.parse(args);
+      const scopeError = trustedDirectoryError(workspaceDir);
+      if (scopeError !== null) {
+        return handleSearchError(new Error(scopeError), 'PERMISSION_DENIED');
+      }
       const result = await searchService.indexWorkspace(
         workspaceDir,
         fileExtensions,
@@ -66,6 +75,10 @@ function registerIndexHandlers(ipcMain: IpcMain, window: BrowserWindow): void {
     assertAuthorizedIpcSender(event, window, SearchChannels.status);
     try {
       const { workspaceDir } = SearchStatusRequestSchema.parse(args);
+      const scopeError = trustedDirectoryError(workspaceDir);
+      if (scopeError !== null) {
+        return handleSearchError(new Error(scopeError), 'PERMISSION_DENIED');
+      }
       const result = searchService.getStatus(workspaceDir);
       return { ok: true, value: result };
     } catch (error) {

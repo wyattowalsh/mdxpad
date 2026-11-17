@@ -110,6 +110,21 @@ export function trustedAgentFile(
   return { root: path.dirname(normalized), filePath: normalized };
 }
 
+export function isWithinOpenedDirectory(targetPath: string): boolean {
+  const normalized = normalizeCapabilityPath(targetPath);
+  if (normalized === null) {
+    return false;
+  }
+
+  for (const root of documentDirectoryCapabilities) {
+    if (normalized === root || normalized.startsWith(`${root}${path.sep}`)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function hasReadCapability(filePath: string): boolean {
   const normalized = normalizeCapabilityPath(filePath);
   if (!normalized) {
