@@ -51,6 +51,17 @@ describe('serializeForExport', () => {
     }
   });
 
+  it('renders markdown instead of a source dump', () => {
+    const result = serializeForExport('# Title\n\nHello **there**', 'html');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.content).toContain('<h1>Title</h1>');
+      expect(result.content).toContain('<strong>there</strong>');
+      expect(result.content).not.toContain('mdxpad-export-source');
+    }
+  });
+
   it('generates html export with mermaid rendering hook for mermaid fences', () => {
     const result = serializeForExport('```mermaid\ngraph TD\n  A-->B\n```', 'html');
 

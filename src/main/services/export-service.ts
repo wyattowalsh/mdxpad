@@ -1,5 +1,7 @@
 import * as path from 'node:path';
 
+import { markdownToPdfHtml } from './export-formats/pdf-exporter';
+
 import type {
   ExportFormat,
   ExportSupportEntry,
@@ -126,7 +128,7 @@ function buildHtmlBody(content: string): { body: string; hasMermaid: boolean } {
     const mermaidBody = mermaidBodyMatch.trim();
 
     if (before.trim().length > 0) {
-      sections.push(`<pre class="mdxpad-export-source">${escapeHtml(before)}</pre>`);
+      sections.push(markdownToPdfHtml(before));
     }
 
     sections.push(`<pre class="mermaid">${escapeHtml(mermaidBody)}</pre>`);
@@ -136,7 +138,7 @@ function buildHtmlBody(content: string): { body: string; hasMermaid: boolean } {
 
   const remainder = content.slice(cursor);
   if (sections.length === 0 || remainder.trim().length > 0) {
-    sections.push(`<pre class="mdxpad-export-source">${escapeHtml(remainder)}</pre>`);
+    sections.push(markdownToPdfHtml(remainder));
   }
 
   return { body: sections.join('\n'), hasMermaid };
@@ -168,8 +170,12 @@ function buildHtmlDocument(content: string): ExportSerializationSuccess {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MDXPad Export</title>
   <style>
-    body { margin: 0; padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #ffffff; }
-    .mdxpad-export-source { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; white-space: pre-wrap; overflow-x: auto; }
+    body { margin: 0; padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #ffffff; line-height: 1.5; }
+    pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; overflow-x: auto; }
+    blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding-left: 1rem; }
+    table { border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; }
     .mermaid { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; }
   </style>
 </head>
