@@ -62,6 +62,26 @@ export function summarizeGitDiff(diff: {
   return `Git diff: ${diff.filesChanged} changed ${label}`;
 }
 
+export function summarizeSearchResults(
+  query: string,
+  results: readonly { readonly fileName?: string; readonly filePath?: string }[]
+): string {
+  if (results.length === 0) {
+    return `Search for "${query}": no matches`;
+  }
+  const names = results.slice(0, 5).map((result) => {
+    if (result.fileName !== undefined && result.fileName.length > 0) {
+      return result.fileName;
+    }
+    const filePath = result.filePath ?? '';
+    const slash = filePath.lastIndexOf('/');
+    return slash === -1 ? filePath : filePath.slice(slash + 1);
+  });
+  const extra = results.length > 5 ? `, and ${results.length - 5} more` : '';
+  const label = results.length === 1 ? 'match' : 'matches';
+  return `Search for "${query}": ${results.length} ${label} (${names.join(', ')}${extra})`;
+}
+
 function requireWorkspaceDir(ctx: CommandContext): string | null {
   const dir = workspaceDir(ctx.document.filePath);
   if (!dir) {
@@ -120,8 +140,10 @@ async function searchWorkspaceFolder(
     ctx.notify({ type: 'error', message: result.error.message });
     return { ok: false, error: result.error.message };
   }
-  const count = result.value.results.length;
-  ctx.notify({ type: 'info', message: `Search found ${count} match${count === 1 ? '' : 'es'}` });
+  ctx.notify({
+    type: 'info',
+    message: summarizeSearchResults(queryText, result.value.results),
+  });
   return { ok: true };
 }
 
@@ -209,15 +231,18 @@ const gitCommitCommand: Command = {
 const searchWorkspaceCommand: Command = {
   id: 'search.workspace' as CommandId,
   name: 'Search Workspace',
-  description: 'Search the current folder for the first heading in the document',
+  description: 'Search the current folder for text you enter',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
     const dir = workspaceDir(ctx.document.filePath);
-    const query = ctx.document.content.split('\n').find((line) => line.trim().length > 0) ?? '';
-    const queryText = query.trim().replace(/^#+\s*/, '');
-    if (!dir || queryText.length === 0) {
-      ctx.notify({ type: 'warning', message: 'Open a file with text to search its folder' });
+    if (!dir) {
+      ctx.notify({ type: 'warning', message: 'Open a file inside a folder to search' });
       return { ok: false, error: 'Nothing to search' };
+    }
+    const queryText = window.prompt('Search this folder')?.trim() ?? '';
+    if (queryText.length === 0) {
+      ctx.notify({ type: 'info', message: 'Search cancelled' });
+      return { ok: false, error: 'Search cancelled' };
     }
     return searchWorkspaceFolder(ctx, dir, queryText);
   },

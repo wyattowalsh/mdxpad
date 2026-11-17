@@ -7,6 +7,7 @@ import {
   summarizeGitDiff,
   summarizeGitLog,
   summarizeGitStatus,
+  summarizeSearchResults,
 } from '../service-commands';
 
 describe('summarizeGitStatus', () => {
@@ -149,8 +150,18 @@ describe('citation.parse', () => {
   });
 });
 
+describe('summarizeSearchResults', () => {
+  it('names the matching files', () => {
+    expect(summarizeSearchResults('Title', [])).toBe('Search for "Title": no matches');
+    expect(
+      summarizeSearchResults('Title', [{ fileName: 'a.md' }, { filePath: '/notes/b.md' }])
+    ).toBe('Search for "Title": 2 matches (a.md, b.md)');
+  });
+});
+
 describe('search.workspace', () => {
   it('indexes an unindexed folder before searching and passes exclude patterns', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('Title');
     localStorage.clear();
     localStorage.setItem(
       'mdxpad:workspace-folder-excludes',
@@ -178,6 +189,28 @@ describe('search.workspace', () => {
     await expect(command?.execute(context)).resolves.toEqual({ ok: true });
     expect(index).toHaveBeenCalledWith('/notes', undefined, ['dist']);
     expect(search).toHaveBeenCalledWith('/notes', 'Title', 10, undefined, ['dist']);
-    expect(notify).toHaveBeenCalledWith({ type: 'info', message: 'Search found 1 match' });
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Search for "Title": 1 match (a.md)',
+    });
+  });
+
+  it('cancels when the query is empty', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('   ');
+    const search = vi.fn();
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: '# Title\n' },
+      api: { search: { search } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'search.workspace');
+    await expect(command?.execute(context)).resolves.toEqual({
+      ok: false,
+      error: 'Search cancelled',
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({ type: 'info', message: 'Search cancelled' });
   });
 });
