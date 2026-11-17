@@ -12,6 +12,13 @@ import MarkdownIt from 'markdown-it';
 import { MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { tableCellAttrs } from './prosemirror-mdx-table';
+import {
+  protectTexDelimiters,
+  TEX_DISPLAY_CLOSE,
+  TEX_DISPLAY_OPEN,
+  TEX_INLINE_CLOSE,
+  TEX_INLINE_OPEN,
+} from './prosemirror-tex-protect';
 import { Fragment, type Node as ProseMirrorNode, type Attrs } from 'prosemirror-model';
 
 /**
@@ -194,21 +201,8 @@ function imageAlt(token: MarkdownToken): string {
 const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
 const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
 const FOOTNOTE_MARK = '\uE010';
-const TEX_INLINE_OPEN = '\uE013';
-const TEX_INLINE_CLOSE = '\uE014';
-const TEX_DISPLAY_OPEN = '\uE015';
-const TEX_DISPLAY_CLOSE = '\uE016';
-
 export function protectFootnoteMarkers(value: string): string {
   return value.replaceAll('[^', `${FOOTNOTE_MARK}^`);
-}
-
-export function protectTexDelimiters(value: string): string {
-  return value
-    .replaceAll('\\[', TEX_DISPLAY_OPEN)
-    .replaceAll('\\]', TEX_DISPLAY_CLOSE)
-    .replaceAll('\\(', TEX_INLINE_OPEN)
-    .replaceAll('\\)', TEX_INLINE_CLOSE);
 }
 
 function restoreTexDelimiters(value: string): string {

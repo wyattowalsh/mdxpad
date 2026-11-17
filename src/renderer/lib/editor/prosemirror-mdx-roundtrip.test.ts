@@ -38,6 +38,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(auto?.attrs.href).toBe('https://example.com/a)b');
   });
 
+  it('keeps an escaped parenthesis in a link address', () => {
+    const serialized = roundTrip('[wiki](https://example.com/a\\)b)\n');
+    const doc = parseMdxContent(serialized);
+    const link = doc?.firstChild?.firstChild?.marks.find((mark) => mark.type.name === 'link');
+    expect(link?.attrs.href).toBe('https://example.com/a)b');
+    expect(serialized).toContain('https://example.com/a)b');
+  });
+
   it('keeps an asterisk in image alt text', () => {
     const serialized = roundTrip('![a*b](photo.png)\n');
     expect(serialized).toContain('![a*b](photo.png)');
