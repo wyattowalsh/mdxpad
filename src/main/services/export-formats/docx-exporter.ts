@@ -774,12 +774,19 @@ function takeDisplayLine(
   return displayLines;
 }
 
+interface DocxListFrame {
+  readonly level: number;
+  column: number;
+  item: MarkdownListItem;
+}
+
 interface DocxParse {
   blocks: (Paragraph | Table)[];
   pending: SourceLine[];
   displayLines: string[] | null;
   tableLines: string[];
   quoteLines: string[];
+  listStack: DocxListFrame[];
   openListItem: MarkdownListItem | null;
   listBreak: boolean;
   listHardBreak: boolean;
@@ -863,6 +870,67 @@ function resetDocxItem(parse: DocxParse, fence: ReturnType<typeof listFenceOnMar
   parse.tailOpen = false;
 }
 
+function rememberDocxListItem(parse: DocxParse, item: MarkdownListItem, column: number): void {
+  while (parse.listStack.length > 0) {
+    const top = parse.listStack[parse.listStack.length - 1];
+    if (!top || top.level < item.level) {
+      break;
+    }
+    parse.listStack.pop();
+  }
+  parse.listStack.push({ level: item.level, column, item });
+}
+
+function plainLazyListLine(line: string): boolean {
+  const text = readSourceLine(line).text;
+  return (
+    text.length > 0 &&
+    parseListItem(line) === null &&
+    parseAtxHeading(text) === null &&
+    !isThematicBreak(text) &&
+    openingFence(line) === null &&
+    quoteBody(line) === null &&
+    !isTableRow(text)
+  );
+}
+
+function docxListDepth(parse: DocxParse, line: string): number {
+  const spaces = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  let depth = parse.listStack.length - 1;
+  while (depth >= 0 && spaces < (parse.listStack[depth]?.column ?? 0)) {
+    depth -= 1;
+  }
+  return depth;
+}
+
+function adoptDocxAncestor(parse: DocxParse, line: string): boolean {
+  if (!plainLazyListLine(line)) {
+    return false;
+  }
+  const depth = docxListDepth(parse, line);
+  const frame = depth < 0 ? undefined : parse.listStack[depth];
+  if (!frame) {
+    return false;
+  }
+  parse.listStack.length = depth + 1;
+  parse.openListItem = frame.item;
+  parse.listColumn = frame.column;
+  parse.listBreak = false;
+  parse.listSealed = false;
+  const source = readSourceLine(line);
+  parse.blocks.push(
+    new Paragraph({
+      indent: { left: 720 * (frame.level + 1) },
+      children: createParagraphChildren(source.text),
+    })
+  );
+  parse.tailText = source.text;
+  parse.tailHard = source.hardBreak;
+  parse.tailOpen = true;
+  parse.listParagraphBreak = false;
+  return true;
+}
+
 function takeDocxAtxItem(parse: DocxParse, item: MarkdownListItem, column: number): boolean {
   const atx = parseAtxHeading(item.text);
   if (!atx) {
@@ -870,6 +938,8 @@ function takeDocxAtxItem(parse: DocxParse, item: MarkdownListItem, column: numbe
   }
   parse.openListItem = { ...item, text: '' };
   parse.listColumn = column;
+  parse.listBreak = false;
+  rememberDocxListItem(parse, parse.openListItem, column);
   parse.listHardBreak = false;
   resetDocxItem(parse, null);
   parse.listSealed = true;
@@ -895,32 +965,48 @@ function takeDocxList(
     const shown = fence ? { ...item, text: '' } : item;
     parse.openListItem = shown;
     parse.listColumn = column;
+    parse.listBreak = false;
+    rememberDocxListItem(parse, shown, column);
     parse.listHardBreak = source.hardBreak;
     parse.listSealed = fence !== null;
     resetDocxItem(parse, fence);
     parse.blocks.push(listParagraph(shown));
     return true;
   }
-  if (openListItem && isListContinuation(line, parse.listColumn ?? 2)) {
-    if (appendDocxTail(parse, openListItem, source)) {
-      return true;
-    }
-    if (parse.listSealed) {
-      parse.openListItem = openListItem;
-      parse.blocks.push(new Paragraph({ children: createParagraphChildren(source.text) }));
-      return true;
-    }
-    const text = parse.listHardBreak
-      ? `${openListItem.text}\n${source.text}`
-      : `${openListItem.text} ${source.text}`;
-    parse.listHardBreak = source.hardBreak;
-    const combined = { ...openListItem, text };
-    parse.openListItem = combined;
-    parse.blocks.pop();
-    parse.blocks.push(listParagraph(combined));
+  const lazy = !parse.listBreak && plainLazyListLine(line);
+  return (
+    openListItem !== null &&
+    (isListContinuation(line, parse.listColumn ?? 2) || lazy) &&
+    continueDocxListItem(parse, openListItem, source)
+  );
+}
+
+function continueDocxListItem(
+  parse: DocxParse,
+  openListItem: MarkdownListItem,
+  source: SourceLine
+): boolean {
+  if (appendDocxTail(parse, openListItem, source)) {
     return true;
   }
-  return false;
+  if (parse.listSealed) {
+    parse.openListItem = openListItem;
+    parse.blocks.push(new Paragraph({ children: createParagraphChildren(source.text) }));
+    return true;
+  }
+  const text = parse.listHardBreak
+    ? `${openListItem.text}\n${source.text}`
+    : `${openListItem.text} ${source.text}`;
+  parse.listHardBreak = source.hardBreak;
+  const combined = { ...openListItem, text };
+  parse.openListItem = combined;
+  const top = parse.listStack[parse.listStack.length - 1];
+  if (top?.level === combined.level) {
+    top.item = combined;
+  }
+  parse.blocks.pop();
+  parse.blocks.push(listParagraph(combined));
+  return true;
 }
 
 function appendDocxTail(
@@ -962,6 +1048,7 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
     return;
   }
   parse.listBreak = false;
+  parse.listStack.length = 0;
 }
 
 function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
@@ -1007,22 +1094,39 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
   if (takeDocxSetext(parse, line)) {
     return;
   }
-  const source = readSourceLine(line);
-  if (takeDocxList(parse, line, openListItem)) {
+  if (finishDocxBodyLine(parse, line, openListItem)) {
     return;
   }
-  if (source.text === '') {
-    keepDocxListBreak(parse, openListItem);
-    return;
-  }
-  parse.listBreak = false;
-  const special = parseLineToParagraph(source.text, parse.slugCounts);
+  const special = parseLineToParagraph(readSourceLine(line).text, parse.slugCounts);
   if (special) {
     flushPendingParagraph(parse);
     parse.blocks.push(special);
     return;
   }
-  parse.pending.push(source);
+  parse.pending.push(readSourceLine(line));
+}
+
+function finishDocxBodyLine(
+  parse: DocxParse,
+  line: string,
+  openListItem: MarkdownListItem | null
+): boolean {
+  const source = readSourceLine(line);
+  if (takeDocxList(parse, line, openListItem)) {
+    return true;
+  }
+  if (source.text === '') {
+    keepDocxListBreak(parse, openListItem);
+    return true;
+  }
+  if (parse.listBreak && adoptDocxAncestor(parse, line)) {
+    return true;
+  }
+  if (parse.listBreak) {
+    parse.listStack.length = 0;
+  }
+  parse.listBreak = false;
+  return false;
 }
 
 function takeDocxItemFence(parse: DocxParse, line: string): boolean {
@@ -1119,6 +1223,7 @@ function emptyDocxParse(): DocxParse {
     displayLines: null,
     tableLines: [],
     quoteLines: [],
+    listStack: [],
     openListItem: null,
     listBreak: false,
     listHardBreak: false,

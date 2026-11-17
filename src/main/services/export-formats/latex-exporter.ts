@@ -236,6 +236,7 @@ function getHeadingCommand(level: number): string {
 interface LatexListFrame {
   readonly ordered: boolean;
   readonly level: number;
+  column: number;
 }
 
 interface ListState {
@@ -253,11 +254,30 @@ interface ListState {
   tailLines: SourceLine[] | null;
 }
 
+function closeLatexFrame(output: string[], stack: LatexListFrame[]): void {
+  const frame = stack.pop();
+  output.push(frame?.ordered ? '\\end{enumerate}' : '\\end{itemize}');
+}
+
 function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
   while (stack.length > 0) {
-    const frame = stack.pop();
-    output.push(frame?.ordered ? '\\end{enumerate}' : '\\end{itemize}');
+    closeLatexFrame(output, stack);
   }
+}
+
+function closeLatexListsTo(output: string[], stack: LatexListFrame[], depth: number): void {
+  while (stack.length - 1 > depth) {
+    closeLatexFrame(output, stack);
+  }
+}
+
+function listDepthForIndent(stack: readonly LatexListFrame[], line: string): number {
+  const spaces = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  let depth = stack.length - 1;
+  while (depth >= 0 && spaces < (stack[depth]?.column ?? 0)) {
+    depth -= 1;
+  }
+  return depth;
 }
 
 function processCodeBlockLine(
@@ -294,7 +314,8 @@ function openLatexListItem(
   output: string[],
   stack: LatexListFrame[],
   item: MarkdownListItem,
-  formatted: string
+  formatted: string,
+  column: number
 ): void {
   while (stack.length > 0) {
     const top = stack[stack.length - 1];
@@ -316,7 +337,9 @@ function openLatexListItem(
       const counter = counters[item.level] ?? 'enumi';
       output.push(`\\setcounter{${counter}}{${item.start - 1}}`);
     }
-    stack.push({ ordered: item.ordered, level: item.level });
+    stack.push({ ordered: item.ordered, level: item.level, column });
+  } else if (top.level === item.level) {
+    top.column = column;
   }
   output.push(`  \\item ${formatted}`);
 }
@@ -359,7 +382,9 @@ function processListItem(
         counts
       )
     : renderLatexItem(listState.itemLines);
-  openLatexListItem(output, listState.stack, item, formatted);
+  const column = listContentColumn(raw) ?? 2;
+  openLatexListItem(output, listState.stack, item, formatted, column);
+  listState.column = column;
   return true;
 }
 
@@ -442,6 +467,23 @@ function takeLatexSetext(
   return true;
 }
 
+function returnLatexListItem(raw: string, output: string[], listState: ListState): void {
+  const depth = listDepthForIndent(listState.stack, raw);
+  if (depth < 0) {
+    resetListState(output, listState);
+    return;
+  }
+  closeLatexListsTo(output, listState.stack, depth);
+  const frame = listState.stack[depth];
+  if (frame) {
+    listState.column = frame.column;
+  }
+  listState.sealed = false;
+  listState.itemLines = [];
+  listState.paragraphBreak = true;
+  listState.tailLines = null;
+}
+
 function takeLatexListBreak(raw: string, output: string[], listState: ListState): boolean {
   const source = readSourceLine(raw);
   if (source.text !== '') {
@@ -450,7 +492,7 @@ function takeLatexListBreak(raw: string, output: string[], listState: ListState)
       parseListItem(raw) === null &&
       !isListContinuation(raw, listState.column ?? 2)
     ) {
-      resetListState(output, listState);
+      returnLatexListItem(raw, output, listState);
     }
     listState.break = false;
     return false;

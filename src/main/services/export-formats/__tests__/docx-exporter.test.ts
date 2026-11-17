@@ -580,6 +580,50 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('keeps a later paragraph inside the parent item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- parent\n\n  - child\n\n  more\n',
+      outputPath: '/tmp/nested-more.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const more = xml.split(/<w:p[ >]/).find((paragraph) => paragraph.includes('>more<'));
+    expect(xml.indexOf('>child<')).toBeLessThan(xml.indexOf('>more<'));
+    expect(more).toContain('w:left="720"');
+    expect(more).not.toContain('w:ilvl');
+  });
+
+  it('ends a nested list before a column-zero line', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- parent\n\n  - child\n\nbaz\n',
+      outputPath: '/tmp/nested-ended.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const ended = xml.split(/<w:p[ >]/).find((paragraph) => paragraph.includes('>baz<'));
+    expect(xml.indexOf('>child<')).toBeLessThan(xml.indexOf('>baz<'));
+    expect(ended).not.toContain('w:ind');
+    expect(ended).not.toContain('w:ilvl');
+  });
+
   it('nests a child list under its parent', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

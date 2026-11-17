@@ -469,6 +469,31 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{quote}');
   });
 
+  it('keeps a later paragraph inside the parent item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- parent\n\n  - child\n\n  more\n',
+      outputPath: '/tmp/nested-more.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const childEnd = written.indexOf('\\end{itemize}');
+    const more = written.indexOf('\nmore\n');
+    const parentEnd = written.lastIndexOf('\\end{itemize}');
+    expect(childEnd).toBeGreaterThan(written.indexOf('\\item child'));
+    expect(more).toBeGreaterThan(childEnd);
+    expect(parentEnd).toBeGreaterThan(more);
+  });
+
+  it('ends a nested list before a column-zero line', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- parent\n\n  - child\n\nbaz\n',
+      outputPath: '/tmp/nested-ended.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written.lastIndexOf('\\end{itemize}')).toBeLessThan(written.indexOf('\nbaz\n'));
+  });
+
   it('nests a child list under its parent', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
