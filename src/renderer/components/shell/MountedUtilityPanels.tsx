@@ -16,6 +16,7 @@ import { TagTreePanel } from '@renderer/components/tags/TagTreePanel';
 import { WorkspacePanel } from '@renderer/components/workspace/WorkspacePanel';
 import { AgentPanel } from '@renderer/features/ai-agent/AgentPanel';
 import { DiagramDialog } from '@renderer/features/diagrams/DiagramDialog';
+import { MultiFileEditPanel } from '@renderer/components/ai/MultiFileEditPanel';
 import { insertDiagramFence } from '@renderer/lib/insert-document-text';
 import { useAgentModeStore } from '@renderer/features/ai-agent/agent-mode-store';
 import { SemanticSearchPanel } from '@renderer/features/semantic-search/SemanticSearchPanel';
@@ -44,6 +45,7 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   'semantic-search': 'Semantic search',
   agent: 'AI agent',
   diagram: 'Diagram',
+  edits: 'AI revisions',
 };
 
 function revealCommentThread(view: EditorView, anchorFrom: number): void {
@@ -113,6 +115,8 @@ function PanelBody({
           }}
         />
       );
+    case 'edits':
+      return <MultiFileEditPanel />;
     case 'agent':
       return (
         <div className="h-96">

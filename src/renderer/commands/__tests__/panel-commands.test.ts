@@ -31,6 +31,7 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-semantic-search',
       'view.toggle-agent',
       'view.toggle-diagram',
+      'view.toggle-edits',
       'view.toggle-wysiwyg',
     ]);
     expect(PANEL_COMMANDS.every((command) => command.shortcut === undefined)).toBe(true);

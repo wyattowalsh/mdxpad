@@ -14,6 +14,7 @@ import { registerFilterCommands } from './filter-commands';
 import { registerTemplateCommands } from './template-commands';
 import { registerServiceCommands } from './service-commands';
 import { registerPanelCommands } from './panel-commands';
+import { registerEditAiCommands } from './edit-ai-commands';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { bindingsFromCommands, useKeybindingStore } from '../stores/keybinding-store';
 
@@ -31,6 +32,7 @@ export function registerAllCommands(): () => void {
   const unregisterTemplate = registerTemplateCommands();
   const unregisterService = registerServiceCommands();
   const unregisterPanels = registerPanelCommands();
+  const unregisterEditAi = registerEditAiCommands();
   const keybindings = useKeybindingStore.getState();
   if (keybindings.bindings.length === 0) {
     keybindings.initDefaults(bindingsFromCommands(useCommandRegistry.getState().getAllCommands()));
@@ -44,6 +46,7 @@ export function registerAllCommands(): () => void {
     unregisterTemplate();
     unregisterService();
     unregisterPanels();
+    unregisterEditAi();
   };
 }
 
@@ -55,3 +58,4 @@ export { registerFilterCommands } from './filter-commands';
 export { registerTemplateCommands } from './template-commands';
 export { registerServiceCommands } from './service-commands';
 export { registerPanelCommands } from './panel-commands';
+export { registerEditAiCommands } from './edit-ai-commands';

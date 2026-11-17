@@ -53,6 +53,8 @@ import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps
 import { codeExecutionExtension } from '../../lib/editor/extensions/code-execution';
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
+import { predictNextEdit } from '../../lib/editor/next-edit-provider';
+import { nextEditPrediction } from '../../lib/editor/extensions/next-edit-prediction';
 
 /**
  * Extended configuration for MDX editor, building on shared EditorConfig.
@@ -253,6 +255,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   extensions.push(regexSearchExtension());
   extensions.push(codeExecutionExtension());
   extensions.push(goToDefinitionExtension());
+  extensions.push(nextEditPrediction(predictNextEdit));
 
   // MDX language support
   extensions.push(mdxLanguage());

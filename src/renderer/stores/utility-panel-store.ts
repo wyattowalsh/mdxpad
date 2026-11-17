@@ -11,7 +11,8 @@ export type UtilityPanelId =
   | 'publish'
   | 'semantic-search'
   | 'agent'
-  | 'diagram';
+  | 'diagram'
+  | 'edits';
 
 interface UtilityPanelState {
   readonly activeUtilityPanel: UtilityPanelId | null;

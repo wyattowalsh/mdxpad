@@ -17,6 +17,7 @@ import {
   selectProgress,
 } from '../../stores/multi-file-ai-store';
 import type { FileEdit } from '../../stores/multi-file-ai-store';
+import { applyOpenDocumentEdit } from '@renderer/lib/apply-open-document-edit';
 import { FileEditDiff } from './FileEditDiff';
 import { Button } from '@ui/button';
 
@@ -213,9 +214,27 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
   const progress = useMultiFileAiStore(selectProgress);
   const applyEdit = useMultiFileAiStore((s) => s.applyEdit);
   const rejectEdit = useMultiFileAiStore((s) => s.rejectEdit);
-  const applyAll = useMultiFileAiStore((s) => s.applyAll);
   const rejectAll = useMultiFileAiStore((s) => s.rejectAll);
   const { expandedPaths, toggleExpanded } = useExpandedPaths();
+
+  const handleApply = (path: string): void => {
+    const edit = fileEdits.find((item) => item.path === path);
+    if (edit?.status !== 'pending') {
+      return;
+    }
+    if (!applyOpenDocumentEdit(edit.path, edit.modified)) {
+      return;
+    }
+    applyEdit(path);
+  };
+
+  const handleApplyAll = (): void => {
+    for (const edit of fileEdits) {
+      if (edit.status === 'pending' && applyOpenDocumentEdit(edit.path, edit.modified)) {
+        applyEdit(edit.path);
+      }
+    }
+  };
 
   if (!isActive || fileEdits.length === 0) {
     return <EmptyState className={className} />;
@@ -231,7 +250,7 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
           </span>
         </div>
         {progress.pending > 0 ? (
-          <BulkActions onApplyAll={applyAll} onRejectAll={rejectAll} />
+          <BulkActions onApplyAll={handleApplyAll} onRejectAll={rejectAll} />
         ) : null}
       </div>
       <ProgressBar completed={progress.completed} total={progress.total} />
@@ -242,7 +261,7 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
             edit={edit}
             isExpanded={expandedPaths.has(edit.path)}
             onToggle={toggleExpanded}
-            onApply={applyEdit}
+            onApply={handleApply}
             onReject={rejectEdit}
           />
         ))}
