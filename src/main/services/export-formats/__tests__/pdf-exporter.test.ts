@@ -155,6 +155,20 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('keeps a wrapped quote line inside the quote', async () => {
+    await exporter.export({
+      content: '> Keep this\nline too.\n\nAfter',
+      outputPath: '/tmp/lazy-quote.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    const quote = html.slice(html.indexOf('<blockquote>'), html.indexOf('</blockquote>'));
+    expect(quote).toContain('Keep this');
+    expect(quote).toContain('line too.');
+    expect(quote).not.toContain('After');
+    expect(html).toContain('After');
+  });
+
   it('keeps a footnote definition', async () => {
     await exporter.export({
       content: 'A footnote[^1].\n\n[^1]: Note',

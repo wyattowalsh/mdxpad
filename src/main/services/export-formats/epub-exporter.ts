@@ -8,7 +8,7 @@ import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
-import { quoteBody, quoteToHtml } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
   parseListItem,
@@ -103,6 +103,10 @@ function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineStat
     closeHtmlLists(htmlLines, state.lists);
     flushEpubTable(htmlLines, state);
     state.quoteLines.push(body);
+    return true;
+  }
+  if (state.quoteLines.length > 0 && isLazyQuoteLine(line)) {
+    state.quoteLines.push(line.trim());
     return true;
   }
   if (state.quoteLines.length > 0) {

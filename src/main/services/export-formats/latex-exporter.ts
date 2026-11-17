@@ -6,7 +6,7 @@ import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
-import { quoteBody, quoteToLatex } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
@@ -359,6 +359,10 @@ function takeLatexQuote(output: string[], line: string, quoteLines: string[]): b
   const body = quoteBody(line);
   if (body !== null) {
     quoteLines.push(body);
+    return true;
+  }
+  if (quoteLines.length > 0 && isLazyQuoteLine(line)) {
+    quoteLines.push(line.trim());
     return true;
   }
   if (quoteLines.length > 0) {

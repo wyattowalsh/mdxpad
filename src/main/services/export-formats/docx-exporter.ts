@@ -22,7 +22,7 @@ import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
-import { quoteBody, quoteLineDepth } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteLineDepth } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
@@ -309,6 +309,10 @@ function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: 
   const body = quoteBody(line);
   if (body !== null) {
     quoteLines.push(body);
+    return true;
+  }
+  if (quoteLines.length > 0 && isLazyQuoteLine(line)) {
+    quoteLines.push(line.trim());
     return true;
   }
   if (quoteLines.length > 0) {

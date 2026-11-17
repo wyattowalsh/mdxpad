@@ -8,7 +8,7 @@ import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
-import { quoteBody, quoteToHtml } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
   parseListItem,
@@ -124,6 +124,10 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
     closePdfList(build);
     flushPdfTable(build);
     build.quoteLines.push(body);
+    return true;
+  }
+  if (build.quoteLines.length > 0 && isLazyQuoteLine(line)) {
+    build.quoteLines.push(line.trim());
     return true;
   }
   if (build.quoteLines.length > 0) {
