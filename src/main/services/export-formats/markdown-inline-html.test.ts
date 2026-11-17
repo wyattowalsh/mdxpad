@@ -15,6 +15,12 @@ describe('renderMarkdownInline', () => {
   it('renders bold italic from three markers', () => {
     expect(renderMarkdownInline('***both***')).toBe('<strong><em>both</em></strong>');
     expect(renderMarkdownInline('___both___')).toBe('<strong><em>both</em></strong>');
+    expect(renderMarkdownInline('**bold *inner* text**')).toBe(
+      '<strong>bold <em>inner</em> text</strong>'
+    );
+    expect(renderMarkdownInline('*italic **bold** text*')).toBe(
+      '<em>italic <strong>bold</strong> text</em>'
+    );
   });
 
   it('renders emphasis, code, and links', () => {

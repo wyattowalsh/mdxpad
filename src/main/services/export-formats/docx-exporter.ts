@@ -51,6 +51,21 @@ function getHeadingLevel(level: number): HeadingLevelValue {
   return HEADING_LEVEL_MAP[level] ?? HeadingLevel.HEADING_6;
 }
 
+function emphasize(
+  segments: InlineSegment[],
+  text: string,
+  marks: { readonly bold?: boolean; readonly italic?: boolean; readonly strike?: boolean }
+): void {
+  for (const segment of parseInlineFormatting(text)) {
+    segments.push({
+      ...segment,
+      ...(segment.bold === true || marks.bold === true ? { bold: true } : {}),
+      ...(segment.italic === true || marks.italic === true ? { italic: true } : {}),
+      ...(segment.strike === true || marks.strike === true ? { strike: true } : {}),
+    });
+  }
+}
+
 interface InlineSegment {
   text: string;
   bold?: boolean;
@@ -64,7 +79,7 @@ interface InlineSegment {
 export function parseInlineFormatting(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   const regex =
-    /(\*\*\*(.+?)\*\*\*|(?<![\w])___(.+?)___(?![\w])|\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
+    /(\*\*\*(.+?)\*\*\*|(?<![\w])___(.+?)___(?![\w])|\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*([^*]*(?:\*\*[^*]*)*)\*|(?<![\w])_([^_]*(?:__[^_]*)*)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
   let lastIndex = 0;
 
   for (const match of text.matchAll(regex)) {
@@ -85,23 +100,23 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
       const path = linkDestination(src);
       segments.push({ text: alt.length > 0 ? alt : path, image: path });
     } else if (match[2] !== undefined) {
-      segments.push({ text: match[2], bold: true, italic: true });
+      emphasize(segments, match[2], { bold: true, italic: true });
     } else if (match[3] !== undefined) {
-      segments.push({ text: match[3], bold: true, italic: true });
+      emphasize(segments, match[3], { bold: true, italic: true });
     } else if (match[4] !== undefined) {
-      segments.push({ text: match[4], bold: true });
+      emphasize(segments, match[4], { bold: true });
     } else if (match[5] !== undefined) {
-      segments.push({ text: match[5], bold: true });
+      emphasize(segments, match[5], { bold: true });
     } else if (match[6] !== undefined) {
       segments.push({ text: match[6], code: true });
     } else if (match[7] !== undefined) {
-      segments.push({ text: match[7], italic: true });
+      emphasize(segments, match[7], { italic: true });
     } else if (match[8] !== undefined) {
-      segments.push({ text: match[8], italic: true });
+      emphasize(segments, match[8], { italic: true });
     } else if (match[9] !== undefined && match[10] !== undefined) {
       segments.push({ text: match[9], link: linkDestination(match[10]) });
     } else if (match[11] !== undefined) {
-      segments.push({ text: match[11], strike: true });
+      emphasize(segments, match[11], { strike: true });
     }
 
     lastIndex = matchIndex + match[0].length;

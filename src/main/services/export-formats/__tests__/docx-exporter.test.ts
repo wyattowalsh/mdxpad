@@ -44,6 +44,11 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('***both***')).toEqual([
       { text: 'both', bold: true, italic: true },
     ]);
+    expect(parseInlineFormatting('**bold *inner* text**')).toEqual([
+      { text: 'bold ', bold: true },
+      { text: 'inner', bold: true, italic: true },
+      { text: ' text', bold: true },
+    ]);
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);

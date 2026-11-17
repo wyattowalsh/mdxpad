@@ -118,15 +118,13 @@ function restoreLatexAutolinks(
     .join('');
 }
 
-function formatInline(source: string): string {
-  const escaped = protectEscapes(source);
-  const protectedLinks = protectAutolinks(escaped.text);
-  const raw = protectedLinks.text;
-  const pattern =
-    /(\*\*\*(.+?)\*\*\*|(?<![\w])___(.+?)___(?![\w])|\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
+const INLINE_PATTERN =
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\(((?:[^()]|\\([^()]*\\))+)\\)|~~(.+?)~~)';
+
+function formatProtected(raw: string): string {
   let result = '';
   let cursor = 0;
-  for (const match of raw.matchAll(pattern)) {
+  for (const match of raw.matchAll(new RegExp(INLINE_PATTERN, 'g'))) {
     const index = match.index;
     const image =
       match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';
@@ -137,22 +135,28 @@ function formatInline(source: string): string {
       const path = linkDestination(src);
       result += latexImage(path, alt.length > 0 ? alt : path);
     } else if (match[2] !== undefined || match[3] !== undefined) {
-      result += `\\textbf{\\textit{${escapeLatex(match[2] ?? match[3] ?? '')}}}`;
+      result += `\\textbf{\\textit{${formatProtected(match[2] ?? match[3] ?? '')}}}`;
     } else if (match[4] !== undefined || match[5] !== undefined) {
-      result += wrapLatex('textbf', match[4] ?? match[5] ?? '');
+      result += `\\textbf{${formatProtected(match[4] ?? match[5] ?? '')}}`;
     } else if (match[6] !== undefined) {
       result += wrapLatex('texttt', match[6]);
     } else if (match[7] !== undefined || match[8] !== undefined) {
-      result += wrapLatex('textit', match[7] ?? match[8] ?? '');
+      result += `\\textit{${formatProtected(match[7] ?? match[8] ?? '')}}`;
     } else if (match[9] !== undefined && match[10] !== undefined) {
       result += `\\href{${escapeLatex(linkDestination(match[10]))}}{${escapeLatex(match[9])}}`;
     } else if (match[11] !== undefined) {
-      result += `\\sout{${escapeLatex(match[11])}}`;
+      result += `\\sout{${formatProtected(match[11])}}`;
     }
     cursor = index + match[0].length;
   }
+  return result + escapeLatex(raw.slice(cursor));
+}
+
+function formatInline(source: string): string {
+  const escaped = protectEscapes(source);
+  const protectedLinks = protectAutolinks(escaped.text);
   return restoreEscapes(
-    restoreLatexAutolinks(result + escapeLatex(raw.slice(cursor)), protectedLinks.links),
+    restoreLatexAutolinks(formatProtected(protectedLinks.text), protectedLinks.links),
     escaped.chars,
     escapeLatex
   );
