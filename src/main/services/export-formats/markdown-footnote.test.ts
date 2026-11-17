@@ -12,6 +12,13 @@ describe('applyFootnotes', () => {
     expect(rendered).not.toContain('[^1]');
   });
 
+  it('keeps a fenced block inside a note', () => {
+    const rendered = applyFootnotes('A[^1].\n\n[^1]: ```js\n    const x = 1\n    ```\n');
+    expect(rendered).toContain('```js');
+    expect(rendered).toContain('const x = 1');
+    expect(rendered).not.toContain('1. ```');
+  });
+
   it('keeps an indented continuation in the note', () => {
     const rendered = applyFootnotes('See[^1].\n\n[^1]: First\n    second\n');
     expect(rendered).toContain('1. First\n    second');

@@ -328,6 +328,18 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('[^1]');
   });
 
+  it('keeps a fenced block inside a footnote', async () => {
+    await exporter.export({
+      content: 'A[^1].\n\n[^1]: ```js\n    const x = 1\n    ```\n',
+      outputPath: '/tmp/note-code.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<pre><code class="language-js">');
+    expect(html).toContain('const');
+    expect(html).not.toContain('<code>js const');
+  });
+
   it('resolves a reference link', async () => {
     await exporter.export({
       content: 'See [the docs][guide].\n\n[guide]: https://example.com',

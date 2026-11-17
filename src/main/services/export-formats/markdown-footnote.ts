@@ -1,4 +1,4 @@
-import { advanceFence } from './markdown-fence';
+import { advanceFence, openingFence } from './markdown-fence';
 
 const DEFINITION = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/;
 const SUPERSCRIPT = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
@@ -114,7 +114,22 @@ function collectNotes(lines: readonly string[]): {
   return { kept, inCode, notes };
 }
 
+function bodyHasFence(body: string): boolean {
+  return body.split('\n').some((line) => openingFence(line) !== null);
+}
+
+function formatFencedNote(number: number, body: string): string {
+  const [first = '', ...rest] = body.split('\n');
+  if (openingFence(first)) {
+    return `**${number}.**\n\n${body}`;
+  }
+  return `**${number}.** ${first}\n\n${rest.join('\n')}`;
+}
+
 function formatNote(number: number, body: string): string {
+  if (bodyHasFence(body)) {
+    return formatFencedNote(number, body);
+  }
   const [first, ...rest] = body.split('\n');
   const head = `${number}. ${first ?? ''}`;
   if (rest.length === 0) {
