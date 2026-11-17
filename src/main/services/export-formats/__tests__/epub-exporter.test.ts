@@ -277,7 +277,7 @@ describe('EpubExporter', () => {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('<ul>\n<li>parent</li>\n<ul>\n<li>child</li>\n</ul>\n</ul>');
+    expect(html).toContain('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n</li>\n</ul>');
   });
 
   it('resolves a reference link', async () => {

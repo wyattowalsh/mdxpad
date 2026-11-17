@@ -335,7 +335,7 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<ul>\n<li>parent</li>\n<ul>\n<li>child</li>\n</ul>\n</ul>');
+    expect(html).toContain('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n</li>\n</ul>');
   });
 
   it('nests a block quote', async () => {

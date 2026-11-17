@@ -36,6 +36,6 @@ describe('parseListItem', () => {
     );
     pushHtmlListItem(parts, stack, { level: 1, ordered: false, start: 1, text: 'child' }, 'child');
     closeHtmlLists(parts, stack);
-    expect(parts.join('\n')).toBe('<ul>\n<li>parent</li>\n<ul>\n<li>child</li>\n</ul>\n</ul>');
+    expect(parts.join('\n')).toBe('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n</li>\n</ul>');
   });
 });

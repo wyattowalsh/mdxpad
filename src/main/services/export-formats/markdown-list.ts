@@ -47,13 +47,29 @@ export function renderListItemHtml(
 }
 
 export function replaceHtmlListItem(parts: string[], html: string): boolean {
-  const index = parts.length - 1;
-  const last = parts[index];
-  if (last === undefined || !last.startsWith('<li>') || !last.endsWith('</li>')) {
-    return false;
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index] ?? '';
+    if (part.startsWith('<li>') && !part.endsWith('</li>')) {
+      parts[index] = `<li>${html}`;
+      return true;
+    }
+    if (part.startsWith('<li>') && part.endsWith('</li>')) {
+      return false;
+    }
   }
-  parts[index] = `<li>${html}</li>`;
-  return true;
+  return false;
+}
+
+function closeOpenListItem(parts: string[]): void {
+  const last = parts[parts.length - 1];
+  if (last === undefined || last === '</li>') {
+    return;
+  }
+  if (last.startsWith('<li>') && !last.endsWith('</li>')) {
+    parts[parts.length - 1] = `${last}</li>`;
+    return;
+  }
+  parts.push('</li>');
 }
 
 export function parseListItem(line: string): MarkdownListItem | null {
@@ -89,6 +105,7 @@ function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string
 
 export function closeHtmlLists(parts: string[], stack: HtmlListFrame[]): void {
   while (stack.length > 0) {
+    closeOpenListItem(parts);
     const frame = stack.pop();
     if (frame) {
       parts.push(listTag(frame.kind, true));
@@ -108,13 +125,17 @@ export function pushHtmlListItem(
     if (!top || (top.level === item.level && top.kind === kind) || top.level < item.level) {
       break;
     }
+    closeOpenListItem(parts);
     stack.pop();
     parts.push(listTag(top.kind, true));
   }
   const top = stack[stack.length - 1];
+  if (top?.level === item.level && top.kind === kind) {
+    closeOpenListItem(parts);
+  }
   if (!top || top.level < item.level) {
     parts.push(listTag(kind, false, item.start));
     stack.push({ kind, level: item.level });
   }
-  parts.push(`<li>${itemHtml}</li>`);
+  parts.push(`<li>${itemHtml}`);
 }
