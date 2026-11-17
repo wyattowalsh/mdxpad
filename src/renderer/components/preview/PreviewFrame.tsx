@@ -76,6 +76,7 @@ import {
   createRateLimiter,
   type RateLimiter,
 } from '@shared/security';
+import { openPreviewDocumentLink } from '@renderer/lib/preview-document-link';
 
 // ============================================================================
 // Types
@@ -396,6 +397,9 @@ function useIframeMessageHandler(
               scrollHeight: msg.scrollHeight,
               clientHeight: msg.clientHeight,
             });
+            break;
+          case 'open-document':
+            openPreviewDocumentLink(msg.href);
             break;
           default:
             assertNever(msg, 'Unhandled iframe-to-parent message type');

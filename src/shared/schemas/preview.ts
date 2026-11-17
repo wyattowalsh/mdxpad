@@ -135,11 +135,19 @@ export const scrollReportSignalSchema = z
   })
   .strict();
 
+export const openDocumentSignalSchema = z
+  .object({
+    type: z.literal('open-document'),
+    href: z.string().min(1).max(500),
+  })
+  .strict();
+
 export const iframeToParentMessageSchema = z.discriminatedUnion('type', [
   readySignalSchema,
   sizeSignalSchema,
   runtimeErrorSignalSchema,
   scrollReportSignalSchema,
+  openDocumentSignalSchema,
 ]);
 
 // ============================================================================
@@ -159,4 +167,5 @@ export type ReadySignal = z.infer<typeof readySignalSchema>;
 export type SizeSignal = z.infer<typeof sizeSignalSchema>;
 export type RuntimeErrorSignal = z.infer<typeof runtimeErrorSignalSchema>;
 export type ScrollReportSignal = z.infer<typeof scrollReportSignalSchema>;
+export type OpenDocumentSignal = z.infer<typeof openDocumentSignalSchema>;
 export type IframeToParentMessage = z.infer<typeof iframeToParentMessageSchema>;

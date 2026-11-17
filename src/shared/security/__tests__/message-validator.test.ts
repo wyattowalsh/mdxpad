@@ -252,6 +252,19 @@ describe('validateIframeToParentMessage', () => {
       expect(result.data?.type).toBe('runtime-error');
     });
 
+    it('accepts a preview document link', () => {
+      const result = validateIframeToParentMessage({ type: 'open-document', href: 'other.md' });
+      expect(result.valid).toBe(true);
+      if (result.data?.type === 'open-document') {
+        expect(result.data.href).toBe('other.md');
+      }
+    });
+
+    it('rejects an empty preview document link', () => {
+      const result = validateIframeToParentMessage({ type: 'open-document', href: '' });
+      expect(result.valid).toBe(false);
+    });
+
     it('should accept runtime error with component stack', () => {
       const result = validateIframeToParentMessage({
         type: 'runtime-error',

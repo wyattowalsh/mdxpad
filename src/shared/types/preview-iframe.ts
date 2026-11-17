@@ -41,7 +41,12 @@ export interface ScrollCommand {
 // ============================================================================
 
 /** All message types sent from iframe to parent (signals only, no data queries) */
-export type IframeToParentMessage = ReadySignal | SizeSignal | RuntimeErrorSignal | ScrollReportSignal;
+export type IframeToParentMessage =
+  | ReadySignal
+  | SizeSignal
+  | RuntimeErrorSignal
+  | ScrollReportSignal
+  | OpenDocumentSignal;
 
 /** Signal sent when iframe is ready to receive render commands */
 export interface ReadySignal {
@@ -82,6 +87,13 @@ export interface ScrollReportSignal {
   readonly clientHeight: number;
 }
 
+/** Signal sent when a preview link points at another document. */
+export interface OpenDocumentSignal {
+  readonly type: 'open-document';
+  /** Relative document href from the preview. */
+  readonly href: string;
+}
+
 // ============================================================================
 // Type Guards
 // ============================================================================
@@ -92,9 +104,7 @@ export interface ScrollReportSignal {
  * @param message - Unknown message to validate
  * @returns True if message is a valid ParentToIframeMessage
  */
-export function isParentToIframeMessage(
-  message: unknown
-): message is ParentToIframeMessage {
+export function isParentToIframeMessage(message: unknown): message is ParentToIframeMessage {
   if (typeof message !== 'object' || message === null) return false;
   const msg = message as { type?: unknown };
   return msg.type === 'render' || msg.type === 'theme' || msg.type === 'scroll';
@@ -106,12 +116,16 @@ export function isParentToIframeMessage(
  * @param message - Unknown message to validate
  * @returns True if message is a valid IframeToParentMessage
  */
-export function isIframeToParentMessage(
-  message: unknown
-): message is IframeToParentMessage {
+export function isIframeToParentMessage(message: unknown): message is IframeToParentMessage {
   if (typeof message !== 'object' || message === null) return false;
   const msg = message as { type?: unknown };
-  return msg.type === 'ready' || msg.type === 'size' || msg.type === 'runtime-error' || msg.type === 'scroll-report';
+  return (
+    msg.type === 'ready' ||
+    msg.type === 'size' ||
+    msg.type === 'runtime-error' ||
+    msg.type === 'scroll-report' ||
+    msg.type === 'open-document'
+  );
 }
 
 // ============================================================================
@@ -186,6 +200,12 @@ export function isRuntimeErrorSignal(message: unknown): message is RuntimeErrorS
  *
  * Feature: 008-bidirectional-sync
  */
+export function isOpenDocumentSignal(message: unknown): message is OpenDocumentSignal {
+  if (typeof message !== 'object' || message === null) return false;
+  const msg = message as Record<string, unknown>;
+  return msg.type === 'open-document' && typeof msg.href === 'string';
+}
+
 export function isScrollReportSignal(message: unknown): message is ScrollReportSignal {
   if (typeof message !== 'object' || message === null) return false;
   const msg = message as Record<string, unknown>;
@@ -212,9 +232,7 @@ export function isScrollReportSignal(message: unknown): message is ScrollReportS
  * @throws TypeError if called with a non-never value (indicates unhandled case)
  */
 export function assertNever(value: never, message?: string): never {
-  throw new TypeError(
-    message ?? `Unhandled discriminated union member: ${JSON.stringify(value)}`
-  );
+  throw new TypeError(message ?? `Unhandled discriminated union member: ${JSON.stringify(value)}`);
 }
 
 // ============================================================================
@@ -225,7 +243,8 @@ export function assertNever(value: never, message?: string): never {
 export const IFRAME_SANDBOX = 'allow-scripts' as const;
 
 /** Content Security Policy for preview iframe (per FR-017, Constitution III.5) */
-export const IFRAME_CSP = "default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'self';" as const;
+export const IFRAME_CSP =
+  "default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'self';" as const;
 
 /** Iframe title for accessibility */
 export const IFRAME_TITLE = 'MDX Preview' as const;

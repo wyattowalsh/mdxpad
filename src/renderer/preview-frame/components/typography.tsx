@@ -70,6 +70,20 @@ interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 /**
  * Determines if a URL is external (different origin).
  */
+function isPreviewDocumentHref(href: string | undefined): boolean {
+  if (!href) return false;
+  const trimmed = href.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.startsWith('#') ||
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+  ) {
+    return false;
+  }
+  const pathPart = trimmed.split('#')[0]?.split('?')[0] ?? '';
+  return /\.(md|mdx|markdown|txt)$/i.test(pathPart);
+}
+
 function isExternalUrl(href: string | undefined): boolean {
   if (!href) return false;
   try {
@@ -147,16 +161,26 @@ export function P({ children, className = '', ...props }: ParagraphProps): React
 
 export function A({ children, href, className = '', ...props }: AnchorProps): React.ReactNode {
   const isExternal = isExternalUrl(href);
+  const opensDocument = isPreviewDocumentHref(href);
 
   return (
     <a
       href={href}
       className={`mdx-a ${className}`.trim()}
-      {...(isExternal && {
-        target: '_blank',
-        rel: 'noopener noreferrer',
-      })}
+      {...(isExternal &&
+        !opensDocument && {
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        })}
       {...props}
+      onClick={(event) => {
+        props.onClick?.(event);
+        if (event.defaultPrevented || !href || !opensDocument) {
+          return;
+        }
+        event.preventDefault();
+        window.parent.postMessage({ type: 'open-document', href }, '*');
+      }}
     >
       {children}
     </a>
@@ -222,10 +246,9 @@ export function Hr({ className = '', ...props }: HorizontalRuleProps): React.Rea
 export function Img({ alt, className = '', src, ...props }: ImageProps): React.ReactNode {
   // Warn in development if alt text is missing
   if (process.env.NODE_ENV === 'development' && !alt && alt !== '') {
-    console.warn(
-      'Image is missing alt text. Please provide an alt attribute for accessibility.',
-      { src }
-    );
+    console.warn('Image is missing alt text. Please provide an alt attribute for accessibility.', {
+      src,
+    });
   }
 
   // If alt is explicitly empty string, treat as decorative

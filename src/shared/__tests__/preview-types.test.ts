@@ -14,6 +14,7 @@ import {
   isReadySignal,
   isSizeSignal,
   isRuntimeErrorSignal,
+  isOpenDocumentSignal,
   IFRAME_CSP,
   assertNever,
   type ParentToIframeMessage,
@@ -212,6 +213,8 @@ describe('isIframeToParentMessage', () => {
       expect(isIframeToParentMessage({ type: 'ready' })).toBe(true);
       expect(isIframeToParentMessage({ type: 'size' })).toBe(true);
       expect(isIframeToParentMessage({ type: 'runtime-error' })).toBe(true);
+      expect(isIframeToParentMessage({ type: 'open-document', href: 'other.md' })).toBe(true);
+      expect(isOpenDocumentSignal({ type: 'open-document', href: 'other.md' })).toBe(true);
     });
   });
 
