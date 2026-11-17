@@ -29,6 +29,12 @@ describe('normalizeTexMath', () => {
       'See <!-- secret --> this.<br>\n\n```\n<br>\n<!-- secret -->\n```\n'
     );
     expect(prepared.startsWith('See  this.<br />')).toBe(true);
+    expect(prepareMarkdownSource('See <https://example.com> and <ada@example.com>.')).toBe(
+      'See [https://example.com](https://example.com) and [ada@example.com](mailto:ada@example.com).'
+    );
+    expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
+      'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
+    );
     expect(prepared).toContain('```\n<br>\n<!-- secret -->\n```');
   });
 });

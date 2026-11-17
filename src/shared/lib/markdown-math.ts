@@ -63,9 +63,100 @@ function mapOutsideCode(prose: string, mapText: (text: string) => string): strin
   return result;
 }
 
+function rewriteAutolinks(value: string): string {
+  return value
+    .replace(/<(https?:\/\/[^>\s]+)>/gi, (_match, url: string) => `[${url}](${url})`)
+    .replace(
+      /<([^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)>/g,
+      (_match, email: string) => `[${email}](mailto:${email})`
+    );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const HTML_TAGS = new Set([
+  'a',
+  'abbr',
+  'article',
+  'aside',
+  'b',
+  'blockquote',
+  'button',
+  'caption',
+  'code',
+  'dd',
+  'del',
+  'details',
+  'div',
+  'dl',
+  'dt',
+  'em',
+  'figcaption',
+  'figure',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'i',
+  'kbd',
+  'li',
+  'main',
+  'mark',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'q',
+  's',
+  'section',
+  'small',
+  'span',
+  'strong',
+  'sub',
+  'summary',
+  'sup',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'u',
+  'ul',
+]);
+
+function escapeLooseTags(value: string, prose: string): string {
+  return value.replace(/<([^<>]+)>/g, (full, inner: string) => {
+    if (full.endsWith('/>') || inner.startsWith('/')) {
+      return full;
+    }
+    const name = /^([A-Za-z][\w.-]*)/.exec(inner)?.[1];
+    if (!name) {
+      return `&lt;${inner}&gt;`;
+    }
+    if (new RegExp(`</${escapeRegExp(name)}\\s*>`).test(prose)) {
+      return full;
+    }
+    if (HTML_TAGS.has(name.toLowerCase())) {
+      return full;
+    }
+    return `&lt;${inner}&gt;`;
+  });
+}
+
 function prepareProse(prose: string): string {
-  const cleaned = mapOutsideCode(prose, (text) => closeVoidTags(stripHtmlComments(text)));
-  return replaceTexMath(cleaned);
+  const cleaned = mapOutsideCode(prose, (text) =>
+    closeVoidTags(rewriteAutolinks(stripHtmlComments(text)))
+  );
+  const escaped = mapOutsideCode(cleaned, (text) => escapeLooseTags(text, cleaned));
+  return replaceTexMath(escaped);
 }
 
 function replaceTexMath(prose: string): string {

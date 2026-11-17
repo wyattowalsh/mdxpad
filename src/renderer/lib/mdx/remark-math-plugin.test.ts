@@ -15,6 +15,19 @@ describe('remark math prices', () => {
     }
   });
 
+  it('compiles an autolink and a generic type', async () => {
+    const result = await compileMdx(
+      testId('mdx-autolink'),
+      'See <https://example.com> and List<T> and <Card>Hi</Card>'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('https://example.com');
+      expect(result.code).toContain('List');
+      expect(result.code).toContain('Card');
+    }
+  });
+
   it('compiles a markdown comment and a line break', async () => {
     const result = await compileMdx(testId('mdx-html'), 'See <!-- secret --> this.<br>Next');
     expect(result.ok).toBe(true);
