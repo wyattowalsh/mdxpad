@@ -151,6 +151,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('strikes through deleted text', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Keep ~~gone~~.',
+      outputPath: '/tmp/strike.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\sout{gone}');
+    expect(written).toContain('\\usepackage[normalem]{ulem}');
+  });
+
   it('includes a local image and links a remote one', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

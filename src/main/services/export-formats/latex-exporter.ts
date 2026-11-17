@@ -99,7 +99,7 @@ function latexImage(src: string, alt: string): string {
 
 function formatInline(raw: string): string {
   const pattern =
-    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\))/g;
+    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\)|~~(.+?)~~)/g;
   let result = '';
   let cursor = 0;
   for (const match of raw.matchAll(pattern)) {
@@ -119,6 +119,8 @@ function formatInline(raw: string): string {
       result += wrapLatex('textit', match[5] ?? match[6] ?? '');
     } else if (match[7] !== undefined && match[8] !== undefined) {
       result += `\\href{${escapeLatex(match[8])}}{${escapeLatex(match[7])}}`;
+    } else if (match[9] !== undefined) {
+      result += `\\sout{${escapeLatex(match[9])}}`;
     }
     cursor = index + match[0].length;
   }
@@ -369,6 +371,7 @@ function buildLatexDocument(content: string, options: ExportOptions): string {
     '\\usepackage{hyperref}',
     '\\usepackage{amsmath}',
     '\\usepackage{graphicx}',
+    '\\usepackage[normalem]{ulem}',
     '',
     `\\title{${escapeLatex(title)}}`,
     `\\author{${escapeLatex(author)}}`,

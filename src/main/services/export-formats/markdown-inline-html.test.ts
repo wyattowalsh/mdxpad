@@ -13,8 +13,8 @@ describe('renderMarkdownInline', () => {
   });
 
   it('renders emphasis, code, and links', () => {
-    expect(renderMarkdownInline('**bold** and _italic_ and `code`')).toBe(
-      '<strong>bold</strong> and <em>italic</em> and <code>code</code>'
+    expect(renderMarkdownInline('**bold** and _italic_ and `code` and ~~gone~~')).toBe(
+      '<strong>bold</strong> and <em>italic</em> and <code>code</code> and <del>gone</del>'
     );
     expect(renderMarkdownInline('[docs](https://example.com)')).toBe(
       '<a href="https://example.com">docs</a>'

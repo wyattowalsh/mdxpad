@@ -47,12 +47,13 @@ interface InlineSegment {
   code?: boolean;
   link?: string;
   image?: string;
+  strike?: boolean;
 }
 
 export function parseInlineFormatting(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   const regex =
-    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\))/g;
+    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\)|~~(.+?)~~)/g;
   let lastIndex = 0;
 
   for (const match of text.matchAll(regex)) {
@@ -83,6 +84,8 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
       segments.push({ text: match[6], italic: true });
     } else if (match[7] !== undefined && match[8] !== undefined) {
       segments.push({ text: match[7], link: match[8] });
+    } else if (match[9] !== undefined) {
+      segments.push({ text: match[9], strike: true });
     }
 
     lastIndex = matchIndex + match[0].length;
@@ -135,6 +138,9 @@ function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink
     }
     if (segment.code) {
       runOptions.font = { name: 'Courier New' };
+    }
+    if (segment.strike) {
+      runOptions.strike = true;
     }
     return new TextRun(runOptions as ConstructorParameters<typeof TextRun>[0]);
   });

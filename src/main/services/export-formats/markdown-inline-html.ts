@@ -48,6 +48,7 @@ function renderKatex(interior: string, display: boolean): string {
 function renderText(value: string): string {
   return escapeHtml(value)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
