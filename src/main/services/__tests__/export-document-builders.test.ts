@@ -72,6 +72,22 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**');
   });
 
+  it('keeps text after a nested list with its item', () => {
+    const tight = buildPdfDocument('- parent\n  - child\n  more\n');
+    expect(tight.content).toContain('(  - child more) Tj');
+    const loose = buildPdfDocument('- parent\n\n  - child\n\n  more\n');
+    expect(loose.content).toContain('(  - child) Tj');
+    expect(loose.content).toContain('(  more) Tj');
+    expect(loose.content.indexOf('(  - child) Tj')).toBeLessThan(loose.content.indexOf('(  more) Tj'));
+    const ended = buildPdfDocument('- parent\n\n  - child\n\nbaz\n');
+    expect(ended.content).toContain('(baz) Tj');
+    expect(ended.content).not.toContain('(  baz) Tj');
+    const docx = Buffer.from(
+      buildDocxDocument('- parent\n\n  - child\n\n  more\n').content
+    ).toString('utf8');
+    expect(docx.indexOf('- child')).toBeLessThan(docx.indexOf('  more'));
+  });
+
   it('keeps a loose list continuation on the item', () => {
     const pdf = buildPdfDocument('- item\n\n    continued\n\nAfter');
     expect(pdf.content).toContain('- item');

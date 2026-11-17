@@ -276,14 +276,18 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
   }
 
   const source = readSourceLine(rawLine);
+  const listed = !isThematicBreak(rawLine.trim()) && parseListItem(rawLine) !== null;
+  const stored = listed
+    ? rawLine.replaceAll('\t', '    ').replace(/[ ]+$/, '').replace(/\\$/, '')
+    : source.text;
   blocks.push({
     kind: 'paragraph',
-    text: plainParagraph(rawLine),
+    text: listed ? plainListFromSource(stored) : plainParagraph(rawLine),
     setext: isSetextText(rawLine),
     quote: quoteBody(rawLine) !== null,
     listColumn: listContentColumn(rawLine),
     hardBreak: source.hardBreak,
-    source: source.text,
+    source: stored,
   });
 }
 
@@ -376,13 +380,26 @@ function takeMarkdownTable(
   return cursor - 1;
 }
 
+function plainListParagraph(line: string): boolean {
+  const text = readSourceLine(line).text;
+  return (
+    text.length > 0 &&
+    parseListItem(line) === null &&
+    parseAtxHeading(text) === null &&
+    !isThematicBreak(text) &&
+    openingFence(line) === null &&
+    quoteBody(line) === null &&
+    !isTableRow(text)
+  );
+}
+
 function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
   const last = blocks[blocks.length - 1];
-  if (
-    last?.kind !== 'paragraph' ||
-    last.listColumn === null ||
-    !isListContinuation(rawLine, last.listColumn)
-  ) {
+  const continues =
+    last?.kind === 'paragraph' &&
+    last.listColumn !== null &&
+    (isListContinuation(rawLine, last.listColumn) || plainListParagraph(rawLine));
+  if (!continues) {
     return false;
   }
   const source = readSourceLine(rawLine);
@@ -396,6 +413,50 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
     hardBreak: source.hardBreak,
     source: combined,
   };
+  return true;
+}
+
+function openListAncestor(
+  blocks: readonly MarkdownBlock[],
+  spaces: number
+): (MarkdownParagraphBlock & { readonly listColumn: number }) | null {
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index];
+    if (block?.kind === 'paragraph' && block.source.trim().length === 0) {
+      continue;
+    }
+    if (block?.kind === 'paragraph' && block.listColumn !== null && block.listColumn > spaces) {
+      continue;
+    }
+    if (block?.kind === 'paragraph' && block.listColumn !== null) {
+      const listColumn = block.listColumn;
+      return { ...block, listColumn };
+    }
+    return null;
+  }
+  return null;
+}
+
+function appendAncestorListParagraph(blocks: MarkdownBlock[], rawLine: string): boolean {
+  if (!plainListParagraph(rawLine)) {
+    return false;
+  }
+  const spaces = /^ */.exec(rawLine.replaceAll('\t', '    '))?.[0].length ?? 0;
+  const ancestor = openListAncestor(blocks, spaces);
+  if (!ancestor) {
+    return false;
+  }
+  const source = readSourceLine(rawLine);
+  const indent = ' '.repeat(ancestor.listColumn);
+  blocks.push({
+    kind: 'paragraph',
+    text: `${indent}${plainInline(source.text)}`,
+    setext: false,
+    quote: false,
+    listColumn: ancestor.listColumn,
+    hardBreak: source.hardBreak,
+    source: `${indent}${source.text}`,
+  });
   return true;
 }
 
@@ -643,6 +704,7 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     }
     if (
       appendBuiltInListContinuation(blocks, rawLine) ||
+      appendAncestorListParagraph(blocks, rawLine) ||
       appendBuiltInQuoteContinuation(blocks, rawLine) ||
       appendBuiltInProseContinuation(blocks, rawLine)
     ) {
