@@ -5,6 +5,7 @@ import { selectEntries, useVersionHistoryStore } from '@renderer/stores/version-
 import { VersionDiff } from '@renderer/components/history/VersionDiff';
 import { VersionRestoreDialog } from '@renderer/components/history/VersionRestoreDialog';
 import { VersionTimeline } from '@renderer/components/history/VersionTimeline';
+import { applyRestoredVersion } from './apply-restored-version';
 
 export function HistoryUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
@@ -16,6 +17,7 @@ export function HistoryUtilityPanel(): React.JSX.Element {
   const [versionContent, setVersionContent] = useState<string | null>(null);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!filePath || !window.mdxpad.history) {
@@ -65,8 +67,16 @@ export function HistoryUtilityPanel(): React.JSX.Element {
       {versionContent !== null && (
         <VersionDiff oldContent={versionContent} newContent={content} oldLabel="Saved version" />
       )}
+      {restoreError && <p className="text-sm text-destructive">{restoreError}</p>}
       {selected && (
-        <button type="button" className="text-sm underline" onClick={() => setRestoreOpen(true)}>
+        <button
+          type="button"
+          className="text-sm underline"
+          onClick={() => {
+            setRestoreError(null);
+            setRestoreOpen(true);
+          }}
+        >
           Restore this version
         </button>
       )}
@@ -80,11 +90,32 @@ export function HistoryUtilityPanel(): React.JSX.Element {
           onCancel={() => setRestoreOpen(false)}
           onRestore={(createBackup) => {
             if (!filePath || !window.mdxpad.history) return;
+            const historyApi = window.mdxpad.history;
             setIsRestoring(true);
-            void window.mdxpad.history.restore(selected.id, filePath, createBackup).finally(() => {
-              setIsRestoring(false);
-              setRestoreOpen(false);
-            });
+            setRestoreError(null);
+            void historyApi
+              .restore(selected.id, filePath, createBackup)
+              .then(async (result) => {
+                if (!result.ok || result.content === undefined) {
+                  setRestoreError(result.error ?? 'Could not restore this version');
+                  return;
+                }
+                if (!applyRestoredVersion(filePath, result.content)) {
+                  setRestoreError('The open document changed before the version was restored');
+                  return;
+                }
+                const history = await historyApi.getHistory(filePath);
+                loadHistory(history.entries, filePath);
+                setRestoreOpen(false);
+              })
+              .catch((error: unknown) => {
+                setRestoreError(
+                  error instanceof Error ? error.message : 'Could not restore this version'
+                );
+              })
+              .finally(() => {
+                setIsRestoring(false);
+              });
           }}
         />
       )}
