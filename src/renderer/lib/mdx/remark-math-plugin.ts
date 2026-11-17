@@ -13,6 +13,6 @@ import type { MdxPluginDefinition, MdxPipelinePlugin } from './plugin-pipeline';
 export const remarkMathPluginDefinition: MdxPluginDefinition = {
   name: 'remark-math',
   kind: 'remark',
-  enabledByDefault: false,
+  enabledByDefault: true,
   create: () => remarkMath as MdxPipelinePlugin,
 };

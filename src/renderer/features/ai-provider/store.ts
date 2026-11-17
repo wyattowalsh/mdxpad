@@ -539,6 +539,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
             avgDurationMs,
             byProvider: {},
             byModel: {},
+            byOperation: {},
           };
 
           set((state) => {

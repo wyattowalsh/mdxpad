@@ -34,6 +34,73 @@ interface ConversationState {
   abortController: AbortController | null;
 }
 
+export class WorkspacePathError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WorkspacePathError';
+  }
+}
+
+function existingAncestor(target: string): string {
+  let current = path.resolve(target);
+  let found: string | undefined;
+  while (found === undefined) {
+    try {
+      found = fs.realpathSync(current);
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) {
+        found = path.resolve(target);
+      } else {
+        current = parent;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Resolve a requested path inside a workspace root.
+ * Rejects absolute escapes and symlink ancestors that leave the root.
+ */
+export function resolveWorkspaceFilePath(
+  workspaceRoot: string,
+  requestedPath: string,
+  options?: { readonly allowRoot?: boolean }
+): string {
+  if (workspaceRoot.trim().length === 0) {
+    throw new WorkspacePathError('Workspace path is required');
+  }
+
+  const root = existingAncestor(workspaceRoot);
+  const candidate = path.resolve(root, requestedPath);
+  const relative = path.relative(root, candidate);
+  const rootAllowed = options?.allowRoot === true && relative.length === 0;
+  if (
+    (!rootAllowed && relative.length === 0) ||
+    relative.startsWith('..') ||
+    path.isAbsolute(relative)
+  ) {
+    throw new WorkspacePathError('Path is outside the workspace');
+  }
+  if (rootAllowed) {
+    return root;
+  }
+
+  const resolvedParent = existingAncestor(path.dirname(candidate));
+  const resolved = path.join(resolvedParent, path.basename(candidate));
+  const resolvedRelative = path.relative(root, resolved);
+  if (
+    resolvedRelative.length === 0 ||
+    resolvedRelative.startsWith('..') ||
+    path.isAbsolute(resolvedRelative)
+  ) {
+    throw new WorkspacePathError('Path is outside the workspace');
+  }
+
+  return resolved;
+}
+
 // =============================================================================
 // TOOL DEFINITIONS
 // =============================================================================
@@ -49,25 +116,34 @@ function createReadFileTool(workspacePath: string | undefined) {
       required: ['filePath'],
     }),
     execute: async ({ filePath }) => {
-      const resolved = workspacePath ? path.resolve(workspacePath, filePath) : filePath;
+      if (!workspacePath) {
+        throw new WorkspacePathError('Workspace path is required');
+      }
+      const resolved = resolveWorkspaceFilePath(workspacePath, filePath);
       return fs.promises.readFile(resolved, 'utf-8');
     },
   });
 }
 
-function createWriteFileTool(workspacePath: string | undefined) {
+function createWriteFileTool(workspacePath: string | undefined, writesApproved: () => boolean) {
   return tool({
     description: 'Write content to a file at the given path',
     inputSchema: jsonSchema<{ filePath: string; content: string }>({
       type: 'object',
       properties: {
-        filePath: { type: 'string', description: 'Absolute or workspace-relative file path' },
+        filePath: { type: 'string', description: 'Workspace-relative file path' },
         content: { type: 'string', description: 'Content to write' },
       },
       required: ['filePath', 'content'],
     }),
     execute: async ({ filePath, content }) => {
-      const resolved = workspacePath ? path.resolve(workspacePath, filePath) : filePath;
+      if (!writesApproved()) {
+        throw new Error('Write approval is required before the agent can write files');
+      }
+      if (!workspacePath) {
+        throw new WorkspacePathError('Workspace path is required');
+      }
+      const resolved = resolveWorkspaceFilePath(workspacePath, filePath);
       const dir = path.dirname(resolved);
       await fs.promises.mkdir(dir, { recursive: true });
       await fs.promises.writeFile(resolved, content, 'utf-8');
@@ -86,6 +162,7 @@ function createSearchFilesTool(workspacePath: string | undefined) {
     }),
     execute: async ({ query }) => {
       if (!workspacePath) return 'No workspace path set';
+      const root = resolveWorkspaceFilePath(workspacePath, '.', { allowRoot: true });
       const results: string[] = [];
 
       async function walk(dir: string): Promise<void> {
@@ -102,7 +179,7 @@ function createSearchFilesTool(workspacePath: string | undefined) {
         }
       }
 
-      await walk(workspacePath);
+      await walk(root);
       return results.length > 0 ? results.join('\n') : 'No files found';
     },
   });
@@ -117,17 +194,20 @@ function createListDirectoryTool(workspacePath: string | undefined) {
       required: ['dirPath'],
     }),
     execute: async ({ dirPath }) => {
-      const resolved = workspacePath ? path.resolve(workspacePath, dirPath) : dirPath;
+      if (!workspacePath) {
+        throw new WorkspacePathError('Workspace path is required');
+      }
+      const resolved = resolveWorkspaceFilePath(workspacePath, dirPath, { allowRoot: true });
       const entries = await fs.promises.readdir(resolved, { withFileTypes: true });
       return entries.map((e) => `${e.isDirectory() ? '[dir]' : '[file]'} ${e.name}`).join('\n');
     },
   });
 }
 
-function createAgentTools(workspacePath: string | undefined) {
+function createAgentTools(workspacePath: string | undefined, writesApproved: () => boolean) {
   return {
     readFile: createReadFileTool(workspacePath),
-    writeFile: createWriteFileTool(workspacePath),
+    writeFile: createWriteFileTool(workspacePath, writesApproved),
     searchFiles: createSearchFilesTool(workspacePath),
     listDirectory: createListDirectoryTool(workspacePath),
   };
@@ -140,11 +220,20 @@ function createAgentTools(workspacePath: string | undefined) {
 export class AgentService {
   private conversations = new Map<string, ConversationState>();
   private window: BrowserWindow | null = null;
+  private writesApproved = false;
 
   constructor(private readonly aiService: IAIService) {}
 
   setWindow(window: BrowserWindow): void {
     this.window = window;
+  }
+
+  /**
+   * Allow file writes for this process. Nothing in the IPC layer calls this.
+   * Agent mode stays unable to write until a future approval UI does.
+   */
+  approveWrites(): void {
+    this.writesApproved = true;
   }
 
   async sendMessage(
@@ -232,7 +321,7 @@ export class AgentService {
     const model = this.aiService.getActiveModel();
     if (!model) throw new Error('No active AI model configured');
 
-    const tools = createAgentTools(workspacePath);
+    const tools = createAgentTools(workspacePath, () => this.writesApproved);
     const systemPrompt = buildSystemPrompt(workspacePath, currentFilePath);
 
     const result = streamText({

@@ -18,6 +18,7 @@ import type {
   OperationType,
   ProviderUsageSummary,
   ModelUsageSummary,
+  OperationUsageSummary,
 } from '@shared/ai/types';
 
 // =============================================================================
@@ -193,9 +194,7 @@ function recordsToCSV(records: UsageRecord[]): string {
 /**
  * Aggregates records by provider.
  */
-function aggregateByProvider(
-  records: UsageRecord[]
-): Record<string, ProviderUsageSummary> {
+function aggregateByProvider(records: UsageRecord[]): Record<string, ProviderUsageSummary> {
   const byProvider: Record<string, ProviderUsageSummary> = {};
 
   for (const record of records) {
@@ -241,6 +240,30 @@ function aggregateByModel(records: UsageRecord[]): Record<string, ModelUsageSumm
   }
 
   return byModel;
+}
+
+function aggregateByOperation(records: UsageRecord[]): Record<string, OperationUsageSummary> {
+  const buckets = new Map<string, { requestCount: number; totalDurationMs: number }>();
+
+  for (const record of records) {
+    const current = buckets.get(record.operationType) ?? {
+      requestCount: 0,
+      totalDurationMs: 0,
+    };
+    current.requestCount += 1;
+    current.totalDurationMs += record.durationMs;
+    buckets.set(record.operationType, current);
+  }
+
+  const byOperation: Record<string, OperationUsageSummary> = {};
+  for (const [operationType, bucket] of buckets) {
+    byOperation[operationType] = {
+      operationType: operationType as OperationType,
+      requestCount: bucket.requestCount,
+      avgDurationMs: bucket.requestCount > 0 ? bucket.totalDurationMs / bucket.requestCount : 0,
+    };
+  }
+  return byOperation;
 }
 
 // =============================================================================
@@ -363,10 +386,9 @@ export class UsageService implements IUsageService {
       (r) => r.providerId === providerId
     );
 
-    return Promise.resolve(filtered.reduce(
-      (sum, r) => sum + (r.estimatedCostUsd ?? calculateRecordCost(r)),
-      0
-    ));
+    return Promise.resolve(
+      filtered.reduce((sum, r) => sum + (r.estimatedCostUsd ?? calculateRecordCost(r)), 0)
+    );
   }
 
   /**
@@ -415,6 +437,7 @@ export class UsageService implements IUsageService {
       avgDurationMs: records.length > 0 ? totalDuration / records.length : 0,
       byProvider: aggregateByProvider(records),
       byModel: aggregateByModel(records),
+      byOperation: aggregateByOperation(records),
     };
   }
 }

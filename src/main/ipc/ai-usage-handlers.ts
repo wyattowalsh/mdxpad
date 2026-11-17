@@ -26,7 +26,13 @@ import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
 function buildUsageQuery(request: {
   timeRange: 'day' | 'week' | 'month' | 'all';
   providerId?: string | undefined;
-  operationType?: 'text-generation' | 'streaming-generation' | 'embedding' | 'image-generation' | 'agent-execution' | undefined;
+  operationType?:
+    | 'text-generation'
+    | 'streaming-generation'
+    | 'embedding'
+    | 'image-generation'
+    | 'agent-execution'
+    | undefined;
 }): UsageQuery {
   return filterUndefined(request) as UsageQuery;
 }
@@ -44,9 +50,7 @@ async function handleUsageQuery(
 ): Promise<schemas.QueryUsageResponseSchemaType> {
   try {
     const request = schemas.QueryUsageRequestSchema.parse(rawRequest);
-    const stats = await services.usageService.queryStats(
-      buildUsageQuery(request)
-    );
+    const stats = await services.usageService.queryStats(buildUsageQuery(request));
 
     return schemas.QueryUsageResponseSchema.parse({
       success: true,
@@ -65,21 +69,17 @@ async function handleUsageQuery(
           tokenCount: p.totalTokens,
           estimatedCostUsd: p.estimatedCostUsd,
         })),
-        byOperation: buildOperationStats(),
+        byOperation: Object.values(stats.byOperation).map((operation) => ({
+          operationType: operation.operationType,
+          requestCount: operation.requestCount,
+          avgDurationMs: operation.avgDurationMs,
+        })),
       },
     });
   } catch (error) {
     console.error('[AI] Failed to query usage stats:', error);
     return schemas.QueryUsageResponseSchema.parse({ success: false });
   }
-}
-
-/**
- * Builds operation stats from usage stats.
- * TODO: Implement real operation stats aggregation when usage data model supports it
- */
-function buildOperationStats(): schemas.OperationUsageStatSchemaType[] {
-  return [];
 }
 
 /**
@@ -92,10 +92,7 @@ async function handleUsageExport(
   try {
     const request = schemas.ExportUsageRequestSchema.parse(rawRequest);
     const format = request.format ?? 'json';
-    const data = await services.usageService.exportData(
-      request.timeRange,
-      format
-    );
+    const data = await services.usageService.exportData(request.timeRange, format);
 
     const filename = `mdxpad-usage-${request.timeRange}-${Date.now()}.${format}`;
 
@@ -121,9 +118,7 @@ async function handleUsageClear(
 ): Promise<schemas.ClearUsageResponseSchemaType> {
   try {
     const request = schemas.ClearUsageRequestSchema.parse(rawRequest);
-    const beforeDate = request.olderThan
-      ? new Date(request.olderThan)
-      : undefined;
+    const beforeDate = request.olderThan ? new Date(request.olderThan) : undefined;
 
     await services.usageService.clearHistory(beforeDate);
 
@@ -157,10 +152,7 @@ function registerAuthorizedHandler(
   });
 }
 
-export function registerUsageHandlers(
-  services: AIServices,
-  window: BrowserWindow
-): void {
+export function registerUsageHandlers(services: AIServices, window: BrowserWindow): void {
   registerAuthorizedHandler(AIChannels.USAGE_QUERY, window, (_event, request) =>
     handleUsageQuery(services, request)
   );

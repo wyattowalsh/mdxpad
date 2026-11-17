@@ -80,11 +80,50 @@ function containsMathNodes(tree: unknown): boolean {
   return false;
 }
 
+function installMathDomShim(): void {
+  const globalScope = globalThis as typeof globalThis & {
+    document?: Document;
+    window?: Window & typeof globalThis;
+  };
+  if (typeof globalScope.document !== 'undefined') {
+    return;
+  }
+
+  const createElement = (tag: string): HTMLElement => {
+    const element = {
+      tagName: tag.toUpperCase(),
+      style: {},
+      children: [] as unknown[],
+      className: '',
+      textContent: '',
+      setAttribute: () => undefined,
+      appendChild(child: unknown) {
+        this.children.push(child);
+        return child;
+      },
+    };
+    return element as unknown as HTMLElement;
+  };
+
+  const documentShim = {
+    createElement,
+    createElementNS: (_namespace: string, tag: string) => createElement(tag),
+    createDocumentFragment: () => createElement('fragment'),
+    body: createElement('body'),
+  } as unknown as Document;
+
+  globalScope.document = documentShim;
+  if (typeof globalScope.window === 'undefined') {
+    globalScope.window = globalScope as Window & typeof globalThis;
+  }
+}
+
 function createDeferredKatexPlugin(options: KatexOptions | undefined): MdxPipelinePlugin {
   return () => {
     let transformerPromise: Promise<RehypeKatexTransformer> | null = null;
 
     const loadTransformer = async (): Promise<RehypeKatexTransformer> => {
+      installMathDomShim();
       const module = (await import('rehype-katex')) as { default: RehypeKatexFactory };
       const transformer = module.default(options);
       if (typeof transformer === 'function') {
@@ -107,12 +146,13 @@ function createDeferredKatexPlugin(options: KatexOptions | undefined): MdxPipeli
 export const rehypeKatexPluginDefinition: MdxPluginDefinition<KatexOptions> = {
   name: 'rehype-katex',
   kind: 'rehype',
-  enabledByDefault: false,
+  enabledByDefault: true,
   defaultOptions: DEFAULT_KATEX_OPTIONS,
   optionsSchema: katexOptionsSchema,
   create: (_context, options) => {
     const resolvedOptions = options ?? DEFAULT_KATEX_OPTIONS;
-    const normalizedOptions = Object.keys(resolvedOptions).length === 0 ? undefined : resolvedOptions;
+    const normalizedOptions =
+      Object.keys(resolvedOptions).length === 0 ? undefined : resolvedOptions;
     return createDeferredKatexPlugin(normalizedOptions);
   },
 };

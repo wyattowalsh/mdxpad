@@ -66,8 +66,8 @@ const DEFAULT_PLUGIN_CONFIG: Readonly<Record<string, NormalizedMdxPluginConfigEn
     'remark-frontmatter': { enabled: true, options: undefined },
     'remark-outline': { enabled: true, options: undefined },
     'rehype-highlight': { enabled: true, options: undefined },
-    'remark-math': { enabled: false, options: undefined },
-    'rehype-katex': { enabled: false, options: undefined },
+    'remark-math': { enabled: true, options: undefined },
+    'rehype-katex': { enabled: true, options: undefined },
   });
 
 type InternalPluginDefinition = MdxPluginDefinition;

@@ -18,10 +18,16 @@ const { mockStoreData, mockStore, mockStoreConstructor, mockRandomUUID } = vi.ho
   const storeData = new Map<string, unknown>();
   const store = {
     get: vi.fn((key: string, defaultValue?: unknown) => storeData.get(key) ?? defaultValue),
-    set: vi.fn((key: string, value: unknown) => { storeData.set(key, value); }),
-    delete: vi.fn((key: string) => { storeData.delete(key); }),
+    set: vi.fn((key: string, value: unknown) => {
+      storeData.set(key, value);
+    }),
+    delete: vi.fn((key: string) => {
+      storeData.delete(key);
+    }),
     has: vi.fn((key: string) => storeData.has(key)),
-    clear: vi.fn(() => { storeData.clear(); }),
+    clear: vi.fn(() => {
+      storeData.clear();
+    }),
     onDidChange: vi.fn(),
   };
   return {
@@ -74,8 +80,12 @@ function resetMocks(): void {
   vi.clearAllMocks();
   mockStoreData.clear();
   mockStoreData.set('records', []);
-  mockStore.get.mockImplementation((key: string, defaultValue?: unknown) => mockStoreData.get(key) ?? defaultValue);
-  mockStore.set.mockImplementation((key: string, value: unknown) => { mockStoreData.set(key, value); });
+  mockStore.get.mockImplementation(
+    (key: string, defaultValue?: unknown) => mockStoreData.get(key) ?? defaultValue
+  );
+  mockStore.set.mockImplementation((key: string, value: unknown) => {
+    mockStoreData.set(key, value);
+  });
   mockStoreConstructor.mockImplementation(() => mockStore);
   mockRandomUUID.mockReturnValue('test-uuid-123');
 }
@@ -354,6 +364,22 @@ describe('UsageService', () => {
       expect(result.byModel['gpt-4o']?.totalTokens).toBe(300);
     });
 
+    it('should aggregate by operation', async () => {
+      const records = [
+        createMockRecord({ operationType: 'text-generation', durationMs: 1000 }),
+        createMockRecord({ operationType: 'text-generation', durationMs: 3000 }),
+        createMockRecord({ operationType: 'embedding', durationMs: 500 }),
+      ];
+      mockStoreData.set('records', records);
+
+      const result = await service.queryStats({ timeRange: 'all' });
+
+      expect(result.byOperation['text-generation']?.requestCount).toBe(2);
+      expect(result.byOperation['text-generation']?.avgDurationMs).toBe(2000);
+      expect(result.byOperation.embedding?.requestCount).toBe(1);
+      expect(result.byOperation.embedding?.avgDurationMs).toBe(500);
+    });
+
     it('should calculate average duration', async () => {
       const records = [
         createMockRecord({ durationMs: 1000 }),
@@ -404,9 +430,7 @@ describe('UsageService', () => {
     });
 
     it('should escape CSV fields with commas', async () => {
-      const records = [
-        createMockRecord({ providerId: 'test,provider' }),
-      ];
+      const records = [createMockRecord({ providerId: 'test,provider' })];
       mockStoreData.set('records', records);
 
       const result = await service.exportData('all', 'csv');

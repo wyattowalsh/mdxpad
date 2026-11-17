@@ -112,13 +112,15 @@ function getWindowFlagOverrides(): Partial<FeatureFlags> {
 }
 
 function createDefaultFlags(): FeatureFlags {
-  const baseEnabled = !import.meta.env.PROD;
+  // Production used to force every lane off, which hid finished authoring
+  // and export along with unfinished work. Env and window overrides remain
+  // the way to disable a lane.
   return {
-    workspace: baseEnabled,
-    ai: baseEnabled,
-    export: baseEnabled,
-    authoring: baseEnabled,
-    plugin: baseEnabled,
+    workspace: true,
+    ai: true,
+    export: true,
+    authoring: true,
+    plugin: true,
     ...getEnvFlagOverrides(),
     ...getWindowFlagOverrides(),
   };

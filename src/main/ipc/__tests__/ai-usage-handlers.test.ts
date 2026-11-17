@@ -64,6 +64,13 @@ function createMockUsageStats() {
       'gpt-4': { count: 50 },
       'gpt-3.5-turbo': { count: 50 },
     },
+    byOperation: {
+      'text-generation': {
+        operationType: 'text-generation' as const,
+        requestCount: 100,
+        avgDurationMs: 250,
+      },
+    },
   };
 }
 
@@ -90,9 +97,10 @@ function createMockWindow(): BrowserWindow {
   } as unknown as BrowserWindow;
 }
 
-function createMockIpcEvent(
-  overrides?: { senderId?: number; senderFrameRoutingId?: number }
-): IpcMainInvokeEvent {
+function createMockIpcEvent(overrides?: {
+  senderId?: number;
+  senderFrameRoutingId?: number;
+}): IpcMainInvokeEvent {
   const senderId = overrides?.senderId ?? 1;
   const senderFrameRoutingId = overrides?.senderFrameRoutingId ?? 10;
 
@@ -133,8 +141,7 @@ describe('registerUsageHandlers', () => {
 
     const usageQueryCall = vi
       .mocked(ipcMain.handle)
-      .mock.calls
-      .find(([channel]) => channel === AIChannels.USAGE_QUERY);
+      .mock.calls.find(([channel]) => channel === AIChannels.USAGE_QUERY);
     const usageQueryHandler = usageQueryCall?.[1] as
       | ((event: IpcMainInvokeEvent, request: unknown) => Promise<unknown>)
       | undefined;
@@ -142,10 +149,7 @@ describe('registerUsageHandlers', () => {
     expect(usageQueryHandler).toBeDefined();
 
     expect(() =>
-      usageQueryHandler!(
-        createMockIpcEvent({ senderId: 2 }),
-        { timeRange: 'all' }
-      )
+      usageQueryHandler!(createMockIpcEvent({ senderId: 2 }), { timeRange: 'all' })
     ).toThrow('Unauthorized IPC sender');
   });
 });
@@ -283,10 +287,10 @@ describe('USAGE_QUERY Handler', () => {
     );
   });
 
-  it('should return empty byOperation when no model data', async () => {
+  it('should return empty byOperation when no operation data exists', async () => {
     const emptyStats = {
       ...createMockUsageStats(),
-      byModel: {},
+      byOperation: {},
     };
 
     vi.mocked(services.usageService.queryStats).mockResolvedValue(emptyStats);
@@ -298,12 +302,24 @@ describe('USAGE_QUERY Handler', () => {
     expect(result.stats?.byOperation).toEqual([]);
   });
 
+  it('should aggregate byOperation from usage records', async () => {
+    const request = { timeRange: 'all' as const };
+    const handler = handlers[AIChannels.USAGE_QUERY]!;
+    const result = await handler(null, request);
+
+    expect(result.stats?.byOperation).toEqual([
+      {
+        operationType: 'text-generation',
+        requestCount: 100,
+        avgDurationMs: 250,
+      },
+    ]);
+  });
+
   it('should return error false on query failure', async () => {
     const request = { timeRange: 'all' as const };
 
-    vi.mocked(services.usageService.queryStats).mockRejectedValue(
-      new Error('Database error')
-    );
+    vi.mocked(services.usageService.queryStats).mockRejectedValue(new Error('Database error'));
 
     const handler = handlers[AIChannels.USAGE_QUERY]!;
     const result = await handler(null, request);
@@ -381,9 +397,7 @@ describe('USAGE_EXPORT Handler', () => {
   it('should return error on export failure', async () => {
     const request = { timeRange: 'all' as const };
 
-    vi.mocked(services.usageService.exportData).mockRejectedValue(
-      new Error('Export failed')
-    );
+    vi.mocked(services.usageService.exportData).mockRejectedValue(new Error('Export failed'));
 
     const handler = handlers[AIChannels.USAGE_EXPORT]!;
     const result = await handler(null, request);
@@ -441,9 +455,7 @@ describe('USAGE_CLEAR Handler', () => {
   it('should return error on clear failure', async () => {
     const request = {};
 
-    vi.mocked(services.usageService.clearHistory).mockRejectedValue(
-      new Error('Clear failed')
-    );
+    vi.mocked(services.usageService.clearHistory).mockRejectedValue(new Error('Clear failed'));
 
     const handler = handlers[AIChannels.USAGE_CLEAR]!;
     const result = await handler(null, request);

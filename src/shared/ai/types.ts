@@ -331,11 +331,7 @@ export type OnboardingOutcome = 'success' | 'failure' | 'abandoned';
 /**
  * Step in the onboarding flow where failure/abandonment can occur.
  */
-export type OnboardingStep =
-  | 'provider-selection'
-  | 'credential-entry'
-  | 'validation'
-  | 'save';
+export type OnboardingStep = 'provider-selection' | 'credential-entry' | 'validation' | 'save';
 
 /**
  * Single onboarding attempt record.
@@ -436,11 +432,25 @@ export interface UsageStats {
 
   /** Usage broken down by model */
   byModel: Record<string, ModelUsageSummary>;
+
+  /** Usage broken down by operation */
+  byOperation: Record<string, OperationUsageSummary>;
 }
 
 /**
  * Provider-level usage summary.
  */
+export interface OperationUsageSummary {
+  /** Operation that produced these requests */
+  readonly operationType: OperationType;
+
+  /** Total requests for this operation */
+  requestCount: number;
+
+  /** Average request duration in ms */
+  avgDurationMs: number;
+}
+
 export interface ProviderUsageSummary {
   /** Provider ID */
   readonly providerId: string;

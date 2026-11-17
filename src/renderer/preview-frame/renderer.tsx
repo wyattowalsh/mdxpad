@@ -5,6 +5,7 @@
  * @module preview-frame/renderer
  */
 
+import 'katex/dist/katex.min.css';
 import * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary';

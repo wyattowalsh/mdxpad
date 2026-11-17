@@ -33,8 +33,8 @@ describe('remarkMathPluginDefinition', () => {
     expect(remarkMathPluginDefinition.kind).toBe('remark');
   });
 
-  it('should be disabled by default', () => {
-    expect(remarkMathPluginDefinition.enabledByDefault).toBe(false);
+  it('should be enabled by default', () => {
+    expect(remarkMathPluginDefinition.enabledByDefault).toBe(true);
   });
 
   it('should create a plugin function', () => {
@@ -50,8 +50,8 @@ describe('rehypeKatexPluginDefinition', () => {
     expect(rehypeKatexPluginDefinition.kind).toBe('rehype');
   });
 
-  it('should be disabled by default', () => {
-    expect(rehypeKatexPluginDefinition.enabledByDefault).toBe(false);
+  it('should be enabled by default', () => {
+    expect(rehypeKatexPluginDefinition.enabledByDefault).toBe(true);
   });
 
   it('should create a plugin with default options', () => {

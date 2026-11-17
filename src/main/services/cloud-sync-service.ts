@@ -195,7 +195,7 @@ export class CloudSyncService {
 
   public async listProviders(): Promise<CloudSyncProvider[]> {
     const connections = await this.readConnections();
-    return (Object.keys(PROVIDER_CAPABILITIES) as CloudSyncProviderId[]).map((id) => ({
+    return [SUPPORTED_PROVIDER].map((id) => ({
       id,
       label: PROVIDER_LABELS[id],
       connected: connections.has(id),

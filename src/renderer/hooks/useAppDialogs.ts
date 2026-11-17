@@ -20,6 +20,36 @@ import type { AppState } from './useAppState';
 
 const FRONTMATTER_SYNC_DELAY_MS = 150;
 
+async function saveRecoveryCopy(conflict: FileConflict | null, state: AppState): Promise<boolean> {
+  if (!conflict) {
+    state.handleNotification({
+      type: 'error',
+      message: 'No recovery copy is available to save',
+    });
+    return false;
+  }
+
+  const saved = await window.mdxpad.saveFileAs(conflict.recoveryContent);
+  if (!saved.ok) {
+    if (saved.error.code === 'CANCELLED') {
+      return false;
+    }
+    const detail = saved.error.code === 'UNKNOWN' ? saved.error.message : saved.error.code;
+    state.handleNotification({
+      type: 'error',
+      message: `Could not save the recovery copy: ${detail}`,
+    });
+    return false;
+  }
+
+  await state.recovery.handleDecision({ action: 'decline' });
+  state.handleNotification({
+    type: 'success',
+    message: `Saved recovery copy to ${saved.value.name}`,
+  });
+  return true;
+}
+
 export interface AppDialogsState {
   readonly activeConflict: FileConflict | null;
   readonly handleRecoveryDecision: (decision: RecoveryDecision) => Promise<void>;
@@ -134,10 +164,10 @@ export function useAppDialogs(state: AppState): AppDialogsState {
   const handleConflictResolve = useCallback(
     async (resolution: ConflictResolution) => {
       if (resolution.choice === 'save-as') {
-        state.handleNotification({
-          type: 'warning',
-          message: 'Save As conflict resolution is not supported yet',
-        });
+        const saved = await saveRecoveryCopy(activeConflict, state);
+        if (saved && isMountedRef.current) {
+          setActiveConflict(null);
+        }
         return;
       }
 
@@ -154,7 +184,7 @@ export function useAppDialogs(state: AppState): AppDialogsState {
         setActiveConflict(null);
       }
     },
-    [state]
+    [activeConflict, state]
   );
 
   const handleConflictCancel = useCallback(() => {
