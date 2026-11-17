@@ -91,8 +91,21 @@ function clampHeadingLevel(level: number): number {
   return Math.min(6, Math.max(1, level));
 }
 
+const SUPERSCRIPT_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+function pdfPlainText(value: string): string {
+  return value.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (run) => {
+    let digits = '';
+    for (let index = 0; index < run.length; index += 1) {
+      digits += String(SUPERSCRIPT_DIGITS.indexOf(run.charAt(index)));
+    }
+    return `[${digits}]`;
+  });
+}
+
 function normalizePdfLine(value: string): string {
-  return value.trim().length > 0 ? value : ' ';
+  const plain = pdfPlainText(value);
+  return plain.trim().length > 0 ? plain : ' ';
 }
 
 function plainInline(text: string): string {

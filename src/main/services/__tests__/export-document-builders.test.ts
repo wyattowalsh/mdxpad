@@ -18,4 +18,11 @@ describe('built-in export documents', () => {
     expect(docx).toContain('bold');
     expect(docx).not.toContain('**bold**');
   });
+
+  it('prints a footnote number with the Helvetica-safe marker', () => {
+    const pdf = buildPdfDocument('See [^1].\n\n[^1]: Note');
+    expect(pdf.content).toContain('[1]');
+    expect(pdf.content).toContain('Note');
+    expect(pdf.content).not.toContain('¹');
+  });
 });
