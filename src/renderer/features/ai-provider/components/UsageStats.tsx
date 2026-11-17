@@ -56,28 +56,7 @@ export function UsageStats({ stats, timeRange, onTimeRangeChange, isLoading }: U
         </div>
       ) : stats ? (
         <>
-          <div className="grid grid-cols-2 gap-4">
-            <StatCard
-              label="Total Requests"
-              value={stats.totalRequests.toLocaleString()}
-              subValue={`${stats.successfulRequests} successful`}
-            />
-            <StatCard
-              label="Total Tokens"
-              value={formatTokens(stats.totalTokens)}
-              subValue={`${formatTokens(stats.inputTokens)} in / ${formatTokens(stats.outputTokens)} out`}
-            />
-            <StatCard
-              label="Success Rate"
-              value={formatPercent(stats.successfulRequests, stats.totalRequests)}
-              subValue={`${stats.failedRequests} failed`}
-            />
-            <StatCard
-              label="Est. Cost"
-              value={formatCurrency(stats.estimatedCostUsd)}
-              subValue="USD"
-            />
-          </div>
+          <UsageSummary stats={stats} />
           <UsageBreakdown stats={stats} />
         </>
       ) : (
@@ -93,6 +72,38 @@ interface StatCardProps {
   label: string;
   value: string;
   subValue?: string;
+}
+
+function UsageSummary({ stats }: { stats: UsageStatsType }): React.JSX.Element {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <StatCard
+        label="Total Requests"
+        value={stats.totalRequests.toLocaleString()}
+        subValue={`${stats.successfulRequests} successful`}
+      />
+      <StatCard
+        label="Total Tokens"
+        value={formatTokens(stats.totalTokens)}
+        subValue={`${formatTokens(stats.inputTokens)} in / ${formatTokens(stats.outputTokens)} out`}
+      />
+      <StatCard
+        label="Success Rate"
+        value={formatPercent(stats.successfulRequests, stats.totalRequests)}
+        subValue={`${stats.failedRequests} failed`}
+      />
+      <StatCard
+        label="Est. Cost"
+        value={formatCurrency(stats.estimatedCostUsd)}
+        subValue="USD"
+      />
+      <StatCard
+        label="Avg. duration"
+        value={formatDuration(stats.avgDurationMs)}
+        subValue="per request"
+      />
+    </div>
+  );
 }
 
 function sortedEntries<T extends { requestCount: number }>(
@@ -131,7 +142,7 @@ function UsageBreakdown({ stats }: { stats: UsageStatsType }): React.JSX.Element
         title="By operation"
         rows={operations.map(([id, summary]) => ({
           id,
-          detail: `${summary.requestCount.toLocaleString()} requests`,
+          detail: `${summary.requestCount.toLocaleString()} requests · ${formatDuration(summary.avgDurationMs)} avg`,
         }))}
       />
     </div>
@@ -171,6 +182,17 @@ function StatCard({ label, value, subValue }: StatCardProps) {
       {subValue && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{subValue}</p>}
     </div>
   );
+}
+
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '0 ms';
+  }
+  if (ms >= 1000) {
+    const seconds = ms / 1000;
+    return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1)} s`;
+  }
+  return `${Math.round(ms)} ms`;
 }
 
 function formatTokens(tokens: number): string {

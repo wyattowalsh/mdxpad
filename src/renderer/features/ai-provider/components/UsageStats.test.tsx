@@ -53,5 +53,8 @@ describe('UsageStats', () => {
     expect(screen.getByText('claude-test')).toBeTruthy();
     expect(screen.getByText('By operation')).toBeTruthy();
     expect(screen.getByText('text-generation')).toBeTruthy();
+    expect(screen.getByText('Avg. duration')).toBeTruthy();
+    expect(screen.getAllByText('40 ms').length).toBeGreaterThan(0);
+    expect(screen.getByText('3 requests · 40 ms avg')).toBeTruthy();
   });
 });
