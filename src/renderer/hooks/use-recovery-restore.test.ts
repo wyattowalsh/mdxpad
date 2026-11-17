@@ -17,9 +17,7 @@ import type { DocumentId as AutosaveDocumentId } from '@shared/contracts/autosav
 // Test Setup
 // =============================================================================
 
-const createMockRestoredDocument = (
-  overrides?: Partial<RestoredDocument>
-): RestoredDocument => ({
+const createMockRestoredDocument = (overrides?: Partial<RestoredDocument>): RestoredDocument => ({
   documentId: 'restored-doc-id' as AutosaveDocumentId,
   fileName: 'test.mdx',
   filePath: '/test/path/test.mdx',
@@ -37,6 +35,9 @@ beforeEach(() => {
     savedContent: '',
     isDirty: false,
     lastKnownMtime: null,
+    externalChangeDetected: false,
+    externalContent: null,
+    externalMtime: null,
   });
 });
 
@@ -68,6 +69,24 @@ describe('useRecoveryRestore', () => {
       expect(state.savedContent).toBe(''); // Should be empty
     });
 
+    it('clears an external-change notice from the previous document', () => {
+      useDocumentStore.setState({
+        externalChangeDetected: true,
+        externalContent: 'old disk',
+        externalMtime: 1,
+      });
+      const { result } = renderHook(() => useRecoveryRestore());
+
+      act(() => {
+        result.current.restoreDocuments([createMockRestoredDocument()]);
+      });
+
+      const state = useDocumentStore.getState();
+      expect(state.externalChangeDetected).toBe(false);
+      expect(state.externalContent).toBeNull();
+      expect(state.externalMtime).toBeNull();
+    });
+
     it('should set isDirty to true', () => {
       const { result } = renderHook(() => useRecoveryRestore());
 
@@ -84,7 +103,7 @@ describe('useRecoveryRestore', () => {
       const { result } = renderHook(() => useRecoveryRestore());
 
       const doc = createMockRestoredDocument({
-        content: 'Recovered content'
+        content: 'Recovered content',
       });
 
       act(() => {

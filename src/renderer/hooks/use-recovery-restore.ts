@@ -146,6 +146,9 @@ export function useRecoveryRestore(): UseRecoveryRestoreResult {
           isDirty: true,
           // Reset mtime since we don't know the current file state
           lastKnownMtime: null,
+          externalChangeDetected: false,
+          externalContent: null,
+          externalMtime: null,
         }));
 
         console.debug('[useRecoveryRestore] Document restored successfully:', fileName);
