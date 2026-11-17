@@ -78,6 +78,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{itemize}');
   });
 
+  it('starts an ordered list at its written number', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '3. third',
+      outputPath: '/tmp/start.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{enumerate}');
+    expect(written).toContain('\\setcounter{enumi}{2}');
+    expect(written).toContain('\\item third');
+  });
+
   it('converts ordered lists to enumerate', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {

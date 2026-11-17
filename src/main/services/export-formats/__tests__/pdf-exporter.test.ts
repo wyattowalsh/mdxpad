@@ -70,6 +70,18 @@ describe('PdfExporter', () => {
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
   });
 
+  it('starts an ordered list at its written number', async () => {
+    await exporter.export({
+      content: '3. third\n4. fourth',
+      outputPath: '/tmp/start.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<ol start="3">');
+    expect(html).toContain('<li>third</li>');
+    expect(html).toContain('<li>fourth</li>');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

@@ -326,6 +326,12 @@ function flushPendingParagraph(parse: DocxParse): void {
 
 function listParagraph(item: MarkdownListItem): Paragraph {
   const children = listItemChildren(item.text);
+  if (item.ordered && item.start > 1) {
+    return new Paragraph({
+      indent: { left: 720 * (item.level + 1), hanging: 360 },
+      children: [new TextRun({ text: `${item.start}. ` }), ...children],
+    });
+  }
   if (item.ordered) {
     return new Paragraph({
       numbering: { reference: 'default-numbering', level: item.level },

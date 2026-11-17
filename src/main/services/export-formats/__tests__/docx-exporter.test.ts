@@ -16,6 +16,26 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps an ordered list start number', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '3. third',
+      outputPath: '/tmp/start.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('3.');
+    expect(xml).toContain('third');
+  });
+
   it('keeps snake_case as plain text and still emphasizes _words_', () => {
     expect(parseInlineFormatting('use snake_case_name here')).toEqual([
       { text: 'use snake_case_name here' },

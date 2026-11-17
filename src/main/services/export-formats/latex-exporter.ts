@@ -226,6 +226,11 @@ function openLatexListItem(
   const top = stack[stack.length - 1];
   if (!top || top.level < item.level) {
     output.push(item.ordered ? '\\begin{enumerate}' : '\\begin{itemize}');
+    if (item.ordered && item.start > 1) {
+      const counters = ['enumi', 'enumii', 'enumiii', 'enumiv', 'enumv', 'enumvi'];
+      const counter = counters[item.level] ?? 'enumi';
+      output.push(`\\setcounter{${counter}}{${item.start - 1}}`);
+    }
     stack.push({ ordered: item.ordered, level: item.level });
   }
   output.push(`  \\item ${latexListItem(item.text)}`);
