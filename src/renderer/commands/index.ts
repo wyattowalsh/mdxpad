@@ -35,10 +35,9 @@ export function registerAllCommands(): () => void {
   const unregisterPanels = registerPanelCommands();
   const unregisterEditAi = registerEditAiCommands();
   const unregisterComments = registerCommentCommands();
-  const keybindings = useKeybindingStore.getState();
-  if (keybindings.bindings.length === 0) {
-    keybindings.initDefaults(bindingsFromCommands(useCommandRegistry.getState().getAllCommands()));
-  }
+  useKeybindingStore
+    .getState()
+    .initDefaults(bindingsFromCommands(useCommandRegistry.getState().getAllCommands()));
 
   return () => {
     unregisterFile();
