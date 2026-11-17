@@ -95,6 +95,7 @@ export const collaborationApi = {
       CollaborationAddSuggestionResponseSchema,
       request
     ),
+  // Records accepted or outdated. Does not change document bytes.
   applySuggestion: (request: unknown) =>
     validatedInvoke(
       IPC_CHANNELS.collaboration.applySuggestion,

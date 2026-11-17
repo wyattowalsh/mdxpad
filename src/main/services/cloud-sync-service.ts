@@ -77,7 +77,7 @@ const PROVIDER_CAPABILITIES: Record<CloudSyncProviderId, CloudSyncCapabilities> 
 };
 
 const PROVIDER_LABELS: Record<CloudSyncProviderId, string> = {
-  'mock-cloud': 'Mock Cloud (Local Adapter)',
+  'mock-cloud': 'Local',
   github: 'GitHub',
   dropbox: 'Dropbox',
   onedrive: 'OneDrive',

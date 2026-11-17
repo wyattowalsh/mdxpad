@@ -240,7 +240,7 @@ describe('History IPC handler validation', () => {
         entry: { id: 's1', timestamp: 1000, source: 'manual' },
       }),
     } as unknown as VersionHistoryService;
-    registerHistoryHandlers(mockIpcMain as unknown as IpcMain, svc);
+    registerHistoryHandlers(mockIpcMain as unknown as IpcMain, svc, mockWindow());
   });
 
   it('registers all history channels', () => {
@@ -293,7 +293,7 @@ describe('Notification IPC handler validation', () => {
       isSupported: vi.fn(() => true),
       requestPermission: vi.fn(() => true),
     } as unknown as NotificationService;
-    registerNotificationHandlers(mockIpcMain as unknown as IpcMain, svc);
+    registerNotificationHandlers(mockIpcMain as unknown as IpcMain, svc, mockWindow());
   });
 
   it('registers all notification channels', () => {

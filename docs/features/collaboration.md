@@ -72,7 +72,8 @@ The `CollaborationService` manages threaded comments and change suggestions:
 ### Suggestions
 
 - Inline change proposals with diff patches
-- Accept/reject workflow
+- Acceptance records `accepted` or `outdated` and does not edit the document
+- Reject is not available
 - Checksum-based staleness detection (marks suggestions as `outdated` if document changed)
 
 ### UI Components

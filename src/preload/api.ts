@@ -3,6 +3,9 @@
  * This is the ONLY way renderer can communicate with main process.
  */
 
+import type { HistoryApi } from './history-api';
+import type { NotificationApi } from './notification-api';
+import type { ShareApi } from './share-api';
 import type { SecurityInfo } from '@shared/lib/ipc';
 import type { FileHandle, FileResult } from '@shared/types/file';
 import type { ExportFormat, FileExportResult } from '@shared/contracts/file-schemas';
@@ -500,6 +503,10 @@ export interface MdxpadAPI {
    * Collaboration primitives API (Fleet Wave 3).
    * Optional for backward compatibility with existing mocks/tests.
    */
+  share?: ShareApi;
+  history?: HistoryApi;
+  notifications?: NotificationApi;
+
   collaboration?: {
     list(request: CollaborationListRequest): Promise<CollaborationListResponse>;
     addComment(request: CollaborationAddCommentRequest): Promise<CollaborationAddCommentResponse>;

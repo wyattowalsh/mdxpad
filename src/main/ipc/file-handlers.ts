@@ -7,7 +7,6 @@
  */
 
 import { app, dialog, type IpcMain, type BrowserWindow } from 'electron';
-import path from 'node:path';
 
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import {
@@ -42,6 +41,15 @@ import {
 } from '@main/services/export-service';
 import type { FileError, FileId } from '@shared/types/file';
 import { assertAuthorizedIpcSender } from './ipc-sender-authorization';
+import {
+  canBootstrapReadCapability,
+  ensureWriteCapability,
+  grantReadCapability,
+  grantWriteCapability,
+  hasReadCapability,
+  permissionDenied,
+  resetFileCapabilities,
+} from './document-capability';
 
 /** File dialog filters for MDX and Markdown files */
 const MDX_FILTERS = [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }];
@@ -51,104 +59,6 @@ const EXPORT_FORMAT_ORDER: readonly ExportFormat[] = ['html', 'markdown', 'mdx',
 /** File lifecycle integration for watcher/recent-file wiring. */
 let fileIntegration: FileServiceIntegration | null = null;
 let integrationWindow: BrowserWindow | null = null;
-
-const BOOTSTRAP_READ_EXTENSIONS = new Set(['.md', '.mdx', '.markdown', '.txt']);
-const SCHEMA_SIDE_CAR_DIR = '.mdxpad';
-const SCHEMA_SIDE_CAR_FILE = 'schema.json';
-
-const readCapabilities = new Set<string>();
-const writeCapabilities = new Set<string>();
-const documentDirectoryCapabilities = new Set<string>();
-
-function normalizeCapabilityPath(filePath: string): string | null {
-  if (filePath.length === 0 || filePath.includes('\0')) {
-    return null;
-  }
-
-  const normalized = path.resolve(filePath);
-  return path.isAbsolute(normalized) ? normalized : null;
-}
-
-function isSchemaSidecarPath(normalizedPath: string): boolean {
-  return (
-    path.basename(normalizedPath).toLowerCase() === SCHEMA_SIDE_CAR_FILE &&
-    path.basename(path.dirname(normalizedPath)).toLowerCase() === SCHEMA_SIDE_CAR_DIR
-  );
-}
-
-function grantReadCapability(filePath: string): void {
-  const normalized = normalizeCapabilityPath(filePath);
-  if (!normalized) {
-    return;
-  }
-
-  readCapabilities.add(normalized);
-  documentDirectoryCapabilities.add(path.dirname(normalized));
-}
-
-function grantWriteCapability(filePath: string): void {
-  const normalized = normalizeCapabilityPath(filePath);
-  if (!normalized) {
-    return;
-  }
-
-  grantReadCapability(normalized);
-  writeCapabilities.add(normalized);
-}
-
-function hasReadCapability(filePath: string): boolean {
-  const normalized = normalizeCapabilityPath(filePath);
-  if (!normalized) {
-    return false;
-  }
-
-  if (readCapabilities.has(normalized)) {
-    return true;
-  }
-
-  if (!isSchemaSidecarPath(normalized)) {
-    return false;
-  }
-
-  const documentDir = path.dirname(path.dirname(normalized));
-  return documentDirectoryCapabilities.has(documentDir);
-}
-
-function hasWriteCapability(filePath: string): boolean {
-  const normalized = normalizeCapabilityPath(filePath);
-  return normalized !== null && writeCapabilities.has(normalized);
-}
-
-function canBootstrapReadCapability(filePath: string): boolean {
-  const normalized = normalizeCapabilityPath(filePath);
-  if (!normalized) {
-    return false;
-  }
-
-  if (isSchemaSidecarPath(normalized)) {
-    const documentDir = path.dirname(path.dirname(normalized));
-    return documentDirectoryCapabilities.has(documentDir);
-  }
-
-  return BOOTSTRAP_READ_EXTENSIONS.has(path.extname(normalized).toLowerCase());
-}
-
-function permissionDenied(pathValue: string): { code: 'PERMISSION_DENIED'; path: string } {
-  return {
-    code: 'PERMISSION_DENIED',
-    path: normalizeCapabilityPath(pathValue) ?? pathValue,
-  };
-}
-
-function ensureWriteCapability(filePath: string): boolean {
-  return hasWriteCapability(filePath);
-}
-
-function resetFileCapabilities(): void {
-  readCapabilities.clear();
-  writeCapabilities.clear();
-  documentDirectoryCapabilities.clear();
-}
 
 /**
  * Ensure file integration is initialized for the active BrowserWindow.
@@ -419,7 +329,11 @@ const handleFileExport = createValidatedHandler(
   FileExportRequestSchema,
   // eslint-disable-next-line max-lines-per-function -- export flow validates source scope + format/write lifecycle
   async (args): Promise<FileExportResult> => {
-    if (args.sourcePath && !hasReadCapability(args.sourcePath) && !canBootstrapReadCapability(args.sourcePath)) {
+    if (
+      args.sourcePath &&
+      !hasReadCapability(args.sourcePath) &&
+      !canBootstrapReadCapability(args.sourcePath)
+    ) {
       return {
         ok: false,
         error: {

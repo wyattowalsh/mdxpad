@@ -12,15 +12,19 @@ import {
   CreateShareLinkRequestSchema,
   RevokeShareLinkRequestSchema,
   GetShareLinksRequestSchema,
+  ReadShareRequestSchema,
+  ReadShareResponseSchema,
   PublishRequestSchema,
   type CreateShareLinkResponse,
   type RevokeShareLinkResponse,
   type GetShareLinksResponse,
+  type ReadShareResponse,
   type PublishResponse,
 } from '@shared/contracts/share-schemas';
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
 import type { ShareLinkService } from '@main/services/share-link-service';
 import { StaticSiteGenerator } from '@main/services/static-site-generator';
+import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
 // ============================================================================
 // Handler Factory
@@ -37,6 +41,7 @@ function createCreateLinkHandler(service: ShareLinkService) {
         docId: args.docId,
         accessMode: args.accessMode,
         expiresInMs: args.expiresInMs,
+        ...(args.content !== undefined ? { content: args.content } : {}),
       });
 
       return Promise.resolve({ success: true as const, link });
@@ -76,22 +81,16 @@ function createGetLinksHandler(service: ShareLinkService) {
 /**
  * Create the publish handler.
  */
-function createPublishHandler(
-  generator: StaticSiteGenerator,
-  window: BrowserWindow
-) {
-  return createValidatedHandler(
-    PublishRequestSchema,
-    async (args): Promise<PublishResponse> => {
-      const result = await generator.generate(args, (progress) => {
-        if (!window.isDestroyed()) {
-          window.webContents.send(ShareChannels.PUBLISH_PROGRESS, progress);
-        }
-      });
+function createPublishHandler(generator: StaticSiteGenerator, window: BrowserWindow) {
+  return createValidatedHandler(PublishRequestSchema, async (args): Promise<PublishResponse> => {
+    const result = await generator.generate(args, (progress) => {
+      if (!window.isDestroyed()) {
+        window.webContents.send(ShareChannels.PUBLISH_PROGRESS, progress);
+      }
+    });
 
-      return result;
-    }
-  );
+    return result;
+  });
 }
 
 // ============================================================================
@@ -117,20 +116,27 @@ export function registerShareHandlers(
   const handleRevokeLink = createRevokeLinkHandler(service);
   const handleGetLinks = createGetLinksHandler(service);
   const handlePublish = createPublishHandler(generator, window);
+  const handleRead = createValidatedHandler(ReadShareRequestSchema, (args): ReadShareResponse => {
+    const result = service.readByToken(args.token);
+    if (!result) {
+      return ReadShareResponseSchema.parse({ ok: false });
+    }
+    return ReadShareResponseSchema.parse({ ok: true, ...result });
+  });
 
-  ipcMainInstance.handle(ShareChannels.CREATE_LINK, (_event, args) =>
+  registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.CREATE_LINK, (_event, args) =>
     handleCreateLink(args)
   );
-
-  ipcMainInstance.handle(ShareChannels.REVOKE_LINK, (_event, args) =>
+  registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.REVOKE_LINK, (_event, args) =>
     handleRevokeLink(args)
   );
-
-  ipcMainInstance.handle(ShareChannels.GET_LINKS, (_event, args) =>
+  registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.GET_LINKS, (_event, args) =>
     handleGetLinks(args)
   );
-
-  ipcMainInstance.handle(ShareChannels.PUBLISH, (_event, args) =>
+  registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.READ, (_event, args) =>
+    handleRead(args)
+  );
+  registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.PUBLISH, (_event, args) =>
     handlePublish(args)
   );
 

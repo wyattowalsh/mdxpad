@@ -41,6 +41,7 @@ interface TemplateCardProps {
 
 const TemplateCard: React.FC<TemplateCardProps> = ({ template, onInstall }) => {
   const isInstalling = useMarketplaceStore(selectIsInstalling(template.id));
+  const installAvailable = useMarketplaceStore((state) => state.installAvailable);
 
   return (
     <div className="flex flex-col rounded-lg border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
@@ -63,25 +64,27 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onInstall }) => {
         </span>
       </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-3 w-full"
-        onClick={() => onInstall(template)}
-        disabled={isInstalling}
-      >
-        {isInstalling ? (
-          <>
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            Installing...
-          </>
-        ) : (
-          <>
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            Install
-          </>
-        )}
-      </Button>
+      {installAvailable ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 w-full"
+          onClick={() => onInstall(template)}
+          disabled={isInstalling}
+        >
+          {isInstalling ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              Installing...
+            </>
+          ) : (
+            <>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Install
+            </>
+          )}
+        </Button>
+      ) : null}
     </div>
   );
 };

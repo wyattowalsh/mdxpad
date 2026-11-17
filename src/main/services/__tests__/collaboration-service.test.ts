@@ -64,6 +64,7 @@ describe('CollaborationService', () => {
 
     expect(apply.ok).toBe(false);
     expect(apply.outdated).toBe(true);
+    expect(apply.applied).toBe(false);
     expect(apply.suggestion.state).toBe('outdated');
   });
 });

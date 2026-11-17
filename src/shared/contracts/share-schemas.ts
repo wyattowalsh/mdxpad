@@ -46,6 +46,7 @@ export const ShareConfigSchema = z.object({
   docId: z.string().min(1),
   accessMode: ShareAccessModeSchema,
   expiresInMs: z.number().int().positive().nullable(),
+  content: z.string().optional(),
 });
 
 /** Inferred ShareConfig type */
@@ -198,10 +199,24 @@ export type PublishResponse = z.infer<typeof PublishResponseSchema>;
  * Share & Publish IPC channel constants.
  * All channels follow mdxpad:{domain}:{action} naming convention.
  */
+export const ReadShareRequestSchema = z.object({
+  token: z.string().min(16),
+});
+export type ReadShareRequest = z.infer<typeof ReadShareRequestSchema>;
+
+export const ReadShareResponseSchema = z.object({
+  ok: z.boolean(),
+  docId: z.string().optional(),
+  accessMode: ShareAccessModeSchema.optional(),
+  content: z.string().optional(),
+});
+export type ReadShareResponse = z.infer<typeof ReadShareResponseSchema>;
+
 export const ShareChannels = {
   CREATE_LINK: 'mdxpad:share:create-link',
   REVOKE_LINK: 'mdxpad:share:revoke-link',
   GET_LINKS: 'mdxpad:share:get-links',
+  READ: 'mdxpad:share:read',
   PUBLISH: 'mdxpad:share:publish',
   PUBLISH_PROGRESS: 'mdxpad:share:publish-progress',
 } as const;

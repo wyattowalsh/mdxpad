@@ -25,6 +25,16 @@ import { registerSearchHandlers } from '@main/services/search/search-handlers';
 import { registerImportHandlers } from '@main/services/import/import-handlers';
 import { registerCitationHandlers } from '@main/services/citation/citation-handlers';
 import { registerPluginHandlers, PLUGIN_CHANNELS } from '@main/services/plugin/plugin-handlers';
+import { registerShareHandlers } from './share-handlers';
+import { registerHistoryHandlers } from './history-handlers';
+import { registerNotificationHandlers } from './notification-handlers';
+import { ShareChannels } from '@shared/contracts/share-schemas';
+import { HistoryChannels } from '@shared/contracts/history-schemas';
+import { NotificationChannels } from '@shared/contracts/notification-schemas';
+import { ShareLinkService } from '@main/services/share-link-service';
+import { VersionHistoryService } from '@main/services/version-history-service';
+import { NotificationService } from '@main/services/notification-service';
+import { hasWriteCapability } from './document-capability';
 import { PluginLoader } from '@main/services/plugin/plugin-loader';
 import { GitChannels } from '@shared/contracts/git-schemas';
 import { SearchChannels } from '@shared/contracts/search-schemas';
@@ -44,6 +54,9 @@ const recoveryService = new RecoveryService(settingsService, autosaveService);
 const aiServices = createAIServices();
 const workspaceService = new WorkspaceService();
 const pluginLoader = new PluginLoader();
+const shareLinkService = new ShareLinkService();
+const versionHistoryService = new VersionHistoryService(hasWriteCapability);
+const notificationService = new NotificationService();
 
 const RECREATION_SENSITIVE_CHANNELS = [
   IPC_CHANNELS.app.getSecurityInfo,
@@ -73,6 +86,9 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(ImportChannels),
   ...Object.values(CitationChannels),
   ...Object.values(PLUGIN_CHANNELS),
+  ...Object.values(ShareChannels).filter((channel) => channel !== ShareChannels.PUBLISH_PROGRESS),
+  ...Object.values(HistoryChannels),
+  ...Object.values(NotificationChannels),
 ] as const;
 
 function removeLifecycleBoundHandlers(): void {
@@ -142,4 +158,7 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   registerImportHandlers(ipcMain, window);
   registerCitationHandlers(ipcMain, window);
   registerPluginHandlers(ipcMain, window, pluginLoader);
+  registerShareHandlers(ipcMain, shareLinkService, window);
+  registerHistoryHandlers(ipcMain, versionHistoryService, window);
+  registerNotificationHandlers(ipcMain, notificationService, window);
 }

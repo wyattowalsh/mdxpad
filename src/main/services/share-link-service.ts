@@ -17,6 +17,13 @@ export interface CreateShareLinkOptions {
   readonly docId: string;
   readonly accessMode: ShareAccessMode;
   readonly expiresInMs: number | null;
+  readonly content?: string;
+}
+
+export interface ShareReadResult {
+  readonly docId: string;
+  readonly accessMode: ShareAccessMode;
+  readonly content: string;
 }
 
 /** Options for the share link service */
@@ -44,6 +51,7 @@ const DEFAULT_MAX_LINKS_PER_DOC = 10;
  */
 export class ShareLinkService {
   private readonly links = new Map<string, ShareLink>();
+  private readonly contents = new Map<string, string>();
   private readonly baseUrl: string;
   private readonly tokenLength: number;
   private readonly maxLinksPerDoc: number;
@@ -85,6 +93,9 @@ export class ShareLinkService {
     };
 
     this.links.set(id, link);
+    if (options.content !== undefined) {
+      this.contents.set(id, options.content);
+    }
     console.log(`[ShareLinkService] Created share link ${id} for doc ${options.docId}`);
 
     return link;
@@ -145,6 +156,29 @@ export class ShareLinkService {
     }
 
     return null;
+  }
+
+  /**
+   * Read owner-supplied document text for a token.
+   * Unknown, revoked, and expired tokens all return null.
+   * The document id is never treated as a filesystem path.
+   */
+  readByToken(token: string): ShareReadResult | null {
+    const link = this.validateToken(token);
+    if (!link) {
+      return null;
+    }
+
+    const content = this.contents.get(link.id);
+    if (content === undefined) {
+      return null;
+    }
+
+    return {
+      docId: link.docId,
+      accessMode: link.accessMode,
+      content,
+    };
   }
 
   /**

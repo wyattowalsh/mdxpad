@@ -7,7 +7,7 @@
  * @module main/ipc/history-handlers
  */
 
-import type { IpcMain } from 'electron';
+import type { BrowserWindow, IpcMain } from 'electron';
 import {
   HistoryChannels,
   VersionHistoryRequestSchema,
@@ -21,6 +21,7 @@ import {
 } from '@shared/contracts/history-schemas';
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
 import type { VersionHistoryService } from '@main/services/version-history-service';
+import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
 // ============================================================================
 // Handler Registration
@@ -34,7 +35,8 @@ import type { VersionHistoryService } from '@main/services/version-history-servi
  */
 export function registerHistoryHandlers(
   ipcMainInstance: IpcMain,
-  service: VersionHistoryService
+  service: VersionHistoryService,
+  window: BrowserWindow
 ): void {
   // Get history handler
   const handleGetHistory = createValidatedHandler(
@@ -68,14 +70,30 @@ export function registerHistoryHandlers(
     }
   );
 
-  // Register handlers
-  ipcMainInstance.handle(HistoryChannels.GET_HISTORY, (_, args) => handleGetHistory(args));
-
-  ipcMainInstance.handle(HistoryChannels.GET_VERSION, (_, args) => handleGetVersion(args));
-
-  ipcMainInstance.handle(HistoryChannels.RESTORE_VERSION, (_, args) => handleRestoreVersion(args));
-
-  ipcMainInstance.handle(HistoryChannels.CREATE_SNAPSHOT, (_, args) => handleCreateSnapshot(args));
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    HistoryChannels.GET_HISTORY,
+    (_event, args) => handleGetHistory(args)
+  );
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    HistoryChannels.GET_VERSION,
+    (_event, args) => handleGetVersion(args)
+  );
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    HistoryChannels.RESTORE_VERSION,
+    (_event, args) => handleRestoreVersion(args)
+  );
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    HistoryChannels.CREATE_SNAPSHOT,
+    (_event, args) => handleCreateSnapshot(args)
+  );
 
   console.log('[HistoryHandlers] All history handlers registered');
 }

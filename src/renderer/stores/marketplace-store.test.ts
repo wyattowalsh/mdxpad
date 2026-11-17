@@ -27,6 +27,7 @@ const INITIAL: MarketplaceState = {
   status: 'idle',
   error: null,
   installingIds: [],
+  installAvailable: false,
 };
 
 const SAMPLE_TEMPLATES: MarketplaceTemplate[] = [

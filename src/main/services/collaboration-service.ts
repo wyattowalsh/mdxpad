@@ -168,6 +168,7 @@ export class CollaborationService {
     return {
       ok: !outdated,
       outdated,
+      applied: false,
       suggestion,
     };
   }

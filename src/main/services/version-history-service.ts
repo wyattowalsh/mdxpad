@@ -23,6 +23,7 @@ import type {
   RestoreVersionResponse,
   CreateSnapshotResponse,
 } from '@shared/contracts/history-schemas';
+import { assertOpenedDocumentWrite, assertSnapshotId, snapshotFile } from './version-history-path';
 
 const execFileAsync = promisify(execFile);
 
@@ -79,6 +80,8 @@ interface SnapshotFile {
 export class VersionHistoryService {
   private historyDirPath: string | null = null;
 
+  constructor(private readonly canWrite: (filePath: string) => boolean = () => false) {}
+
   /**
    * Get version history for a file.
    *
@@ -89,14 +92,15 @@ export class VersionHistoryService {
    * @returns Version history response with sorted entries
    */
   async getHistory(filePath: string): Promise<VersionHistoryResponse> {
+    const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
     const entries: VersionEntry[] = [];
 
     // Get autosave/manual snapshots
-    const snapshots = await this.getSnapshots(filePath);
+    const snapshots = await this.getSnapshots(openedPath);
     entries.push(...snapshots);
 
     // Get git commits if available
-    const gitEntries = await this.getGitHistory(filePath);
+    const gitEntries = await this.getGitHistory(openedPath);
     entries.push(...gitEntries);
 
     // Sort by timestamp, newest first
@@ -113,18 +117,21 @@ export class VersionHistoryService {
    * @returns Version content and metadata
    */
   async getVersion(id: string, filePath: string): Promise<GetVersionResponse> {
-    // Check if it's a git commit
-    if (id.startsWith('git-')) {
-      return this.getGitVersion(id, filePath);
+    const identity = assertSnapshotId(id);
+    const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
+    if (identity.kind === 'git') {
+      return this.getGitVersion(identity.gitHash ?? '', openedPath);
     }
 
-    // Check snapshots
     const historyDir = await this.getHistoryDir();
-    const snapshotPath = path.join(historyDir, `${id}.json`);
+    const snapshotPath = snapshotFile(historyDir, id);
 
     try {
       const raw = await fs.readFile(snapshotPath, 'utf-8');
       const snapshot = JSON.parse(raw) as SnapshotFile;
+      if (path.resolve(snapshot.filePath) !== path.resolve(openedPath)) {
+        throw new Error('Version not found');
+      }
 
       return {
         content: snapshot.content,
@@ -154,15 +161,15 @@ export class VersionHistoryService {
     createBackup = true
   ): Promise<RestoreVersionResponse> {
     try {
-      // Get the version content
-      const version = await this.getVersion(id, filePath);
+      const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
+      const version = await this.getVersion(id, openedPath);
 
       // Create backup of current file if requested
       if (createBackup) {
         try {
-          const currentContent = await fs.readFile(filePath, 'utf-8');
+          const currentContent = await fs.readFile(openedPath, 'utf-8');
           await this.createSnapshotInternal(
-            filePath,
+            openedPath,
             currentContent,
             'manual',
             'Pre-restore backup'
@@ -173,7 +180,7 @@ export class VersionHistoryService {
       }
 
       // Write restored content to file
-      await fs.writeFile(filePath, version.content, 'utf-8');
+      await fs.writeFile(openedPath, version.content, 'utf-8');
 
       return {
         ok: true,
@@ -196,8 +203,9 @@ export class VersionHistoryService {
    */
   async createSnapshot(filePath: string, label?: string): Promise<CreateSnapshotResponse> {
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      const entry = await this.createSnapshotInternal(filePath, content, 'manual', label);
+      const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
+      const content = await fs.readFile(openedPath, 'utf-8');
+      const entry = await this.createSnapshotInternal(openedPath, content, 'manual', label);
 
       return { ok: true, entry };
     } catch (error) {
@@ -324,8 +332,7 @@ export class VersionHistoryService {
   /**
    * Get a specific git version.
    */
-  private async getGitVersion(id: string, filePath: string): Promise<GetVersionResponse> {
-    const commitHash = id.replace('git-', '');
+  private async getGitVersion(commitHash: string, filePath: string): Promise<GetVersionResponse> {
     const dir = path.dirname(filePath);
 
     try {
@@ -351,7 +358,7 @@ export class VersionHistoryService {
       return {
         content,
         entry: {
-          id,
+          id: `git-${commitHash}`,
           timestamp,
           source: 'git',
           label,

@@ -7,7 +7,7 @@
  * @module main/ipc/notification-handlers
  */
 
-import type { IpcMain } from 'electron';
+import type { BrowserWindow, IpcMain } from 'electron';
 import {
   NotificationChannels,
   NotificationRequestSchema,
@@ -17,6 +17,7 @@ import {
 } from '@shared/contracts/notification-schemas';
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
 import type { NotificationService } from '@main/services/notification-service';
+import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
 // ============================================================================
 // Request Schemas (for void requests)
@@ -38,7 +39,8 @@ const VoidRequestSchema = z.void();
  */
 export function registerNotificationHandlers(
   ipcMainInstance: IpcMain,
-  service: NotificationService
+  service: NotificationService,
+  window: BrowserWindow
 ): void {
   // Show notification handler
   const handleShow = createValidatedHandler(
@@ -79,15 +81,17 @@ export function registerNotificationHandlers(
     }
   );
 
-  // Register handlers
-  ipcMainInstance.handle(NotificationChannels.SHOW, (_, args) => handleShow(args));
-
-  ipcMainInstance.handle(NotificationChannels.CHECK_PERMISSION, () =>
+  registerAuthorizedIpcHandler(ipcMainInstance, window, NotificationChannels.SHOW, (_event, args) =>
+    handleShow(args)
+  );
+  registerAuthorizedIpcHandler(ipcMainInstance, window, NotificationChannels.CHECK_PERMISSION, () =>
     handleCheckPermission(undefined)
   );
-
-  ipcMainInstance.handle(NotificationChannels.REQUEST_PERMISSION, () =>
-    handleRequestPermission(undefined)
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    NotificationChannels.REQUEST_PERMISSION,
+    () => handleRequestPermission(undefined)
   );
 
   console.log('[NotificationHandlers] All notification handlers registered');

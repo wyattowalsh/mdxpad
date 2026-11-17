@@ -77,6 +77,7 @@ export interface MarketplaceState {
   readonly status: MarketplaceStatus;
   readonly error: string | null;
   readonly installingIds: readonly string[];
+  readonly installAvailable: boolean;
 }
 
 // =============================================================================
@@ -105,6 +106,7 @@ const INITIAL_STATE: MarketplaceState = {
   status: 'idle',
   error: null,
   installingIds: [],
+  installAvailable: false,
 };
 
 // =============================================================================

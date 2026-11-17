@@ -17,6 +17,9 @@ import { templateApi } from './template-api';
 import { eventSubscriptions } from './event-api';
 import { aiApi } from './ai-api';
 import { syncApi, collaborationApi, extensionPlatformApi, publishApi } from './platform-api';
+import { shareApi } from './share-api';
+import { historyApi } from './history-api';
+import { notificationApi } from './notification-api';
 import { workspaceApi } from './workspace-api';
 import { exportApi } from './export-api';
 import { gitApi } from './git-api';
@@ -134,6 +137,9 @@ const api: MdxpadAPI = {
   citation: citationApi,
   semanticSearch: semanticSearchApi,
   plugin: pluginApi,
+  share: shareApi,
+  history: historyApi,
+  notifications: notificationApi,
 };
 
 // ============================================================================

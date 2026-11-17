@@ -253,6 +253,7 @@ export type CollaborationApplySuggestionRequest = z.infer<
 export const CollaborationApplySuggestionResponseSchema = z.object({
   ok: z.boolean(),
   outdated: z.boolean(),
+  applied: z.literal(false),
   suggestion: CollaborationSuggestionSchema,
 });
 export type CollaborationApplySuggestionResponse = z.infer<

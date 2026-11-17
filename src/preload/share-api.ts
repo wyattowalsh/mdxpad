@@ -17,6 +17,8 @@ import {
   RevokeShareLinkResponseSchema,
   GetShareLinksRequestSchema,
   GetShareLinksResponseSchema,
+  ReadShareRequestSchema,
+  ReadShareResponseSchema,
   PublishRequestSchema,
   PublishResponseSchema,
   PublishProgressSchema,
@@ -26,6 +28,8 @@ import {
   type RevokeShareLinkResponse,
   type GetShareLinksRequest,
   type GetShareLinksResponse,
+  type ReadShareRequest,
+  type ReadShareResponse,
   type PublishRequest,
   type PublishResponse,
   type PublishProgress,
@@ -79,6 +83,12 @@ export interface ShareApi {
    * @returns Array of share links
    */
   getLinks(request?: GetShareLinksRequest): Promise<GetShareLinksResponse>;
+
+  /**
+   * Read document text for a share token.
+   * Unknown, revoked, and expired tokens return ok: false.
+   */
+  read(request: ReadShareRequest): Promise<ReadShareResponse>;
 
   /**
    * Publish files as a static site.
@@ -147,6 +157,15 @@ export const shareApi: ShareApi = {
     );
   },
 
+  read: async (request) => {
+    const reqParsed = ReadShareRequestSchema.safeParse(request);
+    if (!reqParsed.success) {
+      throw new Error(`Read share request validation failed: ${reqParsed.error.message}`);
+    }
+
+    return validatedShareInvoke(ShareChannels.READ, ReadShareResponseSchema, reqParsed.data);
+  },
+
   getLinks: async (request) => {
     const args = request ?? {};
     const reqParsed = GetShareLinksRequestSchema.safeParse(args);
@@ -167,11 +186,7 @@ export const shareApi: ShareApi = {
       throw new Error(`Publish request validation failed: ${reqParsed.error.message}`);
     }
 
-    return validatedShareInvoke(
-      ShareChannels.PUBLISH,
-      PublishResponseSchema,
-      reqParsed.data
-    );
+    return validatedShareInvoke(ShareChannels.PUBLISH, PublishResponseSchema, reqParsed.data);
   },
 
   onPublishProgress: (callback) => {
