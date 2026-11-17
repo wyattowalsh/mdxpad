@@ -691,6 +691,7 @@ export const QueryUsageResponseSchema = z.object({
       inputTokens: z.number(),
       outputTokens: z.number(),
       estimatedCostUsd: z.number(),
+      avgDurationMs: z.number(),
       byProvider: z.array(ProviderUsageStatSchema),
       byModel: z.array(ModelUsageStatSchema),
       byOperation: z.array(OperationUsageStatSchema),

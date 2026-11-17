@@ -4,12 +4,6 @@ import type { TimeRange, UsageStats } from '@shared/ai/types';
 type UsageQueryStats = NonNullable<QueryUsageResponseSchemaType['stats']>;
 
 export function usageStatsFromQuery(timeRange: TimeRange, stats: UsageQueryStats): UsageStats {
-  const avgDurationMs =
-    stats.byOperation.length > 0
-      ? stats.byOperation.reduce((sum, operation) => sum + operation.avgDurationMs, 0) /
-        stats.byOperation.length
-      : 0;
-
   const byProvider: UsageStats['byProvider'] = {};
   for (const provider of stats.byProvider) {
     byProvider[provider.providerId] = {
@@ -49,7 +43,7 @@ export function usageStatsFromQuery(timeRange: TimeRange, stats: UsageQueryStats
     inputTokens: stats.inputTokens,
     outputTokens: stats.outputTokens,
     estimatedCostUsd: stats.estimatedCostUsd,
-    avgDurationMs,
+    avgDurationMs: stats.avgDurationMs,
     byProvider,
     byModel,
     byOperation,

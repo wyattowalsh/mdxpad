@@ -62,6 +62,7 @@ async function handleUsageQuery(
         inputTokens: stats.inputTokens,
         outputTokens: stats.outputTokens,
         estimatedCostUsd: stats.estimatedCostUsd,
+        avgDurationMs: stats.avgDurationMs,
         byProvider: Object.values(stats.byProvider).map((p) => ({
           providerId: p.providerId,
           providerName: p.providerId, // Use providerId as name for now

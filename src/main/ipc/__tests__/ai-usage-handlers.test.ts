@@ -205,6 +205,7 @@ describe('USAGE_QUERY Handler', () => {
       inputTokens: 4000,
       outputTokens: 6000,
       estimatedCostUsd: 0.15,
+      avgDurationMs: 250,
       byProvider: expect.arrayContaining([
         expect.objectContaining({
           providerId: PROVIDER_1_UUID,

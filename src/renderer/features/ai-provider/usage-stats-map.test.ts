@@ -12,6 +12,7 @@ describe('usageStatsFromQuery', () => {
       inputTokens: 10,
       outputTokens: 20,
       estimatedCostUsd: 0.02,
+      avgDurationMs: 80,
       byProvider: [
         {
           providerId: 'openai',
@@ -33,15 +34,21 @@ describe('usageStatsFromQuery', () => {
       byOperation: [
         {
           operationType: 'text-generation',
-          requestCount: 2,
-          avgDurationMs: 40,
+          requestCount: 1,
+          avgDurationMs: 10,
+        },
+        {
+          operationType: 'embedding',
+          requestCount: 100,
+          avgDurationMs: 1000,
         },
       ],
     });
 
     expect(stats.byProvider.openai?.requestCount).toBe(2);
     expect(stats.byModel['gpt-4o']?.totalTokens).toBe(30);
-    expect(stats.byOperation['text-generation']?.requestCount).toBe(2);
-    expect(stats.avgDurationMs).toBe(40);
+    expect(stats.byOperation['text-generation']?.requestCount).toBe(1);
+    expect(stats.byOperation.embedding?.avgDurationMs).toBe(1000);
+    expect(stats.avgDurationMs).toBe(80);
   });
 });

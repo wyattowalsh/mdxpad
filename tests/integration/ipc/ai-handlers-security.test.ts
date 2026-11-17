@@ -76,6 +76,7 @@ describe('AI IPC sender authorization integration', () => {
           inputTokens: 1,
           outputTokens: 1,
           estimatedCostUsd: 0.001,
+          avgDurationMs: 12,
           byProvider: {
             provider1: {
               providerId: 'provider-1',
