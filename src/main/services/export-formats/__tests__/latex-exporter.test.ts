@@ -355,6 +355,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('A & 1');
   });
 
+  it('aligns table columns and keeps an escaped pipe', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '| Item | Amount |\n| --- | ---: |\n| A \\| B | 2 |',
+      outputPath: '/tmp/aligned-table.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{tabular}{lr}');
+    expect(written).toContain('A | B & 2');
+  });
+
   it('keeps formulas and escapes prices', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

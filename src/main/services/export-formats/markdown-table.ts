@@ -1,9 +1,12 @@
+export type TableAlign = 'left' | 'center' | 'right';
+
 export interface MarkdownTable {
   readonly headers: readonly string[];
+  readonly aligns: readonly TableAlign[];
   readonly rows: readonly (readonly string[])[];
 }
 
-const SEPARATOR_CELL = /^\s*:?-{3,}:?\s*$/;
+const ESCAPABLE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
 
 export function isTableRow(line: string): boolean {
   const trimmed = line.trim();
@@ -15,10 +18,54 @@ function splitRow(line: string): string[] | null {
   if (!isTableRow(trimmed)) {
     return null;
   }
-  return trimmed
-    .slice(1, -1)
-    .split('|')
-    .map((cell) => cell.trim());
+  const inner = trimmed.slice(1, -1);
+  const cells: string[] = [];
+  let current = '';
+  for (let index = 0; index < inner.length; index += 1) {
+    const char = inner[index] ?? '';
+    const next = inner[index + 1] ?? '';
+    if (char === '\\' && ESCAPABLE.test(next)) {
+      current += next;
+      index += 1;
+      continue;
+    }
+    if (char === '|') {
+      cells.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function alignOf(cell: string): TableAlign | null {
+  const match = /^\s*(:?)-{3,}(:?)\s*$/.exec(cell);
+  if (!match) {
+    return null;
+  }
+  const left = match[1] === ':';
+  const right = match[2] === ':';
+  if (left && right) {
+    return 'center';
+  }
+  if (right) {
+    return 'right';
+  }
+  return 'left';
+}
+
+function columnAligns(cells: readonly string[]): TableAlign[] | null {
+  const aligns: TableAlign[] = [];
+  for (const cell of cells) {
+    const align = alignOf(cell);
+    if (!align) {
+      return null;
+    }
+    aligns.push(align);
+  }
+  return aligns;
 }
 
 function padRow(cells: readonly string[], width: number): string[] {
@@ -35,7 +82,8 @@ export function parseMarkdownTable(lines: readonly string[]): MarkdownTable | nu
   if (!header || !separator || header.length === 0 || separator.length !== header.length) {
     return null;
   }
-  if (!separator.every((cell) => SEPARATOR_CELL.test(cell))) {
+  const aligns = columnAligns(separator);
+  if (!aligns) {
     return null;
   }
   const rows: string[][] = [];
@@ -46,25 +94,49 @@ export function parseMarkdownTable(lines: readonly string[]): MarkdownTable | nu
     }
     rows.push(padRow(cells, header.length));
   }
-  return { headers: header, rows };
+  return { headers: header, aligns, rows };
 }
 
 export function markdownTableToHtml(
   table: MarkdownTable,
   renderCell: (cell: string) => string
 ): string {
-  const head = table.headers.map((cell) => `<th>${renderCell(cell)}</th>`).join('');
+  const cellTag = (tag: 'th' | 'td', cell: string, align: TableAlign): string => {
+    const style = align === 'left' ? '' : ` style="text-align: ${align}"`;
+    return `<${tag}${style}>${renderCell(cell)}</${tag}>`;
+  };
+  const head = table.headers
+    .map((cell, index) => cellTag('th', cell, table.aligns[index] ?? 'left'))
+    .join('');
   const body = table.rows
-    .map((row) => `<tr>${row.map((cell) => `<td>${renderCell(cell)}</td>`).join('')}</tr>`)
+    .map(
+      (row) =>
+        `<tr>${row.map((cell, index) => cellTag('td', cell, table.aligns[index] ?? 'left')).join('')}</tr>`
+    )
     .join('\n');
   return `<table>\n<thead><tr>${head}</tr></thead>\n<tbody>\n${body}\n</tbody>\n</table>`;
+}
+
+function latexColumn(align: TableAlign): string {
+  switch (align) {
+    case 'left':
+      return 'l';
+    case 'center':
+      return 'c';
+    case 'right':
+      return 'r';
+    default: {
+      const exhaustive: never = align;
+      return exhaustive;
+    }
+  }
 }
 
 export function markdownTableToLatex(
   table: MarkdownTable,
   renderCell: (cell: string) => string
 ): string {
-  const align = 'l'.repeat(table.headers.length);
+  const align = table.aligns.map((value) => latexColumn(value)).join('');
   const renderRow = (cells: readonly string[]): string =>
     `${cells.map((cell) => renderCell(cell)).join(' & ')} \\\\`;
   return [

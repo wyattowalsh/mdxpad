@@ -241,6 +241,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<td>1</td>');
   });
 
+  it('keeps an escaped pipe and a right-aligned column', async () => {
+    await exporter.export({
+      content: '| Item | Amount |\n| --- | ---: |\n| A \\| B | 2 |',
+      outputPath: '/tmp/aligned-table.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<th>Item</th>');
+    expect(html).toContain('<th style="text-align: right">Amount</th>');
+    expect(html).toContain('<td>A | B</td>');
+  });
+
   it('renders a formula and a display block', async () => {
     await exporter.export({
       content: 'See $x^2$.\n$$\nE = mc^2\n$$',

@@ -218,6 +218,26 @@ describe('DocxExporter', () => {
     expect(xml).toContain('Value');
   });
 
+  it('aligns a table column and keeps an escaped pipe', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '| Item | Amount |\n| --- | ---: |\n| A \\| B | 2 |',
+      outputPath: '/tmp/aligned-table.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('A | B');
+    expect(xml).toContain('w:val="right"');
+  });
+
   it('writes a formula as a Word equation and leaves a price as text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -21,7 +21,7 @@ import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
-import { isTableRow, parseMarkdownTable } from './markdown-table';
+import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
 import { quoteBody, quoteLineDepth } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
@@ -208,8 +208,33 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   return undefined;
 }
 
-function docxCell(text: string): TableCell {
-  return new TableCell({ children: [new Paragraph({ children: createParagraphChildren(text) })] });
+function docxCellAlignment(
+  align: TableAlign
+): typeof AlignmentType.CENTER | typeof AlignmentType.RIGHT | undefined {
+  switch (align) {
+    case 'left':
+      return undefined;
+    case 'center':
+      return AlignmentType.CENTER;
+    case 'right':
+      return AlignmentType.RIGHT;
+    default: {
+      const exhaustive: never = align;
+      return exhaustive;
+    }
+  }
+}
+
+function docxCell(text: string, align: TableAlign): TableCell {
+  const alignment = docxCellAlignment(align);
+  return new TableCell({
+    children: [
+      new Paragraph({
+        ...(alignment ? { alignment } : {}),
+        children: createParagraphChildren(text),
+      }),
+    ],
+  });
 }
 
 function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): void {
@@ -225,7 +250,9 @@ function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): vo
     return;
   }
   const toRow = (cells: readonly string[]): TableRow =>
-    new TableRow({ children: cells.map((cell) => docxCell(cell)) });
+    new TableRow({
+      children: cells.map((cell, index) => docxCell(cell, table.aligns[index] ?? 'left')),
+    });
   blocks.push(new Table({ rows: [toRow(table.headers), ...table.rows.map((row) => toRow(row))] }));
 }
 
