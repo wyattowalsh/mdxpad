@@ -240,7 +240,36 @@ function backticksFor(node: ProseMirrorNode, side: number): string {
  * ProseMirror Markdown serializer configured for MDX content.
  * Converts ProseMirror documents back to Markdown/MDX text.
  */
-export const mdxSerializer = new MarkdownSerializer(nodeSerializers, markSerializers);
+interface WritableSerializerState {
+  out: string;
+  esc: (value: string, startOfLine?: boolean) => string;
+  renderContent: (content: ProseMirrorNode) => void;
+}
+
+function openSerializerState(
+  serializer: MarkdownSerializer,
+  options?: { tightLists?: boolean }
+): WritableSerializerState {
+  const State = MarkdownSerializerState as unknown as new (
+    nodes: object,
+    marks: object,
+    options: object
+  ) => WritableSerializerState;
+  return new State(serializer.nodes, serializer.marks, { ...serializer.options, ...options });
+}
+
+class MdxMarkdownSerializer extends MarkdownSerializer {
+  override serialize(content: ProseMirrorNode, options?: { tightLists?: boolean }): string {
+    const state = openSerializerState(this, options);
+    const escape = state.esc.bind(state);
+    state.esc = (value: string, startOfLine = false) =>
+      escape(value, startOfLine).replaceAll('\\~', '~');
+    state.renderContent(content);
+    return state.out;
+  }
+}
+
+export const mdxSerializer = new MdxMarkdownSerializer(nodeSerializers, markSerializers);
 
 /**
  * Serialize a ProseMirror document to MDX/Markdown string.

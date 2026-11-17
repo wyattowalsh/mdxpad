@@ -89,4 +89,10 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('~~gone~~');
     expect(serialized).not.toContain('\\~');
   });
+
+  it('keeps a single tilde as text', () => {
+    const serialized = roundTrip('H~2~O and `H~2~O`\n');
+    expect(serialized).toContain('H~2~O and `H~2~O`');
+    expect(serialized).not.toContain('\\~');
+  });
 });
