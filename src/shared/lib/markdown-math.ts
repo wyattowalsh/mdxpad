@@ -1,5 +1,7 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
+import { escapeLooseTags } from './markdown-tags';
+
 const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const MDX_EXPRESSION_OPTIONS: AcornOptions = {
   ecmaVersion: 2024,
@@ -79,85 +81,6 @@ function rewriteAutolinks(value: string): string {
     );
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-const HTML_TAGS = new Set([
-  'a',
-  'abbr',
-  'article',
-  'aside',
-  'b',
-  'blockquote',
-  'button',
-  'caption',
-  'code',
-  'dd',
-  'del',
-  'details',
-  'div',
-  'dl',
-  'dt',
-  'em',
-  'figcaption',
-  'figure',
-  'footer',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'header',
-  'i',
-  'kbd',
-  'li',
-  'main',
-  'mark',
-  'nav',
-  'ol',
-  'p',
-  'pre',
-  'q',
-  's',
-  'section',
-  'small',
-  'span',
-  'strong',
-  'sub',
-  'summary',
-  'sup',
-  'table',
-  'tbody',
-  'td',
-  'tfoot',
-  'th',
-  'thead',
-  'tr',
-  'u',
-  'ul',
-]);
-
-function escapeLooseTags(value: string, prose: string): string {
-  return value.replace(/<([^<>]+)>/g, (full, inner: string) => {
-    if (full.endsWith('/>') || inner.startsWith('/')) {
-      return full;
-    }
-    const name = /^([A-Za-z][\w.-]*)/.exec(inner)?.[1];
-    if (!name) {
-      return `&lt;${inner}&gt;`;
-    }
-    if (new RegExp(`</${escapeRegExp(name)}\\s*>`).test(prose)) {
-      return full;
-    }
-    if (HTML_TAGS.has(name.toLowerCase())) {
-      return full;
-    }
-    return `&lt;${inner}&gt;`;
-  });
-}
-
 function closingBrace(value: string, open: number): number {
   let depth = 0;
   let quote: string | null = null;
@@ -197,6 +120,10 @@ function remainderIsEmpty(value: string): boolean {
 }
 
 function shouldEscapeExpression(expression: string): boolean {
+  const trimmed = expression.trim();
+  if (trimmed.startsWith('#') || trimmed.startsWith('%')) {
+    return true;
+  }
   try {
     const node = Parser.parseExpressionAt(expression, 0, MDX_EXPRESSION_OPTIONS);
     return !remainderIsEmpty(expression.slice(node.end));

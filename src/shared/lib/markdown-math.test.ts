@@ -45,6 +45,16 @@ describe('normalizeTexMath', () => {
       '{css({ color: "red" })} and {(a)} and `{a <= b}`'
     );
     expect(prepareMarkdownSource('Use {foo: 1}')).toContain('\\{foo: 1\\}');
+    expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
+      'I &lt;3 this'
+    );
+    expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain('&lt;&lt;');
+    expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
+      'Array&lt;Array&lt;T&gt;&gt;'
+    );
+    expect(prepareMarkdownSource('Use <> fragments and {#anchor}')).toBe(
+      'Use &lt;&gt; fragments and \\{#anchor\\}'
+    );
     expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
       'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
     );

@@ -23,6 +23,18 @@ describe('remark math prices', () => {
     }
   });
 
+  it('compiles a heart, a nested type, and a fragment in prose', async () => {
+    const result = await compileMdx(
+      testId('mdx-angles'),
+      'I <3 this, Array<Array<T>>, and <> here, plus {#anchor}'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('I <3 this');
+      expect(result.code).toContain('Array');
+    }
+  });
+
   it('compiles a comparison and a JSON sample', async () => {
     const result = await compileMdx(testId('mdx-json'), 'Compare a <= b and JSON {"a": 1}');
     expect(result.ok).toBe(true);
