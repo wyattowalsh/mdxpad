@@ -70,6 +70,26 @@ export function joinVoiceTranscript(current: string, addition: string): string {
   return `${current} ${addition}`;
 }
 
+/** Add spaces around spoken text when it would otherwise stick to the neighboring characters. */
+export function speechToInsert(
+  beforeChar: string,
+  afterChar: string,
+  addition: string,
+  replacing: boolean
+): string {
+  if (replacing || addition.length === 0) {
+    return addition;
+  }
+  let text = addition;
+  if (beforeChar.length > 0 && !/\s/.test(beforeChar) && !/^\s/.test(text)) {
+    text = ` ${text}`;
+  }
+  if (afterChar.length > 0 && !/\s/.test(afterChar) && !/\s$/.test(text)) {
+    text = `${text} `;
+  }
+  return text;
+}
+
 /** Insert spoken text at the cursor and return where the next word should continue. */
 export function insertVoiceAtSelection(
   current: string,

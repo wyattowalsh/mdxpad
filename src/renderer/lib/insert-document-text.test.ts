@@ -5,6 +5,7 @@ import {
   insertTextAtSelection,
   insertVoiceAtSelection,
   joinVoiceTranscript,
+  speechToInsert,
 } from './insert-document-text';
 
 describe('insertDiagramFence', () => {
@@ -41,6 +42,14 @@ describe('joinVoiceTranscript', () => {
 
   it('does not add a second space when the transcript already starts with one', () => {
     expect(joinVoiceTranscript('Hello', ' there')).toBe('Hello there');
+  });
+});
+
+describe('speechToInsert', () => {
+  it('separates speech from the characters around the cursor', () => {
+    expect(speechToInsert('o', 'w', 'there', false)).toBe(' there ');
+    expect(speechToInsert(' ', 'w', 'there', false)).toBe('there ');
+    expect(speechToInsert('o', 'w', 'Hi', true)).toBe('Hi');
   });
 });
 

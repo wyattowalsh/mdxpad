@@ -12,8 +12,10 @@ import { VoiceInputButton } from './VoiceInputButton';
 
 export function EditorVoiceControl({
   editorRef = null,
+  insertSpeech = null,
 }: {
   readonly editorRef?: RefObject<EditorView | null> | null | undefined;
+  readonly insertSpeech?: ((text: string) => void) | null;
 }): React.JSX.Element {
   const { transcript, isListening, isSupported, error, start, stop } = useVoiceInput();
   const insertedRef = useRef(0);
@@ -26,6 +28,10 @@ export function EditorVoiceControl({
     const addition = transcript.slice(insertedRef.current);
     insertedRef.current = transcript.length;
     if (addition.length === 0) {
+      return;
+    }
+    if (insertSpeech) {
+      insertSpeech(addition);
       return;
     }
     const view = editorRef?.current ?? null;
@@ -41,7 +47,7 @@ export function EditorVoiceControl({
       });
     }
     useDocumentStore.getState().setContent(text);
-  }, [editorRef, transcript]);
+  }, [editorRef, insertSpeech, transcript]);
 
   return (
     <div className="flex items-center gap-2">

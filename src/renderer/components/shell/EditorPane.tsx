@@ -13,7 +13,7 @@ import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { EditorModeToggle } from '../editor/EditorModeToggle';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
-import { WysiwygEditor } from '../editor/WysiwygEditor';
+import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { selectEditorMode, useEditorModeStore } from '@renderer/stores/editor-mode-store';
 import {
@@ -140,6 +140,10 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
   const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
   const editorMode = useEditorModeStore(selectEditorMode);
+  const wysiwygRef = useRef<WysiwygEditorHandle>(null);
+  const insertWysiwygSpeech = useCallback((text: string) => {
+    wysiwygRef.current?.insertSpeech(text);
+  }, []);
   const distractionFree = useEditorPreferencesStore(selectDistractionFreeEnabled);
   useEffect(() => {
     const dom = editorRef?.current?.dom;
@@ -221,11 +225,19 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)} style={{ height }}>
       <div className="flex items-center justify-end gap-2 border-b px-2 py-1">
-        <EditorVoiceControl editorRef={editorMode === 'wysiwyg' ? null : editorRef} />
+        <EditorVoiceControl
+          editorRef={editorMode === 'wysiwyg' ? null : editorRef}
+          insertSpeech={editorMode === 'wysiwyg' ? insertWysiwygSpeech : null}
+        />
         <EditorModeToggle />
       </div>
       {editorMode === 'wysiwyg' ? (
-        <WysiwygEditor content={content} onChange={setContent} className="min-h-0 flex-1" />
+        <WysiwygEditor
+          ref={wysiwygRef}
+          content={content}
+          onChange={setContent}
+          className="min-h-0 flex-1"
+        />
       ) : (
         <MDXEditor {...editorProps} />
       )}

@@ -21,6 +21,7 @@ import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer
 import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
 import type { ToolbarAction } from './WysiwygToolbar';
 import { cn } from '@shared/lib/utils';
+import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
 
 // =============================================================================
 // TYPES
@@ -30,6 +31,10 @@ export interface WysiwygEditorProps {
   readonly content: string;
   readonly onChange: (content: string) => void;
   readonly className?: string;
+}
+
+export interface WysiwygEditorHandle {
+  insertSpeech: (text: string) => void;
 }
 
 interface ActiveMarks {
@@ -284,46 +289,60 @@ function buildToolbarActions(
   });
 }
 
-export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({ content, onChange, className }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const onChangeRef = React.useRef(onChange);
-  onChangeRef.current = onChange;
+export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditorProps>(
+  function WysiwygEditor({ content, onChange, className }, ref) {
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const onChangeRef = React.useRef(onChange);
+    onChangeRef.current = onChange;
 
-  const [activeMarks, setActiveMarks] = React.useState<ActiveMarks>({
-    bold: false,
-    italic: false,
-    strikethrough: false,
-    code: false,
-  });
-  const [activeBlocks, setActiveBlocks] = React.useState<ActiveBlocks>({
-    bulletList: false,
-    orderedList: false,
-    blockquote: false,
-  });
+    const [activeMarks, setActiveMarks] = React.useState<ActiveMarks>({
+      bold: false,
+      italic: false,
+      strikethrough: false,
+      code: false,
+    });
+    const [activeBlocks, setActiveBlocks] = React.useState<ActiveBlocks>({
+      bulletList: false,
+      orderedList: false,
+      blockquote: false,
+    });
 
-  const onStateUpdate = React.useCallback((state: EditorState) => {
-    setActiveMarks(computeActiveMarks(state));
-    setActiveBlocks(computeActiveBlocks(state));
-  }, []);
+    const onStateUpdate = React.useCallback((state: EditorState) => {
+      setActiveMarks(computeActiveMarks(state));
+      setActiveBlocks(computeActiveBlocks(state));
+    }, []);
 
-  const viewRef = useEditorView(containerRef, content, onChangeRef, onStateUpdate);
-  const fmt = useFormatHandlers(viewRef);
-  const ins = useInsertHandlers(viewRef);
+    const viewRef = useEditorView(containerRef, content, onChangeRef, onStateUpdate);
+    React.useImperativeHandle(
+      ref,
+      () => ({
+        insertSpeech(text: string) {
+          const view = viewRef.current;
+          if (view) {
+            insertSpeechIntoView(view, text);
+          }
+        },
+      }),
+      [viewRef]
+    );
+    const fmt = useFormatHandlers(viewRef);
+    const ins = useInsertHandlers(viewRef);
 
-  const toolbarActions = React.useMemo(
-    () => buildToolbarActions(fmt, ins, activeMarks, activeBlocks),
-    [fmt, ins, activeMarks, activeBlocks]
-  );
+    const toolbarActions = React.useMemo(
+      () => buildToolbarActions(fmt, ins, activeMarks, activeBlocks),
+      [fmt, ins, activeMarks, activeBlocks]
+    );
 
-  return (
-    <div className={cn('flex flex-col', className)}>
-      <WysiwygToolbar actions={toolbarActions} />
-      <div
-        ref={containerRef}
-        className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none"
-      />
-    </div>
-  );
-};
+    return (
+      <div className={cn('flex flex-col', className)}>
+        <WysiwygToolbar actions={toolbarActions} />
+        <div
+          ref={containerRef}
+          className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none"
+        />
+      </div>
+    );
+  }
+);
 
 WysiwygEditor.displayName = 'WysiwygEditor';
