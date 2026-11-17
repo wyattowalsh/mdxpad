@@ -44,6 +44,7 @@ import {
 import { useEditorPreferencesStore } from './stores/editor-preferences-store';
 import { openFileFromPath } from './lib/open-file-from-path';
 import { MountedUtilityPanels } from './components/shell/MountedUtilityPanels';
+import { AiWriteSidebar } from './components/ai/AiWriteSidebar';
 import { useAppState } from './hooks/useAppState';
 import { useAppDialogs } from './hooks/useAppDialogs';
 import { useMenuEvents } from './hooks/useMenuEvents';
@@ -247,6 +248,7 @@ export function App(): React.ReactElement {
                 }
               />
             )}
+            {aiFeatureEnabled && <AiWriteSidebar />}
             {state.outlineVisible && (
               <OutlinePanel onNavigate={state.handleOutlineNavigate} className="flex-1 min-h-0" />
             )}

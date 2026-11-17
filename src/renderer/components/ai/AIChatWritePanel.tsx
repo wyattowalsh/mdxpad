@@ -18,15 +18,20 @@ import {
   selectStreamText,
 } from '@renderer/stores/ai-session-store';
 import { selectFeatureFlag, useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
-
-const WRITE_ACTION_PROMPTS = {
-  continue: 'Continue writing from the current document context.',
-  rewrite: 'Rewrite the selected content for clarity and readability.',
-  summarize: 'Summarize the selected content into concise key points.',
-  custom: '',
-} as const;
-
-type WriteActionId = keyof typeof WRITE_ACTION_PROMPTS;
+import { selectFilePath, useDocumentStore } from '@renderer/stores/document-store';
+import { selectWorkspaceModel, useWorkspaceStore } from '@renderer/stores/workspace-store';
+import { selectActiveProvider, useAIProviderStore } from '@renderer/features/ai-provider/store';
+import {
+  INSTRUCTION_LOAD_FAILED_MESSAGE,
+  WRITE_ACTION_IDS,
+  buildAttachmentLoadOptions,
+  buildCreateSessionRequest,
+  buildWriteActionPrompt,
+  buildWritePrompt,
+  resolveListedModelId,
+  type WriteActionId,
+  type WriteInstruction,
+} from './build-write-prompt';
 
 const WRITE_ACTION_LABELS: Record<WriteActionId, string> = {
   continue: 'Continue writing',
@@ -35,21 +40,14 @@ const WRITE_ACTION_LABELS: Record<WriteActionId, string> = {
   custom: 'Custom',
 };
 
+const WORKSPACE_REQUIRED_MESSAGE = 'A workspace is required to create a session.';
+
 export interface AIChatWritePanelProps {
   readonly workspaceId?: string;
   readonly workspaceRootPath?: string;
   readonly projectRootPath?: string;
   readonly instructionScope?: AIInstructionScope;
   readonly className?: string;
-}
-
-function buildWriteActionPrompt(action: WriteActionId, input: string): string {
-  const basePrompt = WRITE_ACTION_PROMPTS[action];
-  const trimmedInput = input.trim();
-  if (!basePrompt) {
-    return trimmedInput;
-  }
-  return trimmedInput.length > 0 ? `${basePrompt}\n\n${trimmedInput}` : basePrompt;
 }
 
 export function AIChatWritePanel({
@@ -71,29 +69,42 @@ export function AIChatWritePanel({
   const isStreaming = useAISessionStore(selectIsStreaming);
   const streamText = useAISessionStore(selectStreamText);
   const error = useAISessionStore(selectError);
+  const workspaceModel = useWorkspaceStore(selectWorkspaceModel);
+  const activeProvider = useAIProviderStore(selectActiveProvider);
+  const documentPath = useDocumentStore(selectFilePath);
 
   const loadSessions = useAISessionStore((state) => state.loadSessions);
   const loadAttachmentOptions = useAISessionStore((state) => state.loadAttachmentOptions);
   const selectSession = useAISessionStore((state) => state.selectSession);
   const attachPrompt = useAISessionStore((state) => state.attachPrompt);
   const attachInstruction = useAISessionStore((state) => state.attachInstruction);
+  const createSession = useAISessionStore((state) => state.createSession);
+  const setError = useAISessionStore((state) => state.setError);
   const startStream = useAISessionStore((state) => state.startStream);
   const cancelStream = useAISessionStore((state) => state.cancelStream);
 
   const [writeAction, setWriteAction] = useState<WriteActionId>('continue');
   const [writeInput, setWriteInput] = useState('');
 
-  const attachmentLoadOptions = useMemo(() => {
-    if (!workspaceId && !workspaceRootPath && !projectRootPath && !instructionScope) {
-      return undefined;
-    }
-    return {
-      ...(workspaceId ? { workspaceId } : {}),
-      ...(workspaceRootPath ? { workspaceRootPath } : {}),
-      ...(projectRootPath ? { projectRootPath } : {}),
-      ...(instructionScope ? { instructionScope } : {}),
-    };
-  }, [instructionScope, projectRootPath, workspaceId, workspaceRootPath]);
+  const attachmentLoadOptions = useMemo(
+    () =>
+      buildAttachmentLoadOptions({
+        workspaceId,
+        workspaceRootPath,
+        projectRootPath,
+        instructionScope,
+        workspaceRootPathFromStore: workspaceModel?.workspace.rootPath,
+        documentPath,
+      }),
+    [
+      documentPath,
+      instructionScope,
+      projectRootPath,
+      workspaceId,
+      workspaceModel,
+      workspaceRootPath,
+    ]
+  );
 
   useEffect(() => {
     void loadSessions(workspaceId);
@@ -108,6 +119,7 @@ export function AIChatWritePanel({
   const canTriggerWriteAction =
     selectedSession !== null && composedPrompt.length > 0 && !isLoading && !isStreaming;
   const hasSelectedSession = selectedSession !== null;
+  const canCreateSession = workspaceModel !== null && activeProvider?.status === 'connected';
 
   const handleSessionChange = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
@@ -137,12 +149,80 @@ export function AIChatWritePanel({
     setWriteAction(event.target.value as WriteActionId);
   }, []);
 
+  const handleCreateSession = useCallback(() => {
+    const workspaceIdForCreate = useWorkspaceStore.getState().model?.workspace.id;
+    const provider = selectActiveProvider(useAIProviderStore.getState());
+    if (!workspaceIdForCreate || provider?.status !== 'connected') {
+      return;
+    }
+    const providerId = provider.id;
+    const fileId = useDocumentStore.getState().fileId;
+
+    void (async () => {
+      try {
+        const listed = await window.mdxpad.ai.listModels(providerId);
+        const resolution = resolveListedModelId(listed);
+        if (!resolution.ok) {
+          setError(resolution.error);
+          return;
+        }
+        await createSession(
+          buildCreateSessionRequest({
+            workspaceId: workspaceIdForCreate,
+            providerId,
+            modelId: resolution.modelId,
+            fileId,
+          })
+        );
+      } catch (loadError: unknown) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Failed to list models for the active provider'
+        );
+      }
+    })();
+  }, [createSession, setError]);
+
   const handleRunAction = useCallback(() => {
     if (!canTriggerWriteAction) {
       return;
     }
-    void startStream({ prompt: composedPrompt });
-  }, [canTriggerWriteAction, composedPrompt, startStream]);
+    const actionText = composedPrompt;
+    const instructionId = attachedInstructionId;
+
+    void (async () => {
+      let instruction: WriteInstruction | null = null;
+      if (instructionId) {
+        try {
+          const loaded = await window.mdxpad.ai.loadInstruction(instructionId);
+          if (loaded.instruction === null) {
+            setError(INSTRUCTION_LOAD_FAILED_MESSAGE);
+            return;
+          }
+          instruction = {
+            fileName: loaded.instruction.metadata.fileName,
+            content: loaded.instruction.content,
+          };
+        } catch (loadError: unknown) {
+          setError(
+            loadError instanceof Error ? loadError.message : INSTRUCTION_LOAD_FAILED_MESSAGE
+          );
+          return;
+        }
+      }
+
+      const document = useDocumentStore.getState();
+      await startStream({
+        prompt: buildWritePrompt(
+          actionText,
+          document.filePath ?? 'Untitled',
+          document.content,
+          instruction
+        ),
+      });
+    })();
+  }, [attachedInstructionId, canTriggerWriteAction, composedPrompt, setError, startStream]);
 
   const handleCancelAction = useCallback(() => {
     if (!isStreaming) {
@@ -162,21 +242,37 @@ export function AIChatWritePanel({
     >
       <div className="space-y-2">
         <Label htmlFor="ai-session-select">AI Session</Label>
-        <select
-          id="ai-session-select"
-          data-testid="ai-session-select"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-          value={selectedSession?.id ?? ''}
-          onChange={handleSessionChange}
-          disabled={isLoading}
-        >
-          <option value="">Select session</option>
-          {sessions.map((session) => (
-            <option key={session.id} value={session.id}>
-              {session.model} · {session.id.slice(0, 8)}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            id="ai-session-select"
+            data-testid="ai-session-select"
+            className="flex h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            value={selectedSession?.id ?? ''}
+            onChange={handleSessionChange}
+            disabled={isLoading}
+          >
+            <option value="">Select session</option>
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.model} · {session.id.slice(0, 8)}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            data-testid="ai-create-session-button"
+            onClick={handleCreateSession}
+            disabled={!canCreateSession}
+          >
+            New session
+          </Button>
+        </div>
+        {workspaceModel === null && (
+          <p data-testid="ai-workspace-required" className="text-sm text-muted-foreground">
+            {WORKSPACE_REQUIRED_MESSAGE}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -229,14 +325,11 @@ export function AIChatWritePanel({
           onChange={handleWriteActionChange}
           disabled={!hasSelectedSession || isLoading}
         >
-          {Object.keys(WRITE_ACTION_LABELS).map((actionKey) => {
-            const action = actionKey as WriteActionId;
-            return (
-              <option key={action} value={action}>
-                {WRITE_ACTION_LABELS[action]}
-              </option>
-            );
-          })}
+          {WRITE_ACTION_IDS.map((action) => (
+            <option key={action} value={action}>
+              {WRITE_ACTION_LABELS[action]}
+            </option>
+          ))}
         </select>
 
         <Textarea

@@ -6,6 +6,7 @@ import type {
   AIInstructionFileMetadata,
   AISessionPromptContext,
   AIInstructionScope,
+  AIInstructionListRequest,
   AISessionCreateRequest,
   AISessionRestorationMetadata,
 } from '@shared/contracts/ai-schemas';
@@ -52,6 +53,7 @@ export interface LoadAttachmentOptions {
   workspaceRootPath?: string;
   projectRootPath?: string;
   instructionScope?: AIInstructionScope;
+  documentPath?: string;
 }
 
 export interface StartStreamRequest {
@@ -73,6 +75,7 @@ export interface AISessionStoreActions {
   startStream: (request: StartStreamRequest) => Promise<void>;
   cancelStream: () => Promise<void>;
   clearStream: () => void;
+  setError: (message: string) => void;
   clearError: () => void;
   reset: () => void;
 }
@@ -142,6 +145,28 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 function getResponseErrorMessage(error: { message: string } | undefined, fallback: string): string {
   return error?.message ?? fallback;
+}
+
+function toInstructionListRequest(
+  options: LoadAttachmentOptions
+): AIInstructionListRequest | undefined {
+  if (
+    !options.workspaceId &&
+    !options.instructionScope &&
+    !options.projectRootPath &&
+    !options.workspaceRootPath &&
+    !options.documentPath
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+    ...(options.instructionScope ? { scope: options.instructionScope } : {}),
+    ...(options.projectRootPath ? { projectRootPath: options.projectRootPath } : {}),
+    ...(options.workspaceRootPath ? { workspaceRootPath: options.workspaceRootPath } : {}),
+    ...(options.documentPath ? { documentPath: options.documentPath } : {}),
+  };
 }
 
 function omitRecordKey<T>(record: Record<string, T>, key: string): Record<string, T> {
@@ -467,14 +492,7 @@ export const useAISessionStore = create<AISessionStore>()(
                 }
               : undefined
           ),
-          window.mdxpad.ai.listInstructions(
-            options.workspaceId || options.instructionScope
-              ? {
-                  ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
-                  ...(options.instructionScope ? { scope: options.instructionScope } : {}),
-                }
-              : undefined
-          ),
+          window.mdxpad.ai.listInstructions(toInstructionListRequest(options)),
         ]);
 
         set((draft) => {
@@ -692,6 +710,12 @@ export const useAISessionStore = create<AISessionStore>()(
         draft.stream = { ...INITIAL_STREAM_STATE };
         draft.isStreaming = false;
       }),
+
+    setError: (message) => {
+      set((draft) => {
+        draft.error = message;
+      });
+    },
 
     clearError: () =>
       set((draft) => {

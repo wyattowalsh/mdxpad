@@ -183,6 +183,30 @@ describe('useAISessionStore', () => {
     expect(state.instructions).toEqual([instruction]);
   });
 
+  it('forwards workspaceRootPath and documentPath when loading attachment options', async () => {
+    mockAIApi.listPrompts.mockResolvedValue({ prompts: [] });
+    mockAIApi.listInstructions.mockResolvedValue({ instructions: [] });
+
+    await useAISessionStore.getState().loadAttachmentOptions({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceRootPath: '/workspace/notes',
+      projectRootPath: '/workspace/notes/pkg',
+      documentPath: '/workspace/notes/draft.mdx',
+    });
+
+    expect(mockAIApi.listPrompts).toHaveBeenCalledWith({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceRootPath: '/workspace/notes',
+      projectRootPath: '/workspace/notes/pkg',
+    });
+    expect(mockAIApi.listInstructions).toHaveBeenCalledWith({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceRootPath: '/workspace/notes',
+      projectRootPath: '/workspace/notes/pkg',
+      documentPath: '/workspace/notes/draft.mdx',
+    });
+  });
+
   it('attaches prompt and instruction to the selected session', async () => {
     const session = createSession();
     const prompt = createPrompt();
