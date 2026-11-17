@@ -77,7 +77,6 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(AutosaveChannels),
   ...Object.values(IPC_CHANNELS.template),
   ...Object.values(IPC_CHANNELS.sync),
-  ...Object.values(IPC_CHANNELS.collaboration),
   ...Object.values(IPC_CHANNELS.extension),
   ...Object.values(IPC_CHANNELS.workspace),
   ...Object.values(IPC_CHANNELS.publish),

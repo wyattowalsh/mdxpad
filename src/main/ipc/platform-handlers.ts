@@ -204,7 +204,8 @@ function registerSyncHandlers(ipcMainInstance: IpcMain, window: BrowserWindow): 
   registerChannel(ipcMainInstance, window, IPC_CHANNELS.sync.pullDocument, handleSyncPull);
 }
 
-function registerCollaborationHandlers(ipcMainInstance: IpcMain, window: BrowserWindow): void {
+/** Editor comments stay local. Register these only when a screen calls them. */
+export function registerCollaborationHandlers(ipcMainInstance: IpcMain, window: BrowserWindow): void {
   registerChannel(
     ipcMainInstance,
     window,
@@ -266,7 +267,6 @@ function registerPublishHandlers(ipcMainInstance: IpcMain, window: BrowserWindow
 
 export function registerPlatformHandlers(ipcMainInstance: IpcMain, window: BrowserWindow): void {
   registerSyncHandlers(ipcMainInstance, window);
-  registerCollaborationHandlers(ipcMainInstance, window);
   registerExtensionHandlers(ipcMainInstance, window);
   registerPublishHandlers(ipcMainInstance, window);
 }
