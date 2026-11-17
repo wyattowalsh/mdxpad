@@ -1,15 +1,17 @@
 import { writeFile } from 'node:fs/promises';
 
 import {
+  AlignmentType,
   Document,
+  ExternalHyperlink,
   HeadingLevel,
+  Math,
   Packer,
   Paragraph,
   TextRun,
-  ExternalHyperlink,
-  AlignmentType,
 } from 'docx';
 
+import { mathComponents, splitDocxPieces } from './docx-math';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 type HeadingLevelValue =
@@ -81,6 +83,18 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
   return segments;
 }
 
+function createParagraphChildren(text: string): (TextRun | ExternalHyperlink | Math)[] {
+  const children: (TextRun | ExternalHyperlink | Math)[] = [];
+  for (const piece of splitDocxPieces(text)) {
+    if (piece.kind === 'math') {
+      children.push(new Math({ children: mathComponents(piece.tex) }));
+      continue;
+    }
+    children.push(...createTextRuns(parseInlineFormatting(piece.text)));
+  }
+  return children.length > 0 ? children : [new TextRun('')];
+}
+
 function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink)[] {
   return segments.map((segment) => {
     if (segment.link) {
@@ -119,7 +133,7 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
     const level = headingMatch[1]?.length ?? 1;
     return new Paragraph({
       heading: getHeadingLevel(level),
-      children: createTextRuns(parseInlineFormatting(headingMatch[2] ?? '')),
+      children: createParagraphChildren(headingMatch[2] ?? ''),
     });
   }
 
@@ -127,7 +141,7 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   if (ulMatch) {
     return new Paragraph({
       bullet: { level: 0 },
-      children: createTextRuns(parseInlineFormatting(ulMatch[1] ?? '')),
+      children: createParagraphChildren(ulMatch[1] ?? ''),
     });
   }
 
@@ -135,7 +149,7 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   if (olMatch) {
     return new Paragraph({
       numbering: { reference: 'default-numbering', level: 0 },
-      children: createTextRuns(parseInlineFormatting(olMatch[1] ?? '')),
+      children: createParagraphChildren(olMatch[1] ?? ''),
     });
   }
 
@@ -150,11 +164,38 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   return undefined;
 }
 
+function pushDisplayMath(paragraphs: Paragraph[], lines: readonly string[]): void {
+  paragraphs.push(
+    new Paragraph({ children: [new Math({ children: mathComponents(lines.join('\n')) })] })
+  );
+}
+
+function takeDisplayLine(
+  paragraphs: Paragraph[],
+  line: string,
+  displayLines: string[] | null
+): string[] | null | false {
+  const trimmed = line.trim();
+  if (trimmed !== '$$' && displayLines === null) {
+    return false;
+  }
+  if (trimmed === '$$' && displayLines) {
+    pushDisplayMath(paragraphs, displayLines);
+    return null;
+  }
+  if (trimmed === '$$') {
+    return [];
+  }
+  displayLines?.push(line);
+  return displayLines;
+}
+
 function parseContentToParagraphs(content: string): Paragraph[] {
   const paragraphs: Paragraph[] = [];
   const lines = content.split('\n');
   let inCodeBlock = false;
   const codeLines: string[] = [];
+  let displayLines: string[] | null = null;
 
   for (const line of lines) {
     if (line.trimStart().startsWith('```')) {
@@ -173,6 +214,12 @@ function parseContentToParagraphs(content: string): Paragraph[] {
       continue;
     }
 
+    const nextDisplay = takeDisplayLine(paragraphs, line, displayLines);
+    if (nextDisplay !== false) {
+      displayLines = nextDisplay;
+      continue;
+    }
+
     const trimmed = line.trim();
     if (trimmed === '') {
       paragraphs.push(new Paragraph({ children: [] }));
@@ -183,10 +230,13 @@ function parseContentToParagraphs(content: string): Paragraph[] {
     if (special) {
       paragraphs.push(special);
     } else {
-      paragraphs.push(new Paragraph({ children: createTextRuns(parseInlineFormatting(trimmed)) }));
+      paragraphs.push(new Paragraph({ children: createParagraphChildren(trimmed) }));
     }
   }
 
+  if (displayLines) {
+    pushDisplayMath(paragraphs, displayLines);
+  }
   if (inCodeBlock && codeLines.length > 0) {
     paragraphs.push(createCodeBlockParagraph(codeLines));
   }

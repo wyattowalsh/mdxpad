@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { DocxExporter, parseInlineFormatting } from '../docx-exporter';
@@ -105,6 +106,28 @@ describe('DocxExporter', () => {
 
     const result = await exporter.export(options);
     expect(result.ok).toBe(true);
+  });
+
+  it('writes a formula as a Word equation and leaves a price as text', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See $x^2$ and $5 and $10.\n$$\n\\frac{a}{b}\n$$',
+      outputPath: '/tmp/math.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('<m:sSup');
+    expect(xml).toContain('<m:f>');
+    expect(xml).toContain('$5 and $10');
+    expect(xml).not.toContain('$x^2$');
   });
 
   it('returns error on write failure', async () => {
