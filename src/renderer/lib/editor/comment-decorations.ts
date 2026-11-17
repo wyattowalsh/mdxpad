@@ -93,6 +93,30 @@ interface CommentDecorationState {
 }
 
 /**
+ * Keep comment highlights inside the document and out of each other's way.
+ * CodeMirror rejects a decoration set that contains overlapping ranges.
+ */
+export function commentRangesForDecorations(
+  ranges: readonly CommentRange[],
+  docLength: number
+): CommentRange[] {
+  const sorted = ranges
+    .filter((range) => range.from >= 0 && range.to <= docLength && range.from < range.to)
+    .sort((a, b) => a.from - b.from || a.to - b.to);
+  const placed: CommentRange[] = [];
+  let end = 0;
+  for (const range of sorted) {
+    const from = Math.max(range.from, end);
+    if (from >= range.to) {
+      continue;
+    }
+    placed.push(from === range.from ? range : { ...range, from });
+    end = range.to;
+  }
+  return placed;
+}
+
+/**
  * Build decorations from comment ranges and active thread.
  */
 function buildDecorations(
@@ -100,14 +124,7 @@ function buildDecorations(
   activeThreadId: string | null,
   docLength: number
 ): DecorationSet {
-  if (ranges.length === 0) {
-    return Decoration.none;
-  }
-
-  // Filter out ranges that exceed doc bounds and sort by from position
-  const validRanges = ranges
-    .filter((r) => r.from >= 0 && r.to <= docLength && r.from < r.to)
-    .sort((a, b) => a.from - b.from || a.to - b.to);
+  const validRanges = commentRangesForDecorations(ranges, docLength);
 
   if (validRanges.length === 0) {
     return Decoration.none;
