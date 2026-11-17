@@ -208,6 +208,14 @@ export class MdxPluginRegistry {
   }
 }
 
+const gfmOptionsSchema = z
+  .object({
+    singleTilde: z.boolean().optional(),
+  })
+  .passthrough();
+
+type GfmOptions = z.infer<typeof gfmOptionsSchema>;
+
 const highlightOptionsSchema = z
   .object({
     aliases: z.record(z.array(z.string())).optional(),
@@ -279,11 +287,16 @@ function createDeferredHighlightPlugin(options: HighlightOptions | undefined): M
 }
 
 function registerDefaultPlugins(registry: MdxPluginRegistry): MdxPluginRegistry {
-  registry.register({
+  registry.register<GfmOptions>({
     name: 'remark-gfm',
     kind: 'remark',
     enabledByDefault: true,
-    create: () => remarkGfm as MdxPipelinePluginFactory,
+    defaultOptions: { singleTilde: false },
+    optionsSchema: gfmOptionsSchema,
+    create: (_context, options) => [
+      remarkGfm as MdxPipelinePluginFactory,
+      { singleTilde: false, ...options },
+    ],
   });
 
   registry.register({

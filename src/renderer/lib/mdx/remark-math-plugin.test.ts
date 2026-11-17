@@ -35,6 +35,16 @@ describe('remark math prices', () => {
     }
   });
 
+  it('strikes a double tilde and leaves a single tilde as text', async () => {
+    const result = await compileMdx(testId('mdx-tilde'), 'H~2~O and ~~gone~~');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('H~2~O');
+      expect(result.code).toContain('"gone"');
+      expect(result.code).not.toContain('"2"');
+    }
+  });
+
   it('compiles a comparison and a JSON sample', async () => {
     const result = await compileMdx(testId('mdx-json'), 'Compare a <= b and JSON {"a": 1}');
     expect(result.ok).toBe(true);
