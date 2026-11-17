@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
+import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 const LATEX_BACKSLASH = '\uE000';
@@ -222,11 +223,38 @@ function processMarkdownLine(trimmed: string, output: string[], listState: ListS
   output.push(convertInlineFormatting(trimmed));
 }
 
+function flushLatexTable(output: string[], tableLines: string[]): void {
+  if (tableLines.length === 0) {
+    return;
+  }
+  const lines = tableLines.splice(0, tableLines.length);
+  const table = parseMarkdownTable(lines);
+  if (!table) {
+    for (const line of lines) {
+      output.push(convertInlineFormatting(line));
+    }
+    return;
+  }
+  output.push(markdownTableToLatex(table, convertInlineFormatting));
+}
+
+function takeLatexTable(output: string[], line: string, tableLines: string[]): boolean {
+  if (isTableRow(line)) {
+    tableLines.push(line);
+    return true;
+  }
+  if (tableLines.length > 0) {
+    flushLatexTable(output, tableLines);
+  }
+  return false;
+}
+
 function contentToLatex(content: string): string {
   const lines = content.split('\n');
   const output: string[] = [];
   let inCodeBlock = false;
   let inDisplayMath = false;
+  const tableLines: string[] = [];
   const listState: ListState = { inUnorderedList: false, inOrderedList: false };
 
   for (const line of lines) {
@@ -240,6 +268,7 @@ function contentToLatex(content: string): string {
       continue;
     }
     if (line.trim() === '$$') {
+      flushLatexTable(output, tableLines);
       if (!inDisplayMath) {
         resetListState(output, listState);
       }
@@ -251,12 +280,17 @@ function contentToLatex(content: string): string {
       output.push(line);
       continue;
     }
+    if (takeLatexTable(output, line.trim(), tableLines)) {
+      resetListState(output, listState);
+      continue;
+    }
     processMarkdownLine(line.trim(), output, listState);
   }
 
   if (inDisplayMath) {
     output.push('$$');
   }
+  flushLatexTable(output, tableLines);
   if (inCodeBlock) {
     output.push('\\end{verbatim}');
   }

@@ -133,6 +133,20 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('**bold**');
   });
 
+  it('renders a markdown table in chapter HTML', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '| Name | Value |\n| --- | --- |\n| A | 1 |',
+      outputPath: '/tmp/table.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<th>Name</th>');
+    expect(html).toContain('<td>A</td>');
+  });
+
   it('renders a formula in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

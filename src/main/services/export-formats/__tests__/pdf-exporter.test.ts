@@ -83,6 +83,18 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<ul><li>');
   });
 
+  it('renders a markdown table', async () => {
+    await exporter.export({
+      content: '| Name | Value |\n| --- | --- |\n| A | 1 |',
+      outputPath: '/tmp/table.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<th>Name</th>');
+    expect(html).toContain('<td>A</td>');
+    expect(html).toContain('<td>1</td>');
+  });
+
   it('renders a formula and a display block', async () => {
     await exporter.export({
       content: 'See $x^2$.\n$$\nE = mc^2\n$$',

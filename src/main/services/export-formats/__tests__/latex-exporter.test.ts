@@ -151,6 +151,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('renders a markdown table', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '| Name | Value |\n| --- | --- |\n| A | 1 |',
+      outputPath: '/tmp/table.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{tabular}{ll}');
+    expect(written).toContain('Name & Value');
+    expect(written).toContain('A & 1');
+  });
+
   it('keeps formulas and escapes prices', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

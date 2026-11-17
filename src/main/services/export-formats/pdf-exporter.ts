@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
+import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 function escapeHtml(value: string): string {
@@ -19,6 +20,7 @@ interface PdfBuild {
   inCode: boolean;
   list: HtmlListKind | null;
   displayMath: string[] | null;
+  tableLines: string[];
 }
 
 function flushPdfParagraph(build: PdfBuild): void {
@@ -62,6 +64,7 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   const trimmed = line.trim();
   if (trimmed === '$$') {
     flushPdfParagraph(build);
+    flushPdfTable(build);
     closePdfList(build);
     if (build.displayMath) {
       finishDisplayMath(build);
@@ -77,10 +80,40 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   return false;
 }
 
+function flushPdfTable(build: PdfBuild): void {
+  if (build.tableLines.length === 0) {
+    return;
+  }
+  const lines = build.tableLines.splice(0, build.tableLines.length);
+  const table = parseMarkdownTable(lines);
+  if (!table) {
+    for (const line of lines) {
+      build.paragraph.push(line);
+    }
+    flushPdfParagraph(build);
+    return;
+  }
+  build.parts.push(markdownTableToHtml(table, renderMarkdownInline));
+}
+
+function consumePdfTable(build: PdfBuild, trimmed: string): boolean {
+  if (isTableRow(trimmed)) {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    build.tableLines.push(trimmed);
+    return true;
+  }
+  if (build.tableLines.length > 0) {
+    flushPdfTable(build);
+  }
+  return false;
+}
+
 function appendPdfLine(build: PdfBuild, line: string): void {
   const trimmed = line.trim();
   if (trimmed.startsWith('```')) {
     finishDisplayMath(build);
+    flushPdfTable(build);
     flushPdfParagraph(build);
     closePdfList(build);
     build.parts.push(build.inCode ? '</code></pre>' : '<pre><code>');
@@ -92,6 +125,9 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     return;
   }
   if (consumePdfDisplayMath(build, line)) {
+    return;
+  }
+  if (consumePdfTable(build, trimmed)) {
     return;
   }
   const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
@@ -126,11 +162,13 @@ export function markdownToPdfHtml(content: string): string {
     inCode: false,
     list: null,
     displayMath: null,
+    tableLines: [],
   };
   for (const line of content.split('\n')) {
     appendPdfLine(build, line);
   }
   finishDisplayMath(build);
+  flushPdfTable(build);
   flushPdfParagraph(build);
   closePdfList(build);
   if (build.inCode) {
@@ -156,6 +194,8 @@ function contentToHtml(content: string, title: string): string {
     pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; }
     code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
     h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+    table { border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; text-align: left; }
   </style>
 </head>
 <body>

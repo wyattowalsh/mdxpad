@@ -108,6 +108,27 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('writes a markdown table', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '| Name | Value |\n| --- | --- |\n| A | 1 |',
+      outputPath: '/tmp/table.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('<w:tbl>');
+    expect(xml).toContain('Name');
+    expect(xml).toContain('Value');
+  });
+
   it('writes a formula as a Word equation and leaves a price as text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

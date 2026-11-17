@@ -8,10 +8,14 @@ import {
   Math,
   Packer,
   Paragraph,
+  Table,
+  TableCell,
+  TableRow,
   TextRun,
 } from 'docx';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
+import { isTableRow, parseMarkdownTable } from './markdown-table';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 type HeadingLevelValue =
@@ -164,14 +168,46 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   return undefined;
 }
 
-function pushDisplayMath(paragraphs: Paragraph[], lines: readonly string[]): void {
+function docxCell(text: string): TableCell {
+  return new TableCell({ children: [new Paragraph({ children: createParagraphChildren(text) })] });
+}
+
+function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): void {
+  if (tableLines.length === 0) {
+    return;
+  }
+  const lines = tableLines.splice(0, tableLines.length);
+  const table = parseMarkdownTable(lines);
+  if (!table) {
+    for (const line of lines) {
+      blocks.push(new Paragraph({ children: createParagraphChildren(line) }));
+    }
+    return;
+  }
+  const toRow = (cells: readonly string[]): TableRow =>
+    new TableRow({ children: cells.map((cell) => docxCell(cell)) });
+  blocks.push(new Table({ rows: [toRow(table.headers), ...table.rows.map((row) => toRow(row))] }));
+}
+
+function takeDocxTable(blocks: (Paragraph | Table)[], line: string, tableLines: string[]): boolean {
+  if (isTableRow(line.trim())) {
+    tableLines.push(line.trim());
+    return true;
+  }
+  if (tableLines.length > 0) {
+    flushDocxTable(blocks, tableLines);
+  }
+  return false;
+}
+
+function pushDisplayMath(paragraphs: (Paragraph | Table)[], lines: readonly string[]): void {
   paragraphs.push(
     new Paragraph({ children: [new Math({ children: mathComponents(lines.join('\n')) })] })
   );
 }
 
 function takeDisplayLine(
-  paragraphs: Paragraph[],
+  paragraphs: (Paragraph | Table)[],
   line: string,
   displayLines: string[] | null
 ): string[] | null | false {
@@ -190,15 +226,26 @@ function takeDisplayLine(
   return displayLines;
 }
 
-function parseContentToParagraphs(content: string): Paragraph[] {
-  const paragraphs: Paragraph[] = [];
+function appendPlainLine(blocks: (Paragraph | Table)[], trimmed: string): void {
+  if (trimmed === '') {
+    blocks.push(new Paragraph({ children: [] }));
+    return;
+  }
+  const special = parseLineToParagraph(trimmed);
+  blocks.push(special ?? new Paragraph({ children: createParagraphChildren(trimmed) }));
+}
+
+function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
+  const paragraphs: (Paragraph | Table)[] = [];
   const lines = content.split('\n');
   let inCodeBlock = false;
   const codeLines: string[] = [];
   let displayLines: string[] | null = null;
+  const tableLines: string[] = [];
 
   for (const line of lines) {
     if (line.trimStart().startsWith('```')) {
+      flushDocxTable(paragraphs, tableLines);
       if (inCodeBlock) {
         paragraphs.push(createCodeBlockParagraph(codeLines));
         codeLines.length = 0;
@@ -216,24 +263,19 @@ function parseContentToParagraphs(content: string): Paragraph[] {
 
     const nextDisplay = takeDisplayLine(paragraphs, line, displayLines);
     if (nextDisplay !== false) {
+      flushDocxTable(paragraphs, tableLines);
       displayLines = nextDisplay;
       continue;
     }
 
     const trimmed = line.trim();
-    if (trimmed === '') {
-      paragraphs.push(new Paragraph({ children: [] }));
+    if (takeDocxTable(paragraphs, trimmed, tableLines)) {
       continue;
     }
-
-    const special = parseLineToParagraph(trimmed);
-    if (special) {
-      paragraphs.push(special);
-    } else {
-      paragraphs.push(new Paragraph({ children: createParagraphChildren(trimmed) }));
-    }
+    appendPlainLine(paragraphs, trimmed);
   }
 
+  flushDocxTable(paragraphs, tableLines);
   if (displayLines) {
     pushDisplayMath(paragraphs, displayLines);
   }
