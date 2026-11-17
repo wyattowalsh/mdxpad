@@ -157,35 +157,32 @@ function createParagraphChildren(text: string): (TextRun | ExternalHyperlink | M
   return children.length > 0 ? children : [new TextRun('')];
 }
 
+function styledRun(segment: InlineSegment, text: string, style?: string): TextRun {
+  return new TextRun({
+    text,
+    ...(style ? { style } : {}),
+    ...(segment.bold ? { bold: true } : {}),
+    ...(segment.italic ? { italics: true } : {}),
+    ...(segment.strike ? { strike: true } : {}),
+    ...(segment.code ? { font: { name: 'Courier New' } } : {}),
+  });
+}
+
 function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink)[] {
   return segments.map((segment) => {
     if (segment.image) {
       return new ExternalHyperlink({
-        children: [new TextRun({ text: segment.text || segment.image, style: 'Hyperlink' })],
+        children: [styledRun(segment, segment.text || segment.image, 'Hyperlink')],
         link: segment.image,
       });
     }
     if (segment.link) {
       return new ExternalHyperlink({
-        children: [new TextRun({ text: segment.text, style: 'Hyperlink' })],
+        children: [styledRun(segment, segment.text, 'Hyperlink')],
         link: segment.link,
       });
     }
-
-    const runOptions: Record<string, unknown> = { text: segment.text };
-    if (segment.bold) {
-      runOptions.bold = true;
-    }
-    if (segment.italic) {
-      runOptions.italics = true;
-    }
-    if (segment.code) {
-      runOptions.font = { name: 'Courier New' };
-    }
-    if (segment.strike) {
-      runOptions.strike = true;
-    }
-    return new TextRun(runOptions as ConstructorParameters<typeof TextRun>[0]);
+    return styledRun(segment, segment.text);
   });
 }
 

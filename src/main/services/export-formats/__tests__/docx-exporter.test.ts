@@ -49,6 +49,9 @@ describe('DocxExporter', () => {
       { text: 'inner', bold: true, italic: true },
       { text: ' text', bold: true },
     ]);
+    expect(parseInlineFormatting('**[docs](https://example.com)**')).toEqual([
+      { text: 'docs', link: 'https://example.com', bold: true },
+    ]);
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);
@@ -367,6 +370,27 @@ describe('DocxExporter', () => {
     expect(extracted.stdout.toString()).toContain(
       'https://en.wikipedia.org/wiki/Markdown_(markup)'
     );
+  });
+
+  it('keeps a bold link bold', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '**[docs](https://example.com)**',
+      outputPath: '/tmp/bold-link.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('docs');
+    expect(xml).toContain('<w:b/>');
+    expect(xml).toContain('https://example.com');
   });
 
   it('keeps a link title out of the address', async () => {
