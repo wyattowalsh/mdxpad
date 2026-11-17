@@ -17,6 +17,7 @@ import {
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
+import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -404,22 +405,28 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
 function takeDocxFence(
   blocks: (Paragraph | Table)[],
   line: string,
-  inCodeBlock: boolean,
+  fence: string | null,
   codeLines: string[],
   tableLines: string[],
   quoteLines: string[]
-): boolean | null {
-  if (!line.trimStart().startsWith('```')) {
+): string | null | undefined {
+  if (fence) {
+    if (!closesFence(line, fence)) {
+      return undefined;
+    }
+    flushDocxTable(blocks, tableLines);
+    flushDocxQuote(blocks, quoteLines);
+    blocks.push(createCodeBlockParagraph(codeLines));
+    codeLines.length = 0;
     return null;
+  }
+  const marker = openingFence(line);
+  if (!marker) {
+    return undefined;
   }
   flushDocxTable(blocks, tableLines);
   flushDocxQuote(blocks, quoteLines);
-  if (inCodeBlock) {
-    blocks.push(createCodeBlockParagraph(codeLines));
-    codeLines.length = 0;
-    return false;
-  }
-  return true;
+  return marker;
 }
 
 function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
@@ -430,24 +437,24 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     tableLines: [],
     quoteLines: [],
   };
-  let inCodeBlock = false;
+  let fence: string | null = null;
   const codeLines: string[] = [];
 
   for (const line of expandLinkReferences(content).split('\n')) {
-    const fence = takeDocxFence(
+    const nextFence = takeDocxFence(
       parse.blocks,
       line,
-      inCodeBlock,
+      fence,
       codeLines,
       parse.tableLines,
       parse.quoteLines
     );
-    if (fence !== null) {
+    if (nextFence !== undefined) {
       flushPendingParagraph(parse);
-      inCodeBlock = fence;
+      fence = nextFence;
       continue;
     }
-    if (inCodeBlock) {
+    if (fence) {
       codeLines.push(line);
       continue;
     }
@@ -460,7 +467,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   if (parse.displayLines) {
     pushDisplayMath(parse.blocks, parse.displayLines);
   }
-  if (inCodeBlock && codeLines.length > 0) {
+  if (fence && codeLines.length > 0) {
     parse.blocks.push(createCodeBlockParagraph(codeLines));
   }
   return parse.blocks;

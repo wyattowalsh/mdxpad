@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
@@ -187,19 +188,23 @@ function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
 function processCodeBlockLine(
   line: string,
   output: string[],
-  inCodeBlock: boolean,
+  fence: string | null,
   listState: ListState
-): boolean {
-  if (!line.trimStart().startsWith('```')) {
-    return inCodeBlock;
-  }
-  if (inCodeBlock) {
+): string | null {
+  if (fence) {
+    if (!closesFence(line, fence)) {
+      return fence;
+    }
     output.push('\\end{verbatim}');
-    return false;
+    return null;
+  }
+  const marker = openingFence(line);
+  if (!marker) {
+    return null;
   }
   closeLatexLists(output, listState.stack);
   output.push('\\begin{verbatim}');
-  return true;
+  return marker;
 }
 
 function resetListState(output: string[], listState: ListState): void {
@@ -368,7 +373,7 @@ function takeLatexTable(output: string[], line: string, tableLines: string[]): b
 
 interface LatexBuild {
   output: string[];
-  inCodeBlock: boolean;
+  fence: string | null;
   inDisplayMath: boolean;
   tableLines: string[];
   quoteLines: string[];
@@ -376,14 +381,14 @@ interface LatexBuild {
 }
 
 function appendLatexSourceLine(build: LatexBuild, line: string): void {
-  const wasInCodeBlock = build.inCodeBlock;
-  build.inCodeBlock = processCodeBlockLine(line, build.output, build.inCodeBlock, build.listState);
-  if (wasInCodeBlock !== build.inCodeBlock) {
+  const wasInCodeBlock = build.fence;
+  build.fence = processCodeBlockLine(line, build.output, build.fence, build.listState);
+  if (wasInCodeBlock !== build.fence) {
     flushLatexTable(build.output, build.tableLines);
     flushLatexQuote(build.output, build.quoteLines);
     return;
   }
-  if (build.inCodeBlock) {
+  if (build.fence) {
     build.output.push(line);
     return;
   }
@@ -416,7 +421,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
 function contentToLatex(content: string): string {
   const build: LatexBuild = {
     output: [],
-    inCodeBlock: false,
+    fence: null,
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
@@ -432,7 +437,7 @@ function contentToLatex(content: string): string {
   }
   flushLatexTable(build.output, build.tableLines);
   flushLatexQuote(build.output, build.quoteLines);
-  if (build.inCodeBlock) {
+  if (build.fence) {
     build.output.push('\\end{verbatim}');
   }
   closeLatexLists(build.output, build.listState.stack);

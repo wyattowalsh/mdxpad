@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -27,7 +28,7 @@ function escapeHtml(value: string): string {
 interface PdfBuild {
   parts: string[];
   paragraph: SourceLine[];
-  inCode: boolean;
+  fence: string | null;
   lists: HtmlListFrame[];
   displayMath: string[] | null;
   tableLines: string[];
@@ -55,7 +56,7 @@ function finishDisplayMath(build: PdfBuild): void {
 }
 
 function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
-  if (build.inCode) {
+  if (build.fence) {
     return false;
   }
   const trimmed = line.trim();
@@ -131,21 +132,27 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
 }
 
 function appendPdfLine(build: PdfBuild, line: string): void {
-  const trimmed = line.trim();
-  if (trimmed.startsWith('```')) {
+  if (build.fence) {
+    if (closesFence(line, build.fence)) {
+      build.parts.push('</code></pre>');
+      build.fence = null;
+    } else {
+      build.parts.push(escapeHtml(line));
+    }
+    return;
+  }
+  const marker = openingFence(line);
+  if (marker) {
     finishDisplayMath(build);
     flushPdfTable(build);
     flushPdfQuote(build);
     flushPdfParagraph(build);
     closePdfList(build);
-    build.parts.push(build.inCode ? '</code></pre>' : '<pre><code>');
-    build.inCode = !build.inCode;
+    build.parts.push('<pre><code>');
+    build.fence = marker;
     return;
   }
-  if (build.inCode) {
-    build.parts.push(escapeHtml(line));
-    return;
-  }
+  const trimmed = line.trim();
   if (consumePdfDisplayMath(build, line)) {
     return;
   }
@@ -208,7 +215,7 @@ export function markdownToPdfHtml(content: string): string {
   const build: PdfBuild = {
     parts: [],
     paragraph: [],
-    inCode: false,
+    fence: null,
     lists: [],
     displayMath: null,
     tableLines: [],
@@ -222,7 +229,7 @@ export function markdownToPdfHtml(content: string): string {
   flushPdfQuote(build);
   flushPdfParagraph(build);
   closePdfList(build);
-  if (build.inCode) {
+  if (build.fence) {
     build.parts.push('</code></pre>');
   }
   return build.parts.join('\n');

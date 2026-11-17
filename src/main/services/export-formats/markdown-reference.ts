@@ -1,3 +1,5 @@
+import { advanceFence } from './markdown-fence';
+
 const LINK_DEFINITION =
   /^ {0,3}\[([^\]]+)\]:[ \t]+(<[^>\s]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/;
 
@@ -26,13 +28,12 @@ function linkDefinition(line: string): { label: string; destination: string } | 
 
 function collectReferences(lines: readonly string[]): Map<string, string> {
   const references = new Map<string, string>();
-  let inFence = false;
+  let fence: string | null = null;
   for (const line of lines) {
-    if (line.trimStart().startsWith('```')) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) {
+    const next = advanceFence(line, fence);
+    const boundary = fence !== next;
+    fence = next;
+    if (fence || boundary) {
       continue;
     }
     const definition = linkDefinition(line);
@@ -86,16 +87,15 @@ function rewriteLine(line: string, references: ReadonlyMap<string, string>): str
 }
 
 function withoutDefinitions(lines: readonly string[]): string[] {
-  let inFence = false;
+  let fence: string | null = null;
   return lines.map((line) => {
-    if (line.trimStart().startsWith('```')) {
-      inFence = !inFence;
+    const next = advanceFence(line, fence);
+    const boundary = fence !== next;
+    fence = next;
+    if (fence || boundary) {
       return line;
     }
-    if (!inFence && linkDefinition(line)) {
-      return '';
-    }
-    return line;
+    return linkDefinition(line) ? '' : line;
   });
 }
 
@@ -106,14 +106,13 @@ export function expandLinkReferences(content: string): string {
   if (references.size === 0) {
     return content;
   }
-  let inFence = false;
+  let fence: string | null = null;
   return withoutDefinitions(lines)
     .map((line) => {
-      if (line.trimStart().startsWith('```')) {
-        inFence = !inFence;
-        return line;
-      }
-      return inFence ? line : rewriteLine(line, references);
+      const next = advanceFence(line, fence);
+      const boundary = fence !== next;
+      fence = next;
+      return fence || boundary ? line : rewriteLine(line, references);
     })
     .join('\n');
 }

@@ -82,6 +82,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li>fourth</li>');
   });
 
+  it('keeps a tilde fence as code', async () => {
+    await exporter.export({
+      content: '~~~\n# not a heading\n~~~',
+      outputPath: '/tmp/tilde.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<pre><code>');
+    expect(html).toContain('# not a heading');
+    expect(html).not.toContain('<h1>');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

@@ -23,6 +23,12 @@ describe('expandLinkReferences', () => {
     expect(expanded).toContain('`[Docs]`');
   });
 
+  it('leaves a link inside a tilde fence alone', () => {
+    const expanded = expandLinkReferences('~~~\n[guide]: https://example.com\n~~~\n\n[guide]\n');
+    expect(expanded).toContain('[guide]: https://example.com');
+    expect(expanded).not.toContain('[guide](https://example.com)');
+  });
+
   it('leaves a footnote marker and its definition alone', () => {
     const expanded = expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n');
     expect(expanded).toContain('footnote[^1].');

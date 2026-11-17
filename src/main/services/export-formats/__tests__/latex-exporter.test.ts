@@ -105,6 +105,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{enumerate}');
   });
 
+  it('keeps a tilde fence as verbatim', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '~~~\n# not a heading\n~~~',
+      outputPath: '/tmp/tilde.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\begin{verbatim}');
+    expect(written).toContain('# not a heading');
+    expect(written).not.toContain('\\section');
+  });
+
   it('converts code blocks to verbatim', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {
