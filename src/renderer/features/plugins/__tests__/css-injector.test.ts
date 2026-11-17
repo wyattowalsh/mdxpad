@@ -14,6 +14,7 @@ import {
   getInjectedIds,
   getInjectedCss,
 } from '../css-injector';
+import { getPreviewCss } from '../preview-css';
 
 describe('css-injector', () => {
   afterEach(() => {
@@ -29,18 +30,15 @@ describe('css-injector', () => {
       expect(style?.textContent).toBe('body { color: red; }');
     });
 
-    it('sets scope attribute', () => {
-      injectCss('test-scope', '.foo { color: blue; }', 'preview');
-
-      const style = document.querySelector('[data-mdxpad-injected="test-scope"]');
-      expect(style?.getAttribute('data-mdxpad-scope')).toBe('preview');
-    });
-
-    it('wraps CSS with scope selector for preview scope', () => {
+    it('sends preview CSS to the preview document unchanged', () => {
       injectCss('test-scoped', '.content { font-size: 16px; }', 'preview');
 
-      const style = document.querySelector('[data-mdxpad-injected="test-scoped"]');
-      expect(style?.textContent).toContain('[data-mdxpad-preview]');
+      expect(document.querySelector('[data-mdxpad-injected="test-scoped"]')).toBeNull();
+      expect(getPreviewCss()).toBe('.content { font-size: 16px; }');
+      expect(getInjectedCss('test-scoped')).toBe('.content { font-size: 16px; }');
+
+      removeCss('test-scoped');
+      expect(getPreviewCss()).toBe('');
     });
 
     it('replaces existing injection with same ID', () => {

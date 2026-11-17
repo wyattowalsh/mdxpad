@@ -11,7 +11,7 @@
 // ============================================================================
 
 /** All message types sent from parent to preview iframe */
-export type ParentToIframeMessage = RenderCommand | ThemeCommand | ScrollCommand;
+export type ParentToIframeMessage = RenderCommand | ThemeCommand | ScrollCommand | CssCommand;
 
 /** Command to render compiled MDX in the iframe */
 export interface RenderCommand {
@@ -34,6 +34,12 @@ export interface ScrollCommand {
   readonly type: 'scroll';
   /** Scroll position as ratio (0-1) */
   readonly ratio: number;
+}
+
+/** Command to apply user CSS inside the preview document. */
+export interface CssCommand {
+  readonly type: 'css';
+  readonly css: string;
 }
 
 // ============================================================================
@@ -107,7 +113,9 @@ export interface OpenDocumentSignal {
 export function isParentToIframeMessage(message: unknown): message is ParentToIframeMessage {
   if (typeof message !== 'object' || message === null) return false;
   const msg = message as { type?: unknown };
-  return msg.type === 'render' || msg.type === 'theme' || msg.type === 'scroll';
+  return (
+    msg.type === 'render' || msg.type === 'theme' || msg.type === 'scroll' || msg.type === 'css'
+  );
 }
 
 /**

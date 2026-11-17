@@ -67,6 +67,7 @@ import {
   type RenderCommand,
   type ThemeCommand,
   type ScrollCommand,
+  type CssCommand,
   type ScrollReportSignal,
   type IframeToParentMessage,
 } from '@shared/types/preview-iframe';
@@ -77,6 +78,7 @@ import {
   type RateLimiter,
 } from '@shared/security';
 import { openPreviewDocumentLink } from '@renderer/lib/preview-document-link';
+import { getPreviewCss, subscribePreviewCss } from '@renderer/features/plugins/preview-css';
 
 // ============================================================================
 // Types
@@ -226,7 +228,7 @@ function useIframeSender(
   isReadyRef: React.RefObject<boolean>
 ) {
   const sendMessage = useCallback(
-    (message: RenderCommand | ThemeCommand | ScrollCommand): void => {
+    (message: RenderCommand | ThemeCommand | ScrollCommand | CssCommand): void => {
       if (iframeRef.current?.contentWindow && isReadyRef.current) {
         iframeRef.current.contentWindow.postMessage(message, '*');
       }
@@ -234,21 +236,25 @@ function useIframeSender(
     [iframeRef, isReadyRef]
   );
 
-  return {
-    sendRender: useCallback(
-      (code: string, frontmatter: Record<string, unknown>) =>
-        sendMessage({ type: 'render', code, frontmatter }),
-      [sendMessage]
-    ),
-    sendTheme: useCallback(
-      (value: 'light' | 'dark') => sendMessage({ type: 'theme', value }),
-      [sendMessage]
-    ),
-    sendScroll: useCallback(
-      (ratio: number) => sendMessage({ type: 'scroll', ratio }),
-      [sendMessage]
-    ),
-  };
+  const sendRender = useCallback(
+    (code: string, frontmatter: Record<string, unknown>) =>
+      sendMessage({ type: 'render', code, frontmatter }),
+    [sendMessage]
+  );
+  const sendTheme = useCallback(
+    (value: 'light' | 'dark') => sendMessage({ type: 'theme', value }),
+    [sendMessage]
+  );
+  const sendScroll = useCallback(
+    (ratio: number) => sendMessage({ type: 'scroll', ratio }),
+    [sendMessage]
+  );
+  const sendCss = useCallback((css: string) => sendMessage({ type: 'css', css }), [sendMessage]);
+
+  return useMemo(
+    () => ({ sendRender, sendTheme, sendScroll, sendCss }),
+    [sendCss, sendRender, sendScroll, sendTheme]
+  );
 }
 
 /** Handle ready message from iframe */
@@ -274,6 +280,7 @@ function handleReadyMessage(
   if (refs.code !== undefined) sender.sendRender(refs.code, refs.frontmatter ?? {});
   if (refs.theme !== undefined) sender.sendTheme(refs.theme as 'light' | 'dark');
   if (refs.scrollRatio !== undefined) sender.sendScroll(refs.scrollRatio);
+  sender.sendCss(getPreviewCss());
 }
 
 /** Refs for callback and value synchronization */
@@ -486,6 +493,8 @@ export function PreviewFrame(props: PreviewFrameProps): React.ReactNode {
 
   useIframeMessageHandler(iframeRef, isReadyRef, readyTimeoutRef, sender, refs, rateLimiter);
   usePropSync({ code, frontmatter, theme, scrollRatio }, isReadyRef, sender);
+
+  useEffect(() => subscribePreviewCss((css) => sender.sendCss(css)), [sender]);
 
   useEffect(
     () => () => {

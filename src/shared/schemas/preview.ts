@@ -94,10 +94,18 @@ export const scrollCommandSchema = z
   })
   .strict();
 
+export const cssCommandSchema = z
+  .object({
+    type: z.literal('css'),
+    css: z.string().max(100_000),
+  })
+  .strict();
+
 export const parentToIframeMessageSchema = z.discriminatedUnion('type', [
   renderCommandSchema,
   themeCommandSchema,
   scrollCommandSchema,
+  cssCommandSchema,
 ]);
 
 export const readySignalSchema = z

@@ -18,6 +18,13 @@ import { SECURITY_CONSTANTS } from '../constants';
 import { createRateLimiter } from '../rate-limiter';
 
 describe('validateParentToIframeMessage', () => {
+  it('accepts preview CSS and an empty clear', () => {
+    expect(validateParentToIframeMessage({ type: 'css', css: 'p { color: red; }' }).valid).toBe(
+      true
+    );
+    expect(validateParentToIframeMessage({ type: 'css', css: '' }).valid).toBe(true);
+  });
+
   describe('render command', () => {
     it('should accept valid render command', () => {
       const result = validateParentToIframeMessage({

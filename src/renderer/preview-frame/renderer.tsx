@@ -10,6 +10,7 @@ import * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BuiltInComponents } from './components';
+import { applyPreviewCss } from './apply-preview-css';
 import { createMermaidRenderScheduler } from './mermaid-render-scheduler';
 import { createModuleFromCode } from './mdx-module-runtime';
 import {
@@ -491,6 +492,9 @@ function handleValidatedMessage(message: ParentToIframeMessage): void {
       break;
     case 'scroll':
       scrollToRatio(message.ratio);
+      break;
+    case 'css':
+      applyPreviewCss(message.css);
       break;
     default:
       // Exhaustive check - TypeScript will error if a case is missing

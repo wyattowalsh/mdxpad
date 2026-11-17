@@ -2,10 +2,13 @@
  * CSS Injector
  *
  * Injects custom CSS into the document via style elements.
- * Supports scoped injection (preview pane or full app).
+ * Preview CSS is delivered to the preview document, because the
+ * rendered page lives in a frame the app stylesheet cannot reach.
  *
  * @module renderer/features/plugins/css-injector
  */
+
+import { setPreviewCss } from './preview-css';
 
 // ============================================================================
 // Types
@@ -15,7 +18,8 @@ type CssScope = 'app' | 'preview';
 
 interface InjectedStyle {
   id: string;
-  element: HTMLStyleElement;
+  element: HTMLStyleElement | null;
+  css: string;
   scope: CssScope;
 }
 
@@ -37,22 +41,21 @@ const injectedStyles = new Map<string, InjectedStyle>();
  * @param scope - Where to apply: 'app' (full application) or 'preview' (preview pane only)
  */
 export function injectCss(id: string, css: string, scope: CssScope = 'app'): void {
-  // Remove existing if updating
   removeCss(id);
 
+  if (scope === 'preview') {
+    setPreviewCss(css);
+    injectedStyles.set(id, { id, element: null, css, scope });
+    return;
+  }
+
+  setPreviewCss('');
   const style = document.createElement('style');
   style.setAttribute('data-mdxpad-injected', id);
   style.setAttribute('data-mdxpad-scope', scope);
-
-  if (scope === 'preview') {
-    // Scope CSS to the preview container
-    style.textContent = wrapWithScope(css, '[data-mdxpad-preview]');
-  } else {
-    style.textContent = css;
-  }
-
+  style.textContent = css;
   document.head.appendChild(style);
-  injectedStyles.set(id, { id, element: style, scope });
+  injectedStyles.set(id, { id, element: style, css, scope });
 }
 
 /**
@@ -67,10 +70,14 @@ export function updateCss(id: string, css: string, scope: CssScope = 'app'): voi
  */
 export function removeCss(id: string): void {
   const existing = injectedStyles.get(id);
-  if (existing) {
-    existing.element.remove();
-    injectedStyles.delete(id);
+  if (!existing) {
+    return;
   }
+  existing.element?.remove();
+  if (existing.scope === 'preview') {
+    setPreviewCss('');
+  }
+  injectedStyles.delete(id);
 }
 
 /**
@@ -93,18 +100,5 @@ export function getInjectedIds(): string[] {
  * Get the CSS content for an injected style.
  */
 export function getInjectedCss(id: string): string | undefined {
-  return injectedStyles.get(id)?.element.textContent ?? undefined;
-}
-
-// ============================================================================
-// Internals
-// ============================================================================
-
-/**
- * Wrap CSS rules with a scope selector.
- * Prepends the scope selector to each rule block.
- */
-function wrapWithScope(css: string, scopeSelector: string): string {
-  // Simple scope wrapping: wrap all content in a scope block
-  return `${scopeSelector} { ${css} }`;
+  return injectedStyles.get(id)?.css;
 }
