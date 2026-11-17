@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStatusMessageStore } from '../stores/status-message-store';
 import type { EditorView } from '@codemirror/view';
 import {
   useUILayoutStore,
@@ -362,6 +363,14 @@ export function useAppState(): AppState {
       announcementTimerRef.current = null;
     }, n.duration ?? 3000);
   }, []);
+
+  useEffect(() => {
+    return useStatusMessageStore.subscribe((state, previous) => {
+      if (state.message.length > 0 && state.message !== previous.message) {
+        handleNotification({ type: 'warning', message: state.message });
+      }
+    });
+  }, [handleNotification]);
 
   useEffect(() => {
     return () => {

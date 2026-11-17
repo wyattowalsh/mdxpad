@@ -360,7 +360,16 @@ export function App(): React.ReactElement {
       <CommentPersistence />
       <MountedUtilityPanels editorRef={state.editorRef} />
 
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={
+          state.announcement.length > 0
+            ? 'border-t border-border px-3 py-1 text-xs text-muted-foreground'
+            : 'sr-only'
+        }
+      >
         {state.announcement}
       </div>
 
