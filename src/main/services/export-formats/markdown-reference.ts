@@ -1,5 +1,6 @@
 import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode } from './markdown-fence';
+import { quoteBody } from './markdown-quote';
 import { closeOpenTableRows } from './markdown-table';
 
 const LINK_DEFINITION =
@@ -18,8 +19,18 @@ function referenceDestination(raw: string): string {
   return raw;
 }
 
+function definitionSource(line: string): string {
+  let text = line;
+  let inner = quoteBody(text);
+  while (inner !== null) {
+    text = inner;
+    inner = quoteBody(text);
+  }
+  return text;
+}
+
 function linkDefinition(line: string): { label: string; destination: string } | null {
-  const definition = LINK_DEFINITION.exec(line);
+  const definition = LINK_DEFINITION.exec(definitionSource(line));
   const label = definition?.[1];
   const destination = definition?.[2];
   if (!label || label.startsWith('^') || !destination) {

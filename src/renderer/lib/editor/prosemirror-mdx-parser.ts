@@ -304,7 +304,8 @@ function strikethroughRule(state: InlineParseState, silent: boolean): boolean {
     return false;
   }
   const end = state.src.indexOf('~~', start + 2);
-  if (end <= start + 2 || state.src.slice(start + 2, end).includes('\n')) {
+  const inner = end === -1 ? '' : state.src.slice(start + 2, end);
+  if (end <= start + 2 || inner.includes('\n\n')) {
     return false;
   }
   if (!silent) {

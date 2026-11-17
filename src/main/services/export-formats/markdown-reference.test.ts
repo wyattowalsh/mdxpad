@@ -29,6 +29,12 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[guide](https://example.com)');
   });
 
+  it('resolves a reference defined inside a quote', () => {
+    const expanded = expandLinkReferences('> [foo]: /url\n>\n> [foo]\n');
+    expect(expanded).toContain('[foo](/url)');
+    expect(expanded).not.toContain('[foo]:');
+  });
+
   it('turns a footnote into a numbered note', () => {
     const expanded = expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n');
     expect(expanded).toContain('footnote¹.');
