@@ -20,6 +20,7 @@ interface MarkdownHeadingBlock {
 interface MarkdownParagraphBlock {
   readonly kind: 'paragraph';
   readonly text: string;
+  readonly setext: boolean;
 }
 
 interface MarkdownImageBlock {
@@ -207,7 +208,29 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     return;
   }
 
-  blocks.push({ kind: 'paragraph', text: plainParagraph(rawLine) });
+  blocks.push({
+    kind: 'paragraph',
+    text: plainParagraph(rawLine),
+    setext: isSetextText(rawLine),
+  });
+}
+
+function isSetextText(rawLine: string): boolean {
+  if (rawLine.trim().length === 0 || setextLevel(rawLine) !== null) {
+    return false;
+  }
+  if (
+    isThematicBreak(rawLine.trim()) ||
+    quoteBody(rawLine) !== null ||
+    parseListItem(rawLine) !== null
+  ) {
+    return false;
+  }
+  const indented = rawLine.replaceAll('\t', '    ');
+  if (/^\s{4,}/.test(indented) || /^\s{0,3}#{1,6}(?:\s|$)/.test(rawLine)) {
+    return false;
+  }
+  return true;
 }
 
 function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
@@ -218,7 +241,7 @@ function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
   const body: MarkdownBlock[] = [];
   while (blocks.length > 0) {
     const last = blocks[blocks.length - 1];
-    if (last?.kind !== 'paragraph' || last.text.trim().length === 0) {
+    if (last?.kind !== 'paragraph' || !last.setext) {
       break;
     }
     const removed = blocks.pop();
@@ -249,7 +272,7 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     if (fence || next) {
       fence = next;
       if (!boundary) {
-        blocks.push({ kind: 'paragraph', text: rawLine });
+        blocks.push({ kind: 'paragraph', text: rawLine, setext: false });
       }
       continue;
     }

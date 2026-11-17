@@ -19,6 +19,15 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**bold**');
   });
 
+  it('does not turn a list or a quote into an underlined heading', () => {
+    const pdf = buildPdfDocument('- item\n---\n\n> Note\n---\n\nFoo\nBar\n---');
+    expect(pdf.content).toContain('- item');
+    expect(pdf.content).toContain('Note');
+    expect(pdf.content).toContain('FOO BAR');
+    expect(pdf.content).not.toContain('- ITEM');
+    expect(pdf.content).not.toContain('NOTE');
+  });
+
   it('writes a task and a horizontal rule as plain text', () => {
     const pdf = buildPdfDocument('- [x] **done**\n\n* * *\n\nBelow');
     expect(pdf.content).toContain('[x] done');
