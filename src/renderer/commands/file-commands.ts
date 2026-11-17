@@ -271,6 +271,14 @@ const openFileCommand: Command = {
   enabled: () => true,
 };
 
+function saveChangedOnDisk(ctx: CommandContext): CommandResult | Promise<CommandResult> {
+  ctx.notify({
+    type: 'info',
+    message: 'This file changed on disk. Choose a new location so that copy stays intact.',
+  });
+  return saveFileAsCommand.execute(ctx);
+}
+
 /**
  * Save file command.
  * Saves current document to its existing path, or shows Save As if new.
@@ -288,6 +296,10 @@ const saveFileCommand: Command = {
     // If no file path (untitled), delegate to Save As
     if (!document.filePath) {
       return saveFileAsCommand.execute(ctx);
+    }
+
+    if (useDocumentStore.getState().externalChangeDetected) {
+      return saveChangedOnDisk(ctx);
     }
 
     try {

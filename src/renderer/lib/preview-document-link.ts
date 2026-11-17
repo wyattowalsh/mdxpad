@@ -1,6 +1,5 @@
-import path from 'node:path';
-
 import { openFileFromPath } from '@renderer/lib/open-file-from-path';
+import { resolveInsideDirectory } from '@renderer/lib/resolve-beside-file';
 import { useDocumentStore } from '@renderer/stores/document-store';
 
 const DOCUMENT_EXTENSION = /\.(md|mdx|markdown|txt)$/i;
@@ -33,12 +32,7 @@ export function resolvePreviewDocumentLink(
   }
   const pathPart = trimmed.split('#')[0]?.split('?')[0] ?? '';
   const directory = currentFilePath.slice(0, currentFilePath.lastIndexOf('/'));
-  const resolved = path.resolve(directory, pathPart);
-  const relative = path.relative(directory, resolved);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    return null;
-  }
-  return resolved;
+  return resolveInsideDirectory(directory, pathPart);
 }
 
 export function openPreviewDocumentLink(href: string): void {

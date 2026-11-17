@@ -38,9 +38,11 @@ export function replaceWysiwygDocument(
     return true;
   }
   const next = documentFromMarkdown(markdown);
+  const frontmatter = typeof next.attrs.frontmatter === 'string' ? next.attrs.frontmatter : '';
   const cursor = selection === 'start' ? 0 : view.state.selection.from;
   const tr = view.state.tr
     .replaceWith(0, view.state.doc.content.size, next.content)
+    .setDocAttribute('frontmatter', frontmatter)
     .setMeta('addToHistory', false);
   const position = Math.max(0, Math.min(cursor, tr.doc.content.size));
   tr.setSelection(TextSelection.near(tr.doc.resolve(position)));

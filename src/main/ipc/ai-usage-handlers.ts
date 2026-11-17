@@ -69,6 +69,13 @@ async function handleUsageQuery(
           tokenCount: p.totalTokens,
           estimatedCostUsd: p.estimatedCostUsd,
         })),
+        byModel: Object.values(stats.byModel).map((model) => ({
+          modelId: model.modelId,
+          providerId: model.providerId,
+          requestCount: model.requestCount,
+          tokenCount: model.totalTokens,
+          estimatedCostUsd: model.estimatedCostUsd,
+        })),
         byOperation: Object.values(stats.byOperation).map((operation) => ({
           operationType: operation.operationType,
           requestCount: operation.requestCount,

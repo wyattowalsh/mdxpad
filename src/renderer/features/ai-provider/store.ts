@@ -17,6 +17,7 @@ import type {
   UsageStats,
 } from '@shared/ai/types';
 import type { SidecarLifecycleStatusResponseSchemaType } from '@shared/ai/schemas';
+import { usageStatsFromQuery } from './usage-stats-map';
 
 // =============================================================================
 // WINDOW TYPE DECLARATION
@@ -519,28 +520,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         const result = await getAIApi().queryUsage({ timeRange });
 
         if (result.success && result.stats) {
-          const stats = result.stats;
-          // Compute avg duration from operation stats
-          const avgDurationMs =
-            stats.byOperation.length > 0
-              ? stats.byOperation.reduce((sum, op) => sum + op.avgDurationMs, 0) /
-                stats.byOperation.length
-              : 0;
-
-          const usageStats = {
-            timeRange,
-            totalRequests: stats.totalRequests,
-            successfulRequests: stats.successfulRequests,
-            failedRequests: stats.failedRequests,
-            totalTokens: stats.totalTokens,
-            inputTokens: stats.inputTokens,
-            outputTokens: stats.outputTokens,
-            estimatedCostUsd: stats.estimatedCostUsd,
-            avgDurationMs,
-            byProvider: {},
-            byModel: {},
-            byOperation: {},
-          };
+          const usageStats = usageStatsFromQuery(timeRange, result.stats);
 
           set((state) => {
             state.usageStats = usageStats;

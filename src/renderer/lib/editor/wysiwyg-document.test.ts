@@ -4,6 +4,7 @@ import { history } from 'prosemirror-history';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { mdxSchema } from './prosemirror-mdx-schema';
+import { serializeMdxContent } from './prosemirror-mdx-serializer';
 import { documentFromMarkdown, replaceWysiwygDocument } from './wysiwyg-document';
 
 describe('replaceWysiwygDocument', () => {
@@ -63,5 +64,16 @@ describe('replaceWysiwygDocument', () => {
 
     expect(view.state.selection.from).toBeLessThan(cursor);
     expect(view.state.doc.textContent).toContain('Another file');
+  });
+
+  it('replaces frontmatter when outside markdown replaces the document', () => {
+    const view = createView('---\ntitle: Old\n---\n\n# Body\n');
+
+    replaceWysiwygDocument(view, '---\ntitle: New\n---\n\n# Changed\n');
+
+    const serialized = serializeMdxContent(view.state.doc);
+    expect(serialized).toContain('title: New');
+    expect(serialized).not.toContain('title: Old');
+    expect(serialized).toContain('# Changed');
   });
 });

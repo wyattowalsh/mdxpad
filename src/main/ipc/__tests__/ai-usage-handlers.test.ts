@@ -213,6 +213,13 @@ describe('USAGE_QUERY Handler', () => {
           estimatedCostUsd: 0.09,
         }),
       ]),
+      byModel: expect.arrayContaining([
+        expect.objectContaining({
+          modelId: 'gpt-4',
+          requestCount: 50,
+          tokenCount: 5000,
+        }),
+      ]),
       byOperation: expect.any(Array),
     });
     expect(services.usageService.queryStats).toHaveBeenCalledWith({

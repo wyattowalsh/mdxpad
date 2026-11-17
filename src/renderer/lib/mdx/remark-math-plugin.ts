@@ -25,7 +25,9 @@ function isCurrencyMath(value: string): boolean {
   if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
     return true;
   }
-  return /\s/.test(value) && !/[\\^_{}]/.test(value);
+  // remark-math can treat "$5 and $10" as one span. A spaced word is a price phrase.
+  // A formula such as "$a + b$" has no word and keeps its operators.
+  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
 }
 
 function unwrapCurrencyMath(tree: TreeNode): void {

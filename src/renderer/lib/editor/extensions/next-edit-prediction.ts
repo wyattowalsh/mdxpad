@@ -220,14 +220,16 @@ export function nextEditPrediction(provider: PredictionProvider): Extension {
 
     // Schedule a new prediction request
     debounceTimer = setTimeout(() => {
-      abortController = new AbortController();
+      const controller = new AbortController();
+      abortController = controller;
       const { state } = update.view;
       const text = state.doc.toString();
       const pos = state.selection.main.head;
+      const signal = controller.signal;
 
-      void provider(text, pos, abortController.signal).then(
+      void provider(text, pos, signal).then(
         (prediction) => {
-          if (prediction && !abortController?.signal.aborted) {
+          if (prediction && !signal.aborted && update.view.state.selection.main.head === pos) {
             update.view.dispatch({
               effects: [setPrediction.of(prediction)],
             });

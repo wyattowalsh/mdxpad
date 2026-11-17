@@ -116,7 +116,7 @@ async function collectFiles(
   extensions: string[],
   excludePatterns: readonly string[] = []
 ): Promise<string[]> {
-  const { readdir, stat } = await import('node:fs/promises');
+  const { readdir } = await import('node:fs/promises');
   const results: string[] = [];
   const queue = [dir];
 
@@ -129,11 +129,10 @@ async function collectFiles(
         if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
         const fullPath = join(current, entry.name);
         if (pathMatchesExclude(dir, fullPath, excludePatterns)) continue;
-        const entryStat = await stat(fullPath).catch(() => null);
-        if (!entryStat) continue;
-        if (entryStat.isDirectory()) {
+        if (entry.isSymbolicLink()) continue;
+        if (entry.isDirectory()) {
           queue.push(fullPath);
-        } else if (matchesExtensions(entry.name, extensions)) {
+        } else if (entry.isFile() && matchesExtensions(entry.name, extensions)) {
           results.push(fullPath);
         }
       }

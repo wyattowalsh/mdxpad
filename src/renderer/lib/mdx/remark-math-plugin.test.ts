@@ -22,4 +22,12 @@ describe('remark math prices', () => {
       expect(result.code).toContain('katex');
     }
   });
+
+  it('keeps a formula that contains spaces', async () => {
+    const result = await compileMdx(testId('spaced'), 'The sum is $a + b$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('katex');
+    }
+  });
 });

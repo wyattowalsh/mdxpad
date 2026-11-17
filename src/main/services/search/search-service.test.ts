@@ -36,8 +36,18 @@ describe('search-service', () => {
   describe('indexWorkspace', () => {
     it('should index files in workspace', async () => {
       vi.mocked(readdir).mockResolvedValue([
-        { name: 'doc.md', isDirectory: () => false, isFile: () => true },
-        { name: 'readme.mdx', isDirectory: () => false, isFile: () => true },
+        {
+          name: 'doc.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
+        {
+          name: 'readme.mdx',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
       ] as never);
 
       vi.mocked(stat).mockResolvedValue({
@@ -54,9 +64,19 @@ describe('search-service', () => {
 
     it('should skip hidden directories and node_modules', async () => {
       vi.mocked(readdir).mockResolvedValue([
-        { name: '.git', isDirectory: () => true, isFile: () => false },
-        { name: 'node_modules', isDirectory: () => true, isFile: () => false },
-        { name: 'doc.md', isDirectory: () => false, isFile: () => true },
+        { name: '.git', isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false },
+        {
+          name: 'node_modules',
+          isDirectory: () => true,
+          isFile: () => false,
+          isSymbolicLink: () => false,
+        },
+        {
+          name: 'doc.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
       ] as never);
 
       vi.mocked(stat).mockResolvedValue({
@@ -70,9 +90,38 @@ describe('search-service', () => {
       expect(result.indexedFiles).toBe(1);
     });
 
+    it('should skip symbolic links', async () => {
+      vi.mocked(readdir).mockResolvedValue([
+        {
+          name: 'secret.md',
+          isDirectory: () => false,
+          isFile: () => false,
+          isSymbolicLink: () => true,
+        },
+        {
+          name: 'doc.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
+      ] as never);
+      vi.mocked(stat).mockResolvedValue({ size: 20, isDirectory: () => false } as never);
+      vi.mocked(readFile).mockResolvedValue('visible');
+
+      const result = await indexWorkspace('/workspace');
+
+      expect(result.indexedFiles).toBe(1);
+      expect(readFile).toHaveBeenCalledTimes(1);
+    });
+
     it('should skip files over 1MB', async () => {
       vi.mocked(readdir).mockResolvedValue([
-        { name: 'large.md', isDirectory: () => false, isFile: () => true },
+        {
+          name: 'large.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
       ] as never);
 
       vi.mocked(stat).mockResolvedValue({
@@ -94,7 +143,12 @@ describe('search-service', () => {
 
     it('should search indexed content and return results', async () => {
       vi.mocked(readdir).mockResolvedValue([
-        { name: 'doc.md', isDirectory: () => false, isFile: () => true },
+        {
+          name: 'doc.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
       ] as never);
 
       vi.mocked(stat).mockResolvedValue({
@@ -112,9 +166,9 @@ describe('search-service', () => {
 
     it('should respect maxResults', async () => {
       vi.mocked(readdir).mockResolvedValue([
-        { name: 'a.md', isDirectory: () => false, isFile: () => true },
-        { name: 'b.md', isDirectory: () => false, isFile: () => true },
-        { name: 'c.md', isDirectory: () => false, isFile: () => true },
+        { name: 'a.md', isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false },
+        { name: 'b.md', isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false },
+        { name: 'c.md', isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false },
       ] as never);
 
       vi.mocked(stat).mockResolvedValue({
@@ -140,7 +194,12 @@ describe('search-service', () => {
 
     it('should return indexed status after indexing', async () => {
       vi.mocked(readdir).mockResolvedValue([
-        { name: 'doc.md', isDirectory: () => false, isFile: () => true },
+        {
+          name: 'doc.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
       ] as never);
 
       vi.mocked(stat).mockResolvedValue({
@@ -173,7 +232,12 @@ describe('search-service', () => {
         vi.mocked(watch).mockReturnValue(watcher as never);
 
         vi.mocked(readdir).mockResolvedValue([
-          { name: 'doc.md', isDirectory: () => false, isFile: () => true },
+          {
+            name: 'doc.md',
+            isDirectory: () => false,
+            isFile: () => true,
+            isSymbolicLink: () => false,
+          },
         ] as never);
         vi.mocked(stat).mockResolvedValue({ size: 50, isDirectory: () => false } as never);
         vi.mocked(readFile).mockResolvedValue('content');

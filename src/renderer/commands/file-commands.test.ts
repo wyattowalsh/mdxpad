@@ -25,14 +25,16 @@ enableMapSet();
 const mockNewDocument = vi.fn();
 const mockOpenDocument = vi.fn();
 const mockMarkSaved = vi.fn();
+const documentStoreState = {
+  newDocument: mockNewDocument,
+  openDocument: mockOpenDocument,
+  markSaved: mockMarkSaved,
+  externalChangeDetected: false,
+};
 
 vi.mock('../stores/document-store', () => ({
   useDocumentStore: {
-    getState: () => ({
-      newDocument: mockNewDocument,
-      openDocument: mockOpenDocument,
-      markSaved: mockMarkSaved,
-    }),
+    getState: () => documentStoreState,
   },
 }));
 
@@ -428,6 +430,7 @@ describe('openFileCommand', () => {
 describe('saveFileCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    documentStoreState.externalChangeDetected = false;
   });
 
   it('should have correct command ID', () => {
@@ -465,6 +468,30 @@ describe('saveFileCommand', () => {
     expect(ctx.notify).toHaveBeenCalledWith({
       type: 'success',
       message: 'File saved',
+    });
+  });
+
+  it('saves a conflicted file to a new location', async () => {
+    documentStoreState.externalChangeDetected = true;
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: 'test-file-id',
+        filePath: '/test/document.mdx',
+        content: '# Local edits',
+        isDirty: true,
+      },
+    });
+
+    const result = await saveFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.saveFile).not.toHaveBeenCalled();
+    expect(mockApi.saveFileAs).toHaveBeenCalledWith('# Local edits');
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'This file changed on disk. Choose a new location so that copy stays intact.',
     });
   });
 

@@ -55,6 +55,7 @@ import {
   resetFileCapabilities,
 } from './document-capability';
 import { listTrustedDirectory } from './list-directory';
+import { readStaysInsideDirectory } from './read-scope';
 import { trustedDirectoryError } from './trusted-directory';
 
 /** File dialog filters for MDX and Markdown files */
@@ -303,17 +304,20 @@ const handleFileSaveAs = createValidatedHandler(
 const handleFileRead = createValidatedHandler(
   FileReadRequestSchema,
   async (args): Promise<FileResultString> => {
-    const inTrustedDirectory = trustedDirectoryError(path.dirname(args.path)) === null;
+    const directory = path.dirname(args.path);
+    const inTrustedDirectory = trustedDirectoryError(directory) === null;
+    const leavesTrustedDirectory =
+      inTrustedDirectory && !readStaysInsideDirectory(args.path, directory);
     if (
       !hasReadCapability(args.path) &&
       !canBootstrapReadCapability(args.path) &&
-      !inTrustedDirectory
+      (!inTrustedDirectory || leavesTrustedDirectory)
     ) {
       return { ok: false, error: permissionDenied(args.path) };
     }
 
     const readResult = await readFile(args.path);
-    if (readResult.ok && inTrustedDirectory) {
+    if (readResult.ok && inTrustedDirectory && !leavesTrustedDirectory) {
       grantWriteCapability(args.path);
     } else if (readResult.ok) {
       grantReadCapability(args.path);

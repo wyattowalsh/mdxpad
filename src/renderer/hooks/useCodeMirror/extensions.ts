@@ -54,9 +54,8 @@ import { codeExecutionExtension } from '../../lib/editor/extensions/code-executi
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
 import { commentDecorationExtension } from '../../lib/editor/comment-decorations';
-import { pathToFileURL } from 'node:url';
-import { fileURLToPath } from 'node:url';
 import { openFileFromPath } from '@renderer/lib/open-file-from-path';
+import { joinRelativePath } from '@renderer/lib/resolve-beside-file';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { predictNextEdit } from '../../lib/editor/next-edit-provider';
 import { nextEditPrediction } from '../../lib/editor/extensions/next-edit-prediction';
@@ -66,14 +65,13 @@ function openImportedFile(specifier: string): void {
     return;
   }
   const current = useDocumentStore.getState().filePath;
-  if (!current) {
+  if (current?.includes('/') !== true) {
     return;
   }
-  try {
-    const resolved = fileURLToPath(new URL(specifier, pathToFileURL(current)));
+  const directory = current.slice(0, current.lastIndexOf('/'));
+  const resolved = joinRelativePath(directory, specifier);
+  if (resolved) {
     void openFileFromPath(resolved);
-  } catch {
-    return;
   }
 }
 

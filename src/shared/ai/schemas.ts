@@ -32,12 +32,7 @@ export type ProviderTypeSchemaType = z.infer<typeof ProviderTypeSchema>;
 /**
  * Connection status for a provider.
  */
-export const ConnectionStatusSchema = z.enum([
-  'connected',
-  'disconnected',
-  'error',
-  'validating',
-]);
+export const ConnectionStatusSchema = z.enum(['connected', 'disconnected', 'error', 'validating']);
 export type ConnectionStatusSchemaType = z.infer<typeof ConnectionStatusSchema>;
 
 /**
@@ -206,10 +201,12 @@ export type AddProviderRequestSchemaType = z.infer<typeof AddProviderRequestSche
 export const AddProviderResponseSchema = z.object({
   success: z.boolean(),
   provider: ProviderConfigSchema.optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type AddProviderResponseSchemaType = z.infer<typeof AddProviderResponseSchema>;
 
@@ -233,10 +230,12 @@ export type UpdateProviderRequestSchemaType = z.infer<typeof UpdateProviderReque
 export const UpdateProviderResponseSchema = z.object({
   success: z.boolean(),
   provider: ProviderConfigSchema.optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type UpdateProviderResponseSchemaType = z.infer<typeof UpdateProviderResponseSchema>;
 
@@ -253,10 +252,12 @@ export type RemoveProviderRequestSchemaType = z.infer<typeof RemoveProviderReque
  */
 export const RemoveProviderResponseSchema = z.object({
   success: z.boolean(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type RemoveProviderResponseSchemaType = z.infer<typeof RemoveProviderResponseSchema>;
 
@@ -274,10 +275,12 @@ export type SetActiveProviderRequestSchemaType = z.infer<typeof SetActiveProvide
 export const SetActiveProviderResponseSchema = z.object({
   success: z.boolean(),
   activeProviderId: z.string().uuid().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type SetActiveProviderResponseSchemaType = z.infer<typeof SetActiveProviderResponseSchema>;
 
@@ -296,11 +299,13 @@ export const ValidateProviderResponseSchema = z.object({
   success: z.boolean(),
   status: ConnectionStatusSchema,
   models: z.array(z.string()).optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    retryAfterSeconds: z.number().optional(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      retryAfterSeconds: z.number().optional(),
+    })
+    .optional(),
 });
 export type ValidateProviderResponseSchemaType = z.infer<typeof ValidateProviderResponseSchema>;
 
@@ -341,13 +346,16 @@ export const SidecarLifecycleStatusResponseSchema = z.object({
   pid: z.number().int().positive().optional(),
   endpoint: z.string().url().optional(),
   config: SidecarConfigSchema.optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
-export type SidecarLifecycleStatusResponseSchemaType =
-  z.infer<typeof SidecarLifecycleStatusResponseSchema>;
+export type SidecarLifecycleStatusResponseSchemaType = z.infer<
+  typeof SidecarLifecycleStatusResponseSchema
+>;
 
 /**
  * Response for sidecar configuration updates.
@@ -393,10 +401,12 @@ export const SetCredentialResponseSchema = z.object({
   success: z.boolean(),
   storageType: StorageTypeSchema,
   keyPreview: z.string().length(4),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type SetCredentialResponseSchemaType = z.infer<typeof SetCredentialResponseSchema>;
 
@@ -457,12 +467,14 @@ export const GenerateTextResponseSchema = z.object({
   success: z.boolean(),
   text: z.string().optional(),
   usage: UsageTokensSchema.optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    retryAfterSeconds: z.number().optional(),
-    alternateProviders: z.array(z.string()).optional(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      retryAfterSeconds: z.number().optional(),
+      alternateProviders: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 export type GenerateTextResponseSchemaType = z.infer<typeof GenerateTextResponseSchema>;
 
@@ -479,10 +491,12 @@ export type GenerateStreamRequestSchemaType = z.infer<typeof GenerateStreamReque
 export const StreamInitResponseSchema = z.object({
   success: z.boolean(),
   streamId: z.string().uuid().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type StreamInitResponseSchemaType = z.infer<typeof StreamInitResponseSchema>;
 
@@ -499,10 +513,12 @@ export type StreamCancelRequestSchemaType = z.infer<typeof StreamCancelRequestSc
  */
 export const StreamCancelResponseSchema = z.object({
   success: z.boolean(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type StreamCancelResponseSchemaType = z.infer<typeof StreamCancelResponseSchema>;
 
@@ -553,10 +569,12 @@ export const GenerateEmbedResponseSchema = z.object({
   success: z.boolean(),
   embeddings: z.array(z.array(z.number())).optional(),
   dimensions: z.number().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type GenerateEmbedResponseSchemaType = z.infer<typeof GenerateEmbedResponseSchema>;
 
@@ -602,10 +620,12 @@ export const GenerateImageResponseSchema = z.object({
   success: z.boolean(),
   imageUrl: z.string().url().optional(),
   imageBase64: z.string().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type GenerateImageResponseSchemaType = z.infer<typeof GenerateImageResponseSchema>;
 
@@ -636,6 +656,18 @@ export const ProviderUsageStatSchema = z.object({
 export type ProviderUsageStatSchemaType = z.infer<typeof ProviderUsageStatSchema>;
 
 /**
+ * Model usage summary for statistics.
+ */
+export const ModelUsageStatSchema = z.object({
+  modelId: z.string(),
+  providerId: z.string(),
+  requestCount: z.number(),
+  tokenCount: z.number(),
+  estimatedCostUsd: z.number(),
+});
+export type ModelUsageStatSchemaType = z.infer<typeof ModelUsageStatSchema>;
+
+/**
  * Operation usage summary for statistics.
  */
 export const OperationUsageStatSchema = z.object({
@@ -650,17 +682,20 @@ export type OperationUsageStatSchemaType = z.infer<typeof OperationUsageStatSche
  */
 export const QueryUsageResponseSchema = z.object({
   success: z.boolean(),
-  stats: z.object({
-    totalRequests: z.number(),
-    successfulRequests: z.number(),
-    failedRequests: z.number(),
-    totalTokens: z.number(),
-    inputTokens: z.number(),
-    outputTokens: z.number(),
-    estimatedCostUsd: z.number(),
-    byProvider: z.array(ProviderUsageStatSchema),
-    byOperation: z.array(OperationUsageStatSchema),
-  }).optional(),
+  stats: z
+    .object({
+      totalRequests: z.number(),
+      successfulRequests: z.number(),
+      failedRequests: z.number(),
+      totalTokens: z.number(),
+      inputTokens: z.number(),
+      outputTokens: z.number(),
+      estimatedCostUsd: z.number(),
+      byProvider: z.array(ProviderUsageStatSchema),
+      byModel: z.array(ModelUsageStatSchema),
+      byOperation: z.array(OperationUsageStatSchema),
+    })
+    .optional(),
 });
 export type QueryUsageResponseSchemaType = z.infer<typeof QueryUsageResponseSchema>;
 
@@ -681,10 +716,12 @@ export const ExportUsageResponseSchema = z.object({
   success: z.boolean(),
   data: z.string().optional(),
   filename: z.string().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type ExportUsageResponseSchemaType = z.infer<typeof ExportUsageResponseSchema>;
 
@@ -703,10 +740,12 @@ export type ClearUsageRequestSchemaType = z.infer<typeof ClearUsageRequestSchema
 export const ClearUsageResponseSchema = z.object({
   success: z.boolean(),
   deletedCount: z.number().optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type ClearUsageResponseSchemaType = z.infer<typeof ClearUsageResponseSchema>;
 
@@ -728,17 +767,21 @@ export type GetCapabilityRequestSchemaType = z.infer<typeof GetCapabilityRequest
  */
 export const GetCapabilityResponseSchema = z.object({
   success: z.boolean(),
-  capabilities: z.object({
-    modelId: z.string(),
-    capabilities: z.array(ProviderCapabilitySchema),
-    contextWindow: z.number().optional(),
-    maxOutputTokens: z.number().optional(),
-    constraints: CapabilityConstraintsSchema.optional(),
-  }).optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  capabilities: z
+    .object({
+      modelId: z.string(),
+      capabilities: z.array(ProviderCapabilitySchema),
+      contextWindow: z.number().optional(),
+      maxOutputTokens: z.number().optional(),
+      constraints: CapabilityConstraintsSchema.optional(),
+    })
+    .optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type GetCapabilityResponseSchemaType = z.infer<typeof GetCapabilityResponseSchema>;
 
@@ -766,10 +809,12 @@ export type ModelInfoSchemaType = z.infer<typeof ModelInfoSchema>;
 export const ListModelsResponseSchema = z.object({
   success: z.boolean(),
   models: z.array(ModelInfoSchema).optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type ListModelsResponseSchemaType = z.infer<typeof ListModelsResponseSchema>;
 
@@ -786,10 +831,12 @@ export type RefreshCapabilityRequestSchemaType = z.infer<typeof RefreshCapabilit
  */
 export const RefreshCapabilityResponseSchema = z.object({
   success: z.boolean(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 export type RefreshCapabilityResponseSchemaType = z.infer<typeof RefreshCapabilityResponseSchema>;
 
@@ -873,10 +920,7 @@ export type OnboardingMetricsSchemaType = z.infer<typeof OnboardingMetricsSchema
  * Validates data against a schema and returns the parsed result or throws.
  * Use on renderer side before sending IPC requests.
  */
-export function validateRequest<T extends z.ZodTypeAny>(
-  schema: T,
-  data: unknown
-): z.infer<T> {
+export function validateRequest<T extends z.ZodTypeAny>(schema: T, data: unknown): z.infer<T> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return schema.parse(data);
 }
