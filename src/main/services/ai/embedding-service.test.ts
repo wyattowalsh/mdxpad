@@ -6,8 +6,37 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import type { ProviderConfig, ProviderType } from '@shared/ai/types';
 import type { IAIService } from './ai-types';
+import { EmbeddingsUnavailableError } from './embedding-availability';
 import { chunkText, EmbeddingService } from './embedding-service';
+
+function provider(type: ProviderType): ProviderConfig {
+  return {
+    id: 'provider-1',
+    displayName: 'Test',
+    type,
+    isActive: true,
+    status: 'connected',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+}
+
+function embeddingAi(): IAIService {
+  return {
+    generateEmbedding: vi.fn(async ({ texts }: { texts: string[] }) => ({
+      embeddings: texts.map(() => [0.1, 0.2]),
+      dimensions: 2,
+      modelId: 'test-model',
+    })),
+    generateText: vi.fn(),
+    streamText: vi.fn(),
+    generateImage: vi.fn(),
+    getActiveModel: vi.fn(),
+    isReady: vi.fn(),
+  } as unknown as IAIService;
+}
 
 describe('chunkText', () => {
   it('should return single chunk for short text', () => {
@@ -103,5 +132,47 @@ describe('EmbeddingService#indexWorkspace', () => {
 
     expect(result.indexedFiles).toBe(1);
     expect(result.totalChunks).toBe(1);
+  });
+
+  it('does not call the provider when no provider is active', async () => {
+    const aiService = embeddingAi();
+    const embeddingService = new EmbeddingService(aiService, {
+      getActiveProvider: async () => null,
+      getCredential: async () => null,
+    });
+
+    await expect(embeddingService.indexWorkspace('/tmp/unused-workspace')).rejects.toBeInstanceOf(
+      EmbeddingsUnavailableError
+    );
+    expect(aiService.generateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it('does not call the provider for a keyed provider with no credential', async () => {
+    const aiService = embeddingAi();
+    const embeddingService = new EmbeddingService(aiService, {
+      getActiveProvider: async () => provider('openai'),
+      getCredential: async () => null,
+    });
+
+    await expect(embeddingService.search('/tmp/unused-workspace', 'query')).rejects.toBeInstanceOf(
+      EmbeddingsUnavailableError
+    );
+    expect(aiService.generateEmbedding).not.toHaveBeenCalled();
+  });
+
+  it('still embeds with a local provider that does not require a key', async () => {
+    const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-local-'));
+    tempDirs.push(workspacePath);
+    fs.writeFileSync(path.join(workspacePath, 'note.md'), 'local', 'utf-8');
+
+    const aiService = embeddingAi();
+    const embeddingService = new EmbeddingService(aiService, {
+      getActiveProvider: async () => provider('ollama'),
+      getCredential: async () => null,
+    });
+
+    const result = await embeddingService.indexWorkspace(workspacePath);
+    expect(result.indexedFiles).toBe(1);
+    expect(aiService.generateEmbedding).toHaveBeenCalled();
   });
 });

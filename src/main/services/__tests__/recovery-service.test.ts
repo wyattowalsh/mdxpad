@@ -735,6 +735,7 @@ describe('RecoveryService', () => {
       const entry = result.entries[0];
       expect(entry).toBeDefined();
       expect(entry?.isValid).toBe(false);
+      expect(entry?.contentPreview).toBe('');
     });
 
     it('should treat unsafe recovery paths as untitled while keeping entry recoverable', async () => {

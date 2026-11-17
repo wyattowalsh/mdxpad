@@ -15,6 +15,7 @@ import { CredentialService } from './credential-service';
 import { ProviderService } from './provider-service';
 import { CapabilityService } from './capability-service';
 import { AIService } from './ai-service';
+import { EmbeddingService } from './embedding-service';
 import { UsageService } from './usage-service';
 import { OnboardingService } from './onboarding-service';
 import { ProviderSessionService } from './provider-session-service';
@@ -146,12 +147,11 @@ export function createAIServices(): AIServices {
   const promptFileLoaderService = new AIPromptFileLoaderService();
   const instructionLoaderService = new InstructionLoaderService(aiSessionStorageService);
   const sidecarService = new SidecarLifecycleService();
-  const aiService = new AIService(
-    credentialService,
-    providerService,
-    usageService,
-    sidecarService
-  );
+  const aiService = new AIService(credentialService, providerService, usageService, sidecarService);
+  const embeddingService = new EmbeddingService(aiService, {
+    getActiveProvider: () => providerService.getActiveProvider(),
+    getCredential: (providerId) => credentialService.getCredential(providerId),
+  });
 
   return {
     credentialService,
@@ -159,6 +159,7 @@ export function createAIServices(): AIServices {
     capabilityService,
     providerSessionService,
     aiService,
+    embeddingService,
     usageService,
     onboardingService,
     aiSessionStorageService,
@@ -177,6 +178,7 @@ export interface AIServices {
   capabilityService: CapabilityService;
   providerSessionService: ProviderSessionService;
   aiService: AIService;
+  embeddingService: EmbeddingService;
   usageService: UsageService;
   onboardingService: OnboardingService;
   aiSessionStorageService: AISessionStorageService;

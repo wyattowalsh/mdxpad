@@ -10,6 +10,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import {
+  assertEmbeddingsAvailable,
+  type EmbeddingAvailabilitySource,
+} from './embedding-availability';
 import type { IAIService } from './ai-types';
 import { VectorStore, type VectorEntry } from './vector-store';
 
@@ -116,7 +120,17 @@ async function findIndexableFiles(dirPath: string): Promise<string[]> {
 export class EmbeddingService {
   private stores = new Map<string, VectorStore>();
 
-  constructor(private readonly aiService: IAIService) {}
+  constructor(
+    private readonly aiService: IAIService,
+    private readonly availability?: EmbeddingAvailabilitySource
+  ) {}
+
+  private async assertAvailable(): Promise<void> {
+    if (!this.availability) {
+      return;
+    }
+    await assertEmbeddingsAvailable(this.availability);
+  }
 
   /**
    * Gets or creates a vector store for a workspace.
@@ -138,6 +152,7 @@ export class EmbeddingService {
     workspacePath: string,
     forceReindex = false
   ): Promise<{ indexedFiles: number; totalChunks: number }> {
+    await this.assertAvailable();
     const store = await this.getStore(workspacePath);
 
     if (forceReindex) {
@@ -198,6 +213,7 @@ export class EmbeddingService {
     query: string,
     topK = 10
   ): Promise<{ filePath: string; content: string; score: number; chunkIndex: number }[]> {
+    await this.assertAvailable();
     const store = await this.getStore(workspacePath);
 
     if (store.size === 0) {
@@ -245,6 +261,7 @@ export class EmbeddingService {
    * Updates embeddings for a single file (incremental update).
    */
   async updateFile(workspacePath: string, filePath: string): Promise<void> {
+    await this.assertAvailable();
     const store = await this.getStore(workspacePath);
 
     // Remove old entries for this file

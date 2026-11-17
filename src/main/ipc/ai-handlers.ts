@@ -20,6 +20,7 @@ import { registerProviderHandlers } from './ai-provider-handlers';
 import { registerGenerationHandlers } from './ai-generation-handlers';
 import { registerUsageHandlers } from './ai-usage-handlers';
 import { registerSessionHandlers } from './ai-session-handlers';
+import { registerSemanticSearchHandlers } from '@main/services/ai/semantic-search-handlers';
 
 // Re-export shared utilities for external consumers
 export { toErrorResponse, filterUndefined } from './ai-handler-utils';
@@ -37,6 +38,7 @@ export function registerAIHandlers(services: AIServices, window: BrowserWindow):
   registerSessionHandlers(services, window);
   registerGenerationHandlers(services, window);
   registerUsageHandlers(services, window);
+  registerSemanticSearchHandlers(services.embeddingService, window);
 
   console.log('[AIHandlers] All AI handlers registered');
 }

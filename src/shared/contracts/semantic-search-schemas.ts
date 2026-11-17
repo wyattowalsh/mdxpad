@@ -50,7 +50,7 @@ export type SemanticIndexStatusRequest = z.infer<typeof SemanticIndexStatusReque
 export const SemanticSearchResultSchema = z.object({
   filePath: z.string(),
   content: z.string(),
-  score: z.number().min(0).max(1),
+  score: z.number().min(-1).max(1),
   chunkIndex: z.number().int().nonnegative(),
 });
 export type SemanticSearchResult = z.infer<typeof SemanticSearchResultSchema>;

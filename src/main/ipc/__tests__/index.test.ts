@@ -188,55 +188,47 @@ describe('registerIpcHandlers', () => {
     vi.clearAllMocks();
   });
 
-  it(
-    'rejects unauthorized sender for app:get-security-info',
-    () => {
-      const window = createMockWindow();
+  it('rejects unauthorized sender for app:get-security-info', () => {
+    const window = createMockWindow();
 
-      registerIpcHandlers(window);
+    registerIpcHandlers(window);
 
-      const getSecurityInfoCall = mockIpcMainHandle.mock.calls.find(
-        ([channel]) => channel === IPC_CHANNELS.app.getSecurityInfo
-      );
-      const getSecurityInfoHandler = getSecurityInfoCall?.[1] as
-        | ((event: unknown) => unknown)
-        | undefined;
+    const getSecurityInfoCall = mockIpcMainHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.app.getSecurityInfo
+    );
+    const getSecurityInfoHandler = getSecurityInfoCall?.[1] as
+      | ((event: unknown) => unknown)
+      | undefined;
 
-      expect(getSecurityInfoHandler).toBeDefined();
+    expect(getSecurityInfoHandler).toBeDefined();
 
-      expect(() =>
-        getSecurityInfoHandler!(createInvokeEvent(window, { senderId: window.webContents.id + 1 }))
-      ).toThrow('Unauthorized IPC sender');
-    },
-    10_000
-  );
+    expect(() =>
+      getSecurityInfoHandler!(createInvokeEvent(window, { senderId: window.webContents.id + 1 }))
+    ).toThrow('Unauthorized IPC sender');
+  }, 10_000);
 
-  it(
-    'rejects unauthorized frame for app:get-security-info',
-    () => {
-      const window = createMockWindow();
+  it('rejects unauthorized frame for app:get-security-info', () => {
+    const window = createMockWindow();
 
-      registerIpcHandlers(window);
+    registerIpcHandlers(window);
 
-      const getSecurityInfoCall = mockIpcMainHandle.mock.calls.find(
-        ([channel]) => channel === IPC_CHANNELS.app.getSecurityInfo
-      );
-      const getSecurityInfoHandler = getSecurityInfoCall?.[1] as
-        | ((event: unknown) => unknown)
-        | undefined;
+    const getSecurityInfoCall = mockIpcMainHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.app.getSecurityInfo
+    );
+    const getSecurityInfoHandler = getSecurityInfoCall?.[1] as
+      | ((event: unknown) => unknown)
+      | undefined;
 
-      expect(getSecurityInfoHandler).toBeDefined();
+    expect(getSecurityInfoHandler).toBeDefined();
 
-      expect(() =>
-        getSecurityInfoHandler!(
-          createInvokeEvent(window, {
-            senderFrameRoutingId: window.webContents.mainFrame.routingId + 1,
-          })
-        )
-      ).toThrow('Unauthorized IPC sender');
-    },
-    10_000
-  );
+    expect(() =>
+      getSecurityInfoHandler!(
+        createInvokeEvent(window, {
+          senderFrameRoutingId: window.webContents.mainFrame.routingId + 1,
+        })
+      )
+    ).toThrow('Unauthorized IPC sender');
+  }, 10_000);
 
   it('passes BrowserWindow to autosave and template registration wiring', () => {
     const window = createMockWindow();
@@ -279,6 +271,14 @@ describe('registerIpcHandlers', () => {
     const sharedWorkspaceService = registerWorkspaceHandlersMock.mock.calls.at(-1)?.[2];
     expect(sharedWorkspaceService).toBeDefined();
     expect(registerLinkHandlersMock.mock.calls.at(-1)?.[2]).toBe(sharedWorkspaceService);
+  });
+
+  it('removes semantic search handlers before rebinding a window', () => {
+    registerIpcHandlers(createMockWindow());
+
+    expect(mockIpcMainRemoveHandler).toHaveBeenCalledWith('mdxpad:semantic:search');
+    expect(mockIpcMainRemoveHandler).toHaveBeenCalledWith('mdxpad:semantic:index');
+    expect(mockIpcMainRemoveHandler).toHaveBeenCalledWith('mdxpad:semantic:index-status');
   });
 
   it('authorizes app:get-security-info against recreated window context', () => {

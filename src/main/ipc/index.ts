@@ -40,6 +40,7 @@ import { GitChannels } from '@shared/contracts/git-schemas';
 import { SearchChannels } from '@shared/contracts/search-schemas';
 import { ImportChannels } from '@shared/contracts/import-schemas';
 import { CitationChannels } from '@shared/contracts/citation-schemas';
+import { SemanticSearchChannels } from '@shared/contracts/semantic-search-schemas';
 import { AutosaveSettingsService } from '@main/services/autosave-settings';
 import { AutosaveService } from '@main/services/autosave-service';
 import { RecoveryService } from '@main/services/recovery-service';
@@ -89,6 +90,7 @@ const RECREATION_SENSITIVE_CHANNELS = [
   ...Object.values(ShareChannels).filter((channel) => channel !== ShareChannels.PUBLISH_PROGRESS),
   ...Object.values(HistoryChannels),
   ...Object.values(NotificationChannels),
+  ...Object.values(SemanticSearchChannels),
 ] as const;
 
 function removeLifecycleBoundHandlers(): void {

@@ -525,8 +525,8 @@ export class RecoveryService {
 
       const isValid = this.validateChecksum(recoveryFile);
 
-      // Generate content preview (first 100 characters)
-      const contentPreview = recoveryFile.content.slice(0, CONTENT_PREVIEW_LENGTH);
+      // A checksum miss must not show recovered bytes in the dialog.
+      const contentPreview = isValid ? recoveryFile.content.slice(0, CONTENT_PREVIEW_LENGTH) : '';
 
       // Check for conflict (disk file modified after recovery save)
       const hasConflict = await this.checkForConflict(recoveryFile);
@@ -836,7 +836,11 @@ export class RecoveryService {
   }
 
   private isSaneRecoveryPath(filePath: string): boolean {
-    if (filePath.length === 0 || filePath.length > MAX_RECOVERY_PATH_LENGTH || filePath.includes('\0')) {
+    if (
+      filePath.length === 0 ||
+      filePath.length > MAX_RECOVERY_PATH_LENGTH ||
+      filePath.includes('\0')
+    ) {
       return false;
     }
 

@@ -7,8 +7,9 @@
  * @module src/main/services/ai/semantic-search-handlers
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, type BrowserWindow } from 'electron';
 
+import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
 import {
   SemanticSearchChannels,
   SemanticSearchRequestSchema,
@@ -19,7 +20,25 @@ import {
   SemanticIndexStatusResponseSchema,
 } from '@shared/contracts/semantic-search-schemas';
 
+import { EmbeddingsUnavailableError } from './embedding-availability';
 import type { EmbeddingService } from './embedding-service';
+
+function errorBody(
+  error: unknown,
+  fallbackCode: string,
+  fallbackMessage: string
+): {
+  code: string;
+  message: string;
+} {
+  if (error instanceof EmbeddingsUnavailableError) {
+    return { code: error.code, message: error.message };
+  }
+  return {
+    code: fallbackCode,
+    message: error instanceof Error ? error.message : fallbackMessage,
+  };
+}
 
 // =============================================================================
 // INDIVIDUAL HANDLERS
@@ -38,10 +57,7 @@ function handleSearch(embeddingService: EmbeddingService) {
     } catch (error) {
       return SemanticSearchResponseSchema.parse({
         success: false,
-        error: {
-          code: 'SEARCH_FAILED',
-          message: error instanceof Error ? error.message : 'Search failed',
-        },
+        error: errorBody(error, 'SEARCH_FAILED', 'Search failed'),
       });
     }
   };
@@ -63,10 +79,7 @@ function handleIndex(embeddingService: EmbeddingService) {
     } catch (error) {
       return SemanticIndexResponseSchema.parse({
         success: false,
-        error: {
-          code: 'INDEX_FAILED',
-          message: error instanceof Error ? error.message : 'Indexing failed',
-        },
+        error: errorBody(error, 'INDEX_FAILED', 'Indexing failed'),
       });
     }
   };
@@ -82,7 +95,7 @@ function handleIndexStatus(embeddingService: EmbeddingService) {
         isIndexed: status.isIndexed,
         fileCount: status.fileCount,
         chunkCount: status.chunkCount,
-        lastIndexedAt: status.lastIndexedAt,
+        ...(status.lastIndexedAt === null ? {} : { lastIndexedAt: status.lastIndexedAt }),
       });
     } catch (error) {
       return SemanticIndexStatusResponseSchema.parse({
@@ -103,9 +116,27 @@ function handleIndexStatus(embeddingService: EmbeddingService) {
 /**
  * Registers semantic search IPC handlers.
  */
-export function registerSemanticSearchHandlers(embeddingService: EmbeddingService): void {
-  ipcMain.handle(SemanticSearchChannels.SEARCH, handleSearch(embeddingService));
-  ipcMain.handle(SemanticSearchChannels.INDEX, handleIndex(embeddingService));
-  ipcMain.handle(SemanticSearchChannels.INDEX_STATUS, handleIndexStatus(embeddingService));
+export function registerSemanticSearchHandlers(
+  embeddingService: EmbeddingService,
+  window: BrowserWindow
+): void {
+  registerAuthorizedIpcHandler(
+    ipcMain,
+    window,
+    SemanticSearchChannels.SEARCH,
+    handleSearch(embeddingService)
+  );
+  registerAuthorizedIpcHandler(
+    ipcMain,
+    window,
+    SemanticSearchChannels.INDEX,
+    handleIndex(embeddingService)
+  );
+  registerAuthorizedIpcHandler(
+    ipcMain,
+    window,
+    SemanticSearchChannels.INDEX_STATUS,
+    handleIndexStatus(embeddingService)
+  );
   console.log('[SemanticSearch] IPC handlers registered');
 }
