@@ -10,6 +10,8 @@
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
+import { serializeTable } from './prosemirror-mdx-table';
+
 // =============================================================================
 // NODE SERIALIZERS
 // =============================================================================
@@ -96,6 +98,10 @@ const nodeSerializers: NodeSerializerMap = {
 
   list_item(state, node) {
     state.renderContent(node);
+  },
+
+  table(state, node) {
+    serializeTable(state, node);
   },
 
   image(state, node) {

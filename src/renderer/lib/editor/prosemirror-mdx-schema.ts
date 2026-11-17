@@ -11,6 +11,8 @@
 import { Schema } from 'prosemirror-model';
 import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 
+import { tableNodes } from './prosemirror-mdx-table';
+
 // =============================================================================
 // NODE SPECS
 // =============================================================================
@@ -304,6 +306,7 @@ export const mdxSchema = new Schema({
     ordered_list: ORDERED_LIST_NODE,
     bullet_list: BULLET_LIST_NODE,
     list_item: LIST_ITEM_NODE,
+    ...tableNodes,
     image: IMAGE_NODE,
     hard_break: HARD_BREAK_NODE,
     jsx_block: JSX_BLOCK_NODE,

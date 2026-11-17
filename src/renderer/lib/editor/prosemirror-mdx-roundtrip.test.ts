@@ -90,6 +90,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\~');
   });
 
+  it('keeps a table and its alignment', () => {
+    const source = '| A | B |\n| --- | ---: |\n| 1 | **2** |\n';
+    const doc = parseMdxContent(source);
+    expect(doc?.firstChild?.type.name).toBe('table');
+    const serialized = roundTrip(source);
+    expect(serialized).toContain('| A | B |');
+    expect(serialized).toContain('| --- | ---: |');
+    expect(serialized).toContain('| 1 | **2** |');
+  });
+
   it('keeps a single tilde as text', () => {
     const serialized = roundTrip('H~2~O and `H~2~O`\n');
     expect(serialized).toContain('H~2~O and `H~2~O`');

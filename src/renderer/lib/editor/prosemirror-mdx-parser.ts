@@ -8,8 +8,10 @@
  * @module renderer/lib/editor/prosemirror-mdx-parser
  */
 
-import { defaultMarkdownParser, MarkdownParser } from 'prosemirror-markdown';
+import MarkdownIt from 'markdown-it';
+import { MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
+import { tableCellAttrs } from './prosemirror-mdx-table';
 import { Fragment, type Node as ProseMirrorNode, type Attrs } from 'prosemirror-model';
 
 /**
@@ -112,6 +114,12 @@ const MDX_TOKENS: Record<
     noCloseToken: true,
   },
   hr: { node: 'horizontal_rule' },
+  table: { block: 'table' },
+  thead: { ignore: true },
+  tbody: { ignore: true },
+  tr: { block: 'table_row' },
+  th: { block: 'table_header', getAttrs: tableCellAttrs },
+  td: { block: 'table_cell', getAttrs: tableCellAttrs },
 
   // Inline marks
   em: { mark: 'italic' },
@@ -338,9 +346,11 @@ function restoreJsxFences(doc: ProseMirrorNode): ProseMirrorNode {
   return doc.type.create(doc.attrs, children, doc.marks);
 }
 
-enableStrikethrough(defaultMarkdownParser.tokenizer as unknown as MarkdownTokenizer);
+const markdownTokenizer = new MarkdownIt('commonmark', { html: false });
+markdownTokenizer.enable('table');
+enableStrikethrough(markdownTokenizer as unknown as MarkdownTokenizer);
 
-export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tokenizer, MDX_TOKENS);
+export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TOKENS);
 
 /**
  * Parse MDX/Markdown content into a ProseMirror document.
