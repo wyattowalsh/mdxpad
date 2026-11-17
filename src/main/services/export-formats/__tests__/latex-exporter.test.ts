@@ -330,6 +330,17 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('* * *');
   });
 
+  it('renders bold italic from three markers', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '***both*** and ___too___',
+      outputPath: '/tmp/both.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\textbf{\\textit{both}}');
+    expect(written).toContain('\\textbf{\\textit{too}}');
+  });
+
   it('renders a task checkbox', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

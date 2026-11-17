@@ -64,14 +64,14 @@ interface InlineSegment {
 export function parseInlineFormatting(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   const regex =
-    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
+    /(\*\*\*(.+?)\*\*\*|(?<![\w])___(.+?)___(?![\w])|\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
   let lastIndex = 0;
 
   for (const match of text.matchAll(regex)) {
     const matchIndex = match.index;
     const image =
-      match[7] !== undefined &&
-      match[8] !== undefined &&
+      match[9] !== undefined &&
+      match[10] !== undefined &&
       matchIndex > 0 &&
       text[matchIndex - 1] === '!';
     const prefixEnd = image ? matchIndex - 1 : matchIndex;
@@ -80,24 +80,28 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
     }
 
     if (image) {
-      const alt = match[7] ?? '';
-      const src = match[8] ?? '';
+      const alt = match[9] ?? '';
+      const src = match[10] ?? '';
       const path = linkDestination(src);
       segments.push({ text: alt.length > 0 ? alt : path, image: path });
     } else if (match[2] !== undefined) {
-      segments.push({ text: match[2], bold: true });
+      segments.push({ text: match[2], bold: true, italic: true });
     } else if (match[3] !== undefined) {
-      segments.push({ text: match[3], bold: true });
+      segments.push({ text: match[3], bold: true, italic: true });
     } else if (match[4] !== undefined) {
-      segments.push({ text: match[4], code: true });
+      segments.push({ text: match[4], bold: true });
     } else if (match[5] !== undefined) {
-      segments.push({ text: match[5], italic: true });
+      segments.push({ text: match[5], bold: true });
     } else if (match[6] !== undefined) {
-      segments.push({ text: match[6], italic: true });
-    } else if (match[7] !== undefined && match[8] !== undefined) {
-      segments.push({ text: match[7], link: linkDestination(match[8]) });
-    } else if (match[9] !== undefined) {
-      segments.push({ text: match[9], strike: true });
+      segments.push({ text: match[6], code: true });
+    } else if (match[7] !== undefined) {
+      segments.push({ text: match[7], italic: true });
+    } else if (match[8] !== undefined) {
+      segments.push({ text: match[8], italic: true });
+    } else if (match[9] !== undefined && match[10] !== undefined) {
+      segments.push({ text: match[9], link: linkDestination(match[10]) });
+    } else if (match[11] !== undefined) {
+      segments.push({ text: match[11], strike: true });
     }
 
     lastIndex = matchIndex + match[0].length;

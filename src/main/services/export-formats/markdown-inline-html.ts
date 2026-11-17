@@ -157,6 +157,8 @@ function renderText(value: string): string {
         escapeHtml(protectedHtml.text)
           .replace(/`([^`]+)`/g, '<code>$1</code>')
           .replace(/~~(.+?)~~/g, '<del>$1</del>')
+          .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+          .replace(/(?<![\w])___(.+?)___(?![\w])/g, '<strong><em>$1</em></strong>')
           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
           .replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong>$1</strong>')
           .replace(/\*(.+?)\*/g, '<em>$1</em>')

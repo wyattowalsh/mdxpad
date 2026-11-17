@@ -41,6 +41,9 @@ describe('DocxExporter', () => {
       { text: 'use snake_case_name here' },
     ]);
     expect(parseInlineFormatting('~~gone~~')).toEqual([{ text: 'gone', strike: true }]);
+    expect(parseInlineFormatting('***both***')).toEqual([
+      { text: 'both', bold: true, italic: true },
+    ]);
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);

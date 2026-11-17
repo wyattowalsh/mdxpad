@@ -123,29 +123,31 @@ function formatInline(source: string): string {
   const protectedLinks = protectAutolinks(escaped.text);
   const raw = protectedLinks.text;
   const pattern =
-    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
+    /(\*\*\*(.+?)\*\*\*|(?<![\w])___(.+?)___(?![\w])|\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)|~~(.+?)~~)/g;
   let result = '';
   let cursor = 0;
   for (const match of raw.matchAll(pattern)) {
     const index = match.index;
     const image =
-      match[7] !== undefined && match[8] !== undefined && index > 0 && raw[index - 1] === '!';
+      match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';
     result += escapeLatex(raw.slice(cursor, image ? index - 1 : index));
     if (image) {
-      const alt = match[7] ?? '';
-      const src = match[8] ?? '';
+      const alt = match[9] ?? '';
+      const src = match[10] ?? '';
       const path = linkDestination(src);
       result += latexImage(path, alt.length > 0 ? alt : path);
     } else if (match[2] !== undefined || match[3] !== undefined) {
-      result += wrapLatex('textbf', match[2] ?? match[3] ?? '');
-    } else if (match[4] !== undefined) {
-      result += wrapLatex('texttt', match[4]);
-    } else if (match[5] !== undefined || match[6] !== undefined) {
-      result += wrapLatex('textit', match[5] ?? match[6] ?? '');
-    } else if (match[7] !== undefined && match[8] !== undefined) {
-      result += `\\href{${escapeLatex(linkDestination(match[8]))}}{${escapeLatex(match[7])}}`;
-    } else if (match[9] !== undefined) {
-      result += `\\sout{${escapeLatex(match[9])}}`;
+      result += `\\textbf{\\textit{${escapeLatex(match[2] ?? match[3] ?? '')}}}`;
+    } else if (match[4] !== undefined || match[5] !== undefined) {
+      result += wrapLatex('textbf', match[4] ?? match[5] ?? '');
+    } else if (match[6] !== undefined) {
+      result += wrapLatex('texttt', match[6]);
+    } else if (match[7] !== undefined || match[8] !== undefined) {
+      result += wrapLatex('textit', match[7] ?? match[8] ?? '');
+    } else if (match[9] !== undefined && match[10] !== undefined) {
+      result += `\\href{${escapeLatex(linkDestination(match[10]))}}{${escapeLatex(match[9])}}`;
+    } else if (match[11] !== undefined) {
+      result += `\\sout{${escapeLatex(match[11])}}`;
     }
     cursor = index + match[0].length;
   }
