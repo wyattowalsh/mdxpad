@@ -92,6 +92,9 @@ export interface HtmlListFrame {
   readonly kind: 'ul' | 'ol';
   readonly level: number;
   column: number;
+  loose: boolean;
+  /** Index of this list's opening tag in the part buffer. */
+  start: number;
 }
 
 function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string {
@@ -108,6 +111,48 @@ function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string
 export function continuesList(stack: readonly HtmlListFrame[], line: string): boolean {
   const spaces = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
   return stack.some((frame) => spaces >= frame.column);
+}
+
+function isListOpenTag(part: string): boolean {
+  return part === '<ul>' || part === '<ol>' || part.startsWith('<ol ');
+}
+
+function wrapLooseItem(parts: string[], index: number): void {
+  const part = parts[index] ?? '';
+  if (!part.startsWith('<li>') || part.includes('<p>')) {
+    return;
+  }
+  const closed = part.endsWith('</li>');
+  const inner = closed ? part.slice('<li>'.length, -'</li>'.length) : part.slice('<li>'.length);
+  if (inner.length === 0 || inner.trimStart().startsWith('<')) {
+    return;
+  }
+  const wrapped = `<p>${inner}</p>`;
+  parts[index] = closed ? `<li>${wrapped}</li>` : `<li>${wrapped}`;
+}
+
+/** A blank line between items makes every item in the current list loose. */
+export function markListLoose(parts: string[], stack: HtmlListFrame[]): void {
+  const frame = stack[stack.length - 1];
+  if (!frame || frame.loose) {
+    return;
+  }
+  frame.loose = true;
+  let depth = 0;
+  for (let index = frame.start + 1; index < parts.length; index += 1) {
+    const part = parts[index] ?? '';
+    if (isListOpenTag(part)) {
+      depth += 1;
+      continue;
+    }
+    if (part === '</ul>' || part === '</ol>') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0) {
+      wrapLooseItem(parts, index);
+    }
+  }
 }
 
 export function closeHtmlListFrame(parts: string[], stack: HtmlListFrame[]): void {
@@ -132,9 +177,16 @@ export function pushHtmlListItem(
   stack: HtmlListFrame[],
   item: MarkdownListItem,
   itemHtml: string,
-  column = 2 + item.level * 2
+  column = 2 + item.level * 2,
+  separated = false
 ): void {
   const kind = item.ordered ? 'ol' : 'ul';
+  const current = stack[stack.length - 1];
+  const sameList = current?.level === item.level && current.kind === kind;
+  const nested = Boolean(current && current.level < item.level);
+  if (separated && (sameList || nested)) {
+    markListLoose(parts, stack);
+  }
   while (stack.length > 0) {
     const top = stack[stack.length - 1];
     if (!top || (top.level === item.level && top.kind === kind) || top.level < item.level) {
@@ -151,7 +203,10 @@ export function pushHtmlListItem(
   }
   if (!top || top.level < item.level) {
     parts.push(listTag(kind, false, item.start));
-    stack.push({ kind, level: item.level, column });
+    stack.push({ kind, level: item.level, column, loose: false, start: parts.length - 1 });
   }
-  parts.push(`<li>${itemHtml}`);
+  const frame = stack[stack.length - 1];
+  const html =
+    frame?.loose && itemHtml.length > 0 && !itemHtml.startsWith('<') ? `<p>${itemHtml}</p>` : itemHtml;
+  parts.push(`<li>${html}`);
 }

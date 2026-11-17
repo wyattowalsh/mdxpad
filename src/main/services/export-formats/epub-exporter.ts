@@ -352,9 +352,11 @@ function startEpubListItem(
     state.listColumn = column;
     state.loose = true;
     state.itemHtml = epubHeading(state, heading.depth, heading.text);
-    pushHtmlListItem(htmlLines, state.lists, item, state.itemHtml, column);
+    pushHtmlListItem(htmlLines, state.lists, item, state.itemHtml, column, state.listBreak);
+    state.loose = state.lists[state.lists.length - 1]?.loose === true;
     return;
   }
+  const separated = state.listBreak;
   const html = openListItem(
     state,
     raw,
@@ -363,7 +365,8 @@ function startEpubListItem(
     listContentColumn(raw) ?? 2,
     renderMarkdownInline
   );
-  pushHtmlListItem(htmlLines, state.lists, item, html, listContentColumn(raw) ?? 2);
+  pushHtmlListItem(htmlLines, state.lists, item, html, listContentColumn(raw) ?? 2, separated);
+  state.loose = state.lists[state.lists.length - 1]?.loose === true;
 }
 
 function continueEpubListItem(htmlLines: string[], state: EpubLineState, raw: string): boolean {

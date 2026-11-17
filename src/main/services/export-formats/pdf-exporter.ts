@@ -308,9 +308,11 @@ function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem):
     build.listColumn = column;
     build.loose = true;
     build.itemHtml = pdfHeading(build, heading.depth, heading.text);
-    pushHtmlListItem(build.parts, build.lists, item, build.itemHtml, column);
+    pushHtmlListItem(build.parts, build.lists, item, build.itemHtml, column, build.listBreak);
+    build.loose = build.lists[build.lists.length - 1]?.loose === true;
     return;
   }
+  const separated = build.listBreak;
   const html = openListItem(
     build,
     raw,
@@ -319,7 +321,8 @@ function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem):
     listContentColumn(raw) ?? 2,
     renderMarkdownInline
   );
-  pushHtmlListItem(build.parts, build.lists, item, html, listContentColumn(raw) ?? 2);
+  pushHtmlListItem(build.parts, build.lists, item, html, listContentColumn(raw) ?? 2, separated);
+  build.loose = build.lists[build.lists.length - 1]?.loose === true;
 }
 
 function continuePdfListItem(build: PdfBuild, raw: string): boolean {

@@ -346,7 +346,9 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>');
+    expect(html).toContain(
+      '<ul>\n<li><p>parent</p>\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>'
+    );
     const ended = await exporter.export({
       content: '- parent\n\n  - child\n\nbaz\n',
       outputPath: '/tmp/nested-ended.pdf',
@@ -358,6 +360,27 @@ describe('PdfExporter', () => {
     );
     expect(endedHtml).toContain('</ul>\n<p>baz</p>');
     expect(endedHtml.indexOf('</ul>\n<p>baz</p>')).toBeGreaterThan(endedHtml.indexOf('<li>child</li>'));
+  });
+
+  it('wraps every item when a blank line separates them', async () => {
+    await exporter.export({
+      content: '- a\n\n- b\n',
+      outputPath: '/tmp/loose-items.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<ul>\n<li><p>a</p></li>\n<li><p>b</p></li>\n</ul>');
+    const ended = await exporter.export({
+      content: '- a\n\nAfter\n',
+      outputPath: '/tmp/ended-list.pdf',
+    });
+    expect(ended.ok).toBe(true);
+    const endedUrl = mockLoadURL.mock.calls.at(-1)?.[0];
+    const endedHtml = decodeURIComponent(
+      String(endedUrl).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(endedHtml).toContain('<li>a</li>');
+    expect(endedHtml).toContain('<p>After</p>');
   });
 
   it('nests a child list under its parent', async () => {
@@ -403,8 +426,8 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<li>one outside</li>');
-    expect(html).toContain('<li>two inside</li>');
+    expect(html).toContain('<li><p>one outside</p></li>');
+    expect(html).toContain('<li><p>two inside</p></li>');
     expect(html).not.toContain('<p>outside</p>');
   });
 

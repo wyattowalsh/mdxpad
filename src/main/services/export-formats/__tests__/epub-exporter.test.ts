@@ -277,7 +277,9 @@ describe('EpubExporter', () => {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('<ul>\n<li>parent\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>');
+    expect(html).toContain(
+      '<ul>\n<li><p>parent</p>\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>'
+    );
   });
 
   it('nests a child list under its parent', async () => {
