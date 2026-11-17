@@ -32,7 +32,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
-import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteChunks, quoteParagraphPieces } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
@@ -518,14 +518,42 @@ function appendDocxQuoteList(
   }
 }
 
+function appendDocxQuoteParagraph(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  depth: number,
+  slugs?: Map<string, number>
+): void {
+  for (const piece of quoteParagraphPieces(lines)) {
+    if (piece.kind === 'heading') {
+      blocks.push(
+        slugs
+          ? bookmarkedHeading(piece.level, piece.text, slugs)
+          : new Paragraph({
+              heading: getHeadingLevel(piece.level),
+              children: createParagraphChildren(piece.text),
+            })
+      );
+      continue;
+    }
+    const sources = piece.lines
+      .map((line) => readSourceLine(line))
+      .filter((line) => line.text.length > 0);
+    if (sources.length > 0) {
+      blocks.push(paragraphFromLines(sources, depth));
+    }
+  }
+}
+
 function appendDocxQuoteLines(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
-  depth: number
+  depth: number,
+  slugs?: Map<string, number>
 ): void {
   for (const chunk of quoteChunks(lines)) {
     if (chunk.kind === 'nested') {
-      appendDocxQuoteLines(blocks, chunk.lines, depth + 1);
+      appendDocxQuoteLines(blocks, chunk.lines, depth + 1, slugs);
       continue;
     }
     if (chunk.kind === 'table') {
@@ -541,20 +569,19 @@ function appendDocxQuoteLines(
       appendDocxQuoteList(blocks, chunk.lines, depth);
       continue;
     }
-    const sources = chunk.lines
-      .map((line) => readSourceLine(line))
-      .filter((line) => line.text.length > 0);
-    if (sources.length > 0) {
-      blocks.push(paragraphFromLines(sources, depth));
-    }
+    appendDocxQuoteParagraph(blocks, chunk.lines, depth, slugs);
   }
 }
 
-function flushDocxQuote(blocks: (Paragraph | Table)[], quoteLines: string[]): void {
+function flushDocxQuote(
+  blocks: (Paragraph | Table)[],
+  quoteLines: string[],
+  slugs?: Map<string, number>
+): void {
   if (quoteLines.length === 0) {
     return;
   }
-  appendDocxQuoteLines(blocks, quoteLines.splice(0, quoteLines.length), 1);
+  appendDocxQuoteLines(blocks, quoteLines.splice(0, quoteLines.length), 1, slugs);
 }
 
 function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
@@ -564,7 +591,7 @@ function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
   if (parse.itemQuote) {
     const text = readListQuoteLine(line, parse.listColumn ?? 2);
     if (text === null) {
-      appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1);
+      appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts);
       parse.itemQuote = null;
       parse.listSealed = true;
       return false;
@@ -738,7 +765,12 @@ function takeDocxItemTable(parse: DocxParse, line: string): boolean {
   return true;
 }
 
-function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: string[]): boolean {
+function takeDocxQuote(
+  blocks: (Paragraph | Table)[],
+  line: string,
+  quoteLines: string[],
+  slugs?: Map<string, number>
+): boolean {
   const body = quoteBody(line);
   if (body !== null) {
     quoteLines.push(body);
@@ -749,7 +781,7 @@ function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: 
     return true;
   }
   if (quoteLines.length > 0) {
-    flushDocxQuote(blocks, quoteLines);
+    flushDocxQuote(blocks, quoteLines, slugs);
   }
   return false;
 }
@@ -1097,15 +1129,15 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
   const nextDisplay = takeDisplayLine(parse.blocks, line, parse.displayLines);
   if (nextDisplay !== false) {
     flushDocxTable(parse.blocks, parse.tableLines);
-    flushDocxQuote(parse.blocks, parse.quoteLines);
+    flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts);
     parse.displayLines = nextDisplay;
     return;
   }
   if (takeDocxTable(parse.blocks, trimmed, parse.tableLines)) {
-    flushDocxQuote(parse.blocks, parse.quoteLines);
+    flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts);
     return;
   }
-  if (takeDocxQuote(parse.blocks, line, parse.quoteLines)) {
+  if (takeDocxQuote(parse.blocks, line, parse.quoteLines, parse.slugCounts)) {
     return;
   }
   if (takeDocxSetext(parse, line)) {
@@ -1271,7 +1303,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
 
   flushPendingParagraph(parse);
   flushDocxTable(parse.blocks, parse.tableLines);
-  flushDocxQuote(parse.blocks, parse.quoteLines);
+  flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts);
   if (parse.displayLines) {
     pushDisplayMath(parse.blocks, parse.displayLines);
   }
@@ -1282,7 +1314,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
   }
   if (parse.itemQuote) {
-    appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1);
+    appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts);
   }
   if (parse.itemTable) {
     flushDocxTable(parse.blocks, parse.itemTable);

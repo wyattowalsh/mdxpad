@@ -667,12 +667,16 @@ function flushLatexTable(output: string[], tableLines: string[]): void {
   output.push(markdownTableToLatex(table, convertInlineFormatting));
 }
 
-function flushLatexQuote(output: string[], quoteLines: string[]): void {
+function flushLatexQuote(
+  output: string[],
+  quoteLines: string[],
+  slugs?: Map<string, number>
+): void {
   if (quoteLines.length === 0) {
     return;
   }
   const lines = quoteLines.splice(0, quoteLines.length);
-  output.push(quoteToLatex(lines, convertInlineFormatting));
+  output.push(quoteToLatex(lines, convertInlineFormatting, slugs));
 }
 
 function takeLatexItemQuote(build: LatexBuild, line: string): boolean {
@@ -683,7 +687,7 @@ function takeLatexItemQuote(build: LatexBuild, line: string): boolean {
   if (list.itemQuote) {
     const text = readListQuoteLine(line, list.column ?? 2);
     if (text === null) {
-      build.output.push(quoteToLatex(list.itemQuote, convertInlineFormatting));
+      build.output.push(quoteToLatex(list.itemQuote, convertInlineFormatting, build.slugCounts));
       list.itemQuote = null;
       list.sealed = true;
       return false;
@@ -703,7 +707,12 @@ function takeLatexItemQuote(build: LatexBuild, line: string): boolean {
   return true;
 }
 
-function takeLatexQuote(output: string[], line: string, quoteLines: string[]): boolean {
+function takeLatexQuote(
+  output: string[],
+  line: string,
+  quoteLines: string[],
+  slugs?: Map<string, number>
+): boolean {
   const body = quoteBody(line);
   if (body !== null) {
     quoteLines.push(body);
@@ -714,7 +723,7 @@ function takeLatexQuote(output: string[], line: string, quoteLines: string[]): b
     return true;
   }
   if (quoteLines.length > 0) {
-    flushLatexQuote(output, quoteLines);
+    flushLatexQuote(output, quoteLines, slugs);
   }
   return false;
 }
@@ -898,7 +907,7 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (line.trim() === '$$') {
     flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
-    flushLatexQuote(build.output, build.quoteLines);
+    flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
     if (!build.inDisplayMath) {
       resetListState(build.output, build.listState);
     }
@@ -919,7 +928,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
   if (wasInCodeBlock !== build.fence) {
     flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
-    flushLatexQuote(build.output, build.quoteLines);
+    flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
     return;
   }
   if (build.fence) {
@@ -934,14 +943,14 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
   }
   if (takeLatexTable(build.output, line.trim(), build.tableLines)) {
     flushLatexProse(build.output, build.prose);
-    flushLatexQuote(build.output, build.quoteLines);
+    flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
     resetListState(build.output, build.listState);
     return;
   }
   if (takeLatexItemQuote(build, line)) {
     return;
   }
-  if (takeLatexQuote(build.output, line, build.quoteLines)) {
+  if (takeLatexQuote(build.output, line, build.quoteLines, build.slugCounts)) {
     flushLatexProse(build.output, build.prose);
     resetListState(build.output, build.listState);
     return;
@@ -966,6 +975,15 @@ function emptyListState(): ListState {
   };
 }
 
+function writeLatexItemQuote(build: LatexBuild): void {
+  if (!build.listState.itemQuote) {
+    return;
+  }
+  build.output.push(
+    quoteToLatex(build.listState.itemQuote, convertInlineFormatting, build.slugCounts)
+  );
+}
+
 function contentToLatex(content: string): string {
   const build: LatexBuild = {
     output: [],
@@ -987,16 +1005,14 @@ function contentToLatex(content: string): string {
   }
   flushLatexProse(build.output, build.prose);
   flushLatexTable(build.output, build.tableLines);
-  flushLatexQuote(build.output, build.quoteLines);
+  flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
   if (build.fence) {
     build.output.push('\\end{verbatim}');
   }
   if (build.listState.itemFence) {
     writeLatexItemFence(build.output, build.listState.itemFence);
   }
-  if (build.listState.itemQuote) {
-    build.output.push(quoteToLatex(build.listState.itemQuote, convertInlineFormatting));
-  }
+  writeLatexItemQuote(build);
   if (build.listState.itemCode) {
     while (build.listState.itemCode[build.listState.itemCode.length - 1] === '') {
       build.listState.itemCode.pop();

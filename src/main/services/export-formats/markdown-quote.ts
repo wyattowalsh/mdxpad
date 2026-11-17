@@ -1,4 +1,6 @@
+import { allocateHeadingSlug, headingSlug, headingTag } from '@shared/lib/markdown-heading';
 import { isThematicBreak } from './markdown-break';
+import { setextLevel } from './markdown-setext';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { renderFencedCode } from './markdown-code';
@@ -26,12 +28,10 @@ const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
 
 /** A following line that stays inside an open quote, such as a wrapped sentence. */
 export function isLazyQuoteLine(line: string): boolean {
-  if (
-    line.trim().length === 0 ||
-    openingFence(line) !== null ||
-    parseListItem(line) !== null ||
-    isThematicBreak(line)
-  ) {
+  if (line.trim().length === 0 || openingFence(line) !== null || parseListItem(line) !== null) {
+    return false;
+  }
+  if (isThematicBreak(line) && setextLevel(line) === null) {
     return false;
   }
   if (/^ {0,3}#{1,6}(?:\s|$)/.test(line)) {
@@ -227,6 +227,78 @@ function quoteListLatex(lines: readonly string[], renderLine: (line: string) => 
   return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`;
 }
 
+type QuoteParagraphPiece =
+  | { readonly kind: 'heading'; readonly level: 1 | 2; readonly text: string }
+  | { readonly kind: 'paragraph'; readonly lines: string[] };
+
+export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPiece[] {
+  const pieces: QuoteParagraphPiece[] = [];
+  let paragraph: string[] = [];
+  const flush = (): void => {
+    if (paragraph.length === 0) {
+      return;
+    }
+    pieces.push({ kind: 'paragraph', lines: paragraph });
+    paragraph = [];
+  };
+  for (const line of lines) {
+    const level = paragraph.length > 0 ? setextLevel(line) : null;
+    if (level === null) {
+      paragraph.push(line);
+      continue;
+    }
+    const text = paragraph
+      .map((item) => readSourceLine(item).text)
+      .filter((item) => item.length > 0)
+      .join(' ');
+    paragraph = [];
+    if (text.length > 0) {
+      pieces.push({ kind: 'heading', level, text });
+    }
+  }
+  flush();
+  return pieces;
+}
+
+function quoteHeadingSlug(text: string, slugs?: Map<string, number>): string {
+  return slugs ? allocateHeadingSlug(text, slugs) : headingSlug(text);
+}
+
+function quoteParagraphHtml(
+  lines: readonly string[],
+  renderLine: (line: string) => string,
+  slugs?: Map<string, number>
+): string {
+  return quoteParagraphPieces(lines)
+    .map((piece) => {
+      if (piece.kind === 'heading') {
+        return headingTag(piece.level, renderLine(piece.text), quoteHeadingSlug(piece.text, slugs));
+      }
+      return `<p>${joinParagraphHtml(
+        piece.lines.map((line) => readSourceLine(line)),
+        renderLine
+      )}</p>`;
+    })
+    .join('\n');
+}
+
+function quoteParagraphLatex(
+  lines: readonly string[],
+  renderLine: (line: string) => string,
+  slugs?: Map<string, number>
+): string {
+  return quoteParagraphPieces(lines)
+    .map((piece) => {
+      if (piece.kind === 'paragraph') {
+        return joinQuoteLatex(piece.lines, renderLine);
+      }
+      const command = piece.level === 1 ? 'section' : 'subsection';
+      const label = `\\label{${quoteHeadingSlug(piece.text, slugs)}}`;
+      return `\\${command}{${renderLine(piece.text)}}${label}`;
+    })
+    .join('\n\n');
+}
+
 function joinQuoteLatex(lines: readonly string[], renderLine: (line: string) => string): string {
   return renderedSegments(lines.map((line) => readSourceLine(line)))
     .map((text, index) => (index === 0 ? renderLine(text) : `\\\\\n${renderLine(text)}`))
@@ -235,12 +307,13 @@ function joinQuoteLatex(lines: readonly string[], renderLine: (line: string) => 
 
 export function quoteToHtml(
   lines: readonly string[],
-  renderLine: (line: string) => string
+  renderLine: (line: string) => string,
+  slugs?: Map<string, number>
 ): string {
   const body = quoteChunks(lines)
     .map((chunk) => {
       if (chunk.kind === 'nested') {
-        return quoteToHtml(chunk.lines, renderLine);
+        return quoteToHtml(chunk.lines, renderLine, slugs);
       }
       if (chunk.kind === 'list') {
         return quoteListHtml(chunk.lines, renderLine);
@@ -251,10 +324,7 @@ export function quoteToHtml(
       if (chunk.kind === 'code') {
         return quoteCodeHtml(chunk.lines);
       }
-      return `<p>${joinParagraphHtml(
-        chunk.lines.map((line) => readSourceLine(line)),
-        renderLine
-      )}</p>`;
+      return quoteParagraphHtml(chunk.lines, renderLine, slugs);
     })
     .join('\n');
   return `<blockquote>\n${body}\n</blockquote>`;
@@ -262,12 +332,13 @@ export function quoteToHtml(
 
 export function quoteToLatex(
   lines: readonly string[],
-  renderLine: (line: string) => string
+  renderLine: (line: string) => string,
+  slugs?: Map<string, number>
 ): string {
   const body = quoteChunks(lines)
     .map((chunk) => {
       if (chunk.kind === 'nested') {
-        return quoteToLatex(chunk.lines, renderLine);
+        return quoteToLatex(chunk.lines, renderLine, slugs);
       }
       if (chunk.kind === 'list') {
         return quoteListLatex(chunk.lines, renderLine);
@@ -278,7 +349,7 @@ export function quoteToLatex(
       if (chunk.kind === 'code') {
         return quoteCodeLatex(chunk.lines);
       }
-      return joinQuoteLatex(chunk.lines, renderLine);
+      return quoteParagraphLatex(chunk.lines, renderLine, slugs);
     })
     .join('\n\n');
   return `\\begin{quote}\n${body}\n\\end{quote}`;

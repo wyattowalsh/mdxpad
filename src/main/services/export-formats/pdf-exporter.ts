@@ -163,7 +163,7 @@ function flushPdfQuote(build: PdfBuild): void {
     return;
   }
   const lines = build.quoteLines.splice(0, build.quoteLines.length);
-  build.parts.push(quoteToHtml(lines, renderMarkdownInline));
+  build.parts.push(quoteToHtml(lines, renderMarkdownInline, build.slugCounts));
 }
 
 function consumePdfQuote(build: PdfBuild, line: string): boolean {

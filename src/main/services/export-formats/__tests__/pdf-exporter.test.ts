@@ -526,6 +526,18 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('===');
   });
 
+  it('renders a setext heading inside a quote', async () => {
+    await exporter.export({
+      content: '> Title\n> ===\n',
+      outputPath: '/tmp/quote-setext.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<blockquote>');
+    expect(html).toContain('<h1 id="title">Title</h1>');
+    expect(html).not.toContain('===');
+  });
+
   it('renders a horizontal rule', async () => {
     await exporter.export({
       content: 'Above\n\n---\n\n* * *\n\nBelow',

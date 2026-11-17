@@ -135,7 +135,7 @@ function flushEpubQuote(htmlLines: string[], state: EpubLineState): void {
     return;
   }
   const lines = state.quoteLines.splice(0, state.quoteLines.length);
-  htmlLines.push(quoteToHtml(lines, renderMarkdownInline));
+  htmlLines.push(quoteToHtml(lines, renderMarkdownInline, state.slugCounts));
 }
 
 function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineState): boolean {

@@ -68,6 +68,19 @@ describe('quoteBody', () => {
     expect(latex).not.toContain('```');
   });
 
+  it('turns a setext underline into a heading', () => {
+    expect(quoteToHtml(['Title', '==='], (line) => line)).toBe(
+      '<blockquote>\n<h1 id="title">Title</h1>\n</blockquote>'
+    );
+    const second = quoteToHtml(['Title', '---', 'after'], (line) => line);
+    expect(second).toContain('<h2 id="title">Title</h2>');
+    expect(second).toContain('<p>after</p>');
+    expect(second).not.toContain('---');
+    expect(quoteToLatex(['Title', '==='], (line) => line)).toContain('\\section{Title}');
+    expect(isLazyQuoteLine('---')).toBe(true);
+    expect(isLazyQuoteLine('***')).toBe(false);
+  });
+
   it('wraps quote lines in a blockquote', () => {
     expect(quoteToHtml(['Keep **this**'], (line) => line)).toBe(
       '<blockquote>\n<p>Keep **this**</p>\n</blockquote>'
