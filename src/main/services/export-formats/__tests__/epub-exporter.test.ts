@@ -148,6 +148,20 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('keeps a wrapped paragraph and a hard break', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: 'Hello\nworld\n\nStay  \nput',
+      outputPath: '/tmp/wrap.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<p>Hello world</p>');
+    expect(html).toContain('<p>Stay<br />put</p>');
+  });
+
   it('renders a horizontal rule in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
 import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -19,7 +20,7 @@ type HtmlListKind = 'ul' | 'ol';
 
 interface PdfBuild {
   parts: string[];
-  paragraph: string[];
+  paragraph: SourceLine[];
   inCode: boolean;
   list: HtmlListKind | null;
   displayMath: string[] | null;
@@ -31,7 +32,7 @@ function flushPdfParagraph(build: PdfBuild): void {
   if (build.paragraph.length === 0) {
     return;
   }
-  build.parts.push(`<p>${renderMarkdownInline(build.paragraph.join(' '))}</p>`);
+  build.parts.push(`<p>${joinParagraphHtml(build.paragraph, renderMarkdownInline)}</p>`);
   build.paragraph.length = 0;
 }
 
@@ -93,7 +94,7 @@ function flushPdfTable(build: PdfBuild): void {
   const table = parseMarkdownTable(lines);
   if (!table) {
     for (const line of lines) {
-      build.paragraph.push(line);
+      build.paragraph.push({ text: line, hardBreak: false });
     }
     flushPdfParagraph(build);
     return;
@@ -162,10 +163,11 @@ function appendPdfLine(build: PdfBuild, line: string): void {
   if (consumePdfQuote(build, trimmed)) {
     return;
   }
-  appendPdfFlow(build, trimmed);
+  appendPdfFlow(build, line);
 }
 
-function appendPdfFlow(build: PdfBuild, trimmed: string): void {
+function appendPdfFlow(build: PdfBuild, raw: string): void {
+  const trimmed = raw.trim();
   if (isThematicBreak(trimmed)) {
     flushPdfParagraph(build);
     closePdfList(build);
@@ -194,7 +196,7 @@ function appendPdfFlow(build: PdfBuild, trimmed: string): void {
     return;
   }
   closePdfList(build);
-  build.paragraph.push(trimmed);
+  build.paragraph.push(readSourceLine(raw));
 }
 
 export function markdownToPdfHtml(content: string): string {

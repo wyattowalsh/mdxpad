@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
 import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -73,6 +74,15 @@ interface EpubLineState {
   displayMath: string[] | null;
   tableLines: string[];
   quoteLines: string[];
+  paragraph: SourceLine[];
+}
+
+function flushEpubParagraph(htmlLines: string[], state: EpubLineState): void {
+  if (state.paragraph.length === 0) {
+    return;
+  }
+  const lines = state.paragraph.splice(0, state.paragraph.length);
+  htmlLines.push(`<p>${joinParagraphHtml(lines, renderMarkdownInline)}</p>`);
 }
 
 function flushEpubQuote(htmlLines: string[], state: EpubLineState): void {
@@ -86,6 +96,7 @@ function flushEpubQuote(htmlLines: string[], state: EpubLineState): void {
 function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineState): boolean {
   const body = quoteBody(line);
   if (body !== null) {
+    flushEpubParagraph(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
     flushEpubTable(htmlLines, state);
     state.quoteLines.push(body);
@@ -114,6 +125,7 @@ function flushEpubTable(htmlLines: string[], state: EpubLineState): void {
 
 function consumeEpubTable(htmlLines: string[], trimmed: string, state: EpubLineState): boolean {
   if (isTableRow(trimmed)) {
+    flushEpubParagraph(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
     state.tableLines.push(trimmed);
     return true;
@@ -130,6 +142,7 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
   }
   const trimmed = line.trim();
   if (trimmed === '$$') {
+    flushEpubParagraph(htmlLines, state);
     flushEpubTable(htmlLines, state);
     flushEpubQuote(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
@@ -151,6 +164,7 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
   const trimmed = line.trim();
   if (trimmed.startsWith('```')) {
+    flushEpubParagraph(htmlLines, state);
     flushEpubTable(htmlLines, state);
     flushEpubQuote(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
@@ -171,29 +185,34 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
   if (consumeEpubQuote(htmlLines, trimmed, state)) {
     return;
   }
-  appendEpubFlow(htmlLines, trimmed, state);
+  appendEpubFlow(htmlLines, line, state);
 }
 
-function appendEpubFlow(htmlLines: string[], trimmed: string, state: EpubLineState): void {
+function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState): void {
+  const trimmed = raw.trim();
   if (isThematicBreak(trimmed)) {
+    flushEpubParagraph(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
     htmlLines.push('<hr />');
     return;
   }
   const headingMatch = /^(#{3,6})\s+(.+)$/.exec(trimmed);
   if (headingMatch) {
+    flushEpubParagraph(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
     const level = headingMatch[1]?.length ?? 3;
     htmlLines.push(`<h${level}>${renderMarkdownInline(headingMatch[2] ?? '')}</h${level}>`);
     return;
   }
   if (trimmed === '') {
+    flushEpubParagraph(htmlLines, state);
     state.list = closeEpubList(htmlLines, state.list);
     htmlLines.push('');
     return;
   }
   const item = /^([-*+]|\d+\.)\s+(.+)$/.exec(trimmed);
   if (item) {
+    flushEpubParagraph(htmlLines, state);
     const kind: EpubListKind = item[1]?.endsWith('.') ? 'ol' : 'ul';
     if (state.list !== kind) {
       state.list = closeEpubList(htmlLines, state.list);
@@ -204,7 +223,7 @@ function appendEpubFlow(htmlLines: string[], trimmed: string, state: EpubLineSta
     return;
   }
   state.list = closeEpubList(htmlLines, state.list);
-  htmlLines.push(`<p>${renderMarkdownInline(trimmed)}</p>`);
+  state.paragraph.push(readSourceLine(raw));
 }
 
 function chapterToHtml(chapter: EpubChapter): string {
@@ -215,6 +234,7 @@ function chapterToHtml(chapter: EpubChapter): string {
     displayMath: null,
     tableLines: [],
     quoteLines: [],
+    paragraph: [],
   };
   for (const line of chapter.content.split('\n')) {
     appendEpubLine(htmlLines, line, state);
@@ -222,6 +242,7 @@ function chapterToHtml(chapter: EpubChapter): string {
   if (state.displayMath) {
     htmlLines.push(renderDisplayMathBlock(state.displayMath));
   }
+  flushEpubParagraph(htmlLines, state);
   flushEpubTable(htmlLines, state);
   flushEpubQuote(htmlLines, state);
   state.list = closeEpubList(htmlLines, state.list);

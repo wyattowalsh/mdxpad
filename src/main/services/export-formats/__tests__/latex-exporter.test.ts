@@ -186,6 +186,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{quote}');
   });
 
+  it('keeps a hard line break', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Hello\nworld\n\nStay  \nput',
+      outputPath: '/tmp/wrap.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('Hello\nworld');
+    expect(written).toContain('Stay\\\\');
+    expect(written).toContain('put');
+  });
+
   it('renders a horizontal rule', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -96,6 +96,17 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('keeps a wrapped paragraph and a hard break', async () => {
+    await exporter.export({
+      content: 'Hello\nworld\n\nStay  \nput',
+      outputPath: '/tmp/wrap.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<p>Hello world</p>');
+    expect(html).toContain('<p>Stay<br />put</p>');
+  });
+
   it('renders a horizontal rule', async () => {
     await exporter.export({
       content: 'Above\n\n---\n\n* * *\n\nBelow',

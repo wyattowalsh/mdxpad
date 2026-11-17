@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -222,7 +223,9 @@ function processListItem(trimmed: string, output: string[], listState: ListState
   return false;
 }
 
-function processMarkdownLine(trimmed: string, output: string[], listState: ListState): void {
+function processMarkdownLine(raw: string, output: string[], listState: ListState): void {
+  const source = readSourceLine(raw);
+  const trimmed = source.text;
   if (trimmed === '') {
     resetListState(output, listState);
     output.push('');
@@ -247,7 +250,8 @@ function processMarkdownLine(trimmed: string, output: string[], listState: ListS
     return;
   }
 
-  output.push(convertInlineFormatting(trimmed));
+  const formatted = convertInlineFormatting(trimmed);
+  output.push(source.hardBreak ? `${formatted}\\\\` : formatted);
 }
 
 function flushLatexTable(output: string[], tableLines: string[]): void {
@@ -340,7 +344,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     resetListState(build.output, build.listState);
     return;
   }
-  processMarkdownLine(line.trim(), build.output, build.listState);
+  processMarkdownLine(line, build.output, build.listState);
 }
 
 function contentToLatex(content: string): string {

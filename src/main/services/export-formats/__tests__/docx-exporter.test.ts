@@ -220,6 +220,27 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('keeps a wrapped paragraph and a hard break', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Hello\nworld\n\nStay  \nput',
+      outputPath: '/tmp/wrap.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const chunks = xml.split('<w:p');
+    expect(chunks.some((chunk) => chunk.includes('Hello') && chunk.includes('world'))).toBe(true);
+    expect(chunks.some((chunk) => chunk.includes('Stay') && chunk.includes('<w:br'))).toBe(true);
+  });
+
   it('draws a horizontal rule', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -17,6 +17,7 @@ import {
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
+import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
 import { splitTaskItem } from './markdown-task';
@@ -291,13 +292,70 @@ function takeDisplayLine(
   return displayLines;
 }
 
-function appendPlainLine(blocks: (Paragraph | Table)[], trimmed: string): void {
-  if (trimmed === '') {
-    blocks.push(new Paragraph({ children: [] }));
+interface DocxParse {
+  blocks: (Paragraph | Table)[];
+  pending: SourceLine[];
+  displayLines: string[] | null;
+  tableLines: string[];
+  quoteLines: string[];
+}
+
+function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
+  const children: (TextRun | ExternalHyperlink | Math)[] = [];
+  lines.forEach((line, index) => {
+    if (index > 0) {
+      const previous = lines[index - 1];
+      children.push(previous?.hardBreak ? new TextRun({ break: 1 }) : new TextRun({ text: ' ' }));
+    }
+    children.push(...createParagraphChildren(line.text));
+  });
+  return new Paragraph({ children });
+}
+
+function flushPendingParagraph(parse: DocxParse): void {
+  if (parse.pending.length === 0) {
     return;
   }
-  const special = parseLineToParagraph(trimmed);
-  blocks.push(special ?? new Paragraph({ children: createParagraphChildren(trimmed) }));
+  const lines = parse.pending.splice(0, parse.pending.length);
+  parse.blocks.push(paragraphFromLines(lines));
+}
+
+function appendDocxBodyLine(parse: DocxParse, line: string): void {
+  const trimmed = line.trim();
+  const structural =
+    trimmed === '$$' ||
+    parse.displayLines !== null ||
+    isTableRow(trimmed) ||
+    quoteBody(trimmed) !== null;
+  if (structural) {
+    flushPendingParagraph(parse);
+  }
+  const nextDisplay = takeDisplayLine(parse.blocks, line, parse.displayLines);
+  if (nextDisplay !== false) {
+    flushDocxTable(parse.blocks, parse.tableLines);
+    flushDocxQuote(parse.blocks, parse.quoteLines);
+    parse.displayLines = nextDisplay;
+    return;
+  }
+  if (takeDocxTable(parse.blocks, trimmed, parse.tableLines)) {
+    flushDocxQuote(parse.blocks, parse.quoteLines);
+    return;
+  }
+  if (takeDocxQuote(parse.blocks, trimmed, parse.quoteLines)) {
+    return;
+  }
+  const source = readSourceLine(line);
+  if (source.text === '') {
+    flushPendingParagraph(parse);
+    return;
+  }
+  const special = parseLineToParagraph(source.text);
+  if (special) {
+    flushPendingParagraph(parse);
+    parse.blocks.push(special);
+    return;
+  }
+  parse.pending.push(source);
 }
 
 function takeDocxFence(
@@ -322,55 +380,47 @@ function takeDocxFence(
 }
 
 function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
-  const paragraphs: (Paragraph | Table)[] = [];
-  const lines = content.split('\n');
+  const parse: DocxParse = {
+    blocks: [],
+    pending: [],
+    displayLines: null,
+    tableLines: [],
+    quoteLines: [],
+  };
   let inCodeBlock = false;
   const codeLines: string[] = [];
-  let displayLines: string[] | null = null;
-  const tableLines: string[] = [];
-  const quoteLines: string[] = [];
 
-  for (const line of lines) {
-    const fence = takeDocxFence(paragraphs, line, inCodeBlock, codeLines, tableLines, quoteLines);
+  for (const line of content.split('\n')) {
+    const fence = takeDocxFence(
+      parse.blocks,
+      line,
+      inCodeBlock,
+      codeLines,
+      parse.tableLines,
+      parse.quoteLines
+    );
     if (fence !== null) {
+      flushPendingParagraph(parse);
       inCodeBlock = fence;
       continue;
     }
-
     if (inCodeBlock) {
       codeLines.push(line);
       continue;
     }
-
-    const nextDisplay = takeDisplayLine(paragraphs, line, displayLines);
-    if (nextDisplay !== false) {
-      flushDocxTable(paragraphs, tableLines);
-      flushDocxQuote(paragraphs, quoteLines);
-      displayLines = nextDisplay;
-      continue;
-    }
-
-    const trimmed = line.trim();
-    if (takeDocxTable(paragraphs, trimmed, tableLines)) {
-      flushDocxQuote(paragraphs, quoteLines);
-      continue;
-    }
-    if (takeDocxQuote(paragraphs, trimmed, quoteLines)) {
-      continue;
-    }
-    appendPlainLine(paragraphs, trimmed);
+    appendDocxBodyLine(parse, line);
   }
 
-  flushDocxTable(paragraphs, tableLines);
-  flushDocxQuote(paragraphs, quoteLines);
-  if (displayLines) {
-    pushDisplayMath(paragraphs, displayLines);
+  flushPendingParagraph(parse);
+  flushDocxTable(parse.blocks, parse.tableLines);
+  flushDocxQuote(parse.blocks, parse.quoteLines);
+  if (parse.displayLines) {
+    pushDisplayMath(parse.blocks, parse.displayLines);
   }
   if (inCodeBlock && codeLines.length > 0) {
-    paragraphs.push(createCodeBlockParagraph(codeLines));
+    parse.blocks.push(createCodeBlockParagraph(codeLines));
   }
-
-  return paragraphs;
+  return parse.blocks;
 }
 
 export class DocxExporter implements Exporter {
