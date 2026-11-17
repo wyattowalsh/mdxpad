@@ -30,6 +30,7 @@ import {
   openListItem,
   takeListItemCode,
   takeListItemFence,
+  takeListItemRule,
   takeListItemMath,
   takeListItemQuote,
   takeListItemTable,
@@ -210,7 +211,10 @@ function flushPdfFence(build: PdfBuild): void {
 }
 
 function appendPdfLine(build: PdfBuild, line: string): void {
-  if (takeListItemCode(build, line, renderMarkdownInline, build.lists.length > 0)) {
+  if (
+    takeListItemCode(build, line, renderMarkdownInline, build.lists.length > 0) ||
+    takeListItemRule(build, line, renderMarkdownInline, build.lists.length > 0)
+  ) {
     return;
   }
   if (takeListItemFence(build, line, renderMarkdownInline, build.lists.length > 0)) {

@@ -118,6 +118,20 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('keeps a horizontal rule inside a list item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- item\n\n  ---\n\n  after\n',
+      outputPath: '/tmp/list-rule.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<li><p>item</p><hr /><p>after</p></li>');
+    expect(html.indexOf('<hr />')).toBeLessThan(html.indexOf('</ul>'));
+  });
+
   it('keeps indented code inside a list item', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

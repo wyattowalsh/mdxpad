@@ -1,3 +1,4 @@
+import { isThematicBreak } from './markdown-break';
 import { renderFencedCode } from './markdown-code';
 import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
 import { isListContinuation, renderListItemHtml, replaceHtmlListItem } from './markdown-list';
@@ -102,6 +103,15 @@ function composedItemHtml(state: HtmlListItemState, render: (text: string) => st
 
 function writeListItem(state: HtmlListItemState, render: (text: string) => string): boolean {
   return replaceHtmlListItem(state.parts, composedItemHtml(state, render));
+}
+
+/** A thematic break indented into the open list item, up to three extra spaces. */
+export function listThematicBreak(line: string, contentColumn: number): boolean {
+  const { spaces } = expandedIndent(line);
+  if (spaces < contentColumn || spaces > contentColumn + 3) {
+    return false;
+  }
+  return isThematicBreak(line);
 }
 
 /** Text of an indented code line inside a list item, or null when the line is not code. */
@@ -273,6 +283,34 @@ function closeItemCode(state: HtmlListItemState, render: (text: string) => strin
   state.listLines = [];
   state.loose = true;
   writeListItem(state, render);
+}
+
+/** Keep a thematic break that belongs to the open item inside that item. */
+export function takeListItemRule(
+  state: HtmlListItemState,
+  line: string,
+  render: (text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (
+    state.itemFence ||
+    state.itemQuote ||
+    state.itemTable ||
+    state.itemMath ||
+    state.itemCode ||
+    !listOpen ||
+    state.listColumn === null ||
+    !listThematicBreak(line, state.listColumn)
+  ) {
+    return false;
+  }
+  sealProse(state, render);
+  state.itemHtml += '<hr />';
+  state.listLines = [];
+  state.loose = true;
+  state.listBreak = false;
+  writeListItem(state, render);
+  return true;
 }
 
 /** Keep an indented code block that belongs to the open item inside that item. */

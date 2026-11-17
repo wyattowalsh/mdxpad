@@ -47,6 +47,7 @@ import {
   dedentToColumn,
   listFenceOnMarker,
   listIndentedCode,
+  listThematicBreak,
   openListFence,
   readListFenceLine,
   readListQuoteLine,
@@ -406,10 +407,7 @@ function parseLineToParagraph(trimmed: string, slugs: Map<string, number>): Para
   }
 
   if (isThematicBreak(trimmed)) {
-    return new Paragraph({
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, space: 1, color: 'auto' } },
-      spacing: { before: 120, after: 120 },
-    });
+    return docxRuleParagraph();
   }
 
   return undefined;
@@ -581,6 +579,34 @@ function closeDocxItemCode(parse: DocxParse): void {
   parse.listSealed = true;
   parse.listParagraphBreak = true;
   parse.tailOpen = false;
+}
+
+function docxRuleParagraph(): Paragraph {
+  return new Paragraph({
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, space: 1, color: 'auto' } },
+    spacing: { before: 120, after: 120 },
+  });
+}
+
+function takeDocxItemRule(parse: DocxParse, line: string): boolean {
+  if (
+    parse.itemFence ||
+    parse.itemQuote ||
+    parse.itemTable ||
+    parse.itemMath ||
+    parse.itemCode ||
+    parse.openListItem === null ||
+    parse.listColumn === null ||
+    !listThematicBreak(line, parse.listColumn)
+  ) {
+    return false;
+  }
+  parse.blocks.push(docxRuleParagraph());
+  parse.listSealed = true;
+  parse.listParagraphBreak = true;
+  parse.tailOpen = false;
+  parse.listBreak = false;
+  return true;
 }
 
 function takeDocxItemCode(parse: DocxParse, line: string): boolean {
@@ -895,7 +921,8 @@ function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
     takeDocxItemQuote(parse, line) ||
     takeDocxItemTable(parse, line) ||
     takeDocxItemMath(parse, line) ||
-    takeDocxItemCode(parse, line)
+    takeDocxItemCode(parse, line) ||
+    takeDocxItemRule(parse, line)
   );
 }
 

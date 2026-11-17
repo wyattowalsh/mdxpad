@@ -192,6 +192,26 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps a horizontal rule inside a list item', async () => {
+    await exporter.export({
+      content: '- item\n\n  ---\n\n  after\n',
+      outputPath: '/tmp/list-rule.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><p>item</p><hr /><p>after</p></li>');
+    expect(html.indexOf('<hr /><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
+    const stars = await exporter.export({
+      content: '- item\n\n  * * *\n',
+      outputPath: '/tmp/list-stars.pdf',
+    });
+    expect(stars.ok).toBe(true);
+    const starHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(starHtml).toContain('<li><p>item</p><hr /></li>');
+  });
+
   it('keeps indented code inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n      const x = 1\n\n  after\n',

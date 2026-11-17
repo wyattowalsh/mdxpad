@@ -217,6 +217,27 @@ describe('DocxExporter', () => {
     expect(xml).toContain('the start');
   });
 
+  it('keeps a horizontal rule inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  ---\n\n  after\n',
+      outputPath: '/tmp/list-rule.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml.indexOf('>item<')).toBeLessThan(xml.indexOf('<w:pBdr>'));
+    expect(xml.indexOf('<w:pBdr>')).toBeLessThan(xml.indexOf('>after<'));
+    expect(xml).not.toContain('---');
+  });
+
   it('keeps indented code inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

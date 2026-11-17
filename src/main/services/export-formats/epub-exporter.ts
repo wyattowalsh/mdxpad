@@ -30,6 +30,7 @@ import {
   openListItem,
   takeListItemCode,
   takeListItemFence,
+  takeListItemRule,
   takeListItemMath,
   takeListItemQuote,
   takeListItemTable,
@@ -251,7 +252,10 @@ function closeEpubList(htmlLines: string[], state: EpubLineState): void {
 }
 
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
-  if (takeListItemCode(state, line, renderMarkdownInline, state.lists.length > 0)) {
+  if (
+    takeListItemCode(state, line, renderMarkdownInline, state.lists.length > 0) ||
+    takeListItemRule(state, line, renderMarkdownInline, state.lists.length > 0)
+  ) {
     return;
   }
   if (takeListItemFence(state, line, renderMarkdownInline, state.lists.length > 0)) {

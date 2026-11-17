@@ -98,6 +98,22 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
   });
 
+  it('keeps a horizontal rule inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  ---\n\n  after\n',
+      outputPath: '/tmp/list-rule.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written.indexOf('\\item item')).toBeLessThan(
+      written.indexOf('\\noindent\\rule{\\textwidth}{0.4pt}')
+    );
+    expect(written.indexOf('\\noindent\\rule{\\textwidth}{0.4pt}')).toBeLessThan(
+      written.indexOf('after')
+    );
+    expect(written.indexOf('after')).toBeLessThan(written.indexOf('\\end{itemize}'));
+  });
+
   it('keeps indented code inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

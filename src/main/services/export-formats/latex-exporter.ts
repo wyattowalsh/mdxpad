@@ -27,6 +27,7 @@ import {
   dedentToColumn,
   listFenceOnMarker,
   listIndentedCode,
+  listThematicBreak,
   openListFence,
   readListFenceLine,
   readListQuoteLine,
@@ -476,6 +477,26 @@ function takeLatexHeading(
   return true;
 }
 
+function takeLatexItemRule(raw: string, output: string[], listState: ListState): boolean {
+  if (
+    listState.stack.length === 0 ||
+    listState.column === null ||
+    listState.itemFence ||
+    listState.itemQuote ||
+    listState.itemTable ||
+    listState.itemMath ||
+    listState.itemCode ||
+    !listThematicBreak(raw, listState.column)
+  ) {
+    return false;
+  }
+  output.push('\\noindent\\rule{\\textwidth}{0.4pt}');
+  listState.sealed = true;
+  listState.paragraphBreak = true;
+  listState.break = false;
+  return true;
+}
+
 function processMarkdownLine(
   raw: string,
   output: string[],
@@ -490,6 +511,9 @@ function processMarkdownLine(
     flushLatexProse(output, prose);
   }
   if (takeLatexListBreak(raw, output, listState)) {
+    return;
+  }
+  if (takeLatexItemRule(raw, output, listState)) {
     return;
   }
   if (takeLatexHeading(raw, output, listState, counts, prose)) {
