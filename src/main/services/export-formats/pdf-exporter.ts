@@ -17,56 +17,90 @@ function renderInline(value: string): string {
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
 
+type HtmlListKind = 'ul' | 'ol';
+
+interface PdfBuild {
+  parts: string[];
+  paragraph: string[];
+  inCode: boolean;
+  list: HtmlListKind | null;
+}
+
+function flushPdfParagraph(build: PdfBuild): void {
+  if (build.paragraph.length === 0) {
+    return;
+  }
+  build.parts.push(`<p>${renderInline(build.paragraph.join(' '))}</p>`);
+  build.paragraph.length = 0;
+}
+
+function closePdfList(build: PdfBuild): void {
+  if (build.list === 'ul') {
+    build.parts.push('</ul>');
+  } else if (build.list === 'ol') {
+    build.parts.push('</ol>');
+  }
+  build.list = null;
+}
+
+function continuePdfList(build: PdfBuild, next: HtmlListKind): void {
+  if (build.list === next) {
+    return;
+  }
+  closePdfList(build);
+  build.parts.push(next === 'ul' ? '<ul>' : '<ol>');
+  build.list = next;
+}
+
+function appendPdfLine(build: PdfBuild, line: string): void {
+  const trimmed = line.trim();
+  if (trimmed.startsWith('```')) {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    build.parts.push(build.inCode ? '</code></pre>' : '<pre><code>');
+    build.inCode = !build.inCode;
+    return;
+  }
+  if (build.inCode) {
+    build.parts.push(escapeHtml(line));
+    return;
+  }
+  const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+  if (heading) {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    const level = heading[1]?.length ?? 1;
+    build.parts.push(`<h${level}>${renderInline(heading[2] ?? '')}</h${level}>`);
+    return;
+  }
+  if (trimmed.length === 0) {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    return;
+  }
+  const item = /^([-*+]|\d+\.)\s+(.+)$/.exec(trimmed);
+  if (item) {
+    flushPdfParagraph(build);
+    const kind: HtmlListKind = item[1]?.endsWith('.') ? 'ol' : 'ul';
+    continuePdfList(build, kind);
+    build.parts.push(`<li>${renderInline(item[2] ?? '')}</li>`);
+    return;
+  }
+  closePdfList(build);
+  build.paragraph.push(trimmed);
+}
+
 export function markdownToPdfHtml(content: string): string {
-  const parts: string[] = [];
-  const paragraph: string[] = [];
-  let inCode = false;
-
-  const flushParagraph = (): void => {
-    if (paragraph.length === 0) {
-      return;
-    }
-    parts.push(`<p>${renderInline(paragraph.join(' '))}</p>`);
-    paragraph.length = 0;
-  };
-
+  const build: PdfBuild = { parts: [], paragraph: [], inCode: false, list: null };
   for (const line of content.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('```')) {
-      flushParagraph();
-      parts.push(inCode ? '</code></pre>' : '<pre><code>');
-      inCode = !inCode;
-      continue;
-    }
-    if (inCode) {
-      parts.push(escapeHtml(line));
-      continue;
-    }
-    const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-    if (heading) {
-      flushParagraph();
-      const level = heading[1]?.length ?? 1;
-      parts.push(`<h${level}>${renderInline(heading[2] ?? '')}</h${level}>`);
-      continue;
-    }
-    if (trimmed.length === 0) {
-      flushParagraph();
-      continue;
-    }
-    const item = /^[-*]\s+(.+)$/.exec(trimmed);
-    if (item) {
-      flushParagraph();
-      parts.push(`<ul><li>${renderInline(item[1] ?? '')}</li></ul>`);
-      continue;
-    }
-    paragraph.push(trimmed);
+    appendPdfLine(build, line);
   }
-
-  flushParagraph();
-  if (inCode) {
-    parts.push('</code></pre>');
+  flushPdfParagraph(build);
+  closePdfList(build);
+  if (build.inCode) {
+    build.parts.push('</code></pre>');
   }
-  return parts.join('\n');
+  return build.parts.join('\n');
 }
 
 function contentToHtml(content: string, title: string): string {

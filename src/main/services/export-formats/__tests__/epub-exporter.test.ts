@@ -104,6 +104,20 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('wraps consecutive list items in one list', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- one\n- two\n\n1. first\n2. second',
+      outputPath: '/tmp/lists.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<ul>\n<li>one</li>\n<li>two</li>\n</ul>');
+    expect(html).toContain('<ol>\n<li>first</li>\n<li>second</li>\n</ol>');
+  });
+
   it('handles empty content gracefully', async () => {
     const result = await exporter.export({
       content: '',

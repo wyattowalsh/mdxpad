@@ -70,6 +70,19 @@ describe('PdfExporter', () => {
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
   });
 
+  it('groups consecutive list items into one list', async () => {
+    const options: ExportOptions = {
+      content: '- one\n- two\n\n1. first\n2. second',
+      outputPath: '/tmp/lists.pdf',
+    };
+    await exporter.export(options);
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<ul>\n<li>one</li>\n<li>two</li>\n</ul>');
+    expect(html).toContain('<ol>\n<li>first</li>\n<li>second</li>\n</ol>');
+    expect(html).not.toContain('<ul><li>');
+  });
+
   it('writes PDF buffer to output path', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {

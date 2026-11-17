@@ -51,60 +51,70 @@ function splitIntoChapters(content: string): EpubChapter[] {
   return nonEmpty.length > 0 ? nonEmpty : [chapters[0] ?? { title: 'Untitled', content: '' }];
 }
 
-function chapterToHtml(chapter: EpubChapter): string {
-  const lines = chapter.content.split('\n');
-  const htmlLines: string[] = [];
+type EpubListKind = 'ul' | 'ol';
 
-  let inCodeBlock = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith('```')) {
-      if (inCodeBlock) {
-        htmlLines.push('</code></pre>');
-        inCodeBlock = false;
-      } else {
-        htmlLines.push('<pre><code>');
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      htmlLines.push(escapeHtml(line));
-      continue;
-    }
-
-    // Sub-headings (h3-h6)
-    const headingMatch = /^(#{3,6})\s+(.+)$/.exec(trimmed);
-    if (headingMatch) {
-      const level = headingMatch[1]?.length ?? 3;
-      htmlLines.push(`<h${level}>${escapeHtml(headingMatch[2] ?? '')}</h${level}>`);
-      continue;
-    }
-
-    // Empty line = paragraph break
-    if (trimmed === '') {
-      htmlLines.push('');
-      continue;
-    }
-
-    // Unordered list item
-    const ulMatch = /^[-*+]\s+(.+)$/.exec(trimmed);
-    if (ulMatch) {
-      htmlLines.push(`<li>${escapeHtml(ulMatch[1] ?? '')}</li>`);
-      continue;
-    }
-
-    // Regular paragraph
-    htmlLines.push(`<p>${escapeHtml(trimmed)}</p>`);
+function closeEpubList(htmlLines: string[], list: EpubListKind | null): null {
+  if (list === 'ul') {
+    htmlLines.push('</ul>');
+  } else if (list === 'ol') {
+    htmlLines.push('</ol>');
   }
+  return null;
+}
 
-  if (inCodeBlock) {
+function appendEpubLine(
+  htmlLines: string[],
+  line: string,
+  state: { inCode: boolean; list: EpubListKind | null }
+): void {
+  const trimmed = line.trim();
+  if (trimmed.startsWith('```')) {
+    state.list = closeEpubList(htmlLines, state.list);
+    htmlLines.push(state.inCode ? '</code></pre>' : '<pre><code>');
+    state.inCode = !state.inCode;
+    return;
+  }
+  if (state.inCode) {
+    htmlLines.push(escapeHtml(line));
+    return;
+  }
+  const headingMatch = /^(#{3,6})\s+(.+)$/.exec(trimmed);
+  if (headingMatch) {
+    state.list = closeEpubList(htmlLines, state.list);
+    const level = headingMatch[1]?.length ?? 3;
+    htmlLines.push(`<h${level}>${escapeHtml(headingMatch[2] ?? '')}</h${level}>`);
+    return;
+  }
+  if (trimmed === '') {
+    state.list = closeEpubList(htmlLines, state.list);
+    htmlLines.push('');
+    return;
+  }
+  const item = /^([-*+]|\d+\.)\s+(.+)$/.exec(trimmed);
+  if (item) {
+    const kind: EpubListKind = item[1]?.endsWith('.') ? 'ol' : 'ul';
+    if (state.list !== kind) {
+      state.list = closeEpubList(htmlLines, state.list);
+      htmlLines.push(kind === 'ul' ? '<ul>' : '<ol>');
+      state.list = kind;
+    }
+    htmlLines.push(`<li>${escapeHtml(item[2] ?? '')}</li>`);
+    return;
+  }
+  state.list = closeEpubList(htmlLines, state.list);
+  htmlLines.push(`<p>${escapeHtml(trimmed)}</p>`);
+}
+
+function chapterToHtml(chapter: EpubChapter): string {
+  const htmlLines: string[] = [];
+  const state = { inCode: false, list: null as EpubListKind | null };
+  for (const line of chapter.content.split('\n')) {
+    appendEpubLine(htmlLines, line, state);
+  }
+  state.list = closeEpubList(htmlLines, state.list);
+  if (state.inCode) {
     htmlLines.push('</code></pre>');
   }
-
   return htmlLines.join('\n');
 }
 
