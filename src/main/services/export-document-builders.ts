@@ -4,7 +4,7 @@ import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
-import { advanceFence, openingFence } from './export-formats/markdown-fence';
+import { advanceFence, closesFence, openingFence } from './export-formats/markdown-fence';
 import {
   isListContinuation,
   listContentColumn,
@@ -472,29 +472,67 @@ function appendBuiltInProseContinuation(blocks: MarkdownBlock[], rawLine: string
   return true;
 }
 
+function pushRawLine(blocks: MarkdownBlock[], text: string, quote = false): void {
+  blocks.push({
+    kind: 'paragraph',
+    text,
+    setext: false,
+    quote,
+    listColumn: null,
+    hardBreak: false,
+    source: text,
+  });
+}
+
+function takeQuotedFence(
+  blocks: MarkdownBlock[],
+  rawLine: string,
+  marker: { current: string | null }
+): boolean {
+  if (marker.current) {
+    const body = quoteBody(rawLine);
+    if (body === null) {
+      marker.current = null;
+      return false;
+    }
+    if (closesFence(body, marker.current)) {
+      marker.current = null;
+    }
+    pushRawLine(blocks, body, true);
+    return true;
+  }
+  const body = quoteBody(rawLine);
+  if (body === null) {
+    return false;
+  }
+  const opener = openingFence(body);
+  if (!opener) {
+    return false;
+  }
+  marker.current = opener;
+  pushRawLine(blocks, body, true);
+  return true;
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   const lines = expandLinkReferences(prepareMarkdownSource(markdown))
     .replaceAll('\r\n', '\n')
     .split('\n');
   let fence: string | null = null;
+  const quoteFence = { current: null as string | null };
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? '';
+    if (!fence && takeQuotedFence(blocks, rawLine, quoteFence)) {
+      continue;
+    }
     const next = advanceFence(rawLine, fence);
     const boundary = fence !== next;
     if (fence || next) {
       fence = next;
       if (!boundary) {
-        blocks.push({
-          kind: 'paragraph',
-          text: rawLine,
-          setext: false,
-          quote: false,
-          listColumn: null,
-          hardBreak: false,
-          source: rawLine,
-        });
+        pushRawLine(blocks, rawLine);
       }
       continue;
     }
