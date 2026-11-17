@@ -54,7 +54,7 @@ import { codeExecutionExtension } from '../../lib/editor/extensions/code-executi
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
 import { commentDecorationExtension } from '../../lib/editor/comment-decorations';
-import { openFileFromPath } from '@renderer/lib/open-file-from-path';
+import { importPathCandidates, openFirstExistingFile } from '@renderer/lib/open-file-from-path';
 import { joinRelativePath } from '@renderer/lib/resolve-beside-file';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { predictNextEdit } from '../../lib/editor/next-edit-provider';
@@ -68,10 +68,16 @@ function openImportedFile(specifier: string): void {
   if (current?.includes('/') !== true) {
     return;
   }
+  let decoded = specifier;
+  try {
+    decoded = decodeURIComponent(specifier);
+  } catch {
+    return;
+  }
   const directory = current.slice(0, current.lastIndexOf('/'));
-  const resolved = joinRelativePath(directory, specifier);
+  const resolved = joinRelativePath(directory, decoded);
   if (resolved) {
-    void openFileFromPath(resolved);
+    void openFirstExistingFile(importPathCandidates(resolved));
   }
 }
 

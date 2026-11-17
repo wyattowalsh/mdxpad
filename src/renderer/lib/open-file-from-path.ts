@@ -20,10 +20,25 @@ function openFailureMessage(error: FileError): string {
   }
 }
 
+const SOURCE_EXTENSIONS = ['.mdx', '.md', '.markdown', '.tsx', '.ts', '.jsx', '.js'] as const;
+
+export function importPathCandidates(resolved: string): readonly string[] {
+  if (/\.[a-z0-9]+$/i.test(resolved)) {
+    return [resolved];
+  }
+  const files = SOURCE_EXTENSIONS.map((extension) => `${resolved}${extension}`);
+  const indexes = SOURCE_EXTENSIONS.map((extension) => `${resolved}/index${extension}`);
+  return [resolved, ...files, ...indexes];
+}
+
+function showOpenFailure(error: FileError): void {
+  useStatusMessageStore.getState().show(openFailureMessage(error));
+}
+
 export async function openFileFromPath(filePath: string): Promise<void> {
   const result = await window.mdxpad.readFile(filePath);
   if (!result.ok) {
-    useStatusMessageStore.getState().show(openFailureMessage(result.error));
+    showOpenFailure(result.error);
     return;
   }
   useDocumentStore.getState().openDocument(
@@ -34,4 +49,30 @@ export async function openFileFromPath(filePath: string): Promise<void> {
     },
     result.value
   );
+}
+
+export async function openFirstExistingFile(paths: readonly string[]): Promise<void> {
+  let missing: FileError | null = null;
+  for (const filePath of paths) {
+    const result = await window.mdxpad.readFile(filePath);
+    if (result.ok) {
+      useDocumentStore.getState().openDocument(
+        {
+          fileId: filePath as unknown as DocumentId,
+          filePath,
+          mtime: Date.now(),
+        },
+        result.value
+      );
+      return;
+    }
+    if (result.error.code !== 'NOT_FOUND') {
+      showOpenFailure(result.error);
+      return;
+    }
+    missing = result.error;
+  }
+  if (missing) {
+    showOpenFailure(missing);
+  }
 }
