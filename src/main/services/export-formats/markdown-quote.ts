@@ -29,7 +29,7 @@ export function quoteBody(line: string): string | null {
   return match[1] ?? '';
 }
 
-type QuoteChunk =
+export type QuoteChunk =
   | { readonly kind: 'paragraph'; readonly lines: string[] }
   | { readonly kind: 'list'; readonly lines: string[] }
   | { readonly kind: 'nested'; readonly lines: string[] };
@@ -41,7 +41,7 @@ function takeChunk(chunks: QuoteChunk[], current: QuoteChunk | null): QuoteChunk
   return null;
 }
 
-function quoteChunks(lines: readonly string[]): QuoteChunk[] {
+export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   const chunks: QuoteChunk[] = [];
   let current: QuoteChunk | null = null;
   for (const line of lines) {

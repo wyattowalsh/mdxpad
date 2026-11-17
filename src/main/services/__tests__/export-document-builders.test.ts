@@ -44,6 +44,13 @@ describe('built-in export documents', () => {
     expect(pdf.content).not.toContain('NOTE');
   });
 
+  it('joins repeated quote markers and keeps a blank line', () => {
+    const pdf = buildPdfDocument('> hello\n> there\n>\n> next');
+    expect(pdf.content).toContain('(hello there) Tj');
+    expect(pdf.content).toContain('(next) Tj');
+    expect(pdf.content).not.toContain('hello there next');
+  });
+
   it('keeps a wrapped quote on one line', () => {
     const pdf = buildPdfDocument('> Keep this\nline too.\n\nAfter');
     expect(pdf.content).toContain('Keep this line too.');

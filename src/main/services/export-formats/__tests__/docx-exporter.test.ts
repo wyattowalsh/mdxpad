@@ -251,6 +251,29 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&gt; inner');
   });
 
+  it('joins wrapped quote lines and writes a quoted list', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> hello\n> there\n>\n> - one\n> - two',
+      outputPath: '/tmp/wrapped-quote.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('hello there');
+    expect(xml).not.toContain('hello there one');
+    expect(xml).toContain('one');
+    expect(xml).toContain('two');
+    expect(xml).not.toContain('- one');
+  });
+
   it('indents a block quote', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

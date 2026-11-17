@@ -31,7 +31,7 @@ import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
-import { isLazyQuoteLine, quoteBody, quoteLineDepth } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
@@ -406,23 +406,42 @@ function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): vo
   blocks.push(new Table({ rows: [toRow(table.headers), ...table.rows.map((row) => toRow(row))] }));
 }
 
+function appendDocxQuoteLines(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  depth: number
+): void {
+  for (const chunk of quoteChunks(lines)) {
+    if (chunk.kind === 'nested') {
+      appendDocxQuoteLines(blocks, chunk.lines, depth + 1);
+      continue;
+    }
+    if (chunk.kind === 'list') {
+      for (const line of chunk.lines) {
+        const item = parseListItem(line);
+        if (item) {
+          blocks.push(listParagraph(item, depth));
+        }
+      }
+      continue;
+    }
+    const text = chunk.lines.join(' ').trim();
+    if (text.length > 0) {
+      blocks.push(
+        new Paragraph({
+          indent: { left: 720 * depth },
+          children: createParagraphChildren(text),
+        })
+      );
+    }
+  }
+}
+
 function flushDocxQuote(blocks: (Paragraph | Table)[], quoteLines: string[]): void {
   if (quoteLines.length === 0) {
     return;
   }
-  const lines = quoteLines.splice(0, quoteLines.length);
-  for (const line of lines) {
-    const quoted = quoteLineDepth(line);
-    if (quoted.text.length === 0) {
-      continue;
-    }
-    blocks.push(
-      new Paragraph({
-        indent: { left: 720 * quoted.depth },
-        children: createParagraphChildren(quoted.text),
-      })
-    );
-  }
+  appendDocxQuoteLines(blocks, quoteLines.splice(0, quoteLines.length), 1);
 }
 
 function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: string[]): boolean {
@@ -510,21 +529,23 @@ function flushPendingParagraph(parse: DocxParse): void {
   parse.blocks.push(paragraphFromLines(lines));
 }
 
-function listParagraph(item: MarkdownListItem): Paragraph {
+function listParagraph(item: MarkdownListItem, quoteDepth = 0): Paragraph {
   const children = listItemChildren(item.text);
+  const indent = quoteDepth > 0 ? { left: 720 * quoteDepth } : undefined;
   if (item.ordered && item.start > 1) {
     return new Paragraph({
-      indent: { left: 720 * (item.level + 1), hanging: 360 },
+      indent: { left: 720 * (item.level + 1) + 720 * quoteDepth, hanging: 360 },
       children: [new TextRun({ text: `${item.start}. ` }), ...children],
     });
   }
   if (item.ordered) {
     return new Paragraph({
       numbering: { reference: 'default-numbering', level: item.level },
+      ...(indent ? { indent } : {}),
       children,
     });
   }
-  return new Paragraph({ bullet: { level: item.level }, children });
+  return new Paragraph({ bullet: { level: item.level }, ...(indent ? { indent } : {}), children });
 }
 
 function takeDocxSetext(parse: DocxParse, line: string): boolean {

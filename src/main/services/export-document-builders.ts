@@ -345,16 +345,28 @@ function skipBuiltInListBreak(
 }
 
 function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
-  if (!isLazyQuoteLine(rawLine)) {
-    return false;
-  }
   const last = blocks[blocks.length - 1];
   if (last?.kind !== 'paragraph' || !last.quote) {
     return false;
   }
+  const continued = quoteBody(rawLine);
+  if (continued !== null && continued.length === 0) {
+    blocks[blocks.length - 1] = { ...last, quote: false };
+    return true;
+  }
+  if (
+    continued !== null &&
+    (quoteBody(continued) !== null || parseListItem(continued) !== null)
+  ) {
+    return false;
+  }
+  const text = continued ?? (isLazyQuoteLine(rawLine) ? rawLine.trim() : '');
+  if (text.length === 0) {
+    return false;
+  }
   blocks[blocks.length - 1] = {
     kind: 'paragraph',
-    text: `${last.text} ${plainInline(rawLine.trim())}`,
+    text: `${last.text} ${plainInline(text.trim())}`,
     setext: false,
     quote: true,
     listColumn: null,
