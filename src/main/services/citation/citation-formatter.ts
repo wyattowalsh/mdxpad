@@ -156,8 +156,10 @@ function createInlineRef(entry: CitationEntry, style: CitationStyle): string {
   switch (style) {
     case 'apa':
       return `(${firstAuthor}, ${year})`;
-    case 'mla':
-      return `(${firstAuthor} ${entry.pages ?? ''})`.trim() + ')';
+    case 'mla': {
+      const pages = entry.pages?.trim() ?? '';
+      return pages.length > 0 ? `(${firstAuthor} ${pages})` : `(${firstAuthor})`;
+    }
     case 'chicago':
       return `(${firstAuthor} ${year})`;
     case 'ieee':

@@ -196,7 +196,7 @@ function buildEntry(id: string, type: string, fields: Map<string, string>): Cita
   if (issue) entry.issue = issue;
 
   const pages = fields.get('pages');
-  if (pages) entry.pages = pages.replace('--', '-');
+  if (pages) entry.pages = pages.replaceAll('--', '-');
 
   const publisher = fields.get('publisher');
   if (publisher) entry.publisher = publisher;

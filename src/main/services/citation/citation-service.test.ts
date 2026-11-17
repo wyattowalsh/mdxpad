@@ -29,6 +29,15 @@ describe('citation-service', () => {
       expect(result.entries[0]?.pages).toBe('1-10');
     });
 
+    it('normalizes every en-dash page range', () => {
+      const result = parseBibtex(`
+@article{ranges,
+  title = {Ranges},
+  pages = {1--10, 12--14}
+}`);
+      expect(result.entries[0]?.pages).toBe('1-10, 12-14');
+    });
+
     it('should parse author names in "Last, First" format', () => {
       const bibtex = `
 @article{test,

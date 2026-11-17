@@ -64,6 +64,13 @@ describe('citation-formatter', () => {
         expect(result.formatted).toContain('_Nature_');
       });
 
+      it('builds an MLA in-text citation with one closing parenthesis', () => {
+        const withPages = formatCitation(sampleArticle, 'mla');
+        expect(withPages.inlineRef).toBe('(Smith 100-120)');
+        const withoutPages = formatCitation(sampleBook, 'mla');
+        expect(withoutPages.inlineRef).toBe('(Brown)');
+      });
+
       it('should format book citation', () => {
         const result = formatCitation(sampleBook, 'mla');
         expect(result.formatted).toContain('Brown, Alice');
