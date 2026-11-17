@@ -9,6 +9,7 @@
  */
 
 import * as React from 'react';
+import 'katex/dist/katex.min.css';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
@@ -26,6 +27,7 @@ import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
 import type { ToolbarAction } from './WysiwygToolbar';
 import { cn } from '@shared/lib/utils';
 import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
+import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 
 // =============================================================================
 // TYPES
@@ -134,6 +136,7 @@ function useEditorView(
       doc,
       plugins: [
         history(),
+        wysiwygMathPlugin(),
         keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
         createMdxKeymap(),
         keymap(baseKeymap),
@@ -327,7 +330,7 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
         <WysiwygToolbar actions={toolbarActions} />
         <div
           ref={containerRef}
-          className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold dark:[&_td]:border-zinc-700 dark:[&_th]:border-zinc-700"
+          className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_.wysiwyg-math-source]:text-[0px] [&_.wysiwyg-math]:inline-block [&_.wysiwyg-math-display]:my-2 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold dark:[&_td]:border-zinc-700 dark:[&_th]:border-zinc-700"
         />
       </div>
     );
