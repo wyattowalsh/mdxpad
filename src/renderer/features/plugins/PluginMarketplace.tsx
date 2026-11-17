@@ -129,26 +129,6 @@ export function PluginMarketplace() {
     [setLoading, setError, removePlugin]
   );
 
-  const handleInstall = useCallback(
-    async (pluginId: string) => {
-      setLoading(true);
-      try {
-        const api = getPluginApi();
-        if (api) {
-          const result = await api.install(pluginId);
-          if (result.ok && result.plugin) {
-            usePluginStore.getState().addPlugin(result.plugin);
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [setLoading, setError]
-  );
-
   const installedIds = new Set(plugins.map((p) => p.id));
 
   return (
@@ -189,7 +169,7 @@ export function PluginMarketplace() {
             {plugins.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
                 <p className="text-sm">No plugins installed</p>
-                <p className="text-xs mt-1">Browse the marketplace to find plugins</p>
+                <p className="text-xs mt-1">Plugins load from the local plugin folder</p>
               </div>
             )}
             {plugins.map((plugin) => (
@@ -210,7 +190,7 @@ export function PluginMarketplace() {
             {marketplace.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
                 <p className="text-sm">No plugins available</p>
-                <p className="text-xs mt-1">Check back later for new plugins</p>
+                <p className="text-xs mt-1">Remote plugin install is not available</p>
               </div>
             )}
             {marketplace.map((plugin) => (
@@ -218,8 +198,6 @@ export function PluginMarketplace() {
                 key={plugin.id}
                 plugin={plugin}
                 isInstalled={installedIds.has(plugin.id)}
-                onInstall={(id) => void handleInstall(id)}
-                isLoading={isLoading}
               />
             ))}
           </>

@@ -23,8 +23,6 @@ interface InstalledPluginCardProps {
 interface MarketplacePluginCardProps {
   plugin: MarketplacePlugin;
   isInstalled: boolean;
-  onInstall: (pluginId: string) => void;
-  isLoading?: boolean | undefined;
 }
 
 // ============================================================================
@@ -147,12 +145,7 @@ export function InstalledPluginCard({
 // Marketplace Plugin Card
 // ============================================================================
 
-export function MarketplacePluginCard({
-  plugin,
-  isInstalled,
-  onInstall,
-  isLoading,
-}: MarketplacePluginCardProps) {
+export function MarketplacePluginCard({ plugin, isInstalled }: MarketplacePluginCardProps) {
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
       <div className="flex items-start justify-between gap-3">
@@ -177,13 +170,9 @@ export function MarketplacePluginCard({
               Installed
             </span>
           ) : (
-            <button
-              className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              onClick={() => onInstall(plugin.id)}
-              disabled={isLoading}
-            >
-              Install
-            </button>
+            <span className="text-xs px-3 py-1 text-gray-500 dark:text-gray-400">
+              Install unavailable
+            </span>
           )}
         </div>
       </div>
