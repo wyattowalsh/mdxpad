@@ -144,9 +144,9 @@ describe('WYSIWYG Schema Structure', () => {
       expect(mdxSchema.nodes.text?.spec.group).toBe('inline');
     });
 
-    it('should require list_item content to start with paragraph', () => {
+    it('should allow a list item to start with a heading', () => {
       const listItemContent = mdxSchema.nodes.list_item?.spec.content;
-      expect(listItemContent).toContain('paragraph');
+      expect(listItemContent).toBe('block+');
     });
   });
 });

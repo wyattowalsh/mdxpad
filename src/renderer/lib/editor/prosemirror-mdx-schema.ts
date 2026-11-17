@@ -123,7 +123,7 @@ const BULLET_LIST_NODE: NodeSpec = {
 };
 
 const LIST_ITEM_NODE: NodeSpec = {
-  content: 'paragraph block*',
+  content: 'block+',
   parseDOM: [{ tag: 'li' }],
   toDOM() {
     return ['li', 0];

@@ -334,15 +334,32 @@ function renderLatexItem(lines: readonly SourceLine[]): string {
   return task ? taskItemLatex(task.checked, formatted) : formatted;
 }
 
-function processListItem(raw: string, output: string[], listState: ListState): boolean {
+function processListItem(
+  raw: string,
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>
+): boolean {
   const item = parseListItem(raw);
   if (!item) {
     return false;
   }
-  listState.itemLines = [{ text: item.text, hardBreak: readSourceLine(raw).hardBreak }];
-  listState.paragraphBreak = false;
+  const heading = parseAtxHeading(item.text);
+  listState.itemLines = heading
+    ? []
+    : [{ text: item.text, hardBreak: readSourceLine(raw).hardBreak }];
+  listState.paragraphBreak = heading !== null;
   listState.tailLines = null;
-  openLatexListItem(output, listState.stack, item, renderLatexItem(listState.itemLines));
+  listState.sealed = heading !== null;
+  const formatted = heading
+    ? latexLabeledHeading(
+        getHeadingCommand(heading.depth),
+        convertInlineFormatting(heading.text),
+        heading.text,
+        counts
+      )
+    : renderLatexItem(listState.itemLines);
+  openLatexListItem(output, listState.stack, item, formatted);
   return true;
 }
 
@@ -477,6 +494,53 @@ function takeLatexHeading(
   return true;
 }
 
+function takeLatexItemSetext(
+  raw: string,
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>
+): boolean {
+  if (
+    listState.stack.length === 0 ||
+    listState.column === null ||
+    listState.break ||
+    listState.sealed ||
+    listState.paragraphBreak ||
+    listState.itemLines.length === 0 ||
+    listState.itemFence ||
+    listState.itemQuote ||
+    listState.itemTable ||
+    listState.itemMath ||
+    listState.itemCode
+  ) {
+    return false;
+  }
+  const level = setextLevel(dedentToColumn(raw, listState.column));
+  if (level === null) {
+    return false;
+  }
+  const text = listState.itemLines
+    .map((item) => item.text)
+    .filter((item) => item.length > 0)
+    .join(' ');
+  if (text.length === 0) {
+    return false;
+  }
+  const last = output[output.length - 1];
+  if (!last?.includes('\\item ')) {
+    return false;
+  }
+  const at = last.lastIndexOf('\\item ');
+  const command = getHeadingCommand(level);
+  output[output.length - 1] =
+    `${last.slice(0, at)}\\item ${latexLabeledHeading(command, convertInlineFormatting(text), text, counts)}`;
+  listState.itemLines = [];
+  listState.sealed = true;
+  listState.paragraphBreak = true;
+  listState.break = false;
+  return true;
+}
+
 function takeLatexItemRule(raw: string, output: string[], listState: ListState): boolean {
   if (
     listState.stack.length === 0 ||
@@ -513,7 +577,10 @@ function processMarkdownLine(
   if (takeLatexListBreak(raw, output, listState)) {
     return;
   }
-  if (takeLatexItemRule(raw, output, listState)) {
+  if (
+    takeLatexItemSetext(raw, output, listState, counts) ||
+    takeLatexItemRule(raw, output, listState)
+  ) {
     return;
   }
   if (takeLatexHeading(raw, output, listState, counts, prose)) {
@@ -523,7 +590,7 @@ function processMarkdownLine(
   if (parseListItem(raw)) {
     flushLatexProse(output, prose);
   }
-  if (processListItem(raw, output, listState)) {
+  if (processListItem(raw, output, listState, counts)) {
     listState.column = listContentColumn(raw);
     openLatexMarkerFence(raw, output, listState);
     return;

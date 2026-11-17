@@ -98,6 +98,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
   });
 
+  it('keeps a setext heading inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n  ---\n  after\n',
+      outputPath: '/tmp/list-setext.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\subsection{item}');
+    expect(written).not.toContain('\\noindent\\rule');
+    expect(written.indexOf('after')).toBeLessThan(written.indexOf('\\end{itemize}'));
+  });
+
   it('keeps a horizontal rule inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

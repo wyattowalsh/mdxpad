@@ -588,6 +588,36 @@ function docxRuleParagraph(): Paragraph {
   });
 }
 
+function takeDocxItemSetext(parse: DocxParse, line: string): boolean {
+  if (
+    parse.openListItem === null ||
+    parse.listColumn === null ||
+    parse.listBreak ||
+    parse.listSealed ||
+    parse.listParagraphBreak ||
+    parse.tailOpen ||
+    parse.itemFence ||
+    parse.itemQuote ||
+    parse.itemTable ||
+    parse.itemMath ||
+    parse.itemCode
+  ) {
+    return false;
+  }
+  const level = setextLevel(dedentToColumn(line, parse.listColumn));
+  const text = parse.openListItem.text;
+  if (level === null || text.length === 0) {
+    return false;
+  }
+  parse.blocks.pop();
+  parse.blocks.push(bookmarkedHeading(level, text, parse.slugCounts));
+  parse.listSealed = true;
+  parse.listParagraphBreak = true;
+  parse.tailOpen = false;
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxItemRule(parse: DocxParse, line: string): boolean {
   if (
     parse.itemFence ||
@@ -833,6 +863,21 @@ function resetDocxItem(parse: DocxParse, fence: ReturnType<typeof listFenceOnMar
   parse.tailOpen = false;
 }
 
+function takeDocxAtxItem(parse: DocxParse, item: MarkdownListItem, column: number): boolean {
+  const atx = parseAtxHeading(item.text);
+  if (!atx) {
+    return false;
+  }
+  parse.openListItem = { ...item, text: '' };
+  parse.listColumn = column;
+  parse.listHardBreak = false;
+  resetDocxItem(parse, null);
+  parse.listSealed = true;
+  parse.listParagraphBreak = true;
+  parse.blocks.push(bookmarkedHeading(atx.depth, atx.text, parse.slugCounts));
+  return true;
+}
+
 function takeDocxList(
   parse: DocxParse,
   line: string,
@@ -843,6 +888,9 @@ function takeDocxList(
   if (item) {
     flushPendingParagraph(parse);
     const column = listContentColumn(line) ?? 2;
+    if (takeDocxAtxItem(parse, item, column)) {
+      return true;
+    }
     const fence = listFenceOnMarker(line, column);
     const shown = fence ? { ...item, text: '' } : item;
     parse.openListItem = shown;
@@ -922,6 +970,7 @@ function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
     takeDocxItemTable(parse, line) ||
     takeDocxItemMath(parse, line) ||
     takeDocxItemCode(parse, line) ||
+    takeDocxItemSetext(parse, line) ||
     takeDocxItemRule(parse, line)
   );
 }

@@ -1,4 +1,5 @@
 import { isThematicBreak } from './markdown-break';
+import { setextLevel } from './markdown-setext';
 import { renderFencedCode } from './markdown-code';
 import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
 import { isListContinuation, renderListItemHtml, replaceHtmlListItem } from './markdown-list';
@@ -283,6 +284,47 @@ function closeItemCode(state: HtmlListItemState, render: (text: string) => strin
   state.listLines = [];
   state.loose = true;
   writeListItem(state, render);
+}
+
+/** A setext underline of the open item's first paragraph becomes a heading. */
+export function takeListItemSetext(
+  state: HtmlListItemState,
+  line: string,
+  heading: (level: 1 | 2, text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (
+    !listOpen ||
+    state.listColumn === null ||
+    state.listBreak ||
+    state.loose ||
+    state.itemHtml.length > 0 ||
+    state.listLines.length === 0 ||
+    state.itemFence ||
+    state.itemQuote ||
+    state.itemTable ||
+    state.itemMath ||
+    state.itemCode
+  ) {
+    return false;
+  }
+  const level = setextLevel(dedentToColumn(line, state.listColumn));
+  if (level === null) {
+    return false;
+  }
+  const text = state.listLines
+    .map((item) => item.text)
+    .filter((item) => item.length > 0)
+    .join(' ');
+  if (text.length === 0) {
+    return false;
+  }
+  state.listLines = [];
+  state.itemHtml += heading(level, text);
+  state.loose = true;
+  state.listBreak = false;
+  writeListItem(state, () => '');
+  return true;
 }
 
 /** Keep a thematic break that belongs to the open item inside that item. */

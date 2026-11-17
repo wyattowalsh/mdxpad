@@ -97,6 +97,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('---\n')).toContain('---');
   });
 
+  it('keeps a setext heading inside a list item', () => {
+    const serialized = roundTrip('- item\n  ---\n  after\n');
+    expect(serialized).toContain('## item');
+    expect(serialized).toContain('after');
+    expect(serialized).not.toContain('- \n');
+    const doc = parseMdxContent(serialized.endsWith('\n') ? serialized : `${serialized}\n`);
+    expect(doc?.firstChild?.type.name).toBe('bullet_list');
+    expect(doc?.firstChild?.firstChild?.firstChild?.type.name).toBe('heading');
+  });
+
   it('keeps a loose list loose', () => {
     expect(roundTrip('- one\n\n- two\n')).toContain('- one\n\n- two');
     expect(roundTrip('1. one\n\n2. two\n')).toContain('1. one\n\n2. two');

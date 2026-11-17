@@ -192,6 +192,17 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps a setext heading inside a list item', async () => {
+    await exporter.export({
+      content: '- item\n  ---\n  after\n',
+      outputPath: '/tmp/list-setext.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li><h2 id="item">item</h2><p>after</p></li>');
+    expect(html).not.toContain('<hr />');
+  });
+
   it('keeps a horizontal rule inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n  ---\n\n  after\n',

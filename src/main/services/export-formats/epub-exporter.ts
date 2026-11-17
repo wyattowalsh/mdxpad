@@ -28,9 +28,11 @@ import {
   continueListItem,
   finishListItemFence,
   openListItem,
+  resetListItem,
   takeListItemCode,
   takeListItemFence,
   takeListItemRule,
+  takeListItemSetext,
   takeListItemMath,
   takeListItemQuote,
   takeListItemTable,
@@ -254,6 +256,12 @@ function closeEpubList(htmlLines: string[], state: EpubLineState): void {
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
   if (
     takeListItemCode(state, line, renderMarkdownInline, state.lists.length > 0) ||
+    takeListItemSetext(
+      state,
+      line,
+      (level, text) => epubHeading(state, level, text),
+      state.lists.length > 0
+    ) ||
     takeListItemRule(state, line, renderMarkdownInline, state.lists.length > 0)
   ) {
     return;
@@ -335,6 +343,16 @@ function startEpubListItem(
   raw: string,
   item: MarkdownListItem
 ): void {
+  const heading = parseAtxHeading(item.text);
+  const column = listContentColumn(raw) ?? 2;
+  if (heading) {
+    resetListItem(state);
+    state.listColumn = column;
+    state.loose = true;
+    state.itemHtml = epubHeading(state, heading.depth, heading.text);
+    pushHtmlListItem(htmlLines, state.lists, item, state.itemHtml);
+    return;
+  }
   const html = openListItem(
     state,
     raw,

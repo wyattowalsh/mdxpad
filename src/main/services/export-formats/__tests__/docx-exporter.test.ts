@@ -217,6 +217,28 @@ describe('DocxExporter', () => {
     expect(xml).toContain('the start');
   });
 
+  it('keeps a setext heading inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n  ---\n  after\n',
+      outputPath: '/tmp/list-setext.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('w:val="Heading2"');
+    expect(xml).toContain('item');
+    expect(xml).toContain('after');
+    expect(xml).not.toContain('---');
+  });
+
   it('keeps a horizontal rule inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

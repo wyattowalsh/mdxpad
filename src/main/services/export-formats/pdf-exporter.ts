@@ -28,9 +28,11 @@ import {
   continueListItem,
   finishListItemFence,
   openListItem,
+  resetListItem,
   takeListItemCode,
   takeListItemFence,
   takeListItemRule,
+  takeListItemSetext,
   takeListItemMath,
   takeListItemQuote,
   takeListItemTable,
@@ -213,6 +215,12 @@ function flushPdfFence(build: PdfBuild): void {
 function appendPdfLine(build: PdfBuild, line: string): void {
   if (
     takeListItemCode(build, line, renderMarkdownInline, build.lists.length > 0) ||
+    takeListItemSetext(
+      build,
+      line,
+      (level, text) => pdfHeading(build, level, text),
+      build.lists.length > 0
+    ) ||
     takeListItemRule(build, line, renderMarkdownInline, build.lists.length > 0)
   ) {
     return;
@@ -291,6 +299,16 @@ function pdfHeading(build: PdfBuild, depth: number, text: string): string {
 }
 
 function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem): void {
+  const heading = parseAtxHeading(item.text);
+  const column = listContentColumn(raw) ?? 2;
+  if (heading) {
+    resetListItem(build);
+    build.listColumn = column;
+    build.loose = true;
+    build.itemHtml = pdfHeading(build, heading.depth, heading.text);
+    pushHtmlListItem(build.parts, build.lists, item, build.itemHtml);
+    return;
+  }
   const html = openListItem(
     build,
     raw,
