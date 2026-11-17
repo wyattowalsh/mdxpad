@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { isThematicBreak } from './export-formats/markdown-break';
+import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
 import { advanceFence } from './export-formats/markdown-fence';
 import { parseListItem } from './export-formats/markdown-list';
 import { quoteBody } from './export-formats/markdown-quote';
@@ -29,7 +30,17 @@ interface MarkdownImageBlock {
   readonly src: string;
 }
 
-type MarkdownBlock = MarkdownHeadingBlock | MarkdownParagraphBlock | MarkdownImageBlock;
+interface MarkdownTableBlock {
+  readonly kind: 'table';
+  readonly aligns: readonly TableAlign[];
+  readonly rows: readonly (readonly string[])[];
+}
+
+type MarkdownBlock =
+  | MarkdownHeadingBlock
+  | MarkdownParagraphBlock
+  | MarkdownImageBlock
+  | MarkdownTableBlock;
 
 export interface BuiltPdfDocument {
   readonly content: string;
@@ -261,12 +272,36 @@ function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
   return true;
 }
 
+function takeMarkdownTable(
+  blocks: MarkdownBlock[],
+  lines: readonly string[],
+  index: number
+): number {
+  if (!isTableRow((lines[index] ?? '').trim())) {
+    return index;
+  }
+  const collected: string[] = [];
+  let cursor = index;
+  while (cursor < lines.length && isTableRow((lines[cursor] ?? '').trim())) {
+    collected.push((lines[cursor] ?? '').trim());
+    cursor += 1;
+  }
+  const table = parseMarkdownTable(collected);
+  if (!table) {
+    return index;
+  }
+  const rows = [table.headers, ...table.rows].map((row) => row.map((cell) => plainInline(cell)));
+  blocks.push({ kind: 'table', aligns: table.aligns, rows });
+  return cursor - 1;
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   const lines = expandLinkReferences(markdown).replaceAll('\r\n', '\n').split('\n');
   let fence: string | null = null;
 
-  for (const rawLine of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index] ?? '';
     const next = advanceFence(rawLine, fence);
     const boundary = fence !== next;
     if (fence || next) {
@@ -274,6 +309,11 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       if (!boundary) {
         blocks.push({ kind: 'paragraph', text: rawLine, setext: false });
       }
+      continue;
+    }
+    const tableEnd = takeMarkdownTable(blocks, lines, index);
+    if (tableEnd > index) {
+      index = tableEnd;
       continue;
     }
     if (!takeSetextHeading(blocks, rawLine)) {
@@ -298,8 +338,17 @@ function toPdfLines(blocks: readonly MarkdownBlock[]): string[] {
       case 'paragraph':
         lines.push(normalizePdfLine(block.text));
         break;
-      default:
+      case 'table':
+        for (const row of block.rows) {
+          lines.push(normalizePdfLine(row.join(' | ')));
+        }
+        lines.push(' ');
         break;
+      default: {
+        const exhaustive: never = block;
+        lines.push(exhaustive);
+        break;
+      }
     }
   }
   return lines.length > 0 ? lines : [' '];
@@ -460,6 +509,18 @@ function buildDocxCoreProperties(options: DocxExportPresetOptions): string {
 </cp:coreProperties>`;
 }
 
+function docxTable(block: MarkdownTableBlock): string {
+  const rows = block.rows.map((row) => {
+    const cells = row.map((cell, index) => {
+      const align = block.aligns[index] ?? 'left';
+      const alignment = align === 'left' ? '' : `<w:pPr><w:jc w:val="${align}"/></w:pPr>`;
+      return `<w:tc><w:p>${alignment}<w:r><w:t xml:space="preserve">${escapeXml(cell)}</w:t></w:r></w:p></w:tc>`;
+    });
+    return `<w:tr>${cells.join('')}</w:tr>`;
+  });
+  return `<w:tbl>${rows.join('')}</w:tbl>`;
+}
+
 function renderDocxParagraphs(
   blocks: readonly MarkdownBlock[],
   options: DocxExportPresetOptions,
@@ -478,6 +539,11 @@ function renderDocxParagraphs(
       paragraphs.push(
         `<w:p><w:pPr><w:pStyle w:val="Heading${styleLevel}"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(block.text)}</w:t></w:r></w:p>`
       );
+      continue;
+    }
+
+    if (block.kind === 'table') {
+      paragraphs.push(docxTable(block));
       continue;
     }
 

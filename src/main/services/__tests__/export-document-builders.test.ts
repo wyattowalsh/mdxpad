@@ -28,6 +28,22 @@ describe('built-in export documents', () => {
     expect(pdf.content).not.toContain('NOTE');
   });
 
+  it('writes a table as cells and leaves out the separator', () => {
+    const source = 'Name | Value\n--- | ---:\n**A** | 1';
+    const pdf = buildPdfDocument(source);
+    expect(pdf.content).toContain('Name | Value');
+    expect(pdf.content).toContain('A | 1');
+    expect(pdf.content).not.toContain('---');
+    expect(pdf.content).not.toContain('**');
+
+    const docx = Buffer.from(buildDocxDocument(source).content).toString('utf8');
+    expect(docx).toContain('<w:tbl>');
+    expect(docx).toContain('Name');
+    expect(docx).toContain('A');
+    expect(docx).toContain('w:val="right"');
+    expect(docx).not.toContain('---');
+  });
+
   it('writes a task and a horizontal rule as plain text', () => {
     const pdf = buildPdfDocument('- [x] **done**\n\n* * *\n\nBelow');
     expect(pdf.content).toContain('[x] done');
