@@ -11,6 +11,7 @@ import { readSourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
+import { decodeHtmlEntities } from './markdown-entity';
 import { linkDestination } from './markdown-link';
 import {
   isListContinuation,
@@ -136,11 +137,11 @@ function formatProtected(raw: string): string {
     const index = match.index;
     const image =
       match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';
-    result += escapeLatex(raw.slice(cursor, image ? index - 1 : index));
+    result += escapeLatex(decodeHtmlEntities(raw.slice(cursor, image ? index - 1 : index)));
     if (image) {
       const alt = match[9] ?? '';
       const src = match[10] ?? '';
-      const path = linkDestination(src);
+      const path = linkDestination(decodeHtmlEntities(src));
       result += latexImage(path, alt.length > 0 ? alt : path);
     } else if (match[2] !== undefined || match[3] !== undefined) {
       result += `\\textbf{\\textit{${formatProtected(match[2] ?? match[3] ?? '')}}}`;
@@ -151,13 +152,13 @@ function formatProtected(raw: string): string {
     } else if (match[7] !== undefined || match[8] !== undefined) {
       result += `\\textit{${formatProtected(match[7] ?? match[8] ?? '')}}`;
     } else if (match[9] !== undefined && match[10] !== undefined) {
-      result += `\\href{${escapeLatex(linkDestination(match[10]))}}{${formatProtected(match[9])}}`;
+      result += `\\href{${escapeLatex(linkDestination(decodeHtmlEntities(match[10])))}}{${formatProtected(match[9])}}`;
     } else if (match[11] !== undefined) {
       result += `\\sout{${formatProtected(match[11])}}`;
     }
     cursor = index + match[0].length;
   }
-  return result + escapeLatex(raw.slice(cursor));
+  return result + escapeLatex(decodeHtmlEntities(raw.slice(cursor)));
 }
 
 function formatInline(source: string): string {

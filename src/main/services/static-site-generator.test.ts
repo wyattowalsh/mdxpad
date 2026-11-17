@@ -17,7 +17,7 @@ describe('StaticSiteGenerator', () => {
     tempDirs.push(root);
     const source = path.join(root, 'note.md');
     const output = path.join(root, 'out');
-    await writeFile(source, '# Hello <b>there</b> #\n\n**bold**\n');
+    await writeFile(source, '# Hello <b>there</b> #\n\n**bold** AT&amp;T\n');
 
     const result = await new StaticSiteGenerator().generate({
       files: [{ path: source, title: 'Hello' }],
@@ -33,6 +33,8 @@ describe('StaticSiteGenerator', () => {
     expect(html).not.toContain('there&lt;/b&gt; #');
     expect(html).toContain('&lt;b&gt;there&lt;/b&gt;');
     expect(html).toContain('<strong>bold</strong>');
+    expect(html).toContain('AT&amp;T');
+    expect(html).not.toContain('AT&amp;amp;T');
     expect(html).not.toContain('<b>there</b>');
   });
 

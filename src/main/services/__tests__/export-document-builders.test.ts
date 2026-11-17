@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { buildDocxDocument, buildPdfDocument } from '../export-document-builders';
 
 describe('built-in export documents', () => {
+  it('decodes a character reference in plain text', () => {
+    const pdf = buildPdfDocument('Say AT&amp;T.');
+    expect(pdf.content).toContain('Say AT&T.');
+    expect(pdf.content).not.toContain('&amp;');
+  });
+
   it('drops a closing hash run from a heading', () => {
     const pdf = buildPdfDocument('# Title #\n\n# Hash#');
     expect(pdf.content).toContain('TITLE');

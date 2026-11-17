@@ -1,6 +1,7 @@
 import katex from 'katex';
 
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
+import { decodeHtmlEntities } from './markdown-entity';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
 
@@ -146,6 +147,55 @@ function restoreAutolinks(
     .join('');
 }
 
+const INLINE_PATTERN =
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\(((?:[^()]|\\([^()]*\\))+)\\)|~~(.+?)~~)';
+
+function escapeText(value: string): string {
+  return escapeHtml(decodeHtmlEntities(value));
+}
+
+function renderRichImage(alt: string, src: string): string {
+  const path = escapeHtml(decodeHtmlEntities(linkDestination(src)));
+  return `<img src="${path}" alt="${escapeText(alt)}" />`;
+}
+
+function renderRichMatch(match: RegExpMatchArray): string {
+  if (match[2] !== undefined || match[3] !== undefined) {
+    return `<strong><em>${renderRich(match[2] ?? match[3] ?? '')}</em></strong>`;
+  }
+  if (match[4] !== undefined || match[5] !== undefined) {
+    return `<strong>${renderRich(match[4] ?? match[5] ?? '')}</strong>`;
+  }
+  if (match[6] !== undefined) {
+    return `<code>${escapeHtml(match[6])}</code>`;
+  }
+  if (match[7] !== undefined || match[8] !== undefined) {
+    return `<em>${renderRich(match[7] ?? match[8] ?? '')}</em>`;
+  }
+  if (match[9] !== undefined && match[10] !== undefined) {
+    const href = escapeHtml(decodeHtmlEntities(linkDestination(match[10])));
+    return `<a href="${href}">${renderRich(match[9])}</a>`;
+  }
+  if (match[11] !== undefined) {
+    return `<del>${renderRich(match[11])}</del>`;
+  }
+  return '';
+}
+
+function renderRich(raw: string): string {
+  let result = '';
+  let cursor = 0;
+  for (const match of raw.matchAll(new RegExp(INLINE_PATTERN, 'g'))) {
+    const index = match.index;
+    const image =
+      match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';
+    result += escapeText(raw.slice(cursor, image ? index - 1 : index));
+    result += image ? renderRichImage(match[9] ?? '', match[10] ?? '') : renderRichMatch(match);
+    cursor = index + match[0].length;
+  }
+  return result + escapeText(raw.slice(cursor));
+}
+
 /** Escape text, then apply emphasis, code, and links. Underscores inside words stay plain. */
 function renderText(value: string): string {
   const escaped = protectEscapes(value);
@@ -153,29 +203,7 @@ function renderText(value: string): string {
   const protectedHtml = protectInlineHtml(protectedLinks.text);
   return restoreInlineHtml(
     restoreEscapes(
-      restoreAutolinks(
-        escapeHtml(protectedHtml.text)
-          .replace(/`([^`]+)`/g, '<code>$1</code>')
-          .replace(/~~(.+?)~~/g, '<del>$1</del>')
-          .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-          .replace(/(?<![\w])___(.+?)___(?![\w])/g, '<strong><em>$1</em></strong>')
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong>$1</strong>')
-          .replace(/\*(.+?)\*/g, '<em>$1</em>')
-          .replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>')
-          .replace(
-            /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g,
-            (_match, alt: string, src: string) =>
-              `<img src="${linkDestination(src)}" alt="${alt}" />`
-          )
-          .replace(
-            /\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g,
-            (_match, text: string, href: string) => {
-              return `<a href="${linkDestination(href)}">${text}</a>`;
-            }
-          ),
-        protectedLinks.links
-      ),
+      restoreAutolinks(renderRich(protectedHtml.text), protectedLinks.links),
       escaped.chars,
       escapeHtml
     ),

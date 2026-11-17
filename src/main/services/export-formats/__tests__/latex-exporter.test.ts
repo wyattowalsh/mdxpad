@@ -115,6 +115,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{enumerate}');
   });
 
+  it('decodes a character reference outside code', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Say AT&amp;T.\n\n`AT&amp;T`',
+      outputPath: '/tmp/entity.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('Say AT\\&T.');
+    expect(written).toContain('\\texttt{AT\\&amp;T}');
+  });
+
   it('drops a closing hash run from a heading', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

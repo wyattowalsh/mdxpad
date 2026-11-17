@@ -13,6 +13,7 @@ import type {
   PublishResult,
 } from '@shared/contracts/share-schemas';
 import { stripAtxClosingHashes } from '@shared/lib/markdown-heading';
+import { decodeHtmlEntities } from './export-formats/markdown-entity';
 
 // ============================================================================
 // Types
@@ -252,7 +253,7 @@ export class StaticSiteGenerator {
   }
 
   private convertMarkdownToHtml(content: string): string {
-    const escaped = this.escapeHtml(content);
+    const escaped = this.escapeHtml(decodeHtmlEntities(content));
     const withHeadings = escaped
       .replace(
         /^##### (.+)$/gm,

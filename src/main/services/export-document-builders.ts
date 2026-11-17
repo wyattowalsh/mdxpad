@@ -11,6 +11,7 @@ import {
   parseListItem,
 } from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
+import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
@@ -152,19 +153,24 @@ function wrapPdfLine(line: string, maxChars: number): string[] {
 }
 
 function plainInline(text: string): string {
-  return text
-    .replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, alt: string, src: string) => {
-      const label = alt.trim().length > 0 ? alt : 'image';
-      return `${label} (${linkDestination(src)})`;
-    })
-    .replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, label: string, href: string) => {
-      return `${label} (${linkDestination(href)})`;
-    })
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/~~(.+?)~~/g, '$1')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/(?<![\w])_(.+?)_(?![\w])/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1');
+  return decodeHtmlEntities(
+    text
+      .replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, alt: string, src: string) => {
+        const label = alt.trim().length > 0 ? alt : 'image';
+        return `${label} (${linkDestination(src)})`;
+      })
+      .replace(
+        /\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g,
+        (_match, label: string, href: string) => {
+          return `${label} (${linkDestination(href)})`;
+        }
+      )
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/~~(.+?)~~/g, '$1')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/(?<![\w])_(.+?)_(?![\w])/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+  );
 }
 
 function stripQuoteMarkers(line: string): string {

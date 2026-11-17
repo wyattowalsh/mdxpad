@@ -100,6 +100,7 @@
     "diff": "^8.0.3",
     "docx": "^9.6.0",
     "electron-store": "11.0.2",
+    "entities": "^9.0.0",
     "epub-gen-memory": "^1.1.2",
     "fzf": "^0.5.2",
     "glob": "13.0.6",

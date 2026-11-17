@@ -79,6 +79,15 @@ describe('renderMarkdownInline', () => {
     expect(formula).not.toContain('$x^2$');
   });
 
+  it('decodes a character reference and leaves one inside code', () => {
+    expect(renderMarkdownInline('AT&amp;T and &lt;tag&gt;')).toBe('AT&amp;T and &lt;tag&gt;');
+    expect(renderMarkdownInline('`AT&amp;T`')).toBe('<code>AT&amp;amp;T</code>');
+    expect(renderMarkdownInline('&ast;not italic&ast;')).toBe('*not italic*');
+    expect(renderMarkdownInline('[docs](https://example.com?a=1&amp;b=2)')).toBe(
+      '<a href="https://example.com?a=1&amp;b=2">docs</a>'
+    );
+  });
+
   it('leaves snake_case plain and escapes a comparison', () => {
     expect(renderMarkdownInline('use snake_case_name')).toBe('use snake_case_name');
     expect(renderMarkdownInline('a < b & c')).toBe('a &lt; b &amp; c');

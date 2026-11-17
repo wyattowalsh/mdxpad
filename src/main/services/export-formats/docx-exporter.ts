@@ -27,6 +27,7 @@ import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-tabl
 import { isLazyQuoteLine, quoteBody, quoteLineDepth } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
+import { decodeHtmlEntities } from './markdown-entity';
 import { linkDestination } from './markdown-link';
 import {
   isListContinuation,
@@ -180,7 +181,7 @@ function createParagraphChildren(text: string): (TextRun | ExternalHyperlink | M
 
 function styledRun(segment: InlineSegment, text: string, style?: string): TextRun {
   return new TextRun({
-    text,
+    text: segment.code ? text : decodeHtmlEntities(text),
     ...(style ? { style } : {}),
     ...(segment.bold ? { bold: true } : {}),
     ...(segment.italic ? { italics: true } : {}),
@@ -194,13 +195,13 @@ function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink
     if (segment.image) {
       return new ExternalHyperlink({
         children: [styledRun(segment, segment.text || segment.image, 'Hyperlink')],
-        link: segment.image,
+        link: decodeHtmlEntities(segment.image),
       });
     }
     if (segment.link) {
       return new ExternalHyperlink({
         children: [styledRun(segment, segment.text, 'Hyperlink')],
-        link: segment.link,
+        link: decodeHtmlEntities(segment.link),
       });
     }
     return styledRun(segment, segment.text);

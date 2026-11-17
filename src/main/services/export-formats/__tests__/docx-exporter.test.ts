@@ -146,6 +146,26 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('decodes a character reference outside code', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Say AT&amp;T.\n\n`AT&amp;T`',
+      outputPath: '/tmp/entity.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Say AT&amp;T.');
+    expect(xml).toContain('AT&amp;amp;T');
+  });
+
   it('drops a closing hash run from a heading', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
