@@ -19,6 +19,7 @@ export const PANEL_COMMAND_IDS = {
   edits: 'view.toggle-edits',
   playground: 'view.toggle-playground',
   marketplace: 'view.toggle-marketplace',
+  css: 'view.toggle-css',
   wysiwyg: 'view.toggle-wysiwyg',
 } as const;
 
@@ -59,6 +60,7 @@ export const PANEL_COMMANDS: readonly Command[] = [
   toggleCommand('view.toggle-edits', 'Toggle AI Revisions', 'edits', () => isFeatureEnabled('ai')),
   toggleCommand('view.toggle-playground', 'Toggle Component Playground', 'playground'),
   toggleCommand('view.toggle-marketplace', 'Toggle Template Marketplace', 'marketplace'),
+  toggleCommand('view.toggle-css', 'Toggle Custom CSS', 'css', () => isFeatureEnabled('plugin')),
   {
     id: 'view.toggle-wysiwyg' as CommandId,
     name: 'Toggle WYSIWYG Editor',

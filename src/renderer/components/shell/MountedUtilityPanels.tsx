@@ -19,6 +19,7 @@ import { DiagramDialog } from '@renderer/features/diagrams/DiagramDialog';
 import { MultiFileEditPanel } from '@renderer/components/ai/MultiFileEditPanel';
 import { ComponentPlayground } from '@renderer/features/playground/ComponentPlayground';
 import { MarketplacePanel } from '@renderer/components/template-marketplace/MarketplacePanel';
+import { CssEditorDialog } from '@renderer/features/plugins/CssEditorDialog';
 import { insertDiagramFence } from '@renderer/lib/insert-document-text';
 import { useAgentModeStore } from '@renderer/features/ai-agent/agent-mode-store';
 import { SemanticSearchPanel } from '@renderer/features/semantic-search/SemanticSearchPanel';
@@ -50,6 +51,7 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   edits: 'AI revisions',
   playground: 'Component playground',
   marketplace: 'Template marketplace',
+  css: 'Custom CSS',
 };
 
 function revealCommentThread(view: EditorView, anchorFrom: number): void {
@@ -63,7 +65,7 @@ function PanelBody({
   panel,
   editorRef,
 }: {
-  readonly panel: Exclude<UtilityPanelId, 'diagram'>;
+  readonly panel: Exclude<UtilityPanelId, 'diagram' | 'css'>;
   readonly editorRef: RefObject<EditorView | null>;
 }): React.JSX.Element {
   const content = useDocumentStore((state) => state.content);
@@ -151,6 +153,14 @@ export function MountedUtilityPanels({
   readonly editorRef: RefObject<EditorView | null>;
 }): React.JSX.Element | null {
   const panel = useUtilityPanelStore(selectActiveUtilityPanel);
+  if (panel === 'css') {
+    return (
+      <CssEditorDialog
+        isOpen
+        onClose={() => useUtilityPanelStore.getState().setActiveUtilityPanel(null)}
+      />
+    );
+  }
   if (panel === 'diagram') {
     return (
       <DiagramDialog
