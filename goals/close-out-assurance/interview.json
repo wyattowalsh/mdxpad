@@ -1,0 +1,157 @@
+{
+  "stage": "interview",
+  "title": "Close out mdxpad and assure it works",
+  "goalSlug": "close-out-assurance",
+  "questions": [
+    {
+      "id": "boundary",
+      "prompt": "Which close-out lanes should this goal finish?",
+      "description": "The November 16 audit is the source. Recommended lanes are the real product and safety gaps. Stale spec checkboxes and the 400-line file splits are bookkeeping, not user-facing work.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Wire the shell, finish export, fix the editor and preview, harden file access, jail agent writes before mounting them, connect the already-built services, ship a safe collab slice, and make CI able to run.",
+      "recommendedOptionIds": [
+        "shell",
+        "export",
+        "editor",
+        "safety",
+        "services",
+        "collab",
+        "ci"
+      ],
+      "options": [
+        {
+          "id": "shell",
+          "label": "Mount existing panels and command-palette entries"
+        },
+        {
+          "id": "export",
+          "label": "One export path, including compiled PDF and the other formats"
+        },
+        {
+          "id": "editor",
+          "label": "Math on, WYSIWYG round-trip, and the four missing editor extensions"
+        },
+        {
+          "id": "safety",
+          "label": "Confine file reads, file: navigation, CSP, and recovery durability"
+        },
+        {
+          "id": "services",
+          "label": "Reach git, search, import, citations, workspace, semantic search, and usage stats"
+        },
+        {
+          "id": "collab",
+          "label": "Comments, share, and history with a real access check"
+        },
+        {
+          "id": "ci",
+          "label": "Fix the pnpm CI pin so the suite can run"
+        },
+        {
+          "id": "bookkeeping",
+          "label": "Rewrite stale spec checkboxes and split files over 400 lines"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "collab-shape",
+      "prompt": "How should collaboration ship in this close-out?",
+      "description": "The current socket accepts any document id and is never started. Yjs is not imported. Share-token checks have no production caller.",
+      "answerMode": "single",
+      "recommendedAnswer": "Ship comments, share links, and version history behind the existing token and path checks. Do not start an open realtime socket in this goal.",
+      "recommendedOptionIds": ["guarded-local"],
+      "options": [
+        {
+          "id": "guarded-local",
+          "label": "Guarded comments, share, and history. No open socket."
+        },
+        {
+          "id": "full-yjs",
+          "label": "Also start a Yjs server, but only with a join token and a path jail."
+        },
+        {
+          "id": "defer-collab",
+          "label": "Leave collaboration unmounted."
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "agent-writes",
+      "prompt": "What should happen to agent mode before a user can open it?",
+      "description": "The write tool runs immediately. path.resolve is not a workspace jail, and nothing asks for approval. The panel is not mounted today.",
+      "answerMode": "single",
+      "recommendedAnswer": "Jail writes to the workspace and require approval, then mount the panel. Leave it unmounted until both exist.",
+      "recommendedOptionIds": ["jail-then-mount"],
+      "options": [
+        {
+          "id": "jail-then-mount",
+          "label": "Jail and approval first, then mount agent mode"
+        },
+        {
+          "id": "mount-readonly",
+          "label": "Mount chat only. Leave agent writes unregistered."
+        },
+        {
+          "id": "leave-unmounted",
+          "label": "Leave both chat and agent mode unmounted"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "unfinished-providers",
+      "prompt": "What should the close-out do with unfinished cloud and marketplace providers?",
+      "description": "Only mock-cloud connects. Marketplace install always returns 'Marketplace not configured'.",
+      "answerMode": "single",
+      "recommendedAnswer": "Hide providers and marketplace install actions that are not implemented. Do not add a new cloud adapter in this goal.",
+      "recommendedOptionIds": ["hide"],
+      "options": [
+        {
+          "id": "hide",
+          "label": "Hide unfinished providers and the marketplace install action"
+        },
+        {
+          "id": "one-adapter",
+          "label": "Implement one real cloud adapter and a real marketplace catalog"
+        },
+        {
+          "id": "leave-errors",
+          "label": "Leave the current 'not implemented' errors in place"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "assurance",
+      "prompt": "What evidence counts as assured?",
+      "description": "node_modules is not installed on this machine yet. The latest main CI run failed in the pnpm setup step.",
+      "answerMode": "multi",
+      "recommendedAnswer": "Install dependencies, fix the pnpm pin, and require typecheck, lint, and the unit suite. Add targeted tests for export, conflict Save As, file-read grants, and agent write confinement.",
+      "recommendedOptionIds": ["typecheck", "lint", "unit", "targeted"],
+      "options": [
+        { "id": "typecheck", "label": "pnpm typecheck" },
+        { "id": "lint", "label": "pnpm lint" },
+        { "id": "unit", "label": "pnpm test" },
+        {
+          "id": "targeted",
+          "label": "New tests for the lanes this goal changes"
+        },
+        {
+          "id": "e2e",
+          "label": "Playwright Electron e2e for the touched flows"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "exclude",
+      "prompt": "What should stay out even if a lane above is selected?",
+      "description": "Add a correction if the recommendation drops something you still want finished.",
+      "answerMode": "text",
+      "recommendedAnswer": "Dependabot major bumps beyond the pnpm pin, a second citation parser, and splitting every file over 400 lines.",
+      "required": false
+    }
+  ]
+}
