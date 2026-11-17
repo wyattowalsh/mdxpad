@@ -261,6 +261,13 @@ describe('search-service', () => {
         const after = getStatus('/workspace');
         expect(after.fileCount).toBe(2);
         expect(after.lastIndexedAt).not.toBe(beforeLastIndexedAt);
+
+        const readsAfterInsideUpdate = vi.mocked(readFile).mock.calls.length;
+        onAll('add', '/etc/passwd');
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(getStatus('/workspace').fileCount).toBe(2);
+        expect(vi.mocked(readFile).mock.calls.length).toBe(readsAfterInsideUpdate);
       } finally {
         vi.useRealTimers();
       }

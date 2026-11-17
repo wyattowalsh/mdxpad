@@ -6,18 +6,19 @@
  */
 
 import MiniSearch from 'minisearch';
-import { readFile } from 'node:fs/promises';
-import { basename, extname, join, relative } from 'node:path';
-import { pathMatchesExclude } from './path-excludes';
-
-export { pathMatchesExclude };
 import { watch, type FSWatcher } from 'chokidar';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { basename, extname, join, relative } from 'node:path';
 import type {
   SearchQueryResponse,
   SearchIndexResponse,
   SearchStatusResponse,
   SearchResult,
 } from '@shared/contracts/search-schemas';
+import { resolveWorkspaceFilePath } from '../ai/agent-path';
+import { pathMatchesExclude } from './path-excludes';
+
+export { pathMatchesExclude };
 
 const DEFAULT_EXTENSIONS = ['.md', '.mdx', '.txt', '.markdown'];
 const MAX_FILE_SIZE_BYTES = 1_048_576; // 1 MB
@@ -99,11 +100,20 @@ function computeMatchRanges(content: string, query: string): { start: number; en
 
 async function readFileContent(filePath: string): Promise<string | null> {
   try {
-    const stat = await import('node:fs/promises').then((fs) => fs.stat(filePath));
-    if (stat.size > MAX_FILE_SIZE_BYTES) return null;
+    const fileStat = await stat(filePath);
+    if (fileStat.size > MAX_FILE_SIZE_BYTES) return null;
     return await readFile(filePath, 'utf-8');
   } catch {
     return null;
+  }
+}
+
+function watchedFileInside(workspaceDir: string, filePath: string): boolean {
+  try {
+    resolveWorkspaceFilePath(workspaceDir, filePath);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -116,7 +126,6 @@ async function collectFiles(
   extensions: string[],
   excludePatterns: readonly string[] = []
 ): Promise<string[]> {
-  const { readdir } = await import('node:fs/promises');
   const results: string[] = [];
   const queue = [dir];
 
@@ -169,26 +178,11 @@ export async function indexWorkspace(
 
   miniSearch.addAll(documents);
 
-  // Set up file watcher for incremental updates
   const existing = workspaceIndexes.get(workspaceDir);
   if (existing?.watcher) {
     await existing.watcher.close();
   }
-
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  const watcher = watch(workspaceDir, {
-    ignored: /(^|[/\\])(\.|node_modules)/,
-    persistent: false,
-    ignoreInitial: true,
-  });
-
-  watcher.on('all', (_event, filePath) => {
-    if (!matchesExtensions(filePath, extensions)) return;
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      void updateSingleFile(workspaceDir, filePath, extensions);
-    }, DEBOUNCE_MS);
-  });
+  const watcher = watchWorkspace(workspaceDir, extensions);
 
   const now = new Date().toISOString();
   workspaceIndexes.set(workspaceDir, {
@@ -202,6 +196,27 @@ export async function indexWorkspace(
     indexedFiles: documents.length,
     indexTimeMs: Date.now() - startTime,
   };
+}
+
+function watchWorkspace(workspaceDir: string, extensions: string[]): FSWatcher {
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const watcher = watch(workspaceDir, {
+    ignored: /(^|[/\\])(\.|node_modules)/,
+    persistent: false,
+    ignoreInitial: true,
+    followSymlinks: false,
+  });
+
+  watcher.on('all', (_event, filePath) => {
+    if (!watchedFileInside(workspaceDir, filePath)) return;
+    if (!matchesExtensions(filePath, extensions)) return;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      void updateSingleFile(workspaceDir, filePath, extensions);
+    }, DEBOUNCE_MS);
+  });
+
+  return watcher;
 }
 
 async function updateSingleFile(
