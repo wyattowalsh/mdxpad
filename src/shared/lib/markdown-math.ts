@@ -1,6 +1,10 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
-import { escapeLooseTags, escapeTemplatePlaceholders } from './markdown-tags';
+import {
+  escapeLooseTags,
+  escapeTemplatePlaceholders,
+  linkUrlsWithEscapedAngles,
+} from './markdown-tags';
 
 const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const MDX_EXPRESSION_OPTIONS: AcornOptions = {
@@ -119,16 +123,29 @@ function remainderIsEmpty(value: string): boolean {
   return /^[ \t\n\r]*$/.test(withoutComments);
 }
 
+function leavesExpressionForMdx(trimmed: string): boolean {
+  return (
+    trimmed.length === 0 ||
+    trimmed.startsWith('...') ||
+    trimmed.startsWith('<') ||
+    trimmed.startsWith('/*') ||
+    trimmed.startsWith('//')
+  );
+}
+
 function shouldEscapeExpression(expression: string): boolean {
   const trimmed = expression.trim();
   if (trimmed.startsWith('#') || trimmed.startsWith('%')) {
     return true;
   }
+  if (leavesExpressionForMdx(trimmed)) {
+    return false;
+  }
   try {
     const node = Parser.parseExpressionAt(expression, 0, MDX_EXPRESSION_OPTIONS);
     return !remainderIsEmpty(expression.slice(node.end));
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -167,7 +184,9 @@ function prepareProse(prose: string): string {
       escapeTemplatePlaceholders(closeVoidTags(rewriteAutolinks(stripHtmlComments(text))))
     )
   );
-  const escaped = mapOutsideCode(cleaned, (text) => escapeLooseTags(text, cleaned));
+  const escaped = mapOutsideCode(cleaned, (text) =>
+    linkUrlsWithEscapedAngles(escapeLooseTags(text, cleaned))
+  );
   return replaceTexMath(escaped);
 }
 

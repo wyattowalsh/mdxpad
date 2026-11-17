@@ -52,6 +52,15 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
       'Array&lt;Array&lt;T&gt;&gt;'
     );
+    expect(prepareMarkdownSource('See https://example.com/a<b> and {1 +} more')).toContain(
+      'a&lt;b&gt;'
+    );
+    expect(prepareMarkdownSource('See https://example.com/a<b> and {1 +} more')).toContain(
+      '\\{1 +\\}'
+    );
+    expect(prepareMarkdownSource('<b>Hi</b> and <Note {...props} />')).toBe(
+      '<b>Hi</b> and <Note {...props} />'
+    );
     expect(prepareMarkdownSource('Hello {{name}} and `{{name}}`')).toBe(
       'Hello \\{\\{name\\}\\} and `{{name}}`'
     );

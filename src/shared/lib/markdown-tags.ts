@@ -1,59 +1,3 @@
-const HTML_TAGS = new Set([
-  'a',
-  'abbr',
-  'article',
-  'aside',
-  'b',
-  'blockquote',
-  'button',
-  'caption',
-  'code',
-  'dd',
-  'del',
-  'details',
-  'div',
-  'dl',
-  'dt',
-  'em',
-  'figcaption',
-  'figure',
-  'footer',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'header',
-  'i',
-  'kbd',
-  'li',
-  'main',
-  'mark',
-  'nav',
-  'ol',
-  'p',
-  'pre',
-  'q',
-  's',
-  'section',
-  'small',
-  'span',
-  'strong',
-  'sub',
-  'summary',
-  'sup',
-  'table',
-  'tbody',
-  'td',
-  'tfoot',
-  'th',
-  'thead',
-  'tr',
-  'u',
-  'ul',
-]);
-
 interface AngleTag {
   readonly end: number;
   readonly name: string;
@@ -142,6 +86,50 @@ function escapeAngles(raw: string): string {
   return raw.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
+const UNCLOSED_HTML = new Set([
+  'article',
+  'aside',
+  'blockquote',
+  'button',
+  'caption',
+  'dd',
+  'details',
+  'div',
+  'dl',
+  'dt',
+  'figcaption',
+  'figure',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'li',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'span',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+]);
+
+function hasCloser(name: string, prose: string): boolean {
+  return new RegExp(`</${escapeRegExp(name)}\\s*>`).test(prose);
+}
+
 function keepTag(tag: AngleTag, prose: string): boolean {
   if (tag.closing || tag.selfClosing) {
     return true;
@@ -149,10 +137,10 @@ function keepTag(tag: AngleTag, prose: string): boolean {
   if (tag.fragment) {
     return prose.includes('</>');
   }
-  return (
-    HTML_TAGS.has(tag.name.toLowerCase()) ||
-    new RegExp(`</${escapeRegExp(tag.name)}\\s*>`).test(prose)
-  );
+  if (hasCloser(tag.name, prose)) {
+    return true;
+  }
+  return UNCLOSED_HTML.has(tag.name.toLowerCase());
 }
 
 const TEMPLATE_PLACEHOLDER = /^\{\{\s*\w+\s*\}\}/;
@@ -182,6 +170,36 @@ export function escapeTemplatePlaceholders(value: string): string {
     index += 1;
   }
   return result;
+}
+
+function hrefForEncodedUrl(url: string): string {
+  return url.replaceAll('&lt;', '%3C').replaceAll('&gt;', '%3E').replaceAll('&amp;', '%26');
+}
+
+function splitTrailingPunctuation(url: string): { url: string; suffix: string } {
+  let end = url.length;
+  while (end > 0 && /[.,:;!?]/.test(url[end - 1] ?? '')) {
+    if (/(?:&lt|&gt|&amp)$/.test(url.slice(0, end - 1))) {
+      break;
+    }
+    end -= 1;
+  }
+  return { url: url.slice(0, end), suffix: url.slice(end) };
+}
+
+/** Keep a URL readable after an angle bracket inside it was escaped. */
+export function linkUrlsWithEscapedAngles(value: string): string {
+  return value.replace(/https?:\/\/[^\s)]+/gi, (url, offset) => {
+    if (!url.includes('&lt;') && !url.includes('&gt;')) {
+      return url;
+    }
+    const previous = value[offset - 1];
+    if (previous === '(' || previous === '[') {
+      return url;
+    }
+    const trimmed = splitTrailingPunctuation(url);
+    return `[${trimmed.url}](${hrefForEncodedUrl(trimmed.url)})${trimmed.suffix}`;
+  });
 }
 
 /** Escape `<...>` that is prose, including nested types, and leave real tags in place. */

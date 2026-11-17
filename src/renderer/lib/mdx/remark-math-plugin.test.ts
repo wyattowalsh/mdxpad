@@ -26,6 +26,20 @@ describe('remark math prices', () => {
     }
   });
 
+  it('compiles a url that contains a tag and an unfinished sum', async () => {
+    const result = await compileMdx(
+      testId('mdx-url-tag'),
+      'See https://example.com/a<b> and {1 +} more'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const text = render(createElement((await createModuleFromCode(result.code)).default))
+        .container.textContent;
+      expect(text).toContain('example.com/a<b>');
+      expect(text).toContain('{1 +}');
+    }
+  });
+
   it('compiles a heart, a nested type, and a fragment in prose', async () => {
     const result = await compileMdx(
       testId('mdx-angles'),
