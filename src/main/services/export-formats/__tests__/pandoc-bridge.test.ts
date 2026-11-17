@@ -246,9 +246,49 @@ describe('PandocRawExporter', () => {
     });
 
     expect(result.ok).toBe(true);
+    const args = mockExecFile.mock.calls[0]?.[1] as string[];
+    expect(args).toEqual(expect.arrayContaining(['--to', 'rst', '--from', 'markdown']));
+    expect(args).not.toContain('--mathml');
+    expect(args).not.toContain('--metadata');
+  });
+
+  it('writes a standalone HTML file with MathML', async () => {
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/bin/pandoc',
+    });
+
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return { stdin: { write: vi.fn(), end: vi.fn() } };
+      }
+    );
+
+    const result = await exporter.export({
+      content: 'See $x^2$.',
+      outputPath: '/tmp/note.html',
+    });
+
+    expect(result.ok).toBe(true);
     expect(mockExecFile).toHaveBeenCalledWith(
       '/usr/bin/pandoc',
-      expect.arrayContaining(['--to', 'rst']),
+      expect.arrayContaining([
+        '--from',
+        'markdown+tex_math_dollars',
+        '--to',
+        'html',
+        '--standalone',
+        '--mathml',
+      ]),
       expect.any(Object),
       expect.any(Function)
     );

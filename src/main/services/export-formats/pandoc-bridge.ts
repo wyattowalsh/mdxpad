@@ -4,6 +4,21 @@ import type { Exporter, ExportOptions, ExportResult } from './types';
 import { detectPandoc } from './pandoc-detector';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const CONTROL_METADATA = new Set(['to', 'from', 'timeoutMs', 'extraArgs']);
+
+function htmlWriterArgs(targetFormat: string, extraArgs: readonly string[]): string[] {
+  const args = [...extraArgs];
+  if (targetFormat !== 'html' && targetFormat !== 'html5') {
+    return args;
+  }
+  if (!args.includes('--standalone') && !args.includes('-s')) {
+    args.push('--standalone');
+  }
+  if (!args.includes('--mathml') && !args.includes('--katex') && !args.includes('--mathjax')) {
+    args.push('--mathml');
+  }
+  return args;
+}
 
 function runPandoc(
   pandocPath: string,
@@ -46,9 +61,10 @@ function buildPandocArgs(bridge: PandocBridge, options: ExportOptions): string[]
 
   if (options.metadata) {
     for (const [key, value] of Object.entries(options.metadata)) {
-      if (typeof value === 'string') {
-        args.push('--metadata', `${key}=${value}`);
+      if (CONTROL_METADATA.has(key) || typeof value !== 'string') {
+        continue;
       }
+      args.push('--metadata', `${key}=${value}`);
     }
   }
 
@@ -131,9 +147,9 @@ export class PandocRawExporter implements Exporter {
   async export(options: ExportOptions): Promise<ExportResult> {
     const meta = options.metadata ?? {};
     const targetFormat = (meta.to as string | undefined) ?? 'html';
-    const sourceFormat = (meta.from as string | undefined) ?? 'markdown';
+    const sourceFormat = (meta.from as string | undefined) ?? 'markdown+tex_math_dollars';
     const timeoutMs = (meta.timeoutMs as number | undefined) ?? DEFAULT_TIMEOUT_MS;
-    const extraArgs = (meta.extraArgs as string[] | undefined) ?? [];
+    const extraArgs = htmlWriterArgs(targetFormat, (meta.extraArgs as string[] | undefined) ?? []);
 
     const bridge = new PandocBridge({
       targetFormat,
