@@ -130,25 +130,68 @@ const importHtmlCommand: Command = {
   },
 };
 
+async function appendParsedBibliography(ctx: CommandContext): Promise<CommandResult> {
+  const citation = ctx.api.citation;
+  if (!citation) {
+    ctx.notify({ type: 'warning', message: 'Citations are not available' });
+    return { ok: false, error: 'Citations are not available' };
+  }
+  if (ctx.document.content.trim().length === 0) {
+    ctx.notify({ type: 'warning', message: 'The document is empty' });
+    return { ok: false, error: 'The document is empty' };
+  }
+  const parsed = await citation.parseBibtex(ctx.document.content);
+  if (!parsed.ok) {
+    ctx.notify({ type: 'error', message: parsed.error.message });
+    return { ok: false, error: parsed.error.message };
+  }
+  if (parsed.value.entries.length === 0) {
+    ctx.notify({ type: 'info', message: 'Parsed 0 citations' });
+    return { ok: true };
+  }
+  const generated = await citation.generateBibliography(parsed.value.entries, 'apa');
+  if (!generated.ok) {
+    ctx.notify({ type: 'error', message: generated.error.message });
+    return { ok: false, error: generated.error.message };
+  }
+  return writeBibliography(ctx, generated.value.bibliography, generated.value.entryCount);
+}
+
+function writeBibliography(
+  ctx: CommandContext,
+  bibliography: string,
+  entryCount: number
+): CommandResult {
+  const document = useDocumentStore.getState();
+  if (document.content !== ctx.document.content) {
+    ctx.notify({
+      type: 'warning',
+      message: 'The document changed while citations were parsed. It was not changed.',
+    });
+    return { ok: false, error: 'Document changed during citation parse' };
+  }
+  if (document.content.includes(bibliography)) {
+    ctx.notify({
+      type: 'info',
+      message: `Parsed ${entryCount} citations. The bibliography is already in the document.`,
+    });
+    return { ok: true };
+  }
+  const separator = document.content.endsWith('\n') ? '\n' : '\n\n';
+  document.setContent(`${document.content}${separator}${bibliography}`);
+  ctx.notify({
+    type: 'success',
+    message: `Added a bibliography for ${entryCount} citation${entryCount === 1 ? '' : 's'}.`,
+  });
+  return { ok: true };
+}
+
 const parseCitationsCommand: Command = {
   id: 'citation.parse' as CommandId,
   name: 'Parse Citations',
-  description: 'Parse BibTeX in the current document',
+  description: 'Parse BibTeX in the current document and add a bibliography',
   category: 'file',
-  execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    if (!ctx.api.citation) {
-      ctx.notify({ type: 'warning', message: 'Citations are not available' });
-      return { ok: false, error: 'Citations are not available' };
-    }
-    const result = await ctx.api.citation.parseBibtex(ctx.document.content);
-    if (!result.ok) {
-      ctx.notify({ type: 'error', message: result.error.message });
-      return { ok: false, error: result.error.message };
-    }
-    const count = result.value.entries.length;
-    ctx.notify({ type: 'info', message: `Parsed ${count} citation${count === 1 ? '' : 's'}` });
-    return { ok: true };
-  },
+  execute: appendParsedBibliography,
 };
 
 export const SERVICE_COMMANDS: readonly Command[] = [

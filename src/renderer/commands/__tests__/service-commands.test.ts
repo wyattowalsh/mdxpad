@@ -28,6 +28,34 @@ describe('import.html', () => {
   });
 });
 
+describe('citation.parse', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+  });
+
+  it('appends a bibliography for parsed entries', async () => {
+    useDocumentStore.getState().setContent('@article{a, title={One}}');
+    const parseBibtex = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { entries: [{ id: 'a', type: 'article', title: 'One' }], warnings: [] },
+    });
+    const generateBibliography = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { bibliography: 'One. (n.d.).', entryCount: 1 },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: null, content: '@article{a, title={One}}' },
+      api: { citation: { parseBibtex, generateBibliography } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'citation.parse');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(useDocumentStore.getState().content).toBe('@article{a, title={One}}\n\nOne. (n.d.).');
+  });
+});
+
 describe('search.workspace', () => {
   it('indexes an unindexed folder before searching and passes exclude patterns', async () => {
     localStorage.clear();
