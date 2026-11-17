@@ -1,13 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@ui/button';
-import { Input } from '@ui/input';
 import {
   selectExportPresets,
   selectIsLoadingPresets,
   useExportStore,
 } from '@renderer/stores/export-store';
-import type { ExportPreset } from '@shared/types/export-model';
+import { announceFinishedExport } from '@renderer/stores/announce-export';
+import type { FileExportError } from '@shared/contracts/file-schemas';
+import type { ExportJob, ExportPreset } from '@shared/types/export-model';
 
 function createFallbackUuid(): string {
   return '00000000-0000-4000-8000-000000000000';
@@ -20,15 +21,48 @@ function createExportJobId(): string {
   return createFallbackUuid();
 }
 
-function getDefaultTargetPath(preset: ExportPreset): string {
-  return `./export.${preset.format}`;
+function exportErrorMessage(error: FileExportError): string | null {
+  switch (error.code) {
+    case 'CANCELLED':
+      return null;
+    case 'UNSUPPORTED_FORMAT':
+    case 'WRITE_FAILED':
+    case 'UNKNOWN':
+      return error.message;
+    default: {
+      const unreachable: never = error;
+      return unreachable;
+    }
+  }
+}
+
+function completedJob(
+  preset: ExportPreset,
+  sourcePath: string | null,
+  targetPath: string,
+  warnings: string[]
+): ExportJob {
+  return {
+    id: createExportJobId(),
+    preset,
+    format: preset.format,
+    sourcePath,
+    targetPath,
+    generationMode: 'native',
+    status: 'completed',
+    warnings,
+    createdAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+  };
 }
 
 export interface ExportPresetActionsProps {
+  readonly content: string;
   readonly sourcePath?: string | null;
 }
 
 function ExportPresetActionsComponent({
+  content,
   sourcePath = null,
 }: ExportPresetActionsProps): React.JSX.Element {
   const presets = useExportStore(selectExportPresets);
@@ -38,7 +72,8 @@ function ExportPresetActionsComponent({
   const runJobLifecycle = useExportStore((state) => state.runJobLifecycle);
 
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');
-  const [targetPath, setTargetPath] = useState<string>('');
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     void loadPresets();
@@ -54,9 +89,6 @@ function ExportPresetActionsComponent({
       const firstPreset = presets[0];
       if (firstPreset) {
         setSelectedPresetId(firstPreset.id);
-        setTargetPath((currentPath) =>
-          currentPath === '' ? getDefaultTargetPath(firstPreset) : currentPath
-        );
       }
     }
   }, [presets, selectedPresetId]);
@@ -66,33 +98,47 @@ function ExportPresetActionsComponent({
     [presets, selectedPresetId]
   );
 
-  const handleQueueJob = useCallback(() => {
-    if (!selectedPreset || targetPath.trim() === '') {
+  const handleExport = useCallback(() => {
+    if (!selectedPreset || isExporting) {
       return;
     }
 
-    void runJobLifecycle({
-      action: 'create',
-      job: {
-        id: createExportJobId(),
-        preset: selectedPreset,
-        format: selectedPreset.format,
-        sourcePath,
-        targetPath: targetPath.trim(),
-        generationMode: 'native',
-        status: 'queued',
-        warnings: [],
-        createdAt: new Date().toISOString(),
-      },
-    });
-  }, [runJobLifecycle, selectedPreset, sourcePath, targetPath]);
+    setExportError(null);
+    setIsExporting(true);
+    void window.mdxpad
+      .exportFile(content, { sourcePath, format: selectedPreset.format })
+      .then((result) => {
+        if (!result.ok) {
+          setExportError(exportErrorMessage(result.error));
+          return;
+        }
+        const job = completedJob(
+          selectedPreset,
+          sourcePath,
+          result.value.path,
+          result.value.warnings
+        );
+        announceFinishedExport(job);
+        return runJobLifecycle({ action: 'create', job });
+      })
+      .catch((error: unknown) => {
+        setExportError(error instanceof Error ? error.message : 'Export failed');
+      })
+      .finally(() => {
+        setIsExporting(false);
+      });
+  }, [content, isExporting, runJobLifecycle, selectedPreset, sourcePath]);
 
   return (
     <section className="space-y-3" data-testid="export-preset-actions">
-      <h3 className="text-sm font-semibold">Preset actions</h3>
+      <h3 className="text-sm font-semibold">Export document</h3>
+      <p className="text-xs text-muted-foreground">
+        Writes the open document in the selected format. The save dialog chooses the file.
+      </p>
 
       {isLoadingPresets && <p className="text-sm text-muted-foreground">Loading presets…</p>}
       {presetsError && <p className="text-sm text-destructive">{presetsError}</p>}
+      {exportError && <p className="text-sm text-destructive">{exportError}</p>}
 
       <div className="space-y-1">
         <label htmlFor="export-preset-select" className="text-xs font-medium text-muted-foreground">
@@ -103,10 +149,6 @@ function ExportPresetActionsComponent({
           value={selectedPresetId}
           onChange={(event) => {
             setSelectedPresetId(event.target.value);
-            const nextPreset = presets.find((preset) => preset.id === event.target.value);
-            if (nextPreset) {
-              setTargetPath(getDefaultTargetPath(nextPreset));
-            }
           }}
           className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
         >
@@ -119,26 +161,12 @@ function ExportPresetActionsComponent({
         </select>
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="export-target-path" className="text-xs font-medium text-muted-foreground">
-          Target path
-        </label>
-        <Input
-          id="export-target-path"
-          aria-label="Target path"
-          value={targetPath}
-          onChange={(event) => {
-            setTargetPath(event.target.value);
-          }}
-        />
-      </div>
-
       <Button
         type="button"
-        onClick={handleQueueJob}
-        disabled={selectedPreset === null || targetPath.trim() === ''}
+        onClick={handleExport}
+        disabled={selectedPreset === null || isExporting}
       >
-        Queue export job
+        {isExporting ? 'Exporting…' : 'Export document'}
       </Button>
     </section>
   );

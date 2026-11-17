@@ -24,7 +24,10 @@ function ExportPanelComponent({
   return (
     <div className={className} data-testid="export-panel">
       <div className="grid gap-4 md:grid-cols-2">
-        <ExportPresetActions {...(sourcePath !== undefined ? { sourcePath } : {})} />
+        <ExportPresetActions
+          content={content}
+          {...(sourcePath !== undefined ? { sourcePath } : {})}
+        />
         <ExportCliInvocation />
         <LlmsGenerationAction
           content={content}

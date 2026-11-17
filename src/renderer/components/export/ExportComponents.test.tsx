@@ -79,9 +79,14 @@ function createExportApiMock(): ExportApiMock {
   };
 }
 
+const exportFile = vi.fn();
+
 function setWindowExportApi(mockExportApi: ExportApiMock): void {
-  (window as unknown as { mdxpad: { export: ExportApiMock } }).mdxpad = {
+  (
+    window as unknown as { mdxpad: { export: ExportApiMock; exportFile: typeof exportFile } }
+  ).mdxpad = {
     export: mockExportApi,
+    exportFile,
   };
 }
 
@@ -97,6 +102,7 @@ describe('export components', () => {
     });
 
     vi.clearAllMocks();
+    exportFile.mockReset();
   });
 
   afterEach(() => {
@@ -121,25 +127,38 @@ describe('export components', () => {
     expect(screen.getByText('queued')).toBeTruthy();
   });
 
-  it('queues a job from selected preset', async () => {
+  it('exports the open document in the selected format', async () => {
     const preset = createPreset();
 
     mockExportApi.presetCrud.mockResolvedValueOnce({ ok: true, presets: [preset] });
     mockExportApi.jobLifecycle.mockResolvedValueOnce({
       ok: true,
-      job: createJob({ id: TEST_ID_TWO, preset, targetPath: '/tmp/custom.pdf' }),
+      job: createJob({
+        id: TEST_ID_TWO,
+        preset,
+        status: 'completed',
+        targetPath: '/tmp/custom.pdf',
+      }),
+    });
+    exportFile.mockResolvedValueOnce({
+      ok: true,
+      value: { path: '/tmp/custom.pdf', format: 'pdf', warnings: [] },
     });
 
-    render(<ExportPresetActions sourcePath="/tmp/source.mdx" />);
+    render(<ExportPresetActions content="# Note" sourcePath="/tmp/source.mdx" />);
 
     await waitFor(() => {
       expect(mockExportApi.presetCrud).toHaveBeenCalledWith({ action: 'list' });
     });
 
-    fireEvent.change(screen.getByLabelText('Target path'), {
-      target: { value: '/tmp/custom.pdf' },
+    fireEvent.click(screen.getByRole('button', { name: 'Export document' }));
+
+    await waitFor(() => {
+      expect(exportFile).toHaveBeenCalledWith('# Note', {
+        sourcePath: '/tmp/source.mdx',
+        format: 'pdf',
+      });
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Queue export job' }));
 
     await waitFor(() => {
       expect(mockExportApi.jobLifecycle).toHaveBeenCalled();
@@ -158,7 +177,8 @@ describe('export components', () => {
         sourcePath: '/tmp/source.mdx',
         targetPath: '/tmp/custom.pdf',
         generationMode: 'native',
-        status: 'queued',
+        status: 'completed',
+        warnings: [],
       },
     });
   });
