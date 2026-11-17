@@ -44,10 +44,11 @@ describe('PlaygroundPreview', () => {
     });
   });
 
-  it('escapes HTML in code', () => {
-    render(<PlaygroundPreview code="<script>alert('xss')</script>" props={null} />);
-    // Should show escaped script tag, not execute it
-    const content = screen.getByText(/alert/);
-    expect(content).toBeDefined();
+  it('rejects a script tag instead of rendering it', () => {
+    const { container } = render(
+      <PlaygroundPreview code="<script>alert('xss')</script>" props={null} />
+    );
+    expect(container.querySelector('script')).toBeNull();
+    expect(screen.getByText(/not available in the playground preview/)).toBeDefined();
   });
 });

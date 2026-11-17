@@ -12,7 +12,8 @@ export type UtilityPanelId =
   | 'semantic-search'
   | 'agent'
   | 'diagram'
-  | 'edits';
+  | 'edits'
+  | 'playground';
 
 interface UtilityPanelState {
   readonly activeUtilityPanel: UtilityPanelId | null;

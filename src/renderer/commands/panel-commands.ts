@@ -17,6 +17,7 @@ export const PANEL_COMMAND_IDS = {
   agent: 'view.toggle-agent',
   diagram: 'view.toggle-diagram',
   edits: 'view.toggle-edits',
+  playground: 'view.toggle-playground',
   wysiwyg: 'view.toggle-wysiwyg',
 } as const;
 
@@ -55,6 +56,7 @@ export const PANEL_COMMANDS: readonly Command[] = [
     isFeatureEnabled('ai')
   ),
   toggleCommand('view.toggle-edits', 'Toggle AI Revisions', 'edits', () => isFeatureEnabled('ai')),
+  toggleCommand('view.toggle-playground', 'Toggle Component Playground', 'playground'),
   {
     id: 'view.toggle-wysiwyg' as CommandId,
     name: 'Toggle WYSIWYG Editor',

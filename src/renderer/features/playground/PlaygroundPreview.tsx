@@ -9,6 +9,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { buildPlaygroundPreview } from './playground-preview-tree';
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -82,10 +84,7 @@ class PreviewErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 // =============================================================================
 
 /**
- * Renders JSX code string into a live preview with error handling.
- *
- * Uses an iframe sandbox approach for isolation. The code is evaluated
- * and rendered in the preview area with full error boundary protection.
+ * Renders an allowlisted HTML fragment. Attributes are ignored, and other tags fail closed.
  */
 export const PlaygroundPreview: React.FC<PlaygroundPreviewProps> = ({
   code,
@@ -93,37 +92,25 @@ export const PlaygroundPreview: React.FC<PlaygroundPreviewProps> = ({
   onRenderStart,
   onRenderEnd,
 }) => {
-  const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-
+  const preview = useMemo(() => buildPlaygroundPreview(code), [code]);
   const resetKey = useMemo(() => `${code}-${JSON.stringify(props)}`, [code, props]);
+  const propsText = props && Object.keys(props).length > 0 ? JSON.stringify(props, null, 2) : null;
 
-  const renderCode = useCallback(() => {
+  const report = useCallback(() => {
     onRenderStart?.();
-    setError(null);
-
-    try {
-      // Simple JSX-like rendering: wrap code in a div for display
-      // In a real implementation this would use a JSX transformer
-      const propsStr = props ? JSON.stringify(props, null, 2) : '{}';
-      const html = `
-        <div style="font-family: system-ui, sans-serif; padding: 16px;">
-          <div class="playground-output">${escapeHtml(code)}</div>
-          ${props && Object.keys(props).length > 0 ? `<pre style="margin-top:8px;font-size:11px;color:#888;">Props: ${escapeHtml(propsStr)}</pre>` : ''}
-        </div>
-      `;
-      setRenderedHtml(html);
+    if (preview.ok) {
+      setError(null);
       onRenderEnd?.(null);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      onRenderEnd?.(msg);
+      return;
     }
-  }, [code, props, onRenderStart, onRenderEnd]);
+    setError(preview.error);
+    onRenderEnd?.(preview.error);
+  }, [onRenderEnd, onRenderStart, preview]);
 
   useEffect(() => {
-    renderCode();
-  }, [renderCode]);
+    report();
+  }, [report]);
 
   const handleBoundaryError = useCallback(
     (errMsg: string) => {
@@ -133,36 +120,17 @@ export const PlaygroundPreview: React.FC<PlaygroundPreviewProps> = ({
     [onRenderEnd]
   );
 
-  if (error) {
-    return (
-      <div className="rounded border border-red-500/30 bg-red-500/5 p-3 font-mono text-xs text-red-400">
-        <div className="mb-1 font-semibold">Preview Error</div>
-        <div className="whitespace-pre-wrap">{error}</div>
-      </div>
-    );
-  }
-
   return (
     <PreviewErrorBoundary resetKey={resetKey} onError={handleBoundaryError}>
-      <div
-        className="playground-preview min-h-[100px] rounded border border-zinc-700 bg-white p-2"
-        dangerouslySetInnerHTML={{ __html: renderedHtml }}
-      />
+      <div className="playground-preview min-h-[100px] rounded border border-zinc-700 bg-white p-2 text-zinc-900">
+        {preview.ok ? preview.element : null}
+        {error ? <div className="whitespace-pre-wrap text-xs text-red-600">{error}</div> : null}
+        {propsText ? (
+          <pre className="mt-2 text-[11px] text-zinc-500">Props: {propsText}</pre>
+        ) : null}
+      </div>
     </PreviewErrorBoundary>
   );
 };
 
 PlaygroundPreview.displayName = 'PlaygroundPreview';
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
