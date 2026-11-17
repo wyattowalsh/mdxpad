@@ -82,6 +82,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li>fourth</li>');
   });
 
+  it('keeps indented code as code', async () => {
+    await exporter.export({
+      content: 'Intro\n\n    const x = 1',
+      outputPath: '/tmp/indent.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<pre><code>');
+    expect(html).toContain('const x = 1');
+    expect(html).not.toContain('<p>const x = 1</p>');
+  });
+
   it('keeps a tilde fence as code', async () => {
     await exporter.export({
       content: '~~~\n# not a heading\n~~~',

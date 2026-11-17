@@ -1,4 +1,4 @@
-import { advanceFence } from './markdown-fence';
+import { advanceFence, fenceIndentedCode } from './markdown-fence';
 
 const LINK_DEFINITION =
   /^ {0,3}\[([^\]]+)\]:[ \t]+(<[^>\s]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/;
@@ -101,10 +101,11 @@ function withoutDefinitions(lines: readonly string[]): string[] {
 
 /** Turn reference links into inline links and drop their definition lines. */
 export function expandLinkReferences(content: string): string {
-  const lines = content.split('\n');
+  const fenced = fenceIndentedCode(content);
+  const lines = fenced.split('\n');
   const references = collectReferences(lines);
   if (references.size === 0) {
-    return content;
+    return fenced;
   }
   let fence: string | null = null;
   return withoutDefinitions(lines)
