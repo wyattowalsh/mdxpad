@@ -62,8 +62,14 @@ describe('renderMarkdownInline', () => {
     expect(formula).not.toContain('$x^2$');
   });
 
-  it('leaves snake_case plain and escapes HTML', () => {
+  it('leaves snake_case plain and escapes a comparison', () => {
     expect(renderMarkdownInline('use snake_case_name')).toBe('use snake_case_name');
     expect(renderMarkdownInline('a < b & c')).toBe('a &lt; b &amp; c');
+  });
+
+  it('keeps an inline HTML tag and escapes one inside code', () => {
+    expect(renderMarkdownInline('Say <em>hello</em><br>')).toBe('Say <em>hello</em><br>');
+    expect(renderMarkdownInline('<span title="a>b">Hi</span>')).toBe('<span title="a>b">Hi</span>');
+    expect(renderMarkdownInline('` <em>x</em> `')).toBe('<code> &lt;em&gt;x&lt;/em&gt; </code>');
   });
 });

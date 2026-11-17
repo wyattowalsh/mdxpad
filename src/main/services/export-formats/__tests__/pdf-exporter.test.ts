@@ -276,6 +276,17 @@ describe('PdfExporter', () => {
     expect(html).toContain('<td>1</td>');
   });
 
+  it('keeps an inline HTML tag', async () => {
+    await exporter.export({
+      content: 'Say <em>hello</em> and a < b',
+      outputPath: '/tmp/inline-html.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('Say <em>hello</em>');
+    expect(html).toContain('a &lt; b');
+  });
+
   it('keeps a raw HTML block and escapes one inside code', async () => {
     await exporter.export({
       content: '<div>\nHello\n</div>\n\nAfter\n\n```\n<div>\n```\n',
