@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { useCommandRegistry } from './command-registry-store';
 import {
   useKeybindingStore,
   bindingsFromCommands,
@@ -16,7 +17,7 @@ import {
   selectCategories,
 } from './keybinding-store';
 import type { Keybinding, KeybindingState } from './keybinding-store';
-import type { Command } from '@shared/types/commands';
+import type { Command, CommandId, NormalizedShortcut } from '@shared/types/commands';
 
 // =============================================================================
 // SETUP
@@ -131,6 +132,29 @@ describe('useKeybindingStore', () => {
       expect(state.defaults).toHaveLength(4);
       expect(state.bindings).toHaveLength(1); // preserved custom
       expect(state.bindings[0]?.key).toBe('x');
+    });
+
+    it('applies a saved binding to the command that the shortcut runs', () => {
+      useCommandRegistry.getState().register({
+        id: 'file.save' as CommandId,
+        name: 'Save',
+        category: 'file',
+        shortcut: { key: 's', modifiers: ['Mod'] },
+        execute: () => ({ ok: true }),
+      });
+      useKeybindingStore.setState({
+        ...INITIAL,
+        bindings: [
+          { commandId: 'file.save', key: 'x', modifiers: ['Mod'], label: 'Save', category: 'file' },
+        ],
+      });
+
+      useKeybindingStore.getState().initDefaults(DEFAULT_BINDINGS);
+
+      expect(
+        useCommandRegistry.getState().getCommandByShortcut('Mod+x' as NormalizedShortcut)?.id
+      ).toBe('file.save');
+      useCommandRegistry.getState().unregister('file.save' as CommandId);
     });
   });
 

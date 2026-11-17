@@ -123,6 +123,12 @@ function syncCommandShortcut(commandId: string, key: string, modifiers: readonly
   });
 }
 
+function applyBindings(bindings: readonly Keybinding[]): void {
+  for (const binding of bindings) {
+    syncCommandShortcut(binding.commandId, binding.key, binding.modifiers);
+  }
+}
+
 function loadFromStorage(): Partial<KeybindingState> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -166,6 +172,7 @@ function createBindingActions(set: KbSetter, get: KbGetter) {
           draft.bindings = [...defaults];
         }
       });
+      applyBindings(get().bindings);
     },
 
     setBinding: (commandId: string, key: string, modifiers: readonly Modifier[]): void => {
@@ -211,6 +218,7 @@ function createResetActions(set: KbSetter, get: KbGetter) {
         draft.bindings = [...draft.defaults];
       });
       persistToStorage(get());
+      applyBindings(get().bindings);
     },
 
     importBindings: (bindings: readonly Keybinding[]): void => {
@@ -218,6 +226,7 @@ function createResetActions(set: KbSetter, get: KbGetter) {
         draft.bindings = [...bindings];
       });
       persistToStorage(get());
+      applyBindings(get().bindings);
     },
   };
 }

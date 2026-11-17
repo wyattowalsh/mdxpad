@@ -53,6 +53,7 @@ import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps
 import { codeExecutionExtension } from '../../lib/editor/extensions/code-execution';
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
+import { commentDecorationExtension } from '../../lib/editor/comment-decorations';
 import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import { openFileFromPath } from '@renderer/lib/open-file-from-path';
@@ -275,6 +276,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   extensions.push(regexSearchExtension());
   extensions.push(codeExecutionExtension());
   extensions.push(goToDefinitionExtension(openImportedFile));
+  extensions.push(commentDecorationExtension());
   extensions.push(nextEditPrediction(predictNextEdit));
 
   // MDX language support

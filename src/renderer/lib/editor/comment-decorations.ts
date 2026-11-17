@@ -8,7 +8,14 @@
  */
 
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView } from '@codemirror/view';
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  type ViewUpdate,
+} from '@codemirror/view';
+import { useCommentsStore } from '@renderer/stores/comments-store';
 
 // ============================================================================
 // Types
@@ -171,8 +178,7 @@ const commentDecorationsField = StateField.define<CommentDecorationState>({
     return state;
   },
 
-  provide: (field) =>
-    EditorView.decorations.from(field, (state) => state.decorations),
+  provide: (field) => EditorView.decorations.from(field, (state) => state.decorations),
 });
 
 // ============================================================================
@@ -232,6 +238,60 @@ const commentDecorationTheme = EditorView.baseTheme({
  * });
  * ```
  */
+function rangesFromStore(): CommentRange[] {
+  return useCommentsStore.getState().threads.map((thread) => ({
+    threadId: thread.id,
+    from: thread.anchorFrom,
+    to: thread.anchorTo,
+    resolved: thread.resolved,
+  }));
+}
+
+class CommentRangeSync {
+  private destroyed = false;
+  private readonly unsubscribe: () => void;
+
+  constructor(private readonly view: EditorView) {
+    this.unsubscribe = useCommentsStore.subscribe(() => {
+      this.pushFromStore();
+    });
+    queueMicrotask(() => {
+      this.pushFromStore();
+    });
+  }
+
+  update(update: ViewUpdate): void {
+    if (!update.docChanged) {
+      return;
+    }
+    const field = update.state.field(commentDecorationsField);
+    for (const range of field.ranges) {
+      const thread = useCommentsStore.getState().threads.find((item) => item.id === range.threadId);
+      if (!thread || (thread.anchorFrom === range.from && thread.anchorTo === range.to)) {
+        continue;
+      }
+      useCommentsStore.getState().updateThreadAnchors(range.threadId, range.from, range.to);
+    }
+  }
+
+  destroy(): void {
+    this.destroyed = true;
+    this.unsubscribe();
+  }
+
+  private pushFromStore(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.view.dispatch({
+      effects: [
+        setCommentRanges.of(rangesFromStore()),
+        setActiveCommentThread.of(useCommentsStore.getState().activeThreadId),
+      ],
+    });
+  }
+}
+
 export function commentDecorationExtension(): Extension {
-  return [commentDecorationsField, commentDecorationTheme];
+  return [commentDecorationsField, commentDecorationTheme, ViewPlugin.fromClass(CommentRangeSync)];
 }
