@@ -205,6 +205,17 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<code>js const');
   });
 
+  it('renders a comparison inside display math', async () => {
+    await exporter.export({
+      content: '$$\na < b\n$$',
+      outputPath: '/tmp/math-compare.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<math');
+    expect(html).not.toContain('katex-error');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

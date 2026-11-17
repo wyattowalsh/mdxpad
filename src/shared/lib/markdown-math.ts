@@ -178,8 +178,82 @@ function escapeMdxSyntax(value: string): string {
   return result;
 }
 
+const MATH_MARK = '\uE017';
+
+function isCurrency(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
+    return true;
+  }
+  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
+}
+
+function takeDollarSpan(value: string, index: number): string | null {
+  const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : '';
+  if (delimiter.length === 0) {
+    return null;
+  }
+  const end = value.indexOf(delimiter, index + delimiter.length);
+  if (end === -1) {
+    return null;
+  }
+  const interior = value.slice(index + delimiter.length, end);
+  if (interior.length === 0 || isCurrency(interior)) {
+    return null;
+  }
+  return value.slice(index, end + delimiter.length);
+}
+
+function takeTexSpan(value: string, index: number): string | null {
+  const open = value.startsWith('\\[', index) ? '\\[' : value.startsWith('\\(', index) ? '\\(' : '';
+  if (open.length === 0) {
+    return null;
+  }
+  const close = open === '\\[' ? '\\]' : '\\)';
+  const end = value.indexOf(close, index + open.length);
+  if (end <= index + open.length) {
+    return null;
+  }
+  return value.slice(index, end + close.length);
+}
+
+function shieldMath(value: string): { text: string; math: string[] } {
+  const math: string[] = [];
+  let text = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      text += code.text;
+      index = code.next;
+      continue;
+    }
+    const span = takeDollarSpan(value, index) ?? takeTexSpan(value, index);
+    if (span) {
+      text += `${MATH_MARK}${math.length}${MATH_MARK}`;
+      math.push(span);
+      index += span.length;
+      continue;
+    }
+    text += value[index] ?? '';
+    index += 1;
+  }
+  return { text, math };
+}
+
+function restoreMath(value: string, math: readonly string[]): string {
+  return value.replace(
+    new RegExp(`${MATH_MARK}(\\d+)${MATH_MARK}`, 'g'),
+    (_match, index: string) => math[Number(index)] ?? ''
+  );
+}
+
 function prepareProse(prose: string): string {
-  const cleaned = mapOutsideCode(prose, (text) =>
+  const shielded = shieldMath(prose);
+  const cleaned = mapOutsideCode(shielded.text, (text) =>
     escapeMdxSyntax(
       escapeTemplatePlaceholders(closeVoidTags(rewriteAutolinks(stripHtmlComments(text))))
     )
@@ -187,7 +261,7 @@ function prepareProse(prose: string): string {
   const escaped = mapOutsideCode(cleaned, (text) =>
     linkUrlsWithEscapedAngles(escapeLooseTags(text, cleaned))
   );
-  return replaceTexMath(escaped);
+  return replaceTexMath(restoreMath(escaped, shielded.math));
 }
 
 function replaceTexMath(prose: string): string {

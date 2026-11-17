@@ -70,6 +70,10 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('Use <> fragments and {#anchor}')).toBe(
       'Use &lt;&gt; fragments and \\{#anchor\\}'
     );
+    expect(prepareMarkdownSource('$$\na < b\n$$')).toContain('a < b');
+    expect(prepareMarkdownSource('$$\na <= b\n$$')).toContain('a <= b');
+    expect(prepareMarkdownSource('$$\na < b\n$$')).not.toContain('&lt;');
+    expect(prepareMarkdownSource('Compare a < b')).toContain('a &lt; b');
     expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
       'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
     );
