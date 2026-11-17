@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CommandContext } from '@shared/types/commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
-import { SERVICE_COMMANDS, summarizeGitStatus } from '../service-commands';
+import {
+  SERVICE_COMMANDS,
+  summarizeGitDiff,
+  summarizeGitLog,
+  summarizeGitStatus,
+} from '../service-commands';
 
 describe('summarizeGitStatus', () => {
   it('names the changed files and a clean branch', () => {
@@ -28,6 +33,41 @@ describe('summarizeGitStatus', () => {
         conflicted: [],
       })
     ).toBe('Git status: clean on main');
+  });
+});
+
+describe('git log and diff', () => {
+  it('summarizes the latest commits and an empty diff', () => {
+    expect(
+      summarizeGitLog([
+        { hash: 'abcdef123456', message: 'Add notes\n\nbody' },
+        { hash: '1234567890ab', message: 'Fix title' },
+      ])
+    ).toBe('Git log: abcdef1 Add notes; 1234567 Fix title');
+    expect(summarizeGitLog([])).toBe('Git log: no commits');
+    expect(summarizeGitDiff({ diff: '', filesChanged: 0 })).toBe('Git diff: no unstaged changes');
+    expect(summarizeGitDiff({ diff: '@@', filesChanged: 2 })).toBe('Git diff: 2 changed files');
+  });
+
+  it('asks git for the latest commits in the open file folder', async () => {
+    const log = vi.fn().mockResolvedValue({
+      ok: true,
+      value: {
+        entries: [{ hash: 'abcdef123456', message: 'Add notes', author: 'A', date: 't' }],
+        total: 1,
+      },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: '' },
+      api: { git: { log } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.log');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(log).toHaveBeenCalledWith('/notes', 5);
+    expect(notify).toHaveBeenCalledWith({ type: 'info', message: 'Git log: abcdef1 Add notes' });
   });
 });
 

@@ -38,6 +38,39 @@ export function summarizeGitStatus(status: {
   return `Git status${branch}: ${unique.length} changed ${label} (${shown}${extra})`;
 }
 
+export function summarizeGitLog(
+  entries: readonly { readonly hash: string; readonly message: string }[]
+): string {
+  if (entries.length === 0) {
+    return 'Git log: no commits';
+  }
+  const shown = entries.slice(0, 5).map((entry) => {
+    const subject = entry.message.split('\n')[0] ?? entry.message;
+    return `${entry.hash.slice(0, 7)} ${subject}`;
+  });
+  return `Git log: ${shown.join('; ')}`;
+}
+
+export function summarizeGitDiff(diff: {
+  readonly diff: string;
+  readonly filesChanged: number;
+}): string {
+  if (diff.filesChanged === 0 || diff.diff.trim().length === 0) {
+    return 'Git diff: no unstaged changes';
+  }
+  const label = diff.filesChanged === 1 ? 'file' : 'files';
+  return `Git diff: ${diff.filesChanged} changed ${label}`;
+}
+
+function requireWorkspaceDir(ctx: CommandContext): string | null {
+  const dir = workspaceDir(ctx.document.filePath);
+  if (!dir) {
+    ctx.notify({ type: 'warning', message: 'Open a file inside a folder to use git' });
+    return null;
+  }
+  return dir;
+}
+
 const gitStatusCommand: Command = {
   id: 'git.status' as CommandId,
   name: 'Git Status',
@@ -91,6 +124,52 @@ async function searchWorkspaceFolder(
   ctx.notify({ type: 'info', message: `Search found ${count} match${count === 1 ? '' : 'es'}` });
   return { ok: true };
 }
+
+const gitLogCommand: Command = {
+  id: 'git.log' as CommandId,
+  name: 'Git Log',
+  description: 'Show the latest commits for the current file directory',
+  category: 'file',
+  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    const dir = requireWorkspaceDir(ctx);
+    if (!dir || !ctx.api.git) {
+      if (dir) {
+        ctx.notify({ type: 'warning', message: 'Git is not available' });
+      }
+      return { ok: false, error: dir ? 'Git is not available' : 'No workspace directory' };
+    }
+    const result = await ctx.api.git.log(dir, 5);
+    if (!result.ok) {
+      ctx.notify({ type: 'error', message: result.error.message });
+      return { ok: false, error: result.error.message };
+    }
+    ctx.notify({ type: 'info', message: summarizeGitLog(result.value.entries) });
+    return { ok: true };
+  },
+};
+
+const gitDiffCommand: Command = {
+  id: 'git.diff' as CommandId,
+  name: 'Git Diff',
+  description: 'Show how many files differ in the current file directory',
+  category: 'file',
+  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    const dir = requireWorkspaceDir(ctx);
+    if (!dir || !ctx.api.git) {
+      if (dir) {
+        ctx.notify({ type: 'warning', message: 'Git is not available' });
+      }
+      return { ok: false, error: dir ? 'Git is not available' : 'No workspace directory' };
+    }
+    const result = await ctx.api.git.diff(dir);
+    if (!result.ok) {
+      ctx.notify({ type: 'error', message: result.error.message });
+      return { ok: false, error: result.error.message };
+    }
+    ctx.notify({ type: 'info', message: summarizeGitDiff(result.value) });
+    return { ok: true };
+  },
+};
 
 const searchWorkspaceCommand: Command = {
   id: 'search.workspace' as CommandId,
@@ -214,6 +293,8 @@ const parseCitationsCommand: Command = {
 
 export const SERVICE_COMMANDS: readonly Command[] = [
   gitStatusCommand,
+  gitLogCommand,
+  gitDiffCommand,
   searchWorkspaceCommand,
   importHtmlCommand,
   parseCitationsCommand,
