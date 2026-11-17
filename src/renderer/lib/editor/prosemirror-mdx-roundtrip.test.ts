@@ -124,6 +124,11 @@ describe('WYSIWYG markdown round trip', () => {
     expect(quote).toContain('[^1]: > hello');
     expect(quote).toContain('    > world');
     expect(quote).not.toContain('\\>');
+    const code = roundTrip('A[^1].\n\n[^1]: ```js\n    const x = 1\n    ```\n');
+    expect(code).toContain('[^1]: ```js');
+    expect(code).toContain('    const x = 1');
+    expect(code).toContain('    ```');
+    expect(code).not.toContain('mdxpad-footnote');
   });
 
   it('keeps a footnote reference and its definition', () => {

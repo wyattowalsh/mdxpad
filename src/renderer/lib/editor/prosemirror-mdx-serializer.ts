@@ -8,6 +8,7 @@
  */
 
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
+import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { serializeTable } from './prosemirror-mdx-table';
@@ -73,6 +74,11 @@ const nodeSerializers: NodeSerializerMap = {
   code_block(state, node) {
     const language = (node.attrs.language as string) || '';
     const text = node.textContent.endsWith('\n') ? node.textContent.slice(0, -1) : node.textContent;
+    if (language === FOOTNOTE_BLOCK_LANGUAGE) {
+      state.write(text);
+      state.closeBlock(node);
+      return;
+    }
     if (node.attrs.indented === true && language.length === 0) {
       const lines = text.length === 0 ? [] : text.split('\n');
       lines.forEach((line, index) => {
