@@ -71,6 +71,32 @@ describe('git log and diff', () => {
   });
 });
 
+describe('git.commit', () => {
+  it('stages the open file and commits the entered message', async () => {
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Save notes')
+    );
+    const add = vi.fn().mockResolvedValue({ ok: true, value: { success: true } });
+    const commit = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { hash: 'abcdef123456', message: 'Save notes' },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: '# Notes' },
+      api: { git: { add, commit } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(add).toHaveBeenCalledWith('/notes', ['readme.md']);
+    expect(commit).toHaveBeenCalledWith('/notes', 'Save notes');
+    expect(notify).toHaveBeenCalledWith({ type: 'success', message: 'Committed abcdef1' });
+  });
+});
+
 describe('import.html', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();

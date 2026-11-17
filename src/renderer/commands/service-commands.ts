@@ -171,6 +171,41 @@ const gitDiffCommand: Command = {
   },
 };
 
+const gitCommitCommand: Command = {
+  id: 'git.commit' as CommandId,
+  name: 'Git Commit',
+  description: 'Commit the open file in its folder',
+  category: 'file',
+  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+    const dir = requireWorkspaceDir(ctx);
+    const filePath = ctx.document.filePath;
+    if (!dir || !filePath || !ctx.api.git) {
+      if (dir && filePath) {
+        ctx.notify({ type: 'warning', message: 'Git is not available' });
+      }
+      return { ok: false, error: 'Nothing to commit' };
+    }
+    const message = window.prompt('Commit message');
+    if (message === null || message.trim().length === 0) {
+      ctx.notify({ type: 'info', message: 'Commit cancelled' });
+      return { ok: false, error: 'Commit cancelled' };
+    }
+    const fileName = filePath.slice(filePath.lastIndexOf('/') + 1);
+    const added = await ctx.api.git.add(dir, [fileName]);
+    if (!added.ok) {
+      ctx.notify({ type: 'error', message: added.error.message });
+      return { ok: false, error: added.error.message };
+    }
+    const result = await ctx.api.git.commit(dir, message.trim());
+    if (!result.ok) {
+      ctx.notify({ type: 'error', message: result.error.message });
+      return { ok: false, error: result.error.message };
+    }
+    ctx.notify({ type: 'success', message: `Committed ${result.value.hash.slice(0, 7)}` });
+    return { ok: true };
+  },
+};
+
 const searchWorkspaceCommand: Command = {
   id: 'search.workspace' as CommandId,
   name: 'Search Workspace',
@@ -295,6 +330,7 @@ export const SERVICE_COMMANDS: readonly Command[] = [
   gitStatusCommand,
   gitLogCommand,
   gitDiffCommand,
+  gitCommitCommand,
   searchWorkspaceCommand,
   importHtmlCommand,
   parseCitationsCommand,
