@@ -13,6 +13,7 @@ import { app } from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
+import { computeChecksum } from '@shared/lib/checksum';
 import type { FileId } from '@shared/types/file';
 
 /** Auto-save interval in milliseconds (30 seconds per FR-014) */
@@ -84,6 +85,31 @@ interface DirtyFile {
  * autoSave.stop();
  * ```
  */
+async function syncFile(filePath: string): Promise<void> {
+  if (typeof fs.open !== 'function') {
+    return;
+  }
+  const handle = await fs.open(filePath, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+async function writeVerifiedTemp(tempPath: string, content: string): Promise<void> {
+  await fs.writeFile(tempPath, content, 'utf-8');
+  await syncFile(tempPath);
+  const checksumPath = `${tempPath}.sha256`;
+  try {
+    await fs.writeFile(checksumPath, computeChecksum(content), 'utf-8');
+    await syncFile(checksumPath);
+  } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    throw error;
+  }
+}
+
 export class AutoSaveManager {
   /** Map of file IDs to their dirty state */
   private readonly dirtyFiles = new Map<string, DirtyFile>();
@@ -98,10 +124,7 @@ export class AutoSaveManager {
    * @returns The full path in the temp directory
    */
   private getTempPath(fileId: FileId): string {
-    return path.join(
-      app.getPath('temp'),
-      `${AUTO_SAVE_PREFIX}${fileId}${AUTO_SAVE_EXT}`
-    );
+    return path.join(app.getPath('temp'), `${AUTO_SAVE_PREFIX}${fileId}${AUTO_SAVE_EXT}`);
   }
 
   /**
@@ -147,7 +170,7 @@ export class AutoSaveManager {
     const promises = Array.from(this.dirtyFiles.values()).map(async (file) => {
       const tempPath = this.getTempPath(file.fileId);
       try {
-        await fs.writeFile(tempPath, file.content, 'utf-8');
+        await writeVerifiedTemp(tempPath, file.content);
       } catch (err) {
         console.error(`Auto-save failed for ${file.displayName}:`, err);
       }
@@ -164,10 +187,7 @@ export class AutoSaveManager {
    * @returns Promise resolving to array of recoverable file entries
    */
   async findRecoverable(): Promise<AutoSaveEntry[]> {
-    const pattern = path.join(
-      app.getPath('temp'),
-      `${AUTO_SAVE_PREFIX}*${AUTO_SAVE_EXT}`
-    );
+    const pattern = path.join(app.getPath('temp'), `${AUTO_SAVE_PREFIX}*${AUTO_SAVE_EXT}`);
     const files = await glob(pattern);
 
     const entries: AutoSaveEntry[] = [];
@@ -175,9 +195,7 @@ export class AutoSaveManager {
       try {
         const stat = await fs.stat(tempPath);
         const filename = path.basename(tempPath);
-        const fileId = filename
-          .replace(AUTO_SAVE_PREFIX, '')
-          .replace(AUTO_SAVE_EXT, '') as FileId;
+        const fileId = filename.replace(AUTO_SAVE_PREFIX, '').replace(AUTO_SAVE_EXT, '') as FileId;
 
         entries.push({
           fileId,
@@ -205,11 +223,8 @@ export class AutoSaveManager {
    */
   async cleanupEntry(fileId: FileId): Promise<void> {
     const tempPath = this.getTempPath(fileId);
-    try {
-      await fs.unlink(tempPath);
-    } catch {
-      // Ignore if file was already deleted
-    }
+    await fs.unlink(tempPath).catch(() => undefined);
+    await fs.unlink(`${tempPath}.sha256`).catch(() => undefined);
   }
 
   /**

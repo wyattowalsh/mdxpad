@@ -10,6 +10,7 @@ import { createWindow, loadContent } from './window';
 import { registerIpcHandlers } from './ipc';
 import { initializeApplicationMenu } from './menu';
 import { registerPreviewFrameProtocol } from './preview-frame-protocol';
+import { computeChecksum } from '@shared/lib/checksum';
 import { AutoSaveManager } from './services/auto-save';
 
 /** Global AutoSaveManager instance for crash recovery and auto-saving */
@@ -64,13 +65,18 @@ async function checkCrashRecovery(): Promise<void> {
     for (const entry of entries) {
       try {
         const content = await fs.readFile(entry.tempPath, 'utf-8');
+        const stored = (await fs.readFile(`${entry.tempPath}.sha256`, 'utf-8')).trim();
+        if (computeChecksum(content) !== stored) {
+          console.error(`Checksum mismatch for recovered file ${entry.tempPath}`);
+          continue;
+        }
         pendingRecoveryEntries.push({
           displayName: entry.displayName,
           content,
           savedAt: entry.savedAt,
         });
       } catch (err) {
-        console.error(`Failed to read recovered file ${entry.tempPath}:`, err);
+        console.error(`Failed to verify recovered file ${entry.tempPath}:`, err);
       }
     }
   } else {

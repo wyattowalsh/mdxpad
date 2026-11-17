@@ -46,6 +46,7 @@ vi.mock('glob', () => ({
   glob: mockGlob,
 }));
 
+import { computeChecksum } from '@shared/lib/checksum';
 import { AutoSaveManager } from '../auto-save';
 import type { FileId } from '@shared/types/file';
 
@@ -134,10 +135,15 @@ describe('AutoSaveManager', () => {
       mockWriteFile.mockResolvedValue(undefined);
       await manager.saveDirty();
 
-      expect(mockWriteFile).toHaveBeenCalledOnce();
+      expect(mockWriteFile).toHaveBeenCalledTimes(2);
       expect(mockWriteFile).toHaveBeenCalledWith(
         '/tmp/mdxpad-autosave-file-001.mdx',
         'hello world',
+        'utf-8'
+      );
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        '/tmp/mdxpad-autosave-file-001.mdx.sha256',
+        computeChecksum('hello world'),
         'utf-8'
       );
     });
@@ -150,7 +156,7 @@ describe('AutoSaveManager', () => {
       mockWriteFile.mockResolvedValue(undefined);
       await manager.saveDirty();
 
-      expect(mockWriteFile).toHaveBeenCalledOnce();
+      expect(mockWriteFile).toHaveBeenCalledTimes(2);
       expect(mockWriteFile).toHaveBeenCalledWith(
         '/tmp/mdxpad-autosave-file-002.mdx',
         'second version',
@@ -165,7 +171,7 @@ describe('AutoSaveManager', () => {
       mockWriteFile.mockResolvedValue(undefined);
       await manager.saveDirty();
 
-      expect(mockWriteFile).toHaveBeenCalledOnce();
+      expect(mockWriteFile).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -201,7 +207,7 @@ describe('AutoSaveManager', () => {
       mockWriteFile.mockResolvedValue(undefined);
       await manager.saveDirty();
 
-      expect(mockWriteFile).toHaveBeenCalledTimes(2);
+      expect(mockWriteFile).toHaveBeenCalledTimes(4);
     });
 
     it('should not throw when no dirty files exist', async () => {
@@ -215,12 +221,30 @@ describe('AutoSaveManager', () => {
       manager.registerDirty(id2, '/path2.mdx', 'Doc2', 'content-b');
 
       // First call fails, second succeeds
-      mockWriteFile.mockRejectedValueOnce(new Error('disk full')).mockResolvedValueOnce(undefined);
+      mockWriteFile.mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await expect(manager.saveDirty()).resolves.toBeUndefined();
-      expect(mockWriteFile).toHaveBeenCalledTimes(2);
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        '/tmp/mdxpad-autosave-c2.mdx',
+        'content-b',
+        'utf-8'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('removes the content file when the checksum cannot be written', async () => {
+      manager.registerDirty(createFileId('chk'), '/path.mdx', 'Doc', 'hello');
+      mockWriteFile
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('checksum failed'));
+      mockUnlink.mockResolvedValue(undefined);
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(manager.saveDirty()).resolves.toBeUndefined();
+      expect(mockUnlink).toHaveBeenCalledWith('/tmp/mdxpad-autosave-chk.mdx');
 
       consoleSpy.mockRestore();
     });
@@ -314,6 +338,7 @@ describe('AutoSaveManager', () => {
       await manager.cleanupEntry(createFileId('cleanup-1'));
 
       expect(mockUnlink).toHaveBeenCalledWith('/tmp/mdxpad-autosave-cleanup-1.mdx');
+      expect(mockUnlink).toHaveBeenCalledWith('/tmp/mdxpad-autosave-cleanup-1.mdx.sha256');
     });
 
     it('should not throw when file is already deleted', async () => {

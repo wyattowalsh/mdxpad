@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computeChecksum } from '@shared/lib/checksum';
 import type { BrowserWindow } from 'electron';
 
 const {
@@ -14,6 +15,8 @@ const {
   mockInitializeApplicationMenu,
   mockRegisterPreviewFrameProtocol,
   mockAutoSaveManager,
+  mockReadFile,
+  mockShowMessageBox,
 } = vi.hoisted(() => {
   const eventHandlers: Record<string, () => void> = {};
   let whenReadyPromise: Promise<void> = Promise.resolve();
@@ -29,6 +32,8 @@ const {
   const mockInitializeApplicationMenu = vi.fn();
   const mockRegisterPreviewFrameProtocol = vi.fn();
 
+  const mockReadFile = vi.fn();
+  const mockShowMessageBox = vi.fn(async () => ({ response: 1 }));
   const mockAutoSaveManager = {
     findRecoverable: vi.fn(async () => []),
     cleanupEntry: vi.fn(async () => {}),
@@ -51,6 +56,8 @@ const {
     mockInitializeApplicationMenu,
     mockRegisterPreviewFrameProtocol,
     mockAutoSaveManager,
+    mockReadFile,
+    mockShowMessageBox,
   };
 });
 
@@ -67,7 +74,13 @@ vi.mock('electron', () => ({
     getAllWindows: mockGetAllWindows,
   },
   dialog: {
-    showMessageBox: vi.fn().mockResolvedValue({ response: 1 }),
+    showMessageBox: mockShowMessageBox,
+  },
+}));
+
+vi.mock('node:fs', () => ({
+  promises: {
+    readFile: mockReadFile,
   },
 }));
 
@@ -220,9 +233,7 @@ describe('main process second-instance behavior', () => {
   it('still creates the first window when crash recovery lookup fails', async () => {
     const deferred = createDeferred();
     setWhenReadyPromise(deferred.promise);
-    mockAutoSaveManager.findRecoverable.mockRejectedValueOnce(
-      new Error('recovery lookup failed')
-    );
+    mockAutoSaveManager.findRecoverable.mockRejectedValueOnce(new Error('recovery lookup failed'));
 
     await import('../index');
 
@@ -233,5 +244,78 @@ describe('main process second-instance behavior', () => {
     expect(mockCreateWindow).toHaveBeenCalledTimes(1);
     expect(mockLoadContent).toHaveBeenCalledTimes(1);
     expect(mockAutoSaveManager.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a recovered file only when its checksum matches', async () => {
+    const deferred = createDeferred();
+    setWhenReadyPromise(deferred.promise);
+    const content = 'hello world';
+    const tempPath = '/tmp/mdxpad-autosave-abc.mdx';
+    mockAutoSaveManager.findRecoverable.mockResolvedValue([
+      {
+        fileId: 'abc',
+        originalPath: null,
+        tempPath,
+        savedAt: 10,
+        displayName: 'Recovered: abc',
+      },
+    ]);
+    mockShowMessageBox.mockResolvedValue({ response: 0 });
+    mockReadFile.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('.sha256') ? computeChecksum(content) : content
+    );
+    const mainWindow = createMockWindow();
+    mockCreateWindow.mockReturnValue(mainWindow);
+
+    await import('../index');
+    deferred.resolve();
+    for (let step = 0; step < 20; step += 1) {
+      await Promise.resolve();
+    }
+
+    const finishLoad = (mainWindow.webContents.once as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) => call[0] === 'did-finish-load'
+    )?.[1] as (() => void) | undefined;
+    finishLoad?.();
+
+    expect(mainWindow.webContents.send).toHaveBeenCalledWith('mdxpad:recovery:restore', [
+      { displayName: 'Recovered: abc', content, savedAt: 10 },
+    ]);
+    expect(mockAutoSaveManager.cleanupEntry).not.toHaveBeenCalled();
+  });
+
+  it('keeps the window and skips a recovery file with no checksum', async () => {
+    const deferred = createDeferred();
+    setWhenReadyPromise(deferred.promise);
+    mockAutoSaveManager.findRecoverable.mockResolvedValue([
+      {
+        fileId: 'abc',
+        originalPath: null,
+        tempPath: '/tmp/mdxpad-autosave-abc.mdx',
+        savedAt: 10,
+        displayName: 'Recovered: abc',
+      },
+    ]);
+    mockShowMessageBox.mockResolvedValue({ response: 0 });
+    mockReadFile.mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('.sha256')) {
+        throw new Error('missing checksum');
+      }
+      return 'hello world';
+    });
+    const mainWindow = createMockWindow();
+    mockCreateWindow.mockReturnValue(mainWindow);
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await import('../index');
+    deferred.resolve();
+    for (let step = 0; step < 20; step += 1) {
+      await Promise.resolve();
+    }
+
+    expect(mockCreateWindow).toHaveBeenCalledTimes(1);
+    expect(mainWindow.webContents.send).not.toHaveBeenCalled();
+    expect(mockAutoSaveManager.cleanupEntry).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });
