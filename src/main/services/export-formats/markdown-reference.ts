@@ -1,5 +1,6 @@
 import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode } from './markdown-fence';
+import { closeOpenTableRows } from './markdown-table';
 
 const LINK_DEFINITION =
   /^ {0,3}\[([^\]]+)\]:[ \t]+(<[^>\s]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/;
@@ -106,7 +107,7 @@ export function expandLinkReferences(content: string): string {
   const lines = fenced.split('\n');
   const references = collectReferences(lines);
   if (references.size === 0) {
-    return applyFootnotes(fenced);
+    return closeOpenTableRows(applyFootnotes(fenced));
   }
   let fence: string | null = null;
   const rewritten = withoutDefinitions(lines)
@@ -117,5 +118,5 @@ export function expandLinkReferences(content: string): string {
       return fence || boundary ? line : rewriteLine(line, references);
     })
     .join('\n');
-  return applyFootnotes(rewritten);
+  return closeOpenTableRows(applyFootnotes(rewritten));
 }

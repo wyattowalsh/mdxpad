@@ -1,3 +1,6 @@
+import { isThematicBreak } from './markdown-break';
+import { advanceFence, openingFence } from './markdown-fence';
+
 export type TableAlign = 'left' | 'center' | 'right';
 
 export interface MarkdownTable {
@@ -38,12 +41,15 @@ function readCodeSpan(value: string, index: number): number {
   return index;
 }
 
-function splitRow(line: string): string[] | null {
+function splitCells(line: string): string[] {
   const trimmed = line.trim();
-  if (!isTableRow(trimmed)) {
-    return null;
+  let inner = trimmed;
+  if (inner.startsWith('|')) {
+    inner = inner.slice(1);
   }
-  const inner = trimmed.slice(1, -1);
+  if (inner.endsWith('|')) {
+    inner = inner.slice(0, -1);
+  }
   const cells: string[] = [];
   let current = '';
   for (let index = 0; index < inner.length; index += 1) {
@@ -71,6 +77,25 @@ function splitRow(line: string): string[] | null {
   }
   cells.push(current.trim());
   return cells;
+}
+
+function splitRow(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!isTableRow(trimmed)) {
+    return null;
+  }
+  return splitCells(trimmed);
+}
+
+function containsDelimiterPipe(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+  if (trimmed.startsWith('|') || trimmed.endsWith('|')) {
+    return true;
+  }
+  return splitCells(trimmed).length > 1;
 }
 
 function alignOf(cell: string): TableAlign | null {
@@ -181,4 +206,67 @@ export function markdownTableToLatex(
     '\\hline',
     '\\end{tabular}',
   ].join('\n');
+}
+
+function isDelimiterLine(line: string): boolean {
+  if (!containsDelimiterPipe(line)) {
+    return false;
+  }
+  const cells = splitCells(line);
+  return cells.length > 0 && cells.every((cell) => alignOf(cell) !== null);
+}
+
+function isTableBodyRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!containsDelimiterPipe(trimmed) || isThematicBreak(trimmed) || openingFence(line) !== null) {
+    return false;
+  }
+  if (/^#{1,6}(?:\s|$)/.test(trimmed) || trimmed.startsWith('>')) {
+    return false;
+  }
+  return !/^([-*+]|\d+\.)\s/.test(trimmed);
+}
+
+function ensureOuterPipes(line: string): string {
+  const trimmed = line.trim();
+  const withStart = trimmed.startsWith('|') ? trimmed : `| ${trimmed}`;
+  return withStart.endsWith('|') ? withStart : `${withStart} |`;
+}
+
+/** Add the outer pipes GFM allows writers to omit, without touching fenced code. */
+export function closeOpenTableRows(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let fence: string | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const nextFence = advanceFence(line, fence);
+    if (fence !== null || nextFence !== null) {
+      fence = nextFence;
+      result.push(line);
+      continue;
+    }
+    const next = lines[index + 1];
+    if (
+      next !== undefined &&
+      isTableBodyRow(line) &&
+      !isDelimiterLine(line) &&
+      isDelimiterLine(next)
+    ) {
+      result.push(ensureOuterPipes(line));
+      result.push(ensureOuterPipes(next));
+      index += 1;
+      while (index + 1 < lines.length) {
+        const body = lines[index + 1] ?? '';
+        if (advanceFence(body, null) !== null || !isTableBodyRow(body)) {
+          break;
+        }
+        result.push(ensureOuterPipes(body));
+        index += 1;
+      }
+      continue;
+    }
+    result.push(line);
+  }
+  return result.join('\n');
 }

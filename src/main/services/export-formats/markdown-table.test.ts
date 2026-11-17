@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { markdownTableToHtml, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
+import {
+  closeOpenTableRows,
+  markdownTableToHtml,
+  markdownTableToLatex,
+  parseMarkdownTable,
+} from './markdown-table';
 
 describe('parseMarkdownTable', () => {
   it('reads a header, a separator, and body rows', () => {
@@ -45,6 +50,19 @@ describe('parseMarkdownTable', () => {
     const html = markdownTableToHtml(table, (cell) => cell);
     expect(html).toContain('<th>Name</th>');
     expect(html).toContain('<td>**A**</td>');
+  });
+
+  it('closes a table that omits its outer pipes', () => {
+    expect(closeOpenTableRows('Name | Value\n--- | ---:\nA | 1\n')).toBe(
+      '| Name | Value |\n| --- | ---: |\n| A | 1 |\n'
+    );
+    expect(closeOpenTableRows('| Name | Value\n| --- | ---\n| A | 1\n')).toBe(
+      '| Name | Value |\n| --- | --- |\n| A | 1 |\n'
+    );
+    const fenced = '```\nName | Value\n--- | ---\n```\n';
+    expect(closeOpenTableRows(fenced)).toBe(fenced);
+    expect(closeOpenTableRows('Title\n---\n')).toBe('Title\n---\n');
+    expect(closeOpenTableRows('See a | b here\n\nMore\n')).toBe('See a | b here\n\nMore\n');
   });
 
   it('writes column alignment into HTML and LaTeX', () => {
