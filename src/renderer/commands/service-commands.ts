@@ -40,6 +40,39 @@ const gitStatusCommand: Command = {
   },
 };
 
+async function searchWorkspaceFolder(
+  ctx: CommandContext,
+  dir: string,
+  queryText: string
+): Promise<CommandResult> {
+  const searchApi = ctx.api.search;
+  if (!searchApi) {
+    ctx.notify({ type: 'warning', message: 'Search is not available' });
+    return { ok: false, error: 'Search is not available' };
+  }
+  const excludes = readExcludesForDirectory(dir);
+  const status = await searchApi.status(dir);
+  if (!status.ok) {
+    ctx.notify({ type: 'error', message: status.error.message });
+    return { ok: false, error: status.error.message };
+  }
+  if (!status.value.indexed) {
+    const indexed = await searchApi.index(dir, undefined, excludes);
+    if (!indexed.ok) {
+      ctx.notify({ type: 'error', message: indexed.error.message });
+      return { ok: false, error: indexed.error.message };
+    }
+  }
+  const result = await searchApi.search(dir, queryText, 10, undefined, excludes);
+  if (!result.ok) {
+    ctx.notify({ type: 'error', message: result.error.message });
+    return { ok: false, error: result.error.message };
+  }
+  const count = result.value.results.length;
+  ctx.notify({ type: 'info', message: `Search found ${count} match${count === 1 ? '' : 'es'}` });
+  return { ok: true };
+}
+
 const searchWorkspaceCommand: Command = {
   id: 'search.workspace' as CommandId,
   name: 'Search Workspace',
@@ -48,25 +81,12 @@ const searchWorkspaceCommand: Command = {
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
     const dir = workspaceDir(ctx.document.filePath);
     const query = ctx.document.content.split('\n').find((line) => line.trim().length > 0) ?? '';
-    if (!dir || !ctx.api.search || query.trim().length === 0) {
+    const queryText = query.trim().replace(/^#+\s*/, '');
+    if (!dir || queryText.length === 0) {
       ctx.notify({ type: 'warning', message: 'Open a file with text to search its folder' });
       return { ok: false, error: 'Nothing to search' };
     }
-    const excludes = readExcludesForDirectory(dir);
-    const result = await ctx.api.search.search(
-      dir,
-      query.trim().replace(/^#+\s*/, ''),
-      10,
-      undefined,
-      excludes
-    );
-    if (!result.ok) {
-      ctx.notify({ type: 'error', message: result.error.message });
-      return { ok: false, error: result.error.message };
-    }
-    const count = result.value.results.length;
-    ctx.notify({ type: 'info', message: `Search found ${count} match${count === 1 ? '' : 'es'}` });
-    return { ok: true };
+    return searchWorkspaceFolder(ctx, dir, queryText);
   },
 };
 
@@ -118,7 +138,7 @@ const parseCitationsCommand: Command = {
   },
 };
 
-const SERVICE_COMMANDS: readonly Command[] = [
+export const SERVICE_COMMANDS: readonly Command[] = [
   gitStatusCommand,
   searchWorkspaceCommand,
   importHtmlCommand,
