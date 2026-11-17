@@ -12,6 +12,7 @@ import { useCallback, memo, useRef, useEffect } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { EditorModeToggle } from '../editor/EditorModeToggle';
+import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor } from '../editor/WysiwygEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { selectEditorMode, useEditorModeStore } from '@renderer/stores/editor-mode-store';
@@ -200,7 +201,8 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
 
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)} style={{ height }}>
-      <div className="flex justify-end border-b px-2 py-1">
+      <div className="flex items-center justify-end gap-2 border-b px-2 py-1">
+        <EditorVoiceControl />
         <EditorModeToggle />
       </div>
       {editorMode === 'wysiwyg' ? (

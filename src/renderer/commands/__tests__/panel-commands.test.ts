@@ -30,6 +30,7 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-publish',
       'view.toggle-semantic-search',
       'view.toggle-agent',
+      'view.toggle-diagram',
       'view.toggle-wysiwyg',
     ]);
     expect(PANEL_COMMANDS.every((command) => command.shortcut === undefined)).toBe(true);
@@ -39,6 +40,12 @@ describe('PANEL_COMMANDS', () => {
     const comments = PANEL_COMMANDS.find((command) => command.id === 'view.toggle-comments');
     await comments?.execute(context);
     expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('comments');
+  });
+
+  it('opens the diagram generator', async () => {
+    const command = PANEL_COMMANDS.find((item) => item.id === 'view.toggle-diagram');
+    await command?.execute(context);
+    expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('diagram');
   });
 
   it('opens the agent panel', async () => {

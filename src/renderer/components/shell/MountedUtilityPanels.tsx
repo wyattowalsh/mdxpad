@@ -15,6 +15,8 @@ import { ShortcutEditor } from '@renderer/components/shortcuts/ShortcutEditor';
 import { TagTreePanel } from '@renderer/components/tags/TagTreePanel';
 import { WorkspacePanel } from '@renderer/components/workspace/WorkspacePanel';
 import { AgentPanel } from '@renderer/features/ai-agent/AgentPanel';
+import { DiagramDialog } from '@renderer/features/diagrams/DiagramDialog';
+import { insertDiagramFence } from '@renderer/lib/insert-document-text';
 import { useAgentModeStore } from '@renderer/features/ai-agent/agent-mode-store';
 import { SemanticSearchPanel } from '@renderer/features/semantic-search/SemanticSearchPanel';
 import {
@@ -41,6 +43,7 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   publish: 'Publish',
   'semantic-search': 'Semantic search',
   agent: 'AI agent',
+  diagram: 'Diagram',
 };
 
 function revealCommentThread(view: EditorView, anchorFrom: number): void {
@@ -54,7 +57,7 @@ function PanelBody({
   panel,
   editorRef,
 }: {
-  readonly panel: UtilityPanelId;
+  readonly panel: Exclude<UtilityPanelId, 'diagram'>;
   readonly editorRef: RefObject<EditorView | null>;
 }): React.JSX.Element {
   const content = useDocumentStore((state) => state.content);
@@ -132,6 +135,18 @@ export function MountedUtilityPanels({
   readonly editorRef: RefObject<EditorView | null>;
 }): React.JSX.Element | null {
   const panel = useUtilityPanelStore(selectActiveUtilityPanel);
+  if (panel === 'diagram') {
+    return (
+      <DiagramDialog
+        isOpen
+        onClose={() => useUtilityPanelStore.getState().setActiveUtilityPanel(null)}
+        onInsert={(fence) => {
+          const current = useDocumentStore.getState().content;
+          useDocumentStore.getState().setContent(insertDiagramFence(current, fence));
+        }}
+      />
+    );
+  }
   if (panel === null) {
     return null;
   }

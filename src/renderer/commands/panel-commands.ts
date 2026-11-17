@@ -15,6 +15,7 @@ export const PANEL_COMMAND_IDS = {
   publish: 'view.toggle-publish',
   semanticSearch: 'view.toggle-semantic-search',
   agent: 'view.toggle-agent',
+  diagram: 'view.toggle-diagram',
   wysiwyg: 'view.toggle-wysiwyg',
 } as const;
 
@@ -49,6 +50,9 @@ export const PANEL_COMMANDS: readonly Command[] = [
   toggleCommand('view.toggle-publish', 'Toggle Publish', 'publish'),
   toggleCommand('view.toggle-semantic-search', 'Toggle Semantic Search', 'semantic-search'),
   toggleCommand('view.toggle-agent', 'Toggle AI Agent', 'agent', () => isFeatureEnabled('ai')),
+  toggleCommand('view.toggle-diagram', 'Toggle Diagram Generator', 'diagram', () =>
+    isFeatureEnabled('ai')
+  ),
   {
     id: 'view.toggle-wysiwyg' as CommandId,
     name: 'Toggle WYSIWYG Editor',
