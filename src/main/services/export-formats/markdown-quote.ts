@@ -1,6 +1,7 @@
 import { isThematicBreak } from './markdown-break';
-import { openingFence } from './markdown-fence';
+import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
+import { renderFencedCode } from './markdown-code';
 import { renderedSegments } from './markdown-marks';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
@@ -51,6 +52,7 @@ export type QuoteChunk =
   | { readonly kind: 'paragraph'; readonly lines: string[] }
   | { readonly kind: 'list'; readonly lines: string[] }
   | { readonly kind: 'table'; readonly lines: string[] }
+  | { readonly kind: 'code'; readonly lines: string[] }
   | { readonly kind: 'nested'; readonly lines: string[] };
 
 function takeChunk(chunks: QuoteChunk[], current: QuoteChunk | null): QuoteChunk | null {
@@ -89,26 +91,50 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
   return 'paragraph';
 }
 
+function takeQuoteLine(
+  chunks: QuoteChunk[],
+  current: QuoteChunk | null,
+  line: string
+): QuoteChunk | null {
+  if (quoteBody(line) === null && openingFence(line)) {
+    takeChunk(chunks, current);
+    return { kind: 'code', lines: [line] };
+  }
+  const kind = quoteLineKind(line, current);
+  if (kind === null) {
+    if (current?.kind === 'list') {
+      current.lines.push(line);
+      return current;
+    }
+    return takeChunk(chunks, current);
+  }
+  const text = quoteBody(line) ?? line;
+  if (current?.kind === kind) {
+    current.lines.push(text);
+    return current;
+  }
+  takeChunk(chunks, current);
+  return { kind, lines: [text] };
+}
+
 export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   const chunks: QuoteChunk[] = [];
   let current: QuoteChunk | null = null;
+  let fence: string | null = null;
   for (const line of lines) {
-    const kind = quoteLineKind(line, current);
-    if (kind === null) {
-      if (current?.kind === 'list') {
-        current.lines.push(line);
+    if (fence) {
+      if (closesFence(line, fence)) {
+        fence = null;
+        current = takeChunk(chunks, current);
         continue;
       }
-      current = takeChunk(chunks, current);
+      current?.lines.push(quoteBody(line) ?? line);
       continue;
     }
-    const text = quoteBody(line) ?? line;
-    if (current?.kind === kind) {
-      current.lines.push(text);
-      continue;
+    current = takeQuoteLine(chunks, current, line);
+    if (current?.kind === 'code' && current.lines.length === 1) {
+      fence = openingFence(current.lines[0] ?? '');
     }
-    current = takeChunk(chunks, current);
-    current = { kind, lines: [text] };
   }
   takeChunk(chunks, current);
   return chunks;
@@ -133,6 +159,23 @@ function groupQuoteItems(
     groups[groups.length - 1]?.body.push(readSourceLine(line));
   }
   return groups;
+}
+
+function quoteCodeParts(lines: readonly string[]): { language: string; body: string[] } {
+  const [open, ...body] = lines;
+  return { language: fenceLanguage(open ?? ''), body };
+}
+
+function quoteCodeHtml(lines: readonly string[]): string {
+  const code = quoteCodeParts(lines);
+  return renderFencedCode(code.language, code.body);
+}
+
+function quoteCodeLatex(lines: readonly string[]): string {
+  const code = quoteCodeParts(lines);
+  const safe = code.language.replaceAll(/[\\%&#_{}]/g, (char) => `\\${char}`);
+  const label = safe.length > 0 ? `{\\footnotesize\\ttfamily ${safe}}\n` : '';
+  return `${label}\\begin{verbatim}\n${code.body.join('\n')}\n\\end{verbatim}`;
 }
 
 function quoteTableHtml(lines: readonly string[], renderLine: (line: string) => string): string {
@@ -205,6 +248,9 @@ export function quoteToHtml(
       if (chunk.kind === 'table') {
         return quoteTableHtml(chunk.lines, renderLine);
       }
+      if (chunk.kind === 'code') {
+        return quoteCodeHtml(chunk.lines);
+      }
       return `<p>${joinParagraphHtml(
         chunk.lines.map((line) => readSourceLine(line)),
         renderLine
@@ -228,6 +274,9 @@ export function quoteToLatex(
       }
       if (chunk.kind === 'table') {
         return quoteTableLatex(chunk.lines, renderLine);
+      }
+      if (chunk.kind === 'code') {
+        return quoteCodeLatex(chunk.lines);
       }
       return joinQuoteLatex(chunk.lines, renderLine);
     })

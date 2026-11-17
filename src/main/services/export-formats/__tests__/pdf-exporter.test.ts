@@ -192,6 +192,19 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps a fenced block inside a quote', async () => {
+    await exporter.export({
+      content: '> ```js\n> const x = 1\n> ```\n',
+      outputPath: '/tmp/quote-code.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<pre><code class="language-js">');
+    expect(html).toContain('const');
+    expect(html).toContain('x =');
+    expect(html).not.toContain('<code>js const');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

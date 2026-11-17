@@ -501,6 +501,11 @@ function appendDocxQuoteLines(
       flushDocxTable(blocks, [...chunk.lines]);
       continue;
     }
+    if (chunk.kind === 'code') {
+      const [open, ...body] = chunk.lines;
+      blocks.push(createCodeBlockParagraph(body, fenceLanguage(open ?? '')));
+      continue;
+    }
     if (chunk.kind === 'list') {
       appendDocxQuoteList(blocks, chunk.lines, depth);
       continue;

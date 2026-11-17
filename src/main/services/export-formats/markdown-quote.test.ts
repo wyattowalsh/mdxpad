@@ -56,6 +56,18 @@ describe('quoteBody', () => {
     expect(quoteToLatex(['- Stay\\', '  put'], (line) => line)).toContain('\\item Stay\\\\\nput');
   });
 
+  it('keeps a fenced block inside a quote', () => {
+    const html = quoteToHtml(['```js', 'const x = 1', '```'], (line) => line);
+    expect(html).toContain('<pre><code class="language-js">');
+    expect(html).toContain('const');
+    expect(html).toContain('x =');
+    expect(html).not.toContain('<p>');
+    const latex = quoteToLatex(['```js', 'const x = 1', '```'], (line) => line);
+    expect(latex).toContain('\\begin{verbatim}');
+    expect(latex).toContain('const x = 1');
+    expect(latex).not.toContain('```');
+  });
+
   it('wraps quote lines in a blockquote', () => {
     expect(quoteToHtml(['Keep **this**'], (line) => line)).toBe(
       '<blockquote>\n<p>Keep **this**</p>\n</blockquote>'
