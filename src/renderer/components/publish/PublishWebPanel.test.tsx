@@ -56,24 +56,22 @@ describe('PublishWebPanel', () => {
 
   it('calls onPublish when publish button clicked', () => {
     const onPublish = vi.fn();
-    render(
-      <PublishWebPanel
-        files={[createMockFile()]}
-        {...defaultProps}
-        onPublish={onPublish}
-      />
-    );
+    render(<PublishWebPanel files={[createMockFile()]} {...defaultProps} onPublish={onPublish} />);
     fireEvent.click(screen.getByText('Publish 1 file'));
-    expect(onPublish).toHaveBeenCalledOnce();
+    expect(onPublish).toHaveBeenCalledWith({ includeStyles: true, generateIndex: true });
+  });
+
+  it('sends unchecked publish options', () => {
+    const onPublish = vi.fn();
+    render(<PublishWebPanel files={[createMockFile()]} {...defaultProps} onPublish={onPublish} />);
+    fireEvent.click(screen.getByLabelText('Generate index page'));
+    fireEvent.click(screen.getByLabelText('Include styles'));
+    fireEvent.click(screen.getByText('Publish 1 file'));
+    expect(onPublish).toHaveBeenCalledWith({ includeStyles: false, generateIndex: false });
   });
 
   it('disables publish button when no files selected', () => {
-    render(
-      <PublishWebPanel
-        files={[createMockFile({ selected: false })]}
-        {...defaultProps}
-      />
-    );
+    render(<PublishWebPanel files={[createMockFile({ selected: false })]} {...defaultProps} />);
     const btn = screen.getByText('Publish 0 files');
     expect((btn as HTMLButtonElement).disabled).toBe(true);
   });

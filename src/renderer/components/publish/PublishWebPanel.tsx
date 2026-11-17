@@ -22,6 +22,11 @@ export interface PublishFileItem {
   readonly selected: boolean;
 }
 
+export interface PublishRequestOptions {
+  readonly includeStyles: boolean;
+  readonly generateIndex: boolean;
+}
+
 export interface PublishWebPanelProps {
   readonly files: readonly PublishFileItem[];
   readonly outputDir: string;
@@ -36,7 +41,7 @@ export interface PublishWebPanelProps {
   readonly onSelectAll: () => void;
   readonly onDeselectAll: () => void;
   readonly onChooseOutputDir: () => void;
-  readonly onPublish: () => void;
+  readonly onPublish: (options: PublishRequestOptions) => void;
   readonly onOpenOutput: () => void;
 }
 
@@ -440,7 +445,11 @@ function PanelContentComponent({
         onSelectAll={onSelectAll}
         onDeselectAll={onDeselectAll}
       />
-      <OutputDir outputDir={outputDir} isPublishing={isPublishing} onChooseOutputDir={onChooseOutputDir} />
+      <OutputDir
+        outputDir={outputDir}
+        isPublishing={isPublishing}
+        onChooseOutputDir={onChooseOutputDir}
+      />
       <PublishOptions
         includeStyles={includeStyles}
         generateIndex={generateIndex}
@@ -482,7 +491,12 @@ function PublishWebPanelComponent({
   const canPublish = selectedCount > 0 && outputDir.length > 0 && !isPublishing;
 
   return (
-    <div className="flex flex-col h-full" data-testid="publish-web-panel" role="region" aria-label="Publish to Web">
+    <div
+      className="flex flex-col h-full"
+      data-testid="publish-web-panel"
+      role="region"
+      aria-label="Publish to Web"
+    >
       <PanelHeader />
       <PanelContent
         files={files}
@@ -505,7 +519,9 @@ function PublishWebPanelComponent({
         selectedCount={selectedCount}
         canPublish={canPublish}
         isPublishing={isPublishing}
-        onPublish={onPublish}
+        onPublish={() => {
+          onPublish({ includeStyles, generateIndex });
+        }}
       />
     </div>
   );
