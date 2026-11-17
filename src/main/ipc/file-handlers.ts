@@ -6,6 +6,7 @@
  * @module file-handlers
  */
 
+import * as path from 'node:path';
 import { app, dialog, type IpcMain, type BrowserWindow } from 'electron';
 
 import { IPC_CHANNELS } from '@shared/lib/ipc';
@@ -51,6 +52,7 @@ import {
   permissionDenied,
   resetFileCapabilities,
 } from './document-capability';
+import { trustedDirectoryError } from './trusted-directory';
 
 /** File dialog filters for MDX and Markdown files */
 const MDX_FILTERS = [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }];
@@ -298,12 +300,19 @@ const handleFileSaveAs = createValidatedHandler(
 const handleFileRead = createValidatedHandler(
   FileReadRequestSchema,
   async (args): Promise<FileResultString> => {
-    if (!hasReadCapability(args.path) && !canBootstrapReadCapability(args.path)) {
+    const inTrustedDirectory = trustedDirectoryError(path.dirname(args.path)) === null;
+    if (
+      !hasReadCapability(args.path) &&
+      !canBootstrapReadCapability(args.path) &&
+      !inTrustedDirectory
+    ) {
       return { ok: false, error: permissionDenied(args.path) };
     }
 
     const readResult = await readFile(args.path);
-    if (readResult.ok) {
+    if (readResult.ok && inTrustedDirectory) {
+      grantWriteCapability(args.path);
+    } else if (readResult.ok) {
       grantReadCapability(args.path);
     }
 

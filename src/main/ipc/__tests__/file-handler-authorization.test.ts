@@ -7,6 +7,7 @@ import type { BrowserWindow, IpcMain } from 'electron';
 
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import * as FileService from '@main/services/file-service';
+import { resetFileCapabilities } from '../document-capability';
 import { registerFileHandlers } from '../file-handlers';
 
 const { realpathSyncMock } = vi.hoisted(() => ({
@@ -90,6 +91,7 @@ describe('registerFileHandlers authorization', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetFileCapabilities();
     realpathSyncMock.mockImplementation((target: string) => target);
     handlers = {};
     window = createMockWindow();
@@ -111,6 +113,34 @@ describe('registerFileHandlers authorization', () => {
       error: { code: 'PERMISSION_DENIED', path: '/test/file.mdx' },
     });
     expect(FileService.readFile).not.toHaveBeenCalled();
+  });
+
+  it('reads and saves another file in the opened file folder', async () => {
+    const { dialog } = await import('electron');
+    vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+      canceled: false,
+      filePaths: ['/docs/note.mdx'],
+    } as never);
+
+    await handlers[IPC_CHANNELS.file.open]!(createInvokeEvent(window), undefined);
+    const readSibling = await handlers[IPC_CHANNELS.file.read]!(createInvokeEvent(window), {
+      path: '/docs/other.mdx',
+    });
+    const saved = await handlers[IPC_CHANNELS.file.write]!(createInvokeEvent(window), {
+      path: '/docs/other.mdx',
+      content: '# Updated',
+    });
+    const outside = await handlers[IPC_CHANNELS.file.read]!(createInvokeEvent(window), {
+      path: '/other/secret.mdx',
+    });
+
+    expect(readSibling).toEqual({ ok: true, value: '# Test' });
+    expect(saved).toEqual({ ok: true, value: undefined });
+    expect(outside).toEqual({
+      ok: false,
+      error: { code: 'PERMISSION_DENIED', path: '/other/secret.mdx' },
+    });
+    expect(FileService.writeFile).toHaveBeenCalledWith('/docs/other.mdx', '# Updated');
   });
 
   it('rejects unauthorized sender for file:read', async () => {
