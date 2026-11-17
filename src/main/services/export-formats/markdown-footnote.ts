@@ -54,21 +54,46 @@ function replaceFootnoteLine(
   return result;
 }
 
+function isNoteContinuation(line: string): boolean {
+  return line.startsWith('    ') || line.startsWith('\t');
+}
+
+function continuationText(line: string): string {
+  return line.startsWith('\t') ? line.slice(1) : line.slice(4);
+}
+
 function collectNotes(lines: readonly string[]): { kept: string[]; notes: Map<string, string> } {
   const notes = new Map<string, string>();
   const kept: string[] = [];
   let fence: string | null = null;
-  for (const line of lines) {
+  let currentId: string | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
     const next = advanceFence(line, fence);
     const boundary = fence !== next;
     const inside = fence !== null;
     fence = next;
-    const definition = !inside && !boundary ? DEFINITION.exec(line) : null;
+    if (inside || boundary) {
+      currentId = null;
+      kept.push(line);
+      continue;
+    }
+    const definition = DEFINITION.exec(line);
     const id = definition?.[1];
     if (id) {
       notes.set(id, definition[2] ?? '');
+      currentId = id;
       continue;
     }
+    if (currentId && line.trim().length === 0 && isNoteContinuation(lines[index + 1] ?? '')) {
+      notes.set(currentId, `${notes.get(currentId) ?? ''}\n`);
+      continue;
+    }
+    if (currentId && isNoteContinuation(line)) {
+      notes.set(currentId, `${notes.get(currentId) ?? ''}\n${continuationText(line)}`);
+      continue;
+    }
+    currentId = null;
     kept.push(line);
   }
   return { kept, notes };

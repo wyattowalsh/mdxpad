@@ -103,11 +103,11 @@ function withoutDefinitions(lines: readonly string[]): string[] {
 
 /** Turn reference links into inline links and drop their definition lines. */
 export function expandLinkReferences(content: string): string {
-  const fenced = fenceIndentedCode(content);
+  const fenced = fenceIndentedCode(applyFootnotes(content));
   const lines = fenced.split('\n');
   const references = collectReferences(lines);
   if (references.size === 0) {
-    return closeOpenTableRows(applyFootnotes(fenced));
+    return closeOpenTableRows(fenced);
   }
   let fence: string | null = null;
   const rewritten = withoutDefinitions(lines)
@@ -118,5 +118,5 @@ export function expandLinkReferences(content: string): string {
       return fence || boundary ? line : rewriteLine(line, references);
     })
     .join('\n');
-  return closeOpenTableRows(applyFootnotes(rewritten));
+  return closeOpenTableRows(rewritten);
 }
