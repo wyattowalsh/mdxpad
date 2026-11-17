@@ -51,6 +51,7 @@ import { useAppState } from './hooks/useAppState';
 import { useAppDialogs } from './hooks/useAppDialogs';
 import { useMenuEvents } from './hooks/useMenuEvents';
 import { useFilterDebounce, type FileEntry } from './hooks/useFilterDebounce';
+import { useOpenedFolderFiles } from './hooks/useOpenedFolderFiles';
 import { useDragDrop } from './hooks/useDragDrop';
 import { useAccessibility } from './hooks/useAccessibility';
 import { ProviderSettings } from './features/ai-provider/components';
@@ -60,6 +61,16 @@ import { useAIProviderStore } from './features/ai-provider/store';
 // =============================================================================
 
 const MIN_PANE_SIZE = 10;
+
+function isOpenableDocument(filePath: string): boolean {
+  const name = filePath.slice(filePath.lastIndexOf('/') + 1).toLowerCase();
+  return (
+    name.endsWith('.md') ||
+    name.endsWith('.mdx') ||
+    name.endsWith('.markdown') ||
+    name.endsWith('.txt')
+  );
+}
 
 function buildExplorerEntries(filePath: string | null, fileName: string): readonly FileEntry[] {
   if (!filePath) {
@@ -131,10 +142,15 @@ export function App(): React.ReactElement {
     };
   }, []);
 
-  const explorerEntries = useMemo(
-    () => buildExplorerEntries(state.filePath, state.fileName),
-    [state.filePath, state.fileName]
-  );
+  const folderFiles = useOpenedFolderFiles(state.filePath);
+  const explorerEntries = useMemo(() => {
+    const base = buildExplorerEntries(state.filePath, state.fileName);
+    const known = new Set(base.map((entry) => entry.path));
+    const extra = folderFiles
+      .filter((file) => !known.has(file.path))
+      .map((file) => ({ id: file.path, path: file.path, name: file.name }));
+    return [...base, ...extra];
+  }, [folderFiles, state.fileName, state.filePath]);
   useFilterDebounce({
     query: filterQuery,
     files: explorerEntries,
@@ -219,14 +235,29 @@ export function App(): React.ReactElement {
                 <ul className="space-y-1" data-testid="file-explorer-list">
                   {visibleExplorerEntries.map((entry) => {
                     const match = matchResults.get(entry.id);
+                    const name = (
+                      <FilterHighlight
+                        text={entry.name}
+                        positions={match?.positions ?? null}
+                        highlightClassName="font-semibold text-foreground underline"
+                        className="block truncate text-foreground"
+                      />
+                    );
                     return (
                       <li key={entry.id} className="rounded px-2 py-1 text-xs hover:bg-muted/60">
-                        <FilterHighlight
-                          text={entry.name}
-                          positions={match?.positions ?? null}
-                          highlightClassName="font-semibold text-foreground underline"
-                          className="block truncate text-foreground"
-                        />
+                        {isOpenableDocument(entry.path) ? (
+                          <button
+                            type="button"
+                            className="block w-full text-left"
+                            onClick={() => {
+                              void openFileFromPath(entry.path);
+                            }}
+                          >
+                            {name}
+                          </button>
+                        ) : (
+                          name
+                        )}
                         <span className="block truncate text-[10px] text-muted-foreground">
                           {entry.path}
                         </span>

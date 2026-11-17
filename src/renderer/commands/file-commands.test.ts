@@ -139,6 +139,7 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
       value: { path: '/test/new-file.html', format: 'html', warnings: [] },
     }),
     readFile: vi.fn().mockResolvedValue({ ok: true, value: '# Test Content' }),
+    listDirectory: vi.fn().mockResolvedValue({ ok: true, files: [] }),
     writeFile: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     closeWindow: vi.fn().mockResolvedValue(undefined),
     minimizeWindow: vi.fn().mockResolvedValue(undefined),

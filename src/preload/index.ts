@@ -70,6 +70,7 @@ const api: MdxpadAPI = {
   exportFile: fileOperations.exportFile,
   readFile: fileOperations.readFile,
   writeFile: fileOperations.writeFile,
+  listDirectory: fileOperations.listDirectory,
 
   // Window Operations (from file-api)
   closeWindow: windowOperations.closeWindow,

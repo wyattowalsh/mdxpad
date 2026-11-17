@@ -13,6 +13,8 @@ import { IPC_CHANNELS } from '@shared/lib/ipc';
 import {
   FileSaveRequestSchema,
   FileSaveAsRequestSchema,
+  FileListDirectoryRequestSchema,
+  FileListDirectoryResponseSchema,
   FileReadRequestSchema,
   FileWriteRequestSchema,
   FileExportRequestSchema,
@@ -102,6 +104,14 @@ export const fileOperations = {
     validatedInvoke(IPC_CHANNELS.file.read, FileReadRequestSchema, FileReadResponseSchema, {
       path,
     }) as Promise<FileResult<string>>,
+
+  listDirectory: (directory: string) =>
+    validatedInvoke(
+      IPC_CHANNELS.file.list,
+      FileListDirectoryRequestSchema,
+      FileListDirectoryResponseSchema,
+      { directory }
+    ),
 
   writeFile: (path: string, content: string): Promise<FileResult<void>> =>
     validatedInvoke(IPC_CHANNELS.file.write, FileWriteRequestSchema, FileWriteResponseSchema, {

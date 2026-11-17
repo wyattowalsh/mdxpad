@@ -14,6 +14,8 @@ import {
   FileOpenRequestSchema,
   FileSaveRequestSchema,
   FileSaveAsRequestSchema,
+  FileListDirectoryRequestSchema,
+  FileListDirectoryResponseSchema,
   FileReadRequestSchema,
   FileWriteRequestSchema,
   FileExportRequestSchema,
@@ -52,6 +54,7 @@ import {
   permissionDenied,
   resetFileCapabilities,
 } from './document-capability';
+import { listTrustedDirectory } from './list-directory';
 import { trustedDirectoryError } from './trusted-directory';
 
 /** File dialog filters for MDX and Markdown files */
@@ -504,6 +507,18 @@ export function registerFileHandlers(ipcMainInstance: IpcMain, window: BrowserWi
   ipcMainInstance.handle(IPC_CHANNELS.file.write, (event, args) => {
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.write);
     return handleFileWrite(args);
+  });
+  ipcMainInstance.handle(IPC_CHANNELS.file.list, (event, args) => {
+    assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.list);
+    const parsed = FileListDirectoryRequestSchema.safeParse(args);
+    if (!parsed.success) {
+      return FileListDirectoryResponseSchema.parse({
+        ok: false,
+        files: [],
+        error: 'Choose a folder before listing it',
+      });
+    }
+    return listTrustedDirectory(parsed.data.directory);
   });
   ipcMainInstance.handle(IPC_CHANNELS.file.export, (event, args) => {
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.export);

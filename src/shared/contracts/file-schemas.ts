@@ -173,6 +173,24 @@ export type FileReadRequest = z.infer<typeof FileReadRequestSchema>;
  */
 export const FileReadResponseSchema = FileResultStringSchema;
 
+export const FileListDirectoryRequestSchema = z.object({
+  directory: FilePathSchema,
+});
+export type FileListDirectoryRequest = z.infer<typeof FileListDirectoryRequestSchema>;
+
+export const FileListEntrySchema = z.object({
+  name: z.string().min(1),
+  path: FilePathSchema,
+});
+export type FileListEntry = z.infer<typeof FileListEntrySchema>;
+
+export const FileListDirectoryResponseSchema = z.object({
+  ok: z.boolean(),
+  files: z.array(FileListEntrySchema),
+  error: z.string().min(1).optional(),
+});
+export type FileListDirectoryResponse = z.infer<typeof FileListDirectoryResponseSchema>;
+
 /**
  * mdxpad:file:write request schema.
  * Writes content to path.

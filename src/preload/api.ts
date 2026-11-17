@@ -10,7 +10,11 @@ import type { NotificationApi } from './notification-api';
 import type { ShareApi } from './share-api';
 import type { SecurityInfo } from '@shared/lib/ipc';
 import type { FileHandle, FileResult } from '@shared/types/file';
-import type { ExportFormat, FileExportResult } from '@shared/contracts/file-schemas';
+import type {
+  ExportFormat,
+  FileExportResult,
+  FileListDirectoryResponse,
+} from '@shared/contracts/file-schemas';
 import type {
   CloudSyncProviderId,
   CloudSyncListProvidersResponse,
@@ -169,6 +173,12 @@ export interface MdxpadAPI {
    * @returns File content on success, error on failure
    */
   readFile(path: string): Promise<FileResult<string>>;
+
+  /**
+   * List document files in a folder the user has opened.
+   * @param directory - Absolute directory path
+   */
+  listDirectory(directory: string): Promise<FileListDirectoryResponse>;
 
   /**
    * Write content to path.
