@@ -420,10 +420,11 @@ describe('file-handlers', () => {
   });
 
   describe('mdxpad:file:read', () => {
-    it('should read file successfully', async () => {
+    it('should read a file after it was opened', async () => {
       const testPath = '/test/file.mdx';
       const testContent = '# Test Content';
 
+      await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, testPath);
       mockReadFile.mockResolvedValue({ ok: true, value: testContent });
 
       const handler = registeredHandlers.get('mdxpad:file:read');
@@ -433,21 +434,16 @@ describe('file-handlers', () => {
       expect(result).toEqual({ ok: true, value: testContent });
     });
 
-    it('should return NOT_FOUND error for nonexistent file', async () => {
+    it('should deny a read that was not granted', async () => {
       const testPath = '/nonexistent/file.mdx';
-
-      mockReadFile.mockResolvedValue({
-        ok: false,
-        error: { code: 'NOT_FOUND', path: testPath },
-      });
-
       const handler = registeredHandlers.get('mdxpad:file:read');
       const result = await handler!(authorizedInvokeEvent, { path: testPath });
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'NOT_FOUND', path: testPath },
+        error: { code: 'PERMISSION_DENIED', path: testPath },
       });
+      expect(mockReadFile).not.toHaveBeenCalled();
     });
   });
 
@@ -693,6 +689,7 @@ describe('error code mapping', () => {
   });
 
   it('should map read errors to NOT_FOUND', async () => {
+    await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, '/missing.mdx');
     mockReadFile.mockResolvedValue({
       ok: false,
       error: { code: 'NOT_FOUND', path: '/missing.mdx' },

@@ -1,6 +1,5 @@
 import * as path from 'node:path';
 
-const BOOTSTRAP_READ_EXTENSIONS = new Set(['.md', '.mdx', '.markdown', '.txt']);
 const SCHEMA_SIDE_CAR_DIR = '.mdxpad';
 const SCHEMA_SIDE_CAR_FILE = 'schema.json';
 
@@ -73,12 +72,12 @@ export function canBootstrapReadCapability(filePath: string): boolean {
     return false;
   }
 
-  if (isSchemaSidecarPath(normalized)) {
-    const documentDir = path.dirname(path.dirname(normalized));
-    return documentDirectoryCapabilities.has(documentDir);
+  if (!isSchemaSidecarPath(normalized)) {
+    return false;
   }
 
-  return BOOTSTRAP_READ_EXTENSIONS.has(path.extname(normalized).toLowerCase());
+  const documentDir = path.dirname(path.dirname(normalized));
+  return documentDirectoryCapabilities.has(documentDir);
 }
 
 export function permissionDenied(pathValue: string): { code: 'PERMISSION_DENIED'; path: string } {

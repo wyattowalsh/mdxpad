@@ -78,6 +78,10 @@ const nodeSerializers: NodeSerializerMap = {
     state.write('\\\n');
   },
 
+  text(state, node) {
+    state.text(node.text ?? '', !state.inAutolink);
+  },
+
   jsx_block(state, node) {
     const value = (node.attrs.value as string) || node.textContent;
     state.write(value);

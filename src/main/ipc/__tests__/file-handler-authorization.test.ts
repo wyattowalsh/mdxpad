@@ -88,12 +88,16 @@ describe('registerFileHandlers authorization', () => {
     registerFileHandlers(mockIpcMain, window);
   });
 
-  it('allows authorized sender/main-frame for file:read', async () => {
-    await handlers[IPC_CHANNELS.file.read]!(createInvokeEvent(window), {
+  it('denies file:read until a dialog grant exists', async () => {
+    const result = await handlers[IPC_CHANNELS.file.read]!(createInvokeEvent(window), {
       path: '/test/file.mdx',
     });
 
-    expect(FileService.readFile).toHaveBeenCalledWith('/test/file.mdx');
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'PERMISSION_DENIED', path: '/test/file.mdx' },
+    });
+    expect(FileService.readFile).not.toHaveBeenCalled();
   });
 
   it('rejects unauthorized sender for file:read', async () => {
@@ -278,7 +282,6 @@ describe('registerFileHandlers authorization', () => {
 
     await handlers[IPC_CHANNELS.file.export]!(createInvokeEvent(window), {
       content: '# exported',
-      sourcePath: '/test/file.mdx',
       format: 'markdown',
     });
 

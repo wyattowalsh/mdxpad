@@ -90,17 +90,17 @@ const MDX_TOKENS: Record<
   }
 > = {
   // Block tokens
-  paragraph_open: { block: 'paragraph' },
-  blockquote_open: { block: 'blockquote' },
-  bullet_list_open: { block: 'bullet_list' },
-  ordered_list_open: {
+  paragraph: { block: 'paragraph' },
+  blockquote: { block: 'blockquote' },
+  bullet_list: { block: 'bullet_list' },
+  ordered_list: {
     block: 'ordered_list',
     getAttrs: (tok: MarkdownToken) => ({
       order: Number(tok.attrGet('start') ?? 1),
     }),
   },
-  list_item_open: { block: 'list_item' },
-  heading_open: {
+  list_item: { block: 'list_item' },
+  heading: {
     block: 'heading',
     getAttrs: (tok: MarkdownToken) => ({ level: tok.markup.length }),
   },
@@ -114,13 +114,13 @@ const MDX_TOKENS: Record<
   hardbreak: { node: 'hard_break' },
 
   // Inline marks
-  em_open: { mark: 'italic' },
-  strong_open: { mark: 'bold' },
+  em: { mark: 'italic' },
+  strong: { mark: 'bold' },
   code_inline: { mark: 'code', noCloseToken: true },
-  s_open: { mark: 'strikethrough' },
+  s: { mark: 'strikethrough' },
 
   // Links and images
-  link_open: {
+  link: {
     mark: 'link',
     getAttrs: (tok: MarkdownToken) => ({
       href: tok.attrGet('href') ?? '',
@@ -137,8 +137,8 @@ const MDX_TOKENS: Record<
   },
 
   // HTML (JSX placeholders) - ignored
-  html_block: { ignore: true },
-  html_inline: { ignore: true },
+  html_block: { ignore: true, noCloseToken: true },
+  html_inline: { ignore: true, noCloseToken: true },
   softbreak: { node: 'hard_break' },
 };
 

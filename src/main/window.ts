@@ -10,7 +10,7 @@ import {
   type BrowserWindowConstructorOptions,
   type IpcMainEvent,
 } from 'electron';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
 
@@ -61,16 +61,35 @@ const DEV_LOCALHOSTS = new Set(['localhost', '127.0.0.1']);
  * Validates whether a target URL is allowed for renderer navigation/window-open.
  * Production allows local app files only; development also allows local dev server origins.
  */
+function isAppDocumentFile(targetUrl: URL): boolean {
+  if (targetUrl.search.length > 0) {
+    return false;
+  }
+
+  try {
+    const filePath = fileURLToPath(targetUrl);
+    const appDocument = resolve(join(__dirname, '../renderer/index.html'));
+    return resolve(filePath) === appDocument;
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedNavigationUrl(targetUrl: string): boolean {
   try {
     const parsed = new URL(targetUrl);
     if (parsed.protocol === 'file:') {
-      return true;
+      return isAppDocumentFile(parsed);
     }
 
-    const isDev = process.env.ELECTRON_RENDERER_URL !== undefined;
-    if (isDev && parsed.protocol === 'http:' && DEV_LOCALHOSTS.has(parsed.hostname)) {
-      return true;
+    const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+    if (
+      rendererUrl !== undefined &&
+      parsed.protocol === 'http:' &&
+      DEV_LOCALHOSTS.has(parsed.hostname)
+    ) {
+      const allowed = new URL(rendererUrl);
+      return parsed.hostname === allowed.hostname && parsed.port === allowed.port;
     }
 
     return false;

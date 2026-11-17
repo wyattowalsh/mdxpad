@@ -50,6 +50,9 @@ import { distractionFreeExtension } from '../../lib/editor/extensions/distractio
 import { spellcheckExtension } from '../../lib/editor/extensions/spellcheck';
 import { createFontSettingsExtension } from '../../lib/editor/extensions/font-settings';
 import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps';
+import { codeExecutionExtension } from '../../lib/editor/extensions/code-execution';
+import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
+import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
 
 /**
  * Extended configuration for MDX editor, building on shared EditorConfig.
@@ -248,6 +251,8 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
 
   // Enhanced find & replace with regex
   extensions.push(regexSearchExtension());
+  extensions.push(codeExecutionExtension());
+  extensions.push(goToDefinitionExtension());
 
   // MDX language support
   extensions.push(mdxLanguage());
@@ -322,6 +327,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
     if (opts.enableSnippets) {
       completionSources.push(createSnippetCompletionSource());
     }
+    completionSources.push(createSlashCommandCompletionSource());
     extensions.push(
       snippetCompartment.of(
         autocompletion(completionSources.length > 0 ? { override: completionSources } : {})

@@ -9,7 +9,13 @@
 
 import { type Extension, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
-import { openSearchPanel, search } from '@codemirror/search';
+import {
+  getSearchQuery,
+  openSearchPanel,
+  search,
+  SearchQuery,
+  setSearchQuery,
+} from '@codemirror/search';
 
 // =============================================================================
 // Types
@@ -82,10 +88,34 @@ function openRegexSearch(view: EditorView): boolean {
 /**
  * Toggle regex mode in the search state.
  */
+function dispatchSearchMode(
+  view: EditorView,
+  next: { readonly regexEnabled: boolean; readonly caseSensitive: boolean }
+): void {
+  const query = getSearchQuery(view.state);
+  view.dispatch({
+    effects: [
+      toggleRegexEffect.of(next.regexEnabled),
+      toggleCaseSensitiveEffect.of(next.caseSensitive),
+      setSearchQuery.of(
+        new SearchQuery({
+          search: query.search,
+          replace: query.replace,
+          caseSensitive: next.caseSensitive,
+          regexp: next.regexEnabled,
+          literal: !next.regexEnabled,
+          wholeWord: query.wholeWord,
+        })
+      ),
+    ],
+  });
+}
+
 export function toggleRegex(view: EditorView): boolean {
   const current = view.state.field(regexSearchField);
-  view.dispatch({
-    effects: toggleRegexEffect.of(!current.regexEnabled),
+  dispatchSearchMode(view, {
+    regexEnabled: !current.regexEnabled,
+    caseSensitive: current.caseSensitive,
   });
   return true;
 }
@@ -95,8 +125,9 @@ export function toggleRegex(view: EditorView): boolean {
  */
 export function toggleCaseSensitive(view: EditorView): boolean {
   const current = view.state.field(regexSearchField);
-  view.dispatch({
-    effects: toggleCaseSensitiveEffect.of(!current.caseSensitive),
+  dispatchSearchMode(view, {
+    regexEnabled: current.regexEnabled,
+    caseSensitive: !current.caseSensitive,
   });
   return true;
 }
@@ -157,7 +188,7 @@ const regexSearchKeymap = keymap.of([
 export function regexSearchExtension(): Extension {
   return [
     search({
-      literal: false,
+      literal: true,
     }),
     regexSearchField,
     regexSearchKeymap,
