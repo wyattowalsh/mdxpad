@@ -13,6 +13,7 @@ import {
   closeHtmlLists,
   appendHtmlListText,
   isListContinuation,
+  listContentColumn,
   parseListItem,
   pushHtmlListItem,
   type HtmlListFrame,
@@ -37,6 +38,7 @@ interface PdfBuild {
   tableLines: string[];
   quoteLines: string[];
   listBreak: boolean;
+  listColumn: number | null;
 }
 
 function flushPdfParagraph(build: PdfBuild): void {
@@ -49,6 +51,7 @@ function flushPdfParagraph(build: PdfBuild): void {
 
 function closePdfList(build: PdfBuild): void {
   closeHtmlLists(build.parts, build.lists);
+  build.listColumn = null;
 }
 
 function finishDisplayMath(build: PdfBuild): void {
@@ -202,6 +205,29 @@ function takePdfSetext(build: PdfBuild, raw: string): boolean {
   return true;
 }
 
+function takePdfListBreak(build: PdfBuild, raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    flushPdfParagraph(build);
+    if (build.lists.length > 0 && !build.listBreak) {
+      build.listBreak = true;
+    } else {
+      closePdfList(build);
+      build.listBreak = false;
+    }
+    return true;
+  }
+  if (
+    build.listBreak &&
+    parseListItem(raw) === null &&
+    !isListContinuation(raw, build.listColumn ?? 2)
+  ) {
+    closePdfList(build);
+  }
+  build.listBreak = false;
+  return false;
+}
+
 function appendPdfFlow(build: PdfBuild, raw: string): void {
   const trimmed = raw.trim();
   if (takePdfSetext(build, raw)) {
@@ -221,29 +247,19 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
     build.parts.push(`<h${level}>${renderMarkdownInline(heading[2] ?? '')}</h${level}>`);
     return;
   }
-  if (trimmed.length === 0) {
-    flushPdfParagraph(build);
-    if (build.lists.length > 0 && !build.listBreak) {
-      build.listBreak = true;
-    } else {
-      closePdfList(build);
-      build.listBreak = false;
-    }
+  if (takePdfListBreak(build, raw)) {
     return;
   }
-  if (build.listBreak && parseListItem(raw) === null && !isListContinuation(raw)) {
-    closePdfList(build);
-  }
-  build.listBreak = false;
   const item = parseListItem(raw);
   if (item) {
     flushPdfParagraph(build);
     pushHtmlListItem(build.parts, build.lists, item, listItemHtml(item.text, renderMarkdownInline));
+    build.listColumn = listContentColumn(raw);
     return;
   }
   if (
     build.lists.length > 0 &&
-    isListContinuation(raw) &&
+    isListContinuation(raw, build.listColumn ?? 2) &&
     appendHtmlListText(build.parts, renderMarkdownInline(raw.trim()))
   ) {
     return;
@@ -259,6 +275,7 @@ export function markdownToPdfHtml(content: string): string {
     fence: null,
     lists: [],
     listBreak: false,
+    listColumn: null,
     displayMath: null,
     tableLines: [],
     quoteLines: [],

@@ -10,7 +10,12 @@ import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
-import { isListContinuation, parseListItem, type MarkdownListItem } from './markdown-list';
+import {
+  isListContinuation,
+  listContentColumn,
+  parseListItem,
+  type MarkdownListItem,
+} from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -184,6 +189,7 @@ interface LatexListFrame {
 interface ListState {
   stack: LatexListFrame[];
   break: boolean;
+  column: number | null;
 }
 
 function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
@@ -315,7 +321,11 @@ function processMarkdownLine(raw: string, output: string[], listState: ListState
     output.push('');
     return;
   }
-  if (listState.break && parseListItem(raw) === null && !isListContinuation(raw)) {
+  if (
+    listState.break &&
+    parseListItem(raw) === null &&
+    !isListContinuation(raw, listState.column ?? 2)
+  ) {
     resetListState(output, listState);
   }
   listState.break = false;
@@ -335,9 +345,10 @@ function processMarkdownLine(raw: string, output: string[], listState: ListState
   }
 
   if (processListItem(raw, output, listState)) {
+    listState.column = listContentColumn(raw);
     return;
   }
-  if (listState.stack.length > 0 && isListContinuation(raw)) {
+  if (listState.stack.length > 0 && isListContinuation(raw, listState.column ?? 2)) {
     const last = output[output.length - 1];
     if (last?.includes('\\item ')) {
       output[output.length - 1] = `${last} ${convertInlineFormatting(raw.trim())}`;
@@ -453,7 +464,7 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: { stack: [], break: false },
+    listState: { stack: [], break: false, column: null },
   };
 
   for (const line of expandLinkReferences(content).split('\n')) {

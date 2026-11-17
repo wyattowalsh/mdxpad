@@ -7,11 +7,24 @@ export interface MarkdownListItem {
 
 const LIST_ITEM = /^( *)([-*+]|\d+\.)[ \t]+(.*)$/;
 
-/** Read a list item, using two spaces of indent for each nested level. */
-/** An indented line that continues the open list item, such as a wrapped sentence. */
-export function isListContinuation(line: string): boolean {
+/** Column where the item text starts, so a later line can continue it. */
+export function listContentColumn(line: string): number | null {
+  if (parseListItem(line) === null) {
+    return null;
+  }
   const expanded = line.replaceAll('\t', '    ');
-  if (!/^ {2,}\S/.test(expanded)) {
+  const match = /^( *)([-*+]|\d+\.)[ \t]+/.exec(expanded);
+  if (!match) {
+    return null;
+  }
+  return (match[1]?.length ?? 0) + (match[2]?.length ?? 1) + 1;
+}
+
+/** An indented line that continues the open list item, such as a wrapped sentence. */
+export function isListContinuation(line: string, minimumIndent = 2): boolean {
+  const expanded = line.replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  if (spaces < minimumIndent || !/\S/.test(expanded)) {
     return false;
   }
   return parseListItem(expanded) === null;

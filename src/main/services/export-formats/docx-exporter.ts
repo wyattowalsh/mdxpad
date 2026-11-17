@@ -26,7 +26,12 @@ import { isLazyQuoteLine, quoteBody, quoteLineDepth } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
-import { isListContinuation, parseListItem, type MarkdownListItem } from './markdown-list';
+import {
+  isListContinuation,
+  listContentColumn,
+  parseListItem,
+  type MarkdownListItem,
+} from './markdown-list';
 import { splitTaskItem } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -366,6 +371,7 @@ interface DocxParse {
   quoteLines: string[];
   openListItem: MarkdownListItem | null;
   listBreak: boolean;
+  listColumn: number | null;
 }
 
 function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
@@ -428,10 +434,11 @@ function takeDocxList(
   if (item) {
     flushPendingParagraph(parse);
     parse.openListItem = item;
+    parse.listColumn = listContentColumn(line);
     parse.blocks.push(listParagraph(item));
     return true;
   }
-  if (openListItem && isListContinuation(line)) {
+  if (openListItem && isListContinuation(line, parse.listColumn ?? 2)) {
     const combined = { ...openListItem, text: `${openListItem.text} ${line.trim()}` };
     parse.openListItem = combined;
     parse.blocks.pop();
@@ -534,6 +541,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     quoteLines: [],
     openListItem: null,
     listBreak: false,
+    listColumn: null,
   };
   let fence: string | null = null;
   const codeLines: string[] = [];

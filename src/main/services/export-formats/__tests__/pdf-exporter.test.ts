@@ -155,6 +155,19 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('does not pull a short indent into an ordered item', async () => {
+    await exporter.export({
+      content: '1. one\n  outside\n\n1. two\n   inside',
+      outputPath: '/tmp/ordered-wrap.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>one</li>');
+    expect(html).toContain('<p>outside</p>');
+    expect(html).toContain('<li>two inside</li>');
+    expect(html).not.toContain('<li>one outside</li>');
+  });
+
   it('keeps a loose list continuation with the item', async () => {
     await exporter.export({
       content: '- item\n\n    continued\n\nAfter',

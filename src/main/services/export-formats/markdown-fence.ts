@@ -1,4 +1,4 @@
-import { parseListItem } from './markdown-list';
+import { listContentColumn } from './markdown-list';
 
 const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 
@@ -15,18 +15,6 @@ function nextListColumn(current: number | null, line: string): number | null {
     return current;
   }
   return null;
-}
-
-function listContentColumn(line: string): number | null {
-  if (parseListItem(line) === null) {
-    return null;
-  }
-  const expanded = line.replaceAll('\t', '    ');
-  const match = /^( *)([-*+]|\d+\.)[ \t]+/.exec(expanded);
-  if (!match) {
-    return null;
-  }
-  return (match[1]?.length ?? 0) + (match[2]?.length ?? 1) + 1;
 }
 
 /** The opening marker of a backtick or tilde fence, such as ` ``` ` or `~~~`. */

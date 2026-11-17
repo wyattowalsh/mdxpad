@@ -13,6 +13,7 @@ import {
   closeHtmlLists,
   appendHtmlListText,
   isListContinuation,
+  listContentColumn,
   parseListItem,
   pushHtmlListItem,
   type HtmlListFrame,
@@ -81,6 +82,7 @@ interface EpubLineState {
   quoteLines: string[];
   paragraph: SourceLine[];
   listBreak: boolean;
+  listColumn: number | null;
 }
 
 function flushEpubParagraph(htmlLines: string[], state: EpubLineState): void {
@@ -250,7 +252,11 @@ function takeEpubListBreak(htmlLines: string[], raw: string, state: EpubLineStat
     }
     return true;
   }
-  if (state.listBreak && parseListItem(raw) === null && !isListContinuation(raw)) {
+  if (
+    state.listBreak &&
+    parseListItem(raw) === null &&
+    !isListContinuation(raw, state.listColumn ?? 2)
+  ) {
     closeHtmlLists(htmlLines, state.lists);
     htmlLines.push('');
   }
@@ -284,11 +290,12 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
   if (item) {
     flushEpubParagraph(htmlLines, state);
     pushHtmlListItem(htmlLines, state.lists, item, listItemHtml(item.text, renderMarkdownInline));
+    state.listColumn = listContentColumn(raw);
     return;
   }
   if (
     state.lists.length > 0 &&
-    isListContinuation(raw) &&
+    isListContinuation(raw, state.listColumn ?? 2) &&
     appendHtmlListText(htmlLines, renderMarkdownInline(raw.trim()))
   ) {
     return;
@@ -303,6 +310,7 @@ function chapterToHtml(chapter: EpubChapter): string {
     fence: null,
     lists: [],
     listBreak: false,
+    listColumn: null,
     displayMath: null,
     tableLines: [],
     quoteLines: [],

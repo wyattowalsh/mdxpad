@@ -4,7 +4,11 @@ import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/ty
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
 import { advanceFence } from './export-formats/markdown-fence';
-import { isListContinuation, parseListItem } from './export-formats/markdown-list';
+import {
+  isListContinuation,
+  listContentColumn,
+  parseListItem,
+} from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
 import { linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
@@ -23,6 +27,7 @@ interface MarkdownParagraphBlock {
   readonly text: string;
   readonly setext: boolean;
   readonly quote: boolean;
+  readonly listColumn: number | null;
 }
 
 interface MarkdownImageBlock {
@@ -225,6 +230,7 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     text: plainParagraph(rawLine),
     setext: isSetextText(rawLine),
     quote: quoteBody(rawLine) !== null,
+    listColumn: listContentColumn(rawLine),
   });
 }
 
@@ -297,16 +303,13 @@ function takeMarkdownTable(
   return cursor - 1;
 }
 
-function isRenderedListItem(text: string): boolean {
-  return /^\s*(?:[-*+] |\d+\. |\[[ xX]\] )/.test(text);
-}
-
 function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
-  if (!isListContinuation(rawLine)) {
-    return false;
-  }
   const last = blocks[blocks.length - 1];
-  if (last?.kind !== 'paragraph' || !isRenderedListItem(last.text)) {
+  if (
+    last?.kind !== 'paragraph' ||
+    last.listColumn === null ||
+    !isListContinuation(rawLine, last.listColumn)
+  ) {
     return false;
   }
   blocks[blocks.length - 1] = {
@@ -314,6 +317,7 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
     text: `${last.text} ${plainInline(rawLine.trim())}`,
     setext: false,
     quote: false,
+    listColumn: last.listColumn,
   };
   return true;
 }
@@ -327,10 +331,10 @@ function skipBuiltInListBreak(
     return false;
   }
   const last = blocks[blocks.length - 1];
-  if (last?.kind !== 'paragraph' || !isRenderedListItem(last.text)) {
+  if (last?.kind !== 'paragraph' || last.listColumn === null) {
     return false;
   }
-  return isListContinuation(lines[index + 1] ?? '');
+  return isListContinuation(lines[index + 1] ?? '', last.listColumn);
 }
 
 function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
@@ -346,6 +350,7 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
     text: `${last.text} ${plainInline(rawLine.trim())}`,
     setext: false,
     quote: true,
+    listColumn: null,
   };
   return true;
 }
@@ -362,7 +367,13 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     if (fence || next) {
       fence = next;
       if (!boundary) {
-        blocks.push({ kind: 'paragraph', text: rawLine, setext: false, quote: false });
+        blocks.push({
+          kind: 'paragraph',
+          text: rawLine,
+          setext: false,
+          quote: false,
+          listColumn: null,
+        });
       }
       continue;
     }
