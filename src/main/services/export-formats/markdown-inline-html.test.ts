@@ -68,13 +68,13 @@ describe('renderMarkdownInline', () => {
 
   it('keeps a link title out of the address', () => {
     expect(renderMarkdownInline('[docs](https://example.com "Docs")')).toBe(
-      '<a href="https://example.com">docs</a>'
+      '<a href="https://example.com" title="Docs">docs</a>'
     );
     expect(renderMarkdownInline('[docs](<https://example.com>)')).toBe(
       '<a href="https://example.com">docs</a>'
     );
     expect(renderMarkdownInline('![A photo](photo.jpg "A photo")')).toBe(
-      '<img src="photo.jpg" alt="A photo" />'
+      '<img src="photo.jpg" alt="A photo" title="A photo" />'
     );
   });
 

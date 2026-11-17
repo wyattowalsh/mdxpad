@@ -8,6 +8,15 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
+describe('parseInlineFormatting', () => {
+  it('keeps an image title with the picture', () => {
+    const segments = parseInlineFormatting('![A photo](photo.jpg "Sunset")');
+    expect(segments).toContainEqual(
+      expect.objectContaining({ image: 'photo.jpg', title: 'Sunset' })
+    );
+  });
+});
+
 describe('DocxExporter', () => {
   let exporter: DocxExporter;
 

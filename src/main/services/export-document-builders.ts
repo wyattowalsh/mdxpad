@@ -12,6 +12,7 @@ import {
 } from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
+import { protectEscapes, restoreEscapes } from './export-formats/markdown-escape';
 import { linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
@@ -154,8 +155,9 @@ function wrapPdfLine(line: string, maxChars: number): string[] {
 }
 
 function plainInline(text: string): string {
-  return decodeHtmlEntities(
-    text
+  const escaped = protectEscapes(text);
+  const formatted = decodeHtmlEntities(
+    escaped.text
       .replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, alt: string, src: string) => {
         const label = alt.trim().length > 0 ? alt : 'image';
         return `${label} (${linkDestination(src)})`;
@@ -172,6 +174,7 @@ function plainInline(text: string): string {
       .replace(/(?<![\w])_(.+?)_(?![\w])/g, '$1')
       .replace(/\*(.+?)\*/g, '$1')
   );
+  return restoreEscapes(formatted, escaped.chars, (char) => char);
 }
 
 function stripQuoteMarkers(line: string): string {
@@ -354,10 +357,7 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
     blocks[blocks.length - 1] = { ...last, quote: false };
     return true;
   }
-  if (
-    continued !== null &&
-    (quoteBody(continued) !== null || parseListItem(continued) !== null)
-  ) {
+  if (continued !== null && (quoteBody(continued) !== null || parseListItem(continued) !== null)) {
     return false;
   }
   const text = continued ?? (isLazyQuoteLine(rawLine) ? rawLine.trim() : '');

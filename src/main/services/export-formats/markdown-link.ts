@@ -13,3 +13,16 @@ export function linkDestination(raw: string): string {
   const decoded = raw.trim().replaceAll('&quot;', '"').replaceAll('&#39;', "'");
   return unwrapDestination(decoded) ?? stripTitle(decoded) ?? decoded;
 }
+
+const TITLE = /^(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))$/;
+
+/** Read a Markdown title that follows a link or image address. */
+export function linkTitle(raw: string): string | null {
+  const decoded = raw.trim().replaceAll('&quot;', '"').replaceAll('&#39;', "'");
+  const angled = /^(?:<|&lt;).+?(?:>|&gt;)\s+([\s\S]+)$/.exec(decoded);
+  const plain = angled ? null : /^\S+\s+([\s\S]+)$/.exec(decoded);
+  const candidate = angled?.[1] ?? plain?.[1] ?? '';
+  const match = TITLE.exec(candidate);
+  const title = match?.[1] ?? match?.[2] ?? match?.[3];
+  return title && title.length > 0 ? title : null;
+}

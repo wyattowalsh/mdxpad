@@ -35,7 +35,7 @@ import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { linkDestination } from './markdown-link';
+import { linkDestination, linkTitle } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -64,6 +64,21 @@ const HEADING_LEVEL_MAP: Record<number, HeadingLevelValue> = {
 
 function getHeadingLevel(level: number): HeadingLevelValue {
   return HEADING_LEVEL_MAP[level] ?? HeadingLevel.HEADING_6;
+}
+
+function pushImage(segments: InlineSegment[], alt: string, src: string): void {
+  const start = segments.length;
+  attachTarget(segments, alt, linkDestination(src), 'image');
+  const title = linkTitle(src);
+  if (!title) {
+    return;
+  }
+  for (let index = start; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment?.image) {
+      segment.title = title;
+    }
+  }
 }
 
 function attachTarget(
@@ -103,6 +118,7 @@ interface InlineSegment {
   code?: boolean;
   link?: string;
   image?: string;
+  title?: string;
   strike?: boolean;
 }
 
@@ -127,7 +143,7 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
     if (image) {
       const alt = match[9] ?? '';
       const src = match[10] ?? '';
-      attachTarget(segments, alt, linkDestination(src), 'image');
+      pushImage(segments, alt, src);
     } else if (match[2] !== undefined) {
       emphasize(segments, match[2], { bold: true, italic: true });
     } else if (match[3] !== undefined) {
@@ -209,7 +225,7 @@ function imageKindFromMime(raw: string): ImageKind | null {
   return null;
 }
 
-function docxImage(src: string, alt: string): ImageRun | null {
+function docxImage(src: string, alt: string, title = ''): ImageRun | null {
   const match = /^data:image\/(png|jpe?g|gif|bmp);base64,([A-Za-z0-9+/=]+)$/i.exec(src);
   const encoded = match?.[2];
   const kind = imageKindFromMime(match?.[1]?.toLowerCase() ?? '');
@@ -221,7 +237,10 @@ function docxImage(src: string, alt: string): ImageRun | null {
     type: kind,
     data,
     transformation: imagePixels(data, kind),
-    altText: { name: alt.length > 0 ? alt : 'image', description: alt },
+    altText: {
+      name: alt.length > 0 ? alt : 'image',
+      description: title.length > 0 ? title : alt,
+    },
   });
 }
 
@@ -230,7 +249,11 @@ function createTextRuns(
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
   return segments.map((segment) => {
     if (segment.image) {
-      const picture = docxImage(decodeHtmlEntities(segment.image), segment.text);
+      const picture = docxImage(
+        decodeHtmlEntities(segment.image),
+        segment.text,
+        segment.title ?? ''
+      );
       if (picture) {
         return picture;
       }

@@ -16,6 +16,7 @@ import { registerServiceCommands } from './service-commands';
 import { registerPanelCommands } from './panel-commands';
 import { registerEditAiCommands } from './edit-ai-commands';
 import { registerCommentCommands } from './comment-commands';
+import { registerAccessibilityCommands } from './accessibility-commands';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { bindingsFromCommands, useKeybindingStore } from '../stores/keybinding-store';
 
@@ -35,6 +36,7 @@ export function registerAllCommands(): () => void {
   const unregisterPanels = registerPanelCommands();
   const unregisterEditAi = registerEditAiCommands();
   const unregisterComments = registerCommentCommands();
+  const unregisterAccessibility = registerAccessibilityCommands();
   useKeybindingStore
     .getState()
     .initDefaults(bindingsFromCommands(useCommandRegistry.getState().getAllCommands()));
@@ -49,6 +51,7 @@ export function registerAllCommands(): () => void {
     unregisterPanels();
     unregisterEditAi();
     unregisterComments();
+    unregisterAccessibility();
   };
 }
 

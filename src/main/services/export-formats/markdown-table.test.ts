@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { renderMarkdownInline } from './markdown-inline-html';
 import {
   closeOpenTableRows,
   markdownTableToHtml,
@@ -37,6 +38,15 @@ describe('parseMarkdownTable', () => {
       aligns: ['left', 'center'],
       rows: [['1', '2']],
     });
+  });
+
+  it('keeps escaped emphasis literal in a cell', () => {
+    const table = parseMarkdownTable(['| A \\*B\\* |', '| --- |', '| 1 |']);
+    expect(table?.headers).toEqual(['A \\*B\\*']);
+    if (!table) return;
+    const html = markdownTableToHtml(table, renderMarkdownInline);
+    expect(html).toContain('A *B*');
+    expect(html).not.toContain('<em>');
   });
 
   it('rejects a pipe line that is not a table', () => {

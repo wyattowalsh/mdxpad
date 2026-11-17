@@ -8,6 +8,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useVoiceInput } from '@renderer/hooks/useVoiceInput';
 import { insertVoiceAtSelection } from '@renderer/lib/insert-document-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { VOICE_TOGGLE_EVENT } from '@renderer/lib/voice-toggle';
 import { VoiceInputButton } from './VoiceInputButton';
 
 export function EditorVoiceControl({
@@ -19,6 +20,20 @@ export function EditorVoiceControl({
 }): React.JSX.Element {
   const { transcript, isListening, isSupported, error, start, stop } = useVoiceInput();
   const insertedRef = useRef(0);
+
+  useEffect(() => {
+    const toggle = (): void => {
+      if (isListening) {
+        stop();
+        return;
+      }
+      start();
+    };
+    window.addEventListener(VOICE_TOGGLE_EVENT, toggle);
+    return () => {
+      window.removeEventListener(VOICE_TOGGLE_EVENT, toggle);
+    };
+  }, [isListening, start, stop]);
 
   useEffect(() => {
     if (transcript.length < insertedRef.current) {

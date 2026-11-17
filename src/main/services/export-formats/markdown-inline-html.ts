@@ -3,7 +3,7 @@ import katex from 'katex';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
-import { linkDestination } from './markdown-link';
+import { linkDestination, linkTitle } from './markdown-link';
 
 function escapeHtml(value: string): string {
   return value
@@ -154,9 +154,14 @@ function escapeText(value: string): string {
   return escapeHtml(decodeHtmlEntities(value));
 }
 
+function titleAttribute(raw: string): string {
+  const title = linkTitle(raw);
+  return title ? ` title="${escapeText(title)}"` : '';
+}
+
 function renderRichImage(alt: string, src: string): string {
   const path = escapeHtml(decodeHtmlEntities(linkDestination(src)));
-  return `<img src="${path}" alt="${escapeText(alt)}" />`;
+  return `<img src="${path}" alt="${escapeText(alt)}"${titleAttribute(src)} />`;
 }
 
 function renderRichMatch(match: RegExpMatchArray): string {
@@ -174,7 +179,7 @@ function renderRichMatch(match: RegExpMatchArray): string {
   }
   if (match[9] !== undefined && match[10] !== undefined) {
     const href = escapeHtml(decodeHtmlEntities(linkDestination(match[10])));
-    return `<a href="${href}">${renderRich(match[9])}</a>`;
+    return `<a href="${href}"${titleAttribute(match[10])}>${renderRich(match[9])}</a>`;
   }
   if (match[11] !== undefined) {
     return `<del>${renderRich(match[11])}</del>`;

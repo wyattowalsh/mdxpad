@@ -103,6 +103,11 @@ describe('built-in export documents', () => {
     expect(pdf.content).toContain('Below');
   });
 
+  it('keeps an escaped asterisk in a table cell', () => {
+    const pdf = buildPdfDocument('| A \\*B\\* |\n| --- |\n| 1 |');
+    expect(pdf.content).toContain('A *B*');
+  });
+
   it('reads a block quote without the marker', () => {
     const pdf = buildPdfDocument('> Keep **this**');
     expect(pdf.content).toContain('Keep this');

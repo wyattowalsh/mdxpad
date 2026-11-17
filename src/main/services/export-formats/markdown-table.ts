@@ -56,7 +56,7 @@ function splitCells(line: string): string[] {
     const char = inner[index] ?? '';
     const next = inner[index + 1] ?? '';
     if (char === '\\' && ESCAPABLE.test(next)) {
-      current += next;
+      current += next === '|' ? next : `${char}${next}`;
       index += 1;
       continue;
     }
