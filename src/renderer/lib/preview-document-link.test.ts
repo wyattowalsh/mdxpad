@@ -8,10 +8,14 @@ describe('resolvePreviewDocumentLink', () => {
     expect(resolvePreviewDocumentLink('/docs/note.md', './drafts/a.mdx')).toBe(
       '/docs/drafts/a.mdx'
     );
+    expect(resolvePreviewDocumentLink('/docs/note.md', 'my%20file.md')).toBe('/docs/my file.md');
   });
 
   it('ignores links that leave the folder or are not documents', () => {
     expect(resolvePreviewDocumentLink('/docs/note.md', '../secret.md')).toBeNull();
+    expect(
+      resolvePreviewDocumentLink('/docs/note.md', 'drafts/%2e%2e/%2e%2e/secret.md')
+    ).toBeNull();
     expect(resolvePreviewDocumentLink('/docs/note.md', '/etc/passwd.md')).toBeNull();
     expect(resolvePreviewDocumentLink('/docs/note.md', 'https://example.com/a.md')).toBeNull();
     expect(resolvePreviewDocumentLink('/docs/note.md', '#section')).toBeNull();

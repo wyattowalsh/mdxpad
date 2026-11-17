@@ -4,15 +4,24 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 
 const DOCUMENT_EXTENSION = /\.(md|mdx|markdown|txt)$/i;
 
-function isRelativeDocumentHref(href: string): boolean {
+function documentPathFromHref(href: string): string | null {
   if (href.length === 0 || href.startsWith('#') || href.includes('\0')) {
-    return false;
+    return null;
   }
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
-    return false;
+    return null;
   }
   const pathPart = href.split('#')[0]?.split('?')[0] ?? '';
-  return DOCUMENT_EXTENSION.test(pathPart);
+  let decoded = pathPart;
+  try {
+    decoded = decodeURIComponent(pathPart);
+  } catch {
+    return null;
+  }
+  if (decoded.includes('\0') || !DOCUMENT_EXTENSION.test(decoded)) {
+    return null;
+  }
+  return decoded;
 }
 
 /**
@@ -26,11 +35,10 @@ export function resolvePreviewDocumentLink(
   if (currentFilePath?.includes('/') !== true) {
     return null;
   }
-  const trimmed = href.trim();
-  if (!isRelativeDocumentHref(trimmed)) {
+  const pathPart = documentPathFromHref(href.trim());
+  if (pathPart === null) {
     return null;
   }
-  const pathPart = trimmed.split('#')[0]?.split('?')[0] ?? '';
   const directory = currentFilePath.slice(0, currentFilePath.lastIndexOf('/'));
   return resolveInsideDirectory(directory, pathPart);
 }
