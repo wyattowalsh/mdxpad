@@ -19,18 +19,30 @@ function escapeLatex(text: string): string {
     .replaceAll(LATEX_BACKSLASH, '\\textbackslash{}');
 }
 
-function convertInlineFormatting(line: string): string {
-  let result = line;
-  result = result.replace(/\*\*(.+?)\*\*/g, (_m, content: string) => `\\textbf{${content}}`);
-  result = result.replace(/__(.+?)__/g, (_m, content: string) => `\\textbf{${content}}`);
-  result = result.replace(/\*(.+?)\*/g, (_m, content: string) => `\\textit{${content}}`);
-  result = result.replace(/_(.+?)_/g, (_m, content: string) => `\\textit{${content}}`);
-  result = result.replace(/`([^`]+)`/g, (_m, content: string) => `\\texttt{${content}}`);
-  result = result.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    (_m, text: string, url: string) => `\\href{${url}}{${text}}`
-  );
-  return result;
+function wrapLatex(command: string, content: string): string {
+  return `\\${command}{${escapeLatex(content)}}`;
+}
+
+function convertInlineFormatting(raw: string): string {
+  const pattern =
+    /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\))/g;
+  let result = '';
+  let cursor = 0;
+  for (const match of raw.matchAll(pattern)) {
+    const index = match.index;
+    result += escapeLatex(raw.slice(cursor, index));
+    if (match[2] !== undefined || match[3] !== undefined) {
+      result += wrapLatex('textbf', match[2] ?? match[3] ?? '');
+    } else if (match[4] !== undefined) {
+      result += wrapLatex('texttt', match[4]);
+    } else if (match[5] !== undefined || match[6] !== undefined) {
+      result += wrapLatex('textit', match[5] ?? match[6] ?? '');
+    } else if (match[7] !== undefined && match[8] !== undefined) {
+      result += `\\href{${escapeLatex(match[8])}}{${escapeLatex(match[7])}}`;
+    }
+    cursor = index + match[0].length;
+  }
+  return result + escapeLatex(raw.slice(cursor));
 }
 
 const HEADING_COMMANDS: Record<number, string> = {
@@ -97,7 +109,7 @@ function processListItem(trimmed: string, output: string[], listState: ListState
       output.push('\\begin{itemize}');
       listState.inUnorderedList = true;
     }
-    output.push(`  \\item ${convertInlineFormatting(escapeLatex(ulMatch[1] ?? ''))}`);
+    output.push(`  \\item ${convertInlineFormatting(ulMatch[1] ?? '')}`);
     return true;
   }
 
@@ -111,7 +123,7 @@ function processListItem(trimmed: string, output: string[], listState: ListState
       output.push('\\begin{enumerate}');
       listState.inOrderedList = true;
     }
-    output.push(`  \\item ${convertInlineFormatting(escapeLatex(olMatch[1] ?? ''))}`);
+    output.push(`  \\item ${convertInlineFormatting(olMatch[1] ?? '')}`);
     return true;
   }
 
@@ -129,7 +141,7 @@ function processMarkdownLine(trimmed: string, output: string[], listState: ListS
   if (headingMatch) {
     resetListState(output, listState);
     const cmd = getHeadingCommand(headingMatch[1]?.length ?? 1);
-    output.push(`\\${cmd}{${convertInlineFormatting(escapeLatex(headingMatch[2] ?? ''))}}`);
+    output.push(`\\${cmd}{${convertInlineFormatting(headingMatch[2] ?? '')}}`);
     return;
   }
 
@@ -143,7 +155,7 @@ function processMarkdownLine(trimmed: string, output: string[], listState: ListS
     return;
   }
 
-  output.push(convertInlineFormatting(escapeLatex(trimmed)));
+  output.push(convertInlineFormatting(trimmed));
 }
 
 function contentToLatex(content: string): string {

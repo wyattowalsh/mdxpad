@@ -124,6 +124,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\href{http://example.com}{link}');
   });
 
+  it('emphasizes _words_ and keeps snake_case literal', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'use snake_case_name and _italic_',
+      outputPath: '/tmp/underscore.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('snake\\_case\\_name');
+    expect(written).toContain('\\textit{italic}');
+    expect(written).not.toContain('\\textit{case}');
+  });
+
   it('escapes LaTeX special characters', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {
