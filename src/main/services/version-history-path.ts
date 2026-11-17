@@ -27,22 +27,18 @@ export async function assertOpenedDocumentWrite(
   }
 
   const resolved = path.resolve(filePath);
-  if (!canWrite(resolved)) {
+  let canonical = resolved;
+  try {
+    canonical = await realpath(resolved);
+  } catch {
+    canonical = resolved;
+  }
+
+  if (!canWrite(canonical)) {
     throw new Error(OPENED_DOCUMENT_ERROR);
   }
 
-  try {
-    const real = await realpath(resolved);
-    if (real !== resolved) {
-      throw new Error(OPENED_DOCUMENT_ERROR);
-    }
-    return real;
-  } catch (error) {
-    if (error instanceof Error && error.message === OPENED_DOCUMENT_ERROR) {
-      throw error;
-    }
-    return resolved;
-  }
+  return canonical;
 }
 
 export function snapshotFile(historyDir: string, id: string): string {

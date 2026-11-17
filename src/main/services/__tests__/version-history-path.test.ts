@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { assertOpenedDocumentWrite, assertSnapshotId, snapshotFile } from '../version-history-path';
 
@@ -19,5 +22,22 @@ describe('version history path guards', () => {
     await expect(assertOpenedDocumentWrite('/tmp/other.md', () => false)).rejects.toThrow(
       'Version history can only write the opened document'
     );
+  });
+
+  it('accepts a symlink to a file the user opened', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-history-link-'));
+    try {
+      const realFile = path.join(dir, 'note.md');
+      const link = path.join(dir, 'alias.md');
+      await writeFile(realFile, '# note');
+      await symlink(realFile, link);
+      const real = await realpath(link);
+
+      const opened = await assertOpenedDocumentWrite(link, (candidate) => candidate === real);
+
+      expect(opened).toBe(real);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
