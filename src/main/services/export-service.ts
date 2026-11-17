@@ -192,13 +192,14 @@ export function getDefaultExportPath(
   format: ExportFormat
 ): string {
   const entry = getSupportEntry(format);
+  const extension = format === 'pandoc' ? 'pandoc.html' : entry.extension;
   if (!sourcePath) {
-    return `untitled.${entry.extension}`;
+    return `untitled.${extension}`;
   }
 
   const directory = path.dirname(sourcePath);
   const filename = path.basename(sourcePath, path.extname(sourcePath)) || 'untitled';
-  return path.join(directory, `${filename}.${entry.extension}`);
+  return path.join(directory, `${filename}.${extension}`);
 }
 
 export function serializeForExport(

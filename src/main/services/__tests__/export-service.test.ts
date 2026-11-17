@@ -27,6 +27,12 @@ describe('getDefaultExportPath', () => {
   it('falls back to untitled basename when source path is missing', () => {
     expect(getDefaultExportPath(null, 'markdown')).toBe('untitled.md');
   });
+
+  it('does not use the HTML export path for Pandoc', () => {
+    expect(getDefaultExportPath('/tmp/docs/spec.mdx', 'pandoc')).toBe('/tmp/docs/spec.pandoc.html');
+    expect(getDefaultExportPath(null, 'pandoc')).toBe('untitled.pandoc.html');
+    expect(getDefaultExportPath('/tmp/docs/spec.mdx', 'html')).toBe('/tmp/docs/spec.html');
+  });
 });
 
 describe('serializeForExport', () => {

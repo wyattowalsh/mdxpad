@@ -378,7 +378,8 @@ const saveFileAsCommand: Command = {
 const exportFileCommand: Command = {
   id: FILE_COMMAND_IDS.export,
   name: 'Export...',
-  description: 'Export current document to HTML, Markdown, or MDX',
+  description:
+    'Export the current document to PDF, Word, EPUB, LaTeX, Pandoc, HTML, Markdown, or MDX',
   category: 'file',
   shortcut: { key: 'e', modifiers: ['Mod', 'Shift'] },
   icon: '📤',
