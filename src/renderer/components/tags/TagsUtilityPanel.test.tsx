@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -23,6 +23,11 @@ describe('TagsUtilityPanel', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(useTagStore.getState().fileTagMap['/tmp/note.mdx']).toEqual([tagId]);
+
+    act(() => {
+      useTagStore.getState().toggleSelectedTag(tagId);
+    });
+    expect(screen.getByRole('button', { name: 'note.mdx' })).toBeTruthy();
   });
 
   it('asks for an open file before assignment', () => {
