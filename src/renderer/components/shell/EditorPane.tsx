@@ -27,6 +27,7 @@ import {
   selectWordWrapEnabled,
 } from '@renderer/stores/editor-preferences-store';
 import type { EditorState, SelectionInfo } from '@shared/types/editor';
+import { cn } from '@shared/lib/utils';
 
 // =============================================================================
 // TYPES
@@ -198,16 +199,12 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className={cn('flex h-full min-h-0 flex-col', className)} style={{ height }}>
       <div className="flex justify-end border-b px-2 py-1">
         <EditorModeToggle />
       </div>
       {editorMode === 'wysiwyg' ? (
-        <WysiwygEditor
-          content={content}
-          onChange={setContent}
-          {...(className !== undefined ? { className } : {})}
-        />
+        <WysiwygEditor content={content} onChange={setContent} className="min-h-0 flex-1" />
       ) : (
         <MDXEditor {...editorProps} />
       )}
