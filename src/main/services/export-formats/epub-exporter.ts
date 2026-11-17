@@ -29,6 +29,7 @@ import {
   openListItem,
   takeListItemFence,
   takeListItemQuote,
+  takeListItemTable,
 } from './markdown-list-fence';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -106,6 +107,7 @@ interface EpubLineState {
   itemHtml: string;
   itemFence: { marker: string; language: string; indent: number; lines: string[] } | null;
   itemQuote: string[] | null;
+  itemTable: string[] | null;
   parts: string[];
   slugCounts: Map<string, number>;
 }
@@ -163,7 +165,11 @@ function flushEpubTable(htmlLines: string[], state: EpubLineState): void {
   htmlLines.push(markdownTableToHtml(table, renderMarkdownInline));
 }
 
-function consumeEpubTable(htmlLines: string[], trimmed: string, state: EpubLineState): boolean {
+function consumeEpubTable(htmlLines: string[], line: string, state: EpubLineState): boolean {
+  if (takeListItemTable(state, line, renderMarkdownInline, state.lists.length > 0)) {
+    return true;
+  }
+  const trimmed = line.trim();
   if (isTableRow(trimmed)) {
     flushEpubParagraph(htmlLines, state);
     closeEpubList(htmlLines, state);
@@ -230,6 +236,7 @@ function closeEpubList(htmlLines: string[], state: EpubLineState): void {
   state.listLines = [];
   state.itemFence = null;
   state.itemQuote = null;
+  state.itemTable = null;
 }
 
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
@@ -254,11 +261,10 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
     state.fence = { marker, language: fenceLanguage(line), lines: [] };
     return;
   }
-  const trimmed = line.trim();
   if (consumeEpubDisplayMath(htmlLines, line, state)) {
     return;
   }
-  if (consumeEpubTable(htmlLines, trimmed, state)) {
+  if (consumeEpubTable(htmlLines, line, state)) {
     return;
   }
   if (consumeEpubQuote(htmlLines, line, state)) {
@@ -380,6 +386,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     itemHtml: '',
     itemFence: null,
     itemQuote: null,
+    itemTable: null,
     parts: htmlLines,
     displayMath: null,
     tableLines: [],

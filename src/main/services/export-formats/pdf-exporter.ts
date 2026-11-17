@@ -29,6 +29,7 @@ import {
   openListItem,
   takeListItemFence,
   takeListItemQuote,
+  takeListItemTable,
 } from './markdown-list-fence';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -54,6 +55,7 @@ interface PdfBuild {
   itemHtml: string;
   itemFence: { marker: string; language: string; indent: number; lines: string[] } | null;
   itemQuote: string[] | null;
+  itemTable: string[] | null;
   slugCounts: Map<string, number>;
 }
 
@@ -73,6 +75,7 @@ function closePdfList(build: PdfBuild): void {
   build.listLines = [];
   build.itemFence = null;
   build.itemQuote = null;
+  build.itemTable = null;
 }
 
 function finishDisplayMath(build: PdfBuild): void {
@@ -123,7 +126,11 @@ function flushPdfTable(build: PdfBuild): void {
   build.parts.push(markdownTableToHtml(table, renderMarkdownInline));
 }
 
-function consumePdfTable(build: PdfBuild, trimmed: string): boolean {
+function consumePdfTable(build: PdfBuild, line: string): boolean {
+  if (takeListItemTable(build, line, renderMarkdownInline, build.lists.length > 0)) {
+    return true;
+  }
+  const trimmed = line.trim();
   if (isTableRow(trimmed)) {
     flushPdfParagraph(build);
     closePdfList(build);
@@ -213,11 +220,10 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     build.fence = { marker, language: fenceLanguage(line), lines: [] };
     return;
   }
-  const trimmed = line.trim();
   if (consumePdfDisplayMath(build, line)) {
     return;
   }
-  if (consumePdfTable(build, trimmed)) {
+  if (consumePdfTable(build, line)) {
     return;
   }
   if (consumePdfQuote(build, line)) {
@@ -330,6 +336,7 @@ export function markdownToPdfHtml(content: string): string {
     itemHtml: '',
     itemFence: null,
     itemQuote: null,
+    itemTable: null,
     displayMath: null,
     tableLines: [],
     quoteLines: [],

@@ -192,6 +192,20 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps a table inside a list item', async () => {
+    await exporter.export({
+      content: '- item\n\n  | A | B |\n  | --- | ---: |\n  | 1 | 2 |\n\n  after\n',
+      outputPath: '/tmp/list-table.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>item<table>');
+    expect(html).toContain('<th>A</th>');
+    expect(html).toContain('<td style="text-align: right">2</td>');
+    expect(html).toContain('</table>after</li>');
+    expect(html.indexOf('</table>after</li>')).toBeLessThan(html.indexOf('</ul>'));
+  });
+
   it('keeps a block quote inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n  > quoted\n  > line\n\n  after\n',

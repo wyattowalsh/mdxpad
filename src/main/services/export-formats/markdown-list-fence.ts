@@ -1,6 +1,7 @@
 import { renderFencedCode } from './markdown-code';
 import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
 import { isListContinuation, renderListItemHtml, replaceHtmlListItem } from './markdown-list';
+import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 
@@ -23,6 +24,7 @@ export interface HtmlListItemState {
   itemHtml: string;
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
+  itemTable: string[] | null;
   listColumn: number | null;
   listBreak: boolean;
 }
@@ -129,6 +131,7 @@ export function resetListItem(state: HtmlListItemState): void {
   state.listLines = [];
   state.itemFence = null;
   state.itemQuote = null;
+  state.itemTable = null;
 }
 
 /** Start a list item, holding a marker-line fence instead of rendering its backticks. */
@@ -165,6 +168,7 @@ export function continueListItem(
   if (
     state.itemFence ||
     state.itemQuote ||
+    state.itemTable ||
     state.listColumn === null ||
     !isListContinuation(raw, state.listColumn)
   ) {
@@ -221,6 +225,51 @@ export function takeListItemFence(
   return true;
 }
 
+function closeItemTable(state: HtmlListItemState, render: (text: string) => string): void {
+  if (!state.itemTable) {
+    return;
+  }
+  const lines = state.itemTable;
+  state.itemTable = null;
+  const table = parseMarkdownTable(lines);
+  state.itemHtml += table
+    ? markdownTableToHtml(table, render)
+    : lines.map((line) => render(line)).join('');
+  state.listLines = [];
+  writeListItem(state, render);
+}
+
+/** Keep a table that belongs to the open item inside that item. */
+export function takeListItemTable(
+  state: HtmlListItemState,
+  line: string,
+  render: (text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (state.itemFence || state.itemQuote) {
+    return false;
+  }
+  const column = state.listColumn ?? 2;
+  if (state.itemTable) {
+    if (isListContinuation(line, column) && isTableRow(line.trim())) {
+      state.itemTable.push(line.trim());
+      return true;
+    }
+    closeItemTable(state, render);
+    return false;
+  }
+  if (!listOpen || state.listColumn === null) {
+    return false;
+  }
+  if (!isListContinuation(line, column) || !isTableRow(line.trim())) {
+    return false;
+  }
+  sealProse(state, render);
+  state.itemTable = [line.trim()];
+  state.listBreak = false;
+  return true;
+}
+
 function closeItemQuote(state: HtmlListItemState, render: (text: string) => string): void {
   if (!state.itemQuote) {
     return;
@@ -267,6 +316,7 @@ export function finishListItemFence(
   state: HtmlListItemState,
   render: (text: string) => string
 ): void {
+  closeItemTable(state, render);
   closeItemQuote(state, render);
   if (!state.itemFence) {
     return;

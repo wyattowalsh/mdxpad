@@ -217,6 +217,27 @@ describe('DocxExporter', () => {
     expect(xml).toContain('the start');
   });
 
+  it('keeps a table inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  | A | B |\n  | --- | --- |\n  | 1 | 2 |\n\n  after\n',
+      outputPath: '/tmp/list-table.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml.indexOf('>item<')).toBeLessThan(xml.indexOf('>A<'));
+    expect(xml.indexOf('>A<')).toBeLessThan(xml.indexOf('>1<'));
+    expect(xml.indexOf('>1<')).toBeLessThan(xml.indexOf('>after<'));
+  });
+
   it('keeps a block quote inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

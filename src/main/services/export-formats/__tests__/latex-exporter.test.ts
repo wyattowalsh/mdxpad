@@ -98,6 +98,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item \\sout{hello}\\\\\n\\sout{world}');
   });
 
+  it('keeps a table inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  | A | B |\n  | --- | ---: |\n  | 1 | 2 |\n\n  after\n',
+      outputPath: '/tmp/list-table.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written.indexOf('\\item item')).toBeLessThan(written.indexOf('\\begin{tabular}'));
+    expect(written).toContain('A & B');
+    expect(written).toContain('1 & 2');
+    expect(written.indexOf('\\end{tabular}')).toBeLessThan(written.indexOf('after'));
+    expect(written.indexOf('after')).toBeLessThan(written.indexOf('\\end{itemize}'));
+  });
+
   it('keeps a block quote inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

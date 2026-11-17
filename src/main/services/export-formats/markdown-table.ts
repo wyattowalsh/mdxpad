@@ -228,9 +228,11 @@ function isTableBodyRow(line: string): boolean {
 }
 
 function ensureOuterPipes(line: string): string {
+  const indent = /^[ \t]*/.exec(line)?.[0] ?? '';
   const trimmed = line.trim();
   const withStart = trimmed.startsWith('|') ? trimmed : `| ${trimmed}`;
-  return withStart.endsWith('|') ? withStart : `${withStart} |`;
+  const piped = withStart.endsWith('|') ? withStart : `${withStart} |`;
+  return `${indent}${piped}`;
 }
 
 /** Add the outer pipes GFM allows writers to omit, without touching fenced code. */

@@ -118,6 +118,21 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('keeps a table inside a list item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- item\n\n  | A | B |\n  | --- | ---: |\n  | 1 | 2 |\n',
+      outputPath: '/tmp/list-table.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<li>item<table>');
+    expect(html).toContain('<td style="text-align: right">2</td>');
+    expect(html.indexOf('</table>')).toBeLessThan(html.indexOf('</ul>'));
+  });
+
   it('keeps a block quote inside a list item', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

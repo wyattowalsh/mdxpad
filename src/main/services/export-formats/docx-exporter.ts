@@ -567,6 +567,32 @@ function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
   return true;
 }
 
+function takeDocxItemTable(parse: DocxParse, line: string): boolean {
+  if (parse.itemFence || parse.itemQuote) {
+    return false;
+  }
+  const column = parse.listColumn ?? 2;
+  if (parse.itemTable) {
+    if (isListContinuation(line, column) && isTableRow(line.trim())) {
+      parse.itemTable.push(line.trim());
+      return true;
+    }
+    flushDocxTable(parse.blocks, parse.itemTable);
+    parse.itemTable = null;
+    parse.listSealed = true;
+    return false;
+  }
+  if (parse.openListItem === null || parse.listColumn === null) {
+    return false;
+  }
+  if (!isListContinuation(line, column) || !isTableRow(line.trim())) {
+    return false;
+  }
+  parse.itemTable = [line.trim()];
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: string[]): boolean {
   const body = quoteBody(line);
   if (body !== null) {
@@ -633,6 +659,7 @@ interface DocxParse {
   listSealed: boolean;
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
+  itemTable: string[] | null;
   slugCounts: Map<string, number>;
 }
 
@@ -708,6 +735,7 @@ function takeDocxList(
       ? { marker: fence.marker, language: fence.language, indent: fence.indent, lines: [] }
       : null;
     parse.itemQuote = null;
+    parse.itemTable = null;
     parse.blocks.push(listParagraph(shown));
     return true;
   }
@@ -741,7 +769,7 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
 }
 
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
-  if (takeDocxItemQuote(parse, line)) {
+  if (takeDocxItemQuote(parse, line) || takeDocxItemTable(parse, line)) {
     return;
   }
   const openListItem = parse.openListItem;
@@ -891,6 +919,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     listSealed: false,
     itemFence: null,
     itemQuote: null,
+    itemTable: null,
     slugCounts: new Map<string, number>(),
   };
   let fence: string | null = null;
@@ -915,6 +944,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   }
   if (parse.itemQuote) {
     appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1);
+  }
+  if (parse.itemTable) {
+    flushDocxTable(parse.blocks, parse.itemTable);
   }
   return parse.blocks;
 }

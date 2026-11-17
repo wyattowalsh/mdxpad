@@ -242,6 +242,7 @@ interface ListState {
   column: number | null;
   itemFence: ListFenceState | null;
   itemQuote: string[] | null;
+  itemTable: string[] | null;
   sealed: boolean;
 }
 
@@ -551,6 +552,37 @@ function takeLatexQuote(output: string[], line: string, quoteLines: string[]): b
   return false;
 }
 
+function takeLatexItemTable(build: LatexBuild, line: string): boolean {
+  const list = build.listState;
+  if (list.itemFence || list.itemQuote || build.fence) {
+    return false;
+  }
+  const column = list.column ?? 2;
+  if (list.itemTable) {
+    if (isListContinuation(line, column) && isTableRow(line.trim())) {
+      list.itemTable.push(line.trim());
+      return true;
+    }
+    const rows = list.itemTable;
+    list.itemTable = null;
+    const table = parseMarkdownTable(rows);
+    build.output.push(
+      table ? markdownTableToLatex(table, convertInlineFormatting) : rows.join('\n')
+    );
+    list.sealed = true;
+    return false;
+  }
+  if (list.stack.length === 0 || list.column === null) {
+    return false;
+  }
+  if (!isListContinuation(line, column) || !isTableRow(line.trim())) {
+    return false;
+  }
+  list.itemTable = [line.trim()];
+  list.break = false;
+  return true;
+}
+
 function takeLatexTable(output: string[], line: string, tableLines: string[]): boolean {
   if (isTableRow(line)) {
     tableLines.push(line);
@@ -659,6 +691,9 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     build.output.push(line);
     return;
   }
+  if (takeLatexItemTable(build, line)) {
+    return;
+  }
   if (takeLatexTable(build.output, line.trim(), build.tableLines)) {
     flushLatexProse(build.output, build.prose);
     flushLatexQuote(build.output, build.quoteLines);
@@ -691,6 +726,7 @@ function contentToLatex(content: string): string {
       column: null,
       itemFence: null,
       itemQuote: null,
+      itemTable: null,
       sealed: false,
     },
     slugCounts: new Map<string, number>(),
@@ -714,6 +750,14 @@ function contentToLatex(content: string): string {
   }
   if (build.listState.itemQuote) {
     build.output.push(quoteToLatex(build.listState.itemQuote, convertInlineFormatting));
+  }
+  if (build.listState.itemTable) {
+    const table = parseMarkdownTable(build.listState.itemTable);
+    build.output.push(
+      table
+        ? markdownTableToLatex(table, convertInlineFormatting)
+        : build.listState.itemTable.join('\n')
+    );
   }
   closeLatexLists(build.output, build.listState.stack);
 
