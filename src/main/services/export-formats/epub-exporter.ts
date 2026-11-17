@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
+import { renderMarkdownInline } from './markdown-inline-html';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 interface EpubChapter {
@@ -82,7 +83,7 @@ function appendEpubLine(
   if (headingMatch) {
     state.list = closeEpubList(htmlLines, state.list);
     const level = headingMatch[1]?.length ?? 3;
-    htmlLines.push(`<h${level}>${escapeHtml(headingMatch[2] ?? '')}</h${level}>`);
+    htmlLines.push(`<h${level}>${renderMarkdownInline(headingMatch[2] ?? '')}</h${level}>`);
     return;
   }
   if (trimmed === '') {
@@ -98,11 +99,11 @@ function appendEpubLine(
       htmlLines.push(kind === 'ul' ? '<ul>' : '<ol>');
       state.list = kind;
     }
-    htmlLines.push(`<li>${escapeHtml(item[2] ?? '')}</li>`);
+    htmlLines.push(`<li>${renderMarkdownInline(item[2] ?? '')}</li>`);
     return;
   }
   state.list = closeEpubList(htmlLines, state.list);
-  htmlLines.push(`<p>${escapeHtml(trimmed)}</p>`);
+  htmlLines.push(`<p>${renderMarkdownInline(trimmed)}</p>`);
 }
 
 function chapterToHtml(chapter: EpubChapter): string {

@@ -118,6 +118,21 @@ describe('EpubExporter', () => {
     expect(html).toContain('<ol>\n<li>first</li>\n<li>second</li>\n</ol>');
   });
 
+  it('renders emphasis and links in chapter HTML', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: 'See **bold** and [docs](https://example.com).',
+      outputPath: '/tmp/inline.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<strong>bold</strong>');
+    expect(html).toContain('<a href="https://example.com">docs</a>');
+    expect(html).not.toContain('**bold**');
+  });
+
   it('handles empty content gracefully', async () => {
     const result = await exporter.export({
       content: '',

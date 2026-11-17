@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
+import { renderMarkdownInline } from './markdown-inline-html';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 function escapeHtml(value: string): string {
@@ -8,13 +9,6 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
-}
-
-function renderInline(value: string): string {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
 
 type HtmlListKind = 'ul' | 'ol';
@@ -30,7 +24,7 @@ function flushPdfParagraph(build: PdfBuild): void {
   if (build.paragraph.length === 0) {
     return;
   }
-  build.parts.push(`<p>${renderInline(build.paragraph.join(' '))}</p>`);
+  build.parts.push(`<p>${renderMarkdownInline(build.paragraph.join(' '))}</p>`);
   build.paragraph.length = 0;
 }
 
@@ -70,7 +64,7 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     flushPdfParagraph(build);
     closePdfList(build);
     const level = heading[1]?.length ?? 1;
-    build.parts.push(`<h${level}>${renderInline(heading[2] ?? '')}</h${level}>`);
+    build.parts.push(`<h${level}>${renderMarkdownInline(heading[2] ?? '')}</h${level}>`);
     return;
   }
   if (trimmed.length === 0) {
@@ -83,7 +77,7 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     flushPdfParagraph(build);
     const kind: HtmlListKind = item[1]?.endsWith('.') ? 'ol' : 'ul';
     continuePdfList(build, kind);
-    build.parts.push(`<li>${renderInline(item[2] ?? '')}</li>`);
+    build.parts.push(`<li>${renderMarkdownInline(item[2] ?? '')}</li>`);
     return;
   }
   closePdfList(build);
