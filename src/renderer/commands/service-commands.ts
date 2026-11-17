@@ -10,6 +10,34 @@ function workspaceDir(filePath: string | null): string | null {
   return filePath.slice(0, filePath.lastIndexOf('/'));
 }
 
+export function summarizeGitStatus(status: {
+  readonly current: string | null;
+  readonly staged: readonly string[];
+  readonly modified: readonly string[];
+  readonly notAdded: readonly string[];
+  readonly created: readonly string[];
+  readonly deleted: readonly string[];
+  readonly conflicted: readonly string[];
+}): string {
+  const files = [
+    ...status.conflicted,
+    ...status.staged,
+    ...status.modified,
+    ...status.created,
+    ...status.deleted,
+    ...status.notAdded,
+  ];
+  const unique = [...new Set(files)];
+  const branch = status.current ? ` on ${status.current}` : '';
+  if (unique.length === 0) {
+    return `Git status: clean${branch}`;
+  }
+  const shown = unique.slice(0, 5).join(', ');
+  const extra = unique.length > 5 ? `, and ${unique.length - 5} more` : '';
+  const label = unique.length === 1 ? 'file' : 'files';
+  return `Git status${branch}: ${unique.length} changed ${label} (${shown}${extra})`;
+}
+
 const gitStatusCommand: Command = {
   id: 'git.status' as CommandId,
   name: 'Git Status',
@@ -26,17 +54,7 @@ const gitStatusCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    const count =
-      result.value.staged.length +
-      result.value.modified.length +
-      result.value.notAdded.length +
-      result.value.created.length +
-      result.value.deleted.length +
-      result.value.conflicted.length;
-    ctx.notify({
-      type: 'info',
-      message: `Git status: ${count} changed file${count === 1 ? '' : 's'}`,
-    });
+    ctx.notify({ type: 'info', message: summarizeGitStatus(result.value) });
     return { ok: true };
   },
 };

@@ -2,7 +2,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CommandContext } from '@shared/types/commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
-import { SERVICE_COMMANDS } from '../service-commands';
+import { SERVICE_COMMANDS, summarizeGitStatus } from '../service-commands';
+
+describe('summarizeGitStatus', () => {
+  it('names the changed files and a clean branch', () => {
+    expect(
+      summarizeGitStatus({
+        current: 'main',
+        staged: ['a.md'],
+        modified: ['b.md'],
+        notAdded: [],
+        created: [],
+        deleted: [],
+        conflicted: [],
+      })
+    ).toBe('Git status on main: 2 changed files (a.md, b.md)');
+    expect(
+      summarizeGitStatus({
+        current: 'main',
+        staged: [],
+        modified: [],
+        notAdded: [],
+        created: [],
+        deleted: [],
+        conflicted: [],
+      })
+    ).toBe('Git status: clean on main');
+  });
+});
 
 describe('import.html', () => {
   beforeEach(() => {
