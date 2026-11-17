@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { readHtmlBlock } from './markdown-html';
 import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
@@ -131,6 +132,23 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
   return false;
 }
 
+function consumePdfHtml(build: PdfBuild, lines: readonly string[], index: number): number {
+  if (build.fence || build.displayMath) {
+    return index;
+  }
+  const block = readHtmlBlock(lines, index);
+  if (!block) {
+    return index;
+  }
+  finishDisplayMath(build);
+  flushPdfTable(build);
+  flushPdfQuote(build);
+  flushPdfParagraph(build);
+  closePdfList(build);
+  build.parts.push(block.html);
+  return block.nextIndex;
+}
+
 function appendPdfLine(build: PdfBuild, line: string): void {
   if (build.fence) {
     if (closesFence(line, build.fence)) {
@@ -221,8 +239,14 @@ export function markdownToPdfHtml(content: string): string {
     tableLines: [],
     quoteLines: [],
   };
-  for (const line of expandLinkReferences(content).split('\n')) {
-    appendPdfLine(build, line);
+  const lines = expandLinkReferences(content).split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    const htmlEnd = consumePdfHtml(build, lines, index);
+    if (htmlEnd > index) {
+      index = htmlEnd;
+      continue;
+    }
+    appendPdfLine(build, lines[index] ?? '');
   }
   finishDisplayMath(build);
   flushPdfTable(build);

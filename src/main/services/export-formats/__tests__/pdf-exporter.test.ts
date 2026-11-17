@@ -276,6 +276,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<td>1</td>');
   });
 
+  it('keeps a raw HTML block and escapes one inside code', async () => {
+    await exporter.export({
+      content: '<div>\nHello\n</div>\n\nAfter\n\n```\n<div>\n```\n',
+      outputPath: '/tmp/html-block.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<div>\nHello\n</div>');
+    expect(html).toContain('After');
+    expect(html).toContain('&lt;div&gt;');
+  });
+
   it('renders a formula and a display block', async () => {
     await exporter.export({
       content: 'See $x^2$.\n$$\nE = mc^2\n$$',

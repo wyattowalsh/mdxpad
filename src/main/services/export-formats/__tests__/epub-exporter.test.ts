@@ -233,6 +233,21 @@ describe('EpubExporter', () => {
     expect(html).toContain('<td>A</td>');
   });
 
+  it('keeps a raw HTML block in chapter HTML', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '<div>\nHello\n</div>\n\nAfter',
+      outputPath: '/tmp/html-block.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<div>\nHello\n</div>');
+    expect(html).toContain('After');
+    expect(html).not.toContain('&lt;div&gt;');
+  });
+
   it('renders a formula in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

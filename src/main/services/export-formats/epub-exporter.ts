@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { readHtmlBlock } from './markdown-html';
 import { closesFence, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
@@ -163,6 +164,27 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
   return false;
 }
 
+function consumeEpubHtml(
+  htmlLines: string[],
+  lines: readonly string[],
+  index: number,
+  state: EpubLineState
+): number {
+  if (state.fence || state.displayMath) {
+    return index;
+  }
+  const block = readHtmlBlock(lines, index);
+  if (!block) {
+    return index;
+  }
+  flushEpubParagraph(htmlLines, state);
+  flushEpubTable(htmlLines, state);
+  flushEpubQuote(htmlLines, state);
+  closeHtmlLists(htmlLines, state.lists);
+  htmlLines.push(block.html);
+  return block.nextIndex;
+}
+
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
   if (state.fence) {
     if (closesFence(line, state.fence)) {
@@ -253,8 +275,14 @@ function chapterToHtml(chapter: EpubChapter): string {
     quoteLines: [],
     paragraph: [],
   };
-  for (const line of chapter.content.split('\n')) {
-    appendEpubLine(htmlLines, line, state);
+  const lines = chapter.content.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    const htmlEnd = consumeEpubHtml(htmlLines, lines, index, state);
+    if (htmlEnd > index) {
+      index = htmlEnd;
+      continue;
+    }
+    appendEpubLine(htmlLines, lines[index] ?? '', state);
   }
   if (state.displayMath) {
     htmlLines.push(renderDisplayMathBlock(state.displayMath));
