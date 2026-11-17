@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   insertDiagramFence,
   insertTextAtSelection,
+  insertVoiceAtSelection,
   joinVoiceTranscript,
 } from './insert-document-text';
 
@@ -40,5 +41,28 @@ describe('joinVoiceTranscript', () => {
 
   it('does not add a second space when the transcript already starts with one', () => {
     expect(joinVoiceTranscript('Hello', ' there')).toBe('Hello there');
+  });
+});
+
+describe('insertVoiceAtSelection', () => {
+  it('continues speech at the cursor', () => {
+    expect(insertVoiceAtSelection('Hello world', 'there', { from: 5, to: 5 })).toEqual({
+      text: 'Hello there world',
+      cursor: 11,
+    });
+  });
+
+  it('replaces the selected text with speech', () => {
+    expect(insertVoiceAtSelection('Hello world', 'Hi', { from: 0, to: 5 })).toEqual({
+      text: 'Hi world',
+      cursor: 2,
+    });
+  });
+
+  it('appends when there is no cursor', () => {
+    expect(insertVoiceAtSelection('Hello', 'there', null)).toEqual({
+      text: 'Hello there',
+      cursor: 11,
+    });
   });
 });

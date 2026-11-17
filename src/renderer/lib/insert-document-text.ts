@@ -69,3 +69,27 @@ export function joinVoiceTranscript(current: string, addition: string): string {
   }
   return `${current} ${addition}`;
 }
+
+/** Insert spoken text at the cursor and return where the next word should continue. */
+export function insertVoiceAtSelection(
+  current: string,
+  addition: string,
+  selection: TextInsertionPoint | null
+): { readonly text: string; readonly cursor: number } {
+  if (addition.length === 0) {
+    const cursor = selection ? clamp(selection.from, 0, current.length) : current.length;
+    return { text: current, cursor };
+  }
+  if (!selection) {
+    const text = joinVoiceTranscript(current, addition);
+    return { text, cursor: text.length };
+  }
+  const from = clamp(selection.from, 0, current.length);
+  const to = clamp(selection.to, from, current.length);
+  const before = current.slice(0, from);
+  const after = current.slice(to);
+  const spoken = joinVoiceTranscript(before, addition);
+  const needsSpace = after.length > 0 && !/^\s/.test(after) && !/\s$/.test(spoken);
+  const text = `${spoken}${needsSpace ? ' ' : ''}${after}`;
+  return { text, cursor: spoken.length + (needsSpace ? 1 : 0) };
+}

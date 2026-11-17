@@ -221,7 +221,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)} style={{ height }}>
       <div className="flex items-center justify-end gap-2 border-b px-2 py-1">
-        <EditorVoiceControl />
+        <EditorVoiceControl editorRef={editorMode === 'wysiwyg' ? null : editorRef} />
         <EditorModeToggle />
       </div>
       {editorMode === 'wysiwyg' ? (
