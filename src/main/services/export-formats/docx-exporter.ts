@@ -21,6 +21,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
+import { linkDestination } from './markdown-link';
 import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -77,7 +78,8 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
     if (image) {
       const alt = match[7] ?? '';
       const src = match[8] ?? '';
-      segments.push({ text: alt.length > 0 ? alt : src, image: src });
+      const path = linkDestination(src);
+      segments.push({ text: alt.length > 0 ? alt : path, image: path });
     } else if (match[2] !== undefined) {
       segments.push({ text: match[2], bold: true });
     } else if (match[3] !== undefined) {
@@ -89,7 +91,7 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
     } else if (match[6] !== undefined) {
       segments.push({ text: match[6], italic: true });
     } else if (match[7] !== undefined && match[8] !== undefined) {
-      segments.push({ text: match[7], link: match[8] });
+      segments.push({ text: match[7], link: linkDestination(match[8]) });
     } else if (match[9] !== undefined) {
       segments.push({ text: match[9], strike: true });
     }

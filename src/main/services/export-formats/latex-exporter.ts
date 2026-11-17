@@ -5,6 +5,7 @@ import { isThematicBreak } from './markdown-break';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
+import { linkDestination } from './markdown-link';
 import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -115,7 +116,8 @@ function formatInline(raw: string): string {
     if (image) {
       const alt = match[7] ?? '';
       const src = match[8] ?? '';
-      result += latexImage(src, alt.length > 0 ? alt : src);
+      const path = linkDestination(src);
+      result += latexImage(path, alt.length > 0 ? alt : path);
     } else if (match[2] !== undefined || match[3] !== undefined) {
       result += wrapLatex('textbf', match[2] ?? match[3] ?? '');
     } else if (match[4] !== undefined) {
@@ -123,7 +125,7 @@ function formatInline(raw: string): string {
     } else if (match[5] !== undefined || match[6] !== undefined) {
       result += wrapLatex('textit', match[5] ?? match[6] ?? '');
     } else if (match[7] !== undefined && match[8] !== undefined) {
-      result += `\\href{${escapeLatex(match[8])}}{${escapeLatex(match[7])}}`;
+      result += `\\href{${escapeLatex(linkDestination(match[8]))}}{${escapeLatex(match[7])}}`;
     } else if (match[9] !== undefined) {
       result += `\\sout{${escapeLatex(match[9])}}`;
     }

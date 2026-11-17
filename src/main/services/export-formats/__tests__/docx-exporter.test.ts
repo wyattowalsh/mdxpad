@@ -241,6 +241,26 @@ describe('DocxExporter', () => {
     expect(xml).toContain('w:val="1"');
   });
 
+  it('keeps a link title out of the address', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See [docs](https://example.com "Docs")',
+      outputPath: '/tmp/title.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const rels = extracted.stdout.toString();
+    expect(rels).toContain('https://example.com');
+    expect(rels).not.toContain('Docs');
+  });
+
   it('resolves a reference link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

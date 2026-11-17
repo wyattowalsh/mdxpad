@@ -21,6 +21,18 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a link title out of the address', () => {
+    expect(renderMarkdownInline('[docs](https://example.com "Docs")')).toBe(
+      '<a href="https://example.com">docs</a>'
+    );
+    expect(renderMarkdownInline('[docs](<https://example.com>)')).toBe(
+      '<a href="https://example.com">docs</a>'
+    );
+    expect(renderMarkdownInline('![A photo](photo.jpg "A photo")')).toBe(
+      '<img src="photo.jpg" alt="A photo" />'
+    );
+  });
+
   it('renders a formula and leaves a price as text', () => {
     const formula = renderMarkdownInline('See $x^2$ and $5 and $10');
     expect(formula).toContain('<math');

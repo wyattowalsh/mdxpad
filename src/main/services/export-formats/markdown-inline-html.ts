@@ -1,5 +1,7 @@
 import katex from 'katex';
 
+import { linkDestination } from './markdown-link';
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -55,10 +57,10 @@ function renderText(value: string): string {
     .replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>')
     .replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
-      (_match, alt: string, src: string) => `<img src="${src}" alt="${alt}" />`
+      (_match, alt: string, src: string) => `<img src="${linkDestination(src)}" alt="${alt}" />`
     )
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, href: string) => {
-      return `<a href="${href}">${text}</a>`;
+      return `<a href="${linkDestination(href)}">${text}</a>`;
     });
 }
 
