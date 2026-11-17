@@ -1,3 +1,4 @@
+import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode } from './markdown-fence';
 
 const LINK_DEFINITION =
@@ -105,10 +106,10 @@ export function expandLinkReferences(content: string): string {
   const lines = fenced.split('\n');
   const references = collectReferences(lines);
   if (references.size === 0) {
-    return fenced;
+    return applyFootnotes(fenced);
   }
   let fence: string | null = null;
-  return withoutDefinitions(lines)
+  const rewritten = withoutDefinitions(lines)
     .map((line) => {
       const next = advanceFence(line, fence);
       const boundary = fence !== next;
@@ -116,4 +117,5 @@ export function expandLinkReferences(content: string): string {
       return fence || boundary ? line : rewriteLine(line, references);
     })
     .join('\n');
+  return applyFootnotes(rewritten);
 }

@@ -162,9 +162,10 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('footnote[^1].');
-    expect(html).toContain('[^1]: Note');
-    expect(html).not.toContain('[^1](Note)');
+    expect(html).toContain('footnote¹.');
+    expect(html).toContain('Note');
+    expect(html).toContain('Notes');
+    expect(html).not.toContain('[^1]');
   });
 
   it('resolves a reference link', async () => {

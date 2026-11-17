@@ -29,11 +29,11 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[guide](https://example.com)');
   });
 
-  it('leaves a footnote marker and its definition alone', () => {
+  it('turns a footnote into a numbered note', () => {
     const expanded = expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n');
-    expect(expanded).toContain('footnote[^1].');
-    expect(expanded).toContain('[^1]: Note');
-    expect(expanded).not.toContain('[^1](Note)');
+    expect(expanded).toContain('footnote¹.');
+    expect(expanded).toContain('1. Note');
+    expect(expanded).not.toContain('[^1]');
   });
 
   it('resolves an image reference and leaves a fenced definition alone', () => {
