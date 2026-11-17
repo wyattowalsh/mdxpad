@@ -8,7 +8,7 @@
  * @module renderer/features/playground/ComponentPlayground
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { usePlaygroundStore, selectPropsValid } from './playground-store';
 import { PlaygroundPreview } from './PlaygroundPreview';
@@ -38,26 +38,33 @@ export const ComponentPlayground: React.FC = () => {
   } = usePlaygroundStore();
 
   const propsValid = usePlaygroundStore(selectPropsValid);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewCode, setPreviewCode] = useState(code);
+  const [previewProps, setPreviewProps] = useState(parsedProps);
 
-  // Debounced auto-refresh
   useEffect(() => {
-    if (!autoRefresh) return;
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
+    if (!autoRefresh) {
+      return undefined;
     }
-
-    debounceRef.current = setTimeout(() => {
-      // Preview will re-render via prop changes
+    const timer = setTimeout(() => {
+      setPreviewCode(code);
+      setPreviewProps(parsedProps);
     }, refreshDelayMs);
-
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
+      clearTimeout(timer);
     };
-  }, [code, propsJson, autoRefresh, refreshDelayMs]);
+  }, [autoRefresh, code, parsedProps, refreshDelayMs]);
+
+  const refreshPreview = useCallback(() => {
+    setPreviewCode(code);
+    setPreviewProps(parsedProps);
+  }, [code, parsedProps]);
+
+  const handleReset = useCallback(() => {
+    reset();
+    const next = usePlaygroundStore.getState();
+    setPreviewCode(next.code);
+    setPreviewProps(next.parsedProps);
+  }, [reset]);
 
   const handleCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -102,7 +109,14 @@ export const ComponentPlayground: React.FC = () => {
           </label>
           <button
             type="button"
-            onClick={reset}
+            onClick={refreshPreview}
+            className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
             className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
           >
             Reset
@@ -159,8 +173,8 @@ export const ComponentPlayground: React.FC = () => {
           </div>
           <div className="px-3 pb-3">
             <PlaygroundPreview
-              code={code}
-              props={parsedProps}
+              code={previewCode}
+              props={previewProps}
               onRenderStart={handleRenderStart}
               onRenderEnd={handleRenderEnd}
             />

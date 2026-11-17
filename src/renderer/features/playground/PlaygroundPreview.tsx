@@ -122,7 +122,10 @@ export const PlaygroundPreview: React.FC<PlaygroundPreviewProps> = ({
 
   return (
     <PreviewErrorBoundary resetKey={resetKey} onError={handleBoundaryError}>
-      <div className="playground-preview min-h-[100px] rounded border border-zinc-700 bg-white p-2 text-zinc-900">
+      <div
+        className="playground-preview min-h-[100px] rounded border border-zinc-700 bg-white p-2 text-zinc-900"
+        data-testid="playground-preview"
+      >
         {preview.ok ? preview.element : null}
         {error ? <div className="whitespace-pre-wrap text-xs text-red-600">{error}</div> : null}
         {propsText ? (
