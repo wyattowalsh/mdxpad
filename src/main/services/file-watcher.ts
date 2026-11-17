@@ -80,9 +80,13 @@ export class FileWatcher {
    * @param filePath - Absolute path to the file to watch
    */
   watch(fileId: FileId, filePath: string): void {
-    // Don't watch if already watching
     if (this.watched.has(fileId)) {
       return;
+    }
+    for (const entry of this.watched.values()) {
+      if (entry.path === filePath) {
+        return;
+      }
     }
 
     const watcher = chokidar.watch(filePath, {

@@ -194,18 +194,15 @@ export function useMenuEvents(
   handleNotification: (n: NotificationInput) => void
 ): MenuEventsResult {
   // Build command context from latest document state snapshot
-  const getCommandContext = useCallback(
-    (): CommandContext => {
-      const { fileId, filePath, content, isDirty } = useDocumentStore.getState();
-      return buildCommandContext(
-        editorRef.current,
-        getMdxpadApi() as typeof window.mdxpad,
-        { fileId, filePath, content, isDirty },
-        handleNotification
-      );
-    },
-    [editorRef, handleNotification]
-  );
+  const getCommandContext = useCallback((): CommandContext => {
+    const { fileId, filePath, content, isDirty } = useDocumentStore.getState();
+    return buildCommandContext(
+      editorRef.current,
+      getMdxpadApi() as typeof window.mdxpad,
+      { fileId, filePath, content, isDirty },
+      handleNotification
+    );
+  }, [editorRef, handleNotification]);
 
   // Command palette state
   const palette = useCommandPalette(getCommandContext);
@@ -292,8 +289,9 @@ export function useMenuEvents(
     const mdxpad = getMdxpadApi();
 
     const unsubscribe = mdxpad.onFileChange((event) => {
-      const { fileId, handleExternalChange } = useDocumentStore.getState();
-      if (!fileId || event.fileId !== fileId || event.type !== 'change') return;
+      const { fileId, filePath, handleExternalChange } = useDocumentStore.getState();
+      const sameFile = event.fileId === fileId || event.path === filePath;
+      if (!filePath || !sameFile || event.type !== 'change') return;
 
       void (async () => {
         const result = await mdxpad.readFile(event.path);

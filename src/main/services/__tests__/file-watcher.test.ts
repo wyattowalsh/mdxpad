@@ -146,6 +146,13 @@ describe('FileWatcher', () => {
       expect(mockChokidarWatch).toHaveBeenCalledTimes(1);
     });
 
+    it('should not create a second watcher for the same path', () => {
+      watcher.watch('opened-id' as FileId, '/test/document.mdx');
+      watcher.watch('/test/document.mdx' as FileId, '/test/document.mdx');
+
+      expect(mockChokidarWatch).toHaveBeenCalledTimes(1);
+    });
+
     it('should create separate watchers for different files', () => {
       const fileId1 = 'file-1' as FileId;
       const fileId2 = 'file-2' as FileId;
@@ -498,10 +505,12 @@ describe('FileWatcher', () => {
       watcher.watch(fileId1, '/test/file1.mdx');
       watcher.watch(fileId2, '/test/file2.mdx');
 
-      const changeHandler1 = mockWatcherInstance.on.mock.calls
-        .filter((call) => call[0] === 'change')?.[0]?.[1];
-      const changeHandler2 = mockWatcherInstance.on.mock.calls
-        .filter((call) => call[0] === 'change')?.[1]?.[1];
+      const changeHandler1 = mockWatcherInstance.on.mock.calls.filter(
+        (call) => call[0] === 'change'
+      )?.[0]?.[1];
+      const changeHandler2 = mockWatcherInstance.on.mock.calls.filter(
+        (call) => call[0] === 'change'
+      )?.[1]?.[1];
 
       // Simulate concurrent changes
       changeHandler1?.();
@@ -563,10 +572,7 @@ describe('FileWatcher', () => {
       )?.[1];
 
       expect(() => errorHandler?.(new Error('Watch failed'))).not.toThrow();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[FileWatcher] Watcher error:',
-        expect.any(Error)
-      );
+      expect(consoleSpy).toHaveBeenCalledWith('[FileWatcher] Watcher error:', expect.any(Error));
 
       consoleSpy.mockRestore();
     });

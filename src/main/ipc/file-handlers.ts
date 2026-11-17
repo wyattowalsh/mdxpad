@@ -322,6 +322,13 @@ const handleFileRead = createValidatedHandler(
     } else if (readResult.ok) {
       grantReadCapability(args.path);
     }
+    if (readResult.ok) {
+      getFileIntegration()?.onFileOpened({
+        id: args.path as unknown as FileId,
+        path: args.path,
+        name: path.basename(args.path),
+      });
+    }
 
     return readResult;
   }
