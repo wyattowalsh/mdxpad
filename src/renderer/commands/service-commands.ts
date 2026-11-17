@@ -1,5 +1,6 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
 
 function workspaceDir(filePath: string | null): string | null {
@@ -109,9 +110,21 @@ const importHtmlCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
+    const document = useDocumentStore.getState();
+    if (document.content !== ctx.document.content) {
+      ctx.notify({
+        type: 'warning',
+        message: 'The document changed during import. It was not replaced.',
+      });
+      return { ok: false, error: 'Document changed during import' };
+    }
+    document.setContent(result.value.content);
+    const warningCount = result.value.warnings.length;
+    const warningText =
+      warningCount === 0 ? '' : ` ${warningCount} warning${warningCount === 1 ? '' : 's'}.`;
     ctx.notify({
       type: 'success',
-      message: `Imported HTML (${result.value.content.length} characters). The editor was not replaced.`,
+      message: `Imported HTML (${result.value.content.length} characters).${warningText}`,
     });
     return { ok: true };
   },

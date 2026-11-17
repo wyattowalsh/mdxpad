@@ -1,7 +1,32 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CommandContext } from '@shared/types/commands';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { SERVICE_COMMANDS } from '../service-commands';
+
+describe('import.html', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+  });
+
+  it('replaces the open document with the converted markdown', async () => {
+    useDocumentStore.getState().setContent('<p>Hi</p>');
+    const fromHtml = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { content: 'Hi', warnings: [] },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: null, content: '<p>Hi</p>' },
+      api: { import: { fromHtml } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'import.html');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(useDocumentStore.getState().content).toBe('Hi');
+  });
+});
 
 describe('search.workspace', () => {
   it('indexes an unindexed folder before searching and passes exclude patterns', async () => {
