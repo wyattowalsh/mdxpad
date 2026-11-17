@@ -212,6 +212,23 @@ export const ReadShareResponseSchema = z.object({
 });
 export type ReadShareResponse = z.infer<typeof ReadShareResponseSchema>;
 
+export const ChooseDirectoryResponseSchema = z.object({
+  path: z.string().nullable(),
+  canceled: z.boolean(),
+});
+export type ChooseDirectoryResponse = z.infer<typeof ChooseDirectoryResponseSchema>;
+
+export const OpenDirectoryRequestSchema = z.object({
+  path: z.string().min(1),
+});
+export type OpenDirectoryRequest = z.infer<typeof OpenDirectoryRequestSchema>;
+
+export const OpenDirectoryResponseSchema = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+export type OpenDirectoryResponse = z.infer<typeof OpenDirectoryResponseSchema>;
+
 export const ShareChannels = {
   CREATE_LINK: 'mdxpad:share:create-link',
   REVOKE_LINK: 'mdxpad:share:revoke-link',
@@ -219,6 +236,8 @@ export const ShareChannels = {
   READ: 'mdxpad:share:read',
   PUBLISH: 'mdxpad:share:publish',
   PUBLISH_PROGRESS: 'mdxpad:share:publish-progress',
+  CHOOSE_DIRECTORY: 'mdxpad:share:choose-directory',
+  OPEN_DIRECTORY: 'mdxpad:share:open-directory',
 } as const;
 
 /** Union of all share channel names */

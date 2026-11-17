@@ -9,7 +9,11 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent } from 'electron';
 
-vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }));
+vi.mock('electron', () => ({
+  ipcMain: { handle: vi.fn() },
+  dialog: { showOpenDialog: vi.fn() },
+  shell: { openPath: vi.fn() },
+}));
 
 import { ipcMain } from 'electron';
 import { CollabChannels } from '@shared/contracts/collab-schemas';

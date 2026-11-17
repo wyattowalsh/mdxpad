@@ -13,6 +13,7 @@ import { registerViewCommands } from './view-commands';
 import { registerFilterCommands } from './filter-commands';
 import { registerTemplateCommands } from './template-commands';
 import { registerServiceCommands } from './service-commands';
+import { registerPanelCommands } from './panel-commands';
 
 /**
  * Register all built-in commands with the command registry.
@@ -27,6 +28,7 @@ export function registerAllCommands(): () => void {
   const unregisterFilter = registerFilterCommands();
   const unregisterTemplate = registerTemplateCommands();
   const unregisterService = registerServiceCommands();
+  const unregisterPanels = registerPanelCommands();
 
   return () => {
     unregisterFile();
@@ -35,6 +37,7 @@ export function registerAllCommands(): () => void {
     unregisterFilter();
     unregisterTemplate();
     unregisterService();
+    unregisterPanels();
   };
 }
 
@@ -44,3 +47,5 @@ export { registerEditorCommands } from './editor-commands';
 export { registerViewCommands } from './view-commands';
 export { registerFilterCommands } from './filter-commands';
 export { registerTemplateCommands } from './template-commands';
+export { registerServiceCommands } from './service-commands';
+export { registerPanelCommands } from './panel-commands';

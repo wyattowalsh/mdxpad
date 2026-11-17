@@ -6,7 +6,7 @@
  * @module main/ipc/share-handlers
  */
 
-import type { IpcMain, BrowserWindow } from 'electron';
+import { dialog, shell, type IpcMain, type BrowserWindow } from 'electron';
 import {
   ShareChannels,
   CreateShareLinkRequestSchema,
@@ -15,6 +15,9 @@ import {
   ReadShareRequestSchema,
   ReadShareResponseSchema,
   PublishRequestSchema,
+  OpenDirectoryRequestSchema,
+  OpenDirectoryResponseSchema,
+  ChooseDirectoryResponseSchema,
   type CreateShareLinkResponse,
   type RevokeShareLinkResponse,
   type GetShareLinksResponse,
@@ -142,6 +145,36 @@ export function registerShareHandlers(
   registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.PUBLISH, (_event, args) =>
     handlePublish(args)
   );
+  registerDirectoryHandlers(ipcMainInstance, window);
 
   console.log('[ShareHandlers] All share and publish handlers registered');
+}
+
+function registerDirectoryHandlers(ipcMainInstance: IpcMain, window: BrowserWindow): void {
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    ShareChannels.CHOOSE_DIRECTORY,
+    async () => {
+      const result = await dialog.showOpenDialog(window, {
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      return ChooseDirectoryResponseSchema.parse({
+        canceled: result.canceled,
+        path: result.canceled ? null : (result.filePaths[0] ?? null),
+      });
+    }
+  );
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    ShareChannels.OPEN_DIRECTORY,
+    async (_event, args) => {
+      const request = OpenDirectoryRequestSchema.parse(args);
+      const error = await shell.openPath(request.path);
+      return OpenDirectoryResponseSchema.parse(
+        error.length === 0 ? { ok: true } : { ok: false, error }
+      );
+    }
+  );
 }

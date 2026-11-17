@@ -22,6 +22,9 @@ import {
   PublishRequestSchema,
   PublishResponseSchema,
   PublishProgressSchema,
+  ChooseDirectoryResponseSchema,
+  OpenDirectoryRequestSchema,
+  OpenDirectoryResponseSchema,
   type CreateShareLinkRequest,
   type CreateShareLinkResponse,
   type RevokeShareLinkRequest,
@@ -33,6 +36,8 @@ import {
   type PublishRequest,
   type PublishResponse,
   type PublishProgress,
+  type ChooseDirectoryResponse,
+  type OpenDirectoryResponse,
 } from '@shared/contracts/share-schemas';
 
 // ============================================================================
@@ -103,6 +108,10 @@ export interface ShareApi {
    * @returns Unsubscribe function
    */
   onPublishProgress(callback: (progress: PublishProgress) => void): () => void;
+
+  chooseDirectory(): Promise<ChooseDirectoryResponse>;
+
+  openDirectory(path: string): Promise<OpenDirectoryResponse>;
 }
 
 // ============================================================================
@@ -194,5 +203,20 @@ export const shareApi: ShareApi = {
     return () => {
       publishProgressListeners.delete(callback);
     };
+  },
+
+  chooseDirectory: async () =>
+    validatedShareInvoke(ShareChannels.CHOOSE_DIRECTORY, ChooseDirectoryResponseSchema),
+
+  openDirectory: async (path) => {
+    const reqParsed = OpenDirectoryRequestSchema.safeParse({ path });
+    if (!reqParsed.success) {
+      throw new Error(`Open directory request validation failed: ${reqParsed.error.message}`);
+    }
+    return validatedShareInvoke(
+      ShareChannels.OPEN_DIRECTORY,
+      OpenDirectoryResponseSchema,
+      reqParsed.data
+    );
   },
 };

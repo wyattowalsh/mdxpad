@@ -42,7 +42,8 @@ import {
   selectMatchResults,
 } from './stores/file-explorer-store';
 import { useEditorPreferencesStore } from './stores/editor-preferences-store';
-import { useDocumentStore } from './stores/document-store';
+import { openFileFromPath } from './lib/open-file-from-path';
+import { MountedUtilityPanels } from './components/shell/MountedUtilityPanels';
 import { useAppState } from './hooks/useAppState';
 import { useAppDialogs } from './hooks/useAppDialogs';
 import { useMenuEvents } from './hooks/useMenuEvents';
@@ -51,8 +52,6 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useAccessibility } from './hooks/useAccessibility';
 import { ProviderSettings } from './features/ai-provider/components';
 import { useAIProviderStore } from './features/ai-provider/store';
-import type { DocumentId } from '@shared/types/document';
-
 // =============================================================================
 // CONSTANTS
 // =============================================================================
@@ -156,23 +155,9 @@ export function App(): React.ReactElement {
 
   // Drag & drop file opening
   const handleFileDrop = useCallback((filePath: string) => {
-    void window.mdxpad
-      .readFile(filePath)
-      .then((result) => {
-        if (result.ok) {
-          useDocumentStore.getState().openDocument(
-            {
-              fileId: filePath as unknown as DocumentId,
-              filePath,
-              mtime: Date.now(),
-            },
-            result.value
-          );
-        }
-      })
-      .catch((err: unknown) => {
-        console.error('[App] Failed to open dropped file:', err);
-      });
+    void openFileFromPath(filePath).catch((err: unknown) => {
+      console.error('[App] Failed to open dropped file:', err);
+    });
   }, []);
   useDragDrop(handleFileDrop);
 
@@ -334,6 +319,7 @@ export function App(): React.ReactElement {
       )}
 
       <CommandPalette getContext={getCommandContext} palette={palette} />
+      <MountedUtilityPanels editorRef={state.editorRef} />
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {state.announcement}
