@@ -3,8 +3,7 @@ import { advanceFence, fenceIndentedCode, openingFence } from './markdown-fence'
 import { quoteBody } from './markdown-quote';
 import { closeOpenTableRows } from './markdown-table';
 
-const LINK_DEFINITION =
-  /^ {0,3}\[([^\]]+)\]:[ \t]+(<[^>\s]+>|\S+)(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/;
+const LINK_LABEL = /^ {0,3}\[([^\]]+)\]:[ \t]*/;
 
 const REFERENCE = /^\[([^\]]+)\](?:\[([^\]]*)\])?(?!\()/;
 const TITLE_LINE = /^(?:"[^"]*"|'[^']*'|\([^)]*\))$/;
@@ -59,7 +58,7 @@ function splitDefinition(
 ): { label: string; destination: string; consumed: number } | null {
   const sameLine = linkDefinition(lines[index] ?? '');
   if (sameLine) {
-    const title = titleContinuation(lines, index);
+    const title = sameLine.titled ? null : titleContinuation(lines, index);
     return {
       label: sameLine.label,
       destination: title ? `${sameLine.destination} ${title}` : sameLine.destination,
@@ -87,14 +86,83 @@ function splitDefinition(
   };
 }
 
-function linkDefinition(line: string): { label: string; destination: string } | null {
-  const definition = LINK_DEFINITION.exec(definitionSource(line));
-  const label = definition?.[1];
-  const destination = definition?.[2];
-  if (!label || label.startsWith('^') || !destination) {
+function skipSpaces(source: string, index: number): number {
+  let cursor = index;
+  while (source[cursor] === ' ' || source[cursor] === '\t') {
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function readDestinationToken(
+  source: string,
+  index: number
+): { value: string; end: number } | null {
+  if (source[index] === '<') {
+    const end = source.indexOf('>', index + 1);
+    return end === -1 ? null : { value: source.slice(index, end + 1), end: end + 1 };
+  }
+  let value = '';
+  let cursor = index;
+  while (cursor < source.length && source[cursor] !== ' ' && source[cursor] !== '\t') {
+    const current = source[cursor] ?? '';
+    const next = source[cursor + 1] ?? '';
+    if (current === '\\' && cursor + 1 < source.length) {
+      value += current + next;
+      cursor += 2;
+      continue;
+    }
+    value += source[cursor] ?? '';
+    cursor += 1;
+  }
+  return value.length > 0 ? { value, end: cursor } : null;
+}
+
+function readTitleToken(source: string, index: number): { raw: string; end: number } | null {
+  const quote = source[index];
+  const closer = quote === '(' ? ')' : quote;
+  if (quote !== '"' && quote !== "'" && quote !== '(') {
     return null;
   }
-  return { label, destination };
+  let raw = quote;
+  for (let cursor = index + 1; cursor < source.length; cursor += 1) {
+    const char = source[cursor] ?? '';
+    const escaped = source[cursor + 1] ?? '';
+    if (char === '\\' && cursor + 1 < source.length) {
+      raw += char + escaped;
+      cursor += 1;
+      continue;
+    }
+    raw += char;
+    if (char === closer) {
+      return source.slice(cursor + 1).trim().length === 0 ? { raw, end: cursor + 1 } : null;
+    }
+  }
+  return null;
+}
+
+function linkDefinition(
+  line: string
+): { label: string; destination: string; titled: boolean } | null {
+  const source = definitionSource(line);
+  const start = LINK_LABEL.exec(source);
+  const label = start?.[1];
+  if (!start || !label || label.startsWith('^')) {
+    return null;
+  }
+  const destination = readDestinationToken(source, start[0].length);
+  if (!destination) {
+    return null;
+  }
+  const title = readTitleToken(source, skipSpaces(source, destination.end));
+  if (title === null && skipSpaces(source, destination.end) < source.trimEnd().length) {
+    return null;
+  }
+  return {
+    label,
+    destination: title ? `${destination.value} ${title.raw}` : destination.value,
+    titled: title !== null,
+  };
 }
 
 function collectReferences(lines: readonly string[]): {

@@ -29,7 +29,8 @@ import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
-import { paragraphSegments, readSourceLine, type SourceLine } from './markdown-paragraph';
+import { renderedSegments } from './markdown-marks';
+import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
 import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
@@ -549,7 +550,7 @@ interface DocxParse {
 
 function paragraphFromLines(lines: readonly SourceLine[], quoteDepth = 0): Paragraph {
   const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
-  paragraphSegments(lines).forEach((text, index) => {
+  renderedSegments(lines).forEach((text, index) => {
     if (index > 0) {
       children.push(new TextRun({ break: 1 }));
     }

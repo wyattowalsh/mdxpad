@@ -1,6 +1,7 @@
 import { isThematicBreak } from './markdown-break';
 import { openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
+import { renderedSegments } from './markdown-marks';
 import { joinParagraphHtml, readSourceLine } from './markdown-paragraph';
 import {
   isTableRow,
@@ -132,15 +133,8 @@ function quoteListLatex(lines: readonly string[], renderLine: (line: string) => 
 }
 
 function joinQuoteLatex(lines: readonly string[], renderLine: (line: string) => string): string {
-  const parts = lines.map((line) => readSourceLine(line));
-  return parts
-    .map((line, index) => {
-      const text = renderLine(line.text);
-      if (index === 0) {
-        return text;
-      }
-      return parts[index - 1]?.hardBreak ? `\\\\\n${text}` : ` ${text}`;
-    })
+  return renderedSegments(lines.map((line) => readSourceLine(line)))
+    .map((text, index) => (index === 0 ? renderLine(text) : `\\\\\n${renderLine(text)}`))
     .join('');
 }
 

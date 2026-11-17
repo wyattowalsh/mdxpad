@@ -48,6 +48,23 @@ describe('expandLinkReferences', () => {
     expect(titled).not.toContain('\n"Guide"');
   });
 
+  it('keeps a title written beside the address', () => {
+    const expanded = expandLinkReferences('See [docs].\n\n[docs]: https://example.com "Guide"\n');
+    expect(expanded).toContain('[docs](https://example.com "Guide")');
+    expect(expanded).not.toContain('[docs]:');
+    const single = expandLinkReferences("See [docs].\n\n[docs]: https://example.com 'Guide'\n");
+    expect(single).toContain("[docs](https://example.com 'Guide')");
+    const paren = expandLinkReferences('See [docs].\n\n[docs]: https://example.com (Guide)\n');
+    expect(paren).toContain('[docs](https://example.com (Guide))');
+    const kept = expandLinkReferences(
+      'See [docs].\n\n[docs]: https://example.com "Guide"\n"Stay"\n'
+    );
+    expect(kept).toContain('"Stay"');
+    expect(expandLinkReferences('![A photo][pic]\n\n[pic]: photo.jpg "Sunset"\n')).toContain(
+      '![A photo](photo.jpg "Sunset")'
+    );
+  });
+
   it('keeps a title written on the following line', () => {
     const expanded = expandLinkReferences(
       'See [docs][guide].\n\n[guide]: https://example.com\n"Guide"\n'

@@ -278,6 +278,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\sout{hello world}');
   });
 
+  it('strikes text across a hard break', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '~~hello  \nworld~~',
+      outputPath: '/tmp/strike-break.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\sout{hello}\\\\');
+    expect(written).toContain('\\sout{world}');
+  });
+
   it('strikes through deleted text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -121,6 +121,10 @@ describe('built-in export documents', () => {
     const pdf = buildPdfDocument('~~hello\nworld~~');
     expect(pdf.content).toContain('(hello world) Tj');
     expect(pdf.content).not.toContain('~~');
+    const broken = buildPdfDocument('~~hello\\\nworld~~');
+    expect(broken.content).toContain('(hello) Tj');
+    expect(broken.content).toContain('(world) Tj');
+    expect(broken.content).not.toContain('~~');
     const docx = Buffer.from(buildDocxDocument('**hello\nworld**').content).toString('utf8');
     expect(docx).toContain('hello world');
     expect(docx).not.toContain('**');

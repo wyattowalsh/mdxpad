@@ -39,11 +39,4 @@ export function paragraphSegments(lines: readonly SourceLine[]): string[] {
   return segments.map((segment) => segment.join(' '));
 }
 
-export function joinParagraphHtml(
-  lines: readonly SourceLine[],
-  render: (text: string) => string
-): string {
-  return paragraphSegments(lines)
-    .map((text) => render(text))
-    .join('<br />');
-}
+export { joinParagraphHtml } from './markdown-marks';

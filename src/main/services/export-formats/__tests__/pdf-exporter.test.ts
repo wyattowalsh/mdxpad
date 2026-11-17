@@ -142,6 +142,16 @@ describe('PdfExporter', () => {
     expect(html).toContain('<del>hello world</del>');
   });
 
+  it('strikes text across a hard break', async () => {
+    await exporter.export({
+      content: '~~hello  \nworld~~',
+      outputPath: '/tmp/strike-break.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<del>hello</del><br /><del>world</del>');
+  });
+
   it('keeps a hard break inside a list item', async () => {
     await exporter.export({
       content: '- Stay  \n  put',
@@ -273,6 +283,16 @@ describe('PdfExporter', () => {
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
     expect(html).toContain('<a href="https://example.com">the docs</a>');
     expect(html).not.toContain('[guide]:');
+  });
+
+  it('keeps a reference title written beside the address', async () => {
+    await exporter.export({
+      content: 'See [the docs][guide].\n\n[guide]: https://example.com "Guide"\n',
+      outputPath: '/tmp/ref-title.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<a href="https://example.com" title="Guide">the docs</a>');
   });
 
   it('keeps a wrapped paragraph and a hard break', async () => {

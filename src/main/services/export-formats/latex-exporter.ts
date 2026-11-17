@@ -10,7 +10,8 @@ import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
-import { paragraphSegments, readSourceLine, type SourceLine } from './markdown-paragraph';
+import { renderedSegments } from './markdown-marks';
+import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
@@ -329,7 +330,7 @@ function flushLatexProse(output: string[], prose: SourceLine[]): void {
   if (prose.length === 0) {
     return;
   }
-  const segments = paragraphSegments(prose);
+  const segments = renderedSegments(prose);
   prose.length = 0;
   segments.forEach((text, index) => {
     const formatted = convertInlineFormatting(text);

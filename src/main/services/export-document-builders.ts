@@ -11,6 +11,7 @@ import {
   parseListItem,
 } from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
+import { HARD_BREAK, reopenInlineMarks } from './export-formats/markdown-marks';
 import { readSourceLine } from './export-formats/markdown-paragraph';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { protectEscapes, restoreEscapes } from './export-formats/markdown-escape';
@@ -157,6 +158,11 @@ function wrapPdfLine(line: string, maxChars: number): string[] {
   return wrapped;
 }
 
+function plainFromSource(source: string): string {
+  const opened = reopenInlineMarks(source.replaceAll('\n', HARD_BREAK));
+  return plainInline(opened.split(HARD_BREAK).join('\n'));
+}
+
 function plainInline(text: string): string {
   const escaped = protectEscapes(text);
   const formatted = decodeHtmlEntities(
@@ -289,7 +295,9 @@ function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
     }
   }
   const text = body
-    .flatMap((block) => (block.kind === 'paragraph' ? [block.text.trim()] : []))
+    .flatMap((block) =>
+      block.kind === 'paragraph' ? [block.text.replaceAll('\n', ' ').trim()] : []
+    )
     .filter((part) => part.length > 0)
     .join(' ');
   if (text.length === 0) {
@@ -415,7 +423,6 @@ function appendBuiltInProseContinuation(blocks: MarkdownBlock[], rawLine: string
     last?.kind !== 'paragraph' ||
     last.quote ||
     last.listColumn !== null ||
-    last.hardBreak ||
     last.source.trim().length === 0 ||
     trimmed.length === 0 ||
     quoteBody(rawLine) !== null ||
@@ -430,11 +437,13 @@ function appendBuiltInProseContinuation(blocks: MarkdownBlock[], rawLine: string
     return false;
   }
   const source = readSourceLine(rawLine);
-  const combined = `${last.source} ${source.text}`;
+  const combined = last.hardBreak
+    ? `${last.source}\n${source.text}`
+    : `${last.source} ${source.text}`;
   blocks[blocks.length - 1] = {
     ...last,
     source: combined,
-    text: plainInline(combined),
+    text: plainFromSource(combined),
     hardBreak: source.hardBreak,
   };
   return true;
