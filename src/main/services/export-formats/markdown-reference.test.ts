@@ -23,6 +23,13 @@ describe('expandLinkReferences', () => {
     expect(expanded).toContain('`[Docs]`');
   });
 
+  it('leaves a footnote marker and its definition alone', () => {
+    const expanded = expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n');
+    expect(expanded).toContain('footnote[^1].');
+    expect(expanded).toContain('[^1]: Note');
+    expect(expanded).not.toContain('[^1](Note)');
+  });
+
   it('resolves an image reference and leaves a fenced definition alone', () => {
     expect(expandLinkReferences('![A photo][pic]\n\n[pic]: photo.jpg\n')).toContain(
       '![A photo](photo.jpg)'

@@ -14,6 +14,16 @@ function referenceDestination(raw: string): string {
   return raw;
 }
 
+function linkDefinition(line: string): { label: string; destination: string } | null {
+  const definition = LINK_DEFINITION.exec(line);
+  const label = definition?.[1];
+  const destination = definition?.[2];
+  if (!label || label.startsWith('^') || !destination) {
+    return null;
+  }
+  return { label, destination };
+}
+
 function collectReferences(lines: readonly string[]): Map<string, string> {
   const references = new Map<string, string>();
   let inFence = false;
@@ -25,13 +35,11 @@ function collectReferences(lines: readonly string[]): Map<string, string> {
     if (inFence) {
       continue;
     }
-    const definition = LINK_DEFINITION.exec(line);
-    const label = definition?.[1];
-    const destination = definition?.[2];
-    if (!label || !destination || references.has(referenceLabel(label))) {
+    const definition = linkDefinition(line);
+    if (!definition || references.has(referenceLabel(definition.label))) {
       continue;
     }
-    references.set(referenceLabel(label), referenceDestination(destination));
+    references.set(referenceLabel(definition.label), referenceDestination(definition.destination));
   }
   return references;
 }
@@ -84,7 +92,7 @@ function withoutDefinitions(lines: readonly string[]): string[] {
       inFence = !inFence;
       return line;
     }
-    if (!inFence && LINK_DEFINITION.test(line)) {
+    if (!inFence && linkDefinition(line)) {
       return '';
     }
     return line;
