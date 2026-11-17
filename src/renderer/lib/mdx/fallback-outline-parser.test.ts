@@ -37,6 +37,14 @@ describe('parseFallbackOutline', () => {
   });
 
   describe('heading extraction', () => {
+    it('should extract an underlined title and ignore a separated rule', () => {
+      const outline = parseFallbackOutline(
+        'Title\n===\n\nSecond\n---\n\n---\n\n```\nHidden\n===\n```\n'
+      );
+      expect(outline.headings.map((heading) => heading.text)).toEqual(['Title', 'Second']);
+      expect(outline.headings.map((heading) => heading.depth)).toEqual([1, 2]);
+    });
+
     it('should extract a single h1 heading', () => {
       const outline = parseFallbackOutline('# Hello World');
 
@@ -166,7 +174,9 @@ More content here.
     });
 
     it('should extract components with attributes', () => {
-      const outline = parseFallbackOutline('<Card title="Test" variant="primary" onClick={handler}>');
+      const outline = parseFallbackOutline(
+        '<Card title="Test" variant="primary" onClick={handler}>'
+      );
 
       expect(outline.components).toHaveLength(1);
       expect(outline.components[0]?.name).toBe('Card');

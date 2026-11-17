@@ -26,6 +26,7 @@ import { parseFrontmatterYaml } from './frontmatter-yaml-parser';
  * Uses [^\S\r\n] to match whitespace but not newlines.
  */
 const HEADING_REGEX = /^(#{1,6})[^\S\r\n]+(.+?)[^\S\r\n]*$/gm;
+const SETEXT_UNDERLINE = /^(=+|-+)[^\S\r\n]*$/;
 
 /**
  * Matches JSX component opening tags: <ComponentName ...>
@@ -74,6 +75,54 @@ function getColumnNumber(source: string, offset: number): number {
  * @param frontmatterMatch - Regex match for frontmatter
  * @returns Line number where frontmatter ends (after closing ---)
  */
+function updateFence(fence: string | null, line: string): string | null {
+  const match = /^(?: {0,3})(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match) {
+    return fence;
+  }
+  const marker = match[1] ?? '';
+  const info = (match[2] ?? '').trim();
+  if (fence === null) {
+    return marker;
+  }
+  if (info.length === 0 && marker.startsWith(fence[0] ?? '') && marker.length >= fence.length) {
+    return null;
+  }
+  return fence;
+}
+
+function collectSetextHeadings(source: string, frontmatterEnd: number): HeadingNode[] {
+  const headings: HeadingNode[] = [];
+  const lines = source.split(/\r?\n/);
+  let offset = 0;
+  let fence: string | null = null;
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    const line = lines[index] ?? '';
+    const next = lines[index + 1] ?? '';
+    const lineOffset = offset;
+    offset += line.length + 1;
+    if (lineOffset < frontmatterEnd) {
+      continue;
+    }
+    const openFence = fence;
+    fence = updateFence(fence, line);
+    if (openFence !== null || line.trim().length === 0 || /^#{1,6}(?:[^\S\r\n]|$)/.test(line)) {
+      continue;
+    }
+    const underline = SETEXT_UNDERLINE.exec(next);
+    const marks = underline?.[1] ?? '';
+    if (marks.length === 0) {
+      continue;
+    }
+    headings.push({
+      depth: marks.startsWith('=') ? 1 : 2,
+      text: line.trim(),
+      position: { line: index + 1, column: 1 },
+    });
+  }
+  return headings;
+}
+
 function getFrontmatterEndLine(frontmatterMatch: RegExpMatchArray): number {
   const content = frontmatterMatch[0];
   const lines = content.split('\n');
@@ -151,6 +200,12 @@ export function parseFallbackOutline(source: string): OutlineAST {
       },
     });
   }
+
+  headings.push(...collectSetextHeadings(source, frontmatterMatch?.[0]?.length ?? 0));
+  headings.sort(
+    (left, right) =>
+      left.position.line - right.position.line || left.position.column - right.position.column
+  );
 
   // -------------------------------------------------------------------------
   // Extract JSX components
