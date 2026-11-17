@@ -19,6 +19,13 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**bold**');
   });
 
+  it('reads a block quote without the marker', () => {
+    const pdf = buildPdfDocument('> Keep **this**');
+    expect(pdf.content).toContain('Keep this');
+    expect(pdf.content).not.toContain('> Keep');
+    expect(pdf.content).not.toContain('**');
+  });
+
   it('keeps a link address in the text', () => {
     const pdf = buildPdfDocument('See [docs](https://example.com).');
     expect(pdf.content).toContain('docs');

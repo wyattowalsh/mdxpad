@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { advanceFence } from './export-formats/markdown-fence';
+import { quoteBody } from './export-formats/markdown-quote';
 import { linkDestination } from './export-formats/markdown-link';
 import { setextLevel } from './export-formats/markdown-setext';
 import { expandLinkReferences } from './export-formats/markdown-reference';
@@ -144,6 +145,21 @@ function plainInline(text: string): string {
     .replace(/\*(.+?)\*/g, '$1');
 }
 
+function stripQuoteMarkers(line: string): string {
+  let depth = 0;
+  let text = line;
+  let inner = quoteBody(text);
+  while (inner !== null) {
+    depth += 1;
+    text = inner;
+    inner = quoteBody(text);
+  }
+  if (depth === 0) {
+    return line;
+  }
+  return `${'  '.repeat(depth - 1)}${text}`;
+}
+
 function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
   const trimmedLine = rawLine.trim();
   const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine);
@@ -162,12 +178,12 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     blocks.push({
       kind: 'image',
       alt: imageMatch[1]?.trim() ?? '',
-      src: imageMatch[2]?.trim() ?? '',
+      src: linkDestination(imageMatch[2]?.trim() ?? ''),
     });
     return;
   }
 
-  blocks.push({ kind: 'paragraph', text: plainInline(rawLine) });
+  blocks.push({ kind: 'paragraph', text: plainInline(stripQuoteMarkers(rawLine)) });
 }
 
 function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
