@@ -64,6 +64,14 @@ export const useDiagramStore = create<DiagramStore>()(
       const description = get().description.trim();
       if (!description) return;
 
+      if (typeof window === 'undefined' || !('mdxpad' in window)) {
+        set((draft) => {
+          draft.status = 'error';
+          draft.error = 'Diagram generation is not available';
+        });
+        return;
+      }
+
       set((draft) => {
         draft.status = 'generating';
         draft.error = null;
@@ -71,35 +79,34 @@ export const useDiagramStore = create<DiagramStore>()(
       });
 
       try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window) {
-          const response = await window.mdxpad.ai.generateText({
-            prompt: description,
-            systemPrompt: DIAGRAM_SYSTEM_PROMPT,
-            temperature: 0.3,
-          });
+        const response = await window.mdxpad.ai.generateText({
+          prompt: description,
+          systemPrompt: DIAGRAM_SYSTEM_PROMPT,
+          temperature: 0.3,
+        });
 
-          if (response.success && response.text) {
-            const mermaidCode = extractMermaidCode(response.text);
-            set((draft) => {
-              draft.mermaidCode = mermaidCode;
-              draft.status = 'success';
-              draft.history.push({
-                description,
-                mermaidCode,
-                timestamp: new Date().toISOString(),
-              });
-              // Keep only last 20 entries
-              if (draft.history.length > 20) {
-                draft.history = draft.history.slice(-20);
-              }
-            });
-          } else {
-            set((draft) => {
-              draft.error = response.error?.message ?? 'Generation failed';
-              draft.status = 'error';
-            });
-          }
+        const mermaidCode =
+          response.success && response.text ? extractMermaidCode(response.text) : '';
+        if (!mermaidCode) {
+          set((draft) => {
+            draft.error = response.error?.message ?? 'The model did not return a diagram';
+            draft.status = 'error';
+          });
+          return;
         }
+
+        set((draft) => {
+          draft.mermaidCode = mermaidCode;
+          draft.status = 'success';
+          draft.history.push({
+            description,
+            mermaidCode,
+            timestamp: new Date().toISOString(),
+          });
+          if (draft.history.length > 20) {
+            draft.history = draft.history.slice(-20);
+          }
+        });
       } catch (error) {
         set((draft) => {
           draft.error = error instanceof Error ? error.message : 'Generation failed';

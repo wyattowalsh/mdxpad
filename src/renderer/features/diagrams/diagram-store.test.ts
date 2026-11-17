@@ -2,11 +2,12 @@
  * Unit tests for Diagram Store.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useDiagramStore, extractMermaidCode } from './diagram-store';
 
 describe('useDiagramStore', () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     useDiagramStore.getState().reset();
   });
 
@@ -72,6 +73,32 @@ describe('useDiagramStore', () => {
 
     const state = useDiagramStore.getState();
     expect(state.status).toBe('idle');
+  });
+
+  it('says when diagram generation is unavailable', async () => {
+    useDiagramStore.getState().setDescription('login flow');
+    await useDiagramStore.getState().generate();
+
+    const state = useDiagramStore.getState();
+    expect(state.status).toBe('error');
+    expect(state.error).toBe('Diagram generation is not available');
+  });
+
+  it('stores a diagram returned by the model', async () => {
+    vi.stubGlobal('mdxpad', {
+      ai: {
+        generateText: vi.fn().mockResolvedValue({
+          success: true,
+          text: '```mermaid\nflowchart TD\n  A-->B\n```',
+        }),
+      },
+    });
+    useDiagramStore.getState().setDescription('login flow');
+    await useDiagramStore.getState().generate();
+
+    const state = useDiagramStore.getState();
+    expect(state.status).toBe('success');
+    expect(state.mermaidCode).toBe('flowchart TD\n  A-->B');
   });
 });
 
