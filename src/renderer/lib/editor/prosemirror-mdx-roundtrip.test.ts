@@ -33,4 +33,29 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('[ ] todo');
     expect(serialized).not.toContain('\\[');
   });
+
+  it('keeps a JSX block', () => {
+    const serialized = roundTrip('<Card>Hello</Card>\n');
+    expect(serialized).toContain('<Card>Hello</Card>');
+    expect(serialized).not.toContain('mdxpad-jsx');
+  });
+
+  it('keeps math characters literal', () => {
+    expect(roundTrip('The product is $a * b$.\n')).toContain('$a * b$');
+    expect(roundTrip('The term is $a_{i}$.\n')).toContain('$a_{i}$');
+    expect(roundTrip('The product is $a * b$.\n')).not.toContain('\\*');
+    expect(roundTrip('The term is $a_{i}$.\n')).not.toContain('\\_');
+  });
+
+  it('keeps a tight list tight', () => {
+    const serialized = roundTrip('- one\n- two\n');
+    expect(serialized).toContain('- one\n- two');
+    expect(serialized).not.toContain('- one\n\n- two');
+  });
+
+  it('keeps strikethrough', () => {
+    const serialized = roundTrip('~~gone~~\n');
+    expect(serialized).toContain('~~gone~~');
+    expect(serialized).not.toContain('\\~');
+  });
 });

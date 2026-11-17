@@ -134,6 +134,31 @@ describe('EmbeddingService#indexWorkspace', () => {
     expect(result.totalChunks).toBe(1);
   });
 
+  it('does not count a file when the model returns no vectors', async () => {
+    const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-empty-'));
+    tempDirs.push(workspacePath);
+    fs.writeFileSync(path.join(workspacePath, 'note.md'), 'note', 'utf-8');
+
+    const aiService = {
+      generateEmbedding: vi.fn(async () => ({
+        embeddings: [],
+        dimensions: 0,
+        modelId: 'test-model',
+      })),
+      generateText: vi.fn(),
+      streamText: vi.fn(),
+      generateImage: vi.fn(),
+      getActiveModel: vi.fn(),
+      isReady: vi.fn(),
+    } as unknown as IAIService;
+
+    const embeddingService = new EmbeddingService(aiService);
+    const result = await embeddingService.indexWorkspace(workspacePath);
+
+    expect(result.indexedFiles).toBe(0);
+    expect(result.totalChunks).toBe(0);
+  });
+
   it('does not call the provider when no provider is active', async () => {
     const aiService = embeddingAi();
     const embeddingService = new EmbeddingService(aiService, {

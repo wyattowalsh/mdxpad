@@ -120,6 +120,29 @@ export async function findIndexableFiles(
   return results;
 }
 
+function vectorsForFile(
+  filePath: string,
+  chunks: readonly string[],
+  embeddings: readonly number[][]
+): VectorEntry[] {
+  const entries: VectorEntry[] = [];
+  for (let index = 0; index < chunks.length; index += 1) {
+    const content = chunks[index];
+    const embedding = embeddings[index];
+    if (content === undefined || embedding === undefined) {
+      continue;
+    }
+    entries.push({
+      id: `${filePath}:${index}`,
+      filePath,
+      content,
+      chunkIndex: index,
+      embedding,
+    });
+  }
+  return entries;
+}
+
 // =============================================================================
 // EMBEDDING SERVICE
 // =============================================================================
@@ -189,19 +212,12 @@ export class EmbeddingService {
             texts: chunks,
           });
 
-          for (let j = 0; j < chunks.length; j++) {
-            const chunkContent = chunks[j];
-            const chunkEmbedding = response.embeddings[j];
-            if (chunkContent === undefined || chunkEmbedding === undefined) continue;
-            batchEntries.push({
-              id: `${filePath}:${j}`,
-              filePath,
-              content: chunkContent,
-              chunkIndex: j,
-              embedding: chunkEmbedding,
-            });
+          const entries = vectorsForFile(filePath, chunks, response.embeddings);
+          if (entries.length === 0) {
+            continue;
           }
-          totalChunks += chunks.length;
+          batchEntries.push(...entries);
+          totalChunks += entries.length;
           indexedFiles += 1;
         } catch (error) {
           console.error(`[EmbeddingService] Failed to index ${filePath}:`, error);

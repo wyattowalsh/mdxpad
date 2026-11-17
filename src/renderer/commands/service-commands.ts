@@ -2,6 +2,7 @@ import type { Command, CommandId, CommandResult, CommandContext } from '@shared/
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
+import { IMPORT_COMMANDS } from './import-commands';
 
 function workspaceDir(filePath: string | null): string | null {
   if (filePath?.includes('/') !== true) {
@@ -248,45 +249,6 @@ const searchWorkspaceCommand: Command = {
   },
 };
 
-const importHtmlCommand: Command = {
-  id: 'import.html' as CommandId,
-  name: 'Import HTML from Document',
-  description: 'Convert the current document as HTML into Markdown',
-  category: 'file',
-  execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    if (!ctx.api.import) {
-      ctx.notify({ type: 'warning', message: 'Import is not available' });
-      return { ok: false, error: 'Import is not available' };
-    }
-    if (ctx.document.content.trim().length === 0) {
-      ctx.notify({ type: 'warning', message: 'The document is empty' });
-      return { ok: false, error: 'The document is empty' };
-    }
-    const result = await ctx.api.import.fromHtml(ctx.document.content);
-    if (!result.ok) {
-      ctx.notify({ type: 'error', message: result.error.message });
-      return { ok: false, error: result.error.message };
-    }
-    const document = useDocumentStore.getState();
-    if (document.content !== ctx.document.content) {
-      ctx.notify({
-        type: 'warning',
-        message: 'The document changed during import. It was not replaced.',
-      });
-      return { ok: false, error: 'Document changed during import' };
-    }
-    document.setContent(result.value.content);
-    const warningCount = result.value.warnings.length;
-    const warningText =
-      warningCount === 0 ? '' : ` ${warningCount} warning${warningCount === 1 ? '' : 's'}.`;
-    ctx.notify({
-      type: 'success',
-      message: `Imported HTML (${result.value.content.length} characters).${warningText}`,
-    });
-    return { ok: true };
-  },
-};
-
 async function appendParsedBibliography(ctx: CommandContext): Promise<CommandResult> {
   const citation = ctx.api.citation;
   if (!citation) {
@@ -357,7 +319,7 @@ export const SERVICE_COMMANDS: readonly Command[] = [
   gitDiffCommand,
   gitCommitCommand,
   searchWorkspaceCommand,
-  importHtmlCommand,
+  ...IMPORT_COMMANDS,
   parseCitationsCommand,
 ];
 

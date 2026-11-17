@@ -47,7 +47,7 @@ const JSX_BLOCK_REGEX =
 /**
  * Placeholder used to preserve JSX blocks during markdown parsing.
  */
-const JSX_BLOCK_PLACEHOLDER = '<!-- mdx-jsx-block -->';
+const JSX_FENCE_LANGUAGE = 'mdxpad-jsx';
 
 interface JsxExtraction {
   readonly processedText: string;
@@ -63,7 +63,8 @@ export function extractJsxBlocks(content: string): JsxExtraction {
 
   const processedText = content.replace(JSX_BLOCK_REGEX, (match) => {
     jsxBlocks.push(match);
-    return JSX_BLOCK_PLACEHOLDER;
+    const fence = '`'.repeat(Math.max(3, longestBacktickRun(match) + 1));
+    return `\n\n${fence}${JSX_FENCE_LANGUAGE}\n${match}\n${fence}\n\n`;
   });
 
   return { processedText, jsxBlocks };
@@ -172,6 +173,91 @@ export function splitLeadingFrontmatter(content: string): {
  * Create a ProseMirror Markdown parser using the default markdown-it tokenizer
  * from prosemirror-markdown, with our custom MDX schema and token specs.
  */
+interface InlineParseState {
+  src: string;
+  pos: number;
+  push: (type: string, tag: string, nesting: number) => { content: string };
+}
+
+interface MarkdownTokenizer {
+  inline: {
+    ruler: {
+      before: (
+        before: string,
+        name: string,
+        fn: (state: InlineParseState, silent: boolean) => boolean
+      ) => void;
+    };
+  };
+}
+
+function strikethroughRule(state: InlineParseState, silent: boolean): boolean {
+  const start = state.pos;
+  if (state.src.charCodeAt(start) !== 0x7e || state.src.charCodeAt(start + 1) !== 0x7e) {
+    return false;
+  }
+  const end = state.src.indexOf('~~', start + 2);
+  if (end <= start + 2 || state.src.slice(start + 2, end).includes('\n')) {
+    return false;
+  }
+  if (!silent) {
+    state.push('s_open', 's', 1);
+    const text = state.push('text', '', 0);
+    text.content = state.src.slice(start + 2, end);
+    state.push('s_close', 's', -1);
+  }
+  state.pos = end + 2;
+  return true;
+}
+
+function enableStrikethrough(tokenizer: MarkdownTokenizer): void {
+  try {
+    tokenizer.inline.ruler.before('emphasis', 'mdxpad_strikethrough', strikethroughRule);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('already exists')) {
+      throw error;
+    }
+  }
+}
+
+function longestBacktickRun(value: string): number {
+  let longest = 0;
+  for (const run of value.match(/`+/g) ?? []) {
+    longest = Math.max(longest, run.length);
+  }
+  return longest;
+}
+
+function jsxFenceNode(doc: ProseMirrorNode, value: string): ProseMirrorNode {
+  const jsxBlock = doc.type.schema.nodes.jsx_block;
+  if (jsxBlock === undefined) {
+    throw new Error('JSX block node is missing from the schema');
+  }
+  const text = value.length > 0 ? doc.type.schema.text(value) : null;
+  return jsxBlock.create({ value }, text);
+}
+
+function restoreJsxFences(doc: ProseMirrorNode): ProseMirrorNode {
+  const children: ProseMirrorNode[] = [];
+  let replaced = 0;
+  doc.forEach((node) => {
+    const language = typeof node.attrs.language === 'string' ? node.attrs.language.trim() : '';
+    if (node.type.name !== 'code_block' || language !== JSX_FENCE_LANGUAGE) {
+      children.push(node);
+      return;
+    }
+    const value = node.textContent.replace(/\n$/, '');
+    children.push(jsxFenceNode(doc, value));
+    replaced += 1;
+  });
+  if (replaced === 0) {
+    return doc;
+  }
+  return doc.type.create(doc.attrs, children, doc.marks);
+}
+
+enableStrikethrough(defaultMarkdownParser.tokenizer as unknown as MarkdownTokenizer);
+
 export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tokenizer, MDX_TOKENS);
 
 /**
@@ -184,9 +270,9 @@ export const mdxParser = new MarkdownParser(mdxSchema, defaultMarkdownParser.tok
 export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { frontmatter, body } = splitLeadingFrontmatter(content);
   const { processedText } = extractJsxBlocks(body);
-  const parsed = mdxParser.parse(processedText);
+  const restored = restoreJsxFences(mdxParser.parse(processedText));
   if (frontmatter.length === 0) {
-    return parsed;
+    return restored;
   }
-  return parsed.type.create({ ...parsed.attrs, frontmatter }, parsed.content, parsed.marks);
+  return restored.type.create({ ...restored.attrs, frontmatter }, restored.content, restored.marks);
 }

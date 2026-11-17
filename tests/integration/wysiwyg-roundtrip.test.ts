@@ -8,7 +8,7 @@
  * Schema and JSX cases exercise the schema object and the extractor
  * directly. The parse/serialize case uses the same pair `useEditorView`
  * calls. No ProseMirror EditorView is instantiated and WYSIWYG is not
- * mounted. Lists serialize loose, so idempotence is checked on the
+ * mounted. Lists serialize tight, so idempotence is checked on the
  * serialized text rather than the original source bytes.
  *
  * @vitest-environment happy-dom
@@ -158,7 +158,8 @@ describe('JSX Extraction', () => {
 
     expect(jsxBlocks).toHaveLength(1);
     expect(jsxBlocks[0]).toBe('<MyComponent prop="value" />');
-    expect(processedText).not.toContain('<MyComponent');
+    expect(processedText).toContain('```mdxpad-jsx');
+    expect(processedText).toContain('<MyComponent prop="value" />');
   });
 
   it('should extract paired JSX blocks', () => {
@@ -168,7 +169,8 @@ describe('JSX Extraction', () => {
     expect(jsxBlocks).toHaveLength(1);
     expect(jsxBlocks[0]).toContain('<Card');
     expect(jsxBlocks[0]).toContain('</Card>');
-    expect(processedText).not.toContain('<Card');
+    expect(processedText).toContain('```mdxpad-jsx');
+    expect(processedText).toContain('<Card');
   });
 
   it('should return empty array for content without JSX', () => {
@@ -198,7 +200,8 @@ describe('JSX Extraction', () => {
     const input = '<Widget />';
     const { processedText } = extractJsxBlocks(input);
 
-    expect(processedText).toContain('<!-- mdx-jsx-block -->');
+    expect(processedText).toContain('```mdxpad-jsx');
+    expect(processedText).toContain('<Widget />');
   });
 
   it('should extract JSX with attributes spanning text', () => {

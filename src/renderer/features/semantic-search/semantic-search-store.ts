@@ -155,12 +155,14 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
           readExcludesForDirectory(workspacePath)
         );
         if (response.success) {
+          const indexedFiles = response.indexedFiles ?? 0;
           set((draft) => {
             draft.isIndexing = false;
-            draft.isIndexed = true;
-            draft.fileCount = response.indexedFiles ?? 0;
+            draft.isIndexed = indexedFiles > 0;
+            draft.fileCount = indexedFiles;
             draft.chunkCount = response.totalChunks ?? 0;
-            draft.lastIndexedAt = new Date().toISOString();
+            draft.lastIndexedAt = indexedFiles > 0 ? new Date().toISOString() : draft.lastIndexedAt;
+            draft.error = indexedFiles > 0 ? null : 'No files were indexed';
           });
         } else {
           set((draft) => {

@@ -95,6 +95,25 @@ describe('useSemanticSearchStore', () => {
     expect(state.error).toBe('Semantic search is not available');
   });
 
+  it('does not mark the folder indexed when no files were stored', async () => {
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        indexWorkspace: vi.fn().mockResolvedValue({
+          success: true,
+          indexedFiles: 0,
+          totalChunks: 0,
+        }),
+      },
+    });
+
+    await useSemanticSearchStore.getState().indexWorkspace('/notes');
+
+    const state = useSemanticSearchStore.getState();
+    expect(state.isIndexing).toBe(false);
+    expect(state.isIndexed).toBe(false);
+    expect(state.error).toBe('No files were indexed');
+  });
+
   it('loads index status for the open folder', async () => {
     vi.stubGlobal('mdxpad', {
       semanticSearch: {

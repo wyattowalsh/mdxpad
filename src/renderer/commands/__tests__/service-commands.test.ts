@@ -120,6 +120,29 @@ describe('import.html', () => {
     await expect(command?.execute(context)).resolves.toEqual({ ok: true });
     expect(useDocumentStore.getState().content).toBe('Hi');
   });
+
+  it('imports a Notion page into the document', async () => {
+    useDocumentStore.getState().setContent('keep');
+    const fromNotion = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { content: '# Page', warnings: [] },
+    });
+    const prompt = vi.spyOn(window, 'prompt').mockImplementation((message) => {
+      return String(message).includes('API') ? 'secret-token' : 'page-1';
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: null, content: 'keep' },
+      api: { import: { fromNotion } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'import.notion');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(fromNotion).toHaveBeenCalledWith('page-1', 'secret-token');
+    expect(useDocumentStore.getState().content).toBe('# Page');
+    prompt.mockRestore();
+  });
 });
 
 describe('citation.parse', () => {

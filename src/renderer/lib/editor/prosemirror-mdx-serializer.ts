@@ -94,7 +94,7 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   text(state, node) {
-    state.text(node.text ?? '');
+    writeTextPreservingMath(state, node.text ?? '');
   },
 
   jsx_block(state, node) {
@@ -185,6 +185,22 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
  * Determine the number of backticks needed for inline code
  * to avoid collisions with backticks in the content.
  */
+function writeTextPreservingMath(state: MarkdownSerializerState, value: string): void {
+  const pattern = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/g;
+  let cursor = 0;
+  for (const match of value.matchAll(pattern)) {
+    const index = match.index;
+    if (index > cursor) {
+      state.text(value.slice(cursor, index));
+    }
+    state.text(match[0], false);
+    cursor = index + match[0].length;
+  }
+  if (cursor < value.length) {
+    state.text(value.slice(cursor));
+  }
+}
+
 function backticksFor(node: ProseMirrorNode, side: number): string {
   const ticks = /`+/g;
   let m: RegExpExecArray | null;
@@ -217,7 +233,7 @@ export const mdxSerializer = new MarkdownSerializer(nodeSerializers, markSeriali
  * @returns Serialized Markdown/MDX string
  */
 export function serializeMdxContent(doc: ProseMirrorNode): string {
-  const body = mdxSerializer.serialize(doc);
+  const body = mdxSerializer.serialize(doc, { tightLists: true });
   const frontmatter = typeof doc.attrs.frontmatter === 'string' ? doc.attrs.frontmatter : '';
   if (frontmatter.length === 0) {
     return body;
