@@ -14,6 +14,9 @@ export function HistoryUtilityPanel(): React.JSX.Element {
   const selectedEntryId = useVersionHistoryStore((state) => state.selectedEntryId);
   const loadHistory = useVersionHistoryStore((state) => state.loadHistory);
   const selectEntry = useVersionHistoryStore((state) => state.selectEntry);
+  const error = useVersionHistoryStore((state) => state.error);
+  const setError = useVersionHistoryStore((state) => state.setError);
+  const setLoading = useVersionHistoryStore((state) => state.setLoading);
   const [versionContent, setVersionContent] = useState<string | null>(null);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -21,22 +24,47 @@ export function HistoryUtilityPanel(): React.JSX.Element {
 
   useEffect(() => {
     if (!filePath || !window.mdxpad.history) {
+      setError(null);
       return;
     }
-    void window.mdxpad.history.getHistory(filePath).then((result) => {
-      loadHistory(result.entries, filePath);
-    });
-  }, [filePath, loadHistory]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void window.mdxpad.history
+      .getHistory(filePath)
+      .then((result) => {
+        if (!cancelled) loadHistory(result.entries, filePath);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setLoading(false);
+        setError(caught instanceof Error ? caught.message : 'Could not load version history');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath, loadHistory, setError, setLoading]);
 
   useEffect(() => {
     if (!filePath || !selectedEntryId || !window.mdxpad.history) {
       setVersionContent(null);
       return;
     }
-    void window.mdxpad.history.getVersion(selectedEntryId, filePath).then((result) => {
-      setVersionContent(result.content);
-    });
-  }, [filePath, selectedEntryId]);
+    let cancelled = false;
+    void window.mdxpad.history
+      .getVersion(selectedEntryId, filePath)
+      .then((result) => {
+        if (!cancelled) setVersionContent(result.content);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setVersionContent(null);
+        setError(caught instanceof Error ? caught.message : 'Could not load this version');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath, selectedEntryId, setError]);
 
   const selected = entries.find((entry) => entry.id === selectedEntryId) ?? null;
   const counts = useMemo(() => {
@@ -58,11 +86,18 @@ export function HistoryUtilityPanel(): React.JSX.Element {
       {filePath === null ? (
         <p className="text-sm text-muted-foreground">Open a file to see its history.</p>
       ) : (
-        <VersionTimeline
-          entries={entries}
-          selectedEntryId={selectedEntryId}
-          onSelect={selectEntry}
-        />
+        <>
+          {error ? (
+            <p className="text-destructive px-3 py-2 text-xs" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <VersionTimeline
+            entries={entries}
+            selectedEntryId={selectedEntryId}
+            onSelect={selectEntry}
+          />
+        </>
       )}
       {versionContent !== null && (
         <VersionDiff oldContent={versionContent} newContent={content} oldLabel="Saved version" />
@@ -108,9 +143,9 @@ export function HistoryUtilityPanel(): React.JSX.Element {
                 loadHistory(history.entries, filePath);
                 setRestoreOpen(false);
               })
-              .catch((error: unknown) => {
+              .catch((caught: unknown) => {
                 setRestoreError(
-                  error instanceof Error ? error.message : 'Could not restore this version'
+                  caught instanceof Error ? caught.message : 'Could not restore this version'
                 );
               })
               .finally(() => {

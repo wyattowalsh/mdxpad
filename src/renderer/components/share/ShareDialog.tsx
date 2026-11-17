@@ -22,6 +22,7 @@ export interface ShareDialogProps {
   readonly onCreateLink: (accessMode: ShareAccessMode) => void;
   readonly onRevokeLink: (linkId: string) => void;
   readonly onCopyLink: (url: string) => void;
+  readonly error?: string | null;
 }
 
 // ============================================================================
@@ -218,9 +219,7 @@ interface LinkListProps {
 
 function LinkListComponent({ links, onRevokeLink, onCopyLink }: LinkListProps) {
   if (links.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground text-center py-3">No active share links</p>
-    );
+    return <p className="text-xs text-muted-foreground text-center py-3">No active share links</p>;
   }
 
   return (
@@ -251,6 +250,7 @@ function ShareDialogComponent({
   onCreateLink,
   onRevokeLink,
   onCopyLink,
+  error = null,
 }: ShareDialogProps) {
   const [accessMode, setAccessMode] = useState<ShareAccessMode>('read-only');
 
@@ -282,6 +282,11 @@ function ShareDialogComponent({
         )}
       >
         <DialogHeader onClose={onClose} />
+        {error ? (
+          <p className="text-destructive mb-2 text-xs" role="alert">
+            {error}
+          </p>
+        ) : null}
         <CreateLinkControls
           accessMode={accessMode}
           onToggleAccess={handleToggleAccess}
