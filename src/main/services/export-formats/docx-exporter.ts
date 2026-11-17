@@ -46,6 +46,7 @@ interface InlineSegment {
   italic?: boolean;
   code?: boolean;
   link?: string;
+  image?: string;
 }
 
 export function parseInlineFormatting(text: string): InlineSegment[] {
@@ -56,11 +57,21 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
 
   for (const match of text.matchAll(regex)) {
     const matchIndex = match.index;
-    if (matchIndex > lastIndex) {
-      segments.push({ text: text.slice(lastIndex, matchIndex) });
+    const image =
+      match[7] !== undefined &&
+      match[8] !== undefined &&
+      matchIndex > 0 &&
+      text[matchIndex - 1] === '!';
+    const prefixEnd = image ? matchIndex - 1 : matchIndex;
+    if (prefixEnd > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, prefixEnd) });
     }
 
-    if (match[2] !== undefined) {
+    if (image) {
+      const alt = match[7] ?? '';
+      const src = match[8] ?? '';
+      segments.push({ text: alt.length > 0 ? alt : src, image: src });
+    } else if (match[2] !== undefined) {
       segments.push({ text: match[2], bold: true });
     } else if (match[3] !== undefined) {
       segments.push({ text: match[3], bold: true });
@@ -102,6 +113,12 @@ function createParagraphChildren(text: string): (TextRun | ExternalHyperlink | M
 
 function createTextRuns(segments: InlineSegment[]): (TextRun | ExternalHyperlink)[] {
   return segments.map((segment) => {
+    if (segment.image) {
+      return new ExternalHyperlink({
+        children: [new TextRun({ text: segment.text || segment.image, style: 'Hyperlink' })],
+        link: segment.image,
+      });
+    }
     if (segment.link) {
       return new ExternalHyperlink({
         children: [new TextRun({ text: segment.text, style: 'Hyperlink' })],

@@ -20,6 +20,9 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('use snake_case_name here')).toEqual([
       { text: 'use snake_case_name here' },
     ]);
+    expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
+      { text: 'A photo', image: 'photo.jpg' },
+    ]);
     expect(parseInlineFormatting('this is _italic_ text')).toEqual([
       { text: 'this is ' },
       { text: 'italic', italic: true },

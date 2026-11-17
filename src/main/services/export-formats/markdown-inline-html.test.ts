@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdownInline } from './markdown-inline-html';
 
 describe('renderMarkdownInline', () => {
+  it('renders an image instead of a link with a stray exclamation mark', () => {
+    expect(renderMarkdownInline('![A photo](photo.jpg)')).toBe(
+      '<img src="photo.jpg" alt="A photo" />'
+    );
+    expect(renderMarkdownInline('[docs](https://example.com)')).toBe(
+      '<a href="https://example.com">docs</a>'
+    );
+  });
+
   it('renders emphasis, code, and links', () => {
     expect(renderMarkdownInline('**bold** and _italic_ and `code`')).toBe(
       '<strong>bold</strong> and <em>italic</em> and <code>code</code>'

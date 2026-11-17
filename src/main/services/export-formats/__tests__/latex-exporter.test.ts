@@ -151,6 +151,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('includes a local image and links a remote one', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![Local](photo.jpg) and ![Remote](https://example.com/a.jpg)',
+      outputPath: '/tmp/image.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\includegraphics{photo.jpg}');
+    expect(written).toContain('\\href{https://example.com/a.jpg}{Remote}');
+    expect(written).not.toContain('![');
+  });
+
   it('renders a block quote', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

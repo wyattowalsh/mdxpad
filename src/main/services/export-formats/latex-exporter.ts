@@ -89,6 +89,14 @@ function convertInlineFormatting(raw: string): string {
   return restoreMath(formatInline(protectedMath.text), protectedMath.slots);
 }
 
+function latexImage(src: string, alt: string): string {
+  if (/^https?:\/\//i.test(src)) {
+    return `\\href{${escapeLatex(src)}}{${escapeLatex(alt)}}`;
+  }
+  const path = src.replaceAll('%', '\\%').replaceAll('}', '');
+  return `\\includegraphics{${path}}`;
+}
+
 function formatInline(raw: string): string {
   const pattern =
     /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\))/g;
@@ -96,8 +104,14 @@ function formatInline(raw: string): string {
   let cursor = 0;
   for (const match of raw.matchAll(pattern)) {
     const index = match.index;
-    result += escapeLatex(raw.slice(cursor, index));
-    if (match[2] !== undefined || match[3] !== undefined) {
+    const image =
+      match[7] !== undefined && match[8] !== undefined && index > 0 && raw[index - 1] === '!';
+    result += escapeLatex(raw.slice(cursor, image ? index - 1 : index));
+    if (image) {
+      const alt = match[7] ?? '';
+      const src = match[8] ?? '';
+      result += latexImage(src, alt.length > 0 ? alt : src);
+    } else if (match[2] !== undefined || match[3] !== undefined) {
       result += wrapLatex('textbf', match[2] ?? match[3] ?? '');
     } else if (match[4] !== undefined) {
       result += wrapLatex('texttt', match[4]);

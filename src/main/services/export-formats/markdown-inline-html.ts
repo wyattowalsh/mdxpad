@@ -52,7 +52,13 @@ function renderText(value: string): string {
     .replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    .replace(
+      /!\[([^\]]*)\]\(([^)]+)\)/g,
+      (_match, alt: string, src: string) => `<img src="${src}" alt="${alt}" />`
+    )
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, href: string) => {
+      return `<a href="${href}">${text}</a>`;
+    });
 }
 
 function appendMath(
