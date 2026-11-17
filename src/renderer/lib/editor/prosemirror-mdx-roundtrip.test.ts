@@ -115,6 +115,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\[');
   });
 
+  it('keeps a table and a quote inside a footnote', () => {
+    const table = roundTrip('A[^1].\n\n[^1]: | A | B |\n    | --- | --- |\n    | 1 | 2 |\n');
+    expect(table).toContain('[^1]: | A | B |');
+    expect(table).toContain('    | --- | --- |');
+    expect(table).toContain('    | 1 | 2 |');
+    const quote = roundTrip('A[^1].\n\n[^1]: > hello\n    > world\n');
+    expect(quote).toContain('[^1]: > hello');
+    expect(quote).toContain('    > world');
+    expect(quote).not.toContain('\\>');
+  });
+
   it('keeps a footnote reference and its definition', () => {
     const serialized = roundTrip('A footnote[^1].\n\n[^1]: The note\n');
     expect(serialized).toContain('A footnote[^1].');

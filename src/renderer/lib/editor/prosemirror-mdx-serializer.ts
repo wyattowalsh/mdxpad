@@ -125,8 +125,11 @@ const nodeSerializers: NodeSerializerMap = {
     state.write(`![${markdownAlt(alt)}](${markdownTarget(src, title)})`);
   },
 
-  hard_break(state, node) {
-    state.write(node.attrs.hard === false ? '\n' : '\\\n');
+  hard_break(state, node, parent) {
+    const first = parent.firstChild?.isText ? (parent.firstChild.text ?? '') : '';
+    const footnote = parent.type.name === 'paragraph' && /^\[\^[^\]]+\]:/.test(first);
+    const indent = footnote ? '    ' : '';
+    state.write(node.attrs.hard === false ? `\n${indent}` : `\\\n${indent}`);
   },
 
   text(state, node) {
