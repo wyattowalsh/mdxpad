@@ -3,6 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdownInline } from './markdown-inline-html';
 
 describe('renderMarkdownInline', () => {
+  it('renders an image that is the label of a link', () => {
+    expect(renderMarkdownInline('[![alt](a.png)](https://example.com)')).toBe(
+      '<a href="https://example.com"><img src="a.png" alt="alt" /></a>'
+    );
+    expect(renderMarkdownInline('[![alt](a.png "Title")](https://example.com)')).toBe(
+      '<a href="https://example.com"><img src="a.png" alt="alt" title="Title" /></a>'
+    );
+  });
+
+  it('keeps an email link as one anchor', () => {
+    expect(renderMarkdownInline('[ada@example.com](mailto:ada@example.com)')).toBe(
+      '<a href="mailto:ada@example.com">ada@example.com</a>'
+    );
+    expect(renderMarkdownInline('Write <ada@example.com> today')).toBe(
+      'Write <a href="mailto:ada@example.com">ada@example.com</a> today'
+    );
+  });
+
   it('renders an image instead of a link with a stray exclamation mark', () => {
     expect(renderMarkdownInline('![A photo](photo.jpg)')).toBe(
       '<img src="photo.jpg" alt="A photo" />'

@@ -51,6 +51,80 @@ function stripTitle(raw: string): string | null {
   return title ? raw.slice(0, title.start).trim() : null;
 }
 
+export interface MarkdownTarget {
+  readonly image: boolean;
+  readonly label: string;
+  readonly destination: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+function readBalancedLabel(
+  raw: string,
+  openIndex: number
+): { readonly text: string; readonly end: number } | null {
+  let depth = 0;
+  let text = '';
+  for (let index = openIndex; index < raw.length; index += 1) {
+    const char = raw[index] ?? '';
+    if (char === '[') {
+      if (depth > 0) {
+        text += char;
+      }
+      depth += 1;
+      continue;
+    }
+    if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return { text, end: index + 1 };
+      }
+      text += char;
+      continue;
+    }
+    if (depth > 0) {
+      text += char;
+    }
+  }
+  return null;
+}
+
+/** A link or image, including a label that itself contains brackets. */
+export function readMarkdownTarget(raw: string, start: number): MarkdownTarget | null {
+  const image = raw[start] === '!' && raw[start + 1] === '[';
+  const bracket = image ? start + 1 : start;
+  if (raw[bracket] !== '[') {
+    return null;
+  }
+  const label = readBalancedLabel(raw, bracket);
+  if (!label || raw[label.end] !== '(') {
+    return null;
+  }
+  const destination = new RegExp(`^(${MARKDOWN_LINK_INSIDE})\\)`).exec(raw.slice(label.end + 1));
+  if (!destination) {
+    return null;
+  }
+  return {
+    image,
+    label: label.text,
+    destination: destination[1] ?? '',
+    start,
+    end: label.end + 1 + destination[0].length,
+  };
+}
+
+/** The next link or image at or after `from`. */
+export function findMarkdownTarget(raw: string, from: number): MarkdownTarget | null {
+  for (let index = from; index < raw.length; index += 1) {
+    const start = raw[index] === '!' && raw[index + 1] === '[' ? index : -1;
+    const parsed = readMarkdownTarget(raw, start === -1 ? index : start);
+    if (parsed && (start !== -1 || raw[index] === '[')) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
 /** Keep the link or image address and drop an optional Markdown title. */
 export function linkDestination(raw: string): string {
   const decoded = raw.trim().replaceAll('&quot;', '"').replaceAll('&#39;', "'");

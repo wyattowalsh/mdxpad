@@ -156,6 +156,34 @@ export function protectAutolinks(raw: string): ProtectedAutolinks {
   return { text, links };
 }
 
+/** Replace autolink markers. A marker already inside an anchor stays text. */
+export function replaceAutolinks(
+  html: string,
+  links: readonly Autolink[],
+  render: (link: Autolink, nested: boolean) => string
+): string {
+  const pattern = new RegExp(`${AUTOLINK_MARK}(\\d+)${AUTOLINK_MARK}|</a>|<a\\b`, 'g');
+  let result = '';
+  let last = 0;
+  let depth = 0;
+  for (const match of html.matchAll(pattern)) {
+    const start = match.index;
+    result += html.slice(last, start);
+    if (match[0] === '</a>') {
+      depth = Math.max(0, depth - 1);
+      result += match[0];
+    } else if (match[0] === '<a') {
+      depth += 1;
+      result += match[0];
+    } else {
+      const link = links[Number(match[1])];
+      result += link ? render(link, depth > 0) : match[0];
+    }
+    last = start + match[0].length;
+  }
+  return result + html.slice(last);
+}
+
 export function expandAutolinkText(
   text: string,
   links: readonly Autolink[]

@@ -1,9 +1,9 @@
 import katex from 'katex';
 
-import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
+import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
-import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
+import { findMarkdownTarget, linkDestination, linkTitle, type MarkdownTarget } from './markdown-link';
 
 function escapeHtml(value: string): string {
   return value
@@ -136,21 +136,20 @@ function restoreInlineHtml(html: string, tags: readonly string[]): string {
   );
 }
 
+function autolinkHtml(link: Autolink, nested: boolean): string {
+  const text = escapeHtml(link.text);
+  return nested ? text : `<a href="${escapeHtml(link.href)}">${text}</a>`;
+}
+
 function restoreAutolinks(
   html: string,
   links: ReturnType<typeof protectAutolinks>['links']
 ): string {
-  return expandAutolinkText(html, links)
-    .map((part) =>
-      part.href ? `<a href="${escapeHtml(part.href)}">${escapeHtml(part.text)}</a>` : part.text
-    )
-    .join('');
+  return replaceAutolinks(html, links, autolinkHtml);
 }
 
 const INLINE_PATTERN =
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\((' +
-  MARKDOWN_LINK_INSIDE +
-  ')\\)|~~(.+?)~~)';
+  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|~~(.+?)~~)';
 
 function escapeText(value: string): string {
   return escapeHtml(decodeHtmlEntities(value));
@@ -179,28 +178,43 @@ function renderRichMatch(match: RegExpMatchArray): string {
   if (match[7] !== undefined || match[8] !== undefined) {
     return `<em>${renderRich(match[7] ?? match[8] ?? '')}</em>`;
   }
-  if (match[9] !== undefined && match[10] !== undefined) {
-    const href = escapeHtml(decodeHtmlEntities(linkDestination(match[10])));
-    return `<a href="${href}"${titleAttribute(match[10])}>${renderRich(match[9])}</a>`;
-  }
-  if (match[11] !== undefined) {
-    return `<del>${renderRich(match[11])}</del>`;
+  if (match[9] !== undefined) {
+    return `<del>${renderRich(match[9])}</del>`;
   }
   return '';
+}
+
+function renderTarget(target: MarkdownTarget): string {
+  if (target.image) {
+    return renderRichImage(target.label, target.destination);
+  }
+  const href = escapeHtml(decodeHtmlEntities(linkDestination(target.destination)));
+  return `<a href="${href}"${titleAttribute(target.destination)}>${renderRich(target.label)}</a>`;
 }
 
 function renderRich(raw: string): string {
   let result = '';
   let cursor = 0;
-  for (const match of raw.matchAll(new RegExp(INLINE_PATTERN, 'g'))) {
-    const index = match.index;
-    const image =
-      match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';
-    result += escapeText(raw.slice(cursor, image ? index - 1 : index));
-    result += image ? renderRichImage(match[9] ?? '', match[10] ?? '') : renderRichMatch(match);
-    cursor = index + match[0].length;
+  const marks = new RegExp(INLINE_PATTERN, 'g');
+  while (cursor < raw.length) {
+    marks.lastIndex = cursor;
+    const match = marks.exec(raw);
+    const target = findMarkdownTarget(raw, cursor);
+    const markAt = match?.index ?? raw.length;
+    if (target && target.start < markAt) {
+      result += escapeText(raw.slice(cursor, target.start));
+      result += renderTarget(target);
+      cursor = target.end;
+      continue;
+    }
+    if (!match) {
+      return result + escapeText(raw.slice(cursor));
+    }
+    result += escapeText(raw.slice(cursor, markAt));
+    result += renderRichMatch(match);
+    cursor = markAt + match[0].length;
   }
-  return result + escapeText(raw.slice(cursor));
+  return result;
 }
 
 /** Escape text, then apply emphasis, code, and links. Underscores inside words stay plain. */

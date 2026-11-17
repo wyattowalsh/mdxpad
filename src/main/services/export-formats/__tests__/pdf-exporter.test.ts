@@ -600,6 +600,29 @@ describe('PdfExporter', () => {
     expect(html).toContain('<td>1</td>');
   });
 
+  it('keeps an email autolink as one anchor', async () => {
+    await exporter.export({
+      content: 'Write <ada@example.com> today\n',
+      outputPath: '/tmp/mailto.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<a href="mailto:ada@example.com">ada@example.com</a>');
+    expect(html).not.toContain('<a href="mailto:ada@example.com"><a');
+  });
+
+  it('links an image', async () => {
+    await exporter.export({
+      content: '[![alt](a.png)](https://example.com)\n',
+      outputPath: '/tmp/image-link.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain(
+      '<a href="https://example.com"><img src="a.png" alt="alt" /></a>'
+    );
+  });
+
   it('keeps an inline HTML tag', async () => {
     await exporter.export({
       content: 'Say <em>hello</em> and a < b',
