@@ -25,13 +25,28 @@ import {
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 
 const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
+const QUOTED_SETEXT = '\uE019';
+
+/** Keep a quoted setext underline distinct from a lazy paragraph line. */
+export function quoteMarkerLine(body: string): string {
+  return setextLevel(body) === null ? body : `${QUOTED_SETEXT}${body}`;
+}
+
+function quotedSetextLevel(line: string): 1 | 2 | null {
+  if (!line.startsWith(QUOTED_SETEXT)) {
+    return null;
+  }
+  return setextLevel(line.slice(QUOTED_SETEXT.length));
+}
 
 /** A following line that stays inside an open quote, such as a wrapped sentence. */
 export function isLazyQuoteLine(line: string): boolean {
-  if (line.trim().length === 0 || openingFence(line) !== null || parseListItem(line) !== null) {
-    return false;
-  }
-  if (isThematicBreak(line) && setextLevel(line) === null) {
+  if (
+    line.trim().length === 0 ||
+    openingFence(line) !== null ||
+    parseListItem(line) !== null ||
+    isThematicBreak(line)
+  ) {
     return false;
   }
   if (/^ {0,3}#{1,6}(?:\s|$)/.test(line)) {
@@ -81,6 +96,13 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
   }
   if (parseListItem(line) !== null) {
     return 'list';
+  }
+  if (
+    (current === null || current.kind === 'code') &&
+    openingFence(line) === null &&
+    /^ {4}\S/.test(line.replaceAll('\t', '    '))
+  ) {
+    return 'code';
   }
   if (current?.kind === 'list' && isListContinuation(line, listIndent(current.lines))) {
     return 'list';
@@ -166,12 +188,22 @@ function quoteCodeParts(lines: readonly string[]): { language: string; body: str
   return { language: fenceLanguage(open ?? ''), body };
 }
 
+function dedentIndentedCode(lines: readonly string[]): string[] {
+  return lines.map((line) => line.replace(/^(?: {4}|\t)/, ''));
+}
+
 function quoteCodeHtml(lines: readonly string[]): string {
+  if (openingFence(lines[0] ?? '') === null) {
+    return renderFencedCode('', dedentIndentedCode(lines));
+  }
   const code = quoteCodeParts(lines);
   return renderFencedCode(code.language, code.body);
 }
 
 function quoteCodeLatex(lines: readonly string[]): string {
+  if (openingFence(lines[0] ?? '') === null) {
+    return `\\begin{verbatim}\n${dedentIndentedCode(lines).join('\n')}\n\\end{verbatim}`;
+  }
   const code = quoteCodeParts(lines);
   const safe = code.language.replaceAll(/[\\%&#_{}]/g, (char) => `\\${char}`);
   const label = safe.length > 0 ? `{\\footnotesize\\ttfamily ${safe}}\n` : '';
@@ -242,7 +274,7 @@ export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPi
     paragraph = [];
   };
   for (const line of lines) {
-    const level = paragraph.length > 0 ? setextLevel(line) : null;
+    const level = paragraph.length > 0 ? quotedSetextLevel(line) : null;
     if (level === null) {
       paragraph.push(line);
       continue;

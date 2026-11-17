@@ -32,7 +32,13 @@ import { expandLinkReferences } from './markdown-reference';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
-import { isLazyQuoteLine, quoteBody, quoteChunks, quoteParagraphPieces } from './markdown-quote';
+import {
+  isLazyQuoteLine,
+  quoteBody,
+  quoteChunks,
+  quoteMarkerLine,
+  quoteParagraphPieces,
+} from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
@@ -596,7 +602,7 @@ function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
       parse.listSealed = true;
       return false;
     }
-    parse.itemQuote.push(text);
+    parse.itemQuote.push(quoteMarkerLine(text));
     return true;
   }
   if (parse.openListItem === null || parse.listColumn === null) {
@@ -773,7 +779,7 @@ function takeDocxQuote(
 ): boolean {
   const body = quoteBody(line);
   if (body !== null) {
-    quoteLines.push(body);
+    quoteLines.push(quoteMarkerLine(body));
     return true;
   }
   if (quoteLines.length > 0 && isLazyQuoteLine(line)) {

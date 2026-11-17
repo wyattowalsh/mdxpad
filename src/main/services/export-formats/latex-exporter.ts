@@ -12,7 +12,7 @@ import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
-import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
@@ -692,7 +692,7 @@ function takeLatexItemQuote(build: LatexBuild, line: string): boolean {
       list.sealed = true;
       return false;
     }
-    list.itemQuote.push(text);
+    list.itemQuote.push(quoteMarkerLine(text));
     return true;
   }
   if (list.stack.length === 0 || list.column === null) {
@@ -715,7 +715,7 @@ function takeLatexQuote(
 ): boolean {
   const body = quoteBody(line);
   if (body !== null) {
-    quoteLines.push(body);
+    quoteLines.push(quoteMarkerLine(body));
     return true;
   }
   if (quoteLines.length > 0 && isLazyQuoteLine(line)) {

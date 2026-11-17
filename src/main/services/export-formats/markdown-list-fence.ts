@@ -13,7 +13,7 @@ import {
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { renderDisplayMathBlock } from './markdown-inline-html';
-import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 
 export interface OpenListFence {
   readonly marker: string;
@@ -576,7 +576,7 @@ export function takeListItemQuote(
       closeItemQuote(state, render);
       return false;
     }
-    state.itemQuote.push(text);
+    state.itemQuote.push(quoteMarkerLine(text));
     return true;
   }
   if (!listOpen || state.listColumn === null) {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { isLazyQuoteLine, quoteBody, quoteToHtml, quoteToLatex } from './markdown-quote';
+import {
+  isLazyQuoteLine,
+  quoteBody,
+  quoteMarkerLine,
+  quoteToHtml,
+  quoteToLatex,
+} from './markdown-quote';
 
 describe('quoteBody', () => {
   it('reads a quote line and rejects plain text', () => {
@@ -68,16 +74,23 @@ describe('quoteBody', () => {
     expect(latex).not.toContain('```');
   });
 
-  it('turns a setext underline into a heading', () => {
-    expect(quoteToHtml(['Title', '==='], (line) => line)).toBe(
+  it('turns a quoted setext underline into a heading', () => {
+    expect(quoteToHtml(['Title', quoteMarkerLine('===')], (line) => line)).toBe(
       '<blockquote>\n<h1 id="title">Title</h1>\n</blockquote>'
     );
-    const second = quoteToHtml(['Title', '---', 'after'], (line) => line);
+    const second = quoteToHtml(['Title', quoteMarkerLine('---'), 'after'], (line) => line);
     expect(second).toContain('<h2 id="title">Title</h2>');
     expect(second).toContain('<p>after</p>');
-    expect(second).not.toContain('---');
-    expect(quoteToLatex(['Title', '==='], (line) => line)).toContain('\\section{Title}');
-    expect(isLazyQuoteLine('---')).toBe(true);
+    expect(quoteToHtml(['Title', '==='], (line) => line)).toContain('<p>Title ===</p>');
+    expect(quoteToLatex(['Title', quoteMarkerLine('===')], (line) => line)).toContain(
+      '\\section{Title}'
+    );
+    const code = quoteToHtml(['    const x = 1'], (line) => line);
+    expect(code).toContain('<pre><code>');
+    expect(code).toContain('const x = 1');
+    expect(code).not.toContain('<p>');
+    expect(isLazyQuoteLine('---')).toBe(false);
+    expect(isLazyQuoteLine('===')).toBe(true);
     expect(isLazyQuoteLine('***')).toBe(false);
   });
 

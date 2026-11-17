@@ -536,6 +536,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<blockquote>');
     expect(html).toContain('<h1 id="title">Title</h1>');
     expect(html).not.toContain('===');
+    const ruled = await exporter.export({
+      content: '> Title\n---\n',
+      outputPath: '/tmp/quote-rule.pdf',
+    });
+    expect(ruled.ok).toBe(true);
+    const ruledUrl = mockLoadURL.mock.calls.at(-1)?.[0];
+    const ruledHtml = decodeURIComponent(
+      String(ruledUrl).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(ruledHtml).toContain('<p>Title</p>');
+    expect(ruledHtml).toContain('<hr />');
+    expect(ruledHtml).not.toContain('<h2');
   });
 
   it('renders a horizontal rule', async () => {

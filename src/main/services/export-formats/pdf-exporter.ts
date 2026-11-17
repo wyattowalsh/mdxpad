@@ -13,7 +13,7 @@ import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
-import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 import {
   closeHtmlLists,
   continuesList,
@@ -175,7 +175,7 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
     flushPdfParagraph(build);
     closePdfList(build);
     flushPdfTable(build);
-    build.quoteLines.push(body);
+    build.quoteLines.push(quoteMarkerLine(body));
     return true;
   }
   if (build.quoteLines.length > 0 && isLazyQuoteLine(line)) {
