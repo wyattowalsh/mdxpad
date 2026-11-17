@@ -61,12 +61,12 @@ function ChangesSummary({
     <div className="mb-4 flex gap-4 text-sm">
       {added > 0 && (
         <span className="text-green-600 dark:text-green-400">
-          +{added} line{added !== 1 ? 's' : ''} added
+          +{added} line{added !== 1 ? 's' : ''} will be restored
         </span>
       )}
       {removed > 0 && (
         <span className="text-red-600 dark:text-red-400">
-          -{removed} line{removed !== 1 ? 's' : ''} removed
+          -{removed} line{removed !== 1 ? 's' : ''} will be removed
         </span>
       )}
     </div>

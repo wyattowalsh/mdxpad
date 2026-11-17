@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { diffLines } from 'diff';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { selectEntries, useVersionHistoryStore } from '@renderer/stores/version-history-store';
 import { VersionDiff } from '@renderer/components/history/VersionDiff';
 import { VersionRestoreDialog } from '@renderer/components/history/VersionRestoreDialog';
 import { VersionTimeline } from '@renderer/components/history/VersionTimeline';
 import { applyRestoredVersion } from './apply-restored-version';
+import { restoreChangeCounts } from './restore-change-counts';
 
 export function HistoryUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
@@ -69,16 +69,9 @@ export function HistoryUtilityPanel(): React.JSX.Element {
   const selected = entries.find((entry) => entry.id === selectedEntryId) ?? null;
   const counts = useMemo(() => {
     if (versionContent === null) {
-      return { added: 0, removed: 0 };
+      return { restored: 0, removed: 0 };
     }
-    let added = 0;
-    let removed = 0;
-    for (const change of diffLines(versionContent, content)) {
-      const lines = change.count;
-      if (change.added) added += lines;
-      if (change.removed) removed += lines;
-    }
-    return { added, removed };
+    return restoreChangeCounts(content, versionContent);
   }, [content, versionContent]);
 
   return (
@@ -118,7 +111,7 @@ export function HistoryUtilityPanel(): React.JSX.Element {
       {selected && (
         <VersionRestoreDialog
           entry={selected}
-          addedLines={counts.added}
+          addedLines={counts.restored}
           removedLines={counts.removed}
           isOpen={restoreOpen}
           isRestoring={isRestoring}
