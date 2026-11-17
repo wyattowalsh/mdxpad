@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { listFenceOnMarker, openListFence, readListFenceLine } from './markdown-list-fence';
+import {
+  listFenceOnMarker,
+  openListFence,
+  readListFenceLine,
+  readListQuoteLine,
+  readOpenListQuote,
+} from './markdown-list-fence';
 
 describe('list fences', () => {
   it('reads a fence indented to the list content column', () => {
@@ -12,5 +18,8 @@ describe('list fences', () => {
     expect(state.lines).toEqual(['const x = 1']);
     expect(listFenceOnMarker('- ```js', 2)?.indent).toBe(2);
     expect(openListFence('```js', 2)).toBeNull();
+    expect(readOpenListQuote('  > quoted', 2)).toBe('quoted');
+    expect(readListQuoteLine('  line', 2)).toBe('line');
+    expect(readOpenListQuote('> quoted', 2)).toBeNull();
   });
 });

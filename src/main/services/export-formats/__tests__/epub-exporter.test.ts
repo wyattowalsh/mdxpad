@@ -118,6 +118,21 @@ describe('EpubExporter', () => {
     expect(result.error).toContain('gen failed');
   });
 
+  it('keeps a block quote inside a list item', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- item\n\n  > quoted\n  > line\n',
+      outputPath: '/tmp/list-quote.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<li>item<blockquote>');
+    expect(html).toContain('<p>quoted line</p>');
+    expect(html.indexOf('</blockquote>')).toBeLessThan(html.indexOf('</ul>'));
+  });
+
   it('keeps a fenced block inside a list item', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

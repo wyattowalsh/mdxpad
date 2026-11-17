@@ -5,7 +5,12 @@ import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/ty
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
 import { advanceFence, closesFence, openingFence } from './export-formats/markdown-fence';
-import { openListFence, readListFenceLine } from './export-formats/markdown-list-fence';
+import {
+  openListFence,
+  readListFenceLine,
+  readListQuoteLine,
+  readOpenListQuote,
+} from './export-formats/markdown-list-fence';
 import {
   isListContinuation,
   listContentColumn,
@@ -550,6 +555,32 @@ function takeBuiltInListFence(
   return Math.max(index, cursor - 1);
 }
 
+function takeBuiltInListQuote(
+  blocks: MarkdownBlock[],
+  lines: readonly string[],
+  index: number
+): number {
+  const last = blocks[blocks.length - 1];
+  if (last?.kind !== 'paragraph' || last.listColumn === null) {
+    return index;
+  }
+  const opened = readOpenListQuote(lines[index] ?? '', last.listColumn);
+  if (opened === null) {
+    return index;
+  }
+  pushRawLine(blocks, opened, true);
+  let cursor = index + 1;
+  while (cursor < lines.length) {
+    const text = readListQuoteLine(lines[cursor] ?? '', last.listColumn);
+    if (text === null) {
+      break;
+    }
+    pushRawLine(blocks, text, true);
+    cursor += 1;
+  }
+  return Math.max(index, cursor - 1);
+}
+
 function takeBuilderFenceLine(
   blocks: MarkdownBlock[],
   lines: readonly string[],
@@ -564,7 +595,11 @@ function takeBuilderFenceLine(
     return index;
   }
   const nested = takeBuiltInListFence(blocks, lines, index);
-  return nested > index ? nested : null;
+  if (nested > index) {
+    return nested;
+  }
+  const quoted = takeBuiltInListQuote(blocks, lines, index);
+  return quoted > index ? quoted : null;
 }
 
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {

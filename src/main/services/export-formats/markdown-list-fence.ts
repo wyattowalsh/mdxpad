@@ -2,6 +2,7 @@ import { renderFencedCode } from './markdown-code';
 import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
 import { isListContinuation, renderListItemHtml, replaceHtmlListItem } from './markdown-list';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
 
 export interface OpenListFence {
   readonly marker: string;
@@ -21,6 +22,7 @@ export interface HtmlListItemState {
   listLines: SourceLine[];
   itemHtml: string;
   itemFence: ListFenceState | null;
+  itemQuote: string[] | null;
   listColumn: number | null;
   listBreak: boolean;
 }
@@ -93,10 +95,40 @@ function writeListItem(state: HtmlListItemState, render: (text: string) => strin
   return replaceHtmlListItem(state.parts, composedItemHtml(state, render));
 }
 
+function dedentToColumn(line: string, contentColumn: number): string {
+  const { expanded, spaces } = expandedIndent(line);
+  return expanded.slice(Math.min(spaces, contentColumn));
+}
+
+/** The text of a quote line indented under the open list item. */
+export function readOpenListQuote(line: string, contentColumn: number): string | null {
+  if (!isListContinuation(line, contentColumn)) {
+    return null;
+  }
+  return quoteBody(dedentToColumn(line, contentColumn));
+}
+
+/** The next quote line, including a lazy continuation, or null when the quote ends. */
+export function readListQuoteLine(line: string, contentColumn: number): string | null {
+  if (line.trim().length === 0 || !isListContinuation(line, contentColumn)) {
+    return null;
+  }
+  const dedented = dedentToColumn(line, contentColumn);
+  const body = quoteBody(dedented);
+  if (body !== null) {
+    return body;
+  }
+  if (!isLazyQuoteLine(dedented)) {
+    return null;
+  }
+  return readSourceLine(dedented).text;
+}
+
 export function resetListItem(state: HtmlListItemState): void {
   state.itemHtml = '';
   state.listLines = [];
   state.itemFence = null;
+  state.itemQuote = null;
 }
 
 /** Start a list item, holding a marker-line fence instead of rendering its backticks. */
@@ -130,7 +162,12 @@ export function continueListItem(
   raw: string,
   render: (text: string) => string
 ): boolean {
-  if (state.itemFence || state.listColumn === null || !isListContinuation(raw, state.listColumn)) {
+  if (
+    state.itemFence ||
+    state.itemQuote ||
+    state.listColumn === null ||
+    !isListContinuation(raw, state.listColumn)
+  ) {
     return false;
   }
   state.listLines.push(readSourceLine(raw));
@@ -184,10 +221,53 @@ export function takeListItemFence(
   return true;
 }
 
+function closeItemQuote(state: HtmlListItemState, render: (text: string) => string): void {
+  if (!state.itemQuote) {
+    return;
+  }
+  state.itemHtml += quoteToHtml(state.itemQuote, render);
+  state.itemQuote = null;
+  state.listLines = [];
+  writeListItem(state, render);
+}
+
+/** Keep a block quote that belongs to the open item inside that item. */
+export function takeListItemQuote(
+  state: HtmlListItemState,
+  line: string,
+  render: (text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (state.itemFence) {
+    return false;
+  }
+  if (state.itemQuote) {
+    const text = readListQuoteLine(line, state.listColumn ?? 2);
+    if (text === null) {
+      closeItemQuote(state, render);
+      return false;
+    }
+    state.itemQuote.push(text);
+    return true;
+  }
+  if (!listOpen || state.listColumn === null) {
+    return false;
+  }
+  const opened = readOpenListQuote(line, state.listColumn);
+  if (opened === null) {
+    return false;
+  }
+  sealProse(state, render);
+  state.itemQuote = [opened];
+  state.listBreak = false;
+  return true;
+}
+
 export function finishListItemFence(
   state: HtmlListItemState,
   render: (text: string) => string
 ): void {
+  closeItemQuote(state, render);
   if (!state.itemFence) {
     return;
   }

@@ -28,6 +28,7 @@ import {
   finishListItemFence,
   openListItem,
   takeListItemFence,
+  takeListItemQuote,
 } from './markdown-list-fence';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -104,6 +105,7 @@ interface EpubLineState {
   listColumn: number | null;
   itemHtml: string;
   itemFence: { marker: string; language: string; indent: number; lines: string[] } | null;
+  itemQuote: string[] | null;
   parts: string[];
   slugCounts: Map<string, number>;
 }
@@ -125,6 +127,9 @@ function flushEpubQuote(htmlLines: string[], state: EpubLineState): void {
 }
 
 function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineState): boolean {
+  if (takeListItemQuote(state, line, renderMarkdownInline, state.lists.length > 0)) {
+    return true;
+  }
   const body = quoteBody(line);
   if (body !== null) {
     flushEpubParagraph(htmlLines, state);
@@ -224,6 +229,7 @@ function closeEpubList(htmlLines: string[], state: EpubLineState): void {
   state.itemHtml = '';
   state.listLines = [];
   state.itemFence = null;
+  state.itemQuote = null;
 }
 
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
@@ -373,6 +379,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     listColumn: null,
     itemHtml: '',
     itemFence: null,
+    itemQuote: null,
     parts: htmlLines,
     displayMath: null,
     tableLines: [],

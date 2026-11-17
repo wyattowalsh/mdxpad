@@ -47,6 +47,8 @@ import {
   listFenceOnMarker,
   openListFence,
   readListFenceLine,
+  readListQuoteLine,
+  readOpenListQuote,
   type ListFenceState,
 } from './markdown-list-fence';
 import { splitTaskItem } from './markdown-task';
@@ -538,6 +540,33 @@ function flushDocxQuote(blocks: (Paragraph | Table)[], quoteLines: string[]): vo
   appendDocxQuoteLines(blocks, quoteLines.splice(0, quoteLines.length), 1);
 }
 
+function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
+  if (parse.itemFence) {
+    return false;
+  }
+  if (parse.itemQuote) {
+    const text = readListQuoteLine(line, parse.listColumn ?? 2);
+    if (text === null) {
+      appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1);
+      parse.itemQuote = null;
+      parse.listSealed = true;
+      return false;
+    }
+    parse.itemQuote.push(text);
+    return true;
+  }
+  if (parse.openListItem === null || parse.listColumn === null) {
+    return false;
+  }
+  const opened = readOpenListQuote(line, parse.listColumn);
+  if (opened === null) {
+    return false;
+  }
+  parse.itemQuote = [opened];
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: string[]): boolean {
   const body = quoteBody(line);
   if (body !== null) {
@@ -603,6 +632,7 @@ interface DocxParse {
   listColumn: number | null;
   listSealed: boolean;
   itemFence: ListFenceState | null;
+  itemQuote: string[] | null;
   slugCounts: Map<string, number>;
 }
 
@@ -677,6 +707,7 @@ function takeDocxList(
     parse.itemFence = fence
       ? { marker: fence.marker, language: fence.language, indent: fence.indent, lines: [] }
       : null;
+    parse.itemQuote = null;
     parse.blocks.push(listParagraph(shown));
     return true;
   }
@@ -710,6 +741,9 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
 }
 
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
+  if (takeDocxItemQuote(parse, line)) {
+    return;
+  }
   const openListItem = parse.openListItem;
   parse.openListItem = null;
   const trimmed = line.trim();
@@ -856,6 +890,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     listColumn: null,
     listSealed: false,
     itemFence: null,
+    itemQuote: null,
     slugCounts: new Map<string, number>(),
   };
   let fence: string | null = null;
@@ -877,6 +912,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   }
   if (parse.itemFence) {
     parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
+  }
+  if (parse.itemQuote) {
+    appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1);
   }
   return parse.blocks;
 }

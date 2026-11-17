@@ -192,6 +192,19 @@ describe('PdfExporter', () => {
     expect(html).toContain('<li><del>hello world</del></li>');
   });
 
+  it('keeps a block quote inside a list item', async () => {
+    await exporter.export({
+      content: '- item\n\n  > quoted\n  > line\n\n  after\n',
+      outputPath: '/tmp/list-quote.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<li>item<blockquote>');
+    expect(html).toContain('<p>quoted line</p>');
+    expect(html).toContain('</blockquote>after</li>');
+    expect(html.indexOf('</blockquote>after</li>')).toBeLessThan(html.indexOf('</ul>'));
+  });
+
   it('keeps a fenced block inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n  ```js\n  const x = 1\n  ```\n\n  after\n',

@@ -27,6 +27,8 @@ import {
   listFenceOnMarker,
   openListFence,
   readListFenceLine,
+  readListQuoteLine,
+  readOpenListQuote,
   type ListFenceState,
 } from './markdown-list-fence';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
@@ -239,6 +241,7 @@ interface ListState {
   itemLines: SourceLine[];
   column: number | null;
   itemFence: ListFenceState | null;
+  itemQuote: string[] | null;
   sealed: boolean;
 }
 
@@ -504,6 +507,34 @@ function flushLatexQuote(output: string[], quoteLines: string[]): void {
   output.push(quoteToLatex(lines, convertInlineFormatting));
 }
 
+function takeLatexItemQuote(build: LatexBuild, line: string): boolean {
+  const list = build.listState;
+  if (list.itemFence || build.fence) {
+    return false;
+  }
+  if (list.itemQuote) {
+    const text = readListQuoteLine(line, list.column ?? 2);
+    if (text === null) {
+      build.output.push(quoteToLatex(list.itemQuote, convertInlineFormatting));
+      list.itemQuote = null;
+      list.sealed = true;
+      return false;
+    }
+    list.itemQuote.push(text);
+    return true;
+  }
+  if (list.stack.length === 0 || list.column === null) {
+    return false;
+  }
+  const opened = readOpenListQuote(line, list.column);
+  if (opened === null) {
+    return false;
+  }
+  list.itemQuote = [opened];
+  list.break = false;
+  return true;
+}
+
 function takeLatexQuote(output: string[], line: string, quoteLines: string[]): boolean {
   const body = quoteBody(line);
   if (body !== null) {
@@ -634,6 +665,9 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     resetListState(build.output, build.listState);
     return;
   }
+  if (takeLatexItemQuote(build, line)) {
+    return;
+  }
   if (takeLatexQuote(build.output, line, build.quoteLines)) {
     flushLatexProse(build.output, build.prose);
     resetListState(build.output, build.listState);
@@ -656,6 +690,7 @@ function contentToLatex(content: string): string {
       itemLines: [],
       column: null,
       itemFence: null,
+      itemQuote: null,
       sealed: false,
     },
     slugCounts: new Map<string, number>(),
@@ -676,6 +711,9 @@ function contentToLatex(content: string): string {
   }
   if (build.listState.itemFence) {
     writeLatexItemFence(build.output, build.listState.itemFence);
+  }
+  if (build.listState.itemQuote) {
+    build.output.push(quoteToLatex(build.listState.itemQuote, convertInlineFormatting));
   }
   closeLatexLists(build.output, build.listState.stack);
 

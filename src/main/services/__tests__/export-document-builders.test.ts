@@ -163,6 +163,14 @@ describe('built-in export documents', () => {
     expect(pdf.content).toContain('A *B*');
   });
 
+  it('keeps a block quote inside a list item as its own lines', () => {
+    const pdf = buildPdfDocument('- item\n\n  > quoted\n  > line\n');
+    expect(pdf.content).toContain('(- item) Tj');
+    expect(pdf.content).toContain('(quoted) Tj');
+    expect(pdf.content).toContain('(line) Tj');
+    expect(pdf.content).not.toContain('item > quoted');
+  });
+
   it('keeps a fenced block inside a list item as its own line', () => {
     const pdf = buildPdfDocument('- item\n\n  ```js\n  const x = 1\n  ```\n');
     expect(pdf.content).toContain('- item');

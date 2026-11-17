@@ -217,6 +217,27 @@ describe('DocxExporter', () => {
     expect(xml).toContain('the start');
   });
 
+  it('keeps a block quote inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- item\n\n  > quoted\n  > line\n',
+      outputPath: '/tmp/list-quote.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml.indexOf('>item<')).toBeLessThan(xml.indexOf('quoted'));
+    expect(xml).toContain('line');
+    expect(xml).not.toContain('item &gt; quoted');
+  });
+
   it('keeps a fenced block inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

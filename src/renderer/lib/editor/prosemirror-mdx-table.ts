@@ -61,11 +61,20 @@ export const tableNodes: Record<string, NodeSpec> = {
 };
 
 function inlineMarkdown(state: MarkdownSerializerState, node: ProseMirrorNode): string {
-  const writable = state as MarkdownSerializerState & { out: string };
+  const writable = state as MarkdownSerializerState & {
+    out: string;
+    closed: ProseMirrorNode | null;
+    atBlockStart: boolean;
+  };
   const start = writable.out.length;
+  const closed = writable.closed;
+  const atBlockStart = writable.atBlockStart;
+  writable.closed = null;
   state.renderInline(node);
   const text = writable.out.slice(start).replaceAll('\n', ' ').trim().replaceAll('|', '\\|');
   writable.out = writable.out.slice(0, start);
+  writable.closed = closed;
+  writable.atBlockStart = atBlockStart;
   return text;
 }
 

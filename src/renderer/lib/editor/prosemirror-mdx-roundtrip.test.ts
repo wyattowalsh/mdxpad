@@ -163,6 +163,18 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\~');
   });
 
+  it('keeps a table that follows a paragraph', () => {
+    const listed = roundTrip('- item\n\n  | A | B |\n  | --- | --- |\n  | 1 | 2 |\n');
+    expect(listed).toContain('- item');
+    expect(listed).toContain('  | A | B |');
+    expect(listed).toContain('  | 1 | 2 |');
+    expect(listed).not.toContain('item|');
+    const quoted = roundTrip('> intro\n>\n> | A | B |\n> | --- | --- |\n> | 1 | 2 |\n');
+    expect(quoted).toContain('> intro');
+    expect(quoted).toContain('> | A | B |');
+    expect(quoted).not.toContain('intro|');
+  });
+
   it('keeps a table inside a quote', () => {
     const serialized = roundTrip('> | A | B |\n> | --- | ---: |\n> | 1 | 2 |\n');
     expect(serialized).toContain('> | A | B |');
