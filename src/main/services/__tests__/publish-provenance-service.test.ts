@@ -4,6 +4,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { grantReadCapability, resetFileCapabilities } from '@main/ipc/document-capability';
+
 import { PublishProvenanceService } from '../publish-provenance-service';
 
 describe('PublishProvenanceService', () => {
@@ -14,6 +16,7 @@ describe('PublishProvenanceService', () => {
   });
 
   afterEach(async () => {
+    resetFileCapabilities();
     if (tempDir) {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -22,6 +25,8 @@ describe('PublishProvenanceService', () => {
   it('publishes content and records provenance + backlinks', async () => {
     const service = new PublishProvenanceService(tempDir);
     const sourcePath = path.join(tempDir, 'notes.mdx');
+    await writeFile(sourcePath, '# Notes', 'utf-8');
+    grantReadCapability(sourcePath);
     const published = await service.publish({
       providerId: 'filesystem-export',
       sourcePath,
@@ -78,15 +83,22 @@ describe('PublishProvenanceService', () => {
       return originalReadFile(...args);
     }) as typeof fs.readFile);
 
+    const firstSource = path.join(tempDir, 'first.mdx');
+    const secondSource = path.join(tempDir, 'second.mdx');
+    await writeFile(firstSource, '# First', 'utf-8');
+    await writeFile(secondSource, '# Second', 'utf-8');
+    grantReadCapability(firstSource);
+    grantReadCapability(secondSource);
+
     const firstPublish = service.publish({
       providerId: 'filesystem-export',
-      sourcePath: path.join(tempDir, 'first.mdx'),
+      sourcePath: firstSource,
       content: '# First\nSee [A](https://example.com/a).',
       frontmatter: undefined,
     });
     const secondPublish = service.publish({
       providerId: 'filesystem-export',
-      sourcePath: path.join(tempDir, 'second.mdx'),
+      sourcePath: secondSource,
       content: '# Second\nSee [B](https://example.com/b).',
       frontmatter: undefined,
     });
@@ -106,5 +118,21 @@ describe('PublishProvenanceService', () => {
 
     const provenance = await service.listProvenance();
     expect(provenance).toHaveLength(2);
+  });
+
+  it('does not write a published copy of a file that is not open', async () => {
+    const service = new PublishProvenanceService(tempDir);
+    const sourcePath = path.join(tempDir, 'secret.mdx');
+    await writeFile(sourcePath, 'hidden', 'utf-8');
+
+    await expect(
+      service.publish({
+        providerId: 'filesystem-export',
+        sourcePath,
+        content: 'leaked',
+        frontmatter: undefined,
+      })
+    ).rejects.toThrow('file that is open');
+    await expect(fs.access(path.join(tempDir, 'secret.published.mdx'))).rejects.toThrow();
   });
 });

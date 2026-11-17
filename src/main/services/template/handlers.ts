@@ -41,11 +41,7 @@ import {
   type TemplateErrorResponse,
 } from '@shared/contracts/template-schemas';
 
-import {
-  getCustomTemplatesPath,
-  ensureCustomTemplatesDir,
-  fileExists,
-} from './paths';
+import { getCustomTemplatesPath, ensureCustomTemplatesDir, fileExists } from './paths';
 import {
   validationError,
   notFoundError,
@@ -54,17 +50,9 @@ import {
   parseError,
   alreadyExistsError,
 } from './errors';
-import {
-  parseTemplateFile,
-  buildTemplateFile,
-  substituteVariables,
-  slugify,
-} from './parser';
-import {
-  loadBuiltinTemplates,
-  loadCustomTemplates,
-  findTemplateById,
-} from './loader';
+import { parseTemplateFile, buildTemplateFile, substituteVariables, slugify } from './parser';
+import { loadBuiltinTemplates, loadCustomTemplates, findTemplateById } from './loader';
+import { rememberChosenTemplatePath, unchosenTemplatePathError } from './template-scope';
 
 // =============================================================================
 // Types
@@ -118,7 +106,9 @@ export async function handleTemplateGet(
 
   // SEC-3: Validate template ID to prevent path traversal
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
-    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+    return validationError(
+      'Invalid template ID: must contain only alphanumeric, dash, or underscore'
+    );
   }
 
   const found = await findTemplateById(id);
@@ -154,7 +144,9 @@ export async function handleTemplateSave(
 
   // SEC-3: Validate template ID to prevent path traversal
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
-    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+    return validationError(
+      'Invalid template ID: must contain only alphanumeric, dash, or underscore'
+    );
   }
 
   const customPath = getCustomTemplatesPath();
@@ -202,7 +194,9 @@ export async function handleTemplateDelete(
 
   // SEC-3: Validate template ID to prevent path traversal
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
-    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+    return validationError(
+      'Invalid template ID: must contain only alphanumeric, dash, or underscore'
+    );
   }
 
   const found = await findTemplateById(id);
@@ -241,6 +235,11 @@ export async function handleTemplateImport(
     return validationError('File must have .mdxt extension');
   }
 
+  const importScopeError = unchosenTemplatePathError(importPath);
+  if (importScopeError !== null) {
+    return permissionError(importScopeError);
+  }
+
   let template: Template;
   try {
     template = await parseTemplateFile(importPath, false);
@@ -253,7 +252,9 @@ export async function handleTemplateImport(
 
   // SEC-3: Validate template ID to prevent path traversal
   if (!/^[a-zA-Z0-9_-]+$/.test(template.id)) {
-    return validationError('Invalid template ID: must contain only alphanumeric, dash, or underscore');
+    return validationError(
+      'Invalid template ID: must contain only alphanumeric, dash, or underscore'
+    );
   }
 
   const customPath = getCustomTemplatesPath();
@@ -301,6 +302,11 @@ export async function handleTemplateExport(
 
   if (!found) {
     return notFoundError(`Template with ID "${id}" not found`);
+  }
+
+  const exportScopeError = unchosenTemplatePathError(exportPath);
+  if (exportScopeError !== null) {
+    return permissionError(exportScopeError);
   }
 
   try {
@@ -366,6 +372,10 @@ export async function handleCreateFromTemplate(
   const content = substituteVariables(template.content, variables);
 
   if (savePath) {
+    const saveScopeError = unchosenTemplatePathError(savePath);
+    if (saveScopeError !== null) {
+      return permissionError(saveScopeError);
+    }
     try {
       await fs.writeFile(savePath, content, 'utf-8');
       return { success: true, content, path: savePath };
@@ -398,11 +408,13 @@ export async function handleTemplateOpenDialog(
     properties: ['openFile'],
   });
 
-  if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+  const selectedPath = dialogResult.filePaths[0];
+  if (dialogResult.canceled || selectedPath === undefined) {
     return { success: true, path: null, canceled: true };
   }
 
-  return { success: true, path: dialogResult.filePaths[0] ?? null, canceled: false };
+  rememberChosenTemplatePath(selectedPath);
+  return { success: true, path: selectedPath, canceled: false };
 }
 
 /**
@@ -421,14 +433,13 @@ export async function handleTemplateSaveDialog(
   const dialogResult = await dialog.showSaveDialog({
     title: 'Export Template',
     defaultPath: defaultName ? `${defaultName}.mdxt` : 'template.mdxt',
-    filters: [
-      { name: 'MDX Template', extensions: ['mdxt'] },
-    ],
+    filters: [{ name: 'MDX Template', extensions: ['mdxt'] }],
   });
 
   if (dialogResult.canceled || !dialogResult.filePath) {
     return { success: true, path: null, canceled: true };
   }
 
+  rememberChosenTemplatePath(dialogResult.filePath);
   return { success: true, path: dialogResult.filePath, canceled: false };
 }

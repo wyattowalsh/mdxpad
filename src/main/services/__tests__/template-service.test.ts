@@ -9,6 +9,8 @@
  * @module tests/unit/template-service
  */
 
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import * as path from 'node:path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ============================================================================
@@ -100,6 +102,20 @@ import {
   handleTemplateSaveDialog,
 } from '../template/handlers';
 import { slugify, substituteVariables, buildTemplateFile } from '../template/parser';
+import { rememberChosenTemplatePath, resetChosenTemplatePaths } from '../template/template-scope';
+
+const chosenTemplateDirs: string[] = [];
+
+function chooseTemplatePath(name: string, createFile: boolean): string {
+  const dir = mkdtempSync(path.join('/tmp', 'mdxpad-template-choice-'));
+  chosenTemplateDirs.push(dir);
+  const filePath = path.join(dir, name);
+  if (createFile) {
+    writeFileSync(filePath, 'chosen');
+  }
+  rememberChosenTemplatePath(filePath);
+  return filePath;
+}
 
 // ============================================================================
 // Test Utilities
@@ -315,6 +331,10 @@ describe('template handlers', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    resetChosenTemplatePaths();
+    for (const dir of chosenTemplateDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   // ==========================================================================
@@ -607,10 +627,10 @@ describe('template handlers', () => {
     it('should delete custom template', async () => {
       // Built-in dirs return empty, custom dir returns the template
       mockReaddir
-        .mockResolvedValueOnce([])   // 1st built-in candidate
-        .mockResolvedValueOnce([])   // 2nd built-in candidate
-        .mockResolvedValueOnce([])   // 3rd built-in candidate
-        .mockResolvedValueOnce([])   // 4th built-in candidate
+        .mockResolvedValueOnce([]) // 1st built-in candidate
+        .mockResolvedValueOnce([]) // 2nd built-in candidate
+        .mockResolvedValueOnce([]) // 3rd built-in candidate
+        .mockResolvedValueOnce([]) // 4th built-in candidate
         .mockResolvedValue(['test-template.mdxt']); // custom dir
 
       const result = await handleTemplateDelete({ action: 'delete', id: 'test-template' });
@@ -679,26 +699,40 @@ describe('template handlers', () => {
 
     it('should import valid .mdxt file', async () => {
       mockReadFile.mockResolvedValue(createMockTemplateFile());
+      mockAccess.mockRejectedValue(new Error('missing'));
+      const importPath = chooseTemplatePath('template.mdxt', true);
 
       const result = await handleTemplateImport({
         action: 'import',
-        path: '/test/template.mdxt',
+        path: importPath,
         replace: false,
       });
 
-      if ('success' in result && result.success) {
-        expect(mockCopyFile).toHaveBeenCalled();
+      expect(result).toHaveProperty('success', true);
+      expect(mockCopyFile).toHaveBeenCalled();
+    });
+
+    it('does not import a template that was not chosen in the dialog', async () => {
+      const result = await handleTemplateImport({
+        action: 'import',
+        path: '/tmp/not-chosen.mdxt',
+        replace: false,
+      });
+
+      expect(result).toHaveProperty('success', false);
+      expect(mockReadFile).not.toHaveBeenCalled();
+      if (!('success' in result && result.success)) {
+        expect(result.error).toContain('template dialog');
       }
     });
 
     it('should validate imported template ID', async () => {
-      mockReadFile.mockResolvedValue(
-        createMockTemplateFile({ id: '../../../invalid' })
-      );
+      mockReadFile.mockResolvedValue(createMockTemplateFile({ id: '../../../invalid' }));
+      const importPath = chooseTemplatePath('template.mdxt', true);
 
       const result = await handleTemplateImport({
         action: 'import',
-        path: '/test/template.mdxt',
+        path: importPath,
         replace: false,
       });
 
@@ -710,10 +744,11 @@ describe('template handlers', () => {
 
     it('should handle already exists error', async () => {
       mockReadFile.mockResolvedValueOnce(createMockTemplateFile());
+      const importPath = chooseTemplatePath('template.mdxt', true);
 
       const result = await handleTemplateImport({
         action: 'import',
-        path: '/test/template.mdxt',
+        path: importPath,
         replace: false,
       });
 
@@ -724,10 +759,11 @@ describe('template handlers', () => {
 
     it('should replace when replace flag is true', async () => {
       mockReadFile.mockResolvedValue(createMockTemplateFile());
+      const importPath = chooseTemplatePath('template.mdxt', true);
 
       const result = await handleTemplateImport({
         action: 'import',
-        path: '/test/template.mdxt',
+        path: importPath,
         replace: true,
       });
 
@@ -752,17 +788,30 @@ describe('template handlers', () => {
     });
 
     it('should export existing template', async () => {
-      mockReaddir.mockResolvedValue(['test.mdxt']);
+      mockReaddir.mockResolvedValue(['test-template.mdxt']);
+      const exportPath = chooseTemplatePath('template.mdxt', false);
 
       const result = await handleTemplateExport({
         action: 'export',
-        id: 'test',
-        path: '/export/template.mdxt',
+        id: 'test-template',
+        path: exportPath,
       });
 
-      if ('success' in result && result.success) {
-        expect(mockCopyFile).toHaveBeenCalled();
-      }
+      expect(result).toHaveProperty('success', true);
+      expect(mockCopyFile).toHaveBeenCalled();
+    });
+
+    it('does not export a template to a path the dialog did not choose', async () => {
+      mockReaddir.mockResolvedValue(['test-template.mdxt']);
+
+      const result = await handleTemplateExport({
+        action: 'export',
+        id: 'test-template',
+        path: '/tmp/not-chosen.mdxt',
+      });
+
+      expect(result).toHaveProperty('success', false);
+      expect(mockCopyFile).not.toHaveBeenCalled();
     });
 
     it('should return not found error for non-existent template', async () => {
@@ -781,13 +830,14 @@ describe('template handlers', () => {
     });
 
     it('should handle file system errors', async () => {
-      mockReaddir.mockResolvedValue(['test.mdxt']);
+      mockReaddir.mockResolvedValue(['test-template.mdxt']);
       mockCopyFile.mockRejectedValueOnce(new Error('Permission denied'));
+      const exportPath = chooseTemplatePath('template.mdxt', false);
 
       const result = await handleTemplateExport({
         action: 'export',
-        id: 'test',
-        path: '/export/template.mdxt',
+        id: 'test-template',
+        path: exportPath,
       });
 
       expect(result).toHaveProperty('success', false);
@@ -891,18 +941,33 @@ describe('template handlers', () => {
     it('should save document when savePath is provided', async () => {
       mockReaddir.mockResolvedValue(['test-template.mdxt']);
       mockReadFile.mockResolvedValue(createMockTemplateFile());
+      const savePath = chooseTemplatePath('document.mdx', false);
 
       const result = await handleCreateFromTemplate({
         templateId: 'test-template',
         variables: {},
-        savePath: '/save/document.mdx',
+        savePath,
       });
 
       expect(result).toHaveProperty('success', true);
       expect(mockWriteFile).toHaveBeenCalled();
       if ('success' in result && result.success) {
-        expect(result.path).toBe('/save/document.mdx');
+        expect(result.path).toBe(savePath);
       }
+    });
+
+    it('does not save a document to a path the dialog did not choose', async () => {
+      mockReaddir.mockResolvedValue(['test-template.mdxt']);
+      mockReadFile.mockResolvedValue(createMockTemplateFile());
+
+      const result = await handleCreateFromTemplate({
+        templateId: 'test-template',
+        variables: {},
+        savePath: '/tmp/not-chosen.mdx',
+      });
+
+      expect(result).toHaveProperty('success', false);
+      expect(mockWriteFile).not.toHaveBeenCalled();
     });
 
     it('should return content without saving when savePath is omitted', async () => {
@@ -987,9 +1052,7 @@ describe('template handlers', () => {
 
       expect(mockShowOpenDialog).toHaveBeenCalledWith(
         expect.objectContaining({
-          filters: expect.arrayContaining([
-            expect.objectContaining({ extensions: ['mdxt'] }),
-          ]),
+          filters: expect.arrayContaining([expect.objectContaining({ extensions: ['mdxt'] })]),
         })
       );
     });

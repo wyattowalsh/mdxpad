@@ -4,14 +4,17 @@ import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app } from 'electron';
 
-import { atomicWrite } from '@shared/lib/atomic-write';
-import { computeChecksum } from '@shared/lib/checksum';
+import { hasReadCapability, normalizeCapabilityPath } from '@main/ipc/document-capability';
 import type {
   BacklinkRecord,
   PublishRequest,
   PublishResponse,
   ProvenanceRecord,
 } from '@shared/contracts/platform-schemas';
+import { atomicWrite } from '@shared/lib/atomic-write';
+import { computeChecksum } from '@shared/lib/checksum';
+
+import { resolveWorkspaceFilePath } from './ai/agent-path';
 
 type BacklinkIndex = Record<string, BacklinkRecord[]>;
 
@@ -105,9 +108,13 @@ export class PublishProvenanceService {
     if (!sourcePath) {
       return path.join(this.getArtifactsDir(), `untitled-${Date.now()}.published.mdx`);
     }
-    const dir = path.dirname(sourcePath);
-    const fileName = path.basename(sourcePath, path.extname(sourcePath)) || 'untitled';
-    return path.join(dir, `${fileName}.published.mdx`);
+    const normalized = normalizeCapabilityPath(sourcePath);
+    if (normalized === null || !hasReadCapability(sourcePath)) {
+      throw new Error('Publish can only write beside a file that is open');
+    }
+    const sourceDir = path.dirname(normalized);
+    const fileName = path.basename(normalized, path.extname(normalized)) || 'untitled';
+    return resolveWorkspaceFilePath(sourceDir, `${fileName}.published.mdx`);
   }
 
   private async writeProvenanceRecord(record: ProvenanceRecord): Promise<void> {
