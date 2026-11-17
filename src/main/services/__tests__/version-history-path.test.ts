@@ -3,7 +3,12 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { assertOpenedDocumentWrite, assertSnapshotId, snapshotFile } from '../version-history-path';
+import {
+  assertOpenedDocumentWrite,
+  assertSnapshotId,
+  sameOpenedFile,
+  snapshotFile,
+} from '../version-history-path';
 
 describe('version history path guards', () => {
   it('accepts snapshot and git ids and rejects traversal', () => {
@@ -36,6 +41,8 @@ describe('version history path guards', () => {
       const opened = await assertOpenedDocumentWrite(link, (candidate) => candidate === real);
 
       expect(opened).toBe(real);
+      expect(sameOpenedFile(link, realFile)).toBe(true);
+      expect(sameOpenedFile(link, path.join(dir, 'other.md'))).toBe(false);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

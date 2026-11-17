@@ -1,9 +1,23 @@
+import { realpathSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 const OPENED_DOCUMENT_ERROR = 'Version history can only write the opened document';
 const SNAPSHOT_ID = /^snapshot-\d+-[a-f0-9]{8}$/;
 const GIT_ID = /^git-([a-f0-9]{7,40})$/;
+
+function canonicalExistingPath(filePath: string): string {
+  const resolved = path.resolve(filePath);
+  try {
+    return realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+export function sameOpenedFile(left: string, right: string): boolean {
+  return canonicalExistingPath(left) === canonicalExistingPath(right);
+}
 
 export function assertSnapshotId(id: string): { kind: 'snapshot' | 'git'; gitHash?: string } {
   if (SNAPSHOT_ID.test(id)) {

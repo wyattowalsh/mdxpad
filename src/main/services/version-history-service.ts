@@ -23,7 +23,12 @@ import type {
   RestoreVersionResponse,
   CreateSnapshotResponse,
 } from '@shared/contracts/history-schemas';
-import { assertOpenedDocumentWrite, assertSnapshotId, snapshotFile } from './version-history-path';
+import {
+  assertOpenedDocumentWrite,
+  assertSnapshotId,
+  sameOpenedFile,
+  snapshotFile,
+} from './version-history-path';
 
 const execFileAsync = promisify(execFile);
 
@@ -129,7 +134,7 @@ export class VersionHistoryService {
     try {
       const raw = await fs.readFile(snapshotPath, 'utf-8');
       const snapshot = JSON.parse(raw) as SnapshotFile;
-      if (path.resolve(snapshot.filePath) !== path.resolve(openedPath)) {
+      if (!sameOpenedFile(snapshot.filePath, openedPath)) {
         throw new Error('Version not found');
       }
 
@@ -272,7 +277,7 @@ export class VersionHistoryService {
           const raw = await fs.readFile(fullPath, 'utf-8');
           const snapshot = JSON.parse(raw) as SnapshotFile;
 
-          if (snapshot.filePath === filePath) {
+          if (sameOpenedFile(snapshot.filePath, filePath)) {
             entries.push({
               id: file.replace('.json', ''),
               timestamp: snapshot.timestamp,
