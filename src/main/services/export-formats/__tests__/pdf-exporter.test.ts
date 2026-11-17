@@ -107,6 +107,19 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<p>const x = 1</p>');
   });
 
+  it('colors a fenced TypeScript block', async () => {
+    await exporter.export({
+      content: '```ts\nconst answer = 1;\n```',
+      outputPath: '/tmp/code-color.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('class="language-ts"');
+    expect(html).toContain('hljs-keyword');
+    expect(html).toContain('const');
+    expect(html).toContain('answer');
+  });
+
   it('keeps a tilde fence as code', async () => {
     await exporter.export({
       content: '~~~\n# not a heading\n~~~',

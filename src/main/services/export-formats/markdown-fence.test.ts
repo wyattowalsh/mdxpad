@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { advanceFence, closesFence, fenceIndentedCode, openingFence } from './markdown-fence';
+import {
+  advanceFence,
+  closesFence,
+  fenceIndentedCode,
+  fenceLanguage,
+  openingFence,
+} from './markdown-fence';
 
 describe('fences', () => {
   it('opens and closes a tilde fence without treating backticks as the end', () => {
     expect(openingFence('~~~js')).toBe('~~~');
+    expect(fenceLanguage('```ts extra')).toBe('ts');
+    expect(fenceLanguage('```')).toBe('');
     expect(closesFence('```', '~~~')).toBe(false);
     expect(closesFence('~~~', '~~~')).toBe(true);
     expect(advanceFence('~~~', null)).toBe('~~~');

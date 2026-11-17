@@ -4,12 +4,12 @@ import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/ma
 import { normalizeTexMath } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
-
+import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
-import { closesFence, openingFence } from './markdown-fence';
+import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -37,7 +37,7 @@ function escapeHtml(value: string): string {
 interface PdfBuild {
   parts: string[];
   paragraph: SourceLine[];
-  fence: string | null;
+  fence: { marker: string; language: string; lines: string[] } | null;
   lists: HtmlListFrame[];
   displayMath: string[] | null;
   tableLines: string[];
@@ -165,13 +165,20 @@ function consumePdfHtml(build: PdfBuild, lines: readonly string[], index: number
   return block.nextIndex;
 }
 
+function flushPdfFence(build: PdfBuild): void {
+  if (!build.fence) {
+    return;
+  }
+  build.parts.push(renderFencedCode(build.fence.language, build.fence.lines));
+  build.fence = null;
+}
+
 function appendPdfLine(build: PdfBuild, line: string): void {
   if (build.fence) {
-    if (closesFence(line, build.fence)) {
-      build.parts.push('</code></pre>');
-      build.fence = null;
+    if (closesFence(line, build.fence.marker)) {
+      flushPdfFence(build);
     } else {
-      build.parts.push(escapeHtml(line));
+      build.fence.lines.push(line);
     }
     return;
   }
@@ -182,8 +189,7 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     flushPdfQuote(build);
     flushPdfParagraph(build);
     closePdfList(build);
-    build.parts.push('<pre><code>');
-    build.fence = marker;
+    build.fence = { marker, language: fenceLanguage(line), lines: [] };
     return;
   }
   const trimmed = line.trim();
@@ -304,9 +310,7 @@ export function markdownToPdfHtml(content: string): string {
   flushPdfQuote(build);
   flushPdfParagraph(build);
   closePdfList(build);
-  if (build.fence) {
-    build.parts.push('</code></pre>');
-  }
+  flushPdfFence(build);
   return build.parts.join('\n');
 }
 
@@ -326,6 +330,7 @@ function contentToHtml(content: string, title: string): string {
     }
     pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; }
     code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
+    ${CODE_HIGHLIGHT_CSS}
     h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
     blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding-left: 1rem; }
     table { border-collapse: collapse; margin: 1rem 0; }

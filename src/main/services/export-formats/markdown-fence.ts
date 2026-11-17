@@ -22,6 +22,12 @@ export function openingFence(line: string): string | null {
   return FENCE_LINE.exec(line)?.[2] ?? null;
 }
 
+/** The info word on an opening fence, such as `ts` in ` ```ts `. */
+export function fenceLanguage(line: string): string {
+  const token = (FENCE_LINE.exec(line)?.[3] ?? '').trim().split(/\s+/, 1)[0] ?? '';
+  return /^[A-Za-z0-9_+#.-]+$/.test(token) ? token : '';
+}
+
 export function closesFence(line: string, open: string): boolean {
   const match = FENCE_LINE.exec(line);
   const marker = match?.[2];

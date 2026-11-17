@@ -8,7 +8,8 @@ import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
-import { closesFence, openingFence } from './markdown-fence';
+import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
+import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -29,14 +30,6 @@ interface EpubChapter {
   title: string;
   content: string;
   slug: string | null;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }
 
 function splitIntoChapters(content: string): {
@@ -95,7 +88,7 @@ function splitExpandedChapters(content: string): {
 }
 
 interface EpubLineState {
-  fence: string | null;
+  fence: { marker: string; language: string; lines: string[] } | null;
   lists: HtmlListFrame[];
   displayMath: string[] | null;
   tableLines: string[];
@@ -217,11 +210,11 @@ function consumeEpubHtml(
 
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
   if (state.fence) {
-    if (closesFence(line, state.fence)) {
-      htmlLines.push('</code></pre>');
+    if (closesFence(line, state.fence.marker)) {
+      htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
       state.fence = null;
     } else {
-      htmlLines.push(escapeHtml(line));
+      state.fence.lines.push(line);
     }
     return;
   }
@@ -231,8 +224,7 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
     flushEpubTable(htmlLines, state);
     flushEpubQuote(htmlLines, state);
     closeHtmlLists(htmlLines, state.lists);
-    htmlLines.push('<pre><code>');
-    state.fence = marker;
+    state.fence = { marker, language: fenceLanguage(line), lines: [] };
     return;
   }
   const trimmed = line.trim();
@@ -361,9 +353,9 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   flushEpubQuote(htmlLines, state);
   closeHtmlLists(htmlLines, state.lists);
   if (state.fence) {
-    htmlLines.push('</code></pre>');
+    htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
   }
-  return htmlLines.join('\n');
+  return `<style>${CODE_HIGHLIGHT_CSS}</style>\n${htmlLines.join('\n')}`;
 }
 
 export class EpubExporter implements Exporter {

@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 
+import { CODE_HIGHLIGHT_CSS } from './export-formats/markdown-code';
 import { markdownToPdfHtml } from './export-formats/pdf-exporter';
 
 import type {
@@ -172,6 +173,7 @@ function buildHtmlDocument(content: string): ExportSerializationSuccess {
   <style>
     body { margin: 0; padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #ffffff; line-height: 1.5; }
     pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    ${CODE_HIGHLIGHT_CSS}
     pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; overflow-x: auto; }
     blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding-left: 1rem; }
     table { border-collapse: collapse; margin: 1rem 0; }
