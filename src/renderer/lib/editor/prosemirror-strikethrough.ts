@@ -43,23 +43,16 @@ function hardBreak(line: string): string | null {
 
 function pushStrikeInner(state: StrikeState, inner: string): void {
   let cursor = 0;
-  let pending = '';
   while (cursor < inner.length) {
     const newline = inner.indexOf('\n', cursor);
     if (newline === -1) {
-      pushText(state, pending + inner.slice(cursor));
+      pushText(state, inner.slice(cursor));
       return;
     }
     const line = inner.slice(cursor, newline);
     const broken = hardBreak(line);
-    if (broken === null) {
-      pending += `${line}\n`;
-      cursor = newline + 1;
-      continue;
-    }
-    pushText(state, pending + broken);
-    state.push('hardbreak', 'br', 0);
-    pending = '';
+    pushText(state, broken ?? line.replace(/[ \t]+$/, ''));
+    state.push(broken === null ? 'softbreak' : 'hardbreak', 'br', 0);
     cursor = newline + 1;
   }
 }

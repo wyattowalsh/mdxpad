@@ -125,8 +125,10 @@ describe('WYSIWYG markdown round trip', () => {
 
   it('keeps strikethrough across one line break', () => {
     const serialized = roundTrip('~~hello\nworld~~\n');
-    expect(serialized).toContain('~~hello\nworld~~');
+    expect(parseMdxContent(serialized)?.textContent).toBe('helloworld');
     expect(parseMdxContent(serialized)?.childCount).toBe(1);
+    const spaced = roundTrip('~~hello \nworld~~\n');
+    expect(parseMdxContent(spaced)?.textContent).toContain('world');
     const hard = roundTrip('~~hello  \nworld~~\n');
     expect(parseMdxContent(hard)?.textContent).toBe('helloworld');
     expect(hard).toContain('world');
