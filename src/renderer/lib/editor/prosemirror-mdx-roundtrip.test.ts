@@ -63,6 +63,12 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('The term is $a_{i}$.\n')).not.toContain('\\_');
   });
 
+  it('keeps the characters of a thematic break', () => {
+    expect(roundTrip('***\n')).toContain('***');
+    expect(roundTrip('___\n')).toContain('___');
+    expect(roundTrip('---\n')).toContain('---');
+  });
+
   it('keeps a loose list loose', () => {
     expect(roundTrip('- one\n\n- two\n')).toContain('- one\n\n- two');
     expect(roundTrip('1. one\n\n2. two\n')).toContain('1. one\n\n2. two');

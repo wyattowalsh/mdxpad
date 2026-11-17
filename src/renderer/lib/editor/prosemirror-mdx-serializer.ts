@@ -90,7 +90,8 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   horizontal_rule(state, node) {
-    state.write('---');
+    const markup: unknown = node.attrs.markup;
+    state.write(markup === '***' || markup === '___' ? markup : '---');
     state.closeBlock(node);
   },
 

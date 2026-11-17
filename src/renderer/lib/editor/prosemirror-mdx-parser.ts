@@ -35,10 +35,6 @@ interface MarkdownToken {
   attrIndex(name: string): number;
 }
 
-// =============================================================================
-// JSX EXTRACTION
-// =============================================================================
-
 /**
  * Pattern matching JSX block elements (opening tags on their own line).
  * Matches both self-closing and paired JSX tags.
@@ -123,7 +119,12 @@ const MDX_TOKENS: Record<
     getAttrs: (tok: MarkdownToken) => ({ language: tok.info, indented: false }),
     noCloseToken: true,
   },
-  hr: { node: 'horizontal_rule' },
+  hr: {
+    node: 'horizontal_rule',
+    getAttrs: (tok: MarkdownToken) => ({
+      markup: tok.markup === '***' || tok.markup === '___' ? tok.markup : '---',
+    }),
+  },
   table: { block: 'table' },
   thead: { ignore: true },
   tbody: { ignore: true },

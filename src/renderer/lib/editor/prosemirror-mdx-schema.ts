@@ -86,7 +86,8 @@ const BLOCKQUOTE_NODE: NodeSpec = {
 
 const HORIZONTAL_RULE_NODE: NodeSpec = {
   group: 'block',
-  parseDOM: [{ tag: 'hr' }],
+  attrs: { markup: { default: '---' } },
+  parseDOM: [{ tag: 'hr', getAttrs: () => ({ markup: '---' }) }],
   toDOM() {
     return ['hr'];
   },
