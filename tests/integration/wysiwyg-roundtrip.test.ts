@@ -1,25 +1,15 @@
 /**
- * ProseMirror MDX Schema Structure & JSX Extraction Tests
+ * ProseMirror MDX Schema Structure, JSX Extraction, and Parse/Serialize Tests
  *
  * Tests the ProseMirror MDX schema node types, mark types, document
- * structure constraints, and the `extractJsxBlocks` utility for pulling
- * JSX components out of MDX source text.
+ * structure constraints, the `extractJsxBlocks` utility, and one
+ * `mdxParser.parse` / `serializeMdxContent` round-trip.
  *
- * NOTE: The prosemirror-mdx-parser.ts has a token spec mapping issue
- * (MDX_TOKENS uses suffixed keys like `paragraph_open` instead of
- * `paragraph`, causing prosemirror-markdown to generate double-suffixed
- * handlers). The serializer is also missing a `text` node handler.
- * These are pre-existing issues in the WYSIWYG subsystem; these tests
- * focus on the schema and JSX extraction which work correctly.
- *
- * NOTE: Scope clarification — despite the `tests/integration/` path, these are
- * unit-level tests exercising the ProseMirror schema definition object and a
- * pure-function JSX regex extractor in isolation. No ProseMirror EditorView is
- * instantiated, no markdown-to-ProseMirror parsing round-trip is performed, and
- * no serialization back to MDX source is tested. True integration tests would
- * parse an MDX document into a ProseMirror document, render it in an
- * EditorView, apply user edits, serialize back to MDX, and verify lossless
- * round-trip fidelity including JSX blocks, frontmatter, and inline components.
+ * Schema and JSX cases exercise the schema object and the extractor
+ * directly. The parse/serialize case uses the same pair `useEditorView`
+ * calls. No ProseMirror EditorView is instantiated and WYSIWYG is not
+ * mounted. Lists serialize loose, so idempotence is checked on the
+ * serialized text rather than the original source bytes.
  *
  * @vitest-environment happy-dom
  * @module tests/integration/wysiwyg-roundtrip.test
@@ -27,8 +17,9 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { extractJsxBlocks } from '@renderer/lib/editor/prosemirror-mdx-parser';
+import { extractJsxBlocks, mdxParser } from '@renderer/lib/editor/prosemirror-mdx-parser';
 import { mdxSchema } from '@renderer/lib/editor/prosemirror-mdx-schema';
+import { serializeMdxContent } from '@renderer/lib/editor/prosemirror-mdx-serializer';
 
 // ---------------------------------------------------------------------------
 // Schema structure tests
@@ -234,5 +225,46 @@ describe('JSX Extraction', () => {
     expect(jsxBlocks[0]).toContain('First');
     expect(jsxBlocks[1]).toContain('Second');
     expect(jsxBlocks[2]).toContain('Third');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Parse / serialize round-trip
+// ---------------------------------------------------------------------------
+
+const ROUND_TRIP_SOURCE = `# Title
+
+Hello **world** and *there* and \`code\`.
+
+[link](https://example.com)
+
+- one
+- two
+
+> quote
+
+---
+
+\`\`\`js
+const n = 1;
+\`\`\`
+`;
+
+describe('WYSIWYG parse/serialize', () => {
+  it('round-trips the commonmark fixture through mdxParser and serializeMdxContent', () => {
+    const doc = mdxParser.parse(ROUND_TRIP_SOURCE);
+    const serialized = serializeMdxContent(doc);
+
+    expect(serialized).toContain('# Title');
+    expect(serialized).toContain('**world**');
+    expect(serialized).toContain('*there*');
+    expect(serialized).toContain('`code`');
+    expect(serialized).toContain('](https://example.com)');
+    expect(serialized).toContain('- one');
+    expect(serialized).toContain('> quote');
+    expect(serialized).toContain('---');
+    expect(serialized).toContain('```js');
+
+    expect(serializeMdxContent(mdxParser.parse(serialized))).toBe(serialized);
   });
 });
