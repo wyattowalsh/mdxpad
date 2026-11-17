@@ -231,6 +231,9 @@ describe('useDocumentStore', () => {
         content: 'new content',
         savedContent: '',
         isDirty: true,
+        externalChangeDetected: true,
+        externalContent: 'disk',
+        externalMtime: 5,
       });
 
       useDocumentStore.getState().markSaved();
@@ -238,6 +241,7 @@ describe('useDocumentStore', () => {
 
       expect(state.savedContent).toBe('new content');
       expect(state.isDirty).toBe(false);
+      expect(state.externalChangeDetected).toBe(false);
     });
 
     it('should update filePath and mtime when handle is provided', () => {

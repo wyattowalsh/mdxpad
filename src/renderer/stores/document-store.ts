@@ -140,6 +140,9 @@ export const useDocumentStore = create<DocumentStore>()(
           draft.fileName = getFileName(handle.filePath);
           draft.lastKnownMtime = handle.mtime;
         }
+        draft.externalChangeDetected = false;
+        draft.externalContent = null;
+        draft.externalMtime = null;
       }),
 
     reset: () =>
@@ -208,8 +211,7 @@ export const useDocumentStore = create<DocumentStore>()(
  * @param state - Document store state
  * @returns File ID or null for untitled documents
  */
-export const selectFileId = (state: DocumentStore): string | null =>
-  state.fileId;
+export const selectFileId = (state: DocumentStore): string | null => state.fileId;
 
 /**
  * Selector for file path.
@@ -217,8 +219,7 @@ export const selectFileId = (state: DocumentStore): string | null =>
  * @param state - Document store state
  * @returns File path or null for untitled documents
  */
-export const selectFilePath = (state: DocumentStore): string | null =>
-  state.filePath;
+export const selectFilePath = (state: DocumentStore): string | null => state.filePath;
 
 /**
  * Selector for file name.
@@ -250,8 +251,7 @@ export const selectIsDirty = (state: DocumentStore): boolean => state.isDirty;
  * @param state - Document store state
  * @returns Whether document is untitled (not yet saved to disk)
  */
-export const selectIsUntitled = (state: DocumentStore): boolean =>
-  state.filePath === null;
+export const selectIsUntitled = (state: DocumentStore): boolean => state.filePath === null;
 
 /**
  * Selector for last known mtime.
@@ -259,8 +259,7 @@ export const selectIsUntitled = (state: DocumentStore): boolean =>
  * @param state - Document store state
  * @returns Last known modification time or null
  */
-export const selectLastKnownMtime = (state: DocumentStore): number | null =>
-  state.lastKnownMtime;
+export const selectLastKnownMtime = (state: DocumentStore): number | null => state.lastKnownMtime;
 
 /**
  * Selector for external change detection state.

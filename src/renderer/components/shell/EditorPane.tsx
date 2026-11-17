@@ -12,6 +12,7 @@ import { useCallback, memo, useMemo, useRef, useEffect, useSyncExternalStore } f
 import type { EditorView } from '@codemirror/view';
 import { MDXEditor, type EditorTheme } from '../editor/MDXEditor';
 import { EditorModeToggle } from '../editor/EditorModeToggle';
+import { ExternalChangeNotice } from './ExternalChangeNotice';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
@@ -233,6 +234,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
         />
         <EditorModeToggle />
       </div>
+      <ExternalChangeNotice />
       {editorMode === 'wysiwyg' ? (
         <WysiwygEditor
           ref={wysiwygRef}
