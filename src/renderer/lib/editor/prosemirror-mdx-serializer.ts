@@ -116,7 +116,7 @@ const nodeSerializers: NodeSerializerMap = {
     const alt = (node.attrs.alt as string) || '';
     const src = node.attrs.src as string;
     const title = node.attrs.title as string | null;
-    state.write(`![${state.esc(alt)}](${markdownTarget(src, title)})`);
+    state.write(`![${markdownAlt(alt)}](${markdownTarget(src, title)})`);
   },
 
   hard_break(state, node) {
@@ -220,6 +220,10 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
  * Determine the number of backticks needed for inline code
  * to avoid collisions with backticks in the content.
  */
+function markdownAlt(alt: string): string {
+  return alt.replace(/[\\[\]]/g, (char) => `\\${char}`);
+}
+
 function markdownDestination(href: string): string {
   const needsAngles = /[()\s]/.test(href) && !href.includes('<') && !href.includes('>');
   return needsAngles ? `<${href}>` : href;

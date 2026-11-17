@@ -256,6 +256,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('writes later footnotes as text superscripts', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'A[^1] B[^2] C[^3] D[^4]\n\n[^1]: one\n[^2]: two\n[^3]: three\n[^4]: four\n',
+      outputPath: '/tmp/notes.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\textsuperscript{1}');
+    expect(written).toContain('\\textsuperscript{4}');
+    expect(written).not.toContain('⁴');
+  });
+
   it('strikes through deleted text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

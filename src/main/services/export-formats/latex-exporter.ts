@@ -27,19 +27,41 @@ import type { Exporter, ExportOptions, ExportResult } from './types';
 
 const LATEX_BACKSLASH = '\uE000';
 
+const SUPERSCRIPT_DIGIT: Record<string, string> = {
+  '⁰': '0',
+  '¹': '1',
+  '²': '2',
+  '³': '3',
+  '⁴': '4',
+  '⁵': '5',
+  '⁶': '6',
+  '⁷': '7',
+  '⁸': '8',
+  '⁹': '9',
+};
+
+function latexSuperscripts(text: string): string {
+  return text.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (run) => {
+    const digits = run.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (char) => SUPERSCRIPT_DIGIT[char] ?? '');
+    return `\\textsuperscript{${digits}}`;
+  });
+}
+
 function escapeLatex(text: string): string {
-  return text
-    .replaceAll('\\', LATEX_BACKSLASH)
-    .replaceAll('&', '\\&')
-    .replaceAll('%', '\\%')
-    .replaceAll('$', '\\$')
-    .replaceAll('#', '\\#')
-    .replaceAll('_', '\\_')
-    .replaceAll('{', '\\{')
-    .replaceAll('}', '\\}')
-    .replaceAll('~', '\\textasciitilde{}')
-    .replaceAll('^', '\\textasciicircum{}')
-    .replaceAll(LATEX_BACKSLASH, '\\textbackslash{}');
+  return latexSuperscripts(
+    text
+      .replaceAll('\\', LATEX_BACKSLASH)
+      .replaceAll('&', '\\&')
+      .replaceAll('%', '\\%')
+      .replaceAll('$', '\\$')
+      .replaceAll('#', '\\#')
+      .replaceAll('_', '\\_')
+      .replaceAll('{', '\\{')
+      .replaceAll('}', '\\}')
+      .replaceAll('~', '\\textasciitilde{}')
+      .replaceAll('^', '\\textasciicircum{}')
+      .replaceAll(LATEX_BACKSLASH, '\\textbackslash{}')
+  );
 }
 
 function wrapLatex(command: string, content: string): string {

@@ -38,6 +38,12 @@ describe('WYSIWYG markdown round trip', () => {
     expect(auto?.attrs.href).toBe('https://example.com/a)b');
   });
 
+  it('keeps an asterisk in image alt text', () => {
+    const serialized = roundTrip('![a*b](photo.png)\n');
+    expect(serialized).toContain('![a*b](photo.png)');
+    expect(serialized).not.toContain('\\*');
+  });
+
   it('keeps image alt text', () => {
     expect(roundTrip('![diagram](./a.png "title")\n')).toContain('![diagram](./a.png "title")');
   });
