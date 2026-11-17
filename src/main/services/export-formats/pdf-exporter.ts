@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
@@ -157,8 +158,23 @@ function appendPdfLine(build: PdfBuild, line: string): void {
   appendPdfFlow(build, line);
 }
 
+function takePdfSetext(build: PdfBuild, raw: string): boolean {
+  const level = setextLevel(raw);
+  if (level === null || build.paragraph.length === 0) {
+    return false;
+  }
+  const text = build.paragraph.map((line) => line.text).join(' ');
+  build.paragraph.length = 0;
+  closePdfList(build);
+  build.parts.push(`<h${level}>${renderMarkdownInline(text)}</h${level}>`);
+  return true;
+}
+
 function appendPdfFlow(build: PdfBuild, raw: string): void {
   const trimmed = raw.trim();
+  if (takePdfSetext(build, raw)) {
+    return;
+  }
   if (isThematicBreak(trimmed)) {
     flushPdfParagraph(build);
     closePdfList(build);

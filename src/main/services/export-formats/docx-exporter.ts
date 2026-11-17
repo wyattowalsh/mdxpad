@@ -17,6 +17,7 @@ import {
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
+import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
@@ -334,6 +335,19 @@ function listParagraph(item: MarkdownListItem): Paragraph {
   return new Paragraph({ bullet: { level: item.level }, children });
 }
 
+function takeDocxSetext(parse: DocxParse, line: string): boolean {
+  const level = setextLevel(line);
+  if (level === null || parse.pending.length === 0) {
+    return false;
+  }
+  const text = parse.pending.map((item) => item.text).join(' ');
+  parse.pending.length = 0;
+  parse.blocks.push(
+    new Paragraph({ heading: getHeadingLevel(level), children: createParagraphChildren(text) })
+  );
+  return true;
+}
+
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
   const trimmed = line.trim();
   const structural =
@@ -356,6 +370,9 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     return;
   }
   if (takeDocxQuote(parse.blocks, trimmed, parse.quoteLines)) {
+    return;
+  }
+  if (takeDocxSetext(parse, line)) {
     return;
   }
   const source = readSourceLine(line);

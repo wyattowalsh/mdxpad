@@ -153,6 +153,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<p>Stay<br />put</p>');
   });
 
+  it('renders a setext heading instead of a rule', async () => {
+    await exporter.export({
+      content: 'Title\n===\n\nRule\n\n---',
+      outputPath: '/tmp/setext.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<h1>Title</h1>');
+    expect(html).toContain('<hr />');
+    expect(html).not.toContain('===');
+  });
+
   it('renders a horizontal rule', async () => {
     await exporter.export({
       content: 'Above\n\n---\n\n* * *\n\nBelow',

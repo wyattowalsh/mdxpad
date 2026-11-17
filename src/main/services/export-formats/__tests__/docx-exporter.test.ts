@@ -363,6 +363,27 @@ describe('DocxExporter', () => {
     expect(chunks.some((chunk) => chunk.includes('Stay') && chunk.includes('<w:br'))).toBe(true);
   });
 
+  it('renders a setext heading', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Title\n===',
+      outputPath: '/tmp/setext.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Title');
+    expect(xml).toContain('w:val="Heading1"');
+    expect(xml).not.toContain('===');
+  });
+
   it('draws a horizontal rule', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

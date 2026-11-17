@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
@@ -247,7 +248,43 @@ function processListItem(raw: string, output: string[], listState: ListState): b
   return true;
 }
 
+function isLatexBoundary(line: string): boolean {
+  const trimmed = line.trim();
+  return (
+    trimmed.length === 0 ||
+    trimmed.startsWith('\\begin') ||
+    trimmed.startsWith('\\end') ||
+    trimmed.startsWith('\\item') ||
+    trimmed.startsWith('\\noindent') ||
+    trimmed.startsWith('\\section') ||
+    trimmed.startsWith('\\subsection') ||
+    trimmed.startsWith('\\paragraph') ||
+    trimmed.startsWith('\\subparagraph')
+  );
+}
+
+function takeLatexSetext(output: string[], raw: string): boolean {
+  const level = setextLevel(raw);
+  if (level === null) {
+    return false;
+  }
+  const body: string[] = [];
+  while (output.length > 0 && !isLatexBoundary(output[output.length - 1] ?? '')) {
+    body.unshift((output.pop() ?? '').replace(/\\\\$/, '').trim());
+  }
+  if (!body.some((line) => line.length > 0)) {
+    output.push(...body);
+    return false;
+  }
+  const command = level === 1 ? 'section' : 'subsection';
+  output.push(`\\${command}{${body.filter((line) => line.length > 0).join(' ')}}`);
+  return true;
+}
+
 function processMarkdownLine(raw: string, output: string[], listState: ListState): void {
+  if (takeLatexSetext(output, raw)) {
+    return;
+  }
   const source = readSourceLine(raw);
   const trimmed = source.text;
   if (trimmed === '') {

@@ -273,6 +273,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('put');
   });
 
+  it('renders a setext heading', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Title\n---',
+      outputPath: '/tmp/setext.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\subsection{Title}');
+    expect(written).not.toContain('\\noindent\\rule');
+  });
+
   it('renders a horizontal rule', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

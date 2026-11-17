@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
+import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
@@ -188,8 +189,23 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
   appendEpubFlow(htmlLines, line, state);
 }
 
+function takeEpubSetext(htmlLines: string[], raw: string, state: EpubLineState): boolean {
+  const level = setextLevel(raw);
+  if (level === null || state.paragraph.length === 0) {
+    return false;
+  }
+  const text = state.paragraph.map((line) => line.text).join(' ');
+  state.paragraph.length = 0;
+  closeHtmlLists(htmlLines, state.lists);
+  htmlLines.push(`<h${level}>${renderMarkdownInline(text)}</h${level}>`);
+  return true;
+}
+
 function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState): void {
   const trimmed = raw.trim();
+  if (takeEpubSetext(htmlLines, raw, state)) {
+    return;
+  }
   if (isThematicBreak(trimmed)) {
     flushEpubParagraph(htmlLines, state);
     closeHtmlLists(htmlLines, state.lists);
