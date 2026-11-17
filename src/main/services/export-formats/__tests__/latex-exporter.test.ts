@@ -268,6 +268,16 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('⁴');
   });
 
+  it('strikes text wrapped onto the next line', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '~~hello\nworld~~',
+      outputPath: '/tmp/strike-wrap.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\sout{hello world}');
+  });
+
   it('strikes through deleted text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
@@ -388,14 +398,14 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('[guide]:');
   });
 
-  it('keeps a hard line break', async () => {
+  it('joins a soft wrap and keeps a hard line break', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
       content: 'Hello\nworld\n\nStay  \nput',
       outputPath: '/tmp/wrap.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
-    expect(written).toContain('Hello\nworld');
+    expect(written).toContain('Hello world');
     expect(written).toContain('Stay\\\\');
     expect(written).toContain('put');
   });

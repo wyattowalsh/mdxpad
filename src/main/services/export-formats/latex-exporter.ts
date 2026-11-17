@@ -10,7 +10,7 @@ import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
-import { readSourceLine } from './markdown-paragraph';
+import { paragraphSegments, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes } from './markdown-escape';
@@ -315,21 +315,6 @@ function processListItem(raw: string, output: string[], listState: ListState): b
   return true;
 }
 
-function isLatexBoundary(line: string): boolean {
-  const trimmed = line.trim();
-  return (
-    trimmed.length === 0 ||
-    trimmed.startsWith('\\begin') ||
-    trimmed.startsWith('\\end') ||
-    trimmed.startsWith('\\item') ||
-    trimmed.startsWith('\\noindent') ||
-    trimmed.startsWith('\\section') ||
-    trimmed.startsWith('\\subsection') ||
-    trimmed.startsWith('\\paragraph') ||
-    trimmed.startsWith('\\subparagraph')
-  );
-}
-
 function latexLabeledHeading(
   command: string,
   formatted: string,
@@ -339,22 +324,38 @@ function latexLabeledHeading(
   return `\\${command}{${formatted}}\\label{${allocateHeadingSlug(slugSource, counts)}}`;
 }
 
-function takeLatexSetext(output: string[], raw: string, counts: Map<string, number>): boolean {
+function flushLatexProse(output: string[], prose: SourceLine[]): void {
+  if (prose.length === 0) {
+    return;
+  }
+  const segments = paragraphSegments(prose);
+  prose.length = 0;
+  segments.forEach((text, index) => {
+    const formatted = convertInlineFormatting(text);
+    output.push(index < segments.length - 1 ? `${formatted}\\\\` : formatted);
+  });
+}
+
+function takeLatexSetext(
+  output: string[],
+  raw: string,
+  counts: Map<string, number>,
+  prose: SourceLine[]
+): boolean {
   const level = setextLevel(raw);
-  if (level === null) {
+  if (level === null || prose.length === 0) {
     return false;
   }
-  const body: string[] = [];
-  while (output.length > 0 && !isLatexBoundary(output[output.length - 1] ?? '')) {
-    body.unshift((output.pop() ?? '').replace(/\\\\$/, '').trim());
-  }
-  if (!body.some((line) => line.length > 0)) {
-    output.push(...body);
+  const text = prose
+    .map((line) => line.text)
+    .filter((line) => line.length > 0)
+    .join(' ');
+  prose.length = 0;
+  if (text.length === 0) {
     return false;
   }
   const command = level === 1 ? 'section' : 'subsection';
-  const text = body.filter((line) => line.length > 0).join(' ');
-  output.push(latexLabeledHeading(command, text, text, counts));
+  output.push(latexLabeledHeading(command, convertInlineFormatting(text), text, counts));
   return true;
 }
 
@@ -381,33 +382,56 @@ function takeLatexListBreak(raw: string, output: string[], listState: ListState)
   return true;
 }
 
-function processMarkdownLine(
+function takeLatexHeading(
   raw: string,
   output: string[],
   listState: ListState,
-  counts: Map<string, number>
-): void {
-  if (takeLatexSetext(output, raw, counts) || takeLatexListBreak(raw, output, listState)) {
-    return;
-  }
-  const source = readSourceLine(raw);
-  const trimmed = source.text;
+  counts: Map<string, number>,
+  prose: SourceLine[]
+): boolean {
+  const trimmed = readSourceLine(raw).text;
   const heading = parseAtxHeading(trimmed);
   if (heading) {
+    flushLatexProse(output, prose);
     resetListState(output, listState);
     const cmd = getHeadingCommand(heading.depth);
     output.push(
       latexLabeledHeading(cmd, convertInlineFormatting(heading.text), heading.text, counts)
     );
+    return true;
+  }
+  if (!isThematicBreak(trimmed)) {
+    return false;
+  }
+  flushLatexProse(output, prose);
+  resetListState(output, listState);
+  output.push('\\noindent\\rule{\\textwidth}{0.4pt}');
+  return true;
+}
+
+function processMarkdownLine(
+  raw: string,
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>,
+  prose: SourceLine[]
+): void {
+  if (takeLatexSetext(output, raw, counts, prose)) {
     return;
   }
-
-  if (isThematicBreak(trimmed)) {
-    resetListState(output, listState);
-    output.push('\\noindent\\rule{\\textwidth}{0.4pt}');
+  if (readSourceLine(raw).text.length === 0) {
+    flushLatexProse(output, prose);
+  }
+  if (takeLatexListBreak(raw, output, listState)) {
     return;
   }
-
+  if (takeLatexHeading(raw, output, listState, counts, prose)) {
+    return;
+  }
+  const source = readSourceLine(raw);
+  if (parseListItem(raw)) {
+    flushLatexProse(output, prose);
+  }
   if (processListItem(raw, output, listState)) {
     listState.column = listContentColumn(raw);
     return;
@@ -423,8 +447,7 @@ function processMarkdownLine(
     }
   }
 
-  const formatted = convertInlineFormatting(trimmed);
-  output.push(source.hardBreak ? `${formatted}\\\\` : formatted);
+  prose.push(source);
 }
 
 function flushLatexTable(output: string[], tableLines: string[]): void {
@@ -479,6 +502,7 @@ function takeLatexTable(output: string[], line: string, tableLines: string[]): b
 
 interface LatexBuild {
   output: string[];
+  prose: SourceLine[];
   fence: string | null;
   inDisplayMath: boolean;
   tableLines: string[];
@@ -491,6 +515,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
   const wasInCodeBlock = build.fence;
   build.fence = processCodeBlockLine(line, build.output, build.fence, build.listState);
   if (wasInCodeBlock !== build.fence) {
+    flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
     flushLatexQuote(build.output, build.quoteLines);
     return;
@@ -500,6 +525,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     return;
   }
   if (line.trim() === '$$') {
+    flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
     flushLatexQuote(build.output, build.quoteLines);
     if (!build.inDisplayMath) {
@@ -514,20 +540,23 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     return;
   }
   if (takeLatexTable(build.output, line.trim(), build.tableLines)) {
+    flushLatexProse(build.output, build.prose);
     flushLatexQuote(build.output, build.quoteLines);
     resetListState(build.output, build.listState);
     return;
   }
   if (takeLatexQuote(build.output, line, build.quoteLines)) {
+    flushLatexProse(build.output, build.prose);
     resetListState(build.output, build.listState);
     return;
   }
-  processMarkdownLine(line, build.output, build.listState, build.slugCounts);
+  processMarkdownLine(line, build.output, build.listState, build.slugCounts, build.prose);
 }
 
 function contentToLatex(content: string): string {
   const build: LatexBuild = {
     output: [],
+    prose: [],
     fence: null,
     inDisplayMath: false,
     tableLines: [],
@@ -543,6 +572,7 @@ function contentToLatex(content: string): string {
   if (build.inDisplayMath) {
     build.output.push('$$');
   }
+  flushLatexProse(build.output, build.prose);
   flushLatexTable(build.output, build.tableLines);
   flushLatexQuote(build.output, build.quoteLines);
   if (build.fence) {

@@ -29,7 +29,7 @@ import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
-import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { paragraphSegments, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
 import { isLazyQuoteLine, quoteBody, quoteChunks } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
@@ -549,12 +549,11 @@ interface DocxParse {
 
 function paragraphFromLines(lines: readonly SourceLine[], quoteDepth = 0): Paragraph {
   const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
-  lines.forEach((line, index) => {
+  paragraphSegments(lines).forEach((text, index) => {
     if (index > 0) {
-      const previous = lines[index - 1];
-      children.push(previous?.hardBreak ? new TextRun({ break: 1 }) : new TextRun({ text: ' ' }));
+      children.push(new TextRun({ break: 1 }));
     }
-    children.push(...createParagraphChildren(line.text));
+    children.push(...createParagraphChildren(text));
   });
   if (quoteDepth > 0) {
     return new Paragraph({ children, indent: { left: 720 * quoteDepth } });

@@ -132,6 +132,16 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<h1>');
   });
 
+  it('strikes text wrapped onto the next line', async () => {
+    await exporter.export({
+      content: '~~hello\nworld~~',
+      outputPath: '/tmp/strike-wrap.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<del>hello world</del>');
+  });
+
   it('keeps a hard break inside a list item', async () => {
     await exporter.export({
       content: '- Stay  \n  put',

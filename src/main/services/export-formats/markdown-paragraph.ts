@@ -22,16 +22,28 @@ export function readSourceLine(line: string): SourceLine {
   return trailingBackslashBreak(line) ?? { text: line.trim(), hardBreak: false };
 }
 
+/** Soft-wrapped lines stay one phrase. A hard break starts the next phrase. */
+export function paragraphSegments(lines: readonly SourceLine[]): string[] {
+  const segments: string[][] = [];
+  let current: string[] = [];
+  for (const line of lines) {
+    current.push(line.text);
+    if (line.hardBreak) {
+      segments.push(current);
+      current = [];
+    }
+  }
+  if (current.length > 0) {
+    segments.push(current);
+  }
+  return segments.map((segment) => segment.join(' '));
+}
+
 export function joinParagraphHtml(
   lines: readonly SourceLine[],
   render: (text: string) => string
 ): string {
-  let html = '';
-  lines.forEach((line, index) => {
-    if (index > 0) {
-      html += lines[index - 1]?.hardBreak ? '<br />' : ' ';
-    }
-    html += render(line.text);
-  });
-  return html;
+  return paragraphSegments(lines)
+    .map((text) => render(text))
+    .join('<br />');
 }

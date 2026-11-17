@@ -17,6 +17,11 @@ describe('readSourceLine', () => {
     );
     expect(html).toBe('Hello<br />world');
     expect(
+      joinParagraphHtml([readSourceLine('~~hello'), readSourceLine('world~~')], (text) =>
+        text.replace(/~~(.+?)~~/g, '<del>$1</del>')
+      )
+    ).toBe('<del>hello world</del>');
+    expect(
       joinParagraphHtml([readSourceLine('Hello'), readSourceLine('world')], (text) => text)
     ).toBe('Hello world');
   });
