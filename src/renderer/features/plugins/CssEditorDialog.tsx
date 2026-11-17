@@ -11,6 +11,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { injectCss, removeCss, getInjectedCss } from './css-injector';
 import {
+  applySavedCustomCss,
+  CUSTOM_CSS_ID,
   CUSTOM_CSS_STORAGE_KEY,
   readSavedCustomCss,
   writeSavedCustomCss,
@@ -21,27 +23,12 @@ import {
 // Constants
 // ============================================================================
 
-const CUSTOM_CSS_ID = 'user-custom-css';
-
-// ============================================================================
-// Types
-// ============================================================================
-
 interface CssEditorDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 type CssScope = CustomCssScope;
-
-function restoreSavedCss(): void {
-  const saved = readSavedCustomCss();
-  if (saved && saved.css.trim().length > 0) {
-    injectCss(CUSTOM_CSS_ID, saved.css, saved.scope);
-    return;
-  }
-  removeCss(CUSTOM_CSS_ID);
-}
 
 // ============================================================================
 // Component
@@ -74,7 +61,7 @@ export function CssEditorDialog({ isOpen, onClose }: CssEditorDialogProps) {
       return;
     }
     if (!livePreview) {
-      restoreSavedCss();
+      applySavedCustomCss();
       return;
     }
     if (css.trim()) {
@@ -103,7 +90,7 @@ export function CssEditorDialog({ isOpen, onClose }: CssEditorDialogProps) {
 
   const handleCancel = useCallback(() => {
     // Revert live preview changes
-    restoreSavedCss();
+    applySavedCustomCss();
     onClose();
   }, [onClose]);
 

@@ -1,3 +1,5 @@
+import { injectCss, removeCss } from './css-injector';
+
 export type CustomCssScope = 'app' | 'preview';
 
 export interface SavedCustomCss {
@@ -6,6 +8,7 @@ export interface SavedCustomCss {
 }
 
 export const CUSTOM_CSS_STORAGE_KEY = 'mdxpad:custom-css';
+export const CUSTOM_CSS_ID = 'user-custom-css';
 
 function isScope(value: unknown): value is CustomCssScope {
   return value === 'app' || value === 'preview';
@@ -36,4 +39,13 @@ export function readSavedCustomCss(): SavedCustomCss | null {
 
 export function writeSavedCustomCss(css: string, scope: CustomCssScope): void {
   localStorage.setItem(CUSTOM_CSS_STORAGE_KEY, JSON.stringify({ css, scope }));
+}
+
+export function applySavedCustomCss(): void {
+  const saved = readSavedCustomCss();
+  if (saved && saved.css.trim().length > 0) {
+    injectCss(CUSTOM_CSS_ID, saved.css, saved.scope);
+    return;
+  }
+  removeCss(CUSTOM_CSS_ID);
 }

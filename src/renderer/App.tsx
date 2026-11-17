@@ -42,6 +42,7 @@ import {
   selectMatchResults,
 } from './stores/file-explorer-store';
 import { useEditorPreferencesStore } from './stores/editor-preferences-store';
+import { applySavedCustomCss } from './features/plugins/custom-css-storage';
 import { initThemeManager } from './features/plugins/theme-manager';
 import { openFileFromPath } from './lib/open-file-from-path';
 import { MountedUtilityPanels } from './components/shell/MountedUtilityPanels';
@@ -109,6 +110,7 @@ export function App(): React.ReactElement {
   const distractionFree = useEditorPreferencesStore((s) => s.distractionFreeEnabled);
   useEffect(() => {
     initThemeManager();
+    applySavedCustomCss();
   }, []);
 
   // File explorer filter state
