@@ -34,6 +34,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\[');
   });
 
+  it('keeps a formatted task and a nested task', () => {
+    const formatted = roundTrip('- [ ] **todo**\n');
+    expect(formatted).toContain('[ ] **todo**');
+    expect(formatted).not.toContain('\\[');
+    const nested = roundTrip('- [ ] one\n  - [ ] nested\n');
+    expect(nested).toContain('[ ] one');
+    expect(nested).toContain('[ ] nested');
+    expect(nested).not.toContain('\\[');
+  });
+
   it('keeps a JSX block', () => {
     const serialized = roundTrip('<Card>Hello</Card>\n');
     expect(serialized).toContain('<Card>Hello</Card>');

@@ -8,7 +8,7 @@
  */
 
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
-import type { Node as ProseMirrorNode, Mark } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 // =============================================================================
 // NODE SERIALIZERS
@@ -24,9 +24,40 @@ type NodeSerializerMap = Record<
   ) => void
 >;
 
+function taskPrefix(paragraph: ProseMirrorNode): string | null {
+  const match = /^\[([ xX])\]\s*/.exec(paragraph.textContent);
+  return match?.[0] ?? null;
+}
+
+function paragraphWithoutPrefix(paragraph: ProseMirrorNode, skip: number): ProseMirrorNode {
+  const children: ProseMirrorNode[] = [];
+  let remaining = skip;
+  paragraph.forEach((child) => {
+    if (remaining <= 0 || !child.isText) {
+      children.push(child);
+      return;
+    }
+    const text = child.text ?? '';
+    if (text.length <= remaining) {
+      remaining -= text.length;
+      return;
+    }
+    children.push(paragraph.type.schema.text(text.slice(remaining), child.marks));
+    remaining = 0;
+  });
+  return paragraph.copy(Fragment.fromArray(children));
+}
+
 const nodeSerializers: NodeSerializerMap = {
-  paragraph(state, node) {
-    state.renderInline(node);
+  paragraph(state, node, parent) {
+    const prefix =
+      parent.type.name === 'list_item' && parent.firstChild === node ? taskPrefix(node) : null;
+    if (prefix) {
+      state.write(prefix);
+      state.renderInline(paragraphWithoutPrefix(node, prefix.length), false);
+    } else {
+      state.renderInline(node);
+    }
     state.closeBlock(node);
   },
 
@@ -64,21 +95,6 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   list_item(state, node) {
-    const paragraph = node.firstChild;
-    const raw = paragraph?.textContent ?? '';
-    const task = /^(\[[ xX]\])\s+([\s\S]*)$/.exec(raw);
-    if (
-      task?.[1] &&
-      task[2] !== undefined &&
-      paragraph &&
-      node.childCount === 1 &&
-      paragraph.childCount === 1
-    ) {
-      state.write(`${task[1]} `);
-      state.text(task[2]);
-      state.closeBlock(node);
-      return;
-    }
     state.renderContent(node);
   },
 
