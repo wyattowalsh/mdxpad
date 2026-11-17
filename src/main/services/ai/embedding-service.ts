@@ -15,6 +15,7 @@ import {
   type EmbeddingAvailabilitySource,
 } from './embedding-availability';
 import type { IAIService } from './ai-types';
+import { pathMatchesExclude } from '@main/services/search/path-excludes';
 import { VectorStore, type VectorEntry } from './vector-store';
 
 // =============================================================================
@@ -75,7 +76,10 @@ export function chunkText(text: string): string[] {
 /**
  * Recursively finds indexable files in a workspace directory.
  */
-async function findIndexableFiles(dirPath: string): Promise<string[]> {
+export async function findIndexableFiles(
+  dirPath: string,
+  excludePatterns: readonly string[] = []
+): Promise<string[]> {
   const results: string[] = [];
 
   async function walk(dir: string): Promise<void> {
@@ -85,6 +89,9 @@ async function findIndexableFiles(dirPath: string): Promise<string[]> {
       const fullPath = path.join(dir, entry.name);
 
       // Skip hidden directories and node_modules
+      if (pathMatchesExclude(dirPath, fullPath, excludePatterns)) {
+        continue;
+      }
       if (entry.isDirectory()) {
         if (entry.name.startsWith('.') || entry.name === 'node_modules') {
           continue;
@@ -150,7 +157,8 @@ export class EmbeddingService {
    */
   async indexWorkspace(
     workspacePath: string,
-    forceReindex = false
+    forceReindex = false,
+    excludePatterns: readonly string[] = []
   ): Promise<{ indexedFiles: number; totalChunks: number }> {
     await this.assertAvailable();
     const store = await this.getStore(workspacePath);
@@ -159,7 +167,7 @@ export class EmbeddingService {
       store.clear();
     }
 
-    const files = await findIndexableFiles(workspacePath);
+    const files = await findIndexableFiles(workspacePath, excludePatterns);
     let totalChunks = 0;
     let indexedFiles = 0;
 

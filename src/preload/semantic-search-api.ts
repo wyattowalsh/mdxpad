@@ -27,7 +27,11 @@ import {
 
 export interface SemanticSearchApi {
   search(query: string, workspacePath: string, topK?: number): Promise<SemanticSearchResponse>;
-  indexWorkspace(workspacePath: string, forceReindex?: boolean): Promise<SemanticIndexResponse>;
+  indexWorkspace(
+    workspacePath: string,
+    forceReindex?: boolean,
+    excludePatterns?: readonly string[]
+  ): Promise<SemanticIndexResponse>;
   getIndexStatus(workspacePath: string): Promise<SemanticIndexStatusResponse>;
 }
 
@@ -44,12 +48,16 @@ export const semanticSearchApi: SemanticSearchApi = {
       { query, workspacePath, topK }
     ),
 
-  indexWorkspace: (workspacePath, forceReindex) =>
+  indexWorkspace: (workspacePath, forceReindex, excludePatterns) =>
     validatedInvoke(
       SemanticSearchChannels.INDEX,
       SemanticIndexRequestSchema,
       SemanticIndexResponseSchema,
-      { workspacePath, forceReindex }
+      {
+        workspacePath,
+        forceReindex,
+        ...(excludePatterns !== undefined && excludePatterns.length > 0 && { excludePatterns }),
+      }
     ),
 
   getIndexStatus: (workspacePath) =>

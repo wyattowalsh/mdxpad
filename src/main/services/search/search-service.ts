@@ -7,7 +7,10 @@
 
 import MiniSearch from 'minisearch';
 import { readFile } from 'node:fs/promises';
-import { basename, extname, isAbsolute, join, relative, sep } from 'node:path';
+import { basename, extname, join, relative } from 'node:path';
+import { pathMatchesExclude } from './path-excludes';
+
+export { pathMatchesExclude };
 import { watch, type FSWatcher } from 'chokidar';
 import type {
   SearchQueryResponse,
@@ -106,37 +109,6 @@ async function readFileContent(filePath: string): Promise<string | null> {
 
 function matchesExtensions(filePath: string, extensions: string[]): boolean {
   return extensions.includes(extname(filePath).toLowerCase());
-}
-
-function escapePattern(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-export function pathMatchesExclude(
-  root: string,
-  filePath: string,
-  patterns: readonly string[]
-): boolean {
-  const rel = relative(root, filePath);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    return false;
-  }
-  const segments = rel.split(sep).filter((segment) => segment.length > 0);
-  for (const raw of patterns) {
-    const pattern = raw.trim();
-    if (pattern.length === 0) {
-      continue;
-    }
-    if (pattern.includes('*')) {
-      const expression = new RegExp(`^${pattern.split('*').map(escapePattern).join('.*')}$`);
-      if (segments.some((segment) => expression.test(segment))) {
-        return true;
-      }
-    } else if (segments.includes(pattern)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 async function collectFiles(

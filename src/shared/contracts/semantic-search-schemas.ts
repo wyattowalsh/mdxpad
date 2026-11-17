@@ -29,6 +29,7 @@ export type SemanticSearchRequest = z.infer<typeof SemanticSearchRequestSchema>;
 export const SemanticIndexRequestSchema = z.object({
   workspacePath: z.string().min(1),
   forceReindex: z.boolean().optional().default(false),
+  excludePatterns: z.array(z.string().min(1).max(80)).max(40).optional(),
 });
 export type SemanticIndexRequest = z.infer<typeof SemanticIndexRequestSchema>;
 

@@ -69,7 +69,8 @@ function handleIndex(embeddingService: EmbeddingService) {
       const request = SemanticIndexRequestSchema.parse(rawRequest);
       const result = await embeddingService.indexWorkspace(
         request.workspacePath,
-        request.forceReindex
+        request.forceReindex,
+        request.excludePatterns ?? []
       );
       return SemanticIndexResponseSchema.parse({
         success: true,

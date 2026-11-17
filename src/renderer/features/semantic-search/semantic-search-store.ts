@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { SemanticSearchResult } from '@shared/contracts/semantic-search-schemas';
+import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 
 // =============================================================================
 // STATE
@@ -111,7 +112,8 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
         if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.semanticSearch) {
           const response = await window.mdxpad.semanticSearch.indexWorkspace(
             workspacePath,
-            forceReindex
+            forceReindex,
+            readExcludesForDirectory(workspacePath)
           );
           if (response.success) {
             set((draft) => {
