@@ -151,6 +151,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\%');
   });
 
+  it('keeps formulas and escapes prices', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See $x^2$ and $a + b$.\nPrices are $5 and $10.\n$$\nE = mc^2\n$$',
+      outputPath: '/tmp/math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('$x^2$');
+    expect(written).toContain('$a + b$');
+    expect(written).toContain('E = mc^2');
+    expect(written).toContain('\\$5 and \\$10');
+    expect(written).not.toContain('\\$x');
+  });
+
   it('keeps a backslash as a LaTeX command', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

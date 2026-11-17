@@ -23,7 +23,71 @@ function wrapLatex(command: string, content: string): string {
   return `\\${command}{${escapeLatex(content)}}`;
 }
 
+const MATH_MARK = '\uE001';
+
+function isCurrencySpan(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
+    return true;
+  }
+  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
+}
+
+function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
+  const end = raw.indexOf(delimiter, start + delimiter.length);
+  if (end === -1) {
+    return -1;
+  }
+  const interior = raw.slice(start + delimiter.length, end);
+  if (interior.length === 0 || isCurrencySpan(interior)) {
+    return -1;
+  }
+  return end + delimiter.length;
+}
+
+function protectMath(raw: string): { text: string; slots: string[] } {
+  const slots: string[] = [];
+  let text = '';
+  let index = 0;
+  let inCode = false;
+  while (index < raw.length) {
+    if (raw[index] === '`') {
+      inCode = !inCode;
+      text += '`';
+      index += 1;
+      continue;
+    }
+    const delimiter =
+      !inCode && raw.startsWith('$$', index) ? '$$' : !inCode && raw[index] === '$' ? '$' : null;
+    const end = delimiter === null ? -1 : takeMath(raw, index, delimiter);
+    if (delimiter !== null && end !== -1) {
+      slots.push(raw.slice(index, end));
+      text += `${MATH_MARK}${slots.length - 1}${MATH_MARK}`;
+      index = end;
+      continue;
+    }
+    text += raw[index] ?? '';
+    index += 1;
+  }
+  return { text, slots };
+}
+
+function restoreMath(formatted: string, slots: readonly string[]): string {
+  return formatted.replaceAll(
+    new RegExp(`${MATH_MARK}(\\d+)${MATH_MARK}`, 'g'),
+    (_match, slotIndex: string) => slots[Number(slotIndex)] ?? ''
+  );
+}
+
 function convertInlineFormatting(raw: string): string {
+  const protectedMath = protectMath(raw);
+  return restoreMath(formatInline(protectedMath.text), protectedMath.slots);
+}
+
+function formatInline(raw: string): string {
   const pattern =
     /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\))/g;
   let result = '';
@@ -162,6 +226,7 @@ function contentToLatex(content: string): string {
   const lines = content.split('\n');
   const output: string[] = [];
   let inCodeBlock = false;
+  let inDisplayMath = false;
   const listState: ListState = { inUnorderedList: false, inOrderedList: false };
 
   for (const line of lines) {
@@ -174,9 +239,24 @@ function contentToLatex(content: string): string {
       output.push(line);
       continue;
     }
+    if (line.trim() === '$$') {
+      if (!inDisplayMath) {
+        resetListState(output, listState);
+      }
+      output.push('$$');
+      inDisplayMath = !inDisplayMath;
+      continue;
+    }
+    if (inDisplayMath) {
+      output.push(line);
+      continue;
+    }
     processMarkdownLine(line.trim(), output, listState);
   }
 
+  if (inDisplayMath) {
+    output.push('$$');
+  }
   if (inCodeBlock) {
     output.push('\\end{verbatim}');
   }
@@ -194,6 +274,7 @@ function buildLatexDocument(content: string, options: ExportOptions): string {
     '\\usepackage[utf8]{inputenc}',
     '\\usepackage[T1]{fontenc}',
     '\\usepackage{hyperref}',
+    '\\usepackage{amsmath}',
     '\\usepackage{graphicx}',
     '',
     `\\title{${escapeLatex(title)}}`,
