@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import {
   AlignmentType,
+  BorderStyle,
   Document,
   ExternalHyperlink,
   HeadingLevel,
@@ -15,6 +16,7 @@ import {
 } from 'docx';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
+import { isThematicBreak } from './markdown-break';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
 import { splitTaskItem } from './markdown-task';
@@ -175,6 +177,13 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
     });
   }
 
+  if (isThematicBreak(trimmed)) {
+    return new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, space: 1, color: 'auto' } },
+      spacing: { before: 120, after: 120 },
+    });
+  }
+
   const ulMatch = /^[-*+]\s+(.+)$/.exec(trimmed);
   if (ulMatch) {
     return new Paragraph({
@@ -188,14 +197,6 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
     return new Paragraph({
       numbering: { reference: 'default-numbering', level: 0 },
       children: listItemChildren(olMatch[1] ?? ''),
-    });
-  }
-
-  if (/^[-*_]{3,}$/.test(trimmed)) {
-    return new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: '---' })],
-      spacing: { before: 240, after: 240 },
     });
   }
 

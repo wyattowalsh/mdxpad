@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
+import { isThematicBreak } from './markdown-break';
 import { quoteBody, quoteToLatex } from './markdown-quote';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -236,13 +237,13 @@ function processMarkdownLine(trimmed: string, output: string[], listState: ListS
     return;
   }
 
-  if (processListItem(trimmed, output, listState)) {
+  if (isThematicBreak(trimmed)) {
+    resetListState(output, listState);
+    output.push('\\noindent\\rule{\\textwidth}{0.4pt}');
     return;
   }
 
-  if (/^[-*_]{3,}$/.test(trimmed)) {
-    resetListState(output, listState);
-    output.push('\\noindent\\rule{\\textwidth}{0.4pt}');
+  if (processListItem(trimmed, output, listState)) {
     return;
   }
 

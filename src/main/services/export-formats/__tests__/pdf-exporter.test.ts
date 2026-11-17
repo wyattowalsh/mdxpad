@@ -96,6 +96,20 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('renders a horizontal rule', async () => {
+    await exporter.export({
+      content: 'Above\n\n---\n\n* * *\n\nBelow',
+      outputPath: '/tmp/rule.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<hr />');
+    expect(html).toContain('Above');
+    expect(html).toContain('Below');
+    expect(html).not.toContain('---');
+    expect(html).not.toContain('* * *');
+  });
+
   it('renders a task checkbox', async () => {
     await exporter.export({
       content: '- [x] done\n- [ ] todo',

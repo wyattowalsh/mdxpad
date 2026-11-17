@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
+import { isThematicBreak } from './markdown-break';
 import { quoteBody, quoteToHtml } from './markdown-quote';
 import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -168,6 +169,15 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
     return;
   }
   if (consumeEpubQuote(htmlLines, trimmed, state)) {
+    return;
+  }
+  appendEpubFlow(htmlLines, trimmed, state);
+}
+
+function appendEpubFlow(htmlLines: string[], trimmed: string, state: EpubLineState): void {
+  if (isThematicBreak(trimmed)) {
+    state.list = closeEpubList(htmlLines, state.list);
+    htmlLines.push('<hr />');
     return;
   }
   const headingMatch = /^(#{3,6})\s+(.+)$/.exec(trimmed);

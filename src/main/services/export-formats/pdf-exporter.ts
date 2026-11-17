@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
+import { isThematicBreak } from './markdown-break';
 import { quoteBody, quoteToHtml } from './markdown-quote';
 import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -159,6 +160,16 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     return;
   }
   if (consumePdfQuote(build, trimmed)) {
+    return;
+  }
+  appendPdfFlow(build, trimmed);
+}
+
+function appendPdfFlow(build: PdfBuild, trimmed: string): void {
+  if (isThematicBreak(trimmed)) {
+    flushPdfParagraph(build);
+    closePdfList(build);
+    build.parts.push('<hr />');
     return;
   }
   const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);

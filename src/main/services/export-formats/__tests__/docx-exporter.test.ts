@@ -220,12 +220,25 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('handles horizontal rules', async () => {
-    const result = await exporter.export({
-      content: 'Above\n\n---\n\nBelow',
+  it('draws a horizontal rule', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Above\n\n* * *\n\nBelow',
       outputPath: '/tmp/hr.docx',
     });
-
-    expect(result.ok).toBe(true);
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('<w:pBdr>');
+    expect(xml).toContain('Above');
+    expect(xml).toContain('Below');
+    expect(xml).not.toContain('* * *');
   });
 });

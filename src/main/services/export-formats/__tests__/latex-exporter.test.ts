@@ -186,6 +186,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{quote}');
   });
 
+  it('renders a horizontal rule', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Above\n\n* * *\n\nBelow',
+      outputPath: '/tmp/rule.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\noindent\\rule{\\textwidth}{0.4pt}');
+    expect(written).toContain('Above');
+    expect(written).not.toContain('* * *');
+  });
+
   it('renders a task checkbox', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
