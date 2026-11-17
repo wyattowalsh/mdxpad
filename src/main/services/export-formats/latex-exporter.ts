@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { quoteBody, quoteToLatex } from './markdown-quote';
+import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 const LATEX_BACKSLASH = '\uE000';
@@ -180,6 +181,14 @@ function resetListState(output: string[], listState: ListState): void {
   listState.inOrderedList = false;
 }
 
+function latexListItem(text: string): string {
+  const task = splitTaskItem(text);
+  if (!task) {
+    return convertInlineFormatting(text);
+  }
+  return taskItemLatex(task.checked, convertInlineFormatting(task.body));
+}
+
 function processListItem(trimmed: string, output: string[], listState: ListState): boolean {
   const ulMatch = /^[-*+]\s+(.+)$/.exec(trimmed);
   if (ulMatch) {
@@ -191,7 +200,7 @@ function processListItem(trimmed: string, output: string[], listState: ListState
       output.push('\\begin{itemize}');
       listState.inUnorderedList = true;
     }
-    output.push(`  \\item ${convertInlineFormatting(ulMatch[1] ?? '')}`);
+    output.push(`  \\item ${latexListItem(ulMatch[1] ?? '')}`);
     return true;
   }
 
@@ -205,7 +214,7 @@ function processListItem(trimmed: string, output: string[], listState: ListState
       output.push('\\begin{enumerate}');
       listState.inOrderedList = true;
     }
-    output.push(`  \\item ${convertInlineFormatting(olMatch[1] ?? '')}`);
+    output.push(`  \\item ${latexListItem(olMatch[1] ?? '')}`);
     return true;
   }
 
@@ -370,6 +379,7 @@ function buildLatexDocument(content: string, options: ExportOptions): string {
     '\\usepackage[T1]{fontenc}',
     '\\usepackage{hyperref}',
     '\\usepackage{amsmath}',
+    '\\usepackage{amssymb}',
     '\\usepackage{graphicx}',
     '\\usepackage[normalem]{ulem}',
     '',

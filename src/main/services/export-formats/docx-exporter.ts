@@ -17,6 +17,7 @@ import {
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
+import { splitTaskItem } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 type HeadingLevelValue =
@@ -155,6 +156,15 @@ function createCodeBlockParagraph(codeLines: string[]): Paragraph {
   });
 }
 
+function listItemChildren(text: string): (TextRun | ExternalHyperlink | Math)[] {
+  const task = splitTaskItem(text);
+  if (!task) {
+    return createParagraphChildren(text);
+  }
+  const mark = new TextRun({ text: task.checked ? '☑ ' : '☐ ' });
+  return [mark, ...createParagraphChildren(task.body)];
+}
+
 function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmed);
   if (headingMatch) {
@@ -169,7 +179,7 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   if (ulMatch) {
     return new Paragraph({
       bullet: { level: 0 },
-      children: createParagraphChildren(ulMatch[1] ?? ''),
+      children: listItemChildren(ulMatch[1] ?? ''),
     });
   }
 
@@ -177,7 +187,7 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
   if (olMatch) {
     return new Paragraph({
       numbering: { reference: 'default-numbering', level: 0 },
-      children: createParagraphChildren(olMatch[1] ?? ''),
+      children: listItemChildren(olMatch[1] ?? ''),
     });
   }
 

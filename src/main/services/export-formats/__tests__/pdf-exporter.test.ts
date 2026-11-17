@@ -96,6 +96,19 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('renders a task checkbox', async () => {
+    await exporter.export({
+      content: '- [x] done\n- [ ] todo',
+      outputPath: '/tmp/tasks.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<input type="checkbox" disabled checked />');
+    expect(html).toContain('<input type="checkbox" disabled />');
+    expect(html).toContain('done');
+    expect(html).not.toContain('[x]');
+  });
+
   it('renders a markdown table', async () => {
     await exporter.export({
       content: '| Name | Value |\n| --- | --- |\n| A | 1 |',

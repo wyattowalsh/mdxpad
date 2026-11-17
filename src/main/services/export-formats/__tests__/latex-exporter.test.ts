@@ -186,6 +186,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{quote}');
   });
 
+  it('renders a task checkbox', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- [x] done\n- [ ] todo',
+      outputPath: '/tmp/tasks.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\usepackage{amssymb}');
+    expect(written).toContain('$\\boxtimes$ done');
+    expect(written).toContain('$\\square$ todo');
+    expect(written).not.toContain('[x]');
+  });
+
   it('renders a markdown table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

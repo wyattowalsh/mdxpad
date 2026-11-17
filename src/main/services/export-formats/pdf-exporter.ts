@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { quoteBody, quoteToHtml } from './markdown-quote';
+import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 function escapeHtml(value: string): string {
@@ -178,7 +179,7 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     flushPdfParagraph(build);
     const kind: HtmlListKind = item[1]?.endsWith('.') ? 'ol' : 'ul';
     continuePdfList(build, kind);
-    build.parts.push(`<li>${renderMarkdownInline(item[2] ?? '')}</li>`);
+    build.parts.push(`<li>${listItemHtml(item[2] ?? '', renderMarkdownInline)}</li>`);
     return;
   }
   closePdfList(build);

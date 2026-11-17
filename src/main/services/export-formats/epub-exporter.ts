@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { quoteBody, quoteToHtml } from './markdown-quote';
+import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
 interface EpubChapter {
@@ -189,7 +190,7 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
       htmlLines.push(kind === 'ul' ? '<ul>' : '<ol>');
       state.list = kind;
     }
-    htmlLines.push(`<li>${renderMarkdownInline(item[2] ?? '')}</li>`);
+    htmlLines.push(`<li>${listItemHtml(item[2] ?? '', renderMarkdownInline)}</li>`);
     return;
   }
   state.list = closeEpubList(htmlLines, state.list);
