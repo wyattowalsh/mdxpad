@@ -10,6 +10,65 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
+function renderInline(value: string): string {
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>');
+}
+
+export function markdownToPdfHtml(content: string): string {
+  const parts: string[] = [];
+  const paragraph: string[] = [];
+  let inCode = false;
+
+  const flushParagraph = (): void => {
+    if (paragraph.length === 0) {
+      return;
+    }
+    parts.push(`<p>${renderInline(paragraph.join(' '))}</p>`);
+    paragraph.length = 0;
+  };
+
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('```')) {
+      flushParagraph();
+      parts.push(inCode ? '</code></pre>' : '<pre><code>');
+      inCode = !inCode;
+      continue;
+    }
+    if (inCode) {
+      parts.push(escapeHtml(line));
+      continue;
+    }
+    const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+    if (heading) {
+      flushParagraph();
+      const level = heading[1]?.length ?? 1;
+      parts.push(`<h${level}>${renderInline(heading[2] ?? '')}</h${level}>`);
+      continue;
+    }
+    if (trimmed.length === 0) {
+      flushParagraph();
+      continue;
+    }
+    const item = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (item) {
+      flushParagraph();
+      parts.push(`<ul><li>${renderInline(item[1] ?? '')}</li></ul>`);
+      continue;
+    }
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  if (inCode) {
+    parts.push('</code></pre>');
+  }
+  return parts.join('\n');
+}
+
 function contentToHtml(content: string, title: string): string {
   return `<!doctype html>
 <html lang="en">
@@ -30,7 +89,7 @@ function contentToHtml(content: string, title: string): string {
   </style>
 </head>
 <body>
-  <pre style="white-space: pre-wrap;">${escapeHtml(content)}</pre>
+${markdownToPdfHtml(content)}
 </body>
 </html>`;
 }

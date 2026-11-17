@@ -116,13 +116,16 @@ export function registerShareHandlers(
   const handleRevokeLink = createRevokeLinkHandler(service);
   const handleGetLinks = createGetLinksHandler(service);
   const handlePublish = createPublishHandler(generator, window);
-  const handleRead = createValidatedHandler(ReadShareRequestSchema, (args): ReadShareResponse => {
-    const result = service.readByToken(args.token);
-    if (!result) {
-      return ReadShareResponseSchema.parse({ ok: false });
+  const handleRead = createValidatedHandler(
+    ReadShareRequestSchema,
+    (args): Promise<ReadShareResponse> => {
+      const result = service.readByToken(args.token);
+      if (!result) {
+        return Promise.resolve(ReadShareResponseSchema.parse({ ok: false }));
+      }
+      return Promise.resolve(ReadShareResponseSchema.parse({ ok: true, ...result }));
     }
-    return ReadShareResponseSchema.parse({ ok: true, ...result });
-  });
+  );
 
   registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.CREATE_LINK, (_event, args) =>
     handleCreateLink(args)

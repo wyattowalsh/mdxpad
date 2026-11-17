@@ -365,7 +365,7 @@ export class VersionHistoryService {
         },
       };
     } catch {
-      throw new Error(`Git version not found: ${id}`);
+      throw new Error(`Git version not found: git-${commitHash}`);
     }
   }
 

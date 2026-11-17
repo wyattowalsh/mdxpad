@@ -198,7 +198,16 @@ export const FileWriteResponseSchema = FileResultVoidSchema;
 /**
  * Supported export formats.
  */
-export const ExportFormatSchema = z.enum(['html', 'markdown', 'mdx', 'pdf', 'docx']);
+export const ExportFormatSchema = z.enum([
+  'html',
+  'markdown',
+  'mdx',
+  'pdf',
+  'docx',
+  'epub',
+  'latex',
+  'pandoc',
+]);
 
 /** Inferred ExportFormat type */
 export type ExportFormat = z.infer<typeof ExportFormatSchema>;

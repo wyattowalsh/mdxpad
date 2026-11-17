@@ -55,7 +55,17 @@ import {
 /** File dialog filters for MDX and Markdown files */
 const MDX_FILTERS = [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }];
 
-const EXPORT_FORMAT_ORDER: readonly ExportFormat[] = ['html', 'markdown', 'mdx', 'pdf', 'docx'];
+const EXPORT_FORMAT_ORDER: readonly ExportFormat[] = [
+  'html',
+  'markdown',
+  'mdx',
+  'pdf',
+  'docx',
+  'epub',
+  'latex',
+  'pandoc',
+];
+const BINARY_EXPORT_FORMATS = new Set<ExportFormat>(['pdf', 'docx', 'epub', 'latex', 'pandoc']);
 
 /** File lifecycle integration for watcher/recent-file wiring. */
 let fileIntegration: FileServiceIntegration | null = null;
@@ -138,7 +148,8 @@ async function promptExportFormat(): Promise<ExportFormat | null> {
     type: 'question' as const,
     title: 'Export Document',
     message: 'Choose an export format',
-    detail: 'HTML, Markdown, and MDX export source text. PDF and Word use the format exporters.',
+    detail:
+      'HTML, Markdown, and MDX write text. PDF, Word, EPUB, LaTeX, and Pandoc use the format exporters.',
     buttons,
     defaultId: 0,
     cancelId: buttons.length - 1,
@@ -356,10 +367,9 @@ const handleFileExport = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' }, support };
     }
 
-    const binaryExporter =
-      selectedFormat === 'pdf' || selectedFormat === 'docx'
-        ? getExporter(selectedFormat)
-        : undefined;
+    const binaryExporter = BINARY_EXPORT_FORMATS.has(selectedFormat)
+      ? getExporter(selectedFormat)
+      : undefined;
     const serialized = binaryExporter ? null : serializeForExport(args.content, selectedFormat);
     if (serialized && !serialized.ok) {
       return { ok: false, error: serialized.error, support };

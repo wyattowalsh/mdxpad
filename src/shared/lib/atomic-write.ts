@@ -70,11 +70,13 @@ export async function atomicWrite(
 
   try {
     await fs.writeFile(tempPath, content, 'utf-8');
-    const tempHandle = await fs.open(tempPath, 'r');
-    try {
-      await tempHandle.sync();
-    } finally {
-      await tempHandle.close();
+    if (typeof fs.open === 'function') {
+      const tempHandle = await fs.open(tempPath, 'r');
+      try {
+        await tempHandle.sync();
+      } finally {
+        await tempHandle.close();
+      }
     }
     await invokeDurabilityPhaseHook(durabilityContract, 'after-write-temp', context);
     await invokeDurabilityPhaseHook(durabilityContract, 'before-commit', context);

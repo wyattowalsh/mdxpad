@@ -13,6 +13,9 @@ describe('EXPORT_SUPPORT_MATRIX', () => {
     expect(supportByFormat.get('mdx')).toBe(true);
     expect(supportByFormat.get('pdf')).toBe(true);
     expect(supportByFormat.get('docx')).toBe(true);
+    expect(supportByFormat.get('epub')).toBe(true);
+    expect(supportByFormat.get('latex')).toBe(true);
+    expect(supportByFormat.get('pandoc')).toBe(true);
   });
 });
 

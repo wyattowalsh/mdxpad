@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import { AIChannels } from '@shared/ai/ipc-channels';
+import type { UsageStats } from '@shared/ai/types';
 import { registerUsageHandlers } from '../ai-usage-handlers';
 import type { AIServices } from '@main/services/ai';
 
@@ -35,7 +36,7 @@ const PROVIDER_2_UUID = '550e8400-e29b-41d4-a716-446655440002';
 // Test Utilities
 // ============================================================================
 
-function createMockUsageStats() {
+function createMockUsageStats(): UsageStats {
   return {
     timeRange: 'all' as const,
     totalRequests: 100,
@@ -61,8 +62,20 @@ function createMockUsageStats() {
       },
     },
     byModel: {
-      'gpt-4': { count: 50 },
-      'gpt-3.5-turbo': { count: 50 },
+      'gpt-4': {
+        modelId: 'gpt-4',
+        providerId: PROVIDER_1_UUID,
+        requestCount: 50,
+        totalTokens: 5000,
+        estimatedCostUsd: 0.08,
+      },
+      'gpt-3.5-turbo': {
+        modelId: 'gpt-3.5-turbo',
+        providerId: PROVIDER_2_UUID,
+        requestCount: 50,
+        totalTokens: 5000,
+        estimatedCostUsd: 0.07,
+      },
     },
     byOperation: {
       'text-generation': {

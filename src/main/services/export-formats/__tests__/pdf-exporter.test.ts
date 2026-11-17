@@ -61,6 +61,11 @@ describe('PdfExporter', () => {
         }),
       })
     );
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    expect(typeof loadedUrl).toBe('string');
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<h1>Hello World</h1>');
+    expect(html).not.toContain('<pre style="white-space: pre-wrap;">');
     expect(mockLoadURL).toHaveBeenCalledOnce();
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
   });

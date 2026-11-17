@@ -84,6 +84,8 @@ describe('AI IPC sender authorization integration', () => {
               estimatedCostUsd: 0.001,
             },
           },
+          byModel: {},
+          byOperation: {},
         }),
       },
       credentialService: {},
@@ -116,9 +118,9 @@ describe('AI IPC sender authorization integration', () => {
       senderFrameRoutingId: mockWindow.webContents.mainFrame.routingId + 1,
     });
 
-    expect(() =>
-      handler!(unauthorizedEvent, { prompt: 'Generate this text' })
-    ).toThrow('Unauthorized IPC sender');
+    expect(() => handler!(unauthorizedEvent, { prompt: 'Generate this text' })).toThrow(
+      'Unauthorized IPC sender'
+    );
     expect(services.aiService.generateText).not.toHaveBeenCalled();
   });
 

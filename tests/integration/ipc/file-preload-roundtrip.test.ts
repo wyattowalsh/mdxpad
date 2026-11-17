@@ -77,6 +77,7 @@ vi.mock('@main/services/file-service', async () => {
 });
 
 import { dialog, ipcMain, ipcRenderer } from 'electron';
+import { grantWriteCapability, resetFileCapabilities } from '@main/ipc/document-capability';
 import { registerFileHandlers } from '@main/ipc/file-handlers';
 import { fileOperations } from '@preload/file-api';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
@@ -100,10 +101,12 @@ describe('file IPC preload/main roundtrip', () => {
   });
 
   afterEach(() => {
+    resetFileCapabilities();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   it('reads file content through validated IPC roundtrip', async () => {
+    grantWriteCapability(filePath);
     const result = await fileOperations.readFile(filePath);
 
     expect(result).toEqual({ ok: true, value: '# Initial' });

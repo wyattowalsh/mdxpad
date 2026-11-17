@@ -60,6 +60,30 @@ export const EXPORT_SUPPORT_MATRIX: readonly ExportSupportEntry[] = [
     priority: 5,
     supported: true,
   },
+  {
+    format: 'epub',
+    label: 'EPUB',
+    extension: 'epub',
+    mimeType: 'application/epub+zip',
+    priority: 6,
+    supported: true,
+  },
+  {
+    format: 'latex',
+    label: 'LaTeX',
+    extension: 'tex',
+    mimeType: 'application/x-latex',
+    priority: 7,
+    supported: true,
+  },
+  {
+    format: 'pandoc',
+    label: 'Pandoc',
+    extension: 'html',
+    mimeType: 'text/html',
+    priority: 8,
+    supported: true,
+  },
 ] as const;
 
 function getSupportEntry(format: ExportFormat): ExportSupportEntry {
@@ -196,6 +220,9 @@ export function serializeForExport(
       return buildHtmlDocument(content);
     case 'pdf':
     case 'docx':
+    case 'epub':
+    case 'latex':
+    case 'pandoc':
       return {
         ok: false,
         error: {

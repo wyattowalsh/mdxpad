@@ -79,7 +79,7 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   text(state, node) {
-    state.text(node.text ?? '', !state.inAutolink);
+    state.text(node.text ?? '');
   },
 
   jsx_block(state, node) {
