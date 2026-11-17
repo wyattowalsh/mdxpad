@@ -1,6 +1,6 @@
 # Real-Time Collaboration
 
-MDXPad supports real-time collaborative editing using Yjs CRDTs and a WebSocket server running in the Electron main process.
+Comment threads and suggestions are available. The Yjs WebSocket server is not started: `registerCollabHandlers` is not called, and the editor does not open a realtime socket.
 
 ## Architecture
 

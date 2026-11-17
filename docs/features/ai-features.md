@@ -40,7 +40,7 @@ Renderer                    Preload (ai-api)           Main Process
 
 ## AI Agent Mode
 
-The agent mode enables autonomous multi-step AI operations with tool use.
+Agent tools can jail file paths inside a workspace. `AgentPanel` is not mounted, and agent IPC is not registered. Writes stay off until an approval step calls `approveWrites()`.
 
 ### Components
 
