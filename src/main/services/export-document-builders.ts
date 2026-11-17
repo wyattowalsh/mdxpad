@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { advanceFence } from './export-formats/markdown-fence';
+import { linkDestination } from './export-formats/markdown-link';
 import { setextLevel } from './export-formats/markdown-setext';
 import { expandLinkReferences } from './export-formats/markdown-reference';
 import { createStoredZip, toUtf8Bytes } from './zip-utils';
@@ -129,8 +130,13 @@ function wrapPdfLine(line: string, maxChars: number): string[] {
 
 function plainInline(text: string): string {
   return text
-    .replace(/!\[([^\]]*)\]\((?:[^()]|\([^()]*\))+\)/g, '$1')
-    .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))+\)/g, '$1')
+    .replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, alt: string, src: string) => {
+      const label = alt.trim().length > 0 ? alt : 'image';
+      return `${label} (${linkDestination(src)})`;
+    })
+    .replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, (_match, label: string, href: string) => {
+      return `${label} (${linkDestination(href)})`;
+    })
     .replace(/`([^`]+)`/g, '$1')
     .replace(/~~(.+?)~~/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1')

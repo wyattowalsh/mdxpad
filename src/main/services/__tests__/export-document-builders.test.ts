@@ -19,6 +19,18 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**bold**');
   });
 
+  it('keeps a link address in the text', () => {
+    const pdf = buildPdfDocument('See [docs](https://example.com).');
+    expect(pdf.content).toContain('docs');
+    expect(pdf.content).toContain('https://example.com');
+
+    const docx = Buffer.from(
+      buildDocxDocument('See [docs](https://example.com).').content
+    ).toString('utf8');
+    expect(docx).toContain('docs');
+    expect(docx).toContain('https://example.com');
+  });
+
   it('turns an underlined title into a heading', () => {
     const pdf = buildPdfDocument('Title\n===\n\nRule\n\n---');
     expect(pdf.content).toContain('TITLE');
