@@ -108,6 +108,12 @@ export function serializeTable(state: MarkdownSerializerState, node: ProseMirror
     alignmentMarker(aligns[index] ?? null)
   );
   const [header = '', ...body] = padded;
-  state.write([header, tableLine(markers), ...body].filter((line) => line.length > 0).join('\n'));
+  const lines = [header, tableLine(markers), ...body].filter((line) => line.length > 0);
+  lines.forEach((line, index) => {
+    if (index > 0) {
+      state.write('\n');
+    }
+    state.write(line);
+  });
   state.closeBlock(node);
 }

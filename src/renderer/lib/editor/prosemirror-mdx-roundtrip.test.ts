@@ -147,6 +147,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\~');
   });
 
+  it('keeps a table inside a quote', () => {
+    const serialized = roundTrip('> | A | B |\n> | --- | ---: |\n> | 1 | 2 |\n');
+    expect(serialized).toContain('> | A | B |');
+    expect(serialized).toContain('> | --- | ---: |');
+    expect(serialized).toContain('> | 1 | 2 |');
+    const doc = parseMdxContent(serialized.endsWith('\n') ? serialized : `${serialized}\n`);
+    expect(doc?.firstChild?.type.name).toBe('blockquote');
+    expect(doc?.firstChild?.firstChild?.type.name).toBe('table');
+  });
+
   it('keeps a table and its alignment', () => {
     const source = '| A | B |\n| --- | ---: |\n| 1 | **2** |\n';
     const doc = parseMdxContent(source);
