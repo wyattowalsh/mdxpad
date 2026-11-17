@@ -4,7 +4,7 @@ import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { isThematicBreak } from './export-formats/markdown-break';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './export-formats/markdown-table';
-import { advanceFence } from './export-formats/markdown-fence';
+import { advanceFence, openingFence } from './export-formats/markdown-fence';
 import {
   isListContinuation,
   listContentColumn,
@@ -34,6 +34,7 @@ interface MarkdownParagraphBlock {
   readonly quote: boolean;
   readonly listColumn: number | null;
   readonly hardBreak: boolean;
+  readonly source: string;
 }
 
 interface MarkdownImageBlock {
@@ -249,6 +250,7 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
     quote: quoteBody(rawLine) !== null,
     listColumn: listContentColumn(rawLine),
     hardBreak: source.hardBreak,
+    source: source.text,
   });
 }
 
@@ -356,6 +358,7 @@ function appendBuiltInListContinuation(blocks: MarkdownBlock[], rawLine: string)
     quote: false,
     listColumn: last.listColumn,
     hardBreak: source.hardBreak,
+    source: joinContinued(last.source, last.hardBreak, source.text),
   };
   return true;
 }
@@ -400,6 +403,39 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
     quote: true,
     listColumn: null,
     hardBreak: source.hardBreak,
+    source: joinContinued(last.source, last.hardBreak, source.text),
+  };
+  return true;
+}
+
+function appendBuiltInProseContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
+  const last = blocks[blocks.length - 1];
+  const trimmed = rawLine.trim();
+  if (
+    last?.kind !== 'paragraph' ||
+    last.quote ||
+    last.listColumn !== null ||
+    last.hardBreak ||
+    last.source.trim().length === 0 ||
+    trimmed.length === 0 ||
+    quoteBody(rawLine) !== null ||
+    /^!\[[^\]]*\]\(/.test(trimmed) ||
+    parseListItem(rawLine) !== null ||
+    isThematicBreak(trimmed) ||
+    parseAtxHeading(trimmed) !== null ||
+    setextLevel(rawLine) !== null ||
+    openingFence(rawLine) !== null ||
+    isTableRow(trimmed)
+  ) {
+    return false;
+  }
+  const source = readSourceLine(rawLine);
+  const combined = `${last.source} ${source.text}`;
+  blocks[blocks.length - 1] = {
+    ...last,
+    source: combined,
+    text: plainInline(combined),
+    hardBreak: source.hardBreak,
   };
   return true;
 }
@@ -425,6 +461,7 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
           quote: false,
           listColumn: null,
           hardBreak: false,
+          source: rawLine,
         });
       }
       continue;
@@ -441,7 +478,8 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     }
     if (
       appendBuiltInListContinuation(blocks, rawLine) ||
-      appendBuiltInQuoteContinuation(blocks, rawLine)
+      appendBuiltInQuoteContinuation(blocks, rawLine) ||
+      appendBuiltInProseContinuation(blocks, rawLine)
     ) {
       continue;
     }

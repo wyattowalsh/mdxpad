@@ -1,3 +1,4 @@
+import { isThematicBreak } from './markdown-break';
 import { openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { joinParagraphHtml, readSourceLine } from './markdown-paragraph';
@@ -19,7 +20,12 @@ const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
 
 /** A following line that stays inside an open quote, such as a wrapped sentence. */
 export function isLazyQuoteLine(line: string): boolean {
-  if (line.trim().length === 0 || openingFence(line) !== null || parseListItem(line) !== null) {
+  if (
+    line.trim().length === 0 ||
+    openingFence(line) !== null ||
+    parseListItem(line) !== null ||
+    isThematicBreak(line)
+  ) {
     return false;
   }
   if (/^ {0,3}#{1,6}(?:\s|$)/.test(line)) {

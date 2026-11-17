@@ -117,6 +117,15 @@ describe('built-in export documents', () => {
     expect(pdf.content).toContain('Below');
   });
 
+  it('closes strike that wraps onto the next line', () => {
+    const pdf = buildPdfDocument('~~hello\nworld~~');
+    expect(pdf.content).toContain('(hello world) Tj');
+    expect(pdf.content).not.toContain('~~');
+    const docx = Buffer.from(buildDocxDocument('**hello\nworld**').content).toString('utf8');
+    expect(docx).toContain('hello world');
+    expect(docx).not.toContain('**');
+  });
+
   it('keeps a hard break without printing the backslash', () => {
     const pdf = buildPdfDocument('Hello\\\nworld\n\n> Stay\\\n> put');
     expect(pdf.content).toContain('(Hello) Tj');
