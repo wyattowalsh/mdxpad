@@ -127,6 +127,9 @@ describe('WYSIWYG markdown round trip', () => {
     const serialized = roundTrip('~~hello\nworld~~\n');
     expect(serialized).toContain('~~hello\nworld~~');
     expect(parseMdxContent(serialized)?.childCount).toBe(1);
+    const hard = roundTrip('~~hello  \nworld~~\n');
+    expect(parseMdxContent(hard)?.textContent).toBe('helloworld');
+    expect(hard).toContain('world');
   });
 
   it('keeps an asterisk inside strikethrough', () => {

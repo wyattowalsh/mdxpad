@@ -11,6 +11,7 @@
 import MarkdownIt from 'markdown-it';
 import { MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
+import { enableStrikethrough } from './prosemirror-strikethrough';
 import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
   protectTexDelimiters,
@@ -280,54 +281,6 @@ export function extractLinkDefinitions(body: string): string {
  * Create a ProseMirror Markdown parser using the default markdown-it tokenizer
  * from prosemirror-markdown, with our custom MDX schema and token specs.
  */
-interface InlineParseState {
-  src: string;
-  pos: number;
-  push: (type: string, tag: string, nesting: number) => { content: string };
-}
-
-interface MarkdownTokenizer {
-  inline: {
-    ruler: {
-      before: (
-        before: string,
-        name: string,
-        fn: (state: InlineParseState, silent: boolean) => boolean
-      ) => void;
-    };
-  };
-}
-
-function strikethroughRule(state: InlineParseState, silent: boolean): boolean {
-  const start = state.pos;
-  if (state.src.charCodeAt(start) !== 0x7e || state.src.charCodeAt(start + 1) !== 0x7e) {
-    return false;
-  }
-  const end = state.src.indexOf('~~', start + 2);
-  const inner = end === -1 ? '' : state.src.slice(start + 2, end);
-  if (end <= start + 2 || inner.includes('\n\n')) {
-    return false;
-  }
-  if (!silent) {
-    state.push('s_open', 's', 1);
-    const text = state.push('text', '', 0);
-    text.content = state.src.slice(start + 2, end);
-    state.push('s_close', 's', -1);
-  }
-  state.pos = end + 2;
-  return true;
-}
-
-function enableStrikethrough(tokenizer: MarkdownTokenizer): void {
-  try {
-    tokenizer.inline.ruler.before('emphasis', 'mdxpad_strikethrough', strikethroughRule);
-  } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes('already exists')) {
-      throw error;
-    }
-  }
-}
-
 function longestBacktickRun(value: string): number {
   let longest = 0;
   for (const run of value.match(/`+/g) ?? []) {
@@ -366,7 +319,7 @@ function restoreJsxFences(doc: ProseMirrorNode): ProseMirrorNode {
 
 const markdownTokenizer = new MarkdownIt('commonmark', { html: false });
 markdownTokenizer.enable('table');
-enableStrikethrough(markdownTokenizer as unknown as MarkdownTokenizer);
+enableStrikethrough(markdownTokenizer);
 
 export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TOKENS);
 
