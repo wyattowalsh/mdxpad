@@ -241,18 +241,15 @@ title: "unclosed string
       expect(typeof result.ok).toBe('boolean');
     });
 
-    it('should handle invalid JSX expression', async () => {
+    it('shows an incomplete expression as text', async () => {
       const source = `# Title
 
 {this is not valid}`;
       const result = await compileMdx(testId('test-id'), source);
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.errors.length).toBeGreaterThan(0);
-        const firstError = result.errors[0];
-        expect(firstError).toBeDefined();
-        expect(firstError!.message).toBeTruthy();
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.code).toContain('this is not valid');
       }
     });
   });

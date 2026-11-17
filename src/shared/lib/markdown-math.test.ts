@@ -32,6 +32,19 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See <https://example.com> and <ada@example.com>.')).toBe(
       'See [https://example.com](https://example.com) and [ada@example.com](mailto:ada@example.com).'
     );
+    expect(prepareMarkdownSource('Compare a <= b and JSON {"a": 1} and {1 + 2}')).toContain(
+      'a &lt;= b'
+    );
+    expect(prepareMarkdownSource('Compare a <= b and JSON {"a": 1} and {1 + 2}')).toContain(
+      '\\{"a": 1\\}'
+    );
+    expect(prepareMarkdownSource('Compare a <= b and JSON {"a": 1} and {1 + 2}')).toContain(
+      '{1 + 2}'
+    );
+    expect(prepareMarkdownSource('{css({ color: "red" })} and {(a)} and `{a <= b}`')).toBe(
+      '{css({ color: "red" })} and {(a)} and `{a <= b}`'
+    );
+    expect(prepareMarkdownSource('Use {foo: 1}')).toContain('\\{foo: 1\\}');
     expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
       'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
     );

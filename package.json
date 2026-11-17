@@ -92,6 +92,7 @@
     "@replit/codemirror-emacs": "^6.1.0",
     "@replit/codemirror-indentation-markers": "^6.5.3",
     "@replit/codemirror-vim": "^6.4.0",
+    "acorn": "^8.19.0",
     "ai": "^6.0.39",
     "chokidar": "5.0.0",
     "class-variance-authority": "^0.7.1",

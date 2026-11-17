@@ -1,4 +1,11 @@
+import { Parser, type Options as AcornOptions } from 'acorn';
+
 const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
+const MDX_EXPRESSION_OPTIONS: AcornOptions = {
+  ecmaVersion: 2024,
+  sourceType: 'module',
+  preserveParens: true,
+};
 
 function updateFence(fence: string | null, line: string): string | null {
   const match = FENCE_LINE.exec(line);
@@ -151,9 +158,85 @@ function escapeLooseTags(value: string, prose: string): string {
   });
 }
 
+function closingBrace(value: string, open: number): number {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let index = open; index < value.length; index += 1) {
+    const char = value[index] ?? '';
+    if (quote) {
+      if (char === '\\') {
+        index += 1;
+        continue;
+      }
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+}
+
+function remainderIsEmpty(value: string): boolean {
+  const withoutComments = value
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\r\n]*(\r\n|\n|\r)/g, '');
+  return /^[ \t\n\r]*$/.test(withoutComments);
+}
+
+function shouldEscapeExpression(expression: string): boolean {
+  try {
+    const node = Parser.parseExpressionAt(expression, 0, MDX_EXPRESSION_OPTIONS);
+    return !remainderIsEmpty(expression.slice(node.end));
+  } catch {
+    return false;
+  }
+}
+
+function escapeMdxSyntax(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    if (value.startsWith('<=', index)) {
+      result += '&lt;=';
+      index += 2;
+      continue;
+    }
+    if (value[index] === '{' && value[index - 1] !== '\\') {
+      const end = closingBrace(value, index);
+      if (end === -1) {
+        result += '{';
+        index += 1;
+        continue;
+      }
+      const expression = value.slice(index + 1, end);
+      result += shouldEscapeExpression(expression)
+        ? `\\{${expression}\\}`
+        : value.slice(index, end + 1);
+      index = end + 1;
+      continue;
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
 function prepareProse(prose: string): string {
   const cleaned = mapOutsideCode(prose, (text) =>
-    closeVoidTags(rewriteAutolinks(stripHtmlComments(text)))
+    escapeMdxSyntax(closeVoidTags(rewriteAutolinks(stripHtmlComments(text))))
   );
   const escaped = mapOutsideCode(cleaned, (text) => escapeLooseTags(text, cleaned));
   return replaceTexMath(escaped);

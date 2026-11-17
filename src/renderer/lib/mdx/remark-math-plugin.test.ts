@@ -15,6 +15,23 @@ describe('remark math prices', () => {
     }
   });
 
+  it('keeps a live expression that contains a colon', async () => {
+    const result = await compileMdx(testId('mdx-live'), '{css({ color: "red" })}');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('color');
+    }
+  });
+
+  it('compiles a comparison and a JSON sample', async () => {
+    const result = await compileMdx(testId('mdx-json'), 'Compare a <= b and JSON {"a": 1}');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('Compare');
+      expect(result.code).toContain('JSON');
+    }
+  });
+
   it('compiles an autolink and a generic type', async () => {
     const result = await compileMdx(
       testId('mdx-autolink'),
