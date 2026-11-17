@@ -78,6 +78,20 @@ describe('built-in export documents', () => {
     expect(docx).toContain('item continued');
   });
 
+  it('writes a table inside a quote as cells', () => {
+    const source = '> Intro\n> | A | B |\n> | --- | ---: |\n> | 1 | 2 |';
+    const pdf = buildPdfDocument(source);
+    expect(pdf.content).toContain('Intro');
+    expect(pdf.content).toContain('A | B');
+    expect(pdf.content).toContain('1 | 2');
+    expect(pdf.content).not.toContain('---');
+    expect(pdf.content).not.toContain('Intro | A');
+    const docx = Buffer.from(buildDocxDocument(source).content).toString('utf8');
+    expect(docx).toContain('<w:tbl>');
+    expect(docx).toContain('w:val="right"');
+    expect(docx).toContain('Intro');
+  });
+
   it('writes a table as cells and leaves out the separator', () => {
     const source = 'Name | Value\n--- | ---:\n**A** | 1';
     const pdf = buildPdfDocument(source);

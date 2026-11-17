@@ -298,25 +298,43 @@ function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
   return true;
 }
 
+function tableRow(line: string): string | null {
+  const trimmed = line.trim();
+  return isTableRow(trimmed) ? trimmed : null;
+}
+
+function quotedTableRow(line: string): string | null {
+  const body = quoteBody(line);
+  return body === null ? null : tableRow(body);
+}
+
 function takeMarkdownTable(
   blocks: MarkdownBlock[],
   lines: readonly string[],
-  index: number
+  index: number,
+  row: (line: string) => string | null = tableRow
 ): number {
-  if (!isTableRow((lines[index] ?? '').trim())) {
+  const first = row(lines[index] ?? '');
+  if (first === null) {
     return index;
   }
-  const collected: string[] = [];
-  let cursor = index;
-  while (cursor < lines.length && isTableRow((lines[cursor] ?? '').trim())) {
-    collected.push((lines[cursor] ?? '').trim());
+  const collected = [first];
+  let cursor = index + 1;
+  while (cursor < lines.length) {
+    const next = row(lines[cursor] ?? '');
+    if (next === null) {
+      break;
+    }
+    collected.push(next);
     cursor += 1;
   }
   const table = parseMarkdownTable(collected);
   if (!table) {
     return index;
   }
-  const rows = [table.headers, ...table.rows].map((row) => row.map((cell) => plainInline(cell)));
+  const rows = [table.headers, ...table.rows].map((cells) =>
+    cells.map((cell) => plainInline(cell))
+  );
   blocks.push({ kind: 'table', aligns: table.aligns, rows });
   return cursor - 1;
 }
@@ -411,7 +429,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       }
       continue;
     }
-    const tableEnd = takeMarkdownTable(blocks, lines, index);
+    const quotedTableEnd = takeMarkdownTable(blocks, lines, index, quotedTableRow);
+    const tableEnd =
+      quotedTableEnd > index ? quotedTableEnd : takeMarkdownTable(blocks, lines, index);
     if (tableEnd > index) {
       index = tableEnd;
       continue;
