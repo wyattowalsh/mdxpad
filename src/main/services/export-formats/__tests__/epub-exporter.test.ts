@@ -148,6 +148,19 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('> Keep this');
   });
 
+  it('nests a child list under its parent', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '- parent\n  - child',
+      outputPath: '/tmp/nested.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<ul>\n<li>parent</li>\n<ul>\n<li>child</li>\n</ul>\n</ul>');
+  });
+
   it('resolves a reference link', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

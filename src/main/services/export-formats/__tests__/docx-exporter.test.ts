@@ -220,6 +220,27 @@ describe('DocxExporter', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('nests a child list under its parent', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- parent\n  - child',
+      outputPath: '/tmp/nested.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('parent');
+    expect(xml).toContain('child');
+    expect(xml).toContain('w:val="1"');
+  });
+
   it('resolves a reference link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

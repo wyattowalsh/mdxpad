@@ -6,6 +6,12 @@ import { isThematicBreak } from './markdown-break';
 import { expandLinkReferences } from './markdown-reference';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToHtml } from './markdown-quote';
+import {
+  closeHtmlLists,
+  parseListItem,
+  pushHtmlListItem,
+  type HtmlListFrame,
+} from './markdown-list';
 import { listItemHtml } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -17,13 +23,11 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
-type HtmlListKind = 'ul' | 'ol';
-
 interface PdfBuild {
   parts: string[];
   paragraph: SourceLine[];
   inCode: boolean;
-  list: HtmlListKind | null;
+  lists: HtmlListFrame[];
   displayMath: string[] | null;
   tableLines: string[];
   quoteLines: string[];
@@ -38,21 +42,7 @@ function flushPdfParagraph(build: PdfBuild): void {
 }
 
 function closePdfList(build: PdfBuild): void {
-  if (build.list === 'ul') {
-    build.parts.push('</ul>');
-  } else if (build.list === 'ol') {
-    build.parts.push('</ol>');
-  }
-  build.list = null;
-}
-
-function continuePdfList(build: PdfBuild, next: HtmlListKind): void {
-  if (build.list === next) {
-    return;
-  }
-  closePdfList(build);
-  build.parts.push(next === 'ul' ? '<ul>' : '<ol>');
-  build.list = next;
+  closeHtmlLists(build.parts, build.lists);
 }
 
 function finishDisplayMath(build: PdfBuild): void {
@@ -188,12 +178,10 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
     closePdfList(build);
     return;
   }
-  const item = /^([-*+]|\d+\.)\s+(.+)$/.exec(trimmed);
+  const item = parseListItem(raw);
   if (item) {
     flushPdfParagraph(build);
-    const kind: HtmlListKind = item[1]?.endsWith('.') ? 'ol' : 'ul';
-    continuePdfList(build, kind);
-    build.parts.push(`<li>${listItemHtml(item[2] ?? '', renderMarkdownInline)}</li>`);
+    pushHtmlListItem(build.parts, build.lists, item, listItemHtml(item.text, renderMarkdownInline));
     return;
   }
   closePdfList(build);
@@ -205,7 +193,7 @@ export function markdownToPdfHtml(content: string): string {
     parts: [],
     paragraph: [],
     inCode: false,
-    list: null,
+    lists: [],
     displayMath: null,
     tableLines: [],
     quoteLines: [],

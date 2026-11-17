@@ -186,6 +186,22 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{quote}');
   });
 
+  it('nests a child list under its parent', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- parent\n  - child',
+      outputPath: '/tmp/nested.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const parent = written.indexOf('\\item parent');
+    const nested = written.indexOf('\\begin{itemize}', written.indexOf('\\begin{itemize}') + 1);
+    const child = written.indexOf('\\item child');
+    expect(parent).toBeGreaterThan(-1);
+    expect(nested).toBeGreaterThan(parent);
+    expect(child).toBeGreaterThan(nested);
+    expect(written.indexOf('\\end{itemize}', child)).toBeGreaterThan(child);
+  });
+
   it('resolves a reference link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

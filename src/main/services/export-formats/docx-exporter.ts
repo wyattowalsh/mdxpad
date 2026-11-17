@@ -21,6 +21,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
+import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -186,22 +187,6 @@ function parseLineToParagraph(trimmed: string): Paragraph | undefined {
     });
   }
 
-  const ulMatch = /^[-*+]\s+(.+)$/.exec(trimmed);
-  if (ulMatch) {
-    return new Paragraph({
-      bullet: { level: 0 },
-      children: listItemChildren(ulMatch[1] ?? ''),
-    });
-  }
-
-  const olMatch = /^\d+\.\s+(.+)$/.exec(trimmed);
-  if (olMatch) {
-    return new Paragraph({
-      numbering: { reference: 'default-numbering', level: 0 },
-      children: listItemChildren(olMatch[1] ?? ''),
-    });
-  }
-
   return undefined;
 }
 
@@ -321,6 +306,17 @@ function flushPendingParagraph(parse: DocxParse): void {
   parse.blocks.push(paragraphFromLines(lines));
 }
 
+function listParagraph(item: MarkdownListItem): Paragraph {
+  const children = listItemChildren(item.text);
+  if (item.ordered) {
+    return new Paragraph({
+      numbering: { reference: 'default-numbering', level: item.level },
+      children,
+    });
+  }
+  return new Paragraph({ bullet: { level: item.level }, children });
+}
+
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
   const trimmed = line.trim();
   const structural =
@@ -346,6 +342,12 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     return;
   }
   const source = readSourceLine(line);
+  const item = source.text.length > 0 && !isThematicBreak(source.text) ? parseListItem(line) : null;
+  if (item) {
+    flushPendingParagraph(parse);
+    parse.blocks.push(listParagraph(item));
+    return;
+  }
   if (source.text === '') {
     flushPendingParagraph(parse);
     return;
@@ -446,9 +448,13 @@ export class DocxExporter implements Exporter {
           config: [
             {
               reference: 'default-numbering',
-              levels: [
-                { level: 0, format: 'decimal', text: '%1.', alignment: AlignmentType.START },
-              ],
+              levels: [0, 1, 2, 3, 4, 5].map((level) => ({
+                level,
+                format: 'decimal' as const,
+                text: `%${level + 1}.`,
+                alignment: AlignmentType.START,
+                style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
+              })),
             },
           ],
         },

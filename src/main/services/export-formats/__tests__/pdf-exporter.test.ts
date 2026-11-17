@@ -83,6 +83,16 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<ul><li>');
   });
 
+  it('nests a child list under its parent', async () => {
+    await exporter.export({
+      content: '- parent\n  - child',
+      outputPath: '/tmp/nested.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<ul>\n<li>parent</li>\n<ul>\n<li>child</li>\n</ul>\n</ul>');
+  });
+
   it('renders a block quote', async () => {
     await exporter.export({
       content: '> Keep this\n> and this',

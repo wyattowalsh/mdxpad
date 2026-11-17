@@ -5,6 +5,7 @@ import { isThematicBreak } from './markdown-break';
 import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
+import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 
@@ -144,18 +145,20 @@ function getHeadingCommand(level: number): string {
   return HEADING_COMMANDS[level] ?? 'subparagraph';
 }
 
-function closeOpenLists(output: string[], unordered: boolean, ordered: boolean): void {
-  if (unordered) {
-    output.push('\\end{itemize}');
-  }
-  if (ordered) {
-    output.push('\\end{enumerate}');
-  }
+interface LatexListFrame {
+  readonly ordered: boolean;
+  readonly level: number;
 }
 
 interface ListState {
-  inUnorderedList: boolean;
-  inOrderedList: boolean;
+  stack: LatexListFrame[];
+}
+
+function closeLatexLists(output: string[], stack: LatexListFrame[]): void {
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    output.push(frame?.ordered ? '\\end{enumerate}' : '\\end{itemize}');
+  }
 }
 
 function processCodeBlockLine(
@@ -171,17 +174,38 @@ function processCodeBlockLine(
     output.push('\\end{verbatim}');
     return false;
   }
-  closeOpenLists(output, listState.inUnorderedList, listState.inOrderedList);
-  listState.inUnorderedList = false;
-  listState.inOrderedList = false;
+  closeLatexLists(output, listState.stack);
   output.push('\\begin{verbatim}');
   return true;
 }
 
 function resetListState(output: string[], listState: ListState): void {
-  closeOpenLists(output, listState.inUnorderedList, listState.inOrderedList);
-  listState.inUnorderedList = false;
-  listState.inOrderedList = false;
+  closeLatexLists(output, listState.stack);
+}
+
+function openLatexListItem(
+  output: string[],
+  stack: LatexListFrame[],
+  item: MarkdownListItem
+): void {
+  while (stack.length > 0) {
+    const top = stack[stack.length - 1];
+    if (
+      !top ||
+      (top.level === item.level && top.ordered === item.ordered) ||
+      top.level < item.level
+    ) {
+      break;
+    }
+    output.push(top.ordered ? '\\end{enumerate}' : '\\end{itemize}');
+    stack.pop();
+  }
+  const top = stack[stack.length - 1];
+  if (!top || top.level < item.level) {
+    output.push(item.ordered ? '\\begin{enumerate}' : '\\begin{itemize}');
+    stack.push({ ordered: item.ordered, level: item.level });
+  }
+  output.push(`  \\item ${latexListItem(item.text)}`);
 }
 
 function latexListItem(text: string): string {
@@ -192,36 +216,13 @@ function latexListItem(text: string): string {
   return taskItemLatex(task.checked, convertInlineFormatting(task.body));
 }
 
-function processListItem(trimmed: string, output: string[], listState: ListState): boolean {
-  const ulMatch = /^[-*+]\s+(.+)$/.exec(trimmed);
-  if (ulMatch) {
-    if (!listState.inUnorderedList) {
-      if (listState.inOrderedList) {
-        output.push('\\end{enumerate}');
-        listState.inOrderedList = false;
-      }
-      output.push('\\begin{itemize}');
-      listState.inUnorderedList = true;
-    }
-    output.push(`  \\item ${latexListItem(ulMatch[1] ?? '')}`);
-    return true;
+function processListItem(raw: string, output: string[], listState: ListState): boolean {
+  const item = parseListItem(raw);
+  if (!item) {
+    return false;
   }
-
-  const olMatch = /^\d+\.\s+(.+)$/.exec(trimmed);
-  if (olMatch) {
-    if (!listState.inOrderedList) {
-      if (listState.inUnorderedList) {
-        output.push('\\end{itemize}');
-        listState.inUnorderedList = false;
-      }
-      output.push('\\begin{enumerate}');
-      listState.inOrderedList = true;
-    }
-    output.push(`  \\item ${latexListItem(olMatch[1] ?? '')}`);
-    return true;
-  }
-
-  return false;
+  openLatexListItem(output, listState.stack, item);
+  return true;
 }
 
 function processMarkdownLine(raw: string, output: string[], listState: ListState): void {
@@ -247,7 +248,7 @@ function processMarkdownLine(raw: string, output: string[], listState: ListState
     return;
   }
 
-  if (processListItem(trimmed, output, listState)) {
+  if (processListItem(raw, output, listState)) {
     return;
   }
 
@@ -355,7 +356,7 @@ function contentToLatex(content: string): string {
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
-    listState: { inUnorderedList: false, inOrderedList: false },
+    listState: { stack: [] },
   };
 
   for (const line of expandLinkReferences(content).split('\n')) {
@@ -370,7 +371,7 @@ function contentToLatex(content: string): string {
   if (build.inCodeBlock) {
     build.output.push('\\end{verbatim}');
   }
-  closeOpenLists(build.output, build.listState.inUnorderedList, build.listState.inOrderedList);
+  closeLatexLists(build.output, build.listState.stack);
 
   return build.output.join('\n');
 }
