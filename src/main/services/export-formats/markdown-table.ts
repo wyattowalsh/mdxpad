@@ -13,6 +13,31 @@ export function isTableRow(line: string): boolean {
   return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 1;
 }
 
+function backtickRun(value: string, index: number): number {
+  let length = 0;
+  while (value[index + length] === '`') {
+    length += 1;
+  }
+  return length;
+}
+
+function readCodeSpan(value: string, index: number): number {
+  const run = backtickRun(value, index);
+  let cursor = index + run;
+  while (cursor < value.length) {
+    if (value[cursor] !== '`') {
+      cursor += 1;
+      continue;
+    }
+    const closer = backtickRun(value, cursor);
+    if (closer === run) {
+      return cursor + closer;
+    }
+    cursor += closer;
+  }
+  return index;
+}
+
 function splitRow(line: string): string[] | null {
   const trimmed = line.trim();
   if (!isTableRow(trimmed)) {
@@ -28,6 +53,14 @@ function splitRow(line: string): string[] | null {
       current += next;
       index += 1;
       continue;
+    }
+    if (char === '`') {
+      const end = readCodeSpan(inner, index);
+      if (end > index) {
+        current += inner.slice(index, end);
+        index = end - 1;
+        continue;
+      }
     }
     if (char === '|') {
       cells.push(current.trim());

@@ -12,6 +12,19 @@ describe('parseMarkdownTable', () => {
     });
   });
 
+  it('keeps a pipe inside inline code', () => {
+    const table = parseMarkdownTable(['| Code | Note |', '| --- | --- |', '| `a|b` | ok |']);
+    expect(table).toEqual({
+      headers: ['Code', 'Note'],
+      aligns: ['left', 'left'],
+      rows: [['`a|b`', 'ok']],
+    });
+    const doubled = parseMarkdownTable(['| Code | Note |', '| --- | --- |', '| ``a|b`` | ok |']);
+    expect(doubled?.rows).toEqual([['``a|b``', 'ok']]);
+    const open = parseMarkdownTable(['| A | B | C |', '| --- | --- | --- |', '| `a|b | c |']);
+    expect(open?.rows).toEqual([['`a', 'b', 'c']]);
+  });
+
   it('keeps an escaped pipe inside a cell', () => {
     const table = parseMarkdownTable(['| A \\| B | C |', '| --- | :---: |', '| 1 | 2 |']);
     expect(table).toEqual({

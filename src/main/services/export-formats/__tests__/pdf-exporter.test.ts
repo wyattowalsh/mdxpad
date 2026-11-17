@@ -253,6 +253,17 @@ describe('PdfExporter', () => {
     expect(html).toContain('<td>A | B</td>');
   });
 
+  it('keeps a pipe inside a code span in a table cell', async () => {
+    await exporter.export({
+      content: '| Code | Note |\n| --- | --- |\n| `a|b` | ok |',
+      outputPath: '/tmp/code-table.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<code>a|b</code>');
+    expect(html).toContain('<td>ok</td>');
+  });
+
   it('renders a formula and a display block', async () => {
     await exporter.export({
       content: 'See $x^2$.\n$$\nE = mc^2\n$$',
