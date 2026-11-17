@@ -95,11 +95,15 @@ const MDX_TOKENS: Record<
   // Block tokens
   paragraph: { block: 'paragraph' },
   blockquote: { block: 'blockquote' },
-  bullet_list: { block: 'bullet_list' },
+  bullet_list: {
+    block: 'bullet_list',
+    getAttrs: (_token, tokens, index) => ({ tight: listIsTight(tokens, index) }),
+  },
   ordered_list: {
     block: 'ordered_list',
-    getAttrs: (tok: MarkdownToken) => ({
+    getAttrs: (tok: MarkdownToken, tokens, index) => ({
       order: Number(tok.attrGet('start') ?? 1),
+      tight: listIsTight(tokens, index),
     }),
   },
   list_item: { block: 'list_item' },
@@ -165,6 +169,18 @@ const MDX_TOKENS: Record<
   hardbreak: { node: 'hard_break', getAttrs: () => ({ hard: true }) },
   softbreak: { node: 'hard_break', getAttrs: () => ({ hard: false }) },
 };
+
+function listIsTight(tokens: readonly MarkdownToken[], index: number): boolean {
+  let cursor = index;
+  while (cursor + 1 < tokens.length) {
+    cursor += 1;
+    const token = tokens[cursor];
+    if (token?.type !== 'list_item_open') {
+      return token?.hidden === true;
+    }
+  }
+  return false;
+}
 
 function imageAlt(token: MarkdownToken): string {
   if (token.content.length > 0) {

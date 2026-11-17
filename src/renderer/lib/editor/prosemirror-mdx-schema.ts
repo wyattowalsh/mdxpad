@@ -95,13 +95,13 @@ const HORIZONTAL_RULE_NODE: NodeSpec = {
 const ORDERED_LIST_NODE: NodeSpec = {
   content: 'list_item+',
   group: 'block',
-  attrs: { order: { default: 1 } },
+  attrs: { order: { default: 1 }, tight: { default: true } },
   parseDOM: [
     {
       tag: 'ol',
       getAttrs(dom) {
         const start = dom.getAttribute('start');
-        return { order: start ? Number(start) : 1 };
+        return { order: start ? Number(start) : 1, tight: true };
       },
     },
   ],
@@ -114,7 +114,8 @@ const ORDERED_LIST_NODE: NodeSpec = {
 const BULLET_LIST_NODE: NodeSpec = {
   content: 'list_item+',
   group: 'block',
-  parseDOM: [{ tag: 'ul' }],
+  attrs: { tight: { default: true } },
+  parseDOM: [{ tag: 'ul', getAttrs: () => ({ tight: true }) }],
   toDOM() {
     return ['ul', 0];
   },

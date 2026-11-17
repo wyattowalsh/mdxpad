@@ -63,6 +63,11 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('The term is $a_{i}$.\n')).not.toContain('\\_');
   });
 
+  it('keeps a loose list loose', () => {
+    expect(roundTrip('- one\n\n- two\n')).toContain('- one\n\n- two');
+    expect(roundTrip('1. one\n\n2. two\n')).toContain('1. one\n\n2. two');
+  });
+
   it('keeps a tight list tight', () => {
     const serialized = roundTrip('- one\n- two\n');
     expect(serialized).toContain('- one\n- two');
