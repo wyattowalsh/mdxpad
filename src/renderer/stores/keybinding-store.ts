@@ -10,6 +10,8 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Draft } from 'immer';
+import type { Command, CommandId } from '@shared/types/commands';
+import { useCommandRegistry } from './command-registry-store';
 
 // =============================================================================
 // TYPES
@@ -91,6 +93,36 @@ export function normalizeKeybinding(key: string, modifiers: readonly Modifier[])
   return [...sorted, key.toLowerCase()].join('+');
 }
 
+const MODIFIER_NAMES = new Set<Modifier>(['Mod', 'Ctrl', 'Shift', 'Alt', 'Meta']);
+
+function toModifiers(values: readonly string[]): Modifier[] {
+  return values.filter((value): value is Modifier => MODIFIER_NAMES.has(value as Modifier));
+}
+
+export function bindingsFromCommands(commands: readonly Command[]): readonly Keybinding[] {
+  const bindings: Keybinding[] = [];
+  for (const command of commands) {
+    if (!command.shortcut) {
+      continue;
+    }
+    bindings.push({
+      commandId: command.id,
+      key: command.shortcut.key,
+      modifiers: toModifiers(command.shortcut.modifiers),
+      label: command.name,
+      category: command.category,
+    });
+  }
+  return bindings;
+}
+
+function syncCommandShortcut(commandId: string, key: string, modifiers: readonly Modifier[]): void {
+  useCommandRegistry.getState().replaceShortcut(commandId as CommandId, {
+    key,
+    modifiers: [...modifiers],
+  });
+}
+
 function loadFromStorage(): Partial<KeybindingState> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -151,6 +183,7 @@ function createBindingActions(set: KbSetter, get: KbGetter) {
         }
       });
       persistToStorage(get());
+      syncCommandShortcut(commandId, key, modifiers);
     },
   };
 }
@@ -167,6 +200,10 @@ function createResetActions(set: KbSetter, get: KbGetter) {
         }
       });
       persistToStorage(get());
+      const restored = get().bindings.find((binding) => binding.commandId === commandId);
+      if (restored) {
+        syncCommandShortcut(commandId, restored.key, restored.modifiers);
+      }
     },
 
     resetAll: (): void => {

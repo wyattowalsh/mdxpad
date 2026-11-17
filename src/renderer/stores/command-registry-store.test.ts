@@ -837,4 +837,29 @@ describe('CommandRegistryStore Integration', () => {
     // Verify no conflicts (all unique shortcuts)
     expect(useCommandRegistry.getState().detectConflicts()).toEqual([]);
   });
+
+  it('replaces a command shortcut and clears it', () => {
+    const command = createTestCommand('file.save', 'file', { key: 's', modifiers: ['Mod'] });
+    useCommandRegistry.getState().register(command);
+
+    const replaced = useCommandRegistry.getState().replaceShortcut(command.id, {
+      key: 'p',
+      modifiers: ['Mod', 'Shift'],
+    });
+    expect(replaced.ok).toBe(true);
+    expect(useCommandRegistry.getState().getCommand(command.id)?.shortcut).toEqual({
+      key: 'p',
+      modifiers: ['Mod', 'Shift'],
+    });
+    expect(
+      useCommandRegistry.getState().getCommandByShortcut(createShortcut('Mod+Shift+p'))?.id
+    ).toBe(command.id);
+
+    const cleared = useCommandRegistry.getState().replaceShortcut(command.id, undefined);
+    expect(cleared.ok).toBe(true);
+    expect(useCommandRegistry.getState().getCommand(command.id)?.shortcut).toBeUndefined();
+    expect(
+      useCommandRegistry.getState().getCommandByShortcut(createShortcut('Mod+Shift+p'))
+    ).toBeUndefined();
+  });
 });

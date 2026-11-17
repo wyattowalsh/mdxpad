@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   useKeybindingStore,
+  bindingsFromCommands,
   normalizeKeybinding,
   selectAllBindings,
   selectBindingByCommand,
@@ -15,6 +16,7 @@ import {
   selectCategories,
 } from './keybinding-store';
 import type { Keybinding, KeybindingState } from './keybinding-store';
+import type { Command } from '@shared/types/commands';
 
 // =============================================================================
 // SETUP
@@ -71,6 +73,36 @@ describe('normalizeKeybinding', () => {
 
   it('should sort modifiers alphabetically', () => {
     expect(normalizeKeybinding('a', ['Shift', 'Alt', 'Mod'])).toBe('Alt+Mod+Shift+a');
+  });
+});
+
+describe('bindingsFromCommands', () => {
+  it('keeps commands that have a shortcut', () => {
+    const commands = [
+      {
+        id: 'file.save',
+        name: 'Save',
+        category: 'file',
+        shortcut: { key: 's', modifiers: ['Mod'] },
+        execute: () => ({ ok: true as const }),
+      },
+      {
+        id: 'view.toggle-comments',
+        name: 'Toggle Comments',
+        category: 'view',
+        execute: () => ({ ok: true as const }),
+      },
+    ] as unknown as Command[];
+
+    expect(bindingsFromCommands(commands)).toEqual([
+      {
+        commandId: 'file.save',
+        key: 's',
+        modifiers: ['Mod'],
+        label: 'Save',
+        category: 'file',
+      },
+    ]);
   });
 });
 

@@ -20,6 +20,8 @@ import type {
   NormalizedShortcut,
   RecentCommandEntry,
   ShortcutConflict,
+  ShortcutBinding,
+  CommandResult,
 } from '@shared/types/commands';
 import { STORAGE_KEYS, parseRecentCommands, parseCommandId } from '@shared/types/commands';
 import { normalizeShortcut } from '../lib/fuzzy-search';
@@ -76,6 +78,7 @@ export interface CommandRegistryStoreActions {
   getCommand: (id: CommandId) => Command | undefined;
   /** Get a command by its shortcut */
   getCommandByShortcut: (shortcut: NormalizedShortcut) => Command | undefined;
+  replaceShortcut: (id: CommandId, shortcut: ShortcutBinding | undefined) => CommandResult;
   /** Get all registered commands */
   getAllCommands: () => readonly Command[];
   /** Get commands filtered by category */
@@ -292,6 +295,40 @@ export const useCommandRegistry = create<CommandRegistryStore>()(
       const commandId = state.shortcutIndex.get(shortcut);
       if (!commandId) return undefined;
       return state.commands.get(commandId);
+    },
+
+    replaceShortcut: (id: CommandId, shortcut: ShortcutBinding | undefined): CommandResult => {
+      const current = get().commands.get(id);
+      if (!current) {
+        return { ok: false, error: `Command not registered: ${id}` };
+      }
+
+      set((draft) => {
+        const command = draft.commands.get(id);
+        if (!command) {
+          return;
+        }
+        if (command.shortcut) {
+          draft.shortcutIndex.delete(normalizeShortcut(command.shortcut));
+        }
+        const next: Command = {
+          id: command.id,
+          name: command.name,
+          category: command.category,
+          execute: command.execute,
+          ...(command.description !== undefined ? { description: command.description } : {}),
+          ...(command.icon !== undefined ? { icon: command.icon } : {}),
+          ...(command.enabled !== undefined ? { enabled: command.enabled } : {}),
+          ...(command.visible !== undefined ? { visible: command.visible } : {}),
+          ...(shortcut !== undefined ? { shortcut } : {}),
+        };
+        draft.commands.set(id, next);
+        if (shortcut) {
+          draft.shortcutIndex.set(normalizeShortcut(shortcut), id);
+        }
+      });
+
+      return { ok: true };
     },
 
     getAllCommands: (): readonly Command[] => {

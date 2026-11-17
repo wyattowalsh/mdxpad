@@ -14,6 +14,8 @@ import { registerFilterCommands } from './filter-commands';
 import { registerTemplateCommands } from './template-commands';
 import { registerServiceCommands } from './service-commands';
 import { registerPanelCommands } from './panel-commands';
+import { useCommandRegistry } from '../stores/command-registry-store';
+import { bindingsFromCommands, useKeybindingStore } from '../stores/keybinding-store';
 
 /**
  * Register all built-in commands with the command registry.
@@ -29,6 +31,10 @@ export function registerAllCommands(): () => void {
   const unregisterTemplate = registerTemplateCommands();
   const unregisterService = registerServiceCommands();
   const unregisterPanels = registerPanelCommands();
+  const keybindings = useKeybindingStore.getState();
+  if (keybindings.bindings.length === 0) {
+    keybindings.initDefaults(bindingsFromCommands(useCommandRegistry.getState().getAllCommands()));
+  }
 
   return () => {
     unregisterFile();
