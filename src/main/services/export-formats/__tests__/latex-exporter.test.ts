@@ -202,6 +202,17 @@ describe('LatexExporter', () => {
     expect(written.indexOf('\\end{itemize}', child)).toBeGreaterThan(child);
   });
 
+  it('keeps an escaped asterisk literal', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '\\*not italic\\*',
+      outputPath: '/tmp/escape.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('*not italic*');
+    expect(written).not.toContain('\\textit{not italic}');
+  });
+
   it('links an autolink', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

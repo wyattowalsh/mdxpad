@@ -241,6 +241,26 @@ describe('DocxExporter', () => {
     expect(xml).toContain('w:val="1"');
   });
 
+  it('keeps an escaped asterisk literal', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '\\*not italic\\*',
+      outputPath: '/tmp/escape.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('*not italic*');
+    expect(xml).not.toContain('<w:i');
+  });
+
   it('links an autolink', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

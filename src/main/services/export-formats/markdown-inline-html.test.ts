@@ -21,6 +21,15 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps an escaped asterisk literal', () => {
+    expect(renderMarkdownInline('\\*not italic\\* and **real**')).toBe(
+      '*not italic* and <strong>real</strong>'
+    );
+    expect(renderMarkdownInline('\\[docs](https://example.com)')).toBe(
+      '[docs](https://example.com)'
+    );
+  });
+
   it('links an autolink and leaves a code span alone', () => {
     expect(renderMarkdownInline('See <https://example.com> and https://example.com.')).toBe(
       'See <a href="https://example.com">https://example.com</a> and <a href="https://example.com">https://example.com</a>.'

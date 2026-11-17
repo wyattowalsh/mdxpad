@@ -22,6 +22,7 @@ import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable } from './markdown-table';
 import { quoteBody } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
+import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
 import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem } from './markdown-task';
@@ -118,14 +119,15 @@ function createParagraphChildren(text: string): (TextRun | ExternalHyperlink | M
       children.push(new Math({ children: mathComponents(piece.tex) }));
       continue;
     }
-    const protectedLinks = protectAutolinks(piece.text);
+    const escaped = protectEscapes(piece.text);
+    const protectedLinks = protectAutolinks(escaped.text);
     const segments = parseInlineFormatting(protectedLinks.text).flatMap((segment) => {
       if (segment.code || segment.link || segment.image) {
         return [segment];
       }
       return expandAutolinkText(segment.text, protectedLinks.links).map((part) => ({
         ...segment,
-        text: part.text,
+        text: restoreEscapes(part.text, escaped.chars, (char) => char),
         ...(part.href ? { link: part.href } : {}),
       }));
     });

@@ -6,6 +6,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { readSourceLine } from './markdown-paragraph';
 import { quoteBody, quoteToLatex } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
+import { protectEscapes, restoreEscapes } from './markdown-escape';
 import { linkDestination } from './markdown-link';
 import { parseListItem, type MarkdownListItem } from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
@@ -116,7 +117,8 @@ function restoreLatexAutolinks(
 }
 
 function formatInline(source: string): string {
-  const protectedLinks = protectAutolinks(source);
+  const escaped = protectEscapes(source);
+  const protectedLinks = protectAutolinks(escaped.text);
   const raw = protectedLinks.text;
   const pattern =
     /(\*\*(.+?)\*\*|(?<![\w])__(.+?)__(?![\w])|`([^`]+)`|\*(.+?)\*|(?<![\w])_(.+?)_(?![\w])|\[([^\]]+)\]\(([^)]+)\)|~~(.+?)~~)/g;
@@ -145,7 +147,11 @@ function formatInline(source: string): string {
     }
     cursor = index + match[0].length;
   }
-  return restoreLatexAutolinks(result + escapeLatex(raw.slice(cursor)), protectedLinks.links);
+  return restoreEscapes(
+    restoreLatexAutolinks(result + escapeLatex(raw.slice(cursor)), protectedLinks.links),
+    escaped.chars,
+    escapeLatex
+  );
 }
 
 const HEADING_COMMANDS: Record<number, string> = {
