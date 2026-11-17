@@ -67,6 +67,7 @@ export default defineConfig({
         input: {
           main: resolve(__dirname, 'src/renderer/index.html'),
           'preview-frame': resolve(__dirname, 'src/renderer/preview-frame/index.html'),
+          'code-sandbox': resolve(__dirname, 'src/renderer/code-sandbox.html'),
         },
         output: {
           manualChunks: {
@@ -88,12 +89,7 @@ export default defineConfig({
               '@radix-ui/react-tooltip',
               '@radix-ui/react-scroll-area',
             ],
-            remark: [
-              'remark-gfm',
-              'remark-frontmatter',
-              'rehype-highlight',
-              '@mdx-js/mdx',
-            ],
+            remark: ['remark-gfm', 'remark-frontmatter', 'rehype-highlight', '@mdx-js/mdx'],
           },
         },
       },

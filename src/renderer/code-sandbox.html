@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDXPad code sandbox</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        if (window.parent === window) {
+          return;
+        }
+
+        var MESSAGE_READY = 'mdxpad-sandbox-ready';
+        var MESSAGE_RUN = 'mdxpad-sandbox-run';
+        var MESSAGE_RESULT = 'mdxpad-sandbox-result';
+
+        window.addEventListener('message', function (event) {
+          if (event.source !== window.parent) {
+            return;
+          }
+          var data = event.data;
+          if (!data || data.type !== MESSAGE_RUN || typeof data.code !== 'string') {
+            return;
+          }
+
+          var logs = [];
+          var originalLog = console.log;
+          console.log = function () {
+            var args = Array.prototype.slice.call(arguments);
+            logs.push(
+              args
+                .map(function (value) {
+                  if (typeof value === 'object') {
+                    try {
+                      return JSON.stringify(value);
+                    } catch (error) {
+                      return String(value);
+                    }
+                  }
+                  return String(value);
+                })
+                .join(' ')
+            );
+            originalLog.apply(console, arguments);
+          };
+          console.warn = console.log;
+          console.info = console.log;
+
+          try {
+            var result = (0, eval)(data.code);
+            parent.postMessage(
+              {
+                type: MESSAGE_RESULT,
+                success: true,
+                logs: logs,
+                returnValue: result !== undefined ? String(result) : null,
+                error: null,
+              },
+              '*'
+            );
+          } catch (error) {
+            parent.postMessage(
+              {
+                type: MESSAGE_RESULT,
+                success: false,
+                logs: logs,
+                returnValue: null,
+                error: error instanceof Error ? error.message : String(error),
+              },
+              '*'
+            );
+          }
+        });
+
+        parent.postMessage({ type: MESSAGE_READY }, '*');
+      })();
+    </script>
+  </body>
+</html>

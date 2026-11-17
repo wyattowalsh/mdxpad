@@ -12,6 +12,7 @@ import * as React from 'react';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
+import { history, redo, undo } from 'prosemirror-history';
 import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
@@ -127,7 +128,12 @@ function useEditorView(
     const doc = documentFromMarkdown(content);
     const state = EditorState.create({
       doc,
-      plugins: [createMdxKeymap(), keymap(baseKeymap)],
+      plugins: [
+        history(),
+        keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
+        createMdxKeymap(),
+        keymap(baseKeymap),
+      ],
     });
 
     const view = new EditorView(container, {

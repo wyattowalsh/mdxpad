@@ -18,6 +18,10 @@ function isPreviewDocument(url: URL): boolean {
   );
 }
 
+function isCodeSandbox(url: URL): boolean {
+  return url.pathname.endsWith('/code-sandbox.html');
+}
+
 function devPolicy(origin: string): string {
   const host = new URL(origin);
   const wsOrigin = `ws://${host.host}`;
@@ -36,6 +40,19 @@ function devPolicy(origin: string): string {
   ].join('; ');
 }
 
+function sandboxPolicy(): string {
+  return [
+    "default-src 'none'",
+    "script-src 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'none'",
+    "img-src 'none'",
+    "connect-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+}
+
 function productionPolicy(): string {
   return [
     "default-src 'self'",
@@ -51,6 +68,36 @@ function productionPolicy(): string {
   ].join('; ');
 }
 
+function isTrustedRendererUrl(url: URL, options: SessionCspOptions): boolean {
+  if (options.rendererUrl !== undefined && options.rendererUrl.length > 0) {
+    try {
+      const allowed = new URL(options.rendererUrl);
+      if (
+        url.protocol === 'http:' &&
+        allowed.protocol === 'http:' &&
+        url.hostname === allowed.hostname &&
+        url.port === allowed.port &&
+        DEV_LOCALHOSTS.has(url.hostname)
+      ) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  if (url.protocol !== 'file:') {
+    return false;
+  }
+  try {
+    const filePath = resolve(fileURLToPath(url));
+    const root = resolve(options.rendererDir);
+    return filePath === root || filePath.startsWith(`${root}${sep}`);
+  } catch {
+    return false;
+  }
+}
+
 export function selectSessionCsp(requestUrl: string, options?: SessionCspOptions): string | null {
   let url: URL;
   try {
@@ -64,6 +111,9 @@ export function selectSessionCsp(requestUrl: string, options?: SessionCspOptions
   }
 
   const resolved = options ?? defaultSessionCspOptions();
+  if (isCodeSandbox(url) && isTrustedRendererUrl(url, resolved)) {
+    return sandboxPolicy();
+  }
   if (resolved.rendererUrl !== undefined && resolved.rendererUrl.length > 0) {
     try {
       const allowed = new URL(resolved.rendererUrl);

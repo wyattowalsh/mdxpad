@@ -40,70 +40,56 @@ export interface SandboxOptions {
 // =============================================================================
 
 const DEFAULT_TIMEOUT_MS = 5000;
-const MESSAGE_TYPE = 'mdxpad-sandbox-result';
+const MESSAGE_READY = 'mdxpad-sandbox-ready';
+const MESSAGE_RUN = 'mdxpad-sandbox-run';
+const MESSAGE_RESULT = 'mdxpad-sandbox-result';
+
+function sandboxDocumentUrl(): string {
+  return new URL('code-sandbox.html', window.location.href).href;
+}
+
+interface SandboxMessage {
+  readonly type: string;
+  readonly success: boolean;
+  readonly logs: string[];
+  readonly returnValue: string | null;
+  readonly error: string | null;
+}
+
+function messageText(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return null;
+}
+
+function readSandboxMessage(value: unknown): SandboxMessage | null {
+  if (typeof value !== 'object' || value === null || !('type' in value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const type = record.type;
+  if (typeof type !== 'string') {
+    return null;
+  }
+  const logs = Array.isArray(record.logs)
+    ? record.logs.filter((item): item is string => typeof item === 'string')
+    : [];
+  return {
+    type,
+    success: record.success === true,
+    logs,
+    returnValue: messageText(record.returnValue),
+    error: messageText(record.error),
+  };
+}
 
 // =============================================================================
 // Sandbox HTML Template
 // =============================================================================
-
-/**
- * Build the srcdoc HTML for the sandboxed iframe.
- *
- * The iframe intercepts console.log calls and posts the result
- * back to the parent via postMessage.
- */
-function buildSandboxHtml(code: string): string {
-  // Escape script-breaking sequences in user code
-  const escaped = code.replace(/<\/script/gi, '<\\/script');
-
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body>
-<script>
-(function() {
-  var logs = [];
-  var origLog = console.log;
-  console.log = function() {
-    var args = Array.prototype.slice.call(arguments);
-    var line = args.map(function(a) {
-      if (typeof a === 'object') {
-        try { return JSON.stringify(a, null, 2); } catch(e) { return String(a); }
-      }
-      return String(a);
-    }).join(' ');
-    logs.push(line);
-    origLog.apply(console, arguments);
-  };
-  console.warn = console.log;
-  console.info = console.log;
-
-  try {
-    var __result = (function() {
-      ${escaped}
-    })();
-    var returnValue = __result !== undefined ? String(__result) : null;
-    parent.postMessage({
-      type: '${MESSAGE_TYPE}',
-      success: true,
-      logs: logs,
-      returnValue: returnValue,
-      error: null
-    }, '*');
-  } catch(e) {
-    parent.postMessage({
-      type: '${MESSAGE_TYPE}',
-      success: false,
-      logs: logs,
-      returnValue: null,
-      error: e instanceof Error ? e.message : String(e)
-    }, '*');
-  }
-})();
-</script>
-</body>
-</html>`;
-}
 
 // =============================================================================
 // Public API
@@ -140,6 +126,7 @@ export function executeSandboxed(
     iframe.sandbox.add('allow-scripts');
 
     let settled = false;
+    let started = false;
 
     const cleanup = () => {
       if (iframe.parentNode) {
@@ -171,24 +158,24 @@ export function executeSandboxed(
       ) {
         return;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (event.data?.type !== MESSAGE_TYPE) return;
+      const data = readSandboxMessage(event.data);
+      if (!data) return;
+      if (data.type === MESSAGE_READY) {
+        if (started) return;
+        started = true;
+        iframe.contentWindow.postMessage({ type: MESSAGE_RUN, code }, '*');
+        return;
+      }
+      if (data.type !== MESSAGE_RESULT) return;
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
 
       const durationMs = performance.now() - startTime;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const success = Boolean(event.data.success);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const logs: string[] = Array.isArray(event.data.logs)
-        ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (event.data.logs as string[])
-        : [];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const returnValue = event.data.returnValue != null ? String(event.data.returnValue) : null;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const error = event.data.error != null ? String(event.data.error) : null;
+      const success = data.success;
+      const logs = data.logs;
+      const returnValue = data.returnValue;
+      const error = data.error;
 
       cleanup();
       resolve({ success, logs, returnValue, error, durationMs });
@@ -196,6 +183,6 @@ export function executeSandboxed(
 
     window.addEventListener('message', onMessage);
     document.body.appendChild(iframe);
-    iframe.srcdoc = buildSandboxHtml(code);
+    iframe.src = sandboxDocumentUrl();
   });
 }

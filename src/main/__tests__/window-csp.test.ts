@@ -35,6 +35,14 @@ describe('selectSessionCsp', () => {
     expect(policy).not.toContain('unsafe-eval');
   });
 
+  it('allows eval only on the code sandbox page', () => {
+    const policy = selectSessionCsp('file:///app/renderer/code-sandbox.html', { rendererDir });
+    expect(policy).toContain("'unsafe-eval'");
+    expect(policy).toContain("default-src 'none'");
+    const appPolicy = selectSessionCsp('file:///app/renderer/index.html', { rendererDir });
+    expect(appPolicy).not.toContain('unsafe-eval');
+  });
+
   it('reads the Vite origin from the environment when options are omitted', () => {
     const previous = process.env.ELECTRON_RENDERER_URL;
     process.env.ELECTRON_RENDERER_URL = 'http://127.0.0.1:4173';
