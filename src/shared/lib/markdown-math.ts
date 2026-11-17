@@ -31,6 +31,43 @@ function copyCodeSpan(value: string, index: number): { text: string; next: numbe
   return { text: value.slice(index, closer + ticks), next: closer + ticks };
 }
 
+const VOID_TAGS = 'br|hr|img|input|meta|link|source|wbr|area|base|col|embed|track';
+
+function stripHtmlComments(value: string): string {
+  return value.replace(/<!--[\s\S]*?-->/g, '');
+}
+
+function closeVoidTags(value: string): string {
+  return value.replace(
+    new RegExp(`<(${VOID_TAGS})(\\s[^<>]*?)?>`, 'gi'),
+    (full, name: string, attrs: string | undefined) =>
+      full.endsWith('/>') ? full : `<${name}${attrs ?? ''} />`
+  );
+}
+
+function mapOutsideCode(prose: string, mapText: (text: string) => string): string {
+  let result = '';
+  let index = 0;
+  while (index < prose.length) {
+    const code = copyCodeSpan(prose, index);
+    if (code) {
+      result += code.text;
+      index = code.next;
+      continue;
+    }
+    const nextTick = prose.indexOf('`', index);
+    const end = nextTick === -1 ? prose.length : nextTick;
+    result += mapText(prose.slice(index, end));
+    index = end;
+  }
+  return result;
+}
+
+function prepareProse(prose: string): string {
+  const cleaned = mapOutsideCode(prose, (text) => closeVoidTags(stripHtmlComments(text)));
+  return replaceTexMath(cleaned);
+}
+
 function replaceTexMath(prose: string): string {
   let result = '';
   let index = 0;
@@ -63,8 +100,7 @@ function replaceTexMath(prose: string): string {
   return result;
 }
 
-/** Turn TeX `\\(...\\)` and `\\[...\\]` into `$` math outside code. */
-export function normalizeTexMath(content: string): string {
+function mapFencedProse(content: string, transform: (prose: string) => string): string {
   const output: string[] = [];
   const prose: string[] = [];
   let fence: string | null = null;
@@ -72,7 +108,7 @@ export function normalizeTexMath(content: string): string {
     if (prose.length === 0) {
       return;
     }
-    output.push(replaceTexMath(prose.join('\n')));
+    output.push(transform(prose.join('\n')));
     prose.length = 0;
   };
   for (const line of content.split('\n')) {
@@ -88,4 +124,14 @@ export function normalizeTexMath(content: string): string {
   }
   flush();
   return output.join('\n');
+}
+
+/** Turn TeX `\\(...\\)` and `\\[...\\]` into `$` math outside code. */
+export function normalizeTexMath(content: string): string {
+  return mapFencedProse(content, replaceTexMath);
+}
+
+/** Make Markdown safe to compile as MDX and to export without leaking hidden notes. */
+export function prepareMarkdownSource(content: string): string {
+  return mapFencedProse(content, prepareProse);
 }

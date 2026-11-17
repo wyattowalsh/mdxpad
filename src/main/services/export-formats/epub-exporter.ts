@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
-import { normalizeTexMath } from '@shared/lib/markdown-math';
+import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
@@ -36,7 +36,7 @@ function splitIntoChapters(content: string): {
   chapters: EpubChapter[];
   slugs: Map<string, number>;
 } {
-  return splitExpandedChapters(expandLinkReferences(normalizeTexMath(content)));
+  return splitExpandedChapters(expandLinkReferences(prepareMarkdownSource(content)));
 }
 
 function splitExpandedChapters(content: string): {

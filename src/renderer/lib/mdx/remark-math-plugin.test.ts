@@ -15,6 +15,16 @@ describe('remark math prices', () => {
     }
   });
 
+  it('compiles a markdown comment and a line break', async () => {
+    const result = await compileMdx(testId('mdx-html'), 'See <!-- secret --> this.<br>Next');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('this.');
+      expect(result.code).toContain('Next');
+      expect(result.code).not.toContain('secret');
+    }
+  });
+
   it('renders a TeX inline formula', async () => {
     const result = await compileMdx(testId('tex-inline'), 'The area is \\(x^2\\).');
     expect(result.ok).toBe(true);

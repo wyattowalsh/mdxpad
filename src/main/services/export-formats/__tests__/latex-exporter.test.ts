@@ -163,6 +163,19 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\section');
   });
 
+  it('omits an HTML comment from the document', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <!-- secret --> this.',
+      outputPath: '/tmp/comment.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('See');
+    expect(written).toContain('this.');
+    expect(written).not.toContain('secret');
+    expect(written).not.toContain('<!--');
+  });
+
   it('labels a fenced language above the verbatim block', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

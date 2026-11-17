@@ -15,6 +15,7 @@ import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
+import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { expandLinkReferences } from './export-formats/markdown-reference';
 import { createStoredZip, toUtf8Bytes } from './zip-utils';
 
@@ -363,7 +364,9 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
 
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
-  const lines = expandLinkReferences(markdown).replaceAll('\r\n', '\n').split('\n');
+  const lines = expandLinkReferences(prepareMarkdownSource(markdown))
+    .replaceAll('\r\n', '\n')
+    .split('\n');
   let fence: string | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {

@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
-import { normalizeTexMath } from '@shared/lib/markdown-math';
+import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
 
@@ -509,7 +509,7 @@ function contentToLatex(content: string): string {
     slugCounts: new Map<string, number>(),
   };
 
-  for (const line of expandLinkReferences(normalizeTexMath(content)).split('\n')) {
+  for (const line of expandLinkReferences(prepareMarkdownSource(content)).split('\n')) {
     appendLatexSourceLine(build, line);
   }
 
