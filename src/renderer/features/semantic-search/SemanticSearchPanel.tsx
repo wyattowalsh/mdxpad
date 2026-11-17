@@ -7,7 +7,7 @@
  * @module src/renderer/features/semantic-search/SemanticSearchPanel
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   useSemanticSearchStore,
   selectQuery,
@@ -77,7 +77,15 @@ export function SemanticSearchPanel({ workspacePath, onNavigateToFile }: Semanti
   const isIndexing = useSemanticSearchStore(selectIsIndexing);
   const isIndexed = useSemanticSearchStore(selectIsIndexed);
   const error = useSemanticSearchStore(selectError);
-  const { setQuery, search, indexWorkspace, clearResults } = useSemanticSearchStore();
+  const { setQuery, search, indexWorkspace, checkIndexStatus, clearResults } =
+    useSemanticSearchStore();
+
+  useEffect(() => {
+    if (workspacePath.length === 0) {
+      return;
+    }
+    void checkIndexStatus(workspacePath);
+  }, [checkIndexStatus, workspacePath]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -138,22 +146,30 @@ export function SemanticSearchPanel({ workspacePath, onNavigateToFile }: Semanti
       </div>
 
       {/* Index Status */}
-      {!isIndexed && (
+      {workspacePath.length === 0 ? (
         <div className="border-b p-3 dark:border-gray-700">
-          <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950">
-            <p className="mb-2 text-xs text-yellow-700 dark:text-yellow-300">
-              Workspace not indexed. Index files to enable semantic search.
-            </p>
-            <button
-              type="button"
-              onClick={handleIndex}
-              disabled={isIndexing}
-              className="rounded bg-yellow-600 px-3 py-1 text-xs text-white hover:bg-yellow-700 disabled:opacity-50"
-            >
-              {isIndexing ? 'Indexing...' : 'Index Workspace'}
-            </button>
-          </div>
+          <p className="text-xs text-yellow-700 dark:text-yellow-300">
+            Open a file inside a folder to search.
+          </p>
         </div>
+      ) : (
+        !isIndexed && (
+          <div className="border-b p-3 dark:border-gray-700">
+            <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950">
+              <p className="mb-2 text-xs text-yellow-700 dark:text-yellow-300">
+                Workspace not indexed. Index files to enable semantic search.
+              </p>
+              <button
+                type="button"
+                onClick={handleIndex}
+                disabled={isIndexing}
+                className="rounded bg-yellow-600 px-3 py-1 text-xs text-white hover:bg-yellow-700 disabled:opacity-50"
+              >
+                {isIndexing ? 'Indexing...' : 'Index Workspace'}
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {/* Error */}

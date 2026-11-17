@@ -2,11 +2,12 @@
  * Unit tests for Semantic Search Store.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useSemanticSearchStore } from './semantic-search-store';
 
 describe('useSemanticSearchStore', () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     useSemanticSearchStore.getState().reset();
   });
 
@@ -73,5 +74,45 @@ describe('useSemanticSearchStore', () => {
 
     const state = useSemanticSearchStore.getState();
     expect(state.isSearching).toBe(false);
+  });
+
+  it('asks for an open folder instead of staying busy', async () => {
+    useSemanticSearchStore.getState().setQuery('notes');
+    await useSemanticSearchStore.getState().search('  ');
+
+    const state = useSemanticSearchStore.getState();
+    expect(state.isSearching).toBe(false);
+    expect(state.error).toBe('Open a file inside a folder to search');
+  });
+
+  it('says when semantic search is unavailable', async () => {
+    useSemanticSearchStore.getState().setQuery('notes');
+    await useSemanticSearchStore.getState().search('/notes');
+
+    const state = useSemanticSearchStore.getState();
+    expect(state.isSearching).toBe(false);
+    expect(state.isIndexing).toBe(false);
+    expect(state.error).toBe('Semantic search is not available');
+  });
+
+  it('loads index status for the open folder', async () => {
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        getIndexStatus: vi.fn().mockResolvedValue({
+          success: true,
+          isIndexed: true,
+          fileCount: 3,
+          chunkCount: 8,
+          lastIndexedAt: '2026-11-17T15:00:00.000Z',
+        }),
+      },
+    });
+
+    await useSemanticSearchStore.getState().checkIndexStatus('/notes');
+
+    const state = useSemanticSearchStore.getState();
+    expect(state.isIndexed).toBe(true);
+    expect(state.fileCount).toBe(3);
+    expect(state.chunkCount).toBe(8);
   });
 });

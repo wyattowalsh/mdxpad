@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog';
+import { directoryOfOpenedFile } from '@renderer/hooks/useOpenedFolderFiles';
 import { openFileFromPath } from '@renderer/lib/open-file-from-path';
 import { HistoryUtilityPanel } from './HistoryUtilityPanel';
 import { PublishUtilityPanel } from './PublishUtilityPanel';
@@ -89,7 +90,7 @@ function PanelBody({
     case 'semantic-search':
       return (
         <SemanticSearchPanel
-          workspacePath={model?.workspace.rootPath ?? ''}
+          workspacePath={model?.workspace.rootPath ?? directoryOfOpenedFile(filePath) ?? ''}
           onNavigateToFile={(path) => {
             void openFileFromPath(path);
           }}

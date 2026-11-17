@@ -44,6 +44,23 @@ export type SemanticSearchStore = SemanticSearchState & SemanticSearchActions;
 // INITIAL STATE
 // =============================================================================
 
+function semanticSearchApi(): NonNullable<Window['mdxpad']['semanticSearch']> | null {
+  if (typeof window === 'undefined' || !('mdxpad' in window) || !window.mdxpad.semanticSearch) {
+    return null;
+  }
+  return window.mdxpad.semanticSearch;
+}
+
+function blockedWorkspaceMessage(workspacePath: string, available: boolean): string | null {
+  if (workspacePath.trim().length === 0) {
+    return 'Open a file inside a folder to search';
+  }
+  if (!available) {
+    return 'Semantic search is not available';
+  }
+  return null;
+}
+
 const INITIAL_STATE: SemanticSearchState = {
   query: '',
   results: [],
@@ -74,30 +91,38 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
       const query = get().query.trim();
       if (!query) return;
 
+      const semanticSearch = semanticSearchApi();
+      const blocked = blockedWorkspaceMessage(workspacePath, semanticSearch !== null);
+      if (blocked !== null || semanticSearch === null) {
+        set((draft) => {
+          draft.error = blocked ?? 'Semantic search is not available';
+          draft.isSearching = false;
+        });
+        return;
+      }
+
       set((draft) => {
         draft.isSearching = true;
         draft.error = null;
       });
 
       try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.semanticSearch) {
-          const response = await window.mdxpad.semanticSearch.search(
-            query,
-            workspacePath,
-            undefined,
-            readExcludesForDirectory(workspacePath)
-          );
-          if (response.success && response.results) {
-            set((draft) => {
-              draft.results = response.results ?? [];
-              draft.isSearching = false;
-            });
-          } else {
-            set((draft) => {
-              draft.error = response.error?.message ?? 'Search failed';
-              draft.isSearching = false;
-            });
-          }
+        const response = await semanticSearch.search(
+          query,
+          workspacePath,
+          undefined,
+          readExcludesForDirectory(workspacePath)
+        );
+        if (response.success && response.results) {
+          set((draft) => {
+            draft.results = response.results ?? [];
+            draft.isSearching = false;
+          });
+        } else {
+          set((draft) => {
+            draft.error = response.error?.message ?? 'Search failed';
+            draft.isSearching = false;
+          });
         }
       } catch (error) {
         set((draft) => {
@@ -108,32 +133,40 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
     },
 
     indexWorkspace: async (workspacePath: string, forceReindex?: boolean) => {
+      const semanticSearch = semanticSearchApi();
+      const blocked = blockedWorkspaceMessage(workspacePath, semanticSearch !== null);
+      if (blocked !== null || semanticSearch === null) {
+        set((draft) => {
+          draft.error = blocked ?? 'Semantic search is not available';
+          draft.isIndexing = false;
+        });
+        return;
+      }
+
       set((draft) => {
         draft.isIndexing = true;
         draft.error = null;
       });
 
       try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.semanticSearch) {
-          const response = await window.mdxpad.semanticSearch.indexWorkspace(
-            workspacePath,
-            forceReindex,
-            readExcludesForDirectory(workspacePath)
-          );
-          if (response.success) {
-            set((draft) => {
-              draft.isIndexing = false;
-              draft.isIndexed = true;
-              draft.fileCount = response.indexedFiles ?? 0;
-              draft.chunkCount = response.totalChunks ?? 0;
-              draft.lastIndexedAt = new Date().toISOString();
-            });
-          } else {
-            set((draft) => {
-              draft.error = response.error?.message ?? 'Indexing failed';
-              draft.isIndexing = false;
-            });
-          }
+        const response = await semanticSearch.indexWorkspace(
+          workspacePath,
+          forceReindex,
+          readExcludesForDirectory(workspacePath)
+        );
+        if (response.success) {
+          set((draft) => {
+            draft.isIndexing = false;
+            draft.isIndexed = true;
+            draft.fileCount = response.indexedFiles ?? 0;
+            draft.chunkCount = response.totalChunks ?? 0;
+            draft.lastIndexedAt = new Date().toISOString();
+          });
+        } else {
+          set((draft) => {
+            draft.error = response.error?.message ?? 'Indexing failed';
+            draft.isIndexing = false;
+          });
         }
       } catch (error) {
         set((draft) => {
@@ -144,17 +177,19 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
     },
 
     checkIndexStatus: async (workspacePath: string) => {
+      const semanticSearch = semanticSearchApi();
+      if (workspacePath.trim().length === 0 || semanticSearch === null) {
+        return;
+      }
       try {
-        if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.semanticSearch) {
-          const response = await window.mdxpad.semanticSearch.getIndexStatus(workspacePath);
-          if (response.success) {
-            set((draft) => {
-              draft.isIndexed = response.isIndexed ?? false;
-              draft.fileCount = response.fileCount ?? 0;
-              draft.chunkCount = response.chunkCount ?? 0;
-              draft.lastIndexedAt = response.lastIndexedAt ?? null;
-            });
-          }
+        const response = await semanticSearch.getIndexStatus(workspacePath);
+        if (response.success) {
+          set((draft) => {
+            draft.isIndexed = response.isIndexed ?? false;
+            draft.fileCount = response.fileCount ?? 0;
+            draft.chunkCount = response.chunkCount ?? 0;
+            draft.lastIndexedAt = response.lastIndexedAt ?? null;
+          });
         }
       } catch {
         // Status check failure is non-critical

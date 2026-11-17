@@ -4,7 +4,7 @@ import type { FileListEntry } from '@shared/contracts/file-schemas';
 
 const EMPTY_FILES: readonly FileListEntry[] = [];
 
-function directoryOf(filePath: string | null): string | null {
+export function directoryOfOpenedFile(filePath: string | null): string | null {
   if (!filePath?.includes('/')) {
     return null;
   }
@@ -14,7 +14,7 @@ function directoryOf(filePath: string | null): string | null {
 
 export function useOpenedFolderFiles(filePath: string | null): readonly FileListEntry[] {
   const [files, setFiles] = useState<readonly FileListEntry[]>(EMPTY_FILES);
-  const directory = directoryOf(filePath);
+  const directory = directoryOfOpenedFile(filePath);
 
   useEffect(() => {
     if (!directory || typeof window.mdxpad.listDirectory !== 'function') {
