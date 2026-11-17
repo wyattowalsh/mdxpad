@@ -267,8 +267,12 @@ describe('DocxExporter', () => {
       { input: buffer }
     );
     const xml = extracted.stdout.toString();
-    expect(xml).toContain('hello there');
-    expect(xml).not.toContain('hello there one');
+    expect(xml).toContain('>hello</w:t>');
+    expect(xml).toContain('>there</w:t>');
+    expect(xml.indexOf('>there</w:t>')).toBeGreaterThan(xml.indexOf('>hello</w:t>'));
+    expect(xml.slice(xml.indexOf('>hello</w:t>'), xml.indexOf('>there</w:t>'))).toContain(
+      '> </w:t>'
+    );
     expect(xml).toContain('one');
     expect(xml).toContain('two');
     expect(xml).not.toContain('- one');

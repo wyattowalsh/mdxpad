@@ -430,7 +430,7 @@ function takeLatexQuote(output: string[], line: string, quoteLines: string[]): b
     return true;
   }
   if (quoteLines.length > 0 && isLazyQuoteLine(line)) {
-    quoteLines.push(line.trim());
+    quoteLines.push(line);
     return true;
   }
   if (quoteLines.length > 0) {
@@ -491,7 +491,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     resetListState(build.output, build.listState);
     return;
   }
-  if (takeLatexQuote(build.output, line.trim(), build.quoteLines)) {
+  if (takeLatexQuote(build.output, line, build.quoteLines)) {
     resetListState(build.output, build.listState);
     return;
   }

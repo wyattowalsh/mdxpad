@@ -125,6 +125,18 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('## Two\n')).toContain('## Two');
   });
 
+  it('keeps an escaped marker after a line break', () => {
+    const soft = roundTrip('hello\n\\# not a heading\n');
+    expect(soft).toContain('\\# not a heading');
+    expect(parseMdxContent(soft)?.childCount).toBe(1);
+    const hard = roundTrip('hello  \n\\> quote\n');
+    expect(hard).toContain('\\> quote');
+    expect(parseMdxContent(hard)?.childCount).toBe(1);
+    const literal = roundTrip('\\~\\~gone\\~\\~\n');
+    expect(literal).toContain('\\~\\~gone\\~\\~');
+    expect(literal).not.toContain('~~gone~~');
+  });
+
   it('keeps a single tilde as text', () => {
     const serialized = roundTrip('H~2~O and `H~2~O`\n');
     expect(serialized).toContain('H~2~O and `H~2~O`');

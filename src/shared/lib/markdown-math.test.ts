@@ -32,6 +32,9 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See <https://example.com> and <ada@example.com>.')).toBe(
       'See [https://example.com](https://example.com) and [ada@example.com](mailto:ada@example.com).'
     );
+    expect(prepareMarkdownSource('Write <mailto:ada@example.com>.')).toBe(
+      'Write [mailto:ada@example.com](mailto:ada@example.com).'
+    );
     expect(prepareMarkdownSource('Compare a <= b and JSON {"a": 1} and {1 + 2}')).toContain(
       'a &lt;= b'
     );

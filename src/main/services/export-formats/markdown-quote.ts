@@ -1,12 +1,13 @@
 import { openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
+import { joinParagraphHtml, readSourceLine } from './markdown-paragraph';
 import {
   closeHtmlLists,
   parseListItem,
   pushHtmlListItem,
   type HtmlListFrame,
 } from './markdown-list';
-import { listItemHtml } from './markdown-task';
+import { listItemHtml, splitTaskItem, taskItemLatex } from './markdown-task';
 
 const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
 
@@ -47,7 +48,13 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   for (const line of lines) {
     const inner = quoteBody(line);
     const kind: QuoteChunk['kind'] | null =
-      inner !== null ? 'nested' : line.length === 0 ? null : parseListItem(line) ? 'list' : 'paragraph';
+      inner !== null
+        ? 'nested'
+        : line.length === 0
+          ? null
+          : parseListItem(line)
+            ? 'list'
+            : 'paragraph';
     if (kind === null) {
       current = takeChunk(chunks, current);
       continue;
@@ -77,11 +84,30 @@ function quoteListHtml(lines: readonly string[], renderLine: (line: string) => s
   return parts.join('\n');
 }
 
+function quoteItemLatex(line: string, renderLine: (line: string) => string): string {
+  const text = parseListItem(line)?.text ?? line;
+  const task = splitTaskItem(text);
+  return task ? taskItemLatex(task.checked, renderLine(task.body)) : renderLine(text);
+}
+
 function quoteListLatex(lines: readonly string[], renderLine: (line: string) => string): string {
   const first = parseListItem(lines[0] ?? '');
   const env = first?.ordered === true ? 'enumerate' : 'itemize';
-  const items = lines.map((line) => `\\item ${renderLine(parseListItem(line)?.text ?? line)}`);
+  const items = lines.map((line) => `\\item ${quoteItemLatex(line, renderLine)}`);
   return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`;
+}
+
+function joinQuoteLatex(lines: readonly string[], renderLine: (line: string) => string): string {
+  const parts = lines.map((line) => readSourceLine(line));
+  return parts
+    .map((line, index) => {
+      const text = renderLine(line.text);
+      if (index === 0) {
+        return text;
+      }
+      return parts[index - 1]?.hardBreak ? `\\\\\n${text}` : ` ${text}`;
+    })
+    .join('');
 }
 
 export function quoteToHtml(
@@ -96,7 +122,10 @@ export function quoteToHtml(
       if (chunk.kind === 'list') {
         return quoteListHtml(chunk.lines, renderLine);
       }
-      return `<p>${chunk.lines.map((line) => renderLine(line)).join(' ')}</p>`;
+      return `<p>${joinParagraphHtml(
+        chunk.lines.map((line) => readSourceLine(line)),
+        renderLine
+      )}</p>`;
     })
     .join('\n');
   return `<blockquote>\n${body}\n</blockquote>`;
@@ -114,7 +143,7 @@ export function quoteToLatex(
       if (chunk.kind === 'list') {
         return quoteListLatex(chunk.lines, renderLine);
       }
-      return chunk.lines.map((line) => renderLine(line)).join(' ');
+      return joinQuoteLatex(chunk.lines, renderLine);
     })
     .join('\n\n');
   return `\\begin{quote}\n${body}\n\\end{quote}`;

@@ -14,11 +14,22 @@ describe('applyFootnotes', () => {
 
   it('keeps an indented continuation in the note', () => {
     const rendered = applyFootnotes('See[^1].\n\n[^1]: First\n    second\n');
-    expect(rendered).toContain('1. First\nsecond');
-    expect(rendered).not.toContain('    second');
+    expect(rendered).toContain('1. First\n    second');
     const expanded = expandLinkReferences('See[^1].\n\n[^1]: First\n\n    second\n');
-    expect(expanded).toContain('1. First\n\nsecond');
+    expect(expanded).toContain('1. First\n\n    second');
     expect(expanded).not.toContain('```');
+  });
+
+  it('leaves markers in code and escaped markers, and numbers a note inside a note', () => {
+    const fenced = applyFootnotes('```\n[^1]\n```\n\n[^1]: Note\n');
+    expect(fenced).toContain('```\n[^1]\n```');
+    expect(fenced).toContain('1. Note');
+    const escaped = applyFootnotes('See \\[^1].\n\n[^1]: Note\n');
+    expect(escaped).toContain('\\[^1]');
+    expect(escaped).not.toContain('\\¹');
+    const nested = applyFootnotes('See[^1].\n\n[^1]: Also[^2].\n\n[^2]: Inner\n');
+    expect(nested).toContain('Also².');
+    expect(nested).toContain('2. Inner');
   });
 
   it('leaves a marker without a definition, including one in code', () => {

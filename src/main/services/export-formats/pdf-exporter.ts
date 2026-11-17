@@ -139,7 +139,7 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
     return true;
   }
   if (build.quoteLines.length > 0 && isLazyQuoteLine(line)) {
-    build.quoteLines.push(line.trim());
+    build.quoteLines.push(line);
     return true;
   }
   if (build.quoteLines.length > 0) {
@@ -199,7 +199,7 @@ function appendPdfLine(build: PdfBuild, line: string): void {
   if (consumePdfTable(build, trimmed)) {
     return;
   }
-  if (consumePdfQuote(build, trimmed)) {
+  if (consumePdfQuote(build, line)) {
     return;
   }
   appendPdfFlow(build, line);

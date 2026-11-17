@@ -39,7 +39,7 @@ function replaceFootnoteLine(
       index = next;
       continue;
     }
-    if (line.startsWith('[^', index)) {
+    if (line.startsWith('[^', index) && !escapedAt(line, index)) {
       const end = line.indexOf(']', index + 2);
       const id = end === -1 ? '' : line.slice(index + 2, end);
       if (id.length > 0 && notes.has(id)) {
@@ -54,6 +54,14 @@ function replaceFootnoteLine(
   return result;
 }
 
+function escapedAt(line: string, index: number): boolean {
+  let slashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && line[cursor] === '\\'; cursor -= 1) {
+    slashes += 1;
+  }
+  return slashes % 2 === 1;
+}
+
 function isNoteContinuation(line: string): boolean {
   return line.startsWith('    ') || line.startsWith('\t');
 }
@@ -62,9 +70,14 @@ function continuationText(line: string): string {
   return line.startsWith('\t') ? line.slice(1) : line.slice(4);
 }
 
-function collectNotes(lines: readonly string[]): { kept: string[]; notes: Map<string, string> } {
+function collectNotes(lines: readonly string[]): {
+  kept: string[];
+  inCode: boolean[];
+  notes: Map<string, string>;
+} {
   const notes = new Map<string, string>();
   const kept: string[] = [];
+  const inCode: boolean[] = [];
   let fence: string | null = null;
   let currentId: string | null = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -76,6 +89,7 @@ function collectNotes(lines: readonly string[]): { kept: string[]; notes: Map<st
     if (inside || boundary) {
       currentId = null;
       kept.push(line);
+      inCode.push(true);
       continue;
     }
     const definition = DEFINITION.exec(line);
@@ -95,19 +109,39 @@ function collectNotes(lines: readonly string[]): { kept: string[]; notes: Map<st
     }
     currentId = null;
     kept.push(line);
+    inCode.push(false);
   }
-  return { kept, notes };
+  return { kept, inCode, notes };
+}
+
+function formatNote(number: number, body: string): string {
+  const [first, ...rest] = body.split('\n');
+  const head = `${number}. ${first ?? ''}`;
+  if (rest.length === 0) {
+    return head;
+  }
+  const tail = rest.map((line) => (line.length === 0 ? '' : `    ${line}`)).join('\n');
+  return `${head}\n${tail}`;
+}
+
+function noteList(notes: ReadonlyMap<string, string>, order: string[]): string {
+  const items: string[] = [];
+  for (let index = 0; index < order.length; index += 1) {
+    const id = order[index] ?? '';
+    items.push(formatNote(index + 1, replaceFootnoteLine(notes.get(id) ?? '', notes, order)));
+  }
+  return items.join('\n');
 }
 
 /** Replace footnote markers with superscripts and list the notes at the end. */
 export function applyFootnotes(content: string): string {
-  const { kept, notes } = collectNotes(content.split('\n'));
+  const { kept, inCode, notes } = collectNotes(content.split('\n'));
   if (notes.size === 0) {
     return content;
   }
   const order: string[] = [];
   const body = kept
-    .map((line) => replaceFootnoteLine(line, notes, order))
+    .map((line, index) => (inCode[index] ? line : replaceFootnoteLine(line, notes, order)))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trimEnd();
@@ -116,6 +150,5 @@ export function applyFootnotes(content: string): string {
       order.push(id);
     }
   }
-  const listed = order.map((id, index) => `${index + 1}. ${notes.get(id) ?? ''}`).join('\n');
-  return `${body}\n\n## Notes\n\n${listed}\n`;
+  return `${body}\n\n## Notes\n\n${noteList(notes, order)}\n`;
 }

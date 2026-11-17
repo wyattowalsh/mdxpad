@@ -425,14 +425,11 @@ function appendDocxQuoteLines(
       }
       continue;
     }
-    const text = chunk.lines.join(' ').trim();
-    if (text.length > 0) {
-      blocks.push(
-        new Paragraph({
-          indent: { left: 720 * depth },
-          children: createParagraphChildren(text),
-        })
-      );
+    const sources = chunk.lines
+      .map((line) => readSourceLine(line))
+      .filter((line) => line.text.length > 0);
+    if (sources.length > 0) {
+      blocks.push(paragraphFromLines(sources, depth));
     }
   }
 }
@@ -451,7 +448,7 @@ function takeDocxQuote(blocks: (Paragraph | Table)[], line: string, quoteLines: 
     return true;
   }
   if (quoteLines.length > 0 && isLazyQuoteLine(line)) {
-    quoteLines.push(line.trim());
+    quoteLines.push(line);
     return true;
   }
   if (quoteLines.length > 0) {
@@ -509,7 +506,7 @@ interface DocxParse {
   slugCounts: Map<string, number>;
 }
 
-function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
+function paragraphFromLines(lines: readonly SourceLine[], quoteDepth = 0): Paragraph {
   const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
   lines.forEach((line, index) => {
     if (index > 0) {
@@ -518,6 +515,9 @@ function paragraphFromLines(lines: readonly SourceLine[]): Paragraph {
     }
     children.push(...createParagraphChildren(line.text));
   });
+  if (quoteDepth > 0) {
+    return new Paragraph({ children, indent: { left: 720 * quoteDepth } });
+  }
   return new Paragraph({ children });
 }
 
@@ -616,7 +616,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     flushDocxQuote(parse.blocks, parse.quoteLines);
     return;
   }
-  if (takeDocxQuote(parse.blocks, trimmed, parse.quoteLines)) {
+  if (takeDocxQuote(parse.blocks, line, parse.quoteLines)) {
     return;
   }
   if (takeDocxSetext(parse, line)) {

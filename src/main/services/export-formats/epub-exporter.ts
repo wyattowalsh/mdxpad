@@ -125,7 +125,7 @@ function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineStat
     return true;
   }
   if (state.quoteLines.length > 0 && isLazyQuoteLine(line)) {
-    state.quoteLines.push(line.trim());
+    state.quoteLines.push(line);
     return true;
   }
   if (state.quoteLines.length > 0) {
@@ -234,7 +234,7 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
   if (consumeEpubTable(htmlLines, trimmed, state)) {
     return;
   }
-  if (consumeEpubQuote(htmlLines, trimmed, state)) {
+  if (consumeEpubQuote(htmlLines, line, state)) {
     return;
   }
   appendEpubFlow(htmlLines, line, state);

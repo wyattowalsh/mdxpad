@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isLazyQuoteLine, quoteBody, quoteToHtml } from './markdown-quote';
+import { isLazyQuoteLine, quoteBody, quoteToHtml, quoteToLatex } from './markdown-quote';
 
 describe('quoteBody', () => {
   it('reads a quote line and rejects plain text', () => {
@@ -29,6 +29,14 @@ describe('quoteBody', () => {
     expect(quoteToHtml(['hello', '', 'there'], (line) => line)).toBe(
       '<blockquote>\n<p>hello</p>\n<p>there</p>\n</blockquote>'
     );
+    expect(quoteToHtml(['Stay  ', 'put'], (line) => line)).toBe(
+      '<blockquote>\n<p>Stay<br />put</p>\n</blockquote>'
+    );
+    expect(quoteToLatex(['Stay\\', 'put'], (line) => line)).toBe(
+      '\\begin{quote}\nStay\\\\\nput\n\\end{quote}'
+    );
+    expect(quoteToLatex(['- [x] done'], (line) => line)).toContain('$\\boxtimes$');
+    expect(quoteToLatex(['- [x] done'], (line) => line)).not.toContain('[x]');
     const list = quoteToHtml(['- one', '- two'], (line) => line);
     expect(list).toContain('<ul>');
     expect(list).toContain('<li>one</li>');

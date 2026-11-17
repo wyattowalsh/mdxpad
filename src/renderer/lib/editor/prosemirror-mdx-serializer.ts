@@ -124,6 +124,10 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   text(state, node) {
+    const writer = state as MarkdownSerializerState & { atBlockStart: boolean; out: string };
+    if (!writer.atBlockStart && writer.out.endsWith('\n')) {
+      writer.atBlockStart = true;
+    }
     writeTextPreservingMath(state, node.text ?? '');
   },
 
@@ -260,6 +264,10 @@ interface WritableSerializerState {
   renderContent: (content: ProseMirrorNode) => void;
 }
 
+function restoreTildeRuns(escaped: string): string {
+  return escaped.replaceAll('\\~', '~').replace(/~{2,}/g, (run) => '\\~'.repeat(run.length));
+}
+
 function openSerializerState(
   serializer: MarkdownSerializer,
   options?: { tightLists?: boolean }
@@ -277,7 +285,7 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
     const state = openSerializerState(this, options);
     const escape = state.esc.bind(state);
     state.esc = (value: string, startOfLine = false) =>
-      escape(value, startOfLine).replaceAll('\\~', '~');
+      restoreTildeRuns(escape(value, startOfLine));
     state.renderContent(content);
     return state.out;
   }

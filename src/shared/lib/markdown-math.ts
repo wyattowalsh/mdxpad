@@ -80,8 +80,8 @@ function rewriteAutolinks(value: string): string {
   return value
     .replace(/<(https?:\/\/[^>\s]+)>/gi, (_match, url: string) => `[${url}](${url})`)
     .replace(
-      /<([^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)>/g,
-      (_match, email: string) => `[${email}](mailto:${email})`
+      /<((?:mailto:)?)([^\s@<>:]+@[^\s@<>]+\.[^\s@<>]+)>/gi,
+      (_match, scheme: string, email: string) => `[${scheme}${email}](mailto:${email})`
     );
 }
 
