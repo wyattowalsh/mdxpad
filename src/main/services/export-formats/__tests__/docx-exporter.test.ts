@@ -629,6 +629,24 @@ describe('DocxExporter', () => {
     expect(ended).not.toContain('w:ilvl');
   });
 
+  it('keeps indented code inside a quote', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '>     const x = 1\n',
+      outputPath: '/tmp/quote-code.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    expect(extracted.stdout.toString()).toContain('const x = 1');
+  });
+
   it('nests a child list under its parent', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

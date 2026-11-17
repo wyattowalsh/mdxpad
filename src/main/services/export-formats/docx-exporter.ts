@@ -551,6 +551,16 @@ function appendDocxQuoteParagraph(
   }
 }
 
+function appendDocxQuoteCode(blocks: (Paragraph | Table)[], lines: readonly string[]): void {
+  if (openingFence(lines[0] ?? '') === null) {
+    const body = lines.map((line) => line.replace(/^(?: {4}|\t)/, ''));
+    blocks.push(createCodeBlockParagraph(body, ''));
+    return;
+  }
+  const [open, ...body] = lines;
+  blocks.push(createCodeBlockParagraph(body, fenceLanguage(open ?? '')));
+}
+
 function appendDocxQuoteLines(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
@@ -567,8 +577,7 @@ function appendDocxQuoteLines(
       continue;
     }
     if (chunk.kind === 'code') {
-      const [open, ...body] = chunk.lines;
-      blocks.push(createCodeBlockParagraph(body, fenceLanguage(open ?? '')));
+      appendDocxQuoteCode(blocks, chunk.lines);
       continue;
     }
     if (chunk.kind === 'list') {
