@@ -19,6 +19,17 @@ describe('built-in export documents', () => {
     expect(docx).not.toContain('**bold**');
   });
 
+  it('turns an underlined title into a heading', () => {
+    const pdf = buildPdfDocument('Title\n===\n\nRule\n\n---');
+    expect(pdf.content).toContain('TITLE');
+    expect(pdf.content).not.toContain('===');
+    expect(pdf.content).toContain('---');
+
+    const docx = Buffer.from(buildDocxDocument('Title\n===').content).toString('utf8');
+    expect(docx).toContain('w:val="Heading1"');
+    expect(docx).not.toContain('===');
+  });
+
   it('wraps a long line instead of running off the page', () => {
     const pdf = buildPdfDocument(`word ${'longword '.repeat(40)}`);
     const drawn = [...pdf.content.matchAll(/\(([^)]*)\) Tj/g)].map((match) => match[1] ?? '');

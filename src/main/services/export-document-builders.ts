@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import type { DocxExportPresetOptions, PdfExportPresetOptions } from '@shared/types/root';
 import { advanceFence } from './export-formats/markdown-fence';
+import { setextLevel } from './export-formats/markdown-setext';
 import { expandLinkReferences } from './export-formats/markdown-reference';
 import { createStoredZip, toUtf8Bytes } from './zip-utils';
 
@@ -163,6 +164,34 @@ function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
   blocks.push({ kind: 'paragraph', text: plainInline(rawLine) });
 }
 
+function takeSetextHeading(blocks: MarkdownBlock[], line: string): boolean {
+  const level = setextLevel(line);
+  if (level === null) {
+    return false;
+  }
+  const body: MarkdownBlock[] = [];
+  while (blocks.length > 0) {
+    const last = blocks[blocks.length - 1];
+    if (last?.kind !== 'paragraph' || last.text.trim().length === 0) {
+      break;
+    }
+    const removed = blocks.pop();
+    if (removed) {
+      body.unshift(removed);
+    }
+  }
+  const text = body
+    .flatMap((block) => (block.kind === 'paragraph' ? [block.text.trim()] : []))
+    .filter((part) => part.length > 0)
+    .join(' ');
+  if (text.length === 0) {
+    blocks.push(...body);
+    return false;
+  }
+  blocks.push({ kind: 'heading', level, text });
+  return true;
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   const lines = expandLinkReferences(markdown).replaceAll('\r\n', '\n').split('\n');
@@ -178,7 +207,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       }
       continue;
     }
-    pushTextBlock(blocks, rawLine);
+    if (!takeSetextHeading(blocks, rawLine)) {
+      pushTextBlock(blocks, rawLine);
+    }
   }
 
   return blocks;
