@@ -1,4 +1,5 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
+import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useCommandRegistry } from '../stores/command-registry-store';
 
 function workspaceDir(filePath: string | null): string | null {
@@ -51,7 +52,14 @@ const searchWorkspaceCommand: Command = {
       ctx.notify({ type: 'warning', message: 'Open a file with text to search its folder' });
       return { ok: false, error: 'Nothing to search' };
     }
-    const result = await ctx.api.search.search(dir, query.trim().replace(/^#+\s*/, ''), 10);
+    const excludes = readExcludesForDirectory(dir);
+    const result = await ctx.api.search.search(
+      dir,
+      query.trim().replace(/^#+\s*/, ''),
+      10,
+      undefined,
+      excludes
+    );
     if (!result.ok) {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };

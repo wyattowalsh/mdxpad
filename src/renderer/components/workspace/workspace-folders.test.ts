@@ -5,6 +5,7 @@ import {
   chooseWorkspaceFolder,
   foldersFromWorkspace,
   projectsInFolderOrder,
+  readExcludesForDirectory,
   readFolderExcludes,
   withoutProjectFolder,
   writeFolderExcludes,
@@ -43,6 +44,7 @@ describe('workspace folders', () => {
       (folder) => folder.path === '/notes'
     );
     expect(notes?.excludePatterns).toEqual(['node_modules', '.git']);
+    expect(readExcludesForDirectory('/notes/drafts')).toEqual(['node_modules', '.git']);
   });
 
   it('returns the directory chosen in the native dialog', async () => {

@@ -22,16 +22,20 @@ export const SearchChannels = {
 // Request Schemas
 // ============================================================================
 
+const ExcludePatternsSchema = z.array(z.string().min(1).max(80)).max(40);
+
 export const SearchQueryRequestSchema = z.object({
   query: z.string().min(1),
   workspaceDir: FilePathSchema,
   maxResults: z.number().int().positive().optional(),
   fuzzy: z.boolean().optional(),
+  excludePatterns: ExcludePatternsSchema.optional(),
 });
 
 export const SearchIndexRequestSchema = z.object({
   workspaceDir: FilePathSchema,
   fileExtensions: z.array(z.string()).optional(),
+  excludePatterns: ExcludePatternsSchema.optional(),
 });
 
 export const SearchStatusRequestSchema = z.object({

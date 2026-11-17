@@ -29,18 +29,26 @@ const SearchIndexResultSchema = createSearchOperationResultSchema(SearchIndexRes
 const SearchStatusResultSchema = createSearchOperationResultSchema(SearchStatusResponseSchema);
 
 export const searchApi = {
-  search: (workspaceDir: string, query: string, maxResults?: number, fuzzy?: boolean) =>
+  search: (
+    workspaceDir: string,
+    query: string,
+    maxResults?: number,
+    fuzzy?: boolean,
+    excludePatterns?: readonly string[]
+  ) =>
     validatedInvoke(SearchChannels.search, SearchQueryRequestSchema, SearchQueryResultSchema, {
       query,
       workspaceDir,
       ...(maxResults !== undefined && { maxResults }),
       ...(fuzzy !== undefined && { fuzzy }),
+      ...(excludePatterns !== undefined && excludePatterns.length > 0 && { excludePatterns }),
     }),
 
-  index: (workspaceDir: string, fileExtensions?: string[]) =>
+  index: (workspaceDir: string, fileExtensions?: string[], excludePatterns?: readonly string[]) =>
     validatedInvoke(SearchChannels.index, SearchIndexRequestSchema, SearchIndexResultSchema, {
       workspaceDir,
       ...(fileExtensions !== undefined && { fileExtensions }),
+      ...(excludePatterns !== undefined && excludePatterns.length > 0 && { excludePatterns }),
     }),
 
   status: (workspaceDir: string) =>

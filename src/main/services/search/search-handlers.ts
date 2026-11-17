@@ -29,8 +29,15 @@ function registerQueryHandler(ipcMain: IpcMain, window: BrowserWindow): void {
   ipcMain.handle(SearchChannels.search, (event, args) => {
     assertAuthorizedIpcSender(event, window, SearchChannels.search);
     try {
-      const { query, workspaceDir, maxResults, fuzzy } = SearchQueryRequestSchema.parse(args);
-      const result = searchService.search(workspaceDir, query, maxResults, fuzzy);
+      const { query, workspaceDir, maxResults, fuzzy, excludePatterns } =
+        SearchQueryRequestSchema.parse(args);
+      const result = searchService.search(
+        workspaceDir,
+        query,
+        maxResults,
+        fuzzy,
+        excludePatterns ?? []
+      );
       return { ok: true, value: result };
     } catch (error) {
       return handleSearchError(error);
@@ -42,8 +49,13 @@ function registerIndexHandlers(ipcMain: IpcMain, window: BrowserWindow): void {
   ipcMain.handle(SearchChannels.index, async (event, args) => {
     assertAuthorizedIpcSender(event, window, SearchChannels.index);
     try {
-      const { workspaceDir, fileExtensions } = SearchIndexRequestSchema.parse(args);
-      const result = await searchService.indexWorkspace(workspaceDir, fileExtensions);
+      const { workspaceDir, fileExtensions, excludePatterns } =
+        SearchIndexRequestSchema.parse(args);
+      const result = await searchService.indexWorkspace(
+        workspaceDir,
+        fileExtensions,
+        excludePatterns ?? []
+      );
       return { ok: true, value: result };
     } catch (error) {
       return handleSearchError(error, 'INDEX_FAILED');

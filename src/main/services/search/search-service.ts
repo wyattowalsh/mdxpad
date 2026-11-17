@@ -7,7 +7,7 @@
 
 import MiniSearch from 'minisearch';
 import { readFile } from 'node:fs/promises';
-import { basename, extname, join, relative } from 'node:path';
+import { basename, extname, isAbsolute, join, relative, sep } from 'node:path';
 import { watch, type FSWatcher } from 'chokidar';
 import type {
   SearchQueryResponse,
@@ -108,7 +108,42 @@ function matchesExtensions(filePath: string, extensions: string[]): boolean {
   return extensions.includes(extname(filePath).toLowerCase());
 }
 
-async function collectFiles(dir: string, extensions: string[]): Promise<string[]> {
+function escapePattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function pathMatchesExclude(
+  root: string,
+  filePath: string,
+  patterns: readonly string[]
+): boolean {
+  const rel = relative(root, filePath);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    return false;
+  }
+  const segments = rel.split(sep).filter((segment) => segment.length > 0);
+  for (const raw of patterns) {
+    const pattern = raw.trim();
+    if (pattern.length === 0) {
+      continue;
+    }
+    if (pattern.includes('*')) {
+      const expression = new RegExp(`^${pattern.split('*').map(escapePattern).join('.*')}$`);
+      if (segments.some((segment) => expression.test(segment))) {
+        return true;
+      }
+    } else if (segments.includes(pattern)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function collectFiles(
+  dir: string,
+  extensions: string[],
+  excludePatterns: readonly string[] = []
+): Promise<string[]> {
   const { readdir, stat } = await import('node:fs/promises');
   const results: string[] = [];
   const queue = [dir];
@@ -121,6 +156,7 @@ async function collectFiles(dir: string, extensions: string[]): Promise<string[]
       for (const entry of entries) {
         if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
         const fullPath = join(current, entry.name);
+        if (pathMatchesExclude(dir, fullPath, excludePatterns)) continue;
         const entryStat = await stat(fullPath).catch(() => null);
         if (!entryStat) continue;
         if (entryStat.isDirectory()) {
@@ -139,11 +175,12 @@ async function collectFiles(dir: string, extensions: string[]): Promise<string[]
 
 export async function indexWorkspace(
   workspaceDir: string,
-  fileExtensions?: string[]
+  fileExtensions?: string[],
+  excludePatterns: readonly string[] = []
 ): Promise<SearchIndexResponse> {
   const startTime = Date.now();
   const extensions = fileExtensions ?? DEFAULT_EXTENSIONS;
-  const files = await collectFiles(workspaceDir, extensions);
+  const files = await collectFiles(workspaceDir, extensions, excludePatterns);
 
   const miniSearch = createMiniSearch();
   const documents: IndexedDocument[] = [];
@@ -237,7 +274,8 @@ export function search(
   workspaceDir: string,
   query: string,
   maxResults?: number,
-  fuzzy?: boolean
+  fuzzy?: boolean,
+  excludePatterns: readonly string[] = []
 ): SearchQueryResponse {
   const startTime = Date.now();
   const index = workspaceIndexes.get(workspaceDir);
@@ -247,10 +285,18 @@ export function search(
   }
 
   const limit = maxResults ?? DEFAULT_MAX_RESULTS;
-  const searchResults = index.miniSearch.search(query, {
-    fuzzy: fuzzy === true ? 0.2 : false,
-    prefix: true,
-  });
+  const searchResults = index.miniSearch
+    .search(query, {
+      fuzzy: fuzzy === true ? 0.2 : false,
+      prefix: true,
+    })
+    .filter((result) => {
+      const stored = result as unknown as { filePath?: string };
+      return (
+        stored.filePath === undefined ||
+        !pathMatchesExclude(workspaceDir, stored.filePath, excludePatterns)
+      );
+    });
 
   const results: SearchResult[] = searchResults.slice(0, limit).map((result) => {
     const stored = result as unknown as { filePath: string; fileName: string; content: string };

@@ -31,6 +31,24 @@ function readExcludeStore(): Record<string, unknown> {
   }
 }
 
+export function readExcludesForDirectory(directory: string): readonly string[] {
+  const patterns = new Set<string>();
+  for (const [key, value] of Object.entries(readExcludeStore())) {
+    const separator = key.indexOf('\n');
+    const folderPath = separator === -1 ? key : key.slice(separator + 1);
+    const coversDirectory = folderPath === directory || directory.startsWith(`${folderPath}/`);
+    if (!coversDirectory || !Array.isArray(value)) {
+      continue;
+    }
+    for (const item of value) {
+      if (typeof item === 'string' && item.length > 0) {
+        patterns.add(item);
+      }
+    }
+  }
+  return [...patterns];
+}
+
 export function readFolderExcludes(workspaceId: string, folderPath: string): readonly string[] {
   const value = readExcludeStore()[excludeStorageKey(workspaceId, folderPath)];
   if (!Array.isArray(value)) {
