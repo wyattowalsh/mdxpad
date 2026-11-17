@@ -46,4 +46,22 @@ describe('replaceWysiwygDocument', () => {
     expect(view.state.selection.from).toBe(cursor);
     expect(view.state.doc.textContent).toContain('Hello world!');
   });
+
+  it('starts a newly opened document at the beginning', () => {
+    const view = createView('Hello world');
+    let cursor = 1;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text?.includes('Hello')) {
+        cursor = pos + 'Hello'.length;
+        return false;
+      }
+      return true;
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, cursor)));
+
+    replaceWysiwygDocument(view, 'Another file', 'start');
+
+    expect(view.state.selection.from).toBeLessThan(cursor);
+    expect(view.state.doc.textContent).toContain('Another file');
+  });
 });

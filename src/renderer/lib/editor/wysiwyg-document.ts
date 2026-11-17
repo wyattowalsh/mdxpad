@@ -15,16 +15,30 @@ export function documentFromMarkdown(content: string): ProseMirrorNode {
 }
 
 /**
- * Replace the visual document from markdown and keep the cursor
- * as close as the new document allows. Returns false when the
- * document already matches.
+ * Replace the visual document from markdown.
+ * `preserve` keeps the cursor as close as the new text allows.
+ * `start` opens the document at the beginning.
+ * Returns false when nothing changes.
  */
-export function replaceWysiwygDocument(view: EditorView, markdown: string): boolean {
-  if (serializeMdxContent(view.state.doc) === markdown) {
+export function replaceWysiwygDocument(
+  view: EditorView,
+  markdown: string,
+  selection: 'preserve' | 'start' = 'preserve'
+): boolean {
+  const sameDocument = serializeMdxContent(view.state.doc) === markdown;
+  if (sameDocument && selection === 'preserve') {
     return false;
   }
+  if (sameDocument) {
+    const start = TextSelection.near(view.state.doc.resolve(0));
+    if (view.state.selection.eq(start)) {
+      return false;
+    }
+    view.dispatch(view.state.tr.setSelection(start));
+    return true;
+  }
   const next = documentFromMarkdown(markdown);
-  const cursor = view.state.selection.from;
+  const cursor = selection === 'start' ? 0 : view.state.selection.from;
   const tr = view.state.tr
     .replaceWith(0, view.state.doc.content.size, next.content)
     .setMeta('addToHistory', false);

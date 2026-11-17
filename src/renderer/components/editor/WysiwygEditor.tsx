@@ -31,6 +31,8 @@ export interface WysiwygEditorProps {
   readonly content: string;
   readonly onChange: (content: string) => void;
   readonly className?: string;
+  /** Changing this opens the visual document at the start. */
+  readonly documentKey?: string;
 }
 
 export interface WysiwygEditorHandle {
@@ -113,6 +115,7 @@ function computeActiveBlocks(state: EditorState): ActiveBlocks {
 function useEditorView(
   containerRef: React.RefObject<HTMLDivElement | null>,
   content: string,
+  documentKey: string | undefined,
   onChangeRef: React.RefObject<(content: string) => void>,
   onStateUpdate: (state: EditorState) => void
 ) {
@@ -155,13 +158,14 @@ function useEditorView(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync external content changes
+  const documentKeyRef = React.useRef(documentKey);
   React.useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
-
-    replaceWysiwygDocument(view, content);
-  }, [content]);
+    const openedAnotherFile = documentKeyRef.current !== documentKey;
+    documentKeyRef.current = documentKey;
+    replaceWysiwygDocument(view, content, openedAnotherFile ? 'start' : 'preserve');
+  }, [content, documentKey]);
 
   return viewRef;
 }
@@ -273,7 +277,7 @@ function buildToolbarActions(
 }
 
 export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditorProps>(
-  function WysiwygEditor({ content, onChange, className }, ref) {
+  function WysiwygEditor({ content, documentKey, onChange, className }, ref) {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const onChangeRef = React.useRef(onChange);
     onChangeRef.current = onChange;
@@ -295,7 +299,7 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
       setActiveBlocks(computeActiveBlocks(state));
     }, []);
 
-    const viewRef = useEditorView(containerRef, content, onChangeRef, onStateUpdate);
+    const viewRef = useEditorView(containerRef, content, documentKey, onChangeRef, onStateUpdate);
     React.useImperativeHandle(
       ref,
       () => ({

@@ -237,6 +237,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
         <WysiwygEditor
           ref={wysiwygRef}
           content={content}
+          documentKey={filePath ?? ''}
           onChange={setContent}
           className="min-h-0 flex-1"
         />
