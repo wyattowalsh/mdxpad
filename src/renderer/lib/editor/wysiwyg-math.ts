@@ -29,25 +29,60 @@ function selectionCovers(state: EditorState, from: number, to: number): boolean 
   return start < to && end > from;
 }
 
-function decorateText(
-  state: EditorState,
-  node: ProseMirrorNode,
-  pos: number,
-  parent: ProseMirrorNode | null,
-  decorations: Decoration[]
-): void {
-  if (parent?.type.name === 'code_block' || node.marks.some((mark) => mark.type.name === 'code')) {
-    return;
-  }
-  const text = node.text ?? '';
-  for (const match of text.matchAll(MATH_PATTERN)) {
+interface TextRun {
+  readonly text: string;
+  readonly positions: readonly number[];
+}
+
+function collectRuns(parent: ProseMirrorNode, parentPos: number): TextRun[] {
+  const runs: TextRun[] = [];
+  let text = '';
+  let positions: number[] = [];
+  const flush = (): void => {
+    if (text.length > 0) {
+      runs.push({ text, positions });
+    }
+    text = '';
+    positions = [];
+  };
+  let pos = parentPos + 1;
+  parent.forEach((child) => {
+    const coded = child.isText && child.marks.some((mark) => mark.type.name === 'code');
+    if (child.type.name === 'hard_break' || (child.isText && !coded)) {
+      if (child.type.name === 'hard_break') {
+        text += '\n';
+        positions.push(pos);
+      } else {
+        const value = child.text ?? '';
+        for (let index = 0; index < value.length; index += 1) {
+          positions.push(pos + index);
+        }
+        text += value;
+      }
+    } else {
+      flush();
+    }
+    pos += child.nodeSize;
+  });
+  flush();
+  return runs;
+}
+
+function decorateRun(state: EditorState, run: TextRun, decorations: Decoration[]): void {
+  for (const match of run.text.matchAll(MATH_PATTERN)) {
     const index = match.index;
     const tex = match[1] ?? match[2] ?? match[3] ?? match[4] ?? '';
-    if (tex.trim().length === 0 || (match[4] !== undefined && isPrice(tex))) {
+    const endIndex = index + match[0].length - 1;
+    const start = run.positions[index];
+    const end = run.positions[endIndex];
+    if (start === undefined || end === undefined || tex.trim().length === 0) {
       continue;
     }
-    const from = pos + index;
-    const to = from + match[0].length;
+    if (match[4] !== undefined && isPrice(tex)) {
+      continue;
+    }
+    const from = start;
+    const to = end + 1;
     if (selectionCovers(state, from, to)) {
       continue;
     }
@@ -62,9 +97,12 @@ function decorateText(
 /** Show KaTeX for math outside the caret, and the source while it is being edited. */
 export function mathDecorations(state: EditorState): DecorationSet {
   const decorations: Decoration[] = [];
-  state.doc.descendants((node, pos, parent) => {
-    if (node.isText) {
-      decorateText(state, node, pos, parent, decorations);
+  state.doc.descendants((node, pos) => {
+    if (!node.isTextblock || node.type.spec.code) {
+      return;
+    }
+    for (const run of collectRuns(node, pos)) {
+      decorateRun(state, run, decorations);
     }
   });
   return DecorationSet.create(state.doc, decorations);
