@@ -12,6 +12,18 @@ import type {
 } from '@shared/contracts/ai-schemas';
 import type { AISession } from '@shared/types/root';
 import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
+import { useDocumentStore } from './document-store';
+import { useTabStore } from './tab-store';
+
+export function editorDocumentKey(filePath: string | null, activeTabId: string | null): string {
+  if (filePath) {
+    return filePath;
+  }
+  if (activeTabId) {
+    return `untitled:${activeTabId}`;
+  }
+  return 'untitled:new';
+}
 
 export type AIStreamStatus =
   | 'idle'
@@ -24,6 +36,7 @@ export type AIStreamStatus =
 export interface AIStreamState {
   status: AIStreamStatus;
   streamId: string | null;
+  documentKey: string | null;
   text: string;
   usage: {
     inputTokens: number;
@@ -85,6 +98,7 @@ export type AISessionStore = AISessionState & AISessionStoreActions;
 const INITIAL_STREAM_STATE: AIStreamState = {
   status: 'idle',
   streamId: null,
+  documentKey: null,
   text: '',
   usage: null,
   error: null,
@@ -616,6 +630,10 @@ export const useAISessionStore = create<AISessionStore>()(
         draft.stream = {
           ...INITIAL_STREAM_STATE,
           status: 'starting',
+          documentKey: editorDocumentKey(
+            useDocumentStore.getState().filePath,
+            useTabStore.getState().activeTabId
+          ),
         };
         draft.isStreaming = true;
         draft.error = null;

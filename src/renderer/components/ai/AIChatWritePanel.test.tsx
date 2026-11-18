@@ -149,6 +149,7 @@ describe('AIChatWritePanel', () => {
       stream: {
         status: 'idle',
         streamId: null,
+        documentKey: '/notes/draft.mdx',
         text: 'more text',
         usage: null,
         error: null,
@@ -160,6 +161,26 @@ describe('AIChatWritePanel', () => {
     fireEvent.click(screen.getByTestId('ai-insert-result-button'));
 
     expect(useDocumentStore.getState().content).toBe('Hello\n\nmore text');
+  });
+
+  it('hides a draft that was written for another file', () => {
+    useDocumentStore.setState({ content: 'Hello', filePath: '/notes/other.mdx' });
+    useAISessionStore.setState({
+      stream: {
+        status: 'idle',
+        streamId: null,
+        documentKey: '/notes/draft.mdx',
+        text: 'more text',
+        usage: null,
+        error: null,
+      },
+      isStreaming: false,
+    });
+
+    render(<AIChatWritePanel />);
+
+    expect(screen.queryByTestId('ai-insert-result-button')).toBeNull();
+    expect(useDocumentStore.getState().content).toBe('Hello');
   });
 
   it('loads sessions and attachment options on mount', async () => {

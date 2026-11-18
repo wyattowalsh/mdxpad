@@ -6,6 +6,7 @@ import { Label } from '@ui/label';
 import { Textarea } from '@ui/textarea';
 import {
   useAISessionStore,
+  editorDocumentKey,
   selectAttachedInstructionId,
   selectAttachedPromptId,
   selectError,
@@ -17,6 +18,7 @@ import {
   selectSessions,
   selectStreamText,
 } from '@renderer/stores/ai-session-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import { selectFeatureFlag, useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
 import { selectFilePath, useDocumentStore } from '@renderer/stores/document-store';
 import { selectWorkspaceModel, useWorkspaceStore } from '@renderer/stores/workspace-store';
@@ -69,10 +71,14 @@ export function AIChatWritePanel({
   const isLoading = useAISessionStore(selectIsLoading);
   const isStreaming = useAISessionStore(selectIsStreaming);
   const streamText = useAISessionStore(selectStreamText);
+  const streamDocumentKey = useAISessionStore((state) => state.stream.documentKey);
   const error = useAISessionStore(selectError);
   const workspaceModel = useWorkspaceStore(selectWorkspaceModel);
   const activeProvider = useAIProviderStore(selectActiveProvider);
   const documentPath = useDocumentStore(selectFilePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const documentKey = editorDocumentKey(documentPath, activeTabId);
+  const showDraft = streamText.length > 0 && streamDocumentKey === documentKey;
 
   const loadSessions = useAISessionStore((state) => state.loadSessions);
   const loadAttachmentOptions = useAISessionStore((state) => state.loadAttachmentOptions);
@@ -371,7 +377,7 @@ export function AIChatWritePanel({
         </p>
       )}
 
-      {streamText && (
+      {showDraft && (
         <div className="space-y-2">
           <pre
             data-testid="ai-stream-output"
