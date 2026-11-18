@@ -162,6 +162,36 @@ describe('useAISessionStore', () => {
     expect(state.error).toBeNull();
   });
 
+  it('keeps prompts for the folder that was opened last', async () => {
+    const older = createPrompt({ id: 'old-prompt', title: 'Old' });
+    const newer = createPrompt({ id: 'new-prompt', title: 'New' });
+    let finishOld: (value: { prompts: AIPromptFileMetadata[] }) => void = () => undefined;
+    mockAIApi.listPrompts
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ prompts: [newer] });
+    mockAIApi.listInstructions.mockResolvedValue({ instructions: [] });
+
+    const first = useAISessionStore.getState().loadAttachmentOptions({
+      workspaceRootPath: '/old',
+    });
+    const second = useAISessionStore.getState().loadAttachmentOptions({
+      workspaceRootPath: '/new',
+    });
+    await second;
+    finishOld({ prompts: [older] });
+    await first;
+
+    expect(useAISessionStore.getState().prompts.map((prompt) => prompt.id)).toEqual([
+      'new-prompt',
+    ]);
+    expect(useAISessionStore.getState().isLoading).toBe(false);
+  });
+
   it('loads attachment options for prompt and instruction selection', async () => {
     const prompt = createPrompt();
     const instruction = createInstruction();

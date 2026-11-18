@@ -22,6 +22,7 @@ import { usageStatsFromQuery } from './usage-stats-map';
 let providerListRequestId = 0;
 let usageStatsRequestId = 0;
 let sidecarRequestId = 0;
+let providerValidationRequestId = 0;
 
 // =============================================================================
 // WINDOW TYPE DECLARATION
@@ -381,6 +382,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     },
 
     validateProvider: async (id) => {
+      const requestId = ++providerValidationRequestId;
       set((state) => {
         state.isValidating = true;
         state.error = null;
@@ -388,6 +390,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const result = await getAIApi().validateProvider(id);
+        const current = requestId === providerValidationRequestId;
 
         set((state) => {
           const provider = state.providers.find((p) => p.id === id);
@@ -401,21 +404,25 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
               provider.errorMessage = result.error.message;
             }
           }
-          state.isValidating = false;
+          if (current) {
+            state.isValidating = false;
+          }
         });
 
         return result.success;
       } catch (error) {
+        const current = requestId === providerValidationRequestId;
+        const message = error instanceof Error ? error.message : 'Failed to validate provider';
         set((state) => {
-          // Set provider error state on validation failure
           const provider = state.providers.find((p) => p.id === id);
           if (provider) {
             provider.status = 'error';
-            provider.errorMessage =
-              error instanceof Error ? error.message : 'Failed to validate provider';
+            provider.errorMessage = message;
           }
-          state.isValidating = false;
-          state.error = error instanceof Error ? error.message : 'Failed to validate provider';
+          if (current) {
+            state.isValidating = false;
+            state.error = message;
+          }
         });
         return false;
       }

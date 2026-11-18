@@ -235,6 +235,54 @@ describe('AI Provider Store', () => {
       expect(useAIProviderStore.getState().isSidecarLoading).toBe(false);
     });
 
+    it('keeps validating the provider that was tested last', async () => {
+      const base = {
+        type: 'openai' as const,
+        isActive: false,
+        status: 'disconnected' as const,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      };
+      useAIProviderStore.setState({
+        providers: [
+          { ...base, id: 'provider-a', displayName: 'A' },
+          { ...base, id: 'provider-b', displayName: 'B' },
+        ],
+      });
+      let finishOld: (value: {
+        success: boolean;
+        status: 'error';
+        error: { message: string };
+      }) => void = () => undefined;
+      mockAIApi.validateProvider
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishOld = resolve;
+            })
+        )
+        .mockResolvedValueOnce({ success: true, status: 'connected' });
+
+      const first = useAIProviderStore.getState().validateProvider('provider-a');
+      const second = useAIProviderStore.getState().validateProvider('provider-b');
+      await second;
+      finishOld({ success: false, status: 'error', error: { message: 'A failed' } });
+      await first;
+
+      const state = useAIProviderStore.getState();
+      expect(state.isValidating).toBe(false);
+      expect(state.error).toBeNull();
+      expect(state.providers.find((provider) => provider.id === 'provider-b')?.status).toBe(
+        'connected'
+      );
+      expect(state.providers.find((provider) => provider.id === 'provider-a')?.status).toBe(
+        'error'
+      );
+      expect(state.providers.find((provider) => provider.id === 'provider-a')?.errorMessage).toBe(
+        'A failed'
+      );
+    });
+
     it('keeps the sidecar status from the latest action', async () => {
       let finishStatus: (value: { success: boolean; status: 'stopped' }) => void = () => undefined;
       mockAIApi.getSidecarStatus.mockImplementationOnce(

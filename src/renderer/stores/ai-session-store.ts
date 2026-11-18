@@ -136,6 +136,7 @@ interface StreamErrorEvent {
 
 let sessionListRequestId = 0;
 let sessionSelectRequestId = 0;
+let attachmentOptionsRequestId = 0;
 let streamListenersBound = false;
 let removeChunkListener: (() => void) | null = null;
 let removeCompleteListener: (() => void) | null = null;
@@ -505,6 +506,7 @@ export const useAISessionStore = create<AISessionStore>()(
     },
 
     loadAttachmentOptions: async (options = {}) => {
+      const requestId = ++attachmentOptionsRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -525,6 +527,9 @@ export const useAISessionStore = create<AISessionStore>()(
           ),
           window.mdxpad.ai.listInstructions(toInstructionListRequest(options)),
         ]);
+        if (requestId !== attachmentOptionsRequestId) {
+          return;
+        }
 
         set((draft) => {
           draft.prompts = castDraft(promptResponse.prompts);
@@ -532,6 +537,9 @@ export const useAISessionStore = create<AISessionStore>()(
           draft.isLoading = false;
         });
       } catch (error) {
+        if (requestId !== attachmentOptionsRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = getErrorMessage(error, 'Failed to load AI attachments');
           draft.isLoading = false;
@@ -760,6 +768,7 @@ export const useAISessionStore = create<AISessionStore>()(
     reset: () => {
       sessionListRequestId += 1;
       sessionSelectRequestId += 1;
+      attachmentOptionsRequestId += 1;
       unbindStreamListeners();
       set((draft) => {
         draft.sessions = [];
