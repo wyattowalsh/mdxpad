@@ -254,6 +254,50 @@ describe('PandocRawExporter', () => {
     expect(args).not.toContain('--metadata');
   });
 
+  it('keeps a preset flag and drops an output override', async () => {
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/bin/pandoc',
+      version: '3.1.0',
+    });
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return { stdin: { write: vi.fn(), end: vi.fn() } };
+      }
+    );
+
+    const result = await exporter.export({
+      content: '# Hi',
+      outputPath: '/tmp/out.html',
+      metadata: {
+        to: '../html',
+        from: 'markdown',
+        timeoutMs: 1000,
+        extraArgs: ['--toc', '--output', '/tmp/secret'],
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    const args = mockExecFile.mock.calls[0]?.[1] as string[];
+    const options = mockExecFile.mock.calls[0]?.[2] as { timeout?: number };
+    expect(args).toContain('--toc');
+    expect(args).toContain('--to');
+    expect(args[args.indexOf('--to') + 1]).toBe('html');
+    expect(args).not.toContain('/tmp/secret');
+    expect(args.filter((arg) => arg === '--output')).toHaveLength(1);
+    expect(args[args.indexOf('--output') + 1]).toBe('/tmp/out.html');
+    expect(options.timeout).toBe(1000);
+  });
+
   it('writes a standalone HTML file with MathML', async () => {
     const { detectPandoc } = await import('../pandoc-detector');
     (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({

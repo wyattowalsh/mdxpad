@@ -7,6 +7,7 @@ import type { ExportCliInvokeRequest } from '@shared/contracts/export-schemas';
 import {
   EpubExportOptionsSchema,
   LatexExportOptionsSchema,
+  PandocExportOptionsSchema,
 } from '@shared/contracts/export-format-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import type { ExportCliEvent, ExportCliOutput } from '@shared/types/export-model';
@@ -317,6 +318,27 @@ function epubPresetFields(options: unknown): {
   };
 }
 
+function pandocPresetMetadata(options: unknown): Record<string, unknown> | undefined {
+  const parsed = PandocExportOptionsSchema.partial().safeParse(options);
+  if (!parsed.success) {
+    return undefined;
+  }
+  const metadata: Record<string, unknown> = {};
+  if (parsed.data.from !== undefined) {
+    metadata.from = parsed.data.from;
+  }
+  if (parsed.data.to !== undefined) {
+    metadata.to = parsed.data.to;
+  }
+  if (parsed.data.timeoutMs !== undefined) {
+    metadata.timeoutMs = parsed.data.timeoutMs;
+  }
+  if (parsed.data.extraArgs !== undefined) {
+    metadata.extraArgs = parsed.data.extraArgs;
+  }
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
 function presetExportFields(request: ExportCliInvokeRequest): {
   title: string;
   author?: string;
@@ -324,6 +346,13 @@ function presetExportFields(request: ExportCliInvokeRequest): {
 } {
   if (request.job.format === 'latex') {
     const metadata = latexPresetMetadata(request.job.preset.options);
+    return {
+      title: request.job.preset.name,
+      ...(metadata ? { metadata } : {}),
+    };
+  }
+  if (request.job.format === 'pandoc') {
+    const metadata = pandocPresetMetadata(request.job.preset.options);
     return {
       title: request.job.preset.name,
       ...(metadata ? { metadata } : {}),

@@ -144,6 +144,60 @@ export class PandocBridge implements Exporter {
   }
 }
 
+const PANDOC_FORMAT = /^[A-Za-z0-9][A-Za-z0-9_+-]*$/;
+const PANDOC_FLAG = /^--?[A-Za-z][A-Za-z0-9-]*$/;
+const BLOCKED_PANDOC_ARGS = new Set([
+  '-o',
+  '--output',
+  '--data-dir',
+  '--defaults',
+  '--filter',
+  '--lua-filter',
+  '--template',
+  '--include-in-header',
+  '--include-before-body',
+  '--include-after-body',
+  '--reference-doc',
+  '--extract-media',
+  '--log',
+]);
+
+function pandocFormat(value: unknown, fallback: string): string {
+  return typeof value === 'string' && PANDOC_FORMAT.test(value) ? value : fallback;
+}
+
+function pandocExtraArgs(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (item): item is string =>
+      typeof item === 'string' && PANDOC_FLAG.test(item) && !BLOCKED_PANDOC_ARGS.has(item)
+  );
+}
+
+function pandocTimeout(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 120_000
+    ? value
+    : DEFAULT_TIMEOUT_MS;
+}
+
+function pandocBridgeOptions(metadata: Record<string, unknown> | undefined): {
+  targetFormat: string;
+  sourceFormat: string;
+  timeoutMs: number;
+  extraArgs: string[];
+} {
+  const targetFormat = pandocFormat(metadata?.to, 'html');
+  const sourceFormat = pandocFormat(metadata?.from, 'markdown+tex_math_dollars');
+  return {
+    targetFormat,
+    sourceFormat,
+    timeoutMs: pandocTimeout(metadata?.timeoutMs),
+    extraArgs: htmlWriterArgs(targetFormat, pandocExtraArgs(metadata?.extraArgs)),
+  };
+}
+
 export class PandocRawExporter implements Exporter {
   readonly format = 'pandoc';
   readonly label = 'Pandoc (Custom)';
@@ -151,18 +205,7 @@ export class PandocRawExporter implements Exporter {
   readonly mimeType = 'application/octet-stream';
 
   async export(options: ExportOptions): Promise<ExportResult> {
-    const meta = options.metadata ?? {};
-    const targetFormat = (meta.to as string | undefined) ?? 'html';
-    const sourceFormat = (meta.from as string | undefined) ?? 'markdown+tex_math_dollars';
-    const timeoutMs = (meta.timeoutMs as number | undefined) ?? DEFAULT_TIMEOUT_MS;
-    const extraArgs = htmlWriterArgs(targetFormat, (meta.extraArgs as string[] | undefined) ?? []);
-
-    const bridge = new PandocBridge({
-      targetFormat,
-      sourceFormat,
-      timeoutMs,
-      extraArgs,
-    });
+    const bridge = new PandocBridge(pandocBridgeOptions(options.metadata));
 
     return bridge.export(options);
   }
