@@ -3,7 +3,7 @@
  * A quoted title may contain `)`, which must not end the target.
  */
 export const MARKDOWN_LINK_INSIDE =
-  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))+';
+  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))*';
 
 function unwrapDestination(raw: string): string | null {
   const angled = /^(?:<|&lt;)(.+?)(?:>|&gt;)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/.exec(raw);

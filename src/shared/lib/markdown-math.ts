@@ -221,7 +221,7 @@ function takeTexSpan(value: string, index: number): string | null {
 }
 
 const LINK_INSIDE =
-  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))+';
+  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))*';
 
 function balancedLabelEnd(value: string, openIndex: number): number | null {
   let depth = 0;
