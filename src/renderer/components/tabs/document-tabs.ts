@@ -7,7 +7,6 @@ import { documentIdForPath } from '@renderer/lib/document-id';
 import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
 import type { AutosaveTriggerRequest } from '@shared/contracts/autosave-ipc';
-
 import { recoveryDocumentId } from './tab-recovery-id';
 
 let applyingTab = false;
@@ -20,8 +19,17 @@ function noteEpoch(id: string): void {
   tabEpoch.set(id, freshUntitledEpochId());
 }
 
+/** Remember that this tab belongs to the current untitled generation. */
+export function noteTabEpoch(id: string): void {
+  noteEpoch(id);
+}
+
 function flushTabRecovery(tab: Tab): void {
-  if (!tab.isDirty || !('mdxpad' in window) || typeof window.mdxpad.autosaveTrigger !== 'function') {
+  if (
+    !tab.isDirty ||
+    !('mdxpad' in window) ||
+    typeof window.mdxpad.autosaveTrigger !== 'function'
+  ) {
     return;
   }
   const state = useDocumentStore.getState();
@@ -138,6 +146,16 @@ function adoptOpenFile(filePath: string): boolean {
   useTabStore.getState().updateTab(existing.id, tabSnapshot());
   useTabStore.getState().setActiveTab(existing.id);
   return true;
+}
+
+/** Change tabs and the open document without the tab mirror reacting. */
+export function whileApplyingTabs(update: () => void): void {
+  applyingTab = true;
+  try {
+    update();
+  } finally {
+    applyingTab = false;
+  }
 }
 
 /** Mirror the open document into the active tab, or open a tab for it. */

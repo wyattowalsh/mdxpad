@@ -14,9 +14,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useDocumentStore } from '@renderer/stores/document-store';
+import { openRecoveredDocuments } from '@renderer/components/tabs/restore-document-tabs';
 import type { RestoredDocument } from '@shared/contracts/autosave-ipc';
-import type { DocumentId as DocumentStoreId } from '@shared/types/document';
 
 // =============================================================================
 // TYPES
@@ -52,6 +51,24 @@ export interface UseRecoveryRestoreResult {
  * @param fallbackName - Fallback name if path is null
  * @returns The filename portion of the path or fallback
  */
+function recoveredFrom(entry: unknown): {
+  documentId: string;
+  filePath: string | null;
+  fileName: string;
+  content: string;
+} | null {
+  if (typeof entry !== 'object' || entry === null) {
+    return null;
+  }
+  const doc = entry as RestoredDocument;
+  return {
+    documentId: doc.documentId,
+    filePath: doc.filePath,
+    fileName: extractFileName(doc.filePath, doc.fileName),
+    content: doc.content,
+  };
+}
+
 function extractFileName(filePath: string | null, fallbackName: string): string {
   if (!filePath) {
     return fallbackName;
@@ -93,84 +110,41 @@ function extractFileName(filePath: string | null, fallbackName: string): string 
 export function useRecoveryRestore(): UseRecoveryRestoreResult {
   const [isRestoring, setIsRestoring] = useState(false);
 
-  // Get document store state setter via Immer-based store
-  // We need direct access to set multiple fields atomically
-  const store = useDocumentStore;
+  const restoreDocuments = useCallback((documents: readonly RestoredDocument[]): void => {
+    if (documents.length === 0) {
+      console.debug('[useRecoveryRestore] No documents to restore');
+      return;
+    }
 
-  const restoreDocuments = useCallback(
-    (documents: readonly RestoredDocument[]): void => {
-      // Validate input
-      if (documents.length === 0) {
-        console.debug('[useRecoveryRestore] No documents to restore');
-        return;
+    const recovered = [];
+    for (const entry of documents) {
+      const doc = recoveredFrom(entry);
+      if (!doc) {
+        continue;
       }
+      recovered.push(doc);
+    }
+    if (recovered.length === 0) {
+      return;
+    }
 
-      setIsRestoring(true);
+    setIsRestoring(true);
 
-      try {
-        // For single-document app, restore only the first document
-        const doc = documents[0];
-
-        if (!doc) {
-          // This should never happen after the length check above
-          return;
-        }
-
-        console.debug(
-          '[useRecoveryRestore] Restoring document:',
-          doc.documentId,
-          doc.filePath ?? 'untitled'
-        );
-
-        // Determine the filename
-        const fileName = extractFileName(doc.filePath, doc.fileName);
-
-        // Update the document store using Immer set
-        // This sets all fields atomically and marks as dirty
-        // Note: DocumentId types differ between Zod-branded (autosave schemas) and
-        // TypeScript-branded (document store). Both are string-based UUIDs, so cast is safe.
-        store.setState((state) => ({
-          ...state,
-          // Set fileId to the recovery documentId (cast between branded string types)
-          fileId: doc.documentId as unknown as DocumentStoreId,
-          // Set filePath (null for untitled documents)
-          filePath: doc.filePath,
-          // Set display name
-          fileName,
-          // Set content to recovered content
-          content: doc.content,
-          // Keep savedContent empty to ensure isDirty is true
-          // The recovered content hasn't been saved to disk yet
-          savedContent: '',
-          // Mark as dirty since recovered content needs to be saved
-          isDirty: true,
-          // Reset mtime since we don't know the current file state
-          lastKnownMtime: null,
-          externalChangeDetected: false,
-          externalContent: null,
-          externalMtime: null,
-        }));
-
-        console.debug('[useRecoveryRestore] Document restored successfully:', fileName);
-
-        // Log if multiple documents were provided but only first was restored
-        if (documents.length > 1) {
-          console.info(
-            '[useRecoveryRestore] Multiple documents provided (%d), only first was restored (single-document mode)',
-            documents.length
-          );
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('[useRecoveryRestore] Failed to restore document:', message);
-        // Re-throw so caller can handle
-        throw error;
-      } finally {
-        setIsRestoring(false);
-      }
-    },
-    [store]
-  );
+    try {
+      openRecoveredDocuments(recovered);
+      console.debug(
+        '[useRecoveryRestore] Restored %d document(s). The editor is showing %s',
+        recovered.length,
+        recovered[0]?.fileName
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[useRecoveryRestore] Failed to restore document:', message);
+      throw error;
+    } finally {
+      setIsRestoring(false);
+    }
+  }, []);
 
   return {
     restoreDocuments,

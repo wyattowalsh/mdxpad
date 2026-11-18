@@ -9,7 +9,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRecoveryRestore } from './use-recovery-restore';
+import { subscribeDocumentTabs } from '@renderer/components/tabs/document-tabs';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 import type { RestoredDocument } from '@shared/contracts/autosave-ipc';
 import type { DocumentId as AutosaveDocumentId } from '@shared/contracts/autosave-schemas';
 
@@ -26,6 +28,7 @@ const createMockRestoredDocument = (overrides?: Partial<RestoredDocument>): Rest
 });
 
 beforeEach(() => {
+  useTabStore.getState().reset();
   // Reset document store
   useDocumentStore.setState({
     fileId: null,
@@ -214,7 +217,7 @@ describe('useRecoveryRestore', () => {
   });
 
   describe('multiple documents', () => {
-    it('should restore only first document', () => {
+    it('opens every recovered document and shows the first', () => {
       const { result } = renderHook(() => useRecoveryRestore());
 
       const doc1 = createMockRestoredDocument({
@@ -235,9 +238,39 @@ describe('useRecoveryRestore', () => {
 
       const state = useDocumentStore.getState();
 
-      // Should restore first document only
       expect(state.content).toBe('First document');
       expect(state.fileName).toBe('first.mdx');
+      expect(useTabStore.getState().tabs.map((tab) => tab.fileName)).toEqual([
+        'first.mdx',
+        'second.mdx',
+      ]);
+      expect(useTabStore.getState().tabs[1]?.content).toBe('Second document');
+    });
+
+    it('keeps every recovered document when the tab bar is following the editor', () => {
+      const stop = subscribeDocumentTabs();
+      const { result } = renderHook(() => useRecoveryRestore());
+      const doc1 = createMockRestoredDocument({
+        content: 'First document',
+        fileName: 'first.mdx',
+        filePath: '/docs/first.mdx',
+      });
+      const doc2 = createMockRestoredDocument({
+        content: 'Second document',
+        fileName: 'second.mdx',
+        filePath: '/docs/second.mdx',
+      });
+
+      act(() => {
+        result.current.restoreDocuments([doc1, doc2]);
+      });
+      stop();
+
+      expect(useTabStore.getState().tabs.map((tab) => tab.content)).toEqual([
+        'First document',
+        'Second document',
+      ]);
+      expect(useDocumentStore.getState().content).toBe('First document');
     });
 
     it('should log info when multiple documents provided', () => {
