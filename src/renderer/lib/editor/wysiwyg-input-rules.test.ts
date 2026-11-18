@@ -127,6 +127,21 @@ describe('visual markdown shortcuts', () => {
     expect(view.state.doc.textContent.endsWith(' ')).toBe(true);
   });
 
+  it('keeps a period after a typed web address', () => {
+    const view = open();
+    views.push(view);
+    type(view, 'https://ex.test. ');
+    const parts: string[] = [];
+    view.state.doc.descendants((node) => {
+      if (node.isText && node.text) {
+        parts.push(node.text);
+      }
+    });
+    expect(parts[0]).toBe('https://ex.test');
+    expect(view.state.doc.firstChild?.firstChild?.marks[0]?.attrs.href).toBe('https://ex.test');
+    expect(parts.join('')).toBe('https://ex.test. ');
+  });
+
   it('turns a typed email address into a link', () => {
     const view = open();
     views.push(view);

@@ -71,10 +71,14 @@ function autolinkRule(): InputRule {
       if (state.doc.resolve(linkStart).marks().some((item) => item.type.name === 'link')) {
         return null;
       }
-      const tr = state.tr.replaceWith(linkStart, end, state.schema.text(found.text, [mark]));
-      tr.removeStoredMark(mark.type);
-      tr.insertText(' ', tr.mapping.map(end));
-      return tr;
+      const rest = token.slice(found.text.length);
+      const pieces = [state.schema.text(found.text, [mark])];
+      if (rest.length > 0) {
+        pieces.push(state.schema.text(rest));
+      }
+      pieces.push(state.schema.text(' '));
+      const tr = state.tr.replaceWith(linkStart, end, pieces);
+      return tr.removeStoredMark(mark.type);
     },
     { inCodeMark: false }
   );
