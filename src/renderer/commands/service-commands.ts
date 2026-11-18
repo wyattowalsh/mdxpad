@@ -520,6 +520,9 @@ async function appendParsedBibliography(ctx: CommandContext): Promise<CommandRes
     return { ok: false, error: 'The document is empty' };
   }
   const parsed = await citation.parseBibtex(snapshot);
+  if (!documentStillMatches(ctx, snapshot)) {
+    return citationChanged(ctx);
+  }
   if (!parsed.ok) {
     ctx.notify({ type: 'error', message: parsed.error.message });
     return { ok: false, error: parsed.error.message };
@@ -529,11 +532,22 @@ async function appendParsedBibliography(ctx: CommandContext): Promise<CommandRes
     return { ok: true };
   }
   const generated = await citation.generateBibliography(parsed.value.entries, 'apa');
+  if (!documentStillMatches(ctx, snapshot)) {
+    return citationChanged(ctx);
+  }
   if (!generated.ok) {
     ctx.notify({ type: 'error', message: generated.error.message });
     return { ok: false, error: generated.error.message };
   }
   return writeBibliography(ctx, snapshot, generated.value.bibliography, generated.value.entryCount);
+}
+
+function citationChanged(ctx: CommandContext): CommandResult {
+  ctx.notify({
+    type: 'warning',
+    message: 'The document changed while citations were parsed. It was not changed.',
+  });
+  return { ok: false, error: 'Document changed during citation parse' };
 }
 
 function writeBibliography(

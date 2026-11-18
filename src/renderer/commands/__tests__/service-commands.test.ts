@@ -597,6 +597,42 @@ describe('import.html', () => {
     expect(useDocumentStore.getState().content).toBe('Live');
   });
 
+  it('does not report an import error after the document changes', async () => {
+    useDocumentStore.getState().setContent('<p>Hi</p>');
+    let finishImport: (value: { ok: false; error: { message: string } }) => void = () =>
+      undefined;
+    const fromHtml = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishImport = resolve;
+        })
+    );
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: null, content: '<p>Hi</p>' },
+      api: { import: { fromHtml } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'import.html');
+    const pending = command?.execute(context);
+    useDocumentStore.getState().setContent('kept');
+    finishImport({ ok: false, error: { message: 'Could not convert HTML' } });
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      error: 'Document changed during import',
+    });
+    expect(useDocumentStore.getState().content).toBe('kept');
+    expect(notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'The document changed during import. It was not replaced.',
+    });
+    expect(notify).not.toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Could not convert HTML',
+    });
+  });
+
   it('imports a Notion page into the document', async () => {
     useDocumentStore.getState().setContent('keep');
     const fromNotion = vi.fn().mockResolvedValue({
@@ -676,6 +712,38 @@ describe('citation.parse', () => {
     await expect(command?.execute(context)).resolves.toEqual({ ok: true });
     expect(parseBibtex).toHaveBeenCalledWith('@article{a, title={Live}}');
     expect(useDocumentStore.getState().content).toBe('@article{a, title={Live}}\n\nLive. (n.d.).');
+  });
+
+  it('does not report a citation error after the document changes', async () => {
+    useDocumentStore.getState().setContent('@article{a, title={One}}');
+    let finishParse: (value: { ok: false; error: { message: string } }) => void = () => undefined;
+    const parseBibtex = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishParse = resolve;
+        })
+    );
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: null, content: '@article{a, title={One}}' },
+      api: { citation: { parseBibtex, generateBibliography: vi.fn() } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'citation.parse');
+    const pending = command?.execute(context);
+    useDocumentStore.getState().setContent('other');
+    finishParse({ ok: false, error: { message: 'Bad BibTeX' } });
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      error: 'Document changed during citation parse',
+    });
+    expect(useDocumentStore.getState().content).toBe('other');
+    expect(notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'The document changed while citations were parsed. It was not changed.',
+    });
+    expect(notify).not.toHaveBeenCalledWith({ type: 'error', message: 'Bad BibTeX' });
   });
 });
 

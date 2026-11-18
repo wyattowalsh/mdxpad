@@ -53,6 +53,13 @@ async function runImport(
     return { ok: false, error: 'The document is empty' };
   }
   const result = await load(snapshot);
+  if (!documentStillMatches(ctx, snapshot)) {
+    ctx.notify({
+      type: 'warning',
+      message: 'The document changed during import. It was not replaced.',
+    });
+    return { ok: false, error: 'Document changed during import' };
+  }
   if (!result.ok) {
     ctx.notify({ type: 'error', message: result.error.message });
     return { ok: false, error: result.error.message };
