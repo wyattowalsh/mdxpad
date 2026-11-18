@@ -20,7 +20,7 @@ import * as fs from 'node:fs/promises';
 
 import { IPC_EVENTS } from '@shared/lib/ipc';
 import { RecentFilesService, type RecentFileEntry } from './services/recent-files';
-import { readFile, createFileHandle } from './services/file-service';
+import { readFileWithoutFollowingLinks, createFileHandle } from './services/file-service';
 import { grantWriteCapability } from './ipc/document-capability';
 import type { FileHandle as SchemaFileHandle } from '@shared/contracts/file-schemas';
 
@@ -106,7 +106,7 @@ async function openRecentFile(entry: RecentFileEntry, window: BrowserWindow): Pr
   }
 
   // Read the file content
-  const readResult = await readFile(entry.path);
+  const readResult = await readFileWithoutFollowingLinks(entry.path);
 
   if (!readResult.ok) {
     // Show error dialog for read failure

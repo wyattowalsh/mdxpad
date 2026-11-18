@@ -66,6 +66,7 @@ vi.mock('@main/services/recent-files', () => ({
 
 vi.mock('@main/services/file-service', () => ({
   readFile: vi.fn().mockResolvedValue({ ok: true, value: '# Test' }),
+  readFileWithoutFollowingLinks: vi.fn().mockResolvedValue({ ok: true, value: '# Test' }),
   createFileHandle: vi.fn((path: string) => ({
     id: 'test-id',
     path,
@@ -498,7 +499,7 @@ describe('Opening Recent Files', () => {
     // Wait for async operations
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(FileService.readFile).toHaveBeenCalledWith('/test/file.mdx');
+    expect(FileService.readFileWithoutFollowingLinks).toHaveBeenCalledWith('/test/file.mdx');
     expect(window.webContents.send).toHaveBeenCalledWith(
       'mdxpad:menu:open-file',
       expect.objectContaining({
@@ -539,7 +540,7 @@ describe('Opening Recent Files', () => {
     const mockEntry = { path: '/test/file.mdx', accessedAt: Date.now() };
     mockRecentFilesServiceInstance.getRecent.mockReturnValue([mockEntry]);
 
-    vi.mocked(FileService.readFile).mockResolvedValue({
+    vi.mocked(FileService.readFileWithoutFollowingLinks).mockResolvedValue({
       ok: false,
       error: { code: 'PERMISSION_DENIED', path: '/test/file.mdx' },
     });
