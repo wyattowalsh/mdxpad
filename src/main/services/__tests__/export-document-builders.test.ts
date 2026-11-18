@@ -83,7 +83,9 @@ describe('built-in export documents', () => {
     const loose = buildPdfDocument('- parent\n\n  - child\n\n  more\n');
     expect(loose.content).toContain('(  - child) Tj');
     expect(loose.content).toContain('(  more) Tj');
-    expect(loose.content.indexOf('(  - child) Tj')).toBeLessThan(loose.content.indexOf('(  more) Tj'));
+    expect(loose.content.indexOf('(  - child) Tj')).toBeLessThan(
+      loose.content.indexOf('(  more) Tj')
+    );
     const ended = buildPdfDocument('- parent\n\n  - child\n\nbaz\n');
     expect(ended.content).toContain('(baz) Tj');
     expect(ended.content).not.toContain('(  baz) Tj');
@@ -179,6 +181,17 @@ describe('built-in export documents', () => {
     expect(docx).toContain('Stay');
     expect(docx).toContain('<w:br/>');
     expect(docx).toContain('put');
+  });
+
+  it('keeps parenthesis and bullet markers in the plain export', () => {
+    const pdf = buildPdfDocument('1) one\n2) two\n\n+ plus\n* star');
+    expect(pdf.content).toContain('1\\) one');
+    expect(pdf.content).toContain('2\\) two');
+    expect(pdf.content).toContain('(+ plus)');
+    expect(pdf.content).toContain('(* star)');
+    const docx = Buffer.from(buildDocxDocument('1) one\n+ plus').content).toString('utf8');
+    expect(docx).toContain('1)');
+    expect(docx).toContain('+ plus');
   });
 
   it('keeps literal stars that are not emphasis', () => {

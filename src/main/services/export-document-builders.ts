@@ -16,6 +16,7 @@ import {
   listContentColumn,
   parseListItem,
   shouldOpenListItem,
+  type MarkdownListItem,
 } from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
 import { HARD_BREAK, reopenInlineMarks } from './export-formats/markdown-marks';
@@ -171,6 +172,13 @@ function plainFromSource(source: string): string {
   return plainInline(opened.split(HARD_BREAK).join('\n'));
 }
 
+function plainMarker(item: MarkdownListItem): string {
+  if (!item.ordered) {
+    return item.delimiter === '+' || item.delimiter === '*' ? item.delimiter : '-';
+  }
+  return `${item.start}${item.delimiter === ')' ? ')' : '.'}`;
+}
+
 function plainListFromSource(source: string): string {
   const pieces = reopenInlineMarks(source.replaceAll('\n', HARD_BREAK)).split(HARD_BREAK);
   const first = pieces[0] ?? '';
@@ -185,8 +193,7 @@ function plainListFromSource(source: string): string {
   if (task) {
     return `${indent}[${task.checked ? 'x' : ' '}] ${plain}`;
   }
-  const marker = item.ordered ? `${item.start}.` : '-';
-  return `${indent}${marker} ${plain}`;
+  return `${indent}${plainMarker(item)} ${plain}`;
 }
 
 const PLAIN_CODE = '\uE018';
@@ -271,10 +278,7 @@ function plainParagraph(rawLine: string): string {
   if (task) {
     return `${indent}[${task.checked ? 'x' : ' '}] ${body}`;
   }
-  if (item.ordered) {
-    return `${indent}${item.start}. ${body}`;
-  }
-  return `${indent}- ${body}`;
+  return `${indent}${plainMarker(item)} ${body}`;
 }
 
 function pushTextBlock(blocks: MarkdownBlock[], rawLine: string): void {
