@@ -41,6 +41,7 @@ vi.mock('fs/promises', () => ({
   copyFile: vi.fn(),
   access: vi.fn(),
   stat: vi.fn(),
+  lstat: vi.fn(),
 }));
 
 // Mock path module
@@ -84,6 +85,7 @@ const mockFs = fs as unknown as {
   copyFile: Mock;
   access: Mock;
   stat: Mock;
+  lstat: Mock;
 };
 const mockCompile = compile as Mock;
 
@@ -174,10 +176,7 @@ describe('template-handlers', () => {
       (channel: string, handler: (event: unknown, args?: unknown) => Promise<unknown>) => {
         registeredHandlers.set(channel, (event, args) => {
           const hasSenderContext = Boolean(
-            event &&
-            typeof event === 'object' &&
-            'sender' in event &&
-            'senderFrame' in event
+            event && typeof event === 'object' && 'sender' in event && 'senderFrame' in event
           );
           return handler(hasSenderContext ? event : authorizedInvokeEvent, args);
         });
@@ -192,6 +191,13 @@ describe('template-handlers', () => {
     mockFs.mkdir.mockResolvedValue(undefined);
     mockFs.access.mockRejectedValue(new Error('ENOENT'));
     mockFs.stat.mockResolvedValue({ isFile: () => true, isDirectory: () => false });
+    mockFs.lstat.mockResolvedValue({
+      isFile: () => true,
+      isDirectory: () => false,
+      isSymbolicLink: () => false,
+      birthtime: new Date('2024-01-01'),
+      mtime: new Date('2024-01-02'),
+    });
     mockCompile.mockResolvedValue({ toString: () => 'compiled' });
     mockApp.getAppPath.mockReturnValue('/mock/app');
     mockApp.isPackaged = false;
@@ -254,9 +260,9 @@ describe('template-handlers', () => {
       const handler = registeredHandlers.get(IPC_CHANNELS.template.list);
       const unauthorizedEvent = createUnauthorizedInvokeEvent(mockWindow);
 
-      expect(() =>
-        handler!(unauthorizedEvent, { action: 'list', source: 'all' })
-      ).toThrow('Unauthorized IPC sender');
+      expect(() => handler!(unauthorizedEvent, { action: 'list', source: 'all' })).toThrow(
+        'Unauthorized IPC sender'
+      );
       expect(mockFs.readdir).not.toHaveBeenCalled();
     });
 
@@ -267,9 +273,9 @@ describe('template-handlers', () => {
         senderFrameRoutingId: mockWindow.webContents.mainFrame.routingId + 1,
       });
 
-      expect(() =>
-        handler!(unauthorizedEvent, { action: 'get', id: 'template-id' })
-      ).toThrow('Unauthorized IPC sender');
+      expect(() => handler!(unauthorizedEvent, { action: 'get', id: 'template-id' })).toThrow(
+        'Unauthorized IPC sender'
+      );
       expect(mockFs.readFile).not.toHaveBeenCalled();
     });
   });
@@ -351,10 +357,13 @@ describe('template-handlers', () => {
       expect(handler).toBeDefined();
 
       // Missing required fields
-      const result = await handler!({}, {
-        action: 'save',
-        template: { name: 'Test' }, // Missing required fields
-      });
+      const result = await handler!(
+        {},
+        {
+          action: 'save',
+          template: { name: 'Test' }, // Missing required fields
+        }
+      );
       expect(result).toHaveProperty('success', false);
       expect(result).toHaveProperty('code', 'VALIDATION_ERROR');
     });
@@ -366,16 +375,19 @@ describe('template-handlers', () => {
       mockFs.access.mockRejectedValue(new Error('ENOENT')); // Template doesn't exist
       mockCompile.mockResolvedValue({ toString: () => 'compiled' });
 
-      const result = await handler!({}, {
-        action: 'save',
-        template: {
-          name: 'New Template',
-          description: 'A new template',
-          category: 'notes',
-          content: '# Test\n\nContent',
-        },
-        replace: false,
-      });
+      const result = await handler!(
+        {},
+        {
+          action: 'save',
+          template: {
+            name: 'New Template',
+            description: 'A new template',
+            category: 'notes',
+            content: '# Test\n\nContent',
+          },
+          replace: false,
+        }
+      );
 
       expect(result).toHaveProperty('success');
     });
@@ -395,10 +407,13 @@ describe('template-handlers', () => {
       const handler = registeredHandlers.get(IPC_CHANNELS.template.delete);
       expect(handler).toBeDefined();
 
-      const result = await handler!({}, {
-        action: 'delete',
-        id: 'test-template-id',
-      });
+      const result = await handler!(
+        {},
+        {
+          action: 'delete',
+          id: 'test-template-id',
+        }
+      );
 
       // Will fail if template not found, but should not fail validation
       expect(result).toHaveProperty('success');
@@ -434,10 +449,13 @@ describe('template-handlers', () => {
 
       mockCompile.mockResolvedValue({ toString: () => 'compiled' });
 
-      const result = await handler!({}, {
-        action: 'validate',
-        content: '# Hello\n\nValid MDX content',
-      });
+      const result = await handler!(
+        {},
+        {
+          action: 'validate',
+          content: '# Hello\n\nValid MDX content',
+        }
+      );
 
       expect(result).toHaveProperty('success', true);
       expect(result).toHaveProperty('valid', true);
@@ -450,10 +468,13 @@ describe('template-handlers', () => {
 
       mockCompile.mockRejectedValue(new Error('MDX compilation error'));
 
-      const result = await handler!({}, {
-        action: 'validate',
-        content: '<Component invalid syntax',
-      });
+      const result = await handler!(
+        {},
+        {
+          action: 'validate',
+          content: '<Component invalid syntax',
+        }
+      );
 
       expect(result).toHaveProperty('success', true);
       expect(result).toHaveProperty('valid', false);

@@ -24,6 +24,7 @@ const {
   mockUnlink,
   mockCopyFile,
   mockStat,
+  mockLstat,
   mockMkdir,
   mockAccess,
 } = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ const {
   mockUnlink: vi.fn(),
   mockCopyFile: vi.fn(),
   mockStat: vi.fn(),
+  mockLstat: vi.fn(),
   mockMkdir: vi.fn(),
   mockAccess: vi.fn(),
 }));
@@ -45,6 +47,7 @@ vi.mock('node:fs/promises', () => ({
     unlink: mockUnlink,
     copyFile: mockCopyFile,
     stat: mockStat,
+    lstat: mockLstat,
     mkdir: mockMkdir,
     access: mockAccess,
   },
@@ -54,6 +57,7 @@ vi.mock('node:fs/promises', () => ({
   unlink: mockUnlink,
   copyFile: mockCopyFile,
   stat: mockStat,
+  lstat: mockLstat,
   mkdir: mockMkdir,
   access: mockAccess,
 }));
@@ -155,6 +159,14 @@ function setupMockFileSystem() {
   mockStat.mockResolvedValue({
     birthtime: new Date('2024-01-01'),
     mtime: new Date('2024-01-02'),
+    isFile: () => true,
+    isSymbolicLink: () => false,
+  });
+  mockLstat.mockResolvedValue({
+    birthtime: new Date('2024-01-01'),
+    mtime: new Date('2024-01-02'),
+    isFile: () => true,
+    isSymbolicLink: () => false,
   });
 }
 

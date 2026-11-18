@@ -18,6 +18,19 @@ import {
   type TemplateMetadata,
 } from '@shared/contracts/template-schemas';
 
+export async function readTemplateSource(filePath: string): Promise<{
+  content: string;
+  birthtime: Date;
+  mtime: Date;
+}> {
+  const info = await fs.lstat(filePath);
+  if (info.isSymbolicLink() || !info.isFile()) {
+    throw new Error('Template file is a link');
+  }
+  const content = await fs.readFile(filePath, 'utf-8');
+  return { content, birthtime: info.birthtime, mtime: info.mtime };
+}
+
 /**
  * Generates a URL-safe slug from a template name.
  */
@@ -32,13 +45,9 @@ export function slugify(name: string): string {
 /**
  * Parses a .mdxt file and returns full Template data.
  */
-export async function parseTemplateFile(
-  filePath: string,
-  isBuiltIn: boolean
-): Promise<Template> {
-  const content = await fs.readFile(filePath, 'utf-8');
-  const { data: frontmatter, content: mdxContent } = matter(content);
-  const stats = await fs.stat(filePath);
+export async function parseTemplateFile(filePath: string, isBuiltIn: boolean): Promise<Template> {
+  const source = await readTemplateSource(filePath);
+  const { data: frontmatter, content: mdxContent } = matter(source.content);
 
   const templateData = {
     ...frontmatter,
@@ -46,8 +55,8 @@ export async function parseTemplateFile(
     isBuiltIn,
     content: mdxContent.trim(),
     filePath,
-    createdAt: stats.birthtime,
-    updatedAt: stats.mtime,
+    createdAt: source.birthtime,
+    updatedAt: source.mtime,
   };
 
   return TemplateSchema.parse(templateData);
@@ -60,8 +69,8 @@ export async function parseTemplateMetadataFile(
   filePath: string,
   isBuiltIn: boolean
 ): Promise<TemplateMetadata> {
-  const content = await fs.readFile(filePath, 'utf-8');
-  const { data: frontmatter } = matter(content);
+  const source = await readTemplateSource(filePath);
+  const { data: frontmatter } = matter(source.content);
 
   const metadataData = {
     ...frontmatter,
@@ -107,10 +116,7 @@ export function buildTemplateFile(template: {
 /**
  * Substitutes variables in template content.
  */
-export function substituteVariables(
-  content: string,
-  values: Record<string, string>
-): string {
+export function substituteVariables(content: string, values: Record<string, string>): string {
   const VARIABLE_REGEX = /\{\{(\w+)\}\}/g;
   return content.replace(VARIABLE_REGEX, (match, name: string) => {
     return values[name] ?? match;

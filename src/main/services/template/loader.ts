@@ -14,7 +14,7 @@ import matter from 'gray-matter';
 
 import type { TemplateMetadata } from '@shared/contracts/template-schemas';
 import { getBuiltinTemplatesPathCandidates, getCustomTemplatesPath } from './paths';
-import { parseTemplateMetadataFile, slugify } from './parser';
+import { parseTemplateMetadataFile, readTemplateSource, slugify } from './parser';
 
 /**
  * Loads all .mdxt files from a directory as metadata.
@@ -69,10 +69,7 @@ export async function loadCustomTemplates(): Promise<TemplateMetadata[]> {
 /**
  * Finds a template file by ID in a specific directory.
  */
-async function findTemplateInDir(
-  dirPath: string,
-  id: string
-): Promise<string | null> {
+async function findTemplateInDir(dirPath: string, id: string): Promise<string | null> {
   try {
     const files = await fs.readdir(dirPath);
     const mdxtFiles = files.filter((f) => f.endsWith('.mdxt'));
@@ -80,10 +77,10 @@ async function findTemplateInDir(
     for (const file of mdxtFiles) {
       const filePath = path.join(dirPath, file);
       try {
-        const content = await fs.readFile(filePath, 'utf-8');
+        const content = (await readTemplateSource(filePath)).content;
         const { data: frontmatter } = matter(content);
-        const templateId = (frontmatter.id as string | undefined) ??
-          slugify(frontmatter.name as string);
+        const templateId =
+          (frontmatter.id as string | undefined) ?? slugify(frontmatter.name as string);
         if (templateId === id) {
           return filePath;
         }
