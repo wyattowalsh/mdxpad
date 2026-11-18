@@ -252,10 +252,7 @@ function useInsertHandlers(viewRef: React.RefObject<EditorView | null>) {
   const insertHorizontalRule = React.useCallback(() => {
     const view = viewRef.current;
     if (!view) return;
-    const { tr } = view.state;
-    view.dispatch(
-      tr.replaceSelectionWith(mdxSchema.nodes.horizontal_rule.create()).scrollIntoView()
-    );
+    insertMarkdownBlock(view, '---');
     view.focus();
   }, [viewRef]);
 

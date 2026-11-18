@@ -16,6 +16,24 @@ describe('insertMarkdownBlock', () => {
     }
   });
 
+  it('puts a horizontal rule after the paragraph that holds the caret', () => {
+    const doc = parseMdxContent('Hello\n\nGoodbye\n');
+    if (!doc) {
+      throw new Error('markdown did not parse');
+    }
+    const host = document.createElement('div');
+    const view = new EditorView(host, {
+      state: EditorState.create({ doc, schema: mdxSchema }),
+    });
+    views.push(view);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)));
+    expect(insertMarkdownBlock(view, '---')).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved).toContain('Hello');
+    expect(saved.indexOf('Hello')).toBeLessThan(saved.indexOf('---'));
+    expect(saved.indexOf('---')).toBeLessThan(saved.indexOf('Goodbye'));
+  });
+
   it('puts a diagram after the paragraph that holds the caret', () => {
     const doc = parseMdxContent('Hello\n\nGoodbye\n');
     if (!doc) {
