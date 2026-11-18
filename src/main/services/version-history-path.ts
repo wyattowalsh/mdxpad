@@ -1,5 +1,5 @@
 import { constants as fsConstants, realpathSync } from 'node:fs';
-import { open, realpath } from 'node:fs/promises';
+import { lstat, open, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
@@ -59,6 +59,18 @@ export async function assertOpenedDocumentWrite(
 
 function isLinkError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ELOOP';
+}
+
+export async function readSnapshotText(filePath: string): Promise<string> {
+  const info = await lstat(filePath);
+  if (info.isSymbolicLink() || !info.isFile()) {
+    throw new Error('Version not found');
+  }
+  const read = await readFileWithoutFollowingLinks(filePath);
+  if (!read.ok) {
+    throw new Error('Version not found');
+  }
+  return read.value;
 }
 
 export async function readOpenedDocument(filePath: string): Promise<string> {

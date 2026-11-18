@@ -27,6 +27,7 @@ import {
   assertOpenedDocumentWrite,
   assertSnapshotId,
   readOpenedDocument,
+  readSnapshotText,
   sameOpenedFile,
   snapshotFile,
   writeOpenedDocument,
@@ -134,7 +135,7 @@ export class VersionHistoryService {
     const snapshotPath = snapshotFile(historyDir, id);
 
     try {
-      const raw = await fs.readFile(snapshotPath, 'utf-8');
+      const raw = await readSnapshotText(snapshotPath);
       const snapshot = JSON.parse(raw) as SnapshotFile;
       if (!sameOpenedFile(snapshot.filePath, openedPath)) {
         throw new Error('Version not found');
@@ -276,7 +277,7 @@ export class VersionHistoryService {
 
         try {
           const fullPath = path.join(historyDir, file);
-          const raw = await fs.readFile(fullPath, 'utf-8');
+          const raw = await readSnapshotText(fullPath);
           const snapshot = JSON.parse(raw) as SnapshotFile;
 
           if (sameOpenedFile(snapshot.filePath, filePath)) {

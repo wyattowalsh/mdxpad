@@ -7,6 +7,7 @@ import {
   assertOpenedDocumentWrite,
   assertSnapshotId,
   readOpenedDocument,
+  readSnapshotText,
   sameOpenedFile,
   snapshotFile,
   writeOpenedDocument,
@@ -45,6 +46,23 @@ describe('version history path guards', () => {
       expect(opened).toBe(real);
       expect(sameOpenedFile(link, realFile)).toBe(true);
       expect(sameOpenedFile(link, path.join(dir, 'other.md'))).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reads a regular snapshot and skips a link', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-history-snapshot-'));
+    try {
+      const snapshot = path.join(dir, 'snapshot.json');
+      const secret = path.join(dir, 'secret.json');
+      const link = path.join(dir, 'linked.json');
+      await writeFile(snapshot, '{"content":"kept"}');
+      await writeFile(secret, '{"content":"hidden"}');
+      await symlink(secret, link);
+
+      await expect(readSnapshotText(snapshot)).resolves.toBe('{"content":"kept"}');
+      await expect(readSnapshotText(link)).rejects.toThrow('Version not found');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
