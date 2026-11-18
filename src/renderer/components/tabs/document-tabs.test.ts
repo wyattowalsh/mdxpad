@@ -9,6 +9,7 @@ import {
   activateRelativeDocumentTab,
   closeActiveDocumentTab,
   closeDocumentTab,
+  hasUnsavedWork,
   reopenClosedTab,
   subscribeDocumentTabs,
 } from './document-tabs';
@@ -95,6 +96,23 @@ describe('document tabs', () => {
     const saved = autosaveTrigger.mock.calls[0]?.[0] as { documentId?: string };
     expect(saved.documentId).not.toBe('b');
     expect(useTabStore.getState().tabs.find((tab) => tab.content === 'draft')?.isDirty).toBe(true);
+    stop();
+  });
+
+  it('treats another open tab as unsaved work', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved a'
+    );
+    useDocumentStore.getState().setContent('edited a');
+    useDocumentStore.getState().openDocument(
+      { fileId: 'b' as DocumentId, filePath: '/docs/b.mdx', mtime: 1 },
+      'saved b'
+    );
+
+    expect(useDocumentStore.getState().isDirty).toBe(false);
+    expect(hasUnsavedWork()).toBe(true);
     stop();
   });
 

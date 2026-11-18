@@ -20,6 +20,7 @@ import {
   activateDocumentTabAt,
   activateRelativeDocumentTab,
   closeActiveDocumentTab,
+  hasUnsavedWork,
   reopenClosedTab,
 } from '../components/tabs/document-tabs';
 import { registerAllCommands } from '../commands';
@@ -301,7 +302,7 @@ export function useMenuEvents(
   // -------------------------------------------------------------------------
   useEffect(() => {
     const mdxpad = getMdxpadApi();
-    const unsubscribe = mdxpad.onEditorDirtyCheck?.(() => useDocumentStore.getState().isDirty);
+    const unsubscribe = mdxpad.onEditorDirtyCheck?.(() => hasUnsavedWork());
 
     return () => {
       unsubscribe?.();

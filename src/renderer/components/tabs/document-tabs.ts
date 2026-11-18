@@ -2,7 +2,7 @@
  * Keep the open document and the tab bar on the same file.
  */
 
-import { checkDirtyState } from '@renderer/commands/file-commands';
+import { checkDirtyState } from '@renderer/commands/dirty-state';
 import { documentIdForPath } from '@renderer/lib/document-id';
 import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
@@ -322,6 +322,24 @@ export function reopenClosedTab(): void {
   const created = useTabStore.getState().tabs.find((tab) => tab.id === id);
   if (created) {
     showTab(created);
+  }
+}
+
+/** True when the active document or another open tab has unsaved edits. */
+export function hasUnsavedWork(): boolean {
+  if (useDocumentStore.getState().isDirty) {
+    return true;
+  }
+  const activeId = useTabStore.getState().activeTabId;
+  return useTabStore.getState().tabs.some((tab) => tab.isDirty && tab.id !== activeId);
+}
+
+/** Show the next tab that still has unsaved edits. */
+export function revealNextDirtyTab(): void {
+  const activeId = useTabStore.getState().activeTabId;
+  const next = useTabStore.getState().tabs.find((tab) => tab.isDirty && tab.id !== activeId);
+  if (next) {
+    activateDocumentTab(next.id);
   }
 }
 

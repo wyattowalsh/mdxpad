@@ -13,6 +13,7 @@ import type { MdxpadAPI } from '../../preload/api';
 import type { AIApi } from '../../preload/ai-api';
 import { INITIAL_DOCUMENT_STATE } from '@shared/types/document';
 import { useFeatureFlagsStore } from '../stores/feature-flags-store';
+import { useTabStore } from '../stores/tab-store';
 
 // Enable Immer MapSet plugin for Map/Set support in stores
 enableMapSet();
@@ -543,6 +544,45 @@ describe('saveFileCommand', () => {
     expect(mockApi.saveFile).not.toHaveBeenCalled();
   });
 
+  it('saves another open file before the active document', async () => {
+    useTabStore.getState().reset();
+    const activeId = useTabStore.getState().addTab({
+      filePath: '/docs/active.mdx',
+      fileName: 'active.mdx',
+      isDirty: true,
+      content: 'active',
+      savedContent: '',
+    });
+    useTabStore.getState().addTab({
+      filePath: '/docs/other.mdx',
+      fileName: 'other.mdx',
+      isDirty: true,
+      content: 'other',
+      savedContent: '',
+    });
+    useTabStore.getState().setActiveTab(activeId);
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: '11111111-1111-4111-8111-111111111111',
+        filePath: '/docs/active.mdx',
+        content: 'active',
+        isDirty: true,
+      },
+    });
+
+    const result = await saveFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.writeFile).toHaveBeenCalledWith('/docs/other.mdx', 'other');
+    expect(mockApi.saveFile).toHaveBeenCalled();
+    expect(
+      useTabStore.getState().tabs.find((tab) => tab.filePath === '/docs/other.mdx')?.isDirty
+    ).toBe(false);
+    useTabStore.getState().reset();
+  });
+
   it('should be enabled only when document is dirty', () => {
     const cleanCtx = createMockContext({
       document: { fileId: null, filePath: null, content: '', isDirty: false },
@@ -639,8 +679,8 @@ describe('closeWindowCommand', () => {
     expect(mockApi.closeWindow).toHaveBeenCalledTimes(1);
   });
 
-  it('should not close window when dirty and user cancels', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('asks the window to close so it can offer save, discard, or cancel', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
     const mockApi = createMockApi();
     const ctx = createMockContext({
       api: mockApi,
@@ -655,7 +695,8 @@ describe('closeWindowCommand', () => {
     const result = await closeWindowCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
-    expect(mockApi.closeWindow).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(mockApi.closeWindow).toHaveBeenCalledTimes(1);
     confirmSpy.mockRestore();
   });
 

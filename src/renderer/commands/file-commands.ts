@@ -15,6 +15,8 @@ import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
 import { liveDocumentContent } from './live-document';
+import { useTabStore } from '../stores/tab-store';
+import { revealNextDirtyTab } from '../components/tabs/document-tabs';
 
 // =============================================================================
 // COMMAND IDS
@@ -42,13 +44,7 @@ export const FILE_COMMAND_IDS = {
  * Check if user wants to proceed when document has unsaved changes.
  * Returns true to proceed, false to cancel.
  */
-export function checkDirtyState(): boolean {
-  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
-    return true;
-  }
-
-  return window.confirm('You have unsaved changes. Continue without saving?');
-}
+export { checkDirtyState } from './dirty-state';
 
 /**
  * Format a FileError into a user-friendly message.
@@ -269,6 +265,40 @@ function saveChangedOnDisk(ctx: CommandContext): CommandResult | Promise<Command
   return saveFileAsCommand.execute(ctx);
 }
 
+async function saveOtherOpenFiles(ctx: CommandContext): Promise<CommandResult | null> {
+  const inactiveSaved = await saveInactiveDocuments(ctx.api);
+  if (!inactiveSaved) {
+    ctx.notify({ type: 'error', message: 'Failed to save an open file' });
+    return { ok: false, error: 'Failed to save an open file' };
+  }
+  if (!ctx.document.isDirty && !useDocumentStore.getState().isDirty) {
+    revealNextDirtyTab();
+    return { ok: true };
+  }
+  return null;
+}
+
+async function saveInactiveDocuments(api: CommandContext['api']): Promise<boolean> {
+  const activeId = useTabStore.getState().activeTabId;
+  const pending = useTabStore.getState().tabs.filter((tab) => {
+    return tab.id !== activeId && tab.isDirty && tab.filePath !== null;
+  });
+  for (const tab of pending) {
+    if (!tab.filePath) {
+      continue;
+    }
+    const result = await api.writeFile(tab.filePath, tab.content);
+    if (!result.ok) {
+      return false;
+    }
+    useTabStore.getState().updateTab(tab.id, {
+      savedContent: tab.content,
+      isDirty: false,
+    });
+  }
+  return true;
+}
+
 /**
  * Save file command.
  * Saves current document to its existing path, or shows Save As if new.
@@ -282,11 +312,11 @@ const saveFileCommand: Command = {
   icon: '💾',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
     const { document, api } = ctx;
+    const otherFiles = await saveOtherOpenFiles(ctx);
+    if (otherFiles) return otherFiles;
 
     // If no file path (untitled), delegate to Save As
-    if (!document.filePath) {
-      return saveFileAsCommand.execute(ctx);
-    }
+    if (!document.filePath) return saveFileAsCommand.execute(ctx);
 
     if (useDocumentStore.getState().externalChangeDetected) {
       return saveChangedOnDisk(ctx);
@@ -313,6 +343,7 @@ const saveFileCommand: Command = {
 
       // Mark document as saved in the store
       useDocumentStore.getState().markSaved();
+      revealNextDirtyTab();
 
       ctx.notify({
         type: 'success',
@@ -479,11 +510,6 @@ const closeWindowCommand: Command = {
   category: 'file',
   icon: '❌',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    // Check dirty state before closing
-    if (ctx.document.isDirty && !checkDirtyState()) {
-      return { ok: true }; // User cancelled
-    }
-
     try {
       await ctx.api.closeWindow();
       return { ok: true };
