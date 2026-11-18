@@ -41,6 +41,7 @@ import {
   type TemplateErrorResponse,
 } from '@shared/contracts/template-schemas';
 
+import { prepareRegularOutput, writeRegularFile } from '../export-formats/write-regular-file';
 import { getCustomTemplatesPath, ensureCustomTemplatesDir, fileExists } from './paths';
 import {
   validationError,
@@ -141,17 +142,12 @@ export async function handleTemplateSave(
   await ensureCustomTemplatesDir();
 
   const id = template.id ?? slugify(template.name);
-
-  // SEC-3: Validate template ID to prevent path traversal
-  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+  const filePath = storedTemplatePath(id);
+  if (filePath === null) {
     return validationError(
       'Invalid template ID: must contain only alphanumeric, dash, or underscore'
     );
   }
-
-  const customPath = getCustomTemplatesPath();
-  // Apply path.basename() as defense-in-depth
-  const filePath = path.join(customPath, `${path.basename(id)}.mdxt`);
 
   const exists = await fileExists(filePath);
   if (exists && !replace) {
@@ -161,7 +157,7 @@ export async function handleTemplateSave(
   const content = buildTemplateFile(template);
 
   try {
-    await fs.writeFile(filePath, content, 'utf-8');
+    await writeRegularFile(filePath, content);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return fileError(`Failed to save template: ${msg}`);
@@ -218,6 +214,18 @@ export async function handleTemplateDelete(
   }
 }
 
+async function copyOntoPath(source: string, destination: string): Promise<void> {
+  await prepareRegularOutput(destination);
+  await fs.copyFile(source, destination);
+}
+
+function storedTemplatePath(id: string): string | null {
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return null;
+  }
+  return path.join(getCustomTemplatesPath(), `${path.basename(id)}.mdxt`);
+}
+
 /**
  * Handler for template:import - imports .mdxt file from path.
  */
@@ -250,16 +258,12 @@ export async function handleTemplateImport(
 
   await ensureCustomTemplatesDir();
 
-  // SEC-3: Validate template ID to prevent path traversal
-  if (!/^[a-zA-Z0-9_-]+$/.test(template.id)) {
+  const destPath = storedTemplatePath(template.id);
+  if (destPath === null) {
     return validationError(
       'Invalid template ID: must contain only alphanumeric, dash, or underscore'
     );
   }
-
-  const customPath = getCustomTemplatesPath();
-  // Apply path.basename() as defense-in-depth
-  const destPath = path.join(customPath, `${path.basename(template.id)}.mdxt`);
 
   const exists = await fileExists(destPath);
   if (exists && !replace) {
@@ -267,7 +271,7 @@ export async function handleTemplateImport(
   }
 
   try {
-    await fs.copyFile(importPath, destPath);
+    await copyOntoPath(importPath, destPath);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return fileError(`Failed to import template: ${msg}`);
@@ -310,7 +314,7 @@ export async function handleTemplateExport(
   }
 
   try {
-    await fs.copyFile(found.filePath, exportPath);
+    await copyOntoPath(found.filePath, exportPath);
     return { success: true, path: exportPath };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -377,7 +381,7 @@ export async function handleCreateFromTemplate(
       return permissionError(saveScopeError);
     }
     try {
-      await fs.writeFile(savePath, content, 'utf-8');
+      await writeRegularFile(savePath, content);
       return { success: true, content, path: savePath };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
