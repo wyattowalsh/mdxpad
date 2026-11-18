@@ -742,6 +742,30 @@ describe('EditorPane mode switch', () => {
     expect(onCursorChange).toHaveBeenCalledWith({ line: 1, column: 1 });
   });
 
+  it('reports the caret on the new line while the document store is behind', async () => {
+    useEditorModeStore.getState().setMode('source');
+    useDocumentStore.getState().setContent('a');
+    const onCursorChange = vi.fn();
+    const editorRef = { current: null as EditorView | null };
+    render(<EditorPane onCursorChange={onCursorChange} editorRef={editorRef} />);
+    await waitFor(() => {
+      expect(editorRef.current).toBeInstanceOf(EditorView);
+    });
+    onCursorChange.mockClear();
+    act(() => {
+      const view = editorRef.current;
+      if (!view) {
+        return;
+      }
+      const from = view.state.doc.length;
+      view.dispatch({
+        changes: { from, insert: '\nb' },
+        selection: { anchor: from + 2 },
+      });
+    });
+    expect(onCursorChange).toHaveBeenCalledWith({ line: 2, column: 2 });
+  });
+
   it('reports the visual caret as a source line', async () => {
     useDocumentStore.getState().setContent('Hello\n\nWorld');
     useEditorModeStore.getState().setMode('wysiwyg');

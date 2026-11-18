@@ -205,12 +205,12 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
    * Converts the selection to a cursor position and reports it.
    */
   const handleSelectionChange = useCallback(
-    (selection: SelectionInfo) => {
+    (selection: SelectionInfo, documentText?: string) => {
       if (!onCursorChange) return;
 
-      // Use the 'from' position (start of selection) for cursor display
-      // This represents where the cursor visually appears
-      const position = offsetToLineColumn(contentRef.current, selection.from);
+      // Use the editor text from this change. The store copy can still be the
+      // previous document while the caret has already moved.
+      const position = offsetToLineColumn(documentText ?? contentRef.current, selection.from);
       onCursorChange(position);
     },
     [onCursorChange]

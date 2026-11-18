@@ -44,7 +44,7 @@ export interface MDXEditorProps {
   /** Called when an error occurs in the editor. */
   readonly onError?: (error: EditorError) => void;
   /** Called when selection or cursor position changes (immediate). */
-  readonly onSelectionChange?: (selection: SelectionInfo) => void;
+  readonly onSelectionChange?: (selection: SelectionInfo, documentText?: string) => void;
   /** Theme mode: 'light', 'dark', or 'system'. @default 'system' */
   readonly theme?: EditorTheme;
   /** Debounce delay for onChange in milliseconds. @default 150 */

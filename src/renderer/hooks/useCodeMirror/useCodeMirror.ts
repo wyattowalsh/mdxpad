@@ -58,7 +58,7 @@ export interface UseCodeMirrorOptions {
   readonly fontLineHeight?: number;
   readonly debounceMs?: number;
   readonly onChange?: (state: EditorState) => void;
-  readonly onSelectionChange?: (selection: SelectionInfo) => void;
+  readonly onSelectionChange?: (selection: SelectionInfo, documentText?: string) => void;
   readonly onError?: (error: EditorError) => void;
   /**
    * Custom CodeMirror extensions to add to the editor.
@@ -156,7 +156,7 @@ function createUpdateListener(
   setSelection: React.Dispatch<React.SetStateAction<SelectionInfo | null>>,
   setIsFocused: React.Dispatch<React.SetStateAction<boolean>>,
   debouncedOnChange: DebouncedFunction<(state: EditorState) => void> | undefined,
-  onSelectionChange: ((selection: SelectionInfo) => void) | undefined
+  onSelectionChange: ((selection: SelectionInfo, documentText?: string) => void) | undefined
 ): Extension {
   return EditorView.updateListener.of((update) => {
     if (update.docChanged) {
@@ -164,11 +164,13 @@ function createUpdateListener(
       setState(newState);
       debouncedOnChange?.call(newState);
     }
-    if (update.selectionSet) {
+    if (update.selectionSet || update.docChanged) {
       const { anchor, head } = update.state.selection.main;
       const newSelection = toSelectionInfo(anchor, head);
-      setSelection(newSelection);
-      onSelectionChange?.(newSelection);
+      if (update.selectionSet) {
+        setSelection(newSelection);
+      }
+      onSelectionChange?.(newSelection, update.state.doc.toString());
     }
     if (update.focusChanged) {
       setIsFocused(update.view.hasFocus);
