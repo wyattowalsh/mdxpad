@@ -37,4 +37,21 @@ describe('liveDocumentContent', () => {
 
     expect(liveDocumentContent(ctx)).toBe('this file');
   });
+
+  it('reads keystrokes that have not reached the document store', () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'Hello'
+    );
+    const ctx = {
+      document: { filePath: '/notes/readme.md', content: 'Hello', isDirty: false, fileId: 'file-1' },
+      editor: { state: { doc: { toString: () => 'Hello!' } }, isDestroyed: false },
+    } as unknown as CommandContext;
+
+    expect(liveDocumentContent(ctx)).toBe('Hello!');
+  });
 });

@@ -14,7 +14,7 @@ import type { FileExportError } from '@shared/contracts/file-schemas';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
-import { liveDocumentContent } from './live-document';
+import { editorHasUnsavedText, liveDocumentContent, syncSavedText } from './live-document';
 import { useTabStore } from '../stores/tab-store';
 import { revealNextDirtyTab } from '../components/tabs/document-tabs';
 import { fileIsMissing, hasPendingExternalChange } from '../components/tabs/external-tab-change';
@@ -161,11 +161,10 @@ async function executeSaveFileAs(
       filePath: savedPath,
       mtime: Date.now(), // Use current time as mtime
     };
-    const current = useDocumentStore.getState();
-    if (current.filePath !== savedFromPath || current.content !== savedText) {
+    if (!syncSavedText(savedFromPath, savedText, ctx)) {
       return { result: { ok: true }, saved: false };
     }
-    current.markSaved(docHandle);
+    useDocumentStore.getState().markSaved(docHandle);
 
     ctx.notify({
       type: 'success',
@@ -274,11 +273,10 @@ const openFileCommand: Command = {
 };
 
 function finishSave(savedPath: string, savedText: string, ctx: CommandContext): void {
-  const current = useDocumentStore.getState();
-  if (current.filePath !== savedPath || current.content !== savedText) {
+  if (!syncSavedText(savedPath, savedText, ctx)) {
     return;
   }
-  current.markSaved();
+  useDocumentStore.getState().markSaved();
   revealNextDirtyTab();
   ctx.notify({
     type: 'success',
@@ -301,7 +299,12 @@ async function saveOtherOpenFiles(ctx: CommandContext): Promise<CommandResult | 
     return { ok: false, error: 'Failed to save an open file' };
   }
   const openDocument = useDocumentStore.getState();
-  if (!ctx.document.isDirty && !openDocument.isDirty && !openDocument.fileMissing) {
+  if (
+    !ctx.document.isDirty &&
+    !openDocument.isDirty &&
+    !openDocument.fileMissing &&
+    !editorHasUnsavedText(ctx)
+  ) {
     revealNextDirtyTab();
     return { ok: true };
   }
@@ -401,7 +404,10 @@ const saveFileCommand: Command = {
       return { ok: false, error: message };
     }
   },
-  enabled: (ctx) => ctx.document.isDirty || useDocumentStore.getState().fileMissing,
+  enabled: (ctx) =>
+    ctx.document.isDirty ||
+    useDocumentStore.getState().fileMissing ||
+    editorHasUnsavedText(ctx),
 };
 
 /**

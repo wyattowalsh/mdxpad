@@ -30,10 +30,15 @@ const documentStoreState = {
   newDocument: mockNewDocument,
   openDocument: mockOpenDocument,
   markSaved: mockMarkSaved,
+  setContent: (content: string) => {
+    documentStoreState.content = content;
+  },
   externalChangeDetected: false,
   fileMissing: false,
   filePath: null as string | null,
   content: '',
+  savedContent: '',
+  isDirty: false,
 };
 
 vi.mock('../stores/document-store', () => ({
@@ -469,6 +474,37 @@ describe('saveFileCommand', () => {
 
   it('should have correct keyboard shortcut (Cmd+S)', () => {
     expect(saveFileCommand.shortcut).toEqual({ key: 's', modifiers: ['Mod'] });
+  });
+
+  it('saves keystrokes that have not reached the document store', async () => {
+    documentStoreState.filePath = '/test/document.mdx';
+    documentStoreState.content = 'Hello';
+    documentStoreState.savedContent = 'Hello';
+    documentStoreState.isDirty = false;
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      editor: {
+        state: { doc: { toString: () => 'Hello!' } },
+        isDestroyed: false,
+      } as unknown as CommandContext['editor'],
+      document: {
+        fileId: 'test-file-id',
+        filePath: '/test/document.mdx',
+        content: 'Hello',
+        isDirty: false,
+      },
+    });
+
+    const result = await saveFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.saveFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/test/document.mdx' }),
+      'Hello!'
+    );
+    expect(mockMarkSaved).toHaveBeenCalled();
+    expect(documentStoreState.content).toBe('Hello!');
   });
 
   it('should call IPC saveFile for saved documents', async () => {
