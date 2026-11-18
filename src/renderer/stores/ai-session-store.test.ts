@@ -475,4 +475,65 @@ describe('useAISessionStore', () => {
     expect(state.stream.error).toBe('No active provider');
     expect(state.isStreaming).toBe(false);
   });
+
+  it('keeps a newer stream when an older start fails', async () => {
+    const session = createSession();
+    useAISessionStore.setState({
+      sessions: [session],
+      selectedSessionId: session.id,
+      selectedSession: session,
+    });
+    const newerStreamId = '55555555-5555-4555-8555-555555555555';
+    let rejectOld: (error: Error) => void = () => undefined;
+    mockAIApi.generateStream
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectOld = reject;
+          })
+      )
+      .mockResolvedValueOnce({ success: true, streamId: newerStreamId });
+
+    const first = useAISessionStore.getState().startStream({ prompt: 'old' });
+    await useAISessionStore.getState().startStream({ prompt: 'new' });
+    rejectOld(new Error('old start failed'));
+    await first;
+
+    const state = useAISessionStore.getState();
+    expect(state.stream.streamId).toBe(newerStreamId);
+    expect(selectStreamStatus(state)).toBe('streaming');
+    expect(state.isStreaming).toBe(true);
+    expect(state.stream.error).toBeNull();
+  });
+
+  it('does not clear a newer stream when an older cancel finishes', async () => {
+    const session = createSession();
+    useAISessionStore.setState({
+      sessions: [session],
+      selectedSessionId: session.id,
+      selectedSession: session,
+    });
+    const newerStreamId = '66666666-6666-4666-8666-666666666666';
+    mockAIApi.generateStream
+      .mockResolvedValueOnce({ success: true, streamId: DEFAULT_STREAM_ID })
+      .mockResolvedValueOnce({ success: true, streamId: newerStreamId });
+    let finishCancel: (value: { success: true }) => void = () => undefined;
+    mockAIApi.cancelStream.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCancel = resolve;
+        })
+    );
+
+    await useAISessionStore.getState().startStream({ prompt: 'old' });
+    const canceling = useAISessionStore.getState().cancelStream();
+    await useAISessionStore.getState().startStream({ prompt: 'new' });
+    finishCancel({ success: true });
+    await canceling;
+
+    const state = useAISessionStore.getState();
+    expect(state.stream.streamId).toBe(newerStreamId);
+    expect(selectStreamStatus(state)).toBe('streaming');
+    expect(state.isStreaming).toBe(true);
+  });
 });

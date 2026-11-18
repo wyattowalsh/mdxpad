@@ -138,6 +138,7 @@ let sessionListRequestId = 0;
 let sessionSelectRequestId = 0;
 let attachmentOptionsRequestId = 0;
 let attachmentActionRequestId = 0;
+let streamStartRequestId = 0;
 
 function attachmentStillCurrent(requestId: number, selectGeneration: number): boolean {
   return requestId === attachmentActionRequestId && selectGeneration === sessionSelectRequestId;
@@ -676,6 +677,7 @@ export const useAISessionStore = create<AISessionStore>()(
 
       bindStreamListeners(set, get);
 
+      const requestId = ++streamStartRequestId;
       const streamRequest = buildStreamRequest(request, get().selectedSessionContext);
 
       set((draft) => {
@@ -694,6 +696,9 @@ export const useAISessionStore = create<AISessionStore>()(
 
       try {
         const response = await window.mdxpad.ai.generateStream(streamRequest);
+        if (requestId !== streamStartRequestId) {
+          return;
+        }
         const streamId = response.streamId;
         if (response.success && streamId) {
           set((draft) => {
@@ -718,6 +723,9 @@ export const useAISessionStore = create<AISessionStore>()(
           },
         });
       } catch (error) {
+        if (requestId !== streamStartRequestId) {
+          return;
+        }
         unbindStreamListeners(); // Prevent listener leak on stream start failure
         set((draft) => {
           draft.stream.status = 'error';
@@ -732,6 +740,7 @@ export const useAISessionStore = create<AISessionStore>()(
 
     cancelStream: async () => {
       const streamId = get().stream.streamId;
+      const requestId = streamStartRequestId;
       if (!streamId) {
         return;
       }
@@ -744,6 +753,9 @@ export const useAISessionStore = create<AISessionStore>()(
 
       try {
         const response = await window.mdxpad.ai.cancelStream(streamId);
+        if (requestId !== streamStartRequestId) {
+          return;
+        }
         if (response.success) {
           set((draft) => {
             draft.stream = { ...INITIAL_STREAM_STATE };
@@ -764,6 +776,9 @@ export const useAISessionStore = create<AISessionStore>()(
           },
         });
       } catch (error) {
+        if (requestId !== streamStartRequestId) {
+          return;
+        }
         set((draft) => {
           draft.stream.status = 'error';
           draft.stream.error = getErrorMessage(error, 'Failed to cancel stream');
@@ -775,11 +790,13 @@ export const useAISessionStore = create<AISessionStore>()(
       }
     },
 
-    clearStream: () =>
+    clearStream: () => {
+      streamStartRequestId += 1;
       set((draft) => {
         draft.stream = { ...INITIAL_STREAM_STATE };
         draft.isStreaming = false;
-      }),
+      });
+    },
 
     setError: (message) => {
       set((draft) => {
@@ -797,6 +814,7 @@ export const useAISessionStore = create<AISessionStore>()(
       sessionSelectRequestId += 1;
       attachmentOptionsRequestId += 1;
       attachmentActionRequestId += 1;
+      streamStartRequestId += 1;
       unbindStreamListeners();
       set((draft) => {
         draft.sessions = [];
