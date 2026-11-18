@@ -48,6 +48,16 @@ describe('visual paste', () => {
     expect(saved).toContain('there');
   });
 
+  it('pastes a code block after the current sentence', () => {
+    const view = open('Hello\n');
+    views.push(view);
+    caretAt(view, 'He');
+    expect(pastePlainText(view, '```\ncode\n```\n', '')).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved).toContain('Hello');
+    expect(saved.indexOf('Hello')).toBeLessThan(saved.indexOf('```'));
+  });
+
   it('pastes a list as list items', () => {
     const view = open('Intro\n');
     views.push(view);
