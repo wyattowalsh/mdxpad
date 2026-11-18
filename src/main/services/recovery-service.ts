@@ -363,9 +363,10 @@ export class RecoveryService {
   /**
    * Runs retention cleanup to enforce storage limits.
    *
-   * Performs two-phase cleanup:
+   * Performs cleanup in three passes:
    * 1. Delete files older than settings.retentionDays (default 30)
    * 2. If count > settings.maxFiles (default 50), delete oldest files
+   * 3. If size > settings.maxStorageMB (default 100), delete oldest files
    *
    * This should be called periodically (e.g., on app startup or after autosave).
    *
@@ -389,6 +390,12 @@ export class RecoveryService {
       const manifest = await this.readManifest();
 
       const { idsToDelete } = this.calculateFilesToDelete(manifest, settings);
+      const overStorage = await this.idsOverStorageCap(
+        manifest,
+        settings.maxStorageMB,
+        idsToDelete
+      );
+      idsToDelete.push(...overStorage);
 
       // Delete identified files individually to collect per-file errors
       if (idsToDelete.length > 0) {
@@ -457,6 +464,48 @@ export class RecoveryService {
     }
 
     return { idsToDelete };
+  }
+
+  private async recoveryFileBytes(documentId: DocumentId): Promise<number> {
+    try {
+      const recoveryDir = await this.getRecoveryDirPath();
+      const stat = await fs.stat(path.join(recoveryDir, `${documentId}.json`));
+      return stat.size;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Oldest remaining files that push recovery storage over the configured cap. */
+  private async idsOverStorageCap(
+    manifest: RecoveryManifest,
+    maxStorageMB: number,
+    alreadyDeleting: readonly DocumentId[]
+  ): Promise<DocumentId[]> {
+    const maxBytes = maxStorageMB * 1024 * 1024;
+    if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
+      return [];
+    }
+    const deleting = new Set(alreadyDeleting);
+    const remaining = Object.values(manifest.entries)
+      .filter((entry) => !deleting.has(entry.documentId))
+      .sort((left, right) => left.savedAt - right.savedAt);
+    const sizes = await Promise.all(
+      remaining.map(async (entry) => ({
+        id: entry.documentId,
+        bytes: await this.recoveryFileBytes(entry.documentId),
+      }))
+    );
+    let total = sizes.reduce((sum, item) => sum + item.bytes, 0);
+    const extra: DocumentId[] = [];
+    for (const item of sizes) {
+      if (total <= maxBytes) {
+        break;
+      }
+      extra.push(item.id);
+      total -= item.bytes;
+    }
+    return extra;
   }
 
   /**

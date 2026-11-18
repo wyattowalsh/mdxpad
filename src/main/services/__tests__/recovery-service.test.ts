@@ -152,6 +152,7 @@ describe('RecoveryService', () => {
     mockFs.writeFile.mockResolvedValue(undefined);
     mockFs.rename.mockResolvedValue(undefined);
     mockFs.unlink.mockResolvedValue(undefined);
+    mockFs.stat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
     // Create service instances
     settingsService = new AutosaveSettingsService();
@@ -927,6 +928,7 @@ describe('RecoveryService', () => {
     function createServiceWithSettings(settings: {
       retentionDays: number;
       maxFiles: number;
+      maxStorageMB?: number;
     }): RecoveryService {
       const mockSettings = {
         getSettings: vi.fn().mockReturnValue({
@@ -934,11 +936,41 @@ describe('RecoveryService', () => {
           intervalMs: 30000,
           retentionDays: settings.retentionDays,
           maxFiles: settings.maxFiles,
-          maxStorageMB: 100,
+          maxStorageMB: settings.maxStorageMB ?? 100,
         }),
       } as unknown as AutosaveSettingsService;
       return new RecoveryService(mockSettings);
     }
+
+    it('deletes the oldest files when recovery storage is over the cap', async () => {
+      const oldest = '123e4567-e89b-12d3-a456-426614174011';
+      const middle = '123e4567-e89b-12d3-a456-426614174012';
+      const newest = '123e4567-e89b-12d3-a456-426614174013';
+      const service = createServiceWithSettings({
+        retentionDays: 30,
+        maxFiles: 50,
+        maxStorageMB: 1,
+      });
+      const currentManifest = createManifest({
+        [oldest]: { documentId: oldest, savedAt: now - 3000, fileName: 'old.mdx' },
+        [middle]: { documentId: middle, savedAt: now - 2000, fileName: 'mid.mdx' },
+        [newest]: { documentId: newest, savedAt: now - 1000, fileName: 'new.mdx' },
+      });
+      mockFs.readFile.mockResolvedValue(JSON.stringify(currentManifest));
+      mockFs.stat.mockResolvedValue({ size: 600_000 });
+      const deleted: string[] = [];
+      mockFs.unlink.mockImplementation((filePath: string) => {
+        const match = /([0-9a-f-]+)\.json$/.exec(filePath);
+        if (match?.[1]) {
+          deleted.push(match[1]);
+        }
+        return Promise.resolve(undefined);
+      });
+
+      await service.runRetentionCleanup();
+
+      expect(deleted).toEqual([oldest, middle]);
+    });
 
     it('should delete files older than retention period', async () => {
       const oldDocId = '123e4567-e89b-12d3-a456-426614174001';
