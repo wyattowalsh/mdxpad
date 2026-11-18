@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -56,6 +56,21 @@ describe('executeApprovedWrite', () => {
     expect(gate.decide(callId(), true)).toBe(true);
     await expect(pending).resolves.toContain('nested');
     await expect(readFile(path.join(root, 'nested', 'note.md'), 'utf-8')).resolves.toBe('hello');
+  });
+
+  it('does not write through a directory replaced before approval', async () => {
+    const root = await makeTempDir();
+    const outside = await makeTempDir();
+    await mkdir(path.join(root, 'nested'));
+    const gate = new WriteApprovalGate();
+    const { pending, callId } = startWrite(root, 'nested/note.md', 'hello', gate);
+
+    await rm(path.join(root, 'nested'), { recursive: true });
+    await symlink(outside, path.join(root, 'nested'));
+    expect(gate.decide(callId(), true)).toBe(true);
+
+    await expect(pending).rejects.toThrow(WorkspacePathError);
+    await expect(readFile(path.join(outside, 'note.md'), 'utf-8')).rejects.toThrow();
   });
 
   it('rejects an escaping path before asking for approval', async () => {

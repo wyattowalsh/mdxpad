@@ -87,21 +87,40 @@ export async function executeApprovedWrite(input: ApprovedWriteInput): Promise<s
     return 'Write rejected';
   }
 
-  await fs.promises.mkdir(path.dirname(resolved), { recursive: true });
-  const handle = await fs.promises.open(
-    resolved,
-    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW,
-    0o600
-  );
   try {
-    await handle.writeFile(input.content);
-  } finally {
-    await handle.close();
+    await writeApprovedFile(input.workspacePath, input.filePath, resolved, input.content);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Write rejected';
+    input.notify({ type: 'tool-result', toolCallId: id, result: message });
+    throw error;
   }
   const result = `File written: ${resolved}`;
   input.notify({ type: 'tool-result', toolCallId: id, result });
   input.notify({ type: 'status', status: 'executing' });
   return result;
+}
+
+async function writeApprovedFile(
+  workspacePath: string,
+  requestedPath: string,
+  approvedPath: string,
+  content: string
+): Promise<void> {
+  const confirmed = resolveWorkspaceFilePath(workspacePath, requestedPath);
+  if (confirmed !== approvedPath) {
+    throw new WorkspacePathError('The file path changed before approval');
+  }
+  await fs.promises.mkdir(path.dirname(confirmed), { recursive: true });
+  const handle = await fs.promises.open(
+    confirmed,
+    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW,
+    0o600
+  );
+  try {
+    await handle.writeFile(content);
+  } finally {
+    await handle.close();
+  }
 }
 
 export function createWriteFileTool(
