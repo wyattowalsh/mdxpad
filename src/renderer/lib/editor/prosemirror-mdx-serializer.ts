@@ -28,6 +28,22 @@ type NodeSerializerMap = Record<
   ) => void
 >;
 
+function bulletMarker(node: ProseMirrorNode): string {
+  const marker: unknown = node.attrs.marker;
+  return marker === '+' || marker === '*' ? marker : '-';
+}
+
+function separateDifferentBullets(state: MarkdownSerializerState, node: ProseMirrorNode): void {
+  const writer = state as MarkdownSerializerState & {
+    closed: ProseMirrorNode | null;
+    flushClose: (size?: number) => void;
+  };
+  const previous = writer.closed;
+  if (previous?.type === node.type && bulletMarker(previous) !== bulletMarker(node)) {
+    writer.flushClose(1);
+  }
+}
+
 function taskPrefix(paragraph: ProseMirrorNode): string | null {
   const match = /^\[([ xX])\]\s*/.exec(paragraph.textContent);
   return match?.[0] ?? null;
@@ -109,12 +125,15 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   bullet_list(state, node) {
-    state.renderList(node, '  ', () => '- ');
+    separateDifferentBullets(state, node);
+    const marker = bulletMarker(node);
+    state.renderList(node, '  ', () => `${marker} `);
   },
 
   ordered_list(state, node) {
     const start = (node.attrs.order as number) || 1;
-    state.renderList(node, '   ', (i) => `${start + i}. `);
+    const delimiter = node.attrs.delimiter === ')' ? ')' : '.';
+    state.renderList(node, '   ', (i) => `${start + i}${delimiter} `);
   },
 
   list_item(state, node) {

@@ -257,6 +257,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\~');
   });
 
+  it('keeps distinct bullet markers', () => {
+    expect(roundTrip('- one\n+ two\n* three\n')).toBe('- one\n+ two\n* three');
+  });
+
+  it('keeps parenthesis numbering', () => {
+    expect(roundTrip('1) one\n2) two\n')).toBe('1) one\n2) two');
+    expect(roundTrip('1. one\n2. two\n')).toBe('1. one\n2. two');
+  });
+
   it('keeps nested emphasis on the same words', () => {
     expect(roundTrip('***foo** bar*\n')).toBe('***foo** bar*');
     expect(roundTrip('***foo* bar**\n')).toBe('***foo* bar**');

@@ -102,13 +102,17 @@ const MDX_TOKENS: Record<
   blockquote: { block: 'blockquote' },
   bullet_list: {
     block: 'bullet_list',
-    getAttrs: (_token, tokens, index) => ({ tight: listIsTight(tokens, index) }),
+    getAttrs: (token, tokens, index) => ({
+      tight: listIsTight(tokens, index),
+      marker: token.markup === '+' || token.markup === '*' ? token.markup : '-',
+    }),
   },
   ordered_list: {
     block: 'ordered_list',
     getAttrs: (tok: MarkdownToken, tokens, index) => ({
       order: Number(tok.attrGet('start') ?? 1),
       tight: listIsTight(tokens, index),
+      delimiter: tok.markup === ')' ? ')' : '.',
     }),
   },
   list_item: { block: 'list_item' },
