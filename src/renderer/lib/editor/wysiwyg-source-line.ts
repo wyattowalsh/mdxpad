@@ -3,6 +3,7 @@ import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
 import { serializeMdxContent } from './prosemirror-mdx-serializer';
+import { sourceCursorAt } from './wysiwyg-cursor';
 
 let focusLine: ((line: number, column: number) => boolean) | null = null;
 
@@ -28,10 +29,37 @@ function lineText(source: string, line: number): string {
   return (lines[index] ?? '').trim();
 }
 
-/** Move the caret to the block that contains this source line. */
-export function focusSourceLineInView(view: EditorView, line: number, _column: number): boolean {
+function closestCaret(
+  doc: ProseMirrorNode,
+  from: number,
+  to: number,
+  line: number,
+  column: number
+): number {
+  let best = from;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  const end = Math.min(to, from + 2000);
+  for (let pos = from; pos <= end; pos += 1) {
+    const cursor = sourceCursorAt(doc, pos);
+    if (cursor.line !== line) {
+      continue;
+    }
+    const distance = Math.abs(cursor.column - column);
+    if (distance < bestDistance) {
+      best = pos;
+      bestDistance = distance;
+      if (distance === 0) {
+        return pos;
+      }
+    }
+  }
+  return best;
+}
+
+/** Move the caret to the block that contains this source line and column. */
+export function focusSourceLineInView(view: EditorView, line: number, column: number): boolean {
   const needle = lineText(serializeMdxContent(view.state.doc), line);
-  const matches: number[] = [];
+  const matches: { readonly pos: number; readonly node: ProseMirrorNode }[] = [];
   if (needle.length > 0) {
     view.state.doc.descendants((node, pos) => {
       if (!node.isBlock) {
@@ -43,11 +71,20 @@ export function focusSourceLineInView(view: EditorView, line: number, _column: n
       if (!contains) {
         return false;
       }
-      matches.push(pos + 1);
+      matches.push({ pos, node });
       return true;
     });
   }
-  const target = matches[matches.length - 1] ?? 1;
+  const hit = matches[matches.length - 1];
+  const target = hit
+    ? closestCaret(
+        view.state.doc,
+        hit.pos + 1,
+        hit.pos + hit.node.nodeSize - 1,
+        line,
+        column
+      )
+    : 1;
   const selection = TextSelection.near(
     view.state.doc.resolve(Math.min(target, view.state.doc.content.size))
   );
