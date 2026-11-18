@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app } from 'electron';
 import { z } from 'zod';
@@ -110,6 +110,31 @@ async function ensureDirectory(dirPath: string): Promise<void> {
 
 function isNotFoundError(error: unknown): boolean {
   return (error as NodeJS.ErrnoException).code === 'ENOENT';
+}
+
+function isLinkOpenError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM';
+}
+
+/** Read the session store without following a symlink. */
+async function readStoreText(filePath: string): Promise<string | null> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      return null;
+    }
+    return await handle.readFile({ encoding: 'utf8' });
+  } catch (error) {
+    if (isNotFoundError(error) || isLinkOpenError(error)) {
+      return null;
+    }
+    throw error;
+  } finally {
+    await handle?.close();
+  }
 }
 
 function stableStringify(input: unknown): string {
@@ -572,11 +597,10 @@ export class AISessionStorageService implements IAISessionStorageService {
   private async loadState(): Promise<SessionStoragePayload> {
     await ensureDirectory(path.dirname(this.storagePath));
     try {
-      const info = await fs.lstat(this.storagePath);
-      if (info.isSymbolicLink() || !info.isFile()) {
+      const raw = await readStoreText(this.storagePath);
+      if (raw === null) {
         return createEmptyPayload();
       }
-      const raw = await fs.readFile(this.storagePath, 'utf-8');
       const parsed = SessionStorageSnapshotSchema.parse(JSON.parse(raw) as unknown);
       const expectedChecksum = computePayloadChecksum(parsed.payload);
       if (expectedChecksum !== parsed.checksum) {
