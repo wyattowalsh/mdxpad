@@ -124,6 +124,42 @@ describe('VectorStore', () => {
     expect(store2.size).toBe(2);
   });
 
+  it('does not load or overwrite an index that is a link', async () => {
+    const indexDir = path.join(tmpDir, '.mdxpad');
+    fs.mkdirSync(indexDir);
+    const outside = path.join(tmpDir, 'secret.json');
+    const indexPath = path.join(indexDir, 'vector-index.json');
+    fs.writeFileSync(
+      outside,
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            id: 'secret',
+            filePath: '/secret.md',
+            content: 'hidden',
+            chunkIndex: 0,
+            embedding: [1, 0, 0],
+          },
+        ],
+        lastIndexedAt: '2020-01-01T00:00:00.000Z',
+      })
+    );
+    fs.symlinkSync(outside, indexPath);
+
+    await expect(store.loadFromDisk()).resolves.toBe(false);
+    expect(store.size).toBe(0);
+
+    store.upsert([makeEntry('local', '/note.md', [1, 0, 0])]);
+    await store.saveToDisk();
+
+    expect(fs.readFileSync(outside, 'utf-8')).toContain('secret');
+    expect(fs.lstatSync(indexPath).isSymbolicLink()).toBe(false);
+    const reloaded = new VectorStore(tmpDir);
+    await expect(reloaded.loadFromDisk()).resolves.toBe(true);
+    expect(reloaded.size).toBe(1);
+  });
+
   it('should return false when loading from non-existent file', async () => {
     const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vector-empty-'));
     const emptyStore = new VectorStore(emptyDir);

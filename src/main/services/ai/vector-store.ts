@@ -161,6 +161,7 @@ export class VectorStore {
   async saveToDisk(): Promise<void> {
     const dir = path.dirname(this.storagePath);
     await fs.promises.mkdir(dir, { recursive: true });
+    await this.replaceIndexLink();
 
     const data: SerializedStore = {
       version: 1,
@@ -176,6 +177,10 @@ export class VectorStore {
    */
   async loadFromDisk(): Promise<boolean> {
     try {
+      const info = await fs.promises.lstat(this.storagePath);
+      if (info.isSymbolicLink() || !info.isFile()) {
+        return false;
+      }
       const raw = await fs.promises.readFile(this.storagePath, 'utf-8');
       const data = JSON.parse(raw) as SerializedStore;
 
@@ -189,6 +194,20 @@ export class VectorStore {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  private async replaceIndexLink(): Promise<void> {
+    try {
+      const info = await fs.promises.lstat(this.storagePath);
+      if (info.isSymbolicLink()) {
+        await fs.promises.unlink(this.storagePath);
+      }
+    } catch (error) {
+      const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+      if (code !== 'ENOENT') {
+        throw error;
+      }
     }
   }
 }
