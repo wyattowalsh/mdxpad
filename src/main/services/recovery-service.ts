@@ -29,6 +29,7 @@ import { computeChecksum } from '@shared/lib/checksum';
 
 import {
   type DocumentId,
+  type ManifestEntry,
   type RecoveryFile,
   RecoveryFileSchema,
   type RecoveryManifest,
@@ -48,6 +49,7 @@ import type {
 } from '@shared/contracts/autosave-ipc';
 
 import { AutosaveSettingsService } from './autosave-settings';
+import { orphanRecoveryIds } from './recovery-orphans';
 import type { AutosaveService } from './autosave-service';
 
 /** Length of content preview in characters */
@@ -134,7 +136,7 @@ export class RecoveryService {
     this.scheduleRetentionCleanup();
 
     try {
-      const manifest = await this.readManifest();
+      const manifest = await this.rememberOrphanedFiles(await this.readManifest());
       const count = Object.keys(manifest.entries).length;
       return {
         hasRecoveryData: count > 0,
@@ -171,7 +173,7 @@ export class RecoveryService {
    */
   async listRecoverable(): Promise<RecoveryListResponse> {
     try {
-      const manifest = await this.readManifest();
+      const manifest = await this.rememberOrphanedFiles(await this.readManifest());
 
       const manifestEntries = Object.values(manifest.entries);
 
@@ -781,16 +783,54 @@ export class RecoveryService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { [documentId]: _removed, ...remainingEntries } = manifest.entries;
 
-    const updatedManifest: RecoveryManifest = {
+    await this.writeManifest({
       ...manifest,
       entries: remainingEntries,
-    };
+    });
+  }
 
+  private async writeManifest(manifest: RecoveryManifest): Promise<void> {
     const recoveryDir = await this.getRecoveryDirPath();
-    const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
+    await atomicWrite(path.join(recoveryDir, MANIFEST_FILE), JSON.stringify(manifest, null, 2));
+  }
 
-    // Atomic write for manifest
-    await atomicWrite(manifestPath, JSON.stringify(updatedManifest, null, 2));
+  private async orphanedRecoveryIds(manifest: RecoveryManifest): Promise<DocumentId[]> {
+    try {
+      const names = await fs.readdir(await this.getRecoveryDirPath());
+      return orphanRecoveryIds(names, new Set(Object.keys(manifest.entries)));
+    } catch {
+      return [];
+    }
+  }
+
+  private async manifestEntryForRecovery(documentId: DocumentId): Promise<ManifestEntry | null> {
+    const file = await this.readRecoveryFile(documentId);
+    if (!file || !this.validateChecksum(file)) {
+      return null;
+    }
+    return {
+      documentId: file.documentId,
+      filePath: file.filePath,
+      fileName: file.fileName,
+      savedAt: file.savedAt,
+      recoveryFilePath: `${file.documentId}.json`,
+    };
+  }
+
+  private async rememberOrphanedFiles(manifest: RecoveryManifest): Promise<RecoveryManifest> {
+    const entries = { ...manifest.entries };
+    for (const documentId of await this.orphanedRecoveryIds(manifest)) {
+      const entry = await this.manifestEntryForRecovery(documentId);
+      if (entry) {
+        entries[documentId] = entry;
+      }
+    }
+    if (Object.keys(entries).length === Object.keys(manifest.entries).length) {
+      return manifest;
+    }
+    const updated: RecoveryManifest = { ...manifest, entries };
+    await this.writeManifest(updated);
+    return updated;
   }
 
   /**

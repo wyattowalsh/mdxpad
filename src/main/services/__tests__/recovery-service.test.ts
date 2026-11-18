@@ -29,6 +29,7 @@ vi.mock('node:fs', () => {
     unlink: vi.fn(),
     rename: vi.fn(),
     stat: vi.fn(),
+    readdir: vi.fn(),
   };
   return {
     default: { promises: mockPromises },
@@ -76,6 +77,7 @@ const mockFs = {
   unlink: fs.unlink as Mock,
   rename: fs.rename as Mock,
   stat: fs.stat as Mock,
+  readdir: fs.readdir as Mock,
 };
 
 const mockApp = app as unknown as { getPath: Mock };
@@ -153,6 +155,7 @@ describe('RecoveryService', () => {
     mockFs.rename.mockResolvedValue(undefined);
     mockFs.unlink.mockResolvedValue(undefined);
     mockFs.stat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    mockFs.readdir.mockResolvedValue([]);
 
     // Create service instances
     settingsService = new AutosaveSettingsService();
@@ -188,6 +191,43 @@ describe('RecoveryService', () => {
 
       expect(result.hasRecoveryData).toBe(true);
       expect(result.count).toBe(2);
+    });
+
+    it('offers a recovery file that was saved before the manifest', async () => {
+      const docId = '123e4567-e89b-12d3-a456-426614174001';
+      const recovery = createRecoveryFile(docId, '# Kept');
+      const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      mockFs.readdir.mockResolvedValue([`${docId}.json`, 'manifest.json', 'note.tmp']);
+      mockFs.readFile.mockImplementation((filePath: string) => {
+        if (filePath.endsWith(`${docId}.json`)) {
+          return Promise.resolve(JSON.stringify(recovery));
+        }
+        return Promise.reject(enoent);
+      });
+
+      const result = await recoveryService.checkForRecovery();
+      const written = mockFs.writeFile.mock.calls.map((call) => String(call[1]));
+
+      expect(result).toEqual({ hasRecoveryData: true, count: 1 });
+      expect(written.some((body) => body.includes(docId))).toBe(true);
+    });
+
+    it('leaves a recovery file out when its checksum does not match', async () => {
+      const docId = '123e4567-e89b-12d3-a456-426614174001';
+      const recovery = createRecoveryFile(docId, '# Kept', { checksum: '0'.repeat(64) });
+      const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      mockFs.readdir.mockResolvedValue([`${docId}.json`]);
+      mockFs.readFile.mockImplementation((filePath: string) => {
+        if (filePath.endsWith(`${docId}.json`)) {
+          return Promise.resolve(JSON.stringify(recovery));
+        }
+        return Promise.reject(enoent);
+      });
+
+      const result = await recoveryService.checkForRecovery();
+
+      expect(result).toEqual({ hasRecoveryData: false, count: 0 });
+      expect(mockFs.writeFile).not.toHaveBeenCalled();
     });
 
     it('should handle missing manifest gracefully', async () => {
