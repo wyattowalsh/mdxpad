@@ -124,6 +124,9 @@ export function HistoryUtilityPanel(): React.JSX.Element {
                   loadHistory(history.entries, filePath);
                 })
                 .catch((caught: unknown) => {
+                  if (!documentStillOpen(filePath)) {
+                    return;
+                  }
                   setError(caught instanceof Error ? caught.message : 'Could not save a snapshot');
                 });
             }}
@@ -170,7 +173,6 @@ export function HistoryUtilityPanel(): React.JSX.Element {
               .restore(selected.id, filePath, createBackup, content)
               .then(async (result) => {
                 if (!documentStillOpen(filePath)) {
-                  setRestoreError('The open document changed before the version was restored');
                   return;
                 }
                 if (!result.ok || result.content === undefined) {
@@ -178,7 +180,6 @@ export function HistoryUtilityPanel(): React.JSX.Element {
                   return;
                 }
                 if (!applyRestoredVersion(filePath, result.content)) {
-                  setRestoreError('The open document changed before the version was restored');
                   return;
                 }
                 const history = await historyApi.getHistory(filePath);
@@ -189,6 +190,9 @@ export function HistoryUtilityPanel(): React.JSX.Element {
                 setRestoreOpen(false);
               })
               .catch((caught: unknown) => {
+                if (!documentStillOpen(filePath)) {
+                  return;
+                }
                 setRestoreError(
                   caught instanceof Error ? caught.message : 'Could not restore this version'
                 );

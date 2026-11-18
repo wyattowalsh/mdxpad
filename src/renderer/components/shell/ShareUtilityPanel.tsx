@@ -96,6 +96,7 @@ export function ShareUtilityPanel(): React.JSX.Element {
             });
           })
           .catch((caught: unknown) => {
+            if (currentDocumentId() !== createdFor) return;
             setError(caught instanceof Error ? caught.message : 'Could not create a share link');
           });
       }}
@@ -116,6 +117,7 @@ export function ShareUtilityPanel(): React.JSX.Element {
             });
           })
           .catch((caught: unknown) => {
+            if (currentDocumentId() !== revokedFor) return;
             setError(caught instanceof Error ? caught.message : 'Could not revoke this share link');
           });
       }}

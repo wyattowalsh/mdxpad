@@ -126,6 +126,50 @@ describe('HistoryUtilityPanel', () => {
     expect(screen.queryByText('File A')).toBeNull();
   });
 
+  it('does not show a snapshot error from the previous file', async () => {
+    useDocumentStore.setState({ filePath: '/tmp/a.md', content: 'A' });
+    let rejectSnapshot: (error: Error) => void = () => undefined;
+    const createSnapshot = vi.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSnapshot = reject;
+        })
+    );
+    const getHistory = vi.fn().mockImplementation((filePath: string) =>
+      Promise.resolve({
+        entries: [
+          {
+            id: filePath,
+            timestamp: 1,
+            source: 'manual',
+            label: filePath.endsWith('b.md') ? 'File B' : 'File A',
+          },
+        ],
+      })
+    );
+    vi.stubGlobal('mdxpad', {
+      history: { getHistory, getVersion: vi.fn(), createSnapshot },
+    });
+
+    render(<HistoryUtilityPanel />);
+    await waitFor(() => {
+      expect(screen.getByText('File A')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save a snapshot of the editor' }));
+    act(() => {
+      useDocumentStore.setState({ filePath: '/tmp/b.md', content: 'B' });
+    });
+    await waitFor(() => {
+      expect(screen.getByText('File B')).toBeTruthy();
+    });
+    await act(async () => {
+      rejectSnapshot(new Error('Could not save the snapshot'));
+    });
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('File B')).toBeTruthy();
+  });
+
   it('saves a snapshot of the editor text', async () => {
     useDocumentStore.setState({ filePath: '/tmp/note.mdx', content: '# Live' });
     const createSnapshot = vi.fn().mockResolvedValue({

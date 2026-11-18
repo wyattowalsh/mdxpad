@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -118,5 +118,37 @@ describe('ShareUtilityPanel', () => {
         toDocId: '/tmp/saved.md',
       });
     });
+  });
+
+  it('does not show a share error from the previous file', async () => {
+    let rejectCreate: (error: Error) => void = () => undefined;
+    const createLink = vi.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectCreate = reject;
+        })
+    );
+    const getLinks = vi.fn().mockResolvedValue({ links: [] });
+    vi.stubGlobal('mdxpad', {
+      share: { getLinks, createLink, revokeLink: vi.fn(), moveUntitled: vi.fn() },
+    });
+    useDocumentStore.setState({ filePath: '/tmp/a.md' });
+
+    render(<ShareUtilityPanel />);
+    await waitFor(() => {
+      expect(getLinks).toHaveBeenCalledWith({ docId: '/tmp/a.md' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Link' }));
+    act(() => {
+      useDocumentStore.setState({ filePath: '/tmp/b.md' });
+    });
+    await waitFor(() => {
+      expect(getLinks).toHaveBeenCalledWith({ docId: '/tmp/b.md' });
+    });
+    await act(async () => {
+      rejectCreate(new Error('Could not save the share link'));
+    });
+
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
