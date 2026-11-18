@@ -106,6 +106,40 @@ export function summarizeSearchResults(
   return `Search for "${query}": ${results.length} ${label} (${names.join(', ')}${extra})`;
 }
 
+function queryWords(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+}
+
+function editorContainsQuery(content: string, query: string): boolean {
+  const words = queryWords(query);
+  if (words.length === 0) {
+    return false;
+  }
+  const haystack = content.toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
+function includeOpenEditor(
+  results: readonly { readonly filePath?: string; readonly fileName?: string }[],
+  filePath: string | null,
+  content: string,
+  query: string
+): readonly { readonly filePath?: string; readonly fileName?: string }[] {
+  if (!filePath || !editorContainsQuery(content, query)) {
+    return results;
+  }
+  const fileName = filePath.slice(filePath.lastIndexOf('/') + 1);
+  if (results.some((result) => result.filePath === filePath)) {
+    return results.map((result) =>
+      result.filePath === filePath ? { ...result, fileName } : result
+    );
+  }
+  return [{ filePath, fileName }, ...results];
+}
+
 function requireWorkspaceDir(ctx: CommandContext): string | null {
   const dir = workspaceDir(ctx.document.filePath);
   if (!dir) {
@@ -164,9 +198,17 @@ async function searchWorkspaceFolder(
     ctx.notify({ type: 'error', message: result.error.message });
     return { ok: false, error: result.error.message };
   }
+  const openFile = useDocumentStore.getState();
+  const sameFile = openFile.filePath !== null && openFile.filePath === ctx.document.filePath;
+  const results = includeOpenEditor(
+    result.value.results,
+    sameFile ? openFile.filePath : null,
+    sameFile ? openFile.content : '',
+    queryText
+  );
   ctx.notify({
     type: 'info',
-    message: summarizeSearchResults(queryText, result.value.results),
+    message: summarizeSearchResults(queryText, results),
   });
   return { ok: true };
 }
@@ -217,7 +259,10 @@ const gitDiffCommand: Command = {
   },
 };
 
-function commitBuffer(ctx: CommandContext, filePath: string): {
+function commitBuffer(
+  ctx: CommandContext,
+  filePath: string
+): {
   readonly content: string;
   readonly isDirty: boolean;
   readonly fileId: string | null;

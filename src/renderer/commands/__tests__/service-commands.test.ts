@@ -106,7 +106,10 @@ describe('git.commit', () => {
   });
 
   it('saves unsaved edits before committing them', async () => {
-    vi.stubGlobal('prompt', vi.fn(() => 'Save edits'));
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Save edits')
+    );
     useDocumentStore.getState().openDocument(
       {
         fileId: 'file-1' as DocumentId,
@@ -140,7 +143,10 @@ describe('git.commit', () => {
   });
 
   it('does not commit when the save fails', async () => {
-    vi.stubGlobal('prompt', vi.fn(() => 'Save edits'));
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Save edits')
+    );
     const saveFile = vi.fn().mockResolvedValue({ ok: false, error: { code: 'EACCES' } });
     const add = vi.fn();
     const context = {
@@ -160,7 +166,10 @@ describe('git.commit', () => {
   });
 
   it('does not overwrite a file that changed on disk', async () => {
-    vi.stubGlobal('prompt', vi.fn(() => 'Save edits'));
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Save edits')
+    );
     useDocumentStore.getState().openDocument(
       {
         fileId: 'file-1' as DocumentId,
@@ -366,6 +375,7 @@ describe('searchDirectoryForFile', () => {
 describe('search.workspace', () => {
   beforeEach(() => {
     useWorkspaceStore.getState().reset();
+    useDocumentStore.getState().reset();
   });
 
   it('indexes an unindexed folder before searching and passes exclude patterns', async () => {
@@ -400,6 +410,40 @@ describe('search.workspace', () => {
     expect(notify).toHaveBeenCalledWith({
       type: 'info',
       message: 'Search for "Title": 1 match (a.md)',
+    });
+  });
+
+  it('includes unsaved editor text the index has not seen', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    useDocumentStore.getState().setContent('brand new phrase');
+    vi.spyOn(window, 'prompt').mockReturnValue('brand new');
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { indexed: true, fileCount: 1, lastIndexedAt: null },
+    });
+    const search = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { results: [], totalResults: 0, queryTimeMs: 1 },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'old', isDirty: true, fileId: 'file-1' },
+      api: { search: { status, search } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'search.workspace');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Search for "brand new": 1 match (readme.md)',
     });
   });
 
