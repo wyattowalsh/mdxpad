@@ -1,6 +1,8 @@
 import type { Command, CommandContext, CommandId, CommandResult } from '@shared/types/commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
 
+import { documentStillMatches, liveDocumentContent } from './live-document';
+
 interface ImportedDocument {
   readonly content: string;
   readonly warnings: readonly string[];
@@ -17,18 +19,18 @@ function promptValue(label: string): string | null {
 
 function applyImportedDocument(
   ctx: CommandContext,
+  snapshot: string,
   imported: ImportedDocument,
   label: string
 ): CommandResult {
-  const document = useDocumentStore.getState();
-  if (document.content !== ctx.document.content) {
+  if (!documentStillMatches(ctx, snapshot)) {
     ctx.notify({
       type: 'warning',
       message: 'The document changed during import. It was not replaced.',
     });
     return { ok: false, error: 'Document changed during import' };
   }
-  document.setContent(imported.content);
+  useDocumentStore.getState().setContent(imported.content);
   const warningCount = imported.warnings.length;
   const warningText =
     warningCount === 0 ? '' : ` ${warningCount} warning${warningCount === 1 ? '' : 's'}.`;
@@ -42,19 +44,20 @@ function applyImportedDocument(
 async function runImport(
   ctx: CommandContext,
   label: string,
-  load: () => Promise<ImportResult>,
+  load: (source: string) => Promise<ImportResult>,
   requireContent: boolean
 ): Promise<CommandResult> {
-  if (requireContent && ctx.document.content.trim().length === 0) {
+  const snapshot = liveDocumentContent(ctx);
+  if (requireContent && snapshot.trim().length === 0) {
     ctx.notify({ type: 'warning', message: 'The document is empty' });
     return { ok: false, error: 'The document is empty' };
   }
-  const result = await load();
+  const result = await load(snapshot);
   if (!result.ok) {
     ctx.notify({ type: 'error', message: result.error.message });
     return { ok: false, error: result.error.message };
   }
-  return applyImportedDocument(ctx, result.value, label);
+  return applyImportedDocument(ctx, snapshot, result.value, label);
 }
 
 function unavailableImport(ctx: CommandContext): CommandResult {
@@ -72,7 +75,7 @@ const importHtmlCommand: Command = {
     if (!importer) {
       return unavailableImport(ctx);
     }
-    return runImport(ctx, 'HTML', () => importer.fromHtml(ctx.document.content), true);
+    return runImport(ctx, 'HTML', (source) => importer.fromHtml(source), true);
   },
 };
 

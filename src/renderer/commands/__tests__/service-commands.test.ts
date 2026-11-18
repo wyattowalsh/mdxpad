@@ -217,6 +217,32 @@ describe('import.html', () => {
     expect(useDocumentStore.getState().content).toBe('Hi');
   });
 
+  it('converts the editor text when the command snapshot is older', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    useDocumentStore.getState().setContent('<p>Live</p>');
+    const fromHtml = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { content: 'Live', warnings: [] },
+    });
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
+      api: { import: { fromHtml } },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'import.html');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(fromHtml).toHaveBeenCalledWith('<p>Live</p>');
+    expect(useDocumentStore.getState().content).toBe('Live');
+  });
+
   it('imports a Notion page into the document', async () => {
     useDocumentStore.getState().setContent('keep');
     const fromNotion = vi.fn().mockResolvedValue({
@@ -266,6 +292,36 @@ describe('citation.parse', () => {
     const command = SERVICE_COMMANDS.find((item) => item.id === 'citation.parse');
     await expect(command?.execute(context)).resolves.toEqual({ ok: true });
     expect(useDocumentStore.getState().content).toBe('@article{a, title={One}}\n\nOne. (n.d.).');
+  });
+
+  it('parses the editor text when the command snapshot is older', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    useDocumentStore.getState().setContent('@article{a, title={Live}}');
+    const parseBibtex = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { entries: [{ id: 'a', type: 'article', title: 'Live' }], warnings: [] },
+    });
+    const generateBibliography = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { bibliography: 'Live. (n.d.).', entryCount: 1 },
+    });
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
+      api: { citation: { parseBibtex, generateBibliography } },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'citation.parse');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(parseBibtex).toHaveBeenCalledWith('@article{a, title={Live}}');
+    expect(useDocumentStore.getState().content).toBe('@article{a, title={Live}}\n\nLive. (n.d.).');
   });
 });
 

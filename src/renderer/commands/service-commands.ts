@@ -6,6 +6,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { IMPORT_COMMANDS } from './import-commands';
+import { documentStillMatches, liveDocumentContent } from './live-document';
 
 function parentDirectory(filePath: string): string {
   return filePath.slice(0, filePath.lastIndexOf('/'));
@@ -350,11 +351,12 @@ async function appendParsedBibliography(ctx: CommandContext): Promise<CommandRes
     ctx.notify({ type: 'warning', message: 'Citations are not available' });
     return { ok: false, error: 'Citations are not available' };
   }
-  if (ctx.document.content.trim().length === 0) {
+  const snapshot = liveDocumentContent(ctx);
+  if (snapshot.trim().length === 0) {
     ctx.notify({ type: 'warning', message: 'The document is empty' });
     return { ok: false, error: 'The document is empty' };
   }
-  const parsed = await citation.parseBibtex(ctx.document.content);
+  const parsed = await citation.parseBibtex(snapshot);
   if (!parsed.ok) {
     ctx.notify({ type: 'error', message: parsed.error.message });
     return { ok: false, error: parsed.error.message };
@@ -368,31 +370,31 @@ async function appendParsedBibliography(ctx: CommandContext): Promise<CommandRes
     ctx.notify({ type: 'error', message: generated.error.message });
     return { ok: false, error: generated.error.message };
   }
-  return writeBibliography(ctx, generated.value.bibliography, generated.value.entryCount);
+  return writeBibliography(ctx, snapshot, generated.value.bibliography, generated.value.entryCount);
 }
 
 function writeBibliography(
   ctx: CommandContext,
+  snapshot: string,
   bibliography: string,
   entryCount: number
 ): CommandResult {
-  const document = useDocumentStore.getState();
-  if (document.content !== ctx.document.content) {
+  if (!documentStillMatches(ctx, snapshot)) {
     ctx.notify({
       type: 'warning',
       message: 'The document changed while citations were parsed. It was not changed.',
     });
     return { ok: false, error: 'Document changed during citation parse' };
   }
-  if (document.content.includes(bibliography)) {
+  if (snapshot.includes(bibliography)) {
     ctx.notify({
       type: 'info',
       message: `Parsed ${entryCount} citations. The bibliography is already in the document.`,
     });
     return { ok: true };
   }
-  const separator = document.content.endsWith('\n') ? '\n' : '\n\n';
-  document.setContent(`${document.content}${separator}${bibliography}`);
+  const separator = snapshot.endsWith('\n') ? '\n' : '\n\n';
+  useDocumentStore.getState().setContent(`${snapshot}${separator}${bibliography}`);
   ctx.notify({
     type: 'success',
     message: `Added a bibliography for ${entryCount} citation${entryCount === 1 ? '' : 's'}.`,
