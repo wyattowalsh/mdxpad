@@ -210,4 +210,68 @@ describe('useSemanticSearchStore', () => {
     expect(useSemanticSearchStore.getState().results).toEqual([]);
     expect(useSemanticSearchStore.getState().isSearching).toBe(false);
   });
+
+  it('keeps a newer search ahead of an older index', async () => {
+    let finishIndex: (value: { success: false; error: { message: string } }) => void = () =>
+      undefined;
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        indexWorkspace: vi.fn().mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              finishIndex = resolve;
+            })
+        ),
+        search: vi.fn().mockResolvedValue({
+          success: true,
+          results: [{ filePath: '/notes/a.md', content: 'found', score: 1, chunkIndex: 0 }],
+        }),
+      },
+    });
+
+    const indexing = useSemanticSearchStore.getState().indexWorkspace('/notes');
+    useSemanticSearchStore.getState().setQuery('found');
+    await useSemanticSearchStore.getState().search('/notes');
+    finishIndex({ success: false, error: { message: 'Index failed' } });
+    await indexing;
+
+    const state = useSemanticSearchStore.getState();
+    expect(state.error).toBeNull();
+    expect(state.isIndexing).toBe(false);
+    expect(state.isSearching).toBe(false);
+    expect(state.results.map((result) => result.filePath)).toEqual(['/notes/a.md']);
+  });
+
+  it('keeps a newer index ahead of an older search', async () => {
+    let finishSearch: (value: { success: false; error: { message: string } }) => void = () =>
+      undefined;
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        search: vi.fn().mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              finishSearch = resolve;
+            })
+        ),
+        indexWorkspace: vi.fn().mockResolvedValue({
+          success: true,
+          indexedFiles: 2,
+          totalChunks: 4,
+        }),
+      },
+    });
+
+    useSemanticSearchStore.getState().setQuery('notes');
+    const searching = useSemanticSearchStore.getState().search('/notes');
+    await useSemanticSearchStore.getState().indexWorkspace('/notes');
+    finishSearch({ success: false, error: { message: 'Search failed' } });
+    await searching;
+
+    const state = useSemanticSearchStore.getState();
+    expect(state.error).toBeNull();
+    expect(state.isSearching).toBe(false);
+    expect(state.isIndexing).toBe(false);
+    expect(state.isIndexed).toBe(true);
+    expect(state.results).toEqual([]);
+  });
 });

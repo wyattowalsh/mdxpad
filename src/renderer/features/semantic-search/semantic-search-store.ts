@@ -107,9 +107,12 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
       }
 
       const generation = get().resultGeneration + 1;
+      const statusGeneration = get().statusGeneration + 1;
       set((draft) => {
         draft.resultGeneration = generation;
+        draft.statusGeneration = statusGeneration;
         draft.isSearching = true;
+        draft.isIndexing = false;
         draft.error = null;
       });
 
@@ -158,9 +161,12 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
       }
 
       const generation = get().statusGeneration + 1;
+      const resultGeneration = get().resultGeneration + 1;
       set((draft) => {
         draft.statusGeneration = generation;
+        draft.resultGeneration = resultGeneration;
         draft.isIndexing = true;
+        draft.isSearching = false;
         draft.error = null;
       });
 
@@ -245,7 +251,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
     },
 
     reset: () => {
-      set(() => ({ ...INITIAL_STATE }));
+      const resultGeneration = get().resultGeneration + 1;
+      const statusGeneration = get().statusGeneration + 1;
+      set(() => ({ ...INITIAL_STATE, resultGeneration, statusGeneration }));
     },
   }))
 );
