@@ -47,7 +47,20 @@ describe('CommentPanel', () => {
     ];
     render(<CommentPanel threads={threads} {...defaultProps} />);
     expect(screen.getByText('Alice')).toBeDefined();
+    expect(screen.getAllByText('Line 1').length).toBeGreaterThan(0);
     expect(screen.getByText('Bob')).toBeDefined();
+  });
+
+  it('shows the source line of a comment instead of its character offset', () => {
+    render(
+      <CommentPanel
+        threads={[createMockThread({ anchorFrom: 7 })]}
+        content={'Hello\nWorld'}
+        {...defaultProps}
+      />
+    );
+    expect(screen.getByText('Line 2')).toBeDefined();
+    expect(screen.queryByText('Line 7')).toBeNull();
   });
 
   it('shows filter tabs with correct counts', () => {

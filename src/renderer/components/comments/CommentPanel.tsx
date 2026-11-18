@@ -10,6 +10,7 @@
 import { memo, useState, useCallback, useMemo } from 'react';
 import { cn } from '@shared/lib/utils';
 import type { CommentThread } from '@renderer/stores/comments-store';
+import { sourcePosition } from './comment-position';
 
 // ============================================================================
 // Types
@@ -19,6 +20,7 @@ type FilterMode = 'all' | 'unresolved' | 'resolved';
 
 export interface CommentPanelProps {
   readonly threads: readonly CommentThread[];
+  readonly content?: string;
   readonly activeThreadId: string | null;
   readonly onSelectThread: (threadId: string) => void;
   readonly onNavigateToThread: (threadId: string) => void;
@@ -65,12 +67,19 @@ ThreadSummaryHeader.displayName = 'ThreadSummaryHeader';
 
 interface ThreadSummaryProps {
   readonly thread: CommentThread;
+  readonly content: string;
   readonly isActive: boolean;
   readonly onSelect: () => void;
   readonly onNavigate: () => void;
 }
 
-function ThreadSummaryComponent({ thread, isActive, onSelect, onNavigate }: ThreadSummaryProps) {
+function ThreadSummaryComponent({
+  thread,
+  content,
+  isActive,
+  onSelect,
+  onNavigate,
+}: ThreadSummaryProps) {
   const firstMessage = thread.messages[0];
   const preview = firstMessage
     ? firstMessage.content.length > 80
@@ -98,7 +107,9 @@ function ThreadSummaryComponent({ thread, isActive, onSelect, onNavigate }: Thre
       />
       <p className="text-xs text-muted-foreground truncate pl-4">{preview}</p>
       <div className="flex items-center gap-2 mt-0.5 pl-4">
-        <span className="text-[10px] text-muted-foreground">Line {thread.anchorFrom}</span>
+        <span className="text-[10px] text-muted-foreground">
+          Line {sourcePosition(content, thread.anchorFrom).line}
+        </span>
       </div>
     </button>
   );
@@ -160,6 +171,7 @@ FilterTabs.displayName = 'FilterTabs';
 
 interface ThreadListProps {
   readonly threads: readonly CommentThread[];
+  readonly content: string;
   readonly activeThreadId: string | null;
   readonly filter: FilterMode;
   readonly onSelect: (threadId: string) => void;
@@ -168,6 +180,7 @@ interface ThreadListProps {
 
 function ThreadListComponent({
   threads,
+  content,
   activeThreadId,
   filter,
   onSelect,
@@ -187,6 +200,7 @@ function ThreadListComponent({
         <ThreadSummary
           key={thread.id}
           thread={thread}
+          content={content}
           isActive={thread.id === activeThreadId}
           onSelect={() => onSelect(thread.id)}
           onNavigate={() => onNavigate(thread.id)}
@@ -231,6 +245,7 @@ function useFilteredThreads(threads: readonly CommentThread[]) {
 
 function CommentPanelComponent({
   threads,
+  content = '',
   activeThreadId,
   onSelectThread,
   onNavigateToThread,
@@ -261,6 +276,7 @@ function CommentPanelComponent({
       <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-1">
         <ThreadList
           threads={filtered}
+          content={content}
           activeThreadId={activeThreadId}
           filter={filter}
           onSelect={handleSelect}

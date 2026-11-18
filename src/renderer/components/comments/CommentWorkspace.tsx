@@ -9,7 +9,9 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { useCommentsStore } from '@renderer/stores/comments-store';
 import { CommentPanel } from './CommentPanel';
 import { CommentThreadView } from './CommentThread';
+import { sourcePosition } from './comment-position';
 import { readCommentThreads, writeCommentThreads } from './comment-storage';
+import { focusWysiwygSourceLine } from '@renderer/lib/editor/wysiwyg-source-line';
 
 const CURRENT_USER = 'You';
 
@@ -44,6 +46,7 @@ export function CommentWorkspace({
   readonly editorRef: RefObject<EditorView | null>;
 }): React.JSX.Element {
   const threads = useCommentsStore((state) => state.threads);
+  const content = useDocumentStore((state) => state.content);
   const activeThreadId = useCommentsStore((state) => state.activeThreadId);
   const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? null;
 
@@ -51,15 +54,22 @@ export function CommentWorkspace({
     <div className="space-y-3">
       <CommentPanel
         threads={threads}
+        content={content}
         activeThreadId={activeThreadId}
         onSelectThread={(threadId) => useCommentsStore.getState().setActiveThread(threadId)}
         onNavigateToThread={(threadId) => {
           useCommentsStore.getState().setActiveThread(threadId);
           const thread = threads.find((item) => item.id === threadId);
-          const view = editorRef.current;
-          if (thread && view) {
-            revealCommentThread(view, thread.anchorFrom);
+          if (!thread) {
+            return;
           }
+          const view = editorRef.current;
+          if (view) {
+            revealCommentThread(view, thread.anchorFrom);
+            return;
+          }
+          const position = sourcePosition(content, thread.anchorFrom);
+          focusWysiwygSourceLine(position.line, position.column);
         }}
       />
       {activeThread && (
