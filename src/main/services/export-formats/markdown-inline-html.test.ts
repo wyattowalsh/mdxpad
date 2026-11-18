@@ -144,6 +144,22 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('a < b & c')).toBe('a &lt; b &amp; c');
   });
 
+  it('does not point a picture or link at a local file', () => {
+    expect(renderMarkdownInline('![Secret](/etc/passwd.png)')).toBe('Secret');
+    expect(renderMarkdownInline('![Secret](//localhost/etc/passwd.png)')).toBe('Secret');
+    expect(renderMarkdownInline('[Disk](file:///etc/passwd)')).toBe('Disk');
+    expect(renderMarkdownInline('[Run](javascript:alert(1))')).toBe('Run');
+    expect(renderMarkdownInline('[Run](java\tscript:alert(1))')).toBe('Run');
+    expect(renderMarkdownInline('![Pixel](pixel.png)')).toContain('src="pixel.png"');
+    expect(renderMarkdownInline('[Docs](https://example.com)')).toContain(
+      'href="https://example.com"'
+    );
+    expect(renderMarkdownInline('<img src="/etc/passwd.png" alt="Secret">')).toBe(
+      '<img alt="Secret">'
+    );
+    expect(renderMarkdownInline('<a href="file:///etc/passwd">Disk</a>')).toBe('<a>Disk</a>');
+  });
+
   it('keeps an inline HTML tag and escapes one inside code', () => {
     expect(renderMarkdownInline('Say <em>hello</em><br>')).toBe('Say <em>hello</em><br>');
     expect(renderMarkdownInline('<span title="a>b">Hi</span>')).toBe('<span title="a>b">Hi</span>');

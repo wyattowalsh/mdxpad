@@ -13,6 +13,7 @@ import {
   readMarkdownTarget,
   type MarkdownTarget,
 } from './markdown-link';
+import { safeImageAddress, safeLinkAddress, sanitizeExportedTag } from './markdown-export-address';
 
 function escapeHtml(value: string): string {
   return value
@@ -153,7 +154,7 @@ function protectInlineHtml(raw: string): { text: string; tags: string[] } {
     }
     const end = char === '<' ? inlineHtmlEnd(raw, index) : -1;
     if (end !== -1) {
-      tags.push(raw.slice(index, end));
+      tags.push(sanitizeExportedTag(raw.slice(index, end)));
       text += `${HTML_MARK}${tags.length - 1}${HTML_MARK}`;
       index = end;
       continue;
@@ -200,18 +201,31 @@ function inlinePlainText(html: string): string {
   return decodeHtmlEntities(withImages.replace(/<[^>]+>/g, ''));
 }
 
-function renderRichImage(alt: string, src: string): string {
-  const path = escapeHtml(decodeHtmlEntities(linkDestination(src)));
-  const text = inlinePlainText(renderRich(alt));
-  return `<img src="${path}" alt="${escapeText(text)}"${titleAttribute(src)} />`;
+function plainDestination(raw: string): string {
+  return decodeHtmlEntities(linkDestination(raw));
+}
+
+function renderImageTarget(target: MarkdownTarget): string {
+  const text = inlinePlainText(renderRich(target.label));
+  const src = safeImageAddress(plainDestination(target.destination));
+  if (src === null) {
+    return escapeText(text);
+  }
+  const title = titleAttribute(target.destination);
+  return `<img src="${escapeHtml(src)}" alt="${escapeText(text)}"${title} />`;
+}
+
+function renderLinkTarget(target: MarkdownTarget): string {
+  const label = renderRich(target.label);
+  const href = safeLinkAddress(plainDestination(target.destination));
+  if (href === null) {
+    return label;
+  }
+  return `<a href="${escapeHtml(href)}"${titleAttribute(target.destination)}>${label}</a>`;
 }
 
 function renderTarget(target: MarkdownTarget): string {
-  if (target.image) {
-    return renderRichImage(target.label, target.destination);
-  }
-  const href = escapeHtml(decodeHtmlEntities(linkDestination(target.destination)));
-  return `<a href="${href}"${titleAttribute(target.destination)}>${renderRich(target.label)}</a>`;
+  return target.image ? renderImageTarget(target) : renderLinkTarget(target);
 }
 
 function renderPlain(raw: string): string {
