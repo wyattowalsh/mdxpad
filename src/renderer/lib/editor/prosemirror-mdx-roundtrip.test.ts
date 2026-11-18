@@ -271,6 +271,24 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('0) zero\n1) one\n')).toBe('0) zero\n1) one');
   });
 
+  it('keeps the following lines inside a double-digit list item', () => {
+    expect(roundTrip('10. parent\n    - child\n')).toBe('10. parent\n    - child');
+    expect(roundTrip('10. item\n\n    second paragraph\n')).toBe(
+      '10. item\n\n    second paragraph'
+    );
+    expect(roundTrip('9. item\n10. next\n    continuation\n')).toBe(
+      '9. item\n10. next\n    continuation'
+    );
+    expect(roundTrip('1. one\n   two lines\n')).toBe('1. one\n   two lines');
+    expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
+  });
+
+  it('keeps an escaped star inside emphasis', () => {
+    expect(roundTrip('*foo\\*bar*\n')).toBe('*foo\\*bar*');
+    expect(roundTrip('**foo\\*bar**\n')).toBe('**foo*bar**');
+    expect(roundTrip('a *b\\* c*\n')).toBe('a *b\\* c*');
+  });
+
   it('keeps literal stars that are not emphasis', () => {
     expect(roundTrip('a * b * c\n')).toBe('a * b * c');
     expect(roundTrip('*foo**bar*\n')).toBe('*foo**bar*');

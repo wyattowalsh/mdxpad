@@ -12,7 +12,7 @@ import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { emphasizeOutside } from './prosemirror-emphasis-order';
-import { restoreLiteralDelimiters } from './prosemirror-literal-delimiters';
+import { emphasisOpen, restoreLiteralDelimiters } from './prosemirror-literal-delimiters';
 import { serializeTable } from './prosemirror-mdx-table';
 
 // =============================================================================
@@ -37,6 +37,11 @@ function bulletMarker(node: ProseMirrorNode): string {
 function listStart(node: ProseMirrorNode): number {
   const order: unknown = node.attrs.order;
   return typeof order === 'number' && Number.isInteger(order) && order >= 0 ? order : 1;
+}
+
+function orderedIndent(start: number, count: number, delimiter: string): string {
+  const last = start + Math.max(count, 1) - 1;
+  return ' '.repeat(`${last}${delimiter} `.length);
 }
 
 function separateDifferentBullets(state: MarkdownSerializerState, node: ProseMirrorNode): void {
@@ -139,7 +144,8 @@ const nodeSerializers: NodeSerializerMap = {
   ordered_list(state, node) {
     const start = listStart(node);
     const delimiter = node.attrs.delimiter === ')' ? ')' : '.';
-    state.renderList(node, '   ', (i) => `${start + i}${delimiter} `);
+    const indent = orderedIndent(start, node.childCount, delimiter);
+    state.renderList(node, indent, (index) => `${start + index}${delimiter} `);
   },
 
   list_item(state, node) {
@@ -169,11 +175,20 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   text(state, node) {
-    const writer = state as MarkdownSerializerState & { atBlockStart: boolean; out: string };
+    const writer = state as MarkdownSerializerState & {
+      atBlockStart: boolean;
+      out: string;
+      emphasisOpen: string;
+    };
     if (!writer.atBlockStart && writer.out.endsWith('\n')) {
       writer.atBlockStart = true;
     }
-    writeTextPreservingMath(state, node.text ?? '');
+    writer.emphasisOpen = emphasisOpen(node.marks);
+    try {
+      writeTextPreservingMath(state, node.text ?? '');
+    } finally {
+      writer.emphasisOpen = '';
+    }
   },
 
   jsx_block(state, node) {
@@ -362,9 +377,16 @@ function openSerializerState(
 class MdxMarkdownSerializer extends MarkdownSerializer {
   override serialize(content: ProseMirrorNode, options?: { tightLists?: boolean }): string {
     const state = openSerializerState(this, options);
+    const writer = state as WritableSerializerState & { emphasisOpen: string };
+    writer.emphasisOpen = '';
     const escape = state.esc.bind(state);
     state.esc = (value: string, startOfLine = false) =>
-      restoreLiteralDelimiters(value, restoreTildeRuns(escape(value, startOfLine)), startOfLine);
+      restoreLiteralDelimiters(
+        value,
+        restoreTildeRuns(escape(value, startOfLine)),
+        startOfLine,
+        writer.emphasisOpen
+      );
     state.renderContent(content);
     return state.out;
   }
