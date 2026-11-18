@@ -8,6 +8,11 @@ interface StrikeState {
   src: string;
   pos: number;
   posMax: number;
+  md: {
+    inline: {
+      tokenize: (state: StrikeState) => void;
+    };
+  };
   push: (type: string, tag: string, nesting: number) => StrikeToken;
 }
 
@@ -21,40 +26,6 @@ interface MarkdownTokenizer {
       ) => void;
     };
   };
-}
-
-function pushText(state: StrikeState, value: string): void {
-  if (value.length === 0) {
-    return;
-  }
-  const token = state.push('text', '', 0);
-  token.content = value;
-}
-
-function hardBreak(line: string): string | null {
-  if (/(?:^|[^\\])(?:\\\\)*\\$/.test(line)) {
-    return line.slice(0, -1);
-  }
-  if (/ {2,}$/.test(line)) {
-    return line.replace(/ {2,}$/, '');
-  }
-  return null;
-}
-
-function pushStrikeInner(state: StrikeState, inner: string): void {
-  let cursor = 0;
-  while (cursor < inner.length) {
-    const newline = inner.indexOf('\n', cursor);
-    if (newline === -1) {
-      pushText(state, inner.slice(cursor));
-      return;
-    }
-    const line = inner.slice(cursor, newline);
-    const broken = hardBreak(line);
-    pushText(state, broken ?? line.replace(/[ \t]+$/, ''));
-    state.push(broken === null ? 'softbreak' : 'hardbreak', 'br', 0);
-    cursor = newline + 1;
-  }
 }
 
 function strikethroughRule(state: StrikeState, silent: boolean): boolean {
@@ -71,9 +42,13 @@ function strikethroughRule(state: StrikeState, silent: boolean): boolean {
     return false;
   }
   if (!silent) {
+    const max = state.posMax;
     state.push('s_open', 's', 1);
-    pushStrikeInner(state, inner);
+    state.pos = start + 2;
+    state.posMax = end;
+    state.md.inline.tokenize(state);
     state.push('s_close', 's', -1);
+    state.posMax = max;
   }
   state.pos = end + 2;
   return true;

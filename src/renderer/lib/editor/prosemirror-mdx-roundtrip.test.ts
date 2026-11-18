@@ -177,7 +177,10 @@ describe('WYSIWYG markdown round trip', () => {
     const serialized = roundTrip('~~a*b~~\n');
     expect(serialized).toContain('~~a*b~~');
     expect(serialized).not.toContain('\\*');
-    expect(roundTrip('~~`code`~~\n')).toContain('~~`code`~~');
+    const struck = roundTrip('~~`code`~~\n');
+    expect(struck).toContain('~~`code`~~');
+    expect(struck).not.toContain('`~~code~~`');
+    expect(roundTrip('~~hello `x`~~\n')).toContain('~~hello `x`~~');
   });
 
   it('keeps strikethrough', () => {

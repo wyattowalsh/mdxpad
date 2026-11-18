@@ -411,7 +411,9 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
         )
       );
     state.renderContent(content);
-    return state.out;
+    // A strike that continues into a code span is closed and reopened, which
+    // writes "~~~~`" between the words. Join that pair back into one strike.
+    return state.out.replaceAll('~~~~`', '`');
   }
 }
 

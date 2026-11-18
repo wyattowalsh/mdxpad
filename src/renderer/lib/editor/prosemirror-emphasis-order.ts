@@ -28,6 +28,22 @@ function markReach(parent: ProseMirrorNode, index: number, mark: Mark): number {
   return next;
 }
 
+function strikeOutsideCode(marks: readonly Mark[]): readonly Mark[] {
+  const code = marks.findIndex((mark) => mark.type.name === 'code');
+  const strike = marks.findIndex((mark) => mark.type.name === 'strikethrough');
+  if (code === -1 || strike === -1 || strike < code) {
+    return marks;
+  }
+  const next = [...marks];
+  const struck = next[strike];
+  if (!struck) {
+    return marks;
+  }
+  next.splice(strike, 1);
+  next.splice(code, 0, struck);
+  return next;
+}
+
 function emphasisMarks(
   parent: ProseMirrorNode,
   index: number,
@@ -56,7 +72,7 @@ function presentChild(
   index: number,
   node: ProseMirrorNode
 ): ProseMirrorNode {
-  const marks = emphasisMarks(parent, index, node.marks);
+  const marks = emphasisMarks(parent, index, strikeOutsideCode(node.marks));
   const handler: ProxyHandler<ProseMirrorNode> = {
     get(target, prop) {
       if (prop === 'marks') {
