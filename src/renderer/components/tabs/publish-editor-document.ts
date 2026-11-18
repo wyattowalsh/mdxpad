@@ -3,12 +3,43 @@ import { useTabStore } from '@renderer/stores/tab-store';
 
 import { liveSourceText } from './live-source-text';
 
+let baselineKey: string | null = null;
+let baselineText: string | null = null;
+
+/** Remember the text the source editor was given for this document. */
+export function noteEditorBaseline(documentKey: string, text: string): void {
+  baselineKey = documentKey;
+  baselineText = text;
+}
+
+function currentDocumentKey(): string {
+  return useTabStore.getState().activeTabId ?? useDocumentStore.getState().filePath ?? 'untitled';
+}
+
+/**
+ * The open document changed from outside the source editor.
+ * A delayed editor flush still has the older text and must not replace it.
+ */
+function openDocumentWasReplaced(documentKey: string, text: string): boolean {
+  if (baselineKey !== documentKey || baselineText === null) {
+    return false;
+  }
+  if (currentDocumentKey() !== documentKey) {
+    return false;
+  }
+  const content = useDocumentStore.getState().content;
+  return content !== baselineText && content !== text;
+}
+
 /**
  * Store editor text for the document that produced it.
  * Switching files updates the store before the editor closes, so a late
  * flush must stay on the tab it came from.
  */
 export function publishEditorDocument(documentKey: string, text: string): void {
+  if (openDocumentWasReplaced(documentKey, text)) {
+    return;
+  }
   const tabs = useTabStore.getState();
   const tab =
     tabs.tabs.find((item) => item.id === documentKey) ??
@@ -19,7 +50,7 @@ export function publishEditorDocument(documentKey: string, text: string): void {
       isDirty: text !== tab.savedContent,
     });
   }
-  const currentKey = tabs.activeTabId ?? useDocumentStore.getState().filePath ?? 'untitled';
+  const currentKey = currentDocumentKey();
   if (currentKey !== documentKey) {
     return;
   }
@@ -27,6 +58,7 @@ export function publishEditorDocument(documentKey: string, text: string): void {
   if (document.content !== text) {
     document.setContent(text);
   }
+  noteEditorBaseline(documentKey, text);
 }
 
 /** Copy the source editor into the open document before a close or a tab switch. */

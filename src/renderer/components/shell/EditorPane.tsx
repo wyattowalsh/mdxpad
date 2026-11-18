@@ -15,7 +15,10 @@ import { EditorModeToggle } from '../editor/EditorModeToggle';
 import { ExternalChangeNotice } from './ExternalChangeNotice';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
-import { publishEditorDocument } from '@renderer/components/tabs/publish-editor-document';
+import {
+  noteEditorBaseline,
+  publishEditorDocument,
+} from '@renderer/components/tabs/publish-editor-document';
 import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
@@ -142,6 +145,9 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const activeTabId = useTabStore((state) => state.activeTabId);
   const documentKey = activeTabId ?? filePath ?? 'untitled';
+  useEffect(() => {
+    noteEditorBaseline(documentKey, useDocumentStore.getState().content);
+  }, [documentKey]);
   const onCursorChangeRef = useRef(onCursorChange);
   onCursorChangeRef.current = onCursorChange;
   useEffect(() => {
