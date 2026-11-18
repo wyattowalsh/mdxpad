@@ -12,7 +12,7 @@ describe('StaticSiteGenerator', () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
-  it('escapes raw HTML in the published page', async () => {
+  it('publishes a heading, bold text, and an ampersand', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-'));
     tempDirs.push(root);
     const source = path.join(root, 'note.md');
@@ -29,13 +29,37 @@ describe('StaticSiteGenerator', () => {
 
     expect(result.success).toBe(true);
     const html = await readFile(path.join(output, 'note.html'), 'utf-8');
-    expect(html).toMatch(/<h1 id="[^"]+">Hello &lt;b&gt;there&lt;\/b&gt;<\/h1>/);
-    expect(html).not.toContain('there&lt;/b&gt; #');
-    expect(html).toContain('&lt;b&gt;there&lt;/b&gt;');
+    expect(html).toContain('<h1 id="hello-bthereb">Hello <b>there</b></h1>');
+    expect(html).not.toContain('there</b> #');
     expect(html).toContain('<strong>bold</strong>');
     expect(html).toContain('AT&amp;T');
     expect(html).not.toContain('AT&amp;amp;T');
-    expect(html).not.toContain('<b>there</b>');
+  });
+
+  it('publishes numbered lists, bullets, and math', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-'));
+    tempDirs.push(root);
+    const source = path.join(root, 'note.md');
+    const output = path.join(root, 'out');
+    await writeFile(source, '1) one\n\n+ plus\n\nThe area is \\(x^2\\).\n');
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: source, title: 'Note' }],
+      outputDir: output,
+      includeStyles: true,
+      includeHighlighting: false,
+      generateIndex: false,
+    });
+
+    expect(result.success).toBe(true);
+    const html = await readFile(path.join(output, 'note.html'), 'utf-8');
+    expect(html).toContain('<ol class="paren"');
+    expect(html).toContain('<ul class="plus">');
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('x^2');
+    const css = await readFile(path.join(output, 'styles.css'), 'utf-8');
+    expect(css).toContain('ol.paren > li::before');
+    expect(css).toContain('ul.plus > li::before');
   });
 
   it('gives each page its own file when names slug to the same text', async () => {

@@ -12,12 +12,8 @@ import type {
   PublishProgress,
   PublishResult,
 } from '@shared/contracts/share-schemas';
-import {
-  allocateHeadingSlug,
-  headingTag,
-  stripAtxClosingHashes,
-} from '@shared/lib/markdown-heading';
-import { decodeHtmlEntities } from './export-formats/markdown-entity';
+import { markdownToPdfHtml } from './export-formats/pdf-exporter';
+import { LIST_MARKER_CSS } from './export-formats/markdown-list';
 
 // ============================================================================
 // Types
@@ -44,22 +40,6 @@ interface ProcessedFile {
 // ============================================================================
 
 const DEFAULT_TITLE = 'MDXPad Site';
-
-function publishedHeading(level: number, text: string, counts: Map<string, number>): string {
-  const visible = stripAtxClosingHashes(text);
-  return headingTag(level, visible, allocateHeadingSlug(decodeHtmlEntities(visible), counts));
-}
-
-function applyPublishedHeadings(escaped: string): string {
-  const counts = new Map<string, number>();
-  return escaped
-    .replace(/^###### (.+)$/gm, (_match, text: string) => publishedHeading(6, text, counts))
-    .replace(/^##### (.+)$/gm, (_match, text: string) => publishedHeading(5, text, counts))
-    .replace(/^#### (.+)$/gm, (_match, text: string) => publishedHeading(4, text, counts))
-    .replace(/^### (.+)$/gm, (_match, text: string) => publishedHeading(3, text, counts))
-    .replace(/^## (.+)$/gm, (_match, text: string) => publishedHeading(2, text, counts))
-    .replace(/^# (.+)$/gm, (_match, text: string) => publishedHeading(1, text, counts));
-}
 
 // ============================================================================
 // Static Site Generator
@@ -264,37 +244,8 @@ export class StaticSiteGenerator {
 </html>`;
   }
 
-  private htmlLink(label: string, href: string): string {
-    const target = href.trim();
-    if (!/^(https?:|mailto:|\/|\.\/|\.\.\/)/i.test(target)) {
-      return `[${label}](${href})`;
-    }
-    return `<a href="${target}">${label}</a>`;
-  }
-
   private convertMarkdownToHtml(content: string): string {
-    const escaped = this.escapeHtml(decodeHtmlEntities(content));
-    const withHeadings = applyPublishedHeadings(escaped);
-
-    const withCode = withHeadings
-      .replace(
-        /```(\w*)\n([\s\S]*?)```/g,
-        (_match, _lang, code: string) => `<pre class="code-block"><code>${code.trim()}</code></pre>`
-      )
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
-
-    const withInline = withCode
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/\[(.+?)\]\((.+?)\)/g, (_match, label: string, href: string) =>
-        this.htmlLink(label, href)
-      );
-
-    const withLists = withInline
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-
-    return withLists.replace(/^(?!<[hupol])([\w].+)$/gm, '<p>$1</p>').replace(/^---$/gm, '<hr>');
+    return markdownToPdfHtml(content);
   }
 
   private generateIndexPage(
@@ -371,6 +322,7 @@ li { margin: 0.25em 0; }
 hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
 nav ul { list-style: none; padding: 0; }
 nav li { padding: 0.5em 0; border-bottom: 1px solid var(--color-border); }
+${LIST_MARKER_CSS}
 `;
   }
 
