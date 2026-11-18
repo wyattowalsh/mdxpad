@@ -21,7 +21,27 @@ describe('parseListItem', () => {
       start: 1,
       text: 'child',
     });
-    expect(parseListItem('3. third')).toEqual({ level: 0, ordered: true, start: 3, text: 'third' });
+    expect(parseListItem('3. third')).toEqual({
+      level: 0,
+      ordered: true,
+      start: 3,
+      text: 'third',
+      delimiter: '.',
+    });
+    expect(parseListItem('1) one')).toEqual({
+      level: 0,
+      ordered: true,
+      start: 1,
+      text: 'one',
+      delimiter: ')',
+    });
+    expect(parseListItem('0. zero')).toEqual({
+      level: 0,
+      ordered: true,
+      start: 0,
+      text: 'zero',
+      delimiter: '.',
+    });
     expect(parseListItem('not a list')).toBeNull();
   });
 

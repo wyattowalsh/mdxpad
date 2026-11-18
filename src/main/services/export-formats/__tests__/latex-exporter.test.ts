@@ -251,6 +251,16 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\begin{enumerate}');
     expect(written).toContain('\\setcounter{enumi}{2}');
     expect(written).toContain('\\item third');
+    await exporter.export({
+      content: '1) one\n\n\n2) two\n\n0. zero',
+      outputPath: '/tmp/paren-list.tex',
+    });
+    const continued = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(continued.match(/\\begin\{enumerate\}/g)).toHaveLength(2);
+    expect(continued).toContain('\\item one');
+    expect(continued).toContain('\\item two');
+    expect(continued).toContain('\\setcounter{enumi}{-1}');
+    expect(continued).toContain('\\item zero');
   });
 
   it('converts ordered lists to enumerate', async () => {

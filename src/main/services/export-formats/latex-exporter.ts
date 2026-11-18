@@ -274,7 +274,16 @@ function getHeadingCommand(level: number): string {
 interface LatexListFrame {
   readonly ordered: boolean;
   readonly level: number;
+  readonly delimiter: '' | '.' | ')';
   column: number;
+}
+
+function sameLatexList(frame: LatexListFrame, item: MarkdownListItem): boolean {
+  return (
+    frame.level === item.level &&
+    frame.ordered === item.ordered &&
+    frame.delimiter === (item.delimiter ?? '')
+  );
 }
 
 interface ListState {
@@ -357,11 +366,7 @@ function openLatexListItem(
 ): void {
   while (stack.length > 0) {
     const top = stack[stack.length - 1];
-    if (
-      !top ||
-      (top.level === item.level && top.ordered === item.ordered) ||
-      top.level < item.level
-    ) {
+    if (!top || sameLatexList(top, item) || top.level < item.level) {
       break;
     }
     output.push(top.ordered ? '\\end{enumerate}' : '\\end{itemize}');
@@ -370,12 +375,17 @@ function openLatexListItem(
   const top = stack[stack.length - 1];
   if (!top || top.level < item.level) {
     output.push(item.ordered ? '\\begin{enumerate}' : '\\begin{itemize}');
-    if (item.ordered && item.start > 1) {
+    if (item.ordered && item.start !== 1) {
       const counters = ['enumi', 'enumii', 'enumiii', 'enumiv', 'enumv', 'enumvi'];
       const counter = counters[item.level] ?? 'enumi';
       output.push(`\\setcounter{${counter}}{${item.start - 1}}`);
     }
-    stack.push({ ordered: item.ordered, level: item.level, column });
+    stack.push({
+      ordered: item.ordered,
+      level: item.level,
+      column,
+      delimiter: item.delimiter ?? '',
+    });
   } else if (top.level === item.level) {
     top.column = column;
   }
@@ -535,10 +545,12 @@ function takeLatexListBreak(raw: string, output: string[], listState: ListState)
     listState.break = false;
     return false;
   }
-  if (listState.stack.length > 0 && !listState.break) {
-    listState.break = true;
-    listState.paragraphBreak = true;
-    listState.tailLines = null;
+  if (listState.stack.length > 0) {
+    if (!listState.break) {
+      listState.break = true;
+      listState.paragraphBreak = true;
+      listState.tailLines = null;
+    }
   } else {
     resetListState(output, listState);
     listState.break = false;

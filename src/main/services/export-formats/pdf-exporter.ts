@@ -275,9 +275,11 @@ function takePdfListBreak(build: PdfBuild, raw: string): boolean {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
     flushPdfParagraph(build);
-    if (build.lists.length > 0 && !build.listBreak) {
-      breakListParagraph(build, renderMarkdownInline);
-      build.listBreak = true;
+    if (build.lists.length > 0) {
+      if (!build.listBreak) {
+        breakListParagraph(build, renderMarkdownInline);
+        build.listBreak = true;
+      }
     } else {
       closePdfList(build);
       build.listBreak = false;

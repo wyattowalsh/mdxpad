@@ -235,6 +235,17 @@ describe('EpubExporter', () => {
     const html = contentArg.map((chapter) => chapter.content).join('\n');
     expect(html).toContain('<ul>\n<li>one</li>\n<li>two</li>\n</ul>');
     expect(html).toContain('<ol>\n<li>first</li>\n<li>second</li>\n</ol>');
+    await exporter.export({
+      content: '1) one\n\n\n2) two',
+      outputPath: '/tmp/paren-list.epub',
+    });
+    const continued = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as {
+      content: string;
+    }[];
+    const continuedHtml = continued.map((chapter) => chapter.content).join('\n');
+    expect(continuedHtml.match(/<ol\b/g)).toHaveLength(1);
+    expect(continuedHtml).toContain('<li><p>one</p></li>');
+    expect(continuedHtml).toContain('<li><p>two</p></li>');
   });
 
   it('renders emphasis and links in chapter HTML', async () => {

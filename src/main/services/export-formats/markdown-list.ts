@@ -7,9 +7,10 @@ export interface MarkdownListItem {
   readonly ordered: boolean;
   readonly start: number;
   readonly text: string;
+  readonly delimiter?: '.' | ')';
 }
 
-const LIST_ITEM = /^( *)([-*+]|\d+\.)[ \t]+(.*)$/;
+const LIST_ITEM = /^( *)([-*+]|\d+[.)])[ \t]+(.*)$/;
 
 /** Column where the item text starts, so a later line can continue it. */
 export function listContentColumn(line: string): number | null {
@@ -78,30 +79,43 @@ export function parseListItem(line: string): MarkdownListItem | null {
     return null;
   }
   const marker = match[2] ?? '-';
-  const ordered = marker.endsWith('.');
+  const ordered = marker.endsWith('.') || marker.endsWith(')');
   const parsedStart = ordered ? Number.parseInt(marker, 10) : 1;
+  const delimiter = marker.endsWith(')') ? ')' : marker.endsWith('.') ? '.' : undefined;
   return {
     level: Math.min(5, Math.floor((match[1]?.length ?? 0) / 2)),
     ordered,
-    start: Number.isFinite(parsedStart) && parsedStart > 0 ? parsedStart : 1,
+    start: Number.isFinite(parsedStart) && parsedStart >= 0 ? parsedStart : 1,
     text: readSourceLine(match[3] ?? '').text,
+    ...(delimiter ? { delimiter } : {}),
   };
 }
 
 export interface HtmlListFrame {
   readonly kind: 'ul' | 'ol';
   readonly level: number;
+  readonly delimiter: '' | '.' | ')';
   column: number;
   loose: boolean;
   /** Index of this list's opening tag in the part buffer. */
   start: number;
 }
 
+function sameHtmlList(frame: HtmlListFrame, item: MarkdownListItem): boolean {
+  if (frame.level !== item.level) {
+    return false;
+  }
+  if (frame.kind === 'ul') {
+    return !item.ordered;
+  }
+  return item.ordered && frame.delimiter === item.delimiter;
+}
+
 function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string {
   if (close) {
     return kind === 'ol' ? '</ol>' : '</ul>';
   }
-  if (kind === 'ol' && start > 1) {
+  if (kind === 'ol' && start !== 1) {
     return `<ol start="${start}">`;
   }
   return kind === 'ol' ? '<ol>' : '<ul>';
@@ -186,14 +200,14 @@ export function pushHtmlListItem(
 ): void {
   const kind = item.ordered ? 'ol' : 'ul';
   const current = stack[stack.length - 1];
-  const sameList = current?.level === item.level && current.kind === kind;
+  const sameList = current !== undefined && sameHtmlList(current, item);
   const nested = Boolean(current && current.level < item.level);
   if (separated && (sameList || nested)) {
     markListLoose(parts, stack);
   }
   while (stack.length > 0) {
     const top = stack[stack.length - 1];
-    if (!top || (top.level === item.level && top.kind === kind) || top.level < item.level) {
+    if (!top || sameHtmlList(top, item) || top.level < item.level) {
       break;
     }
     closeOpenListItem(parts);
@@ -201,13 +215,20 @@ export function pushHtmlListItem(
     parts.push(listTag(top.kind, true));
   }
   const top = stack[stack.length - 1];
-  if (top?.level === item.level && top.kind === kind) {
+  if (top && sameHtmlList(top, item)) {
     closeOpenListItem(parts);
     top.column = column;
   }
   if (!top || top.level < item.level) {
     parts.push(listTag(kind, false, item.start));
-    stack.push({ kind, level: item.level, column, loose: false, start: parts.length - 1 });
+    stack.push({
+      kind,
+      level: item.level,
+      delimiter: item.delimiter ?? '',
+      column,
+      loose: false,
+      start: parts.length - 1,
+    });
   }
   const frame = stack[stack.length - 1];
   const html =

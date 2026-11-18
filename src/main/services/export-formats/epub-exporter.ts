@@ -316,9 +316,11 @@ function takeEpubListBreak(htmlLines: string[], raw: string, state: EpubLineStat
   const trimmed = raw.trim();
   if (trimmed === '') {
     flushEpubParagraph(htmlLines, state);
-    if (state.lists.length > 0 && !state.listBreak) {
-      breakListParagraph(state, renderMarkdownInline);
-      state.listBreak = true;
+    if (state.lists.length > 0) {
+      if (!state.listBreak) {
+        breakListParagraph(state, renderMarkdownInline);
+        state.listBreak = true;
+      }
     } else {
       closeEpubList(htmlLines, state);
       state.listBreak = false;

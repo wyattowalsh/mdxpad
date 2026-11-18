@@ -93,6 +93,28 @@ describe('PdfExporter', () => {
     expect(html).toContain('<ol start="3">');
     expect(html).toContain('<li>third</li>');
     expect(html).toContain('<li>fourth</li>');
+    const paren = await exporter.export({
+      content: '1) one\n\n\n2) two\n\n\nAfter',
+      outputPath: '/tmp/paren-list.pdf',
+    });
+    expect(paren.ok).toBe(true);
+    const parenHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(parenHtml.match(/<ol\b/g)).toHaveLength(1);
+    expect(parenHtml).toContain('<li><p>one</p></li>');
+    expect(parenHtml).toContain('<li><p>two</p></li>');
+    expect(parenHtml).toContain('<p>After</p>');
+    const zero = await exporter.export({
+      content: '0. zero',
+      outputPath: '/tmp/zero-list.pdf',
+    });
+    expect(zero.ok).toBe(true);
+    const zeroHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(zeroHtml).toContain('<ol start="0">');
+    expect(zeroHtml).toContain('<li>zero</li>');
   });
 
   it('keeps indented code as code', async () => {

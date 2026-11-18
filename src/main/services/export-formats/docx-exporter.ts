@@ -943,7 +943,7 @@ function flushPendingParagraph(parse: DocxParse): void {
 function listParagraph(item: MarkdownListItem, quoteDepth = 0): Paragraph {
   const children = listItemChildren(item.text);
   const indent = quoteDepth > 0 ? { left: 720 * quoteDepth } : undefined;
-  if (item.ordered && item.start > 1) {
+  if (item.ordered && item.start !== 1) {
     return new Paragraph({
       indent: { left: 720 * (item.level + 1) + 720 * quoteDepth, hanging: 360 },
       children: [new TextRun({ text: `${item.start}. ` }), ...children],
@@ -1151,13 +1151,15 @@ function appendDocxTail(
 
 function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | null): void {
   flushPendingParagraph(parse);
-  if (openListItem && !parse.listBreak) {
+  if (openListItem) {
     parse.openListItem = openListItem;
-    parse.listBreak = true;
-    if (!parse.listSealed) {
-      parse.listParagraphBreak = true;
-      parse.tailText = null;
-      parse.tailOpen = false;
+    if (!parse.listBreak) {
+      parse.listBreak = true;
+      if (!parse.listSealed) {
+        parse.listParagraphBreak = true;
+        parse.tailText = null;
+        parse.tailOpen = false;
+      }
     }
     return;
   }
