@@ -727,6 +727,21 @@ describe('EditorPane mode switch', () => {
     expect(onCursorChange).toHaveBeenCalledWith({ line: 1, column: 1 });
   });
 
+  it('reports the start of the source editor after leaving the visual editor', async () => {
+    useEditorModeStore.getState().setMode('wysiwyg');
+    useDocumentStore.getState().setContent('alpha\nbeta');
+    const onCursorChange = vi.fn();
+    render(<EditorPane onCursorChange={onCursorChange} />);
+    await waitFor(() => {
+      expect(onCursorChange).toHaveBeenCalled();
+    });
+    onCursorChange.mockClear();
+    act(() => {
+      useEditorModeStore.getState().setMode('source');
+    });
+    expect(onCursorChange).toHaveBeenCalledWith({ line: 1, column: 1 });
+  });
+
   it('reports the visual caret as a source line', async () => {
     useDocumentStore.getState().setContent('Hello\n\nWorld');
     useEditorModeStore.getState().setMode('wysiwyg');

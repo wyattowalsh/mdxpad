@@ -155,6 +155,11 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
   const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
   const editorMode = useEditorModeStore(selectEditorMode);
+  useEffect(() => {
+    if (editorMode === 'source') {
+      onCursorChangeRef.current?.({ line: 1, column: 1 });
+    }
+  }, [editorMode]);
   const wysiwygRef = useRef<WysiwygEditorHandle>(null);
   const insertWysiwygSpeech = useCallback((text: string) => {
     wysiwygRef.current?.insertSpeech(text);
