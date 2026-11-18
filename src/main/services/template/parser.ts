@@ -8,6 +8,7 @@
  * @module template/parser
  */
 
+import { constants as fsConstants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import matter from 'gray-matter';
 
@@ -18,17 +19,39 @@ import {
   type TemplateMetadata,
 } from '@shared/contracts/template-schemas';
 
+function linkOpenError(error: unknown): boolean {
+  if (!(error instanceof Error) || !('code' in error)) {
+    return false;
+  }
+  const code = (error as { code?: string }).code;
+  return code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM';
+}
+
 export async function readTemplateSource(filePath: string): Promise<{
   content: string;
   birthtime: Date;
   mtime: Date;
 }> {
-  const info = await fs.lstat(filePath);
-  if (info.isSymbolicLink() || !info.isFile()) {
-    throw new Error('Template file is a link');
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      throw new Error('Template file is a link');
+    }
+    const content = await handle.readFile({ encoding: 'utf8' });
+    return { content, birthtime: info.birthtime, mtime: info.mtime };
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Template file is a link') {
+      throw error;
+    }
+    if (linkOpenError(error)) {
+      throw new Error('Template file is a link');
+    }
+    throw error;
+  } finally {
+    await handle?.close();
   }
-  const content = await fs.readFile(filePath, 'utf-8');
-  return { content, birthtime: info.birthtime, mtime: info.mtime };
 }
 
 /**

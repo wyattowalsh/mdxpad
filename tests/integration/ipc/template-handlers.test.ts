@@ -42,6 +42,7 @@ vi.mock('fs/promises', () => ({
   access: vi.fn(),
   stat: vi.fn(),
   lstat: vi.fn(),
+  open: vi.fn(),
 }));
 
 // Mock path module
@@ -86,6 +87,7 @@ const mockFs = fs as unknown as {
   access: Mock;
   stat: Mock;
   lstat: Mock;
+  open: Mock;
 };
 const mockCompile = compile as Mock;
 
@@ -198,6 +200,11 @@ describe('template-handlers', () => {
       birthtime: new Date('2024-01-01'),
       mtime: new Date('2024-01-02'),
     });
+    mockFs.open.mockImplementation(async (filePath: string) => ({
+      stat: () => mockFs.lstat(filePath),
+      readFile: () => mockFs.readFile(filePath),
+      close: () => Promise.resolve(),
+    }));
     mockCompile.mockResolvedValue({ toString: () => 'compiled' });
     mockApp.getAppPath.mockReturnValue('/mock/app');
     mockApp.isPackaged = false;

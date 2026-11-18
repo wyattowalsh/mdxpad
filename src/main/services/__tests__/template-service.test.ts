@@ -27,6 +27,7 @@ const {
   mockLstat,
   mockMkdir,
   mockAccess,
+  mockOpen,
 } = vi.hoisted(() => ({
   mockReadFile: vi.fn(),
   mockWriteFile: vi.fn(),
@@ -37,6 +38,7 @@ const {
   mockLstat: vi.fn(),
   mockMkdir: vi.fn(),
   mockAccess: vi.fn(),
+  mockOpen: vi.fn(),
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -50,6 +52,7 @@ vi.mock('node:fs/promises', () => ({
     lstat: mockLstat,
     mkdir: mockMkdir,
     access: mockAccess,
+    open: mockOpen,
   },
   readFile: mockReadFile,
   writeFile: mockWriteFile,
@@ -60,6 +63,7 @@ vi.mock('node:fs/promises', () => ({
   lstat: mockLstat,
   mkdir: mockMkdir,
   access: mockAccess,
+  open: mockOpen,
 }));
 
 const { mockShowOpenDialog, mockShowSaveDialog, mockCompile, mockApp, mockOs } = vi.hoisted(() => ({
@@ -168,6 +172,11 @@ function setupMockFileSystem() {
     isFile: () => true,
     isSymbolicLink: () => false,
   });
+  mockOpen.mockImplementation(async (filePath: string) => ({
+    stat: () => mockLstat(filePath),
+    readFile: () => mockReadFile(filePath),
+    close: () => Promise.resolve(),
+  }));
 }
 
 // ============================================================================

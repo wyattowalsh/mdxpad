@@ -6,7 +6,7 @@
  * @module main/services/plugin/plugin-manifest
  */
 
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import { PluginManifestSchema } from '@shared/contracts/plugin-schemas';
@@ -21,29 +21,36 @@ import type { PluginManifest } from '@shared/contracts/plugin-schemas';
  * @returns Validated plugin manifest
  * @throws Error if manifest is missing or invalid
  */
-export async function loadManifest(pluginDir: string): Promise<PluginManifest> {
-  const manifestPath = path.join(pluginDir, 'manifest.json');
-
-  let info: Awaited<ReturnType<typeof fs.lstat>>;
+async function readManifestText(manifestPath: string): Promise<string> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    info = await fs.lstat(manifestPath);
+    handle = await fs.open(manifestPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      throw new Error(`Plugin manifest is a link: ${manifestPath}`);
+    }
+    return await handle.readFile({ encoding: 'utf8' });
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
+    if (error instanceof Error && error.message.startsWith('Plugin manifest is a link')) {
+      throw error;
+    }
+    const code =
+      error instanceof Error && 'code' in error ? (error as { code?: string }).code : undefined;
     if (code === 'ENOENT') {
       throw new Error(`Plugin manifest not found: ${manifestPath}`);
     }
+    if (code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
+      throw new Error(`Plugin manifest is a link: ${manifestPath}`);
+    }
     throw new Error(`Failed to read plugin manifest: ${manifestPath}`);
+  } finally {
+    await handle?.close();
   }
-  if (info.isSymbolicLink() || !info.isFile()) {
-    throw new Error(`Plugin manifest is a link: ${manifestPath}`);
-  }
+}
 
-  let raw: string;
-  try {
-    raw = await fs.readFile(manifestPath, 'utf-8');
-  } catch {
-    throw new Error(`Failed to read plugin manifest: ${manifestPath}`);
-  }
+export async function loadManifest(pluginDir: string): Promise<PluginManifest> {
+  const manifestPath = path.join(pluginDir, 'manifest.json');
+  const raw = await readManifestText(manifestPath);
 
   let parsed: unknown;
   try {
