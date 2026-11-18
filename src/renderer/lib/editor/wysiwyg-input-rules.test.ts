@@ -117,6 +117,25 @@ describe('visual markdown shortcuts', () => {
     expect(serializeMdxContent(view.state.doc)).toContain('[x]');
   });
 
+  it('turns a typed web address into a link', () => {
+    const view = open();
+    views.push(view);
+    type(view, 'https://ex.test ');
+    const address = view.state.doc.firstChild?.firstChild;
+    expect(address?.text).toBe('https://ex.test');
+    expect(address?.marks[0]?.attrs.href).toBe('https://ex.test');
+    expect(view.state.doc.textContent.endsWith(' ')).toBe(true);
+  });
+
+  it('turns a typed email address into a link', () => {
+    const view = open();
+    views.push(view);
+    type(view, 'ada@ex.test ');
+    const address = view.state.doc.firstChild?.firstChild;
+    expect(address?.text).toBe('ada@ex.test');
+    expect(address?.marks[0]?.attrs.href).toBe('mailto:ada@ex.test');
+  });
+
   it('turns a dash and a space into a bullet list', () => {
     const view = open();
     views.push(view);

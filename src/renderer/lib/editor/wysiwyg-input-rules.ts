@@ -7,6 +7,7 @@ import {
 import type { MarkType } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 
+import { protectAutolinks } from '../../../main/services/export-formats/markdown-autolink';
 import { mdxSchema } from './prosemirror-mdx-schema';
 
 function markRule(pattern: RegExp, mark: MarkType): InputRule {
@@ -56,6 +57,29 @@ function imageRule(): InputRule {
   );
 }
 
+function autolinkRule(): InputRule {
+  return new InputRule(
+    /(^|\s)(\S+)\s$/,
+    (state, match, start, end) => {
+      const token = match[2];
+      const found = token ? protectAutolinks(token).links[0] : undefined;
+      const mark = found && token?.startsWith(found.text) ? state.schema.marks.link?.create({ href: found.href }) : null;
+      if (!token || !found || !mark) {
+        return null;
+      }
+      const linkStart = start + (match[1]?.length ?? 0);
+      if (state.doc.resolve(linkStart).marks().some((item) => item.type.name === 'link')) {
+        return null;
+      }
+      const tr = state.tr.replaceWith(linkStart, end, state.schema.text(found.text, [mark]));
+      tr.removeStoredMark(mark.type);
+      tr.insertText(' ', tr.mapping.map(end));
+      return tr;
+    },
+    { inCodeMark: false }
+  );
+}
+
 function taskRule(): InputRule {
   return new InputRule(/^\[([ xX])\]\s$/, (state, match, start, end) => {
     const $start = state.doc.resolve(start);
@@ -94,6 +118,7 @@ function markdownShortcutRules(): InputRule[] {
     markRule(/(?<![\w_])_([^_]+)_$/, mdxSchema.marks.italic),
     linkRule(),
     imageRule(),
+    autolinkRule(),
     heading,
     wrappingInputRule(/^\s*>\s$/, mdxSchema.nodes.blockquote),
     wrappingInputRule(/^\s*[-+*]\s$/, mdxSchema.nodes.bullet_list),
