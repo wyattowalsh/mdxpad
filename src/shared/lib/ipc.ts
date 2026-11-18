@@ -20,6 +20,7 @@ export const IPC_CHANNELS = {
     read: 'mdxpad:file:read',
     write: 'mdxpad:file:write',
     list: 'mdxpad:file:list',
+    inlinePreviewImages: 'mdxpad:file:inline-preview-images',
     change: 'mdxpad:file:change',
   },
   /** Window operations (Spec 004) */

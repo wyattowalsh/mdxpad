@@ -55,6 +55,7 @@ import {
   permissionDenied,
   resetFileCapabilities,
 } from './document-capability';
+import { registerInlinePreviewImages } from './inline-preview-images';
 import { listTrustedDirectory } from './list-directory';
 import { readStaysInsideDirectory } from './read-scope';
 import { trustedDirectoryError } from './trusted-directory';
@@ -524,6 +525,7 @@ export function registerFileHandlers(ipcMainInstance: IpcMain, window: BrowserWi
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.write);
     return handleFileWrite(args);
   });
+  registerInlinePreviewImages(ipcMainInstance, window);
   ipcMainInstance.handle(IPC_CHANNELS.file.list, (event, args) => {
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.list);
     const parsed = FileListDirectoryRequestSchema.safeParse(args);

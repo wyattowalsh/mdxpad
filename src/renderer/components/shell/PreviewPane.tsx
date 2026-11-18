@@ -10,7 +10,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { PreviewPane as BasePreviewPane } from '../preview/PreviewPane';
-import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
+import { useDocumentStore, selectContent, selectFilePath } from '@renderer/stores/document-store';
 import { usePreviewStore } from '@renderer/stores/preview-store';
 import type { CompilationError } from './StatusBar/types';
 import type { ScrollReportSignal } from '@shared/types/preview-iframe';
@@ -74,6 +74,36 @@ export interface ShellPreviewPaneProps {
  * />
  * ```
  */
+function usePreviewDocumentSource(content: string): string {
+  const filePath = useDocumentStore(selectFilePath);
+  const [previewSource, setPreviewSource] = useState(content);
+
+  useEffect(() => {
+    const inline = window.mdxpad.inlinePreviewImages;
+    if (!filePath || inline === undefined) {
+      setPreviewSource(content);
+      return;
+    }
+    let cancelled = false;
+    void inline(content, filePath)
+      .then((next) => {
+        if (!cancelled) {
+          setPreviewSource(next);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewSource(content);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [content, filePath]);
+
+  return previewSource;
+}
+
 function ShellPreviewPaneComponent({
   className,
   theme,
@@ -84,6 +114,7 @@ function ShellPreviewPaneComponent({
 }: ShellPreviewPaneProps): React.JSX.Element {
   // Get content from document store
   const content = useDocumentStore(selectContent);
+  const previewSource = usePreviewDocumentSource(content);
 
   // Track compilation timeout state
   const [isTimedOut, setIsTimedOut] = useState(false);
@@ -170,9 +201,12 @@ function ShellPreviewPaneComponent({
     [onErrorClick]
   );
 
-// Build props conditionally to satisfy exactOptionalPropertyTypes
-  const previewProps: Omit<React.ComponentProps<typeof BasePreviewPane>, 'source' | 'onErrorClick'> & { source: string; onErrorClick: (line: number, column?: number) => void } = {
-    source: content,
+  // Build props conditionally to satisfy exactOptionalPropertyTypes
+  const previewProps: Omit<
+    React.ComponentProps<typeof BasePreviewPane>,
+    'source' | 'onErrorClick'
+  > & { source: string; onErrorClick: (line: number, column?: number) => void } = {
+    source: previewSource,
     theme: theme ?? 'light',
     onErrorClick: handleErrorClick,
     scrollRatio,

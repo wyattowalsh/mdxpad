@@ -181,6 +181,12 @@ export interface MdxpadAPI {
   listDirectory(directory: string): Promise<FileListDirectoryResponse>;
 
   /**
+   * Embed pictures beside an open document so preview can show them.
+   * Returns the original content when that file is not open.
+   */
+  readonly inlinePreviewImages?: (content: string, sourcePath: string) => Promise<string>;
+
+  /**
    * Write content to path.
    * @param path - Absolute file path
    * @param content - Content to write

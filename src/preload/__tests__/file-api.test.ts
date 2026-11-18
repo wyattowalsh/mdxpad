@@ -162,6 +162,22 @@ describe('fileOperations', () => {
     });
   });
 
+  describe('inlinePreviewImages', () => {
+    it('should invoke file:inline-preview-images with the open document', async () => {
+      mockValidatedInvoke.mockResolvedValue({ content: '![P](data:image/png;base64,aa)' });
+
+      const result = await fileOperations.inlinePreviewImages('![P](pixel.png)', '/docs/note.md');
+
+      expect(result).toBe('![P](data:image/png;base64,aa)');
+      expect(mockValidatedInvoke).toHaveBeenCalledWith(
+        IPC_CHANNELS.file.inlinePreviewImages,
+        expect.any(Object),
+        expect.any(Object),
+        { content: '![P](pixel.png)', sourcePath: '/docs/note.md' }
+      );
+    });
+  });
+
   describe('writeFile', () => {
     it('should invoke file:write with path and content', async () => {
       mockValidatedInvoke.mockResolvedValue({ success: true });

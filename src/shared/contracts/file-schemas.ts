@@ -173,6 +173,17 @@ export type FileReadRequest = z.infer<typeof FileReadRequestSchema>;
  */
 export const FileReadResponseSchema = FileResultStringSchema;
 
+export const InlinePreviewImagesRequestSchema = z.object({
+  content: FileContentSchema,
+  sourcePath: FilePathSchema,
+});
+export type InlinePreviewImagesRequest = z.infer<typeof InlinePreviewImagesRequestSchema>;
+
+export const InlinePreviewImagesResponseSchema = z.object({
+  content: z.string(),
+});
+export type InlinePreviewImagesResponse = z.infer<typeof InlinePreviewImagesResponseSchema>;
+
 export const FileListDirectoryRequestSchema = z.object({
   directory: FilePathSchema,
 });
@@ -502,6 +513,10 @@ export const IPC_SCHEMAS = {
   'mdxpad:file:export': {
     request: FileExportRequestSchema,
     response: FileExportResponseSchema,
+  },
+  'mdxpad:file:inline-preview-images': {
+    request: InlinePreviewImagesRequestSchema,
+    response: InlinePreviewImagesResponseSchema,
   },
   'mdxpad:window:close': {
     request: WindowCloseRequestSchema,

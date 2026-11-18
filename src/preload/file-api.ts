@@ -18,6 +18,8 @@ import {
   FileReadRequestSchema,
   FileWriteRequestSchema,
   FileExportRequestSchema,
+  InlinePreviewImagesRequestSchema,
+  InlinePreviewImagesResponseSchema,
   FileOpenResponseSchema,
   FileSaveResponseSchema,
   FileSaveAsResponseSchema,
@@ -104,6 +106,14 @@ export const fileOperations = {
     validatedInvoke(IPC_CHANNELS.file.read, FileReadRequestSchema, FileReadResponseSchema, {
       path,
     }) as Promise<FileResult<string>>,
+
+  inlinePreviewImages: (content: string, sourcePath: string): Promise<string> =>
+    validatedInvoke(
+      IPC_CHANNELS.file.inlinePreviewImages,
+      InlinePreviewImagesRequestSchema,
+      InlinePreviewImagesResponseSchema,
+      { content, sourcePath }
+    ).then((response) => response.content),
 
   listDirectory: (directory: string) =>
     validatedInvoke(
