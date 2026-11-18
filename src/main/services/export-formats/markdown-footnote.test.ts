@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { applyFootnotes, htmlFootnoteMarkers, plainFootnoteMarkers } from './markdown-footnote';
+import { markdownToPdfHtml } from './pdf-exporter';
 import { expandLinkReferences } from './markdown-reference';
 
 describe('applyFootnotes', () => {
@@ -10,6 +11,9 @@ describe('applyFootnotes', () => {
     const linked = htmlFootnoteMarkers(applyFootnotes('A footnote[^1].\n\n[^1]: Note\n'));
     expect(linked).toContain('<sup><a href="#fn-1" id="fnref-1">1</a></sup>');
     expect(linked).toContain('<span id="fn-1"></span>');
+    const html = markdownToPdfHtml('A[^1] and B[^2].\n\n[^1]: One\n[^2]: Two\n');
+    expect(html).toContain('<li><span id="fn-1"></span>One</li>');
+    expect(html).toContain('<li><span id="fn-2"></span>Two</li>');
     expect(rendered).toContain('## Notes');
     expect(rendered).toContain('1. Note');
     expect(rendered).not.toContain('[^1]');
@@ -36,7 +40,9 @@ describe('applyFootnotes', () => {
   it('keeps an indented continuation in the note', () => {
     const rendered = plainFootnoteMarkers(applyFootnotes('See[^1].\n\n[^1]: First\n    second\n'));
     expect(rendered).toContain('1. First\n    second');
-    const expanded = expandLinkReferences('See[^1].\n\n[^1]: First\n\n    second\n');
+    const expanded = plainFootnoteMarkers(
+      expandLinkReferences('See[^1].\n\n[^1]: First\n\n    second\n')
+    );
     expect(expanded).toContain('1. First\n\n    second');
     expect(expanded).not.toContain('```');
   });
@@ -44,7 +50,7 @@ describe('applyFootnotes', () => {
   it('leaves markers in code and escaped markers, and numbers a note inside a note', () => {
     const fenced = applyFootnotes('```\n[^1]\n```\n\n[^1]: Note\n');
     expect(fenced).toContain('```\n[^1]\n```');
-    expect(fenced).toContain('1. Note');
+    expect(plainFootnoteMarkers(fenced)).toContain('1. Note');
     const escaped = plainFootnoteMarkers(applyFootnotes('See \\[^1].\n\n[^1]: Note\n'));
     expect(escaped).toContain('\\[^1]');
     expect(escaped).not.toContain('\\¹');

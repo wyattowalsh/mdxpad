@@ -592,7 +592,7 @@ describe('PdfExporter', () => {
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
     expect(html).toContain('<sup><a href="#fn-1" id="fnref-1">1</a></sup>');
-    expect(html).toContain('id="fn-1"');
+    expect(html).toContain('<li><span id="fn-1"></span>Note</li>');
     expect(html).toContain('Note');
     expect(html).toContain('Notes');
     expect(html).not.toContain('[^1]');

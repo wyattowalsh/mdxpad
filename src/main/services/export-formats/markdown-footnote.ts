@@ -162,9 +162,9 @@ function formatBlockNote(number: number, body: string): string {
   const mark = footnoteMark(NOTE_MARK, number);
   const [first = '', ...rest] = body.split('\n');
   if (lineStartsBlock(first)) {
-    return `${mark}\n**${number}.**\n\n${body}`;
+    return `**${number}.** ${mark}\n\n${body}`;
   }
-  return `${mark}\n**${number}.** ${first}\n\n${rest.join('\n')}`;
+  return `**${number}.** ${mark}${first}\n\n${rest.join('\n')}`;
 }
 
 function formatNote(number: number, body: string): string {
@@ -172,7 +172,7 @@ function formatNote(number: number, body: string): string {
     return formatBlockNote(number, body);
   }
   const [first, ...rest] = body.split('\n');
-  const head = `${footnoteMark(NOTE_MARK, number)}\n${number}. ${first ?? ''}`;
+  const head = `${number}. ${footnoteMark(NOTE_MARK, number)}${first ?? ''}`;
   if (rest.length === 0) {
     return head;
   }
