@@ -59,6 +59,7 @@ import { joinRelativePath } from '@renderer/lib/resolve-beside-file';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { predictNextEdit } from '../../lib/editor/next-edit-provider';
 import { nextEditPrediction } from '../../lib/editor/extensions/next-edit-prediction';
+import { sourceImagePasteExtension } from '../../lib/editor/extensions/source-image-paste';
 
 function openImportedFile(specifier: string): void {
   if (!specifier.startsWith('.')) {
@@ -267,6 +268,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   extensions.push(history());
   extensions.push(drawSelection());
   extensions.push(dropCursor());
+  extensions.push(sourceImagePasteExtension());
   extensions.push(crosshairCursor());
   extensions.push(rectangularSelection());
 
