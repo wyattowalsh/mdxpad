@@ -57,7 +57,8 @@ export interface HistoryApi {
   readonly restore: (
     id: string,
     filePath: string,
-    createBackup?: boolean
+    createBackup?: boolean,
+    backupContent?: string
   ) => Promise<RestoreVersionResponse>;
 
   /**
@@ -111,8 +112,13 @@ export const historyApi: HistoryApi = {
     return responseParsed.data;
   },
 
-  restore: async (id, filePath, createBackup = true) => {
-    const request = { id, filePath, createBackup };
+  restore: async (id, filePath, createBackup = true, backupContent?: string) => {
+    const request = {
+      id,
+      filePath,
+      createBackup,
+      ...(backupContent !== undefined ? { backupContent } : {}),
+    };
     const parsed = RestoreVersionRequestSchema.safeParse(request);
     if (!parsed.success) {
       throw new Error(`Invalid restore request: ${parsed.error.message}`);

@@ -46,7 +46,7 @@ function createHistoryHandlers(service: VersionHistoryService) {
     restoreVersion: createValidatedHandler(
       RestoreVersionRequestSchema,
       async (args): Promise<RestoreVersionResponse> =>
-        service.restoreVersion(args.id, args.filePath, args.createBackup)
+        service.restoreVersion(args.id, args.filePath, args.createBackup, args.backupContent)
     ),
     createSnapshot: createValidatedHandler(
       CreateSnapshotRequestSchema,

@@ -167,7 +167,8 @@ export class VersionHistoryService {
   async restoreVersion(
     id: string,
     filePath: string,
-    createBackup = true
+    createBackup = true,
+    backupContent?: string
   ): Promise<RestoreVersionResponse> {
     try {
       const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
@@ -176,7 +177,7 @@ export class VersionHistoryService {
       // Create backup of current file if requested
       if (createBackup) {
         try {
-          const currentContent = await readOpenedDocument(openedPath);
+          const currentContent = backupContent ?? (await readOpenedDocument(openedPath));
           await this.createSnapshotInternal(
             openedPath,
             currentContent,

@@ -122,7 +122,7 @@ export function HistoryUtilityPanel(): React.JSX.Element {
             setIsRestoring(true);
             setRestoreError(null);
             void historyApi
-              .restore(selected.id, filePath, createBackup)
+              .restore(selected.id, filePath, createBackup, content)
               .then(async (result) => {
                 if (!result.ok || result.content === undefined) {
                   setRestoreError(result.error ?? 'Could not restore this version');

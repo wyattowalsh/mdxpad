@@ -96,6 +96,8 @@ export const RestoreVersionRequestSchema = z.object({
   filePath: z.string().min(1),
   /** Whether to create a backup before restoring */
   createBackup: z.boolean().optional(),
+  /** Unsaved editor text to keep in the backup snapshot */
+  backupContent: z.string().optional(),
 });
 
 /** Inferred RestoreVersionRequest type */
