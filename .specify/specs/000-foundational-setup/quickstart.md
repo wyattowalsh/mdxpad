@@ -20,11 +20,11 @@ nvm use 22
 
 # Install pnpm
 corepack enable
-corepack prepare pnpm@latest --activate
+corepack prepare pnpm@10.30.3 --activate
 
 # Verify
 node --version   # v22.x.x
-pnpm --version   # 10.x.x
+pnpm --version   # 10.30.3
 ```
 
 ## Getting Started
