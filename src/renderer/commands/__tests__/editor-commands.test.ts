@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CommandContext, CommandId } from '@shared/types/commands';
 import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
 import { registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
+import { registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 
 // =============================================================================
 // MOCKS
@@ -284,6 +285,7 @@ describe('AI write command execution', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockAISessionStoreState();
+    registerWysiwygWrite(null);
     useFeatureFlagsStore.getState().setFlag('ai', true);
   });
 
@@ -435,6 +437,34 @@ describe('AI write command execution', () => {
     expect(editor.dispatch).not.toHaveBeenCalled();
   });
 
+  it('should apply an AI rewrite to the visual selection', async () => {
+    const applied: { text: string }[] = [];
+    registerWysiwygWrite({
+      read: () => ({ from: 1, to: 6, text: 'Hello', context: 'Hello world' }),
+      apply: (_expected, next) => {
+        applied.push({ text: next });
+        return true;
+      },
+    });
+    const ctx = createMockContext({ editor: null });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-rewrite');
+    mockAISessionStoreState.startStream.mockImplementation(async () => {
+      emitAISessionStoreState({
+        isStreaming: false,
+        stream: { status: 'completed', text: 'Hi', error: null },
+      });
+    });
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(applied).toEqual([{ text: 'Hi' }]);
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'success',
+      message: 'AI write action applied',
+    });
+  });
+
   it('should cancel an in-progress AI write action', async () => {
     mockAISessionStoreState.isStreaming = true;
     const ctx = createMockContext({
@@ -461,6 +491,7 @@ describe('Editor command enabled predicate', () => {
   beforeEach(() => {
     useFeatureFlagsStore.getState().setFlag('ai', true);
     registerWysiwygEdit(null);
+    registerWysiwygWrite(null);
   });
 
   it('should be disabled when editor is null', () => {

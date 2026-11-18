@@ -22,6 +22,11 @@ import { useCommandRegistry } from '../stores/command-registry-store';
 import { useAISessionStore } from '../stores/ai-session-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
 import { hasWysiwygEdit, isVisualEditCommand, runWysiwygEdit } from '../lib/editor/wysiwyg-command';
+import {
+  applyWysiwygWriteText,
+  hasWysiwygWrite,
+  readWysiwygWriteSelection,
+} from '../lib/editor/wysiwyg-write';
 
 /**
  * Create an editor command that wraps a CodeMirror command.
@@ -78,7 +83,7 @@ type WriteActionCompletionResult = CompletedWriteActionResult | CanceledWriteAct
 
 function getWriteActionSelection(ctx: CommandContext): WriteActionSelection | null {
   if (!ctx.editor) {
-    return null;
+    return readWysiwygWriteSelection();
   }
 
   const { from, to } = ctx.editor.state.selection.main;
@@ -178,7 +183,7 @@ function ensureWriteActionCanStart(ctx: CommandContext): CommandResult | null {
     );
   }
 
-  if (!ctx.editor) {
+  if (!ctx.editor && !hasWysiwygWrite()) {
     return notifyWriteActionError(ctx, 'No editor available', 'No editor available', 'warning');
   }
 
@@ -204,13 +209,31 @@ function ensureWriteActionCanStart(ctx: CommandContext): CommandResult | null {
   return null;
 }
 
+function applyVisualWriteAction(
+  ctx: CommandContext,
+  selection: WriteActionSelection,
+  nextText: string
+): CommandResult {
+  if (!applyWysiwygWriteText(selection, nextText)) {
+    return notifyWriteActionError(
+      ctx,
+      'Selection changed before applying AI write action; no changes were made',
+      'AI write action selection changed',
+      'warning'
+    );
+  }
+  useAISessionStore.getState().clearStream();
+  ctx.notify({ type: 'success', message: 'AI write action applied' });
+  return { ok: true };
+}
+
 function applyWriteActionText(
   ctx: CommandContext,
   selection: WriteActionSelection,
   nextText: string
 ): CommandResult {
   if (!ctx.editor) {
-    return notifyWriteActionError(ctx, 'No editor available', 'No editor available', 'warning');
+    return applyVisualWriteAction(ctx, selection, nextText);
   }
 
   const currentSelection = ctx.editor.state.selection.main;
@@ -314,7 +337,8 @@ function createAIWriteActionCommand(
     category: 'edit',
     execute: async (ctx: CommandContext): Promise<CommandResult> =>
       executeAIWriteAction(ctx, instruction),
-    enabled: (ctx: CommandContext) => ctx.editor !== null && isFeatureEnabled('ai'),
+    enabled: (ctx: CommandContext) =>
+      (ctx.editor !== null || hasWysiwygWrite()) && isFeatureEnabled('ai'),
   };
 }
 
