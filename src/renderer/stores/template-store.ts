@@ -283,6 +283,7 @@ export const useTemplateStore = create<TemplateStore>()(
       }),
 
     saveTemplate: async (template: TemplateSaveData, replace = false) => {
+      const requestId = ++loadTemplatesRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -293,13 +294,19 @@ export const useTemplateStore = create<TemplateStore>()(
 
         if (result.success) {
           await get().loadTemplates();
-        } else {
-          set((draft) => {
-            draft.error = result.error;
-            draft.isLoading = false;
-          });
+          return;
         }
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
+        set((draft) => {
+          draft.error = result.error;
+          draft.isLoading = false;
+        });
       } catch (err) {
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to save template';
           draft.isLoading = false;
@@ -308,6 +315,7 @@ export const useTemplateStore = create<TemplateStore>()(
     },
 
     deleteTemplate: async (id: string) => {
+      const requestId = ++loadTemplatesRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -325,13 +333,19 @@ export const useTemplateStore = create<TemplateStore>()(
           });
 
           await get().loadTemplates();
-        } else {
-          set((draft) => {
-            draft.error = result.error;
-            draft.isLoading = false;
-          });
+          return;
         }
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
+        set((draft) => {
+          draft.error = result.error;
+          draft.isLoading = false;
+        });
       } catch (err) {
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to delete template';
           draft.isLoading = false;
@@ -340,6 +354,7 @@ export const useTemplateStore = create<TemplateStore>()(
     },
 
     importTemplate: async (path: string, replace = false) => {
+      const requestId = ++loadTemplatesRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -350,13 +365,19 @@ export const useTemplateStore = create<TemplateStore>()(
 
         if (result.success) {
           await get().loadTemplates();
-        } else {
-          set((draft) => {
-            draft.error = result.error;
-            draft.isLoading = false;
-          });
+          return;
         }
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
+        set((draft) => {
+          draft.error = result.error;
+          draft.isLoading = false;
+        });
       } catch (err) {
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to import template';
           draft.isLoading = false;
@@ -365,6 +386,7 @@ export const useTemplateStore = create<TemplateStore>()(
     },
 
     exportTemplate: async (id: string, path: string) => {
+      const requestId = ++loadTemplatesRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -372,6 +394,9 @@ export const useTemplateStore = create<TemplateStore>()(
 
       try {
         const result = await window.mdxpad.template.export(id, path);
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
 
         if (result.success) {
           set((draft) => {
@@ -384,6 +409,9 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
+        if (requestId !== loadTemplatesRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to export template';
           draft.isLoading = false;

@@ -52,6 +52,8 @@ export type AgentModeStore = AgentModeState & AgentModeActions;
 // INITIAL STATE
 // =============================================================================
 
+let agentSendRequestId = 0;
+
 function readAgentApi(): NonNullable<Window['mdxpad']['agent']> | null {
   if (typeof window === 'undefined' || !('mdxpad' in window) || !window.mdxpad.agent) {
     return null;
@@ -110,6 +112,7 @@ export const useAgentModeStore = create<AgentModeStore>()(
     ...INITIAL_STATE,
 
     sendMessage: async (message: string, context?: AgentSendContext) => {
+      const requestId = ++agentSendRequestId;
       set((draft) => {
         draft.error = null;
         draft.status = 'thinking';
@@ -118,6 +121,9 @@ export const useAgentModeStore = create<AgentModeStore>()(
       try {
         const agent = readAgentApi();
         if (!agent) {
+          if (requestId !== agentSendRequestId) {
+            return;
+          }
           set((draft) => {
             draft.error = 'Agent is not available';
             draft.status = 'error';
@@ -129,6 +135,9 @@ export const useAgentModeStore = create<AgentModeStore>()(
           ...(context?.workspacePath ? { workspacePath: context.workspacePath } : {}),
           ...(context?.currentFilePath ? { currentFilePath: context.currentFilePath } : {}),
         });
+        if (requestId !== agentSendRequestId) {
+          return;
+        }
         if (!response.success) {
           set((draft) => {
             draft.error = response.error?.message ?? 'Failed to send message';
@@ -136,6 +145,9 @@ export const useAgentModeStore = create<AgentModeStore>()(
           });
         }
       } catch (err: unknown) {
+        if (requestId !== agentSendRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to send message';
           draft.status = 'error';
@@ -152,6 +164,7 @@ export const useAgentModeStore = create<AgentModeStore>()(
     },
 
     cancel: async () => {
+      agentSendRequestId += 1;
       try {
         if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.agent) {
           await window.mdxpad.agent.cancel();
@@ -165,6 +178,7 @@ export const useAgentModeStore = create<AgentModeStore>()(
     },
 
     clearConversation: () => {
+      agentSendRequestId += 1;
       if (typeof window !== 'undefined' && 'mdxpad' in window && window.mdxpad.agent) {
         void window.mdxpad.agent.clear();
       }
@@ -213,6 +227,7 @@ export const useAgentModeStore = create<AgentModeStore>()(
     },
 
     reset: () => {
+      agentSendRequestId += 1;
       set(() => ({ ...INITIAL_STATE }));
     },
   }))

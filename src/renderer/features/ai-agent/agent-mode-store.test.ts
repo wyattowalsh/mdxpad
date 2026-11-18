@@ -158,6 +158,31 @@ describe('useAgentModeStore', () => {
     expect(state.planSteps).toHaveLength(0);
   });
 
+  it('keeps the newer agent message running when an older send fails', async () => {
+    let finishOld: (value: { success: false; error: { message: string } }) => void = () =>
+      undefined;
+    const sendMessage = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ success: true });
+    vi.stubGlobal('window', { mdxpad: { agent: { sendMessage } } });
+
+    const first = useAgentModeStore.getState().sendMessage('old');
+    const second = useAgentModeStore.getState().sendMessage('new');
+    await second;
+    finishOld({ success: false, error: { message: 'old failed' } });
+    await first;
+
+    expect(useAgentModeStore.getState().status).toBe('thinking');
+    expect(useAgentModeStore.getState().error).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
   it('sends the workspace path with the message', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ success: true });
     vi.stubGlobal('window', { mdxpad: { agent: { sendMessage } } });

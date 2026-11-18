@@ -6,6 +6,7 @@ import { useTemplateStore } from './template-store';
 const templateApi = {
   list: vi.fn(),
   get: vi.fn(),
+  save: vi.fn(),
 };
 
 function metadata(id: string, name: string): TemplateMetadata {
@@ -36,6 +37,7 @@ describe('useTemplateStore', () => {
     useTemplateStore.getState().reset();
     templateApi.list.mockReset();
     templateApi.get.mockReset();
+    templateApi.save.mockReset();
     Object.assign(window, { mdxpad: { template: templateApi } });
   });
 
@@ -104,5 +106,40 @@ describe('useTemplateStore', () => {
     expect(useTemplateStore.getState().selectedTemplate?.id).toBe('newer');
     expect(useTemplateStore.getState().isLoading).toBe(false);
     expect(useTemplateStore.getState().error).toBeNull();
+  });
+
+  it('keeps a newer template list loading when an older save fails', async () => {
+    let finishSave: (value: { success: false; error: string }) => void = () => undefined;
+    let finishList: (value: { success: true; data: TemplateMetadata[] }) => void = () => undefined;
+    templateApi.save.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+    );
+    templateApi.list.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishList = resolve;
+        })
+    );
+
+    const saving = useTemplateStore.getState().saveTemplate({
+      name: 'Notes',
+      description: 'A note',
+      category: 'notes',
+      content: '# Notes',
+    });
+    const loading = useTemplateStore.getState().loadTemplates();
+    finishSave({ success: false, error: 'Save failed' });
+    await saving;
+
+    expect(useTemplateStore.getState().isLoading).toBe(true);
+    expect(useTemplateStore.getState().error).toBeNull();
+
+    finishList({ success: true, data: [metadata('listed', 'Listed')] });
+    await loading;
+    expect(useTemplateStore.getState().templates.map((item) => item.id)).toEqual(['listed']);
+    expect(useTemplateStore.getState().isLoading).toBe(false);
   });
 });
