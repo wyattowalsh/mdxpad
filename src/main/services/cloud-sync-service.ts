@@ -101,6 +101,10 @@ function getDefaultBaseDir(): string {
 
 async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
   try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink() || !info.isFile()) {
+      return fallback;
+    }
     const content = await fs.readFile(filePath, 'utf-8');
     return JSON.parse(content) as T;
   } catch (error) {

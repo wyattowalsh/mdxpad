@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -141,5 +141,48 @@ describe('CloudSyncService', () => {
 
     const revisions = [pushA.revision, pushB.revision].sort((left, right) => left - right);
     expect(revisions).toEqual([2, 3]);
+  });
+
+  it('does not pull a document through a link', async () => {
+    const service = new CloudSyncService(tempDir);
+    await service.connectProvider('mock-cloud');
+    const outside = path.join(tempDir, 'outside.json');
+    const documentPath = path.join(tempDir, 'mock-cloud', 'documents', 'doc-1.json');
+    await mkdir(path.dirname(documentPath), { recursive: true });
+    await writeFile(
+      outside,
+      JSON.stringify({
+        documentId: 'doc-1',
+        filePath: '/secret.mdx',
+        content: 'hidden',
+        checksum: 'x',
+        revision: 9,
+        updatedAt: 1,
+      }),
+      'utf-8'
+    );
+    await symlink(outside, documentPath);
+
+    const pull = await service.pullDocument({
+      providerId: 'mock-cloud',
+      documentId: 'doc-1',
+    });
+    expect(pull.content).toBeNull();
+
+    const push = await service.pushDocument({
+      providerId: 'mock-cloud',
+      documentId: 'doc-1',
+      filePath: '/workspace/doc-1.mdx',
+      content: '# Local',
+    });
+    expect(push.revision).toBe(1);
+    expect(await readFile(outside, 'utf-8')).toContain('hidden');
+    expect((await lstat(documentPath)).isSymbolicLink()).toBe(false);
+
+    const again = await service.pullDocument({
+      providerId: 'mock-cloud',
+      documentId: 'doc-1',
+    });
+    expect(again.content).toBe('# Local');
   });
 });
