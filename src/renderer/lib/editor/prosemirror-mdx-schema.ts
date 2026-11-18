@@ -124,9 +124,11 @@ const BULLET_LIST_NODE: NodeSpec = {
 
 const LIST_ITEM_NODE: NodeSpec = {
   content: 'block+',
+  attrs: { task: { default: null } },
   parseDOM: [{ tag: 'li' }],
-  toDOM() {
-    return ['li', 0];
+  toDOM(node) {
+    const task = node.attrs.task as string | null;
+    return task ? ['li', { 'data-task': task }, 0] : ['li', 0];
   },
   defining: true,
 };

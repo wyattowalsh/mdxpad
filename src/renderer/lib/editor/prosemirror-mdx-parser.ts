@@ -12,6 +12,7 @@ import MarkdownIt from 'markdown-it';
 import { MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { protectFootnoteBlocks } from './prosemirror-footnote-block';
+import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
 import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
@@ -346,7 +347,9 @@ export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { processedText } = extractJsxBlocks(
     protectTexDelimiters(protectFootnoteMarkers(protectedNotes))
   );
-  const restored = restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText)));
+  const restored = liftTaskItems(
+    restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText)))
+  );
   if (frontmatter.length === 0 && definitions.length === 0) {
     return restored;
   }

@@ -66,6 +66,12 @@ describe('WYSIWYG markdown round trip', () => {
     const serialized = roundTrip('- [ ] todo\n');
     expect(serialized).toContain('[ ] todo');
     expect(serialized).not.toContain('\\[');
+    const done = roundTrip('- [x] done\n');
+    expect(done).toContain('[x] done');
+    const doc = parseMdxContent('- [x] **done**\n');
+    const item = doc?.firstChild?.firstChild;
+    expect(item?.attrs.task).toBe('done');
+    expect(item?.textContent).toBe('done');
   });
 
   it('keeps a formatted task and a nested task', () => {

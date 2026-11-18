@@ -29,6 +29,7 @@ import { cn } from '@shared/lib/utils';
 import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
+import { TaskListItemView } from '../../lib/editor/prosemirror-task-item';
 
 // =============================================================================
 // TYPES
@@ -148,6 +149,7 @@ function useEditorView(
       state,
       nodeViews: {
         image: (node) => new WysiwygImageView(node),
+        list_item: (node, view, getPos) => new TaskListItemView(node, view, getPos),
       },
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);

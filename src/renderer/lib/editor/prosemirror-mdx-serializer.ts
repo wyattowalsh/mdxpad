@@ -9,6 +9,7 @@
 
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
+import { taskMarker } from './prosemirror-task-item';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { emphasizeOutside } from './prosemirror-emphasis-order';
@@ -142,14 +143,16 @@ const nodeSerializers: NodeSerializerMap = {
   bullet_list(state, node) {
     separateDifferentBullets(state, node);
     const marker = bulletMarker(node);
-    state.renderList(node, '  ', () => `${marker} `);
+    state.renderList(node, '  ', (index) => `${marker} ${taskMarker(node.child(index))}`);
   },
 
   ordered_list(state, node) {
     const start = listStart(node);
     const delimiter = node.attrs.delimiter === ')' ? ')' : '.';
     const indent = orderedIndent(start, node.childCount, delimiter);
-    state.renderList(node, indent, (index) => `${start + index}${delimiter} `);
+    state.renderList(node, indent, (index) => {
+      return `${start + index}${delimiter} ${taskMarker(node.child(index))}`;
+    });
   },
 
   list_item(state, node) {
