@@ -56,6 +56,23 @@ function imageRule(): InputRule {
   );
 }
 
+function taskRule(): InputRule {
+  return new InputRule(/^\[([ xX])\]\s$/, (state, match, start, end) => {
+    const $start = state.doc.resolve(start);
+    const marker = match[1];
+    if ($start.depth < 1 || $start.parentOffset !== 0 || !marker) {
+      return null;
+    }
+    const item = $start.node(-1);
+    if (item.type !== mdxSchema.nodes.list_item) {
+      return null;
+    }
+    const task = marker === ' ' ? 'open' : 'done';
+    const itemPos = $start.before($start.depth - 1);
+    return state.tr.delete(start, end).setNodeMarkup(itemPos, undefined, { ...item.attrs, task });
+  });
+}
+
 function horizontalRule(state: EditorState, _match: RegExpMatchArray, start: number, end: number): Transaction | null {
   const $start = state.doc.resolve(start);
   const rule = state.schema.nodes.horizontal_rule?.create();
@@ -80,6 +97,7 @@ function markdownShortcutRules(): InputRule[] {
     heading,
     wrappingInputRule(/^\s*>\s$/, mdxSchema.nodes.blockquote),
     wrappingInputRule(/^\s*[-+*]\s$/, mdxSchema.nodes.bullet_list),
+    taskRule(),
     wrappingInputRule(/^(\d+)\.\s$/, mdxSchema.nodes.ordered_list, (match) => ({
       order: Number(match[1] ?? 1),
     })),

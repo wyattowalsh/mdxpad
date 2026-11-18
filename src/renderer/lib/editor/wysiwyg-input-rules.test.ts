@@ -100,6 +100,23 @@ describe('visual markdown shortcuts', () => {
     expect(view.state.doc.firstChild?.firstChild?.attrs.src).toBe('https://ex.test/cat.png');
   });
 
+  it('turns a task marker into a checkbox', () => {
+    const view = open();
+    views.push(view);
+    type(view, '- [ ] ');
+    expect(view.state.doc.firstChild?.firstChild?.attrs.task).toBe('open');
+    expect(view.state.doc.textContent).not.toContain('[');
+    expect(serializeMdxContent(view.state.doc)).toContain('[ ]');
+  });
+
+  it('turns a checked task marker into a finished checkbox', () => {
+    const view = open();
+    views.push(view);
+    type(view, '- [x] ');
+    expect(view.state.doc.firstChild?.firstChild?.attrs.task).toBe('done');
+    expect(serializeMdxContent(view.state.doc)).toContain('[x]');
+  });
+
   it('turns a dash and a space into a bullet list', () => {
     const view = open();
     views.push(view);
