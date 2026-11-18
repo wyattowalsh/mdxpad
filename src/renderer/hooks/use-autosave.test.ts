@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 
 // =============================================================================
 // MOCK STATE SETUP (before vi.mock calls)
@@ -170,6 +171,7 @@ describe('useAutosave', () => {
   });
 
   afterEach(() => {
+    registerLiveSourceText(null);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -694,6 +696,21 @@ describe('useAutosave', () => {
       });
 
       expect(mockAutosaveActions.startSave).not.toHaveBeenCalled();
+    });
+
+    it('saves keystrokes that are still only in the editor', async () => {
+      setCleanDocument();
+      registerLiveSourceText(() => 'saved content!');
+      const trigger = vi.fn().mockResolvedValue({ ok: true, savedAt: 1 });
+      (window as unknown as { mdxpad: { autosaveTrigger: typeof trigger } }).mdxpad.autosaveTrigger =
+        trigger;
+
+      const { result } = renderHook(() => useAutosave({ debounceMs: 10000 }));
+      await act(async () => {
+        await result.current.saveNow();
+      });
+
+      expect(trigger).toHaveBeenCalledWith(expect.objectContaining({ content: 'saved content!' }));
     });
 
     it('should clear pending debounce timer on saveNow', async () => {

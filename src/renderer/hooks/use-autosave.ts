@@ -24,6 +24,7 @@ import {
 import { useAutosaveStore } from '@renderer/stores/autosave-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import { autosaveDocumentId } from '@renderer/components/tabs/tab-recovery-id';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import type {
   AutosaveTriggerRequest,
   AutosaveTriggerResponse,
@@ -312,11 +313,12 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
 
       try {
         const snapshot = documentSnapshotRef.current;
+        const typed = liveSourceText();
         const request: AutosaveTriggerRequest = {
           documentId: documentId as AutosaveTriggerRequest['documentId'],
           filePath: snapshot.filePath,
           fileName: snapshot.fileName,
-          content: snapshot.content,
+          content: typed ?? snapshot.content,
         };
 
         const response = await triggerAutosave(request);
@@ -380,8 +382,9 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
       debounceTimeoutRef.current = null;
     }
 
-    // Only save if dirty
-    if (!isDirty) {
+    const typed = liveSourceText();
+    const ahead = typed !== null && typed !== documentSnapshotRef.current.content;
+    if (!isDirty && !ahead) {
       console.debug('[useAutosave] saveNow called but document is not dirty');
       return;
     }
