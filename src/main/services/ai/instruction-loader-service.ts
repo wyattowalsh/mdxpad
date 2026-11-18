@@ -8,8 +8,10 @@ import {
 } from '@shared/contracts/ai-schemas';
 import { hasReadCapability } from '@main/ipc/document-capability';
 import { trustedDirectoryError } from '@main/ipc/trusted-directory';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { computeChecksum } from '@shared/lib/checksum';
 import type { AIInstructionFileMetadata } from '@shared/types/ai-session';
+import type { FileError } from '@shared/types/file';
 
 import type { IAISessionStorageService } from './ai-session-storage-service';
 
@@ -36,6 +38,38 @@ function isNotFoundError(error: unknown): boolean {
     'code' in error &&
     (error as NodeJS.ErrnoException).code === 'ENOENT'
   );
+}
+
+async function instructionFileStats(
+  filePath: string
+): Promise<Awaited<ReturnType<typeof fs.lstat>> | null> {
+  try {
+    const stats = await fs.lstat(filePath);
+    if (stats.isSymbolicLink() || !stats.isFile()) {
+      return null;
+    }
+    return stats;
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function unreadInstruction(error: FileError): null {
+  switch (error.code) {
+    case 'NOT_FOUND':
+    case 'PERMISSION_DENIED':
+    case 'CANCELLED':
+      return null;
+    case 'UNKNOWN':
+      throw new Error(error.message);
+    default: {
+      const unexpected: never = error;
+      return unexpected;
+    }
+  }
 }
 
 function buildInstructionId(
@@ -217,34 +251,28 @@ export class InstructionLoaderService implements IInstructionLoaderService {
     appliesToDocumentIds?: readonly string[]
   ): Promise<LoadedInstructionFile | null> {
     const resolvedFilePath = path.resolve(filePath);
-    try {
-      const [stats, content] = await Promise.all([
-        fs.stat(resolvedFilePath),
-        fs.readFile(resolvedFilePath, 'utf-8'),
-      ]);
-
-      if (!stats.isFile()) {
-        return null;
-      }
-
-      return {
-        metadata: toInstructionMetadata(
-          resolvedFilePath,
-          scope,
-          content,
-          {
-            birthtime: stats.birthtime,
-            mtime: stats.mtime,
-          },
-          appliesToDocumentIds
-        ),
-        content,
-      };
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return null;
-      }
-      throw error;
+    const stats = await instructionFileStats(resolvedFilePath);
+    if (stats === null) {
+      return null;
     }
+
+    const read = await readFileWithoutFollowingLinks(resolvedFilePath);
+    if (!read.ok) {
+      return unreadInstruction(read.error);
+    }
+    const content = read.value;
+    return {
+      metadata: toInstructionMetadata(
+        resolvedFilePath,
+        scope,
+        content,
+        {
+          birthtime: stats.birthtime,
+          mtime: stats.mtime,
+        },
+        appliesToDocumentIds
+      ),
+      content,
+    };
   }
 }

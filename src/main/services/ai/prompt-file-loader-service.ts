@@ -9,6 +9,7 @@ import {
   type AIPromptFileMetadata,
 } from '@shared/contracts/ai-schemas';
 import { trustedDirectoryError } from '@main/ipc/trusted-directory';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { computeChecksum } from '@shared/lib/checksum';
 
 const PROMPT_DIRECTORY_CANDIDATES = ['.mdxpad/prompts', '.mdxpad/ai/prompts', 'prompts'] as const;
@@ -153,8 +154,15 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
 
   private async parsePromptMetadata(filePath: string): Promise<AIPromptFileMetadata | null> {
     try {
-      const rawContent = await fs.readFile(filePath, 'utf-8');
-      const fileStats = await fs.stat(filePath);
+      const read = await readFileWithoutFollowingLinks(filePath);
+      if (!read.ok) {
+        return null;
+      }
+      const rawContent = read.value;
+      const fileStats = await fs.lstat(filePath);
+      if (fileStats.isSymbolicLink() || !fileStats.isFile()) {
+        return null;
+      }
       const parsedMatter = matter(rawContent);
       const parsedFrontmatter = PromptFrontmatterSchema.safeParse(parsedMatter.data);
 

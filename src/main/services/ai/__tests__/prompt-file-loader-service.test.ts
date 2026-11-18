@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -152,5 +152,28 @@ Draft content.
 
     expect(prompts).toHaveLength(1);
     expect(prompts[0]?.fileName).toBe('valid.md');
+  });
+
+  it('does not discover a prompt file that is a link', async () => {
+    const workspaceRootPath = path.join(tempDir, 'workspace');
+    const promptDir = path.join(workspaceRootPath, '.mdxpad', 'prompts');
+    const outside = path.join(tempDir, 'secret.md');
+    await mkdir(promptDir, { recursive: true });
+    await writeFile(
+      outside,
+      `---
+title: Secret
+---
+hidden
+`,
+      'utf-8'
+    );
+    await symlink(outside, path.join(promptDir, 'linked.md'));
+
+    grantReadCapability(path.join(workspaceRootPath, 'note.md'));
+    const service = new AIPromptFileLoaderService();
+    const prompts = await service.discoverPromptFiles({ workspaceRootPath });
+
+    expect(prompts).toEqual([]);
   });
 });

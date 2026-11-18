@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -88,5 +88,21 @@ describe('InstructionLoaderService', () => {
     const missing = await loader.loadInstructionFile(instruction!.id);
     expect(missing).toBeNull();
     expect(await storage.getInstructionFile(instruction!.id)).toBeNull();
+  });
+
+  it('does not load an instruction file that is a link', async () => {
+    const projectRootPath = path.join(tempDir, 'project');
+    const outside = path.join(tempDir, 'outside.md');
+    await writeTextFile(outside, 'secret instruction');
+    await mkdir(projectRootPath, { recursive: true });
+    await symlink(outside, path.join(projectRootPath, 'AGENTS.md'));
+
+    grantReadCapability(path.join(projectRootPath, 'note.md'));
+    const storage = new AISessionStorageService(path.join(tempDir, 'storage'));
+    const loader = new InstructionLoaderService(storage);
+
+    const discovered = await loader.listInstructionFiles({ projectRootPath, scope: 'global' });
+
+    expect(discovered).toEqual([]);
   });
 });
