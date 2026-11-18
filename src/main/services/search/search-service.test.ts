@@ -133,6 +133,32 @@ describe('search-service', () => {
       expect(readFile).not.toHaveBeenCalled();
     });
 
+    it('does not index a file that is a symlink when its text is read', async () => {
+      vi.mocked(readdir).mockResolvedValue([
+        {
+          name: 'note.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
+      ] as never);
+      vi.mocked(lstat).mockImplementation(async (target) => {
+        const file = String(target).endsWith('note.md');
+        return {
+          isSymbolicLink: () => file,
+          isDirectory: () => !file,
+          isFile: () => false,
+          size: 10,
+        } as never;
+      });
+      vi.mocked(readFile).mockResolvedValue('secret');
+
+      const result = await indexWorkspace('/workspace');
+
+      expect(result.indexedFiles).toBe(0);
+      expect(readFile).not.toHaveBeenCalled();
+    });
+
     it('should skip symbolic links', async () => {
       vi.mocked(readdir).mockResolvedValue([
         {
