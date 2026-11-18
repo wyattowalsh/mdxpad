@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CommandContext } from '@shared/types/commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useWorkspaceStore } from '@renderer/stores/workspace-store';
+import type { WorkspaceModel } from '@shared/types/workspace';
 import {
   SERVICE_COMMANDS,
+  searchDirectoryForFile,
   summarizeGitDiff,
   summarizeGitLog,
   summarizeGitStatus,
@@ -182,7 +185,40 @@ describe('summarizeSearchResults', () => {
   });
 });
 
+function workspaceModel(rootPath: string): WorkspaceModel {
+  return {
+    version: 1,
+    workspace: {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Project',
+      rootPath,
+      documents: [],
+      activeDocumentId: null,
+      createdAt: '2026-11-18T08:00:00.000Z',
+      updatedAt: '2026-11-18T08:00:00.000Z',
+    },
+    projects: [],
+    linkIndex: {},
+  };
+}
+
+describe('searchDirectoryForFile', () => {
+  it('uses the workspace root when the open file is inside it', () => {
+    expect(searchDirectoryForFile('/project/docs/readme.md', '/project')).toBe('/project');
+    expect(searchDirectoryForFile('/project/docs/readme.md', '/project/')).toBe('/project');
+  });
+
+  it('keeps the file folder when it is outside the workspace', () => {
+    expect(searchDirectoryForFile('/project-other/readme.md', '/project')).toBe('/project-other');
+    expect(searchDirectoryForFile('/project/docs/readme.md', null)).toBe('/project/docs');
+  });
+});
+
 describe('search.workspace', () => {
+  beforeEach(() => {
+    useWorkspaceStore.getState().reset();
+  });
+
   it('indexes an unindexed folder before searching and passes exclude patterns', async () => {
     vi.spyOn(window, 'prompt').mockReturnValue('Title');
     localStorage.clear();
@@ -235,5 +271,32 @@ describe('search.workspace', () => {
     });
     expect(search).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith({ type: 'info', message: 'Search cancelled' });
+  });
+
+  it('searches the open workspace instead of only the file folder', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('Title');
+    localStorage.clear();
+    localStorage.setItem(
+      'mdxpad:workspace-folder-excludes',
+      JSON.stringify({ 'ws\n/project': ['dist'] })
+    );
+    useWorkspaceStore.setState({ model: workspaceModel('/project') });
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { indexed: true, fileCount: 2, lastIndexedAt: '2026-11-18T08:00:00.000Z' },
+    });
+    const search = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { results: [{ filePath: '/project/other.md' }], totalResults: 1, queryTimeMs: 1 },
+    });
+    const context = {
+      document: { filePath: '/project/docs/readme.md', content: '# Title\n' },
+      api: { search: { status, search } },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'search.workspace');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(search).toHaveBeenCalledWith('/project', 'Title', 10, undefined, ['dist']);
   });
 });

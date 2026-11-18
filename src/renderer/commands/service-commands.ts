@@ -1,14 +1,34 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { IMPORT_COMMANDS } from './import-commands';
+
+function parentDirectory(filePath: string): string {
+  return filePath.slice(0, filePath.lastIndexOf('/'));
+}
 
 function workspaceDir(filePath: string | null): string | null {
   if (filePath?.includes('/') !== true) {
     return null;
   }
-  return filePath.slice(0, filePath.lastIndexOf('/'));
+  return parentDirectory(filePath);
+}
+
+/** Search the open workspace when the file lives there, otherwise the file's folder. */
+export function searchDirectoryForFile(
+  filePath: string | null,
+  workspaceRoot: string | null
+): string | null {
+  if (filePath?.includes('/') !== true) {
+    return null;
+  }
+  const root = workspaceRoot?.endsWith('/') ? workspaceRoot.slice(0, -1) : workspaceRoot;
+  if (root && root.length > 0 && (filePath === root || filePath.startsWith(`${root}/`))) {
+    return root;
+  }
+  return parentDirectory(filePath);
 }
 
 export function summarizeGitStatus(status: {
@@ -235,7 +255,8 @@ const searchWorkspaceCommand: Command = {
   description: 'Search the current folder for text you enter',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = workspaceDir(ctx.document.filePath);
+    const workspaceRoot = useWorkspaceStore.getState().model?.workspace.rootPath ?? null;
+    const dir = searchDirectoryForFile(ctx.document.filePath, workspaceRoot);
     if (!dir) {
       ctx.notify({ type: 'warning', message: 'Open a file inside a folder to search' });
       return { ok: false, error: 'Nothing to search' };
