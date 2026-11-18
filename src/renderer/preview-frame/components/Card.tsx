@@ -9,6 +9,8 @@
 
 import * as React from 'react';
 
+import { isBlockedPreviewHref } from '../preview-href';
+
 /**
  * Props for the Card component
  */
@@ -75,7 +77,7 @@ export function Card({
     </>
   );
 
-  if (href) {
+  if (href && !isBlockedPreviewHref(href)) {
     return (
       <a href={href} className={cardClasses}>
         {content}

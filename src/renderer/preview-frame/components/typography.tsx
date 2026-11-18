@@ -8,6 +8,8 @@
 
 import * as React from 'react';
 
+import { isBlockedPreviewHref } from '../preview-href';
+
 /* ============================================================================
    Type Definitions
    ============================================================================ */
@@ -160,21 +162,27 @@ export function P({ children, className = '', ...props }: ParagraphProps): React
 }
 
 export function A({ children, href, className = '', ...props }: AnchorProps): React.ReactNode {
+  const blocked = isBlockedPreviewHref(href);
   const isExternal = isExternalUrl(href);
   const opensDocument = isPreviewDocumentHref(href);
 
   return (
     <a
-      href={href}
+      {...(blocked ? {} : { href })}
       className={`mdx-a ${className}`.trim()}
       {...(isExternal &&
-        !opensDocument && {
+        !opensDocument &&
+        !blocked && {
           target: '_blank',
           rel: 'noopener noreferrer',
         })}
       {...props}
       onClick={(event) => {
         props.onClick?.(event);
+        if (blocked) {
+          event.preventDefault();
+          return;
+        }
         if (event.defaultPrevented || !href || !opensDocument) {
           return;
         }
