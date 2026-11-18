@@ -65,6 +65,9 @@ describe('visual runnable code', () => {
     const view = open('```\nhello\n```\n');
     views.push(view);
     expect(view.dom.querySelector('button')).toBeNull();
+    expect(view.dom.querySelector('.wysiwyg-code-block')?.getAttribute('style')).toContain(
+      'max-width: 100%'
+    );
     expect(view.dom.textContent).toContain('hello');
   });
 });

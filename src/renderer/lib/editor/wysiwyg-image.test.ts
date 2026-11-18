@@ -62,6 +62,7 @@ describe('wysiwyg image preview', () => {
     });
     expect(inline).toHaveBeenCalledWith('![image](pixel.png)', '/docs/note.md');
     expect(view.dom.querySelector('img')?.getAttribute('alt')).toBe('Alt');
+    expect(view.dom.querySelector('img')?.style.maxWidth).toBe('100%');
     expect(serializeMdxContent(view.state.doc)).toContain('![Alt](pixel.png "Sunset")');
     expect(serializeMdxContent(view.state.doc)).not.toContain('data:image');
   });

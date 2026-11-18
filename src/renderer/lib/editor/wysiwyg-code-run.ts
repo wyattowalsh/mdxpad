@@ -55,6 +55,8 @@ export class RunnableCodeBlockView implements NodeView {
     this.node = node;
     this.dom = document.createElement('div');
     this.dom.className = 'wysiwyg-code-block';
+    this.dom.style.maxWidth = '100%';
+    this.dom.style.overflowX = 'auto';
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     const language = languageName(String(node.attrs.language ?? ''));

@@ -55,6 +55,8 @@ export class WysiwygImageView implements NodeView {
     this.node = node;
     this.dom = document.createElement('img');
     this.dom.className = 'wysiwyg-image';
+    this.dom.style.maxWidth = '100%';
+    this.dom.style.height = 'auto';
     this.show();
   }
 
