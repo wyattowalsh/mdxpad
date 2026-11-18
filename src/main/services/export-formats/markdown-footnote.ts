@@ -26,16 +26,22 @@ export function plainFootnoteMarkers(value: string): string {
 
 /** Links for HTML, PDF, and EPUB. The arrow on a note returns to its reference. */
 export function htmlFootnoteMarkers(value: string): string {
-  return value
-    .replaceAll(
-      new RegExp(`${REF_MARK}(\\d+)${MARK_END}`, 'g'),
-      (_match, num: string) => `<sup><a href="#fn-${num}" id="fnref-${num}">${num}</a></sup>`
-    )
-    .replaceAll(
-      new RegExp(`${NOTE_MARK}(\\d+)${MARK_END}`, 'g'),
-      (_match, num: string) =>
-        `<a href="#fnref-${num}" id="fn-${num}" class="footnote-backref">↩</a> `
-    );
+  const seen = new Set<string>();
+  const withRefs = value.replaceAll(
+    new RegExp(`${REF_MARK}(\\d+)${MARK_END}`, 'g'),
+    (_match, num: string) => {
+      if (seen.has(num)) {
+        return `<sup><a href="#fn-${num}">${num}</a></sup>`;
+      }
+      seen.add(num);
+      return `<sup><a href="#fn-${num}" id="fnref-${num}">${num}</a></sup>`;
+    }
+  );
+  return withRefs.replaceAll(
+    new RegExp(`${NOTE_MARK}(\\d+)${MARK_END}`, 'g'),
+    (_match, num: string) =>
+      `<a href="#fnref-${num}" id="fn-${num}" class="footnote-backref">↩</a> `
+  );
 }
 
 function noteNumber(id: string, order: string[]): number {

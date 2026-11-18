@@ -18,6 +18,9 @@ describe('applyFootnotes', () => {
     expect(html).toContain(
       '<li><a href="#fnref-2" id="fn-2" class="footnote-backref">↩</a> Two</li>'
     );
+    const repeated = markdownToPdfHtml('A[^1] and again[^1].\n\n[^1]: Note\n');
+    expect(repeated.match(/id="fnref-1"/g) ?? []).toHaveLength(1);
+    expect(repeated).toContain('again<sup><a href="#fn-1">1</a></sup>');
     expect(rendered).toContain('## Notes');
     expect(rendered).toContain('1. Note');
     expect(rendered).not.toContain('[^1]');
