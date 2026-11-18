@@ -17,6 +17,7 @@ import {
 } from '@renderer/stores/preview-store';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useOutlineStore } from '@renderer/stores/outline-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 
 /**
  * Hook that synchronizes the outline store with AST from preview store.
@@ -39,8 +40,14 @@ import { useOutlineStore } from '@renderer/stores/outline-store';
  */
 export function useOutlineSync(): void {
   const outlineAST = usePreviewStore(selectOutlineAST);
+  const previewKey = usePreviewStore((state) => state.lastSuccessfulDocumentKey);
   const isCompiling = usePreviewStore(selectIsCompiling);
+  const filePath = useDocumentStore((state) => state.filePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const documentKey = filePath ?? `untitled:${activeTabId ?? 'new'}`;
   const { updateFromAST, setIsParsing } = useOutlineStore();
+  const sameDocument = previewKey === null || previewKey === documentKey;
+  const outlineForDocument = sameDocument ? outlineAST : null;
 
   // Track compilation state
   useEffect(() => {
@@ -49,16 +56,16 @@ export function useOutlineSync(): void {
 
   // Update outline when AST changes
   useEffect(() => {
-    if (outlineAST) {
-      updateFromAST(outlineAST);
+    if (outlineForDocument) {
+      updateFromAST(outlineForDocument);
       return;
     }
-    if (isCompiling) {
+    if (isCompiling && sameDocument) {
       setIsParsing(true);
       return;
     }
     updateFromAST(parseFallbackOutline(useDocumentStore.getState().content));
-  }, [outlineAST, isCompiling, setIsParsing, updateFromAST]);
+  }, [isCompiling, outlineForDocument, sameDocument, setIsParsing, updateFromAST]);
 }
 
 export default useOutlineSync;

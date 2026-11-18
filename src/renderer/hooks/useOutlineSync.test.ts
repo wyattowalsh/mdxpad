@@ -167,6 +167,25 @@ describe('useOutlineSync', () => {
       expect(getHeadingsItems()).toEqual([]);
     });
 
+    it('uses the open document when the compiled outline is for another file', () => {
+      usePreviewStore
+        .getState()
+        .setSuccess(
+          {
+            ok: true,
+            code: 'export default function MDXContent() {}',
+            frontmatter: {},
+            outline: createOutlineAST([{ depth: 1, text: 'Other', line: 1 }]),
+          },
+          '/notes/a.md'
+        );
+      useDocumentStore.setState({ filePath: '/notes/b.md', content: '# Kept\n' });
+
+      renderHook(() => useOutlineSync());
+
+      expect(getHeadingsItems().map((item) => item.label)).toEqual(['Kept']);
+    });
+
     it('keeps document headings when preview compilation fails', () => {
       useDocumentStore.setState({ content: '```md\n# Hidden\n```\n\n# Kept\n' });
       const ast = createOutlineAST([{ depth: 1, text: 'Old', line: 1 }]);
