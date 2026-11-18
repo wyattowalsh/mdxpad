@@ -28,6 +28,7 @@ import type { ToolbarAction } from './WysiwygToolbar';
 import { cn } from '@shared/lib/utils';
 import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
+import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 
 // =============================================================================
 // TYPES
@@ -145,6 +146,9 @@ function useEditorView(
 
     const view = new EditorView(container, {
       state,
+      nodeViews: {
+        image: (node) => new WysiwygImageView(node),
+      },
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);
         view.updateState(newState);
