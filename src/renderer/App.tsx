@@ -231,7 +231,11 @@ export function App(): React.ReactElement {
 
       {/* Breadcrumb navigation */}
       {showChrome && (
-        <Breadcrumb className="border-b border-border bg-muted/20 text-xs text-muted-foreground" />
+        <Breadcrumb
+          className="border-b border-border bg-muted/20 text-xs text-muted-foreground"
+          cursorLine={state.cursorPosition.line}
+          onSegmentClick={state.handleBreadcrumbNavigate}
+        />
       )}
 
       {/* Main content area with split panes */}

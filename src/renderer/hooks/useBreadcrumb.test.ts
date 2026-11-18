@@ -77,4 +77,47 @@ describe('useBreadcrumb', () => {
     expect(folderSegments[0]?.label).toBe('docs');
     expect(folderSegments[1]?.label).toBe('guides');
   });
+
+  it('shows the heading at the cursor', () => {
+    useOutlineStore.setState({
+      sections: [
+        {
+          id: 'headings',
+          label: 'Headings',
+          isCollapsed: false,
+          isEmpty: false,
+          items: [
+            {
+              id: 'intro',
+              type: 'heading',
+              label: 'Intro',
+              level: 1,
+              line: 1,
+              column: 1,
+              children: [],
+            },
+            {
+              id: 'details',
+              type: 'heading',
+              label: 'Details',
+              level: 2,
+              line: 8,
+              column: 1,
+              children: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    const atIntro = renderHook(() => useBreadcrumb(3));
+    expect(atIntro.result.current.find((segment) => segment.type === 'heading')?.label).toBe(
+      'Intro'
+    );
+
+    const atDetails = renderHook(() => useBreadcrumb(10));
+    const heading = atDetails.result.current.find((segment) => segment.type === 'heading');
+    expect(heading?.label).toBe('Details');
+    expect(heading?.line).toBe(8);
+  });
 });

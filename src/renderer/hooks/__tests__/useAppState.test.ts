@@ -163,7 +163,10 @@ vi.mock('../useOutlineSync', () => ({
 }));
 
 vi.mock('../useOutlineNavigation', () => ({
-  useOutlineNavigation: () => ({ navigateToItem: mockNavigateToItem }),
+  useOutlineNavigation: () => ({
+    navigateToItem: mockNavigateToItem,
+    navigateToPosition: vi.fn(),
+  }),
 }));
 
 vi.mock('../useErrorNavigation', () => ({

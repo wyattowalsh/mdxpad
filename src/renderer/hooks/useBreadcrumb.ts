@@ -11,12 +11,15 @@ import { useMemo } from 'react';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useOutlineStore } from '@renderer/stores/outline-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
+import type { OutlineItem } from '@shared/types/outline';
 
 export interface BreadcrumbSegment {
   readonly id: string;
   readonly label: string;
   readonly type: 'workspace' | 'folder' | 'file' | 'heading';
   readonly path?: string | undefined;
+  readonly line?: number | undefined;
+  readonly column?: number | undefined;
 }
 
 /**
@@ -44,22 +47,32 @@ function getFolderSegments(filePath: string, workspaceRoot: string | null): Brea
   }));
 }
 
-/**
- * Get the first heading from the outline store to use as the current section.
- */
+function flattenHeadings(items: readonly OutlineItem[]): OutlineItem[] {
+  return items.flatMap((item) => [item, ...flattenHeadings(item.children)]);
+}
+
 function getActiveHeading(
-  sections: ReturnType<typeof useOutlineStore.getState>['sections']
+  sections: ReturnType<typeof useOutlineStore.getState>['sections'],
+  cursorLine: number
 ): BreadcrumbSegment | null {
   const headingsSection = sections.find((s) => s.id === 'headings');
   if (!headingsSection || headingsSection.items.length === 0) return null;
 
-  const firstHeading = headingsSection.items[0];
-  if (!firstHeading) return null;
+  const headings = flattenHeadings(headingsSection.items);
+  let current: OutlineItem | null = null;
+  for (const heading of headings) {
+    if (heading.line <= cursorLine) {
+      current = heading;
+    }
+  }
+  if (!current) return null;
 
   return {
-    id: `heading-${firstHeading.id}`,
-    label: firstHeading.label,
+    id: `heading-${current.id}`,
+    label: current.label,
     type: 'heading' as const,
+    line: current.line,
+    column: current.column,
   };
 }
 
@@ -68,7 +81,7 @@ function getActiveHeading(
  *
  * @returns Array of breadcrumb segments
  */
-export function useBreadcrumb(): BreadcrumbSegment[] {
+export function useBreadcrumb(cursorLine = 1): BreadcrumbSegment[] {
   const fileName = useDocumentStore((state) => state.fileName);
   const filePath = useDocumentStore((state) => state.filePath);
   const workspaceModel = useWorkspaceStore((state) => state.model);
@@ -104,11 +117,11 @@ export function useBreadcrumb(): BreadcrumbSegment[] {
     });
 
     // Heading segment
-    const heading = getActiveHeading(sections);
+    const heading = getActiveHeading(sections, cursorLine);
     if (heading) {
       segments.push(heading);
     }
 
     return segments;
-  }, [fileName, filePath, workspaceModel, sections]);
+  }, [cursorLine, fileName, filePath, workspaceModel, sections]);
 }

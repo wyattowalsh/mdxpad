@@ -118,6 +118,10 @@ export interface AppState {
   readonly handleErrorClick: (error: CompilationError) => void;
   readonly handlePreviewErrorClick: (line: number, column?: number) => void;
   readonly handleOutlineNavigate: (item: OutlineItem) => void;
+  readonly handleBreadcrumbNavigate: (segment: {
+    line?: number | undefined;
+    column?: number | undefined;
+  }) => void;
   readonly handleTemplateSelect: (template: Template) => void;
   readonly handleVariableSubmit: (values: Record<string, string>) => void;
   readonly handleVariableCancel: () => void;
@@ -184,7 +188,7 @@ export function useAppState(): AppState {
 
   // Outline sync & navigation
   useOutlineSync();
-  const { navigateToItem } = useOutlineNavigation({ editorRef });
+  const { navigateToItem, navigateToPosition } = useOutlineNavigation({ editorRef });
 
   // Error navigation (P1-1 wire-up)
   const { navigateToError } = useErrorNavigation({ editorRef });
@@ -277,6 +281,16 @@ export function useAppState(): AppState {
       navigateToItem(item);
     },
     [navigateToItem]
+  );
+
+  const handleBreadcrumbNavigate = useCallback(
+    (segment: { line?: number | undefined; column?: number | undefined }): void => {
+      if (segment.line === undefined) {
+        return;
+      }
+      navigateToPosition(segment.line, segment.column ?? 1);
+    },
+    [navigateToPosition]
   );
 
   // Handlers - Templates
@@ -415,6 +429,7 @@ export function useAppState(): AppState {
     handleErrorClick,
     handlePreviewErrorClick,
     handleOutlineNavigate,
+    handleBreadcrumbNavigate,
     handleTemplateSelect,
     handleVariableSubmit,
     handleVariableCancel,

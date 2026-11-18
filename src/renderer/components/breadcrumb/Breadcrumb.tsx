@@ -14,12 +14,13 @@ import type { BreadcrumbSegment as BreadcrumbSegmentType } from '@renderer/hooks
 import { BreadcrumbSegment } from './BreadcrumbSegment';
 
 export interface BreadcrumbProps {
+  readonly cursorLine?: number;
   readonly onSegmentClick?: (segment: BreadcrumbSegmentType) => void;
   readonly className?: string;
 }
 
-function BreadcrumbComponent({ onSegmentClick, className }: BreadcrumbProps) {
-  const segments = useBreadcrumb();
+function BreadcrumbComponent({ cursorLine = 1, onSegmentClick, className }: BreadcrumbProps) {
+  const segments = useBreadcrumb(cursorLine);
 
   if (segments.length === 0) return null;
 
