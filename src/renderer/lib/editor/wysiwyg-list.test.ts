@@ -62,6 +62,25 @@ describe('visual lists', () => {
     expect(serializeMdxContent(view.state.doc)).toContain('  - two');
   });
 
+  it('leaves the list when Enter is pressed in an empty item', () => {
+    const view = open('Hello\n');
+    views.push(view);
+    toggleVisualList(view, 'bullet');
+    let end = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Hello') {
+        end = pos + node.text.length;
+      }
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));
+    const enter = visualListKeymap().Enter;
+    expect(enter?.(view.state, view.dispatch)).toBe(true);
+    expect(enter?.(view.state, view.dispatch)).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved.match(/^- /gm)?.length).toBe(1);
+    expect(saved).toContain('Hello');
+  });
+
   it('starts a new item when Enter is pressed in a list', () => {
     const view = open('Hello\n');
     views.push(view);

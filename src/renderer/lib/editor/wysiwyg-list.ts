@@ -57,10 +57,28 @@ export function toggleVisualList(view: EditorView, kind: VisualListKind): boolea
   return run(view, wrapInList(type));
 }
 
-/** Enter starts the next item. Tab nests it, and Shift-Tab lifts it. */
+const enterListItem: Command = (state, dispatch, view) => {
+  const item = mdxSchema.nodes.list_item;
+  if (splitListItem(item)(state, dispatch, view)) {
+    return true;
+  }
+  const { $from, $to } = state.selection;
+  const parent = $from.depth > 0 ? $from.node(-1) : null;
+  const emptyAtEnd =
+    $from.sameParent($to) &&
+    $from.parent.content.size === 0 &&
+    parent?.type === item &&
+    parent.childCount === $from.indexAfter(-1);
+  if (!emptyAtEnd) {
+    return false;
+  }
+  return liftListItem(item)(state, dispatch, view);
+};
+
+/** Enter starts the next item, or leaves the list from an empty item. */
 export function visualListKeymap(): Record<string, Command> {
   return {
-    Enter: splitListItem(mdxSchema.nodes.list_item),
+    Enter: enterListItem,
     Tab: sinkListItem(mdxSchema.nodes.list_item),
     'Shift-Tab': liftListItem(mdxSchema.nodes.list_item),
   };
