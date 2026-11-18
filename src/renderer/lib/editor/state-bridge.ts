@@ -55,6 +55,8 @@ export interface DebouncedFunction<T extends (...args: Parameters<T>) => void> {
   readonly call: (...args: Parameters<T>) => void;
   /** Cancel any pending debounced call. */
   readonly cancel: () => void;
+  /** Run a pending call now. */
+  readonly flush: () => void;
 }
 
 /**
@@ -75,14 +77,24 @@ export function debounce<T extends (...args: Parameters<T>) => void>(
 ): DebouncedFunction<T> {
   const clampedMs = Math.max(0, Math.min(2000, ms));
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let pending: Parameters<T> | null = null;
+
+  const invoke = (args: Parameters<T>): void => {
+    (fn as unknown as (...values: unknown[]) => void)(...(args as unknown[]));
+  };
 
   const call = (...args: Parameters<T>): void => {
+    pending = args;
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
     timeoutId = setTimeout(() => {
       timeoutId = null;
-      fn(...args);
+      const next = pending;
+      pending = null;
+      if (next) {
+        invoke(next);
+      }
     }, clampedMs);
   };
 
@@ -91,7 +103,20 @@ export function debounce<T extends (...args: Parameters<T>) => void>(
       clearTimeout(timeoutId);
       timeoutId = null;
     }
+    pending = null;
   };
 
-  return { call, cancel };
+  const flush = (): void => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    const next = pending;
+    pending = null;
+    if (next) {
+      invoke(next);
+    }
+  };
+
+  return { call, cancel, flush };
 }

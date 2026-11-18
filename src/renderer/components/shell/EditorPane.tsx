@@ -15,6 +15,7 @@ import { EditorModeToggle } from '../editor/EditorModeToggle';
 import { ExternalChangeNotice } from './ExternalChangeNotice';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
+import { publishEditorDocument } from '@renderer/components/tabs/publish-editor-document';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import {
@@ -195,9 +196,9 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
    */
   const handleChange = useCallback(
     (state: EditorState) => {
-      setContent(state.doc);
+      publishEditorDocument(documentKey, state.doc);
     },
-    [setContent]
+    [documentKey]
   );
 
   /**

@@ -19,6 +19,7 @@ import { EditorView } from '@codemirror/view';
 import type { DocumentId } from '@shared/types/document';
 
 import { EditorPane, type CursorPosition } from './EditorPane';
+import { subscribeDocumentTabs } from '@renderer/components/tabs/document-tabs';
 import { useTabStore } from '@renderer/stores/tab-store';
 import { useAccessibilityStore } from '@renderer/stores/accessibility-store';
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -740,6 +741,49 @@ describe('EditorPane mode switch', () => {
       useEditorModeStore.getState().setMode('source');
     });
     expect(onCursorChange).toHaveBeenCalledWith({ line: 1, column: 1 });
+  });
+
+  it('keeps the last keystrokes when another file is opened', async () => {
+    useTabStore.getState().reset();
+    useDocumentStore.getState().reset();
+    const stop = subscribeDocumentTabs();
+    useEditorModeStore.getState().setMode('source');
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '11111111-1111-4111-8111-111111111111' as DocumentId,
+        filePath: '/docs/a.mdx',
+        mtime: 1,
+      },
+      'Hello'
+    );
+    const editorRef = { current: null as EditorView | null };
+    render(<EditorPane editorRef={editorRef} />);
+    await waitFor(() => {
+      expect(editorRef.current).toBeInstanceOf(EditorView);
+    });
+    act(() => {
+      const view = editorRef.current;
+      if (!view) {
+        return;
+      }
+      const from = view.state.doc.length;
+      view.dispatch({
+        changes: { from, insert: '!' },
+        selection: { anchor: from + 1 },
+      });
+      useDocumentStore.getState().openDocument(
+        {
+          fileId: '22222222-2222-4222-8222-222222222222' as DocumentId,
+          filePath: '/docs/b.mdx',
+          mtime: 2,
+        },
+        'Next'
+      );
+    });
+    const first = useTabStore.getState().tabs.find((tab) => tab.filePath === '/docs/a.mdx');
+    expect(first?.content).toBe('Hello!');
+    expect(useDocumentStore.getState().content).toBe('Next');
+    stop();
   });
 
   it('reports the caret on the new line while the document store is behind', async () => {

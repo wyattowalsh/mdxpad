@@ -91,6 +91,21 @@ describe('debounce', () => {
     vi.useRealTimers();
   });
 
+  it('flush() runs the pending callback immediately', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced.call('Hello!');
+    debounced.flush();
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith('Hello!');
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
   it('cancel() prevents pending callback from executing', async () => {
     vi.useFakeTimers();
     const fn = vi.fn();

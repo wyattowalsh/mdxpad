@@ -242,6 +242,7 @@ function initializeEditor(
   );
 
   return () => {
+    debouncedOnChange?.flush();
     debouncedOnChange?.cancel();
     cleanupThemeListener();
     view.destroy();
