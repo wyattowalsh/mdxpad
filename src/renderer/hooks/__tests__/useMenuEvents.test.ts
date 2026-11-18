@@ -58,6 +58,7 @@ const mockMdxpadApi = {
     return createMockUnsub();
   }),
   onMenuOpenFile: vi.fn(() => createMockUnsub()),
+  onDroppedFile: vi.fn(() => createMockUnsub()),
   onMenuSaveFile: vi.fn((cb: () => void) => {
     menuListeners.saveFile ??= [];
     menuListeners.saveFile.push(cb);

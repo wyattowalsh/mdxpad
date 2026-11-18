@@ -57,6 +57,7 @@ function createMockMdxpadApi() {
     onMenuCommandPalette: vi.fn(() => () => {}),
     onMenuNewFile: vi.fn(() => () => {}),
     onMenuOpenFile: vi.fn(() => () => {}),
+    onDroppedFile: vi.fn(() => () => {}),
     onMenuOpenFileDialog: vi.fn(() => () => {}),
     onMenuSaveFile: vi.fn(() => () => {}),
     onMenuSaveFileAs: vi.fn(() => () => {}),

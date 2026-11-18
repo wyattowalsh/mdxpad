@@ -11,6 +11,7 @@ import type { ShareApi } from './share-api';
 import type { SecurityInfo } from '@shared/lib/ipc';
 import type { FileHandle, FileResult } from '@shared/types/file';
 import type {
+  DroppedFileResponse,
   ExportFormat,
   FileExportResult,
   FileListDirectoryResponse,
@@ -262,6 +263,12 @@ export interface MdxpadAPI {
    * @returns Unsubscribe function
    */
   onMenuOpenFile(callback: (event: MenuFileOpenEvent) => void): () => void;
+
+  /**
+   * Subscribe to a file dropped on the window.
+   * The path is read in the preload from the operating system drop.
+   */
+  onDroppedFile(callback: (event: DroppedFileResponse) => void): () => void;
 
   /**
    * Subscribe to save file menu event.

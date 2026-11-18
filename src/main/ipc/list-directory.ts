@@ -7,6 +7,7 @@ import { readdir } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import {
+  FileListDirectoryRequestSchema,
   FileListDirectoryResponseSchema,
   type FileListDirectoryResponse,
   type FileListEntry,
@@ -38,6 +39,20 @@ function byExplorerOrder(left: FileListEntry, right: FileListEntry): number {
     return leftRank - rightRank;
   }
   return left.name.localeCompare(right.name);
+}
+
+export function listDirectoryRequest(args: unknown): Promise<FileListDirectoryResponse> {
+  const parsed = FileListDirectoryRequestSchema.safeParse(args);
+  if (!parsed.success) {
+    return Promise.resolve(
+      FileListDirectoryResponseSchema.parse({
+        ok: false,
+        files: [],
+        error: 'Choose a folder before listing it',
+      })
+    );
+  }
+  return listTrustedDirectory(parsed.data.directory);
 }
 
 export async function listTrustedDirectory(directory: string): Promise<FileListDirectoryResponse> {

@@ -18,6 +18,7 @@ export const IPC_CHANNELS = {
     saveAs: 'mdxpad:file:save-as',
     export: 'mdxpad:file:export',
     read: 'mdxpad:file:read',
+    openDropped: 'mdxpad:file:open-dropped',
     write: 'mdxpad:file:write',
     list: 'mdxpad:file:list',
     inlinePreviewImages: 'mdxpad:file:inline-preview-images',

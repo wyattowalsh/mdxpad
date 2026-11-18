@@ -1,63 +1,22 @@
 /**
- * Drag & Drop Hook
- *
- * Provides file drag-and-drop support for opening files by dropping
- * them onto the application window.
- *
- * @module renderer/hooks/useDragDrop
+ * Opens a Markdown or MDX file dropped onto the window.
+ * The path is supplied by the preload from the operating-system drop.
  */
 
 import { useEffect } from 'react';
 
-/**
- * Accepted file extensions for drag-and-drop opening.
- */
-const ACCEPTED_EXTENSIONS = new Set(['.mdx', '.md', '.markdown']);
+import { useStatusMessageStore } from '@renderer/stores/status-message-store';
 
-/**
- * Hook that registers drag-and-drop event listeners on the window
- * to open dropped MDX/Markdown files.
- *
- * @param onFileDrop - Callback invoked with the file path when a valid file is dropped
- */
-export function useDragDrop(onFileDrop: (filePath: string) => void): void {
+import { openFileFromPath } from '@renderer/lib/open-file-from-path';
+
+export function useDragDrop(onFileDrop: (filePath: string) => void = openFileFromPath): void {
   useEffect(() => {
-    const handleDragOver = (e: DragEvent): void => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    const handleDrop = (e: DragEvent): void => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const files = e.dataTransfer?.files;
-      if (!files || files.length === 0) return;
-
-      const file = files[0];
-      if (!file) return;
-
-      // Check extension
-      const name = file.name.toLowerCase();
-      const dotIndex = name.lastIndexOf('.');
-      if (dotIndex === -1) return;
-
-      const ext = name.slice(dotIndex);
-      if (!ACCEPTED_EXTENSIONS.has(ext)) return;
-
-      // Electron provides the path property on dropped files
-      const filePath = (file as File & { path?: string }).path;
-      if (filePath) {
-        onFileDrop(filePath);
+    return window.mdxpad.onDroppedFile((event) => {
+      if (!event.ok) {
+        useStatusMessageStore.getState().show(event.message);
+        return;
       }
-    };
-
-    window.addEventListener('dragover', handleDragOver);
-    window.addEventListener('drop', handleDrop);
-
-    return () => {
-      window.removeEventListener('dragover', handleDragOver);
-      window.removeEventListener('drop', handleDrop);
-    };
+      onFileDrop(event.path);
+    });
   }, [onFileDrop]);
 }

@@ -30,6 +30,7 @@ import { semanticSearchApi } from './semantic-search-api';
 import { pluginApi } from './plugin-api';
 import { agentApi } from './agent-api';
 import { marketplaceApi } from './marketplace-api';
+import { installDroppedFileListener, onDroppedFile } from './dropped-file';
 
 // ============================================================================
 // Platform Detection
@@ -104,6 +105,7 @@ const api: MdxpadAPI = {
   onMenuNewFile: eventSubscriptions.onMenuNewFile,
   onMenuOpenFileDialog: eventSubscriptions.onMenuOpenFileDialog,
   onMenuOpenFile: eventSubscriptions.onMenuOpenFile,
+  onDroppedFile,
   onMenuSaveFile: eventSubscriptions.onMenuSaveFile,
   onMenuSaveFileAs: eventSubscriptions.onMenuSaveFileAs,
   onMenuExportFile: eventSubscriptions.onMenuExportFile,
@@ -156,6 +158,8 @@ const api: MdxpadAPI = {
 // ============================================================================
 // ContextBridge Exposure
 // ============================================================================
+
+installDroppedFileListener();
 
 // Expose API to renderer via contextBridge
 contextBridge.exposeInMainWorld('mdxpad', api);

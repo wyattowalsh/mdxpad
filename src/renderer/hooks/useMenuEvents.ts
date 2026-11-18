@@ -102,6 +102,9 @@ function getMdxpadApi() {
     onMenuOpenFile: () => () => {
       /* noop */
     },
+    onDroppedFile: () => () => {
+      /* noop */
+    },
     onMenuSaveFile: () => () => {
       /* noop */
     },

@@ -155,6 +155,7 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     onMenuNewFile: vi.fn(() => () => {}),
     onMenuOpenFileDialog: vi.fn(() => () => {}),
     onMenuOpenFile: vi.fn(() => () => {}),
+    onDroppedFile: vi.fn(() => () => {}),
     onMenuSaveFile: vi.fn(() => () => {}),
     onMenuSaveFileAs: vi.fn(() => () => {}),
     onMenuExportFile: vi.fn(() => () => {}),

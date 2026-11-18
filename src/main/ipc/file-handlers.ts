@@ -14,8 +14,6 @@ import {
   FileOpenRequestSchema,
   FileSaveRequestSchema,
   FileSaveAsRequestSchema,
-  FileListDirectoryRequestSchema,
-  FileListDirectoryResponseSchema,
   FileReadRequestSchema,
   FileWriteRequestSchema,
   FileExportRequestSchema,
@@ -56,9 +54,10 @@ import {
   resetFileCapabilities,
 } from './document-capability';
 import { registerInlinePreviewImages } from './inline-preview-images';
-import { listTrustedDirectory } from './list-directory';
+import { listDirectoryRequest } from './list-directory';
 import { readStaysInsideDirectory } from './read-scope';
 import { saveAsDefaultPath } from './save-as-name';
+import { registerDroppedFileHandler } from './dropped-file';
 import { trustedDirectoryError } from './trusted-directory';
 
 /** File dialog filters for MDX and Markdown files */
@@ -522,6 +521,7 @@ export function registerFileHandlers(ipcMainInstance: IpcMain, window: BrowserWi
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.read);
     return handleFileRead(args);
   });
+  registerDroppedFileHandler(ipcMainInstance, window);
   ipcMainInstance.handle(IPC_CHANNELS.file.write, (event, args) => {
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.write);
     return handleFileWrite(args);
@@ -529,15 +529,7 @@ export function registerFileHandlers(ipcMainInstance: IpcMain, window: BrowserWi
   registerInlinePreviewImages(ipcMainInstance, window);
   ipcMainInstance.handle(IPC_CHANNELS.file.list, (event, args) => {
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.list);
-    const parsed = FileListDirectoryRequestSchema.safeParse(args);
-    if (!parsed.success) {
-      return FileListDirectoryResponseSchema.parse({
-        ok: false,
-        files: [],
-        error: 'Choose a folder before listing it',
-      });
-    }
-    return listTrustedDirectory(parsed.data.directory);
+    return listDirectoryRequest(args);
   });
   ipcMainInstance.handle(IPC_CHANNELS.file.export, (event, args) => {
     assertAuthorizedIpcSender(event, window, IPC_CHANNELS.file.export);

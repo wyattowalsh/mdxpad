@@ -162,6 +162,26 @@ export const FileSaveAsResponseSchema = FileResultHandleSchema;
  * mdxpad:file:read request schema.
  * Reads file contents from path.
  */
+export const DroppedFileRequestSchema = z.object({
+  path: z.string().min(1),
+});
+
+export type DroppedFileRequest = z.infer<typeof DroppedFileRequestSchema>;
+
+export const DroppedFileResponseSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    path: z.string(),
+    content: z.string(),
+  }),
+  z.object({
+    ok: z.literal(false),
+    message: z.string(),
+  }),
+]);
+
+export type DroppedFileResponse = z.infer<typeof DroppedFileResponseSchema>;
+
 export const FileReadRequestSchema = z.object({
   path: FilePathSchema,
 });
