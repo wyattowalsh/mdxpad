@@ -261,6 +261,16 @@ describe('LatexExporter', () => {
     expect(continued).toContain('\\item two');
     expect(continued).toContain('\\setcounter{enumi}{-1}');
     expect(continued).toContain('\\item zero');
+    await exporter.export({
+      content: '1) one\n\n1. first\n\n+ plus\n* star',
+      outputPath: '/tmp/paren-label.tex',
+    });
+    const labeled = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    const parenEnd = labeled.indexOf('\\end{enumerate}');
+    expect(labeled.slice(0, parenEnd)).toContain('\\renewcommand{\\labelenumi}{\\theenumi)}');
+    expect(labeled.slice(parenEnd)).not.toContain('\\renewcommand{\\labelenumi}');
+    expect(labeled).toContain('\\item[+] plus');
+    expect(labeled).toContain('\\item[*] star');
   });
 
   it('converts ordered lists to enumerate', async () => {

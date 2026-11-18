@@ -167,9 +167,7 @@ function restoreLatexAutolinks(
   links: ReturnType<typeof protectAutolinks>['links']
 ): string {
   return replaceAutolinks(value, links, (link, nested) =>
-    nested
-      ? escapeLatex(link.text)
-      : `\\href{${escapeLatex(link.href)}}{${escapeLatex(link.text)}}`
+    nested ? escapeLatex(link.text) : `\\href{${escapeLatex(link.href)}}{${escapeLatex(link.text)}}`
   );
 }
 
@@ -363,6 +361,35 @@ function resetListState(output: string[], listState: ListState): void {
   closeLatexLists(output, listState.stack);
 }
 
+function latexItemLabel(item: MarkdownListItem): string {
+  if (item.delimiter === '+') {
+    return '+';
+  }
+  if (item.delimiter === '*') {
+    return '*';
+  }
+  return '';
+}
+
+function openLatexEnvironment(output: string[], item: MarkdownListItem): void {
+  output.push(item.ordered ? '\\begin{enumerate}' : '\\begin{itemize}');
+  if (!item.ordered || item.delimiter !== ')') {
+    return;
+  }
+  const labels = [
+    'labelenumi',
+    'labelenumii',
+    'labelenumiii',
+    'labelenumiv',
+    'labelenumv',
+    'labelenumvi',
+  ];
+  const refs = ['theenumi', 'theenumii', 'theenumiii', 'theenumiv', 'theenumv', 'theenumvi'];
+  const label = labels[item.level] ?? 'labelenumi';
+  const ref = refs[item.level] ?? 'theenumi';
+  output.push(`\\renewcommand{\\${label}}{\\${ref})}`);
+}
+
 function openLatexListItem(
   output: string[],
   stack: LatexListFrame[],
@@ -380,7 +407,7 @@ function openLatexListItem(
   }
   const top = stack[stack.length - 1];
   if (!top || top.level < item.level) {
-    output.push(item.ordered ? '\\begin{enumerate}' : '\\begin{itemize}');
+    openLatexEnvironment(output, item);
     if (item.ordered && item.start !== 1) {
       const counters = ['enumi', 'enumii', 'enumiii', 'enumiv', 'enumv', 'enumvi'];
       const counter = counters[item.level] ?? 'enumi';
@@ -395,7 +422,8 @@ function openLatexListItem(
   } else if (top.level === item.level) {
     top.column = column;
   }
-  output.push(`  \\item ${formatted}`);
+  const label = latexItemLabel(item);
+  output.push(label.length > 0 ? `  \\item[${label}] ${formatted}` : `  \\item ${formatted}`);
 }
 
 function renderLatexItem(lines: readonly SourceLine[]): string {
@@ -711,12 +739,7 @@ function processMarkdownLine(
   const marker = parseListItem(raw);
   const openMarker =
     marker !== null &&
-    shouldOpenListItem(
-      marker,
-      latexListFrames(listState.stack),
-      listState.break,
-      prose.length > 0
-    );
+    shouldOpenListItem(marker, latexListFrames(listState.stack), listState.break, prose.length > 0);
   if (openMarker) {
     flushLatexProse(output, prose);
   }
