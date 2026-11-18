@@ -2,6 +2,7 @@ import katex from 'katex';
 
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
+import { renderEmphasis } from './markdown-emphasis';
 import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
 import { findMarkdownTarget, linkDestination, linkTitle, type MarkdownTarget } from './markdown-link';
 
@@ -147,9 +148,6 @@ function restoreAutolinks(
   return replaceAutolinks(html, links, autolinkHtml);
 }
 
-const INLINE_PATTERN =
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|~~(.+?)~~)';
-
 function escapeText(value: string): string {
   return escapeHtml(decodeHtmlEntities(value));
 }
@@ -173,22 +171,6 @@ function renderRichImage(alt: string, src: string): string {
   return `<img src="${path}" alt="${escapeText(text)}"${titleAttribute(src)} />`;
 }
 
-function renderRichMatch(match: RegExpMatchArray): string {
-  if (match[2] !== undefined || match[3] !== undefined) {
-    return `<strong><em>${renderRich(match[2] ?? match[3] ?? '')}</em></strong>`;
-  }
-  if (match[4] !== undefined || match[5] !== undefined) {
-    return `<strong>${renderRich(match[4] ?? match[5] ?? '')}</strong>`;
-  }
-  if (match[6] !== undefined || match[7] !== undefined) {
-    return `<em>${renderRich(match[6] ?? match[7] ?? '')}</em>`;
-  }
-  if (match[8] !== undefined) {
-    return `<del>${renderRich(match[8])}</del>`;
-  }
-  return '';
-}
-
 function renderTarget(target: MarkdownTarget): string {
   if (target.image) {
     return renderRichImage(target.label, target.destination);
@@ -197,38 +179,58 @@ function renderTarget(target: MarkdownTarget): string {
   return `<a href="${href}"${titleAttribute(target.destination)}>${renderRich(target.label)}</a>`;
 }
 
-function renderRich(raw: string): string {
+function renderPlain(raw: string): string {
   let result = '';
   let cursor = 0;
-  const marks = new RegExp(INLINE_PATTERN, 'g');
   while (cursor < raw.length) {
-    marks.lastIndex = cursor;
-    const match = marks.exec(raw);
     const target = findMarkdownTarget(raw, cursor);
     const code = findCodeSpan(raw, cursor);
-    const markAt = match?.index ?? raw.length;
     const targetAt = target?.start ?? raw.length;
     const codeAt = code?.start ?? raw.length;
-    if (code && codeAt <= markAt && codeAt <= targetAt) {
+    if (code && codeAt <= targetAt) {
       result += escapeText(raw.slice(cursor, code.start));
       result += `<code>${escapeHtml(code.text)}</code>`;
       cursor = code.end;
       continue;
     }
-    if (target && target.start < markAt) {
+    if (target && target.start < raw.length) {
       result += escapeText(raw.slice(cursor, target.start));
       result += renderTarget(target);
       cursor = target.end;
       continue;
     }
-    if (!match) {
-      return result + escapeText(raw.slice(cursor));
-    }
-    result += escapeText(raw.slice(cursor, markAt));
-    result += renderRichMatch(match);
-    cursor = markAt + match[0].length;
+    return result + escapeText(raw.slice(cursor));
   }
   return result;
+}
+
+function applyStrike(html: string): string {
+  let result = '';
+  let index = 0;
+  while (index < html.length) {
+    if (html.startsWith('<code', index)) {
+      const end = html.indexOf('</code>', index);
+      const close = end === -1 ? html.length : end + '</code>'.length;
+      result += html.slice(index, close);
+      index = close;
+      continue;
+    }
+    if (html.startsWith('~~', index)) {
+      const end = html.indexOf('~~', index + 2);
+      if (end !== -1 && !html.slice(index + 2, end).includes('<code')) {
+        result += `<del>${html.slice(index + 2, end)}</del>`;
+        index = end + 2;
+        continue;
+      }
+    }
+    result += html[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
+function renderRich(raw: string): string {
+  return applyStrike(renderEmphasis(raw, renderPlain));
 }
 
 /** Escape text, then apply emphasis, code, and links. Underscores inside words stay plain. */

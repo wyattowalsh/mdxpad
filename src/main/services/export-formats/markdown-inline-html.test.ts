@@ -34,8 +34,14 @@ describe('renderMarkdownInline', () => {
   });
 
   it('renders bold italic from three markers', () => {
-    expect(renderMarkdownInline('***both***')).toBe('<strong><em>both</em></strong>');
-    expect(renderMarkdownInline('___both___')).toBe('<strong><em>both</em></strong>');
+    expect(renderMarkdownInline('***both***')).toBe('<em><strong>both</strong></em>');
+    expect(renderMarkdownInline('___both___')).toBe('<em><strong>both</strong></em>');
+    expect(renderMarkdownInline('a * b * c')).toBe('a * b * c');
+    expect(renderMarkdownInline('***foo** bar*')).toBe('<em><strong>foo</strong> bar</em>');
+    expect(renderMarkdownInline('**foo *bar***')).toBe('<strong>foo <em>bar</em></strong>');
+    expect(renderMarkdownInline('_foo_bar_')).toBe('<em>foo_bar</em>');
+    expect(renderMarkdownInline('snake_case_name')).toBe('snake_case_name');
+    expect(renderMarkdownInline('*foo *bar* baz*')).toBe('<em>foo <em>bar</em> baz</em>');
     expect(renderMarkdownInline('**bold *inner* text**')).toBe(
       '<strong>bold <em>inner</em> text</strong>'
     );
