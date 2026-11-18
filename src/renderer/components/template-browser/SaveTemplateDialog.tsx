@@ -482,15 +482,19 @@ export function SaveTemplateDialog({
 
   // Ref for first input to focus
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const [pinnedContent, setPinnedContent] = useState(content);
 
-  // Detect variables in content
+  // Detect variables in the document that was open when the dialog opened
   const detectedVariables = useMemo(() => {
-    return extractVariables(content);
-  }, [content]);
+    return extractVariables(pinnedContent);
+  }, [pinnedContent]);
 
   // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
+      setPinnedContent(contentRef.current);
       setName('');
       setDescription('');
       setCategory(null);
@@ -572,11 +576,11 @@ export function SaveTemplateDialog({
           category,
           tags,
           variables,
-          content,
+          content: pinnedContent,
         });
       }
     },
-    [name, description, category, tags, variables, content, validateForm, onSave]
+    [name, description, category, tags, variables, pinnedContent, validateForm, onSave]
   );
 
   return (
