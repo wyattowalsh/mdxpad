@@ -4,13 +4,39 @@
 
 import type { DocumentId } from '@shared/types/document';
 import { checkDirtyState } from '@renderer/commands/file-commands';
-import { useDocumentStore } from '@renderer/stores/document-store';
+import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
 
 let applyingTab = false;
 
 const MAX_CLOSED_TABS = 20;
 const closedTabs: Omit<Tab, 'id'>[] = [];
+const tabEpoch = new Map<string, number>();
+
+function noteEpoch(id: string): void {
+  tabEpoch.set(id, freshUntitledEpochId());
+}
+
+function addDocumentTab(): string {
+  const id = useTabStore.getState().addTab(tabSnapshot());
+  noteEpoch(id);
+  return id;
+}
+
+function keepUntitledAndStartFresh(current: Tab): boolean {
+  const document = useDocumentStore.getState();
+  if (document.filePath !== null || current.filePath !== null) {
+    return false;
+  }
+  if (tabEpoch.get(current.id) === freshUntitledEpochId()) {
+    return false;
+  }
+  if (current.content.length === 0 && !current.isDirty) {
+    return false;
+  }
+  addDocumentTab();
+  return true;
+}
 
 function rememberClosedTab(tab: Tab): void {
   closedTabs.push({
@@ -99,7 +125,11 @@ export function syncDocumentTab(): void {
   const document = useDocumentStore.getState();
   const current = activeTab();
   if (current?.filePath === document.filePath) {
+    if (keepUntitledAndStartFresh(current)) {
+      return;
+    }
     useTabStore.getState().updateTab(current.id, tabSnapshot());
+    noteEpoch(current.id);
     return;
   }
   if (current && claimUntitledTab(current)) {
@@ -108,7 +138,7 @@ export function syncDocumentTab(): void {
   if (document.filePath !== null && adoptOpenFile(document.filePath)) {
     return;
   }
-  useTabStore.getState().addTab(tabSnapshot());
+  addDocumentTab();
 }
 
 /** Save the current document into its tab, then show the selected tab. */
@@ -246,6 +276,7 @@ export function reopenClosedTab(): void {
     return;
   }
   const id = useTabStore.getState().addTab(closed);
+  noteEpoch(id);
   const created = useTabStore.getState().tabs.find((tab) => tab.id === id);
   if (created) {
     showTab(created);

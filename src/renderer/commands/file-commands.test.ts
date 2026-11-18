@@ -320,29 +320,8 @@ describe('newFileCommand', () => {
     });
   });
 
-  it('keeps an unsaved untitled document when New File is cancelled', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const mockApi = createMockApi();
-    const ctx = createMockContext({
-      api: mockApi,
-      document: {
-        fileId: null,
-        filePath: null,
-        content: '# Unsaved',
-        isDirty: true,
-      },
-    });
-
-    const result = await newFileCommand.execute(ctx);
-
-    expect(result).toEqual({ ok: true });
-    expect(confirmSpy).toHaveBeenCalledWith('You have unsaved changes. Continue without saving?');
-    expect(mockNewDocument).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
-  });
-
-  it('creates a new document after an unsaved untitled document is discarded', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('starts a new document while an untitled document still has edits', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
     const ctx = createMockContext({
       document: {
         fileId: null,
@@ -355,6 +334,7 @@ describe('newFileCommand', () => {
     const result = await newFileCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
+    expect(confirmSpy).not.toHaveBeenCalled();
     expect(mockNewDocument).toHaveBeenCalledTimes(1);
     confirmSpy.mockRestore();
   });
@@ -406,8 +386,8 @@ describe('openFileCommand', () => {
     expect(mockOpenDocument).not.toHaveBeenCalled();
   });
 
-  it('should not open a file when dirty and user cancels', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('opens a file while the current document still has edits', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
     const mockApi = createMockApi();
     const ctx = createMockContext({
       api: mockApi,
@@ -422,7 +402,8 @@ describe('openFileCommand', () => {
     const result = await openFileCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
-    expect(mockApi.openFile).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(mockApi.openFile).toHaveBeenCalledTimes(1);
     confirmSpy.mockRestore();
   });
 

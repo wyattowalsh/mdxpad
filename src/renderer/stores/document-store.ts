@@ -23,6 +23,13 @@ import { INITIAL_DOCUMENT_STATE } from '@shared/types/document';
  * @param filePath - Full path to the file
  * @returns The filename portion of the path
  */
+let freshUntitledEpoch = 0;
+
+/** Changes when New File starts another untitled document. */
+export function freshUntitledEpochId(): number {
+  return freshUntitledEpoch;
+}
+
 function getFileName(filePath: string): string {
   // Handle both Unix (/) and Windows (\) path separators
   const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
@@ -92,7 +99,8 @@ export const useDocumentStore = create<DocumentStore>()(
   immer((set) => ({
     ...INITIAL_DOCUMENT_STATE,
 
-    newDocument: () =>
+    newDocument: () => {
+      freshUntitledEpoch += 1;
       set((draft) => {
         draft.fileId = null;
         draft.filePath = null;
@@ -104,7 +112,8 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
-      }),
+      });
+    },
 
     openDocument: (handle, content) =>
       set((draft) => {

@@ -73,6 +73,22 @@ describe('document tabs', () => {
     stop();
   });
 
+  it('keeps an untitled draft when New File starts another document', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().setContent('draft');
+    const draftId = useTabStore.getState().activeTabId;
+
+    useDocumentStore.getState().newDocument();
+
+    const tabs = useTabStore.getState().tabs;
+    expect(tabs).toHaveLength(2);
+    expect(tabs.find((tab) => tab.id === draftId)?.content).toBe('draft');
+    expect(tabs.find((tab) => tab.id === draftId)?.isDirty).toBe(true);
+    expect(useDocumentStore.getState().content).toBe('');
+    expect(useDocumentStore.getState().filePath).toBeNull();
+    stop();
+  });
+
   it('turns a blank untitled tab into the opened file', () => {
     const stop = subscribeDocumentTabs();
     expect(useTabStore.getState().tabs).toHaveLength(1);

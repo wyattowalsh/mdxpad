@@ -1,6 +1,5 @@
 import type { DocumentId } from '@shared/types/document';
 import type { FileError } from '@shared/types/file';
-import { checkDirtyState } from '@renderer/commands/file-commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useStatusMessageStore } from '@renderer/stores/status-message-store';
 
@@ -51,23 +50,12 @@ function documentUnchanged(before: OpenSnapshot): boolean {
   return state.filePath === before.filePath && state.content === before.content;
 }
 
-function placeOpenedFile(
-  filePath: string,
-  content: string,
-  before: OpenSnapshot,
-  alreadyConfirmed: boolean
-): void {
+function placeOpenedFile(filePath: string, content: string, before: OpenSnapshot): void {
   if (!documentUnchanged(before)) {
     return;
   }
   const state = useDocumentStore.getState();
   if (state.filePath === filePath) {
-    return;
-  }
-  if (state.isDirty && !alreadyConfirmed && !checkDirtyState()) {
-    return;
-  }
-  if (!documentUnchanged(before)) {
     return;
   }
   useDocumentStore.getState().openDocument(
@@ -85,16 +73,12 @@ export async function openFileFromPath(filePath: string): Promise<void> {
   if (before.filePath === filePath) {
     return;
   }
-  const confirmed = useDocumentStore.getState().isDirty;
-  if (confirmed && !checkDirtyState()) {
-    return;
-  }
   const result = await window.mdxpad.readFile(filePath);
   if (!result.ok) {
     showOpenFailure(result.error);
     return;
   }
-  placeOpenedFile(filePath, result.value, before, confirmed);
+  placeOpenedFile(filePath, result.value, before);
 }
 
 export async function openFirstExistingFile(paths: readonly string[]): Promise<void> {
@@ -103,7 +87,7 @@ export async function openFirstExistingFile(paths: readonly string[]): Promise<v
   for (const filePath of paths) {
     const result = await window.mdxpad.readFile(filePath);
     if (result.ok) {
-      placeOpenedFile(filePath, result.value, before, false);
+      placeOpenedFile(filePath, result.value, before);
       return;
     }
     if (result.error.code !== 'NOT_FOUND') {

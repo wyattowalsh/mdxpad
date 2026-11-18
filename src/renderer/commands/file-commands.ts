@@ -200,11 +200,6 @@ const newFileCommand: Command = {
   shortcut: { key: 'n', modifiers: ['Mod'] },
   icon: '📄',
   execute: (ctx: CommandContext): CommandResult => {
-    if (ctx.document.isDirty && !checkDirtyState()) {
-      return { ok: true };
-    }
-
-    // Reset document store to new document state
     useDocumentStore.getState().newDocument();
 
     ctx.notify({
@@ -228,11 +223,6 @@ const openFileCommand: Command = {
   shortcut: { key: 'o', modifiers: ['Mod'] },
   icon: '📂',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    // Check dirty state before opening a new file
-    if (ctx.document.isDirty && !checkDirtyState()) {
-      return { ok: true }; // User cancelled
-    }
-
     try {
       const result = await ctx.api.openFile();
       if (!result.ok) {
