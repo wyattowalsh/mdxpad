@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import { normalizeCapabilityPath } from '@main/ipc/document-capability';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import {
   type AggregateMetadataCollectionRequest,
@@ -162,15 +163,14 @@ export class WorkspaceService {
           if (!fileIsInsideWorkspace(model.workspace.rootPath, document.filePath)) {
             return null;
           }
-          const info = await fs.lstat(document.filePath);
-          if (info.isSymbolicLink() || !info.isFile()) {
+          const read = await readFileWithoutFollowingLinks(document.filePath);
+          if (!read.ok) {
             return null;
           }
-          const content = await fs.readFile(document.filePath, 'utf-8');
           return {
             id: document.id,
             filePath: document.filePath,
-            content,
+            content: read.value,
             indexedAt: document.updatedAt,
           };
         } catch {
@@ -189,13 +189,24 @@ export class WorkspaceService {
   }
 
   private async readModelText(modelPath: string): Promise<string> {
-    const info = await fs.lstat(modelPath);
-    if (info.isSymbolicLink()) {
-      const error = new Error('Workspace model is a link') as NodeJS.ErrnoException;
-      error.code = 'ENOENT';
-      throw error;
+    const read = await readFileWithoutFollowingLinks(modelPath);
+    if (read.ok) {
+      return read.value;
     }
-    return fs.readFile(modelPath, 'utf-8');
+    if (read.error.code === 'NOT_FOUND') {
+      const missing = new Error('Workspace model is missing') as NodeJS.ErrnoException;
+      missing.code = 'ENOENT';
+      throw missing;
+    }
+    const info = await fs.lstat(modelPath).catch(() => null);
+    if (info === null || info.isSymbolicLink()) {
+      const link = new Error('Workspace model is a link') as NodeJS.ErrnoException;
+      link.code = 'ENOENT';
+      throw link;
+    }
+    const denied = new Error('Workspace model is unavailable') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    throw denied;
   }
 
   private getWorkspaceModelPath(rootPath: string): string {

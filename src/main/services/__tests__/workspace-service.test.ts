@@ -389,6 +389,64 @@ Roadmap details.`,
     expect(queryResult.value.map((row) => row.id)).toEqual([roadmapId]);
   });
 
+  it('does not collect a document that links outside the workspace', async () => {
+    const service = new WorkspaceService();
+    const opened = await service.openWorkspace({ rootPath: workspaceRoot });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+
+    const outside = path.join(tempDir, 'secret.mdx');
+    await writeFile(
+      outside,
+      `---
+title: Secret
+status: published
+---
+
+hidden`,
+      'utf-8'
+    );
+    const aliasPath = path.join(workspaceRoot, 'alias.mdx');
+    await symlink(outside, aliasPath);
+
+    const now = new Date().toISOString();
+    const saveResult = await service.saveWorkspace({
+      model: {
+        ...opened.value,
+        workspace: {
+          ...opened.value.workspace,
+          documents: [
+            {
+              id: randomUUID(),
+              title: 'Alias',
+              filePath: aliasPath,
+              tags: [],
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          updatedAt: now,
+        },
+      },
+    });
+    expect(saveResult.ok).toBe(true);
+
+    const queryResult = await service.queryMetadataCollection({
+      workspaceId: opened.value.workspace.id,
+      documentIds: [],
+      filters: [{ field: 'status', operator: 'eq', value: 'published' }],
+      limit: 10,
+    });
+    expect(queryResult.ok).toBe(true);
+    if (!queryResult.ok) {
+      return;
+    }
+    expect(queryResult.value).toEqual([]);
+    expect(await readFile(outside, 'utf-8')).toContain('hidden');
+  });
+
   it('returns not found when opening a missing workspace root', async () => {
     const service = new WorkspaceService();
     const missingRootPath = path.join(tempDir, 'missing-workspace');
