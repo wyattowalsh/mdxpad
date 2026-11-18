@@ -9,7 +9,12 @@
 
 import { useMemo } from 'react';
 import { useDocumentStore } from '@renderer/stores/document-store';
-import { countWords, countCharacters, estimateReadingTime } from '@renderer/lib/text-stats';
+import {
+  countWords,
+  countCharacters,
+  documentBody,
+  estimateReadingTime,
+} from '@renderer/lib/text-stats';
 
 export interface TextStats {
   readonly wordCount: number;
@@ -27,9 +32,10 @@ export function useTextStats(): TextStats {
   const content = useDocumentStore((state) => state.content);
 
   return useMemo(() => {
-    const wordCount = countWords(content);
-    const charCount = countCharacters(content);
-    const readingTime = estimateReadingTime(content);
+    const body = documentBody(content);
+    const wordCount = countWords(body);
+    const charCount = countCharacters(body);
+    const readingTime = estimateReadingTime(body);
     return { wordCount, charCount, readingTime };
   }, [content]);
 }

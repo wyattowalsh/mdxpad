@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { countWords, countCharacters, estimateReadingTime } from './text-stats';
+import { countWords, countCharacters, documentBody, estimateReadingTime } from './text-stats';
 
 describe('countWords', () => {
   it('should return 0 for empty string', () => {
@@ -54,6 +54,20 @@ describe('countWords', () => {
 
   it('should handle punctuation attached to words', () => {
     expect(countWords('hello, world!')).toBe(2);
+  });
+});
+
+describe('documentBody', () => {
+  it('leaves a document without frontmatter unchanged', () => {
+    expect(documentBody('# Hello\n\nworld')).toBe('# Hello\n\nworld');
+  });
+
+  it('drops a frontmatter block', () => {
+    expect(documentBody('---\ntitle: Notes\n---\n\nHello world')).toBe('\nHello world');
+  });
+
+  it('keeps a horizontal rule that is not closed', () => {
+    expect(documentBody('---\n\nHello world')).toBe('---\n\nHello world');
   });
 });
 

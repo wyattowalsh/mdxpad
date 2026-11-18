@@ -11,6 +11,16 @@
 const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
 // Word boundary pattern for non-CJK text
 const WORD_REGEX = /[^\s]+/g;
+const FRONTMATTER_BLOCK = /^---\r?\n[\s\S]*?\r?\n---/;
+
+/** Drop a leading YAML frontmatter block so counts cover the document body. */
+export function documentBody(text: string): string {
+  const match = FRONTMATTER_BLOCK.exec(text);
+  if (!match) {
+    return text;
+  }
+  return text.slice(match[0].length).replace(/^\r?\n/, '');
+}
 
 /**
  * Count the number of words in text.

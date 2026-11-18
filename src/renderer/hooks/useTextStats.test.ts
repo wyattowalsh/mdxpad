@@ -36,6 +36,16 @@ describe('useTextStats', () => {
     expect(result.current.charCount).toBe(16);
   });
 
+  it('does not count frontmatter keys as words', () => {
+    const { result } = renderHook(() => useTextStats());
+
+    act(() => {
+      useDocumentStore.getState().setContent('---\ntitle: Notes\n---\n\nHello world');
+    });
+
+    expect(result.current.wordCount).toBe(2);
+  });
+
   it('should compute reading time', () => {
     const { result } = renderHook(() => useTextStats());
 
