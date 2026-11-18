@@ -386,7 +386,9 @@ describe('EpubExporter', () => {
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
     expect(html).toContain('<sup><a href="#fn-1" id="fnref-1">1</a></sup>');
-    expect(html).toContain('<li><span id="fn-1"></span>Note</li>');
+    expect(html).toContain(
+      '<li><a href="#fnref-1" id="fn-1" class="footnote-backref">↩</a> Note</li>'
+    );
     expect(html).not.toContain('[^1]');
   });
 

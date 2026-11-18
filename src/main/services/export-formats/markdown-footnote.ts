@@ -24,7 +24,7 @@ export function plainFootnoteMarkers(value: string): string {
     .replaceAll(new RegExp(`${NOTE_MARK}\\d+${MARK_END}`, 'g'), '');
 }
 
-/** Links for HTML, PDF, and EPUB. The note target is the matching span. */
+/** Links for HTML, PDF, and EPUB. The arrow on a note returns to its reference. */
 export function htmlFootnoteMarkers(value: string): string {
   return value
     .replaceAll(
@@ -33,7 +33,8 @@ export function htmlFootnoteMarkers(value: string): string {
     )
     .replaceAll(
       new RegExp(`${NOTE_MARK}(\\d+)${MARK_END}`, 'g'),
-      (_match, num: string) => `<span id="fn-${num}"></span>`
+      (_match, num: string) =>
+        `<a href="#fnref-${num}" id="fn-${num}" class="footnote-backref">↩</a> `
     );
 }
 

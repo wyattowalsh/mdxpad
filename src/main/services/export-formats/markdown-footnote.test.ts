@@ -10,10 +10,14 @@ describe('applyFootnotes', () => {
     expect(rendered).toContain('footnote¹.');
     const linked = htmlFootnoteMarkers(applyFootnotes('A footnote[^1].\n\n[^1]: Note\n'));
     expect(linked).toContain('<sup><a href="#fn-1" id="fnref-1">1</a></sup>');
-    expect(linked).toContain('<span id="fn-1"></span>');
+    expect(linked).toContain('<a href="#fnref-1" id="fn-1" class="footnote-backref">↩</a>');
     const html = markdownToPdfHtml('A[^1] and B[^2].\n\n[^1]: One\n[^2]: Two\n');
-    expect(html).toContain('<li><span id="fn-1"></span>One</li>');
-    expect(html).toContain('<li><span id="fn-2"></span>Two</li>');
+    expect(html).toContain(
+      '<li><a href="#fnref-1" id="fn-1" class="footnote-backref">↩</a> One</li>'
+    );
+    expect(html).toContain(
+      '<li><a href="#fnref-2" id="fn-2" class="footnote-backref">↩</a> Two</li>'
+    );
     expect(rendered).toContain('## Notes');
     expect(rendered).toContain('1. Note');
     expect(rendered).not.toContain('[^1]');
