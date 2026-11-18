@@ -10,7 +10,11 @@
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { taskMarker } from './prosemirror-task-item';
-import { writeFootnoteRef } from './prosemirror-footnote-ref';
+import {
+  startsFootnoteDefinition,
+  writeFootnoteLabel,
+  writeFootnoteRef,
+} from './prosemirror-footnote-ref';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { emphasizeOutside } from './prosemirror-emphasis-order';
@@ -180,13 +184,14 @@ const nodeSerializers: NodeSerializerMap = {
 
   footnote_ref: writeFootnoteRef,
 
+  footnote_label: writeFootnoteLabel,
+
   hard_break(state, node, parent, index) {
-    const first = parent.firstChild?.isText ? (parent.firstChild.text ?? '') : '';
     const next = index + 1 < parent.childCount ? parent.child(index + 1) : null;
-    const nextText = next?.isText ? (next.text ?? '') : '';
-    const anotherDefinition = /^\[\^[^\]]+\]:/.test(nextText);
     const footnote =
-      parent.type.name === 'paragraph' && /^\[\^[^\]]+\]:/.test(first) && !anotherDefinition;
+      parent.type.name === 'paragraph' &&
+      startsFootnoteDefinition(parent.firstChild) &&
+      !startsFootnoteDefinition(next);
     const indent = footnote ? '    ' : '';
     state.write(node.attrs.hard === false ? `\n${indent}` : `\\\n${indent}`);
   },

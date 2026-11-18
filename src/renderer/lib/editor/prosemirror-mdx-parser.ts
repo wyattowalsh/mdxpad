@@ -13,7 +13,7 @@ import { MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { protectFootnoteBlocks } from './prosemirror-footnote-block';
 import { linkBareAddresses } from './prosemirror-autolink';
-import { liftFootnoteRefs } from './prosemirror-footnote-ref';
+import { liftFootnoteLabels, liftFootnoteRefs } from './prosemirror-footnote-ref';
 import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
 import { tableCellAttrs } from './prosemirror-mdx-table';
@@ -349,9 +349,11 @@ export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { processedText } = extractJsxBlocks(
     protectTexDelimiters(protectFootnoteMarkers(protectedNotes))
   );
-  const restored = liftFootnoteRefs(
-    linkBareAddresses(
-      liftTaskItems(restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText))))
+  const restored = liftFootnoteLabels(
+    liftFootnoteRefs(
+      linkBareAddresses(
+        liftTaskItems(restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText))))
+      )
     )
   );
   if (frontmatter.length === 0 && definitions.length === 0) {

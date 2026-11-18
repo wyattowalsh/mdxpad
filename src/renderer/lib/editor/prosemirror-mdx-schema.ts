@@ -11,7 +11,7 @@
 import { Schema } from 'prosemirror-model';
 import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 
-import { FOOTNOTE_REF_NODE } from './prosemirror-footnote-ref';
+import { FOOTNOTE_LABEL_NODE, FOOTNOTE_REF_NODE } from './prosemirror-footnote-ref';
 
 import { tableNodes } from './prosemirror-mdx-table';
 
@@ -316,6 +316,7 @@ export const mdxSchema = new Schema({
     image: IMAGE_NODE,
     hard_break: HARD_BREAK_NODE,
     footnote_ref: FOOTNOTE_REF_NODE,
+    footnote_label: FOOTNOTE_LABEL_NODE,
     jsx_block: JSX_BLOCK_NODE,
     jsx_inline: JSX_INLINE_NODE,
     text: TEXT_NODE,

@@ -16,6 +16,9 @@ describe('visual footnote reference', () => {
     expect(saved).toContain('A footnote[^1].');
     expect(saved).toContain('[^1]: The note');
     expect(saved).not.toContain('\\[');
+    const note = doc.child(1);
+    expect(note.firstChild?.type.name).toBe('footnote_label');
+    expect(note.textContent).toBe('The note');
   });
 
   it('keeps two notes on their own lines and leaves code and missing markers', () => {
