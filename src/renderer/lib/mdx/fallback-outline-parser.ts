@@ -124,6 +124,20 @@ function collectSetextHeadings(source: string, frontmatterEnd: number): HeadingN
   return headings;
 }
 
+function linesInsideFences(source: string): ReadonlySet<number> {
+  const inside = new Set<number>();
+  const lines = source.split(/\r?\n/);
+  let fence: string | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const open = fence;
+    fence = updateFence(fence, lines[index] ?? '');
+    if (open !== null) {
+      inside.add(index + 1);
+    }
+  }
+  return inside;
+}
+
 function getFrontmatterEndLine(frontmatterMatch: RegExpMatchArray): number {
   const content = frontmatterMatch[0];
   const lines = content.split('\n');
@@ -157,6 +171,7 @@ export function parseFallbackOutline(source: string): OutlineAST {
   // -------------------------------------------------------------------------
   // Extract frontmatter
   // -------------------------------------------------------------------------
+  const fenced = linesInsideFences(source);
   const frontmatterMatch = FRONTMATTER_REGEX.exec(source);
   if (frontmatterMatch) {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -186,6 +201,11 @@ export function parseFallbackOutline(source: string): OutlineAST {
     // Skip empty or whitespace-only headings
     if (!text) continue;
 
+    const headingLine = getLineNumber(source, headingMatch.index);
+    if (fenced.has(headingLine)) {
+      continue;
+    }
+
     // Skip headings inside frontmatter (before closing ---)
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     if (frontmatter && headingMatch.index < (frontmatterMatch?.[0]?.length || 0)) {
@@ -196,7 +216,7 @@ export function parseFallbackOutline(source: string): OutlineAST {
       depth,
       text: text.trim(),
       position: {
-        line: getLineNumber(source, headingMatch.index),
+        line: headingLine,
         column: getColumnNumber(source, headingMatch.index),
       },
     });
@@ -219,6 +239,9 @@ export function parseFallbackOutline(source: string): OutlineAST {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const name = componentMatch[1] || '';
     const line = getLineNumber(source, componentMatch.index);
+    if (fenced.has(line)) {
+      continue;
+    }
     const column = getColumnNumber(source, componentMatch.index);
 
     // Create unique key to avoid duplicate entries for same component instance

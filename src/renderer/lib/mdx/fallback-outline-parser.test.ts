@@ -54,6 +54,15 @@ describe('parseFallbackOutline', () => {
       expect(outline.headings.map((heading) => heading.depth)).toEqual([1, 2]);
     });
 
+    it('leaves headings and components inside a code fence out of the outline', () => {
+      const outline = parseFallbackOutline(
+        '```md\n# Hidden\n<Button />\n```\n\n# Visible\n\n<Card />\n'
+      );
+
+      expect(outline.headings.map((heading) => heading.text)).toEqual(['Visible']);
+      expect(outline.components.map((component) => component.name)).toEqual(['Card']);
+    });
+
     it('should extract a single h1 heading', () => {
       const outline = parseFallbackOutline('# Hello World');
 
