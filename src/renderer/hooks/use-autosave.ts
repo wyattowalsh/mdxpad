@@ -22,6 +22,8 @@ import {
   selectFileName,
 } from '@renderer/stores/document-store';
 import { useAutosaveStore } from '@renderer/stores/autosave-store';
+import { useTabStore } from '@renderer/stores/tab-store';
+import { autosaveDocumentId } from '@renderer/components/tabs/tab-recovery-id';
 import type {
   AutosaveTriggerRequest,
   AutosaveTriggerResponse,
@@ -135,6 +137,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const content = useDocumentStore(selectContent);
   const fileName = useDocumentStore(selectFileName);
   const fileId = useDocumentStore((s) => s.fileId);
+  const activeTabId = useTabStore((state) => state.activeTabId);
 
   // Autosave store selectors and actions
   const storeEnabled = useAutosaveStore((s) => s.enabled);
@@ -165,16 +168,14 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const isReadOnlyRef = useRef<boolean>(false);
   const documentIdRef = useRef<string | null>(null);
 
-  // Stable document ID - generate for untitled, use fileId for saved files
+  // A saved file uses its file id. An untitled tab keeps a separate id.
   useEffect(() => {
-    if (fileId) {
-      documentIdRef.current = fileId;
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    } else if (!documentIdRef.current) {
-      // Generate a new ID for untitled documents
-      documentIdRef.current = crypto.randomUUID();
-    }
-  }, [fileId]);
+    documentIdRef.current = autosaveDocumentId({
+      fileId,
+      activeTabId,
+      previousId: documentIdRef.current,
+    });
+  }, [activeTabId, fileId]);
 
   // Load settings on mount
   useEffect(() => {

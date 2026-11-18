@@ -18,6 +18,7 @@ describe('document tabs', () => {
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('keeps unsaved edits when another file is opened and restored from its tab', () => {
@@ -70,6 +71,30 @@ describe('document tabs', () => {
     expect(tabs[0]?.filePath).toBe('/docs/note.mdx');
     expect(tabs[0]?.isDirty).toBe(false);
     expect(tabs[0]?.content).toBe('# Note');
+    stop();
+  });
+
+  it('saves an untitled draft before another file replaces the editor', async () => {
+    const autosaveTrigger = vi.fn().mockResolvedValue({ ok: true, savedAt: 1 });
+    vi.stubGlobal('mdxpad', { autosaveTrigger });
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().setContent('draft');
+
+    useDocumentStore.getState().openDocument(
+      { fileId: 'b' as DocumentId, filePath: '/docs/b.mdx', mtime: 1 },
+      'saved b'
+    );
+
+    expect(autosaveTrigger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filePath: null,
+        fileName: 'Untitled',
+        content: 'draft',
+      })
+    );
+    const saved = autosaveTrigger.mock.calls[0]?.[0] as { documentId?: string };
+    expect(saved.documentId).not.toBe('b');
+    expect(useTabStore.getState().tabs.find((tab) => tab.content === 'draft')?.isDirty).toBe(true);
     stop();
   });
 

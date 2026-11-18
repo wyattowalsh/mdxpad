@@ -4,7 +4,9 @@
 
 import type { DocumentId } from '@shared/types/document';
 import { checkDirtyState } from '@renderer/commands/file-commands';
+import type { AutosaveTriggerRequest } from '@shared/contracts/autosave-ipc';
 import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
+import { recoveryDocumentId } from './tab-recovery-id';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
 
 let applyingTab = false;
@@ -15,6 +17,25 @@ const tabEpoch = new Map<string, number>();
 
 function noteEpoch(id: string): void {
   tabEpoch.set(id, freshUntitledEpochId());
+}
+
+function flushTabRecovery(tab: Tab): void {
+  if (!tab.isDirty || !('mdxpad' in window) || typeof window.mdxpad.autosaveTrigger !== 'function') {
+    return;
+  }
+  const state = useDocumentStore.getState();
+  const sameDocument = state.filePath === tab.filePath && state.content === tab.content;
+  const documentId = (
+    sameDocument && state.fileId ? state.fileId : recoveryDocumentId(tab.id)
+  ) as AutosaveTriggerRequest['documentId'];
+  void window.mdxpad
+    .autosaveTrigger({
+      documentId,
+      filePath: tab.filePath,
+      fileName: tab.fileName,
+      content: tab.content,
+    })
+    .catch(() => undefined);
 }
 
 function addDocumentTab(): string {
@@ -34,6 +55,7 @@ function keepUntitledAndStartFresh(current: Tab): boolean {
   if (current.content.length === 0 && !current.isDirty) {
     return false;
   }
+  flushTabRecovery(current);
   addDocumentTab();
   return true;
 }
@@ -135,6 +157,9 @@ export function syncDocumentTab(): void {
   if (current && claimUntitledTab(current)) {
     return;
   }
+  if (current && current.filePath !== document.filePath) {
+    flushTabRecovery(current);
+  }
   if (document.filePath !== null && adoptOpenFile(document.filePath)) {
     return;
   }
@@ -155,6 +180,9 @@ export function activateDocumentTab(id: string): void {
   const document = useDocumentStore.getState();
   if (current?.filePath === document.filePath) {
     store.updateTab(current.id, tabSnapshot());
+  }
+  if (current) {
+    flushTabRecovery(current);
   }
   useTabStore.getState().setActiveTab(id);
   showTab(target);
