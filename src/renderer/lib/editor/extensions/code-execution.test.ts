@@ -2,14 +2,22 @@
  * Unit tests for Code Execution extension.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+
+import { executeSandboxed } from '../../../features/code-execution/sandbox-runner';
+
 import {
   codeExecutionExtension,
   findRunnableFences,
   RUNNABLE_FENCE_REGEX,
   CLOSING_FENCE_REGEX,
 } from './code-execution';
+
+vi.mock('../../../features/code-execution/sandbox-runner', () => ({
+  executeSandboxed: vi.fn(),
+}));
 
 describe('RUNNABLE_FENCE_REGEX', () => {
   it('matches code fence with run flag', () => {
@@ -139,5 +147,58 @@ describe('codeExecutionExtension', () => {
       extensions: [codeExecutionExtension()],
     });
     expect(state).toBeDefined();
+  });
+});
+
+describe('runnable code after the editor closes', () => {
+  it('drops the result when the editor has already closed', async () => {
+    let finish: ((value: Awaited<ReturnType<typeof executeSandboxed>>) => void) | undefined;
+    vi.mocked(executeSandboxed).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '```js run\n1 + 1\n```',
+        extensions: [codeExecutionExtension()],
+      }),
+      parent,
+    });
+    const rejections: unknown[] = [];
+    const onRejection = (event: PromiseRejectionEvent): void => {
+      rejections.push(event.reason);
+      event.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+
+    try {
+      const button = view.dom.querySelector('button');
+      expect(button).toBeTruthy();
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(executeSandboxed).toHaveBeenCalledOnce();
+      });
+      view.destroy();
+      finish?.({
+        success: true,
+        logs: ['2'],
+        returnValue: '2',
+        error: null,
+        durationMs: 1,
+      });
+      await Promise.resolve();
+      expect(rejections).toEqual([]);
+    } finally {
+      window.removeEventListener('unhandledrejection', onRejection);
+      const closed = view as unknown as { readonly destroyed?: boolean };
+      if (closed.destroyed !== true) {
+        view.destroy();
+      }
+      parent.remove();
+    }
   });
 });

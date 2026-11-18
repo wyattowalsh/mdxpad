@@ -252,8 +252,21 @@ class OutputWidget extends WidgetType {
 /**
  * Execute the code in a runnable fence and dispatch the result.
  */
+function sourceEditorClosed(view: EditorView): boolean {
+  const editor = view as unknown as { readonly destroyed?: boolean };
+  return editor.destroyed === true;
+}
+
 async function runCodeFence(view: EditorView, fenceStart: number): Promise<void> {
-  // Mark as running
+  if (sourceEditorClosed(view)) {
+    return;
+  }
+  const fences = findRunnableFences(view.state.doc);
+  const fence = fences.find((item) => item.fenceStart === fenceStart);
+  if (!fence) {
+    return;
+  }
+
   view.dispatch({
     effects: setExecutionResult.of({
       fenceStart,
@@ -261,15 +274,17 @@ async function runCodeFence(view: EditorView, fenceStart: number): Promise<void>
     }),
   });
 
-  // Find the fence code
-  const fences = findRunnableFences(view.state.doc);
-  const fence = fences.find((f) => f.fenceStart === fenceStart);
-
-  if (!fence) return;
-
   const result = await executeSandboxed(fence.code);
+  if (sourceEditorClosed(view)) {
+    return;
+  }
+  const sameFence = findRunnableFences(view.state.doc).some(
+    (item) => item.fenceStart === fenceStart && item.code === fence.code
+  );
+  if (!sameFence) {
+    return;
+  }
 
-  // Dispatch result
   view.dispatch({
     effects: setExecutionResult.of({
       fenceStart,
