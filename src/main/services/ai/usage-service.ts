@@ -20,6 +20,7 @@ import type {
   ModelUsageSummary,
   OperationUsageSummary,
 } from '@shared/ai/types';
+import { usageTimeRangeStart } from './usage-time-range';
 
 // =============================================================================
 // TYPES
@@ -85,27 +86,10 @@ export interface IUsageService {
 // =============================================================================
 
 /**
- * Gets the start timestamp for a time range.
- */
-function getTimeRangeStart(timeRange: TimeRange): Date {
-  const now = new Date();
-  switch (timeRange) {
-    case 'day':
-      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    case 'week':
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    case 'month':
-      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    case 'all':
-      return new Date(0);
-  }
-}
-
-/**
- * Filters records by time range.
+ * Filters records by the calendar period shown in usage stats.
  */
 function filterByTimeRange(records: UsageRecord[], timeRange: TimeRange): UsageRecord[] {
-  const startDate = getTimeRangeStart(timeRange);
+  const startDate = usageTimeRangeStart(timeRange);
   return records.filter((r) => new Date(r.timestamp) >= startDate);
 }
 

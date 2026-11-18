@@ -54,6 +54,7 @@ vi.mock('node:crypto', async (importOriginal) => {
 
 // Import after mocks
 import { UsageService } from '../usage-service';
+import { usageTimeRangeStart } from '../usage-time-range';
 
 // =============================================================================
 // Test Utilities
@@ -555,31 +556,40 @@ describe('UsageService', () => {
   // ===========================================================================
 
   describe('time range filtering', () => {
-    const now = Date.now();
-    const records = [
-      createMockRecord({ timestamp: new Date(now - 1 * 60 * 60 * 1000).toISOString() }),
-      createMockRecord({ timestamp: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString() }),
-      createMockRecord({ timestamp: new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString() }),
-      createMockRecord({ timestamp: new Date(now - 40 * 24 * 60 * 60 * 1000).toISOString() }),
-    ];
+    function at(start: Date, offsetMs: number): string {
+      return new Date(start.getTime() + offsetMs).toISOString();
+    }
 
     beforeEach(() => {
-      mockStoreData.set('records', records);
+      mockStoreData.set('records', [
+        createMockRecord({ id: 'today', timestamp: at(usageTimeRangeStart('day'), 1000) }),
+        createMockRecord({ id: 'yesterday', timestamp: at(usageTimeRangeStart('day'), -1000) }),
+        createMockRecord({ id: 'last-week', timestamp: at(usageTimeRangeStart('week'), -1000) }),
+        createMockRecord({ id: 'last-month', timestamp: at(usageTimeRangeStart('month'), -1000) }),
+      ]);
     });
 
-    it('should filter for day range', async () => {
+    it('counts usage since local midnight as today', async () => {
       const result = await service.queryStats({ timeRange: 'day' });
       expect(result.totalRequests).toBe(1);
     });
 
-    it('should filter for week range', async () => {
+    it('leaves the previous week out of this week', async () => {
+      mockStoreData.set('records', [
+        createMockRecord({ timestamp: at(usageTimeRangeStart('week'), -1000) }),
+        createMockRecord({ timestamp: at(usageTimeRangeStart('week'), 1000) }),
+      ]);
       const result = await service.queryStats({ timeRange: 'week' });
-      expect(result.totalRequests).toBe(2);
+      expect(result.totalRequests).toBe(1);
     });
 
-    it('should filter for month range', async () => {
+    it('leaves the previous month out of this month', async () => {
+      mockStoreData.set('records', [
+        createMockRecord({ timestamp: at(usageTimeRangeStart('month'), -1000) }),
+        createMockRecord({ timestamp: at(usageTimeRangeStart('month'), 1000) }),
+      ]);
       const result = await service.queryStats({ timeRange: 'month' });
-      expect(result.totalRequests).toBe(3);
+      expect(result.totalRequests).toBe(1);
     });
 
     it('should include all for all range', async () => {
