@@ -282,7 +282,15 @@ const LINK_MARK: MarkSpec = {
   ],
   toDOM(node) {
     const { href, title } = node.attrs as { href: string; title: string | null };
-    return ['a', { href, title: title ?? undefined }, 0];
+    return [
+      'a',
+      {
+        href,
+        title: title ?? undefined,
+        style: 'text-decoration: underline; text-underline-offset: 2px; cursor: pointer;',
+      },
+      0,
+    ];
   },
 };
 

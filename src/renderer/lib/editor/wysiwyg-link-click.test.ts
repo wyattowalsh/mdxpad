@@ -72,6 +72,8 @@ describe('visual link clicks', () => {
     views.push(view);
     const anchor = view.dom.querySelector('a');
     expect(anchor).toBeInstanceOf(HTMLAnchorElement);
+    expect(anchor?.getAttribute('style') ?? '').toContain('underline');
+    expect(anchor?.getAttribute('style') ?? '').toContain('pointer');
     const event = click(view, anchor);
     expect(event.defaultPrevented).toBe(true);
     expect(openPreviewDocumentLink).not.toHaveBeenCalled();
