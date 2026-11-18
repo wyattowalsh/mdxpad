@@ -1,3 +1,4 @@
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import {
   clearPendingExternalChange,
@@ -33,11 +34,20 @@ export async function applyWatchedFileEvent(
     noteInactiveExternalChange(event.path, readable.value, Date.now());
     return;
   }
-  if (state.content === readable.value || state.savedContent === readable.value) {
-    if (state.fileMissing) {
+  const typed = liveSourceText();
+  if (typed !== null && typed !== state.content) {
+    state.setContent(typed);
+  }
+  const current = useDocumentStore.getState();
+  if (current.filePath !== event.path) {
+    return;
+  }
+  const shown = liveSourceText() ?? current.content;
+  if (shown === readable.value || current.savedContent === readable.value) {
+    if (current.fileMissing) {
       useDocumentStore.setState({ fileMissing: false });
     }
     return;
   }
-  state.handleExternalChange(readable.value, Date.now());
+  current.handleExternalChange(readable.value, Date.now());
 }

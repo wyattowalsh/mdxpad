@@ -1,4 +1,5 @@
 import type { DocumentFileHandle, DocumentId } from '@shared/types/document';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore, selectExternalChangeDetected } from '@renderer/stores/document-store';
 
 async function saveConflictCopy(content: string, filePath: string | null): Promise<void> {
@@ -10,8 +11,12 @@ async function saveConflictCopy(content: string, filePath: string | null): Promi
     return;
   }
   const current = useDocumentStore.getState();
-  if (current.filePath !== filePath || current.content !== content) {
+  const shown = liveSourceText() ?? current.content;
+  if (current.filePath !== filePath || shown !== content) {
     return;
+  }
+  if (current.content !== content) {
+    current.setContent(content);
   }
   const handle: DocumentFileHandle = {
     fileId: result.value.id as unknown as DocumentId,
@@ -28,8 +33,6 @@ async function saveConflictCopy(content: string, filePath: string | null): Promi
 export function ExternalChangeNotice(): React.JSX.Element | null {
   const detected = useDocumentStore(selectExternalChangeDetected);
   const fileMissing = useDocumentStore((state) => state.fileMissing);
-  const content = useDocumentStore((state) => state.content);
-  const filePath = useDocumentStore((state) => state.filePath);
   const acceptExternalChange = useDocumentStore((state) => state.acceptExternalChange);
 
   if (fileMissing) {
@@ -60,7 +63,10 @@ export function ExternalChangeNotice(): React.JSX.Element | null {
         <button
           type="button"
           className="underline"
-          onClick={() => void saveConflictCopy(content, filePath)}
+          onClick={() => {
+            const snapshot = liveSourceText() ?? useDocumentStore.getState().content;
+            void saveConflictCopy(snapshot, useDocumentStore.getState().filePath);
+          }}
         >
           Save my version as…
         </button>

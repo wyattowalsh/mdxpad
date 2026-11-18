@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { resetPendingExternalChanges } from '@renderer/components/tabs/external-tab-change';
 
@@ -7,9 +8,10 @@ import { applyWatchedFileEvent } from './watched-file-event';
 
 describe('watched file events', () => {
   beforeEach(() => {
+    registerLiveSourceText(null);
     resetPendingExternalChanges();
     useDocumentStore.getState().reset();
-    useDocumentStore.setState({ filePath: '/notes/a.md', content: 'saved' });
+    useDocumentStore.setState({ filePath: '/notes/a.md', content: 'saved', savedContent: 'saved' });
   });
 
   it('keeps the file open when a delete is replaced by a readable file', async () => {
@@ -57,5 +59,18 @@ describe('watched file events', () => {
 
     expect(useDocumentStore.getState().externalChangeDetected).toBe(false);
     expect(useDocumentStore.getState().content).toBe('saved!');
+  });
+
+  it('keeps keystrokes that have not been stored when the disk changes', async () => {
+    registerLiveSourceText(() => 'saved!');
+
+    await applyWatchedFileEvent({ type: 'change', path: '/notes/a.md' }, async () => ({
+      ok: true,
+      value: 'other',
+    }));
+
+    expect(useDocumentStore.getState().content).toBe('saved!');
+    expect(useDocumentStore.getState().externalChangeDetected).toBe(true);
+    expect(useDocumentStore.getState().externalContent).toBe('other');
   });
 });
