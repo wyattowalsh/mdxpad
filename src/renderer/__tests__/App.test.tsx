@@ -7,7 +7,10 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from '../App';
 import { useCommandRegistry } from '../stores/command-registry-store';
+import type { DocumentId } from '@shared/types/document';
+import type { WorkspaceModel } from '@shared/types/workspace';
 import { useDocumentStore } from '../stores/document-store';
+import { useWorkspaceStore } from '../stores/workspace-store';
 import { useTabStore } from '../stores/tab-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useFrontmatterStore } from '../stores/frontmatter-store';
@@ -141,6 +144,16 @@ function createMockMdxpadApi() {
       onStreamComplete: vi.fn(() => () => {}),
       onStreamError: vi.fn(() => () => {}),
     },
+    workspace: {
+      openWorkspace: vi.fn().mockResolvedValue({
+        ok: false,
+        error: { code: 'WORKSPACE_NOT_FOUND', message: 'missing' },
+      }),
+      saveWorkspace: vi.fn().mockResolvedValue({ ok: true }),
+      createProject: vi.fn().mockResolvedValue({ ok: true, value: { id: 'project' } }),
+      addLink: vi.fn().mockResolvedValue({ ok: true }),
+      getBacklinks: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+    },
     template: {
       list: vi.fn().mockResolvedValue({ success: true, data: [] }),
       get: vi.fn().mockResolvedValue({ success: true, data: {} }),
@@ -171,6 +184,7 @@ describe('App', () => {
       authoring: true,
     });
     useDocumentStore.getState().reset();
+    useWorkspaceStore.getState().reset();
     useTabStore.getState().reset();
     useSettingsStore.getState().close();
     useFrontmatterStore.getState().reset();
@@ -181,6 +195,38 @@ describe('App', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('keeps a project workspace when the open file is in a subfolder', () => {
+    const model: WorkspaceModel = {
+      version: 1,
+      workspace: {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Project',
+        rootPath: '/project',
+        documents: [],
+        activeDocumentId: null,
+        createdAt: '2026-11-18T08:00:00.000Z',
+        updatedAt: '2026-11-18T08:00:00.000Z',
+      },
+      projects: [],
+      linkIndex: {},
+    };
+    useWorkspaceStore.getState().setModel(model);
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '22222222-2222-4222-8222-222222222222' as DocumentId,
+        filePath: '/project/docs/note.mdx',
+        mtime: 1,
+      },
+      'note'
+    );
+    render(<App />);
+
+    expect(screen.getByText('/project')).toBeDefined();
+    const openWorkspace = window.mdxpad.workspace?.openWorkspace;
+    expect(openWorkspace).toBeTypeOf('function');
+    expect(openWorkspace).not.toHaveBeenCalled();
   });
 
   it('renders core application shell regions', () => {

@@ -35,6 +35,8 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './componen
 import { useTemplateBrowserModalStore } from './stores/template-browser-store';
 import { useUILayoutStore, selectSidebarVisible } from './stores/ui-layout-store';
 import { useFeatureFlagsStore, selectFeatureFlag } from './stores/feature-flags-store';
+import { useWorkspaceStore } from './stores/workspace-store';
+import { searchDirectoryForFile } from './commands/service-commands';
 import {
   useFileExplorerStore,
   selectFilterQuery,
@@ -106,6 +108,8 @@ export function App(): React.ReactElement {
   const aiFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('ai'));
   const authoringFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('authoring'));
   const workspaceFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('workspace'));
+  const workspaceRoot = useWorkspaceStore((store) => store.model?.workspace.rootPath ?? null);
+  const sidebarWorkspaceRoot = searchDirectoryForFile(state.filePath, workspaceRoot);
   const aiProviderSettingsOpen = useAIProviderStore((s) => s.settingsOpen);
   const closeAiProviderSettings = useAIProviderStore((s) => s.closeSettings);
   const distractionFree = useEditorPreferencesStore((s) => s.distractionFreeEnabled);
@@ -306,11 +310,7 @@ export function App(): React.ReactElement {
             {workspaceFeatureEnabled && (
               <WorkspacePanel
                 className="min-h-0 flex-1"
-                rootPath={
-                  state.filePath?.includes('/') === true
-                    ? state.filePath.slice(0, state.filePath.lastIndexOf('/'))
-                    : null
-                }
+                rootPath={sidebarWorkspaceRoot}
                 activeFilePath={state.filePath}
               />
             )}
