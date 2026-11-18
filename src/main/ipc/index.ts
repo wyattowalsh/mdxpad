@@ -153,7 +153,9 @@ export function registerIpcHandlers(window: BrowserWindow): void {
   registerPlatformHandlers(ipcMain, window);
 
   // Register export job, preset, and CLI orchestration handlers
-  registerExportHandlers(ipcMain, window);
+  registerExportHandlers(ipcMain, window, {
+    storagePath: path.join(app.getPath('userData'), 'export-registry.json'),
+  });
 
   // Register workspace model, link graph, and metadata collection handlers
   registerWorkspaceHandlers(ipcMain, window, workspaceService);

@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ExportJob, ExportPreset } from '@shared/types/export-model';
 import { BUILT_IN_EXPORT_PRESETS } from '../built-in-export-presets';
@@ -186,5 +189,67 @@ describe('ExportOrchestratorService - preset management', () => {
       ok: false,
       code: 'NOT_FOUND',
     });
+  });
+});
+
+describe('ExportOrchestratorService persistence', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('remembers a preset and job after a restart without following a link', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-registry-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-secret-'));
+    tempDirs.push(root, outside);
+    const secret = path.join(outside, 'secret.json');
+    const storagePath = path.join(root, 'export-registry.json');
+    await writeFile(secret, '{"secret":true}\n');
+    await symlink(secret, storagePath);
+
+    const preset = createPreset({ name: 'Team PDF' });
+    const job = createJob({ preset });
+    const first = new ExportOrchestratorService({ storagePath });
+    expect(first.handlePresetCrud({ action: 'create', preset }).ok).toBe(true);
+    expect(first.handleJobLifecycle({ action: 'create', job }).ok).toBe(true);
+    expect(first.handlePresetCrud({ action: 'delete', presetId: BUILT_IN_EXPORT_PRESETS[3]!.id }).ok).toBe(
+      true
+    );
+
+    expect(await readFile(secret, 'utf-8')).toBe('{"secret":true}\n');
+    expect((await lstat(storagePath)).isSymbolicLink()).toBe(false);
+
+    const second = new ExportOrchestratorService({ storagePath });
+    const listed = second.handlePresetCrud({ action: 'list' });
+    const jobs = second.handleJobLifecycle({ action: 'list' });
+    expect(listed.ok && 'presets' in listed && listed.presets.some((item) => item.name === 'Team PDF')).toBe(
+      true
+    );
+    expect(
+      listed.ok &&
+        'presets' in listed &&
+        listed.presets.some((item) => item.id === BUILT_IN_EXPORT_PRESETS[3]!.id)
+    ).toBe(false);
+    expect(jobs.ok && 'jobs' in jobs && jobs.jobs.some((item) => item.id === job.id)).toBe(true);
+  });
+
+  it('leaves the preset list unchanged when the save fails', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-fail-'));
+    tempDirs.push(root);
+    const blocked = path.join(root, 'blocked');
+    await writeFile(blocked, 'not a directory');
+    const service = new ExportOrchestratorService({
+      storagePath: path.join(blocked, 'export-registry.json'),
+    });
+    const preset = createPreset({ name: 'Unsaved PDF' });
+
+    const created = service.handlePresetCrud({ action: 'create', preset });
+    const listed = service.handlePresetCrud({ action: 'list' });
+
+    expect(created).toMatchObject({ ok: false, code: 'INTERNAL_ERROR' });
+    expect(listed.ok && 'presets' in listed && listed.presets.some((item) => item.id === preset.id)).toBe(
+      false
+    );
   });
 });

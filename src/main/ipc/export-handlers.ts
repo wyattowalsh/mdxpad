@@ -27,6 +27,7 @@ export interface ExportCliService {
 interface ExportHandlerDependencies {
   orchestratorService?: ExportOrchestratorService;
   cliService?: ExportCliService;
+  storagePath?: string;
 }
 
 export function registerExportHandlers(
@@ -34,7 +35,11 @@ export function registerExportHandlers(
   window: BrowserWindow,
   dependencies: ExportHandlerDependencies = {}
 ): void {
-  const orchestratorService = dependencies.orchestratorService ?? new ExportOrchestratorService();
+  const orchestratorService =
+    dependencies.orchestratorService ??
+    new ExportOrchestratorService(
+      dependencies.storagePath === undefined ? {} : { storagePath: dependencies.storagePath }
+    );
   const cliService = dependencies.cliService ?? { invokeExportCli, generateLlmsFile };
 
   const handleJobLifecycle = (rawRequest: unknown) => {

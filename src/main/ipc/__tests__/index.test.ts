@@ -250,7 +250,8 @@ describe('registerIpcHandlers', () => {
     );
     expect(registerExportHandlersMock).toHaveBeenCalledWith(
       expect.objectContaining({ handle: mockIpcMainHandle }),
-      window
+      window,
+      expect.objectContaining({ storagePath: '/tmp/export-registry.json' })
     );
     expect(registerWorkspaceHandlersMock).toHaveBeenCalledWith(
       expect.objectContaining({ handle: mockIpcMainHandle }),

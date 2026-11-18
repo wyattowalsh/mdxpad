@@ -8,6 +8,7 @@ import {
 } from '@shared/contracts/export-schemas';
 import type { ExportJob, ExportJobStatus, ExportPreset } from '@shared/types/export-model';
 import { BUILT_IN_EXPORT_PRESETS } from './built-in-export-presets';
+import { readExportState, writeExportState } from './export-registry-store';
 import { getExporter, type ExportResult, type ExportOptions } from './export-formats';
 
 const TERMINAL_JOB_STATUSES: ReadonlySet<ExportJobStatus> = new Set([
@@ -26,6 +27,7 @@ const ALLOWED_JOB_TRANSITIONS: Readonly<Record<ExportJobStatus, ReadonlySet<Expo
 
 interface ExportOrchestratorServiceOptions {
   now?: () => string;
+  storagePath?: string;
 }
 
 function clone<T>(value: T): T {
@@ -55,19 +57,67 @@ function sortPresetsByName(presets: readonly ExportPreset[]): ExportPreset[] {
   return [...presets].sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function jobWithStatus(
+  current: ExportJob,
+  status: ExportJobStatus,
+  now: string,
+  warnings?: readonly string[],
+  errorMessage?: string
+): ExportJob {
+  const next = clone(current);
+  next.status = status;
+  if (warnings !== undefined) {
+    next.warnings = [...new Set([...next.warnings, ...warnings])];
+  }
+  if (status === 'running' && !next.startedAt) {
+    next.startedAt = now;
+  }
+  if (isTerminalStatus(status)) {
+    next.completedAt = next.completedAt ?? now;
+  }
+  if (errorMessage !== undefined) {
+    next.errorMessage = errorMessage;
+  } else if (status !== 'failed') {
+    delete next.errorMessage;
+  }
+  return next;
+}
+
 export class ExportOrchestratorService {
-  /**
-   * In-memory job registry.
-   * TODO: Persist jobs to disk for crash recovery and cross-restart continuity.
-   */
   private readonly jobs = new Map<string, ExportJob>();
   private readonly presets = new Map<string, ExportPreset>();
   private readonly now: () => string;
+  private readonly storagePath: string | null;
 
   public constructor(options: ExportOrchestratorServiceOptions = {}) {
     this.now = options.now ?? (() => new Date().toISOString());
+    this.storagePath = options.storagePath ?? null;
+    if (this.storagePath) {
+      const loaded = readExportState(this.storagePath);
+      for (const [id, job] of loaded.jobs) {
+        this.jobs.set(id, job);
+      }
+      for (const [id, preset] of loaded.presets) {
+        this.presets.set(id, preset);
+      }
+      return;
+    }
     for (const preset of BUILT_IN_EXPORT_PRESETS) {
-      this.presets.set(preset.id, preset);
+      this.presets.set(preset.id, structuredClone(preset));
+    }
+  }
+
+  private commitExport(apply: () => void, revert: () => void): string | null {
+    apply();
+    if (this.storagePath === null) {
+      return null;
+    }
+    try {
+      writeExportState(this.storagePath, this.jobs.values(), this.presets.values());
+      return null;
+    } catch (error) {
+      revert();
+      return error instanceof Error ? error.message : 'Could not save export data';
     }
   }
 
@@ -146,7 +196,17 @@ export class ExportOrchestratorService {
     }
 
     const stored = clone(job);
-    this.jobs.set(stored.id, stored);
+    const saveError = this.commitExport(
+      () => {
+        this.jobs.set(stored.id, stored);
+      },
+      () => {
+        this.jobs.delete(stored.id);
+      }
+    );
+    if (saveError !== null) {
+      return { ok: false, code: 'INTERNAL_ERROR', error: saveError };
+    }
     return { ok: true, job: clone(stored) };
   }
 
@@ -214,28 +274,19 @@ export class ExportOrchestratorService {
       };
     }
 
-    const next: ExportJob = clone(current);
-    next.status = status;
-
-    if (warnings !== undefined) {
-      next.warnings = [...new Set([...next.warnings, ...warnings])];
+    const previous = clone(current);
+    const next = jobWithStatus(current, status, this.now(), warnings, errorMessage);
+    const saveError = this.commitExport(
+      () => {
+        this.jobs.set(jobId, next);
+      },
+      () => {
+        this.jobs.set(jobId, previous);
+      }
+    );
+    if (saveError !== null) {
+      return { ok: false, code: 'INTERNAL_ERROR', error: saveError };
     }
-
-    if (status === 'running' && !next.startedAt) {
-      next.startedAt = this.now();
-    }
-
-    if (isTerminalStatus(status)) {
-      next.completedAt = next.completedAt ?? this.now();
-    }
-
-    if (errorMessage !== undefined) {
-      next.errorMessage = errorMessage;
-    } else if (status !== 'failed') {
-      delete next.errorMessage;
-    }
-
-    this.jobs.set(jobId, next);
     return { ok: true, job: clone(next) };
   }
 
@@ -249,7 +300,17 @@ export class ExportOrchestratorService {
     }
 
     const stored = clone(preset);
-    this.presets.set(stored.id, stored);
+    const saveError = this.commitExport(
+      () => {
+        this.presets.set(stored.id, stored);
+      },
+      () => {
+        this.presets.delete(stored.id);
+      }
+    );
+    if (saveError !== null) {
+      return { ok: false, code: 'INTERNAL_ERROR', error: saveError };
+    }
     return { ok: true, preset: clone(stored) };
   }
 
@@ -287,8 +348,21 @@ export class ExportOrchestratorService {
       };
     }
 
+    const previous = this.presets.get(presetId);
     const stored = clone(preset);
-    this.presets.set(presetId, stored);
+    const saveError = this.commitExport(
+      () => {
+        this.presets.set(presetId, stored);
+      },
+      () => {
+        if (previous) {
+          this.presets.set(presetId, previous);
+        }
+      }
+    );
+    if (saveError !== null) {
+      return { ok: false, code: 'INTERNAL_ERROR', error: saveError };
+    }
     return { ok: true, preset: clone(stored) };
   }
 
@@ -301,7 +375,20 @@ export class ExportOrchestratorService {
       };
     }
 
-    this.presets.delete(presetId);
+    const previous = this.presets.get(presetId);
+    const saveError = this.commitExport(
+      () => {
+        this.presets.delete(presetId);
+      },
+      () => {
+        if (previous) {
+          this.presets.set(presetId, previous);
+        }
+      }
+    );
+    if (saveError !== null) {
+      return { ok: false, code: 'INTERNAL_ERROR', error: saveError };
+    }
     return { ok: true, deletedId: presetId };
   }
 
