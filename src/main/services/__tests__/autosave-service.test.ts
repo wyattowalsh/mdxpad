@@ -22,12 +22,22 @@ import type { DocumentId } from '@shared/contracts/autosave-schemas';
 // ============================================================================
 
 // Create hoisted mock functions that can be referenced in vi.mock
-const { mockMkdir, mockWriteFile, mockRename, mockReadFile, mockUnlink, mockStatfs, mockGetPath } = vi.hoisted(() => ({
+const {
+  mockMkdir,
+  mockWriteFile,
+  mockRename,
+  mockReadFile,
+  mockUnlink,
+  mockLstat,
+  mockStatfs,
+  mockGetPath,
+} = vi.hoisted(() => ({
   mockMkdir: vi.fn(),
   mockWriteFile: vi.fn(),
   mockRename: vi.fn(),
   mockReadFile: vi.fn(),
   mockUnlink: vi.fn(),
+  mockLstat: vi.fn(),
   mockStatfs: vi.fn(),
   mockGetPath: vi.fn(() => '/mock/user/data'),
 }));
@@ -48,6 +58,7 @@ vi.mock('node:fs', () => ({
       rename: mockRename,
       readFile: mockReadFile,
       unlink: mockUnlink,
+      lstat: mockLstat,
     },
   },
   promises: {
@@ -56,6 +67,7 @@ vi.mock('node:fs', () => ({
     rename: mockRename,
     readFile: mockReadFile,
     unlink: mockUnlink,
+    lstat: mockLstat,
   },
 }));
 
@@ -68,6 +80,7 @@ vi.mock('node:fs/promises', () => ({
     rename: mockRename,
     readFile: mockReadFile,
     unlink: mockUnlink,
+    lstat: mockLstat,
   },
   statfs: mockStatfs,
   mkdir: mockMkdir,
@@ -75,6 +88,7 @@ vi.mock('node:fs/promises', () => ({
   rename: mockRename,
   readFile: mockReadFile,
   unlink: mockUnlink,
+  lstat: mockLstat,
 }));
 
 // Import after mocks are set up
@@ -111,12 +125,14 @@ function createTestDocumentId(): DocumentId {
 /**
  * Create a valid autosave trigger request for testing.
  */
-function createTestRequest(overrides?: Partial<{
-  documentId: DocumentId;
-  filePath: string | null;
-  fileName: string;
-  content: string;
-}>) {
+function createTestRequest(
+  overrides?: Partial<{
+    documentId: DocumentId;
+    filePath: string | null;
+    fileName: string;
+    content: string;
+  }>
+) {
   return {
     documentId: overrides?.documentId ?? createTestDocumentId(),
     // Use 'filePath' in overrides check to allow explicit null
@@ -144,6 +160,10 @@ describe('AutosaveService', () => {
     mockWriteFile.mockResolvedValue(undefined);
     mockRename.mockResolvedValue(undefined);
     mockReadFile.mockResolvedValue(JSON.stringify(EMPTY_RECOVERY_MANIFEST));
+    mockLstat.mockResolvedValue({
+      isSymbolicLink: () => false,
+      isFile: () => true,
+    });
     mockUnlink.mockResolvedValue(undefined);
     mockStatfs.mockResolvedValue({
       bfree: 1000000,
@@ -300,9 +320,7 @@ describe('AutosaveService', () => {
       const request = createTestRequest();
 
       // First call succeeds (recovery file), simulate rename failure
-      mockRename.mockRejectedValueOnce(
-        Object.assign(new Error('Rename failed'), { code: 'EIO' })
-      );
+      mockRename.mockRejectedValueOnce(Object.assign(new Error('Rename failed'), { code: 'EIO' }));
 
       const result = await service.saveDocument(request);
 
@@ -413,9 +431,7 @@ describe('AutosaveService', () => {
       await service.deleteRecoveryFile(documentId);
 
       // Check that unlink was called for recovery file
-      expect(mockUnlink).toHaveBeenCalledWith(
-        expect.stringContaining(`${documentId}.json`)
-      );
+      expect(mockUnlink).toHaveBeenCalledWith(expect.stringContaining(`${documentId}.json`));
 
       // Check that manifest was updated without the entry
       const manifestWriteCall = mockWriteFile.mock.calls[0];
@@ -533,8 +549,8 @@ describe('AutosaveService', () => {
       await service.saveDocument(request);
 
       // Check that manifest was written atomically (temp file then rename)
-      const renameCallsForManifest = mockRename.mock.calls.filter(
-        call => (call[0] as string).includes('manifest.json.tmp')
+      const renameCallsForManifest = mockRename.mock.calls.filter((call) =>
+        (call[0] as string).includes('manifest.json.tmp')
       );
 
       expect(renameCallsForManifest.length).toBeGreaterThan(0);
@@ -565,6 +581,19 @@ describe('AutosaveService', () => {
 
       expect(manifest.version).toBe(1);
       expect(Object.keys(manifest.entries).length).toBe(1);
+    });
+
+    it('returns an empty manifest when the manifest is a link', async () => {
+      mockLstat.mockResolvedValueOnce({
+        isSymbolicLink: () => true,
+        isFile: () => false,
+      });
+      mockReadFile.mockResolvedValue(JSON.stringify({ version: 1, entries: { secret: {} } }));
+
+      const manifest = await service.readManifest();
+
+      expect(manifest).toEqual(EMPTY_RECOVERY_MANIFEST);
+      expect(mockReadFile).not.toHaveBeenCalled();
     });
 
     it('should return empty manifest when file does not exist', async () => {
@@ -604,9 +633,7 @@ describe('AutosaveService', () => {
 
       await service.deleteRecoveryFile(documentId);
 
-      expect(mockUnlink).toHaveBeenCalledWith(
-        expect.stringContaining(`${documentId}.json`)
-      );
+      expect(mockUnlink).toHaveBeenCalledWith(expect.stringContaining(`${documentId}.json`));
     });
 
     it('should not throw when recovery file does not exist', async () => {
@@ -648,8 +675,8 @@ describe('AutosaveService', () => {
     it('should return DISK_FULL error when less than 100MB available', async () => {
       // Less than 100MB (20MB free)
       mockStatfs.mockResolvedValueOnce({
-        bfree: 5000,    // 5000 blocks
-        bsize: 4096,    // 4KB = ~20MB
+        bfree: 5000, // 5000 blocks
+        bsize: 4096, // 4KB = ~20MB
       });
 
       const request = createTestRequest();
@@ -837,7 +864,8 @@ describe('AutosaveService', () => {
     });
 
     it('should handle content with special characters', async () => {
-      const specialContent = '# Test\n\n<Component prop="value" />\n\n```js\nconst x = "test";\n```';
+      const specialContent =
+        '# Test\n\n<Component prop="value" />\n\n```js\nconst x = "test";\n```';
       const request = createTestRequest({ content: specialContent });
 
       const result = await service.saveDocument(request);

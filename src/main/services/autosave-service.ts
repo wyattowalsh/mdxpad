@@ -90,7 +90,6 @@ async function atomicWriteWithLock(targetPath: string, content: string): Promise
   }
 }
 
-
 /**
  * Service for managing automatic document saving to recovery location.
  *
@@ -312,6 +311,10 @@ export class AutosaveService {
       const recoveryDir = await this.getRecoveryDir();
       const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
 
+      const info = await fs.lstat(manifestPath);
+      if (info.isSymbolicLink() || !info.isFile()) {
+        return EMPTY_RECOVERY_MANIFEST;
+      }
       const content = await fs.readFile(manifestPath, 'utf-8');
       const parsed: unknown = JSON.parse(content);
 
@@ -514,7 +517,9 @@ export class AutosaveService {
    */
   private isEnoentError(error: unknown): boolean {
     return (
-      error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
     );
   }
 }
