@@ -323,6 +323,47 @@ describe('git.commit', () => {
     expect(useDocumentStore.getState().content).toBe('# edited more');
   });
 
+  it('commits keystrokes that have not reached the document store', async () => {
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Save notes')
+    );
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'Hello'
+    );
+    const saveFile = vi.fn().mockResolvedValue({ ok: true, value: undefined });
+    const add = vi.fn().mockResolvedValue({ ok: true, value: { success: true } });
+    const commit = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { hash: 'abcdef123456', message: 'Save notes' },
+    });
+    const context = {
+      document: {
+        filePath: '/notes/readme.md',
+        content: 'Hello',
+        isDirty: false,
+        fileId: 'file-1',
+      },
+      editor: { state: { doc: { toString: () => 'Hello!' } }, isDestroyed: false },
+      api: { git: { add, commit }, saveFile },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(saveFile).toHaveBeenCalledWith(
+      { id: 'file-1', path: '/notes/readme.md', name: 'readme.md' },
+      'Hello!'
+    );
+    expect(useDocumentStore.getState().content).toBe('Hello!');
+    expect(useDocumentStore.getState().isDirty).toBe(false);
+  });
+
   it('saves other open files before committing the open file', async () => {
     vi.stubGlobal(
       'prompt',

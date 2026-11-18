@@ -9,7 +9,7 @@ import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { IMPORT_COMMANDS } from './import-commands';
-import { documentStillMatches, liveDocumentContent } from './live-document';
+import { documentStillMatches, liveDocumentContent, syncSavedText } from './live-document';
 
 function parentDirectory(filePath: string): string {
   return filePath.slice(0, filePath.lastIndexOf('/'));
@@ -357,9 +357,10 @@ function commitBuffer(
 } {
   const state = useDocumentStore.getState();
   if (state.filePath === filePath) {
+    const content = ctx.document.filePath === filePath ? liveDocumentContent(ctx) : state.content;
     return {
-      content: state.content,
-      isDirty: state.isDirty || state.fileMissing,
+      content,
+      isDirty: state.isDirty || state.fileMissing || content !== state.content,
       fileId: state.fileId,
       changedOnDisk: state.externalChangeDetected,
     };
@@ -406,9 +407,9 @@ async function saveBeforeGitCommit(
     ctx.notify({ type: 'error', message: `Could not save before commit: ${message}` });
     return { ok: false, error: message };
   }
-  const openFile = useDocumentStore.getState();
-  if (openFile.filePath === filePath && openFile.content === buffer.content) {
-    useDocumentStore.getState().markSaved({
+  if (syncSavedText(filePath, buffer.content, ctx)) {
+    const openFile = useDocumentStore.getState();
+    openFile.markSaved({
       fileId: openFile.fileId ?? (handle.id as unknown as DocumentId),
       filePath,
       mtime: Date.now(),
