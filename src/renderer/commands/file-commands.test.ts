@@ -30,6 +30,8 @@ const documentStoreState = {
   openDocument: mockOpenDocument,
   markSaved: mockMarkSaved,
   externalChangeDetected: false,
+  filePath: null as string | null,
+  content: '',
 };
 
 vi.mock('../stores/document-store', () => ({
@@ -431,6 +433,8 @@ describe('saveFileCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     documentStoreState.externalChangeDetected = false;
+    documentStoreState.filePath = null;
+    documentStoreState.content = '';
   });
 
   it('should have correct command ID', () => {
@@ -469,6 +473,28 @@ describe('saveFileCommand', () => {
       type: 'success',
       message: 'File saved',
     });
+  });
+
+  it('saves the editor text when the command snapshot is older', async () => {
+    documentStoreState.filePath = '/test/document.mdx';
+    documentStoreState.content = '# Live edit';
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: 'test-file-id',
+        filePath: '/test/document.mdx',
+        content: '# Old snapshot',
+        isDirty: true,
+      },
+    });
+
+    await saveFileCommand.execute(ctx);
+
+    expect(mockApi.saveFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/test/document.mdx' }),
+      '# Live edit'
+    );
   });
 
   it('saves a conflicted file to a new location', async () => {
@@ -640,6 +666,8 @@ describe('closeWindowCommand', () => {
 describe('exportFileCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    documentStoreState.filePath = null;
+    documentStoreState.content = '';
     useFeatureFlagsStore.getState().setFlag('export', true);
   });
 
@@ -662,6 +690,26 @@ describe('exportFileCommand', () => {
 
     expect(result).toEqual({ ok: true });
     expect(mockApi.exportFile).toHaveBeenCalledWith('# Export me', {
+      sourcePath: '/test/new-file.mdx',
+    });
+  });
+
+  it('exports the editor text when the command snapshot is older', async () => {
+    documentStoreState.filePath = '/test/new-file.mdx';
+    documentStoreState.content = '# Live export';
+    const mockApi = createMockApi();
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        ...INITIAL_DOCUMENT_STATE,
+        content: '# Export me',
+        filePath: '/test/new-file.mdx',
+      },
+    });
+
+    await exportFileCommand.execute(ctx);
+
+    expect(mockApi.exportFile).toHaveBeenCalledWith('# Live export', {
       sourcePath: '/test/new-file.mdx',
     });
   });

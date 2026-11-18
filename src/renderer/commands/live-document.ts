@@ -2,10 +2,10 @@ import type { CommandContext } from '@shared/types/commands';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
 
-/** The text the editor is showing for this command's document. */
+/** The text the editor is showing for this command's saved file. */
 export function liveDocumentContent(ctx: CommandContext): string {
   const state = useDocumentStore.getState();
-  if (state.filePath === ctx.document.filePath) {
+  if (ctx.document.filePath !== null && state.filePath === ctx.document.filePath) {
     return state.content;
   }
   return ctx.document.content;

@@ -14,6 +14,7 @@ import type { FileExportError } from '@shared/contracts/file-schemas';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
+import { liveDocumentContent } from './live-document';
 
 // =============================================================================
 // COMMAND IDS
@@ -124,7 +125,7 @@ async function executeSaveFileAs(
   ctx: CommandContext
 ): Promise<{ result: CommandResult; saved: boolean }> {
   try {
-    const result = await ctx.api.saveFileAs(ctx.document.content);
+    const result = await ctx.api.saveFileAs(liveDocumentContent(ctx));
 
     if (!result.ok) {
       // User cancelled Save As dialog
@@ -310,7 +311,7 @@ const saveFileCommand: Command = {
         path: document.filePath,
         name: document.filePath.split('/').pop() ?? 'untitled',
       };
-      const result = await api.saveFile(handle, document.content);
+      const result = await api.saveFile(handle, liveDocumentContent(ctx));
 
       if (!result.ok) {
         const errorMessage = formatFileError(result.error);
@@ -393,7 +394,7 @@ const exportFileCommand: Command = {
     }
 
     try {
-      const result = await ctx.api.exportFile(ctx.document.content, {
+      const result = await ctx.api.exportFile(liveDocumentContent(ctx), {
         sourcePath: ctx.document.filePath,
       });
 
