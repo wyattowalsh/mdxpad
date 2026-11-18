@@ -2,12 +2,25 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import {
   selectCliOutput,
   selectCliRunStatus,
   selectExportJobs,
   useExportStore,
 } from '@renderer/stores/export-store';
+import { useTabStore } from '@renderer/stores/tab-store';
+
+function textForExportJob(sourcePath: string | null | undefined): string | undefined {
+  const document = useDocumentStore.getState();
+  if (!sourcePath) {
+    return document.filePath === null ? document.content : undefined;
+  }
+  if (document.filePath === sourcePath) {
+    return document.content;
+  }
+  return useTabStore.getState().tabs.find((tab) => tab.filePath === sourcePath)?.content;
+}
 
 /**
  * Parses a CLI argument string into an array, handling quoted substrings.
@@ -63,10 +76,12 @@ function ExportCliInvocationComponent(): React.JSX.Element {
       return;
     }
 
+    const content = textForExportJob(selectedJob.sourcePath);
     void invokeCli({
       job: selectedJob,
       command: command.trim(),
       args: parseCliArgs(argsInput),
+      ...(content !== undefined ? { content } : {}),
     });
   }, [argsInput, command, invokeCli, selectedJob]);
 

@@ -188,6 +188,7 @@ export const ExportCliInvokeRequestSchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
   timeoutMs: z.number().int().positive().max(900_000).optional(),
   background: z.boolean().optional(),
+  content: z.string().optional(),
 });
 export type ExportCliInvokeRequest = z.infer<typeof ExportCliInvokeRequestSchema>;
 

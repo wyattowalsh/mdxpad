@@ -12,7 +12,7 @@ import {
   type PdfExportPresetOptions,
 } from '@shared/types/root';
 
-import { hasReadCapability } from '@main/ipc/document-capability';
+import { hasReadCapability, hasWriteCapability } from '@main/ipc/document-capability';
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 
 import { resolveWorkspaceFilePath } from './ai/agent-path';
@@ -291,29 +291,46 @@ async function writeBuiltInExportArtifact(
   }
 }
 
+async function openedExportText(
+  request: ExportCliInvokeRequest,
+  sourcePath: string
+): Promise<string> {
+  if (!hasReadCapability(sourcePath)) {
+    throw new Error('Built-in export can only read a file that is open');
+  }
+  const sourceDir = path.dirname(sourcePath);
+  resolveWorkspaceFilePath(
+    sourceDir,
+    path.relative(sourceDir, path.resolve(request.job.targetPath))
+  );
+  if (request.content !== undefined) {
+    return request.content;
+  }
+  const sourceResult = await readFileWithoutFollowingLinks(sourcePath);
+  if (!sourceResult.ok) {
+    throw new Error('The source file could not be read');
+  }
+  return sourceResult.value;
+}
+
+async function builtInExportText(request: ExportCliInvokeRequest): Promise<string> {
+  const sourcePath = request.job.sourcePath;
+  if (sourcePath) {
+    return openedExportText(request, sourcePath);
+  }
+  if (request.content === undefined || !hasWriteCapability(request.job.targetPath)) {
+    throw new Error('Built-in export requires a sourcePath on the export job');
+  }
+  return request.content;
+}
+
 async function runBuiltInExportCommand(
   request: ExportCliInvokeRequest,
   startTimeMs: number,
   events: ExportCliEvent[]
 ): Promise<CliEngineRunResult> {
   try {
-    if (!request.job.sourcePath) {
-      throw new Error('Built-in export requires a sourcePath on the export job');
-    }
-    if (!hasReadCapability(request.job.sourcePath)) {
-      throw new Error('Built-in export can only read a file that is open');
-    }
-    const sourceDir = path.dirname(request.job.sourcePath);
-    resolveWorkspaceFilePath(
-      sourceDir,
-      path.relative(sourceDir, path.resolve(request.job.targetPath))
-    );
-
-    const sourceResult = await readFileWithoutFollowingLinks(request.job.sourcePath);
-    if (!sourceResult.ok) {
-      throw new Error('The source file could not be read');
-    }
-    const sourceContent = sourceResult.value;
+    const sourceContent = await builtInExportText(request);
     assertPathWithinBase(request.job.targetPath, request.cwd, 'Target path');
     await fs.mkdir(path.dirname(request.job.targetPath), { recursive: true });
     const warnings = await writeBuiltInExportArtifact(request, sourceContent);

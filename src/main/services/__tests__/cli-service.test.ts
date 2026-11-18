@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { grantReadCapability } from '@main/ipc/document-capability';
+import { grantReadCapability, grantWriteCapability } from '@main/ipc/document-capability';
 import {
   ExportCliInvokeResponseSchema,
   LlmsGenerationResponseSchema,
@@ -248,6 +248,151 @@ describe('invokeExportCli', () => {
         expect(artifact).toContain('\\documentclass');
         expect(artifact).toContain('Latex Heading');
       }
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('exports the supplied editor text instead of the file on disk', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-editor-export-'));
+    try {
+      const sourcePath = path.join(tempDir, 'source.mdx');
+      const targetPath = path.join(tempDir, 'output.tex');
+      await writeFile(sourcePath, '# Disk heading', 'utf-8');
+      grantReadCapability(sourcePath);
+
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          content: '# Editor heading',
+          job: {
+            ...createTestRequest().job,
+            sourcePath,
+            targetPath,
+            format: 'latex',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-000000000008',
+              name: 'LaTeX',
+              format: 'latex',
+              options: {},
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(true);
+      const artifact = await readFile(targetPath, 'utf-8');
+      expect(artifact).toContain('Editor heading');
+      expect(artifact).not.toContain('Disk heading');
+      expect(await readFile(sourcePath, 'utf-8')).toBe('# Disk heading');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('exports an untitled document to a file the user already chose', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-untitled-export-'));
+    try {
+      const targetPath = path.join(tempDir, 'output.tex');
+      await writeFile(targetPath, 'previous', 'utf-8');
+      grantWriteCapability(targetPath);
+
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          content: '# Draft heading',
+          job: {
+            ...createTestRequest().job,
+            sourcePath: null,
+            targetPath,
+            format: 'latex',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-000000000009',
+              name: 'LaTeX',
+              format: 'latex',
+              options: {},
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(true);
+      expect(await readFile(targetPath, 'utf-8')).toContain('Draft heading');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not write an untitled export to a file the user has not chosen', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-untitled-closed-'));
+    try {
+      const targetPath = path.join(tempDir, 'output.tex');
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          content: '# Draft heading',
+          job: {
+            ...createTestRequest().job,
+            sourcePath: null,
+            targetPath,
+            format: 'latex',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-00000000000a',
+              name: 'LaTeX',
+              format: 'latex',
+              options: {},
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(false);
+      await expect(readFile(targetPath, 'utf-8')).rejects.toThrow();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not export supplied text for a file that is not open', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-closed-content-'));
+    try {
+      const sourcePath = path.join(tempDir, 'secret.md');
+      const targetPath = path.join(tempDir, 'output.tex');
+      await writeFile(sourcePath, 'hidden', 'utf-8');
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          content: '# Sneaky',
+          job: {
+            ...createTestRequest().job,
+            sourcePath,
+            targetPath,
+            format: 'latex',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-00000000000b',
+              name: 'LaTeX',
+              format: 'latex',
+              options: {},
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(false);
+      await expect(readFile(targetPath, 'utf-8')).rejects.toThrow();
+      expect(await readFile(sourcePath, 'utf-8')).toBe('hidden');
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

@@ -10,7 +10,9 @@ import type {
   LlmsGenerationResponse,
 } from '@shared/contracts/export-schemas';
 import type { ExportCliOutput, ExportJob, ExportPreset } from '@shared/types/export-model';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { useExportStore } from '@renderer/stores/export-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 
 import { ExportCliInvocation } from './ExportCliInvocation';
 import { ExportJobList } from './ExportJobList';
@@ -99,6 +101,8 @@ describe('export components', () => {
 
     act(() => {
       useExportStore.getState().reset();
+      useDocumentStore.getState().reset();
+      useTabStore.getState().reset();
     });
 
     vi.clearAllMocks();
@@ -212,6 +216,62 @@ describe('export components', () => {
         command: 'mdxpad-export',
         args: ['--format', 'pdf', '--verbose'],
       });
+    });
+  });
+
+  it('sends the open editor text with the export job', async () => {
+    const queuedJob = createJob({ status: 'queued' });
+    useDocumentStore.setState({ filePath: '/tmp/source.mdx', content: '# Live draft' });
+    mockExportApi.cliInvoke.mockResolvedValueOnce({
+      ok: true,
+      output: createCliOutput({
+        job: createJob({ ...queuedJob, status: 'completed', completedAt: TEST_DATE }),
+      }),
+    });
+    act(() => {
+      useExportStore.setState({ jobs: [queuedJob] });
+    });
+
+    render(<ExportCliInvocation />);
+    fireEvent.click(screen.getByRole('button', { name: 'Run export CLI' }));
+
+    await waitFor(() => {
+      expect(mockExportApi.cliInvoke).toHaveBeenCalledWith({
+        job: queuedJob,
+        command: 'mdxpad-export',
+        args: [],
+        content: '# Live draft',
+      });
+    });
+  });
+
+  it('sends an unsaved tab when that file is not the active document', async () => {
+    const queuedJob = createJob({ status: 'queued' });
+    useDocumentStore.setState({ filePath: '/tmp/other.mdx', content: '# Other' });
+    useTabStore.getState().addTab({
+      filePath: '/tmp/source.mdx',
+      fileName: 'source.mdx',
+      isDirty: true,
+      content: '# Tab draft',
+      savedContent: '# Saved',
+    });
+    mockExportApi.cliInvoke.mockResolvedValueOnce({
+      ok: true,
+      output: createCliOutput({
+        job: createJob({ ...queuedJob, status: 'completed', completedAt: TEST_DATE }),
+      }),
+    });
+    act(() => {
+      useExportStore.setState({ jobs: [queuedJob] });
+    });
+
+    render(<ExportCliInvocation />);
+    fireEvent.click(screen.getByRole('button', { name: 'Run export CLI' }));
+
+    await waitFor(() => {
+      expect(mockExportApi.cliInvoke).toHaveBeenCalledWith(
+        expect.objectContaining({ content: '# Tab draft' })
+      );
     });
   });
 
