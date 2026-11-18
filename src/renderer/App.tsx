@@ -290,6 +290,7 @@ export function App(): React.ReactElement {
                     ? state.filePath.slice(0, state.filePath.lastIndexOf('/'))
                     : null
                 }
+                activeFilePath={state.filePath}
               />
             )}
             {aiFeatureEnabled && <AiWriteSidebar />}

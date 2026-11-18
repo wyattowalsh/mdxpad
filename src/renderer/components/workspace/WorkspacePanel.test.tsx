@@ -131,6 +131,35 @@ describe('WorkspacePanel', () => {
     });
   });
 
+  it('registers the open file and requests its backlinks', async () => {
+    mockWorkspaceApi.openWorkspace.mockResolvedValue({
+      ok: true,
+      value: createWorkspaceModel(),
+    });
+    mockWorkspaceApi.saveWorkspace.mockResolvedValue({ ok: true, value: undefined });
+    mockWorkspaceApi.getBacklinks.mockResolvedValue({ ok: true, value: [] });
+
+    render(<WorkspacePanel rootPath="/workspace" activeFilePath="/workspace/notes/note.mdx" />);
+
+    await waitFor(() => {
+      expect(mockWorkspaceApi.saveWorkspace).toHaveBeenCalled();
+    });
+    const saved = mockWorkspaceApi.saveWorkspace.mock.calls[0]?.[0].model;
+    expect(saved).toBeTruthy();
+    if (!saved) {
+      return;
+    }
+    expect(saved.workspace.documents[0]?.filePath).toBe('/workspace/notes/note.mdx');
+    expect(saved.workspace.activeDocumentId).toBe(saved.workspace.documents[0]?.id);
+
+    await waitFor(() => {
+      expect(mockWorkspaceApi.getBacklinks).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        documentId: saved.workspace.activeDocumentId,
+      });
+    });
+  });
+
   it('requests and renders backlinks for active document', async () => {
     mockWorkspaceApi.openWorkspace.mockResolvedValue({
       ok: true,

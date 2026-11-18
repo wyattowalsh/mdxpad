@@ -84,8 +84,9 @@ function PanelBody({
     case 'workspace':
       return (
         <WorkspacePanel
-          rootPath={model?.workspace.rootPath ?? null}
+          rootPath={model?.workspace.rootPath ?? directoryOfOpenedFile(filePath)}
           activeDocumentId={model?.workspace.activeDocumentId ?? null}
+          activeFilePath={filePath}
         />
       );
     case 'semantic-search':

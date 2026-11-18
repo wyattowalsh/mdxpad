@@ -13,6 +13,7 @@ import {
   useWorkspaceStore,
 } from '@renderer/stores/workspace-store';
 import { selectFeatureFlag, useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
+import { scheduleActiveWorkspaceFile } from './active-workspace-file';
 import { ProjectDialog } from './ProjectDialog';
 import { WorkspaceFolders } from './WorkspaceFolders';
 
@@ -21,12 +22,15 @@ const EMPTY_BACKLINKS: readonly LinkRecord[] = [];
 export interface WorkspacePanelProps {
   readonly rootPath?: string | null;
   readonly activeDocumentId?: WorkspaceDocumentId | null;
+  /** Open file to register as the active workspace document. */
+  readonly activeFilePath?: string | null;
   readonly className?: string;
 }
 
 export function WorkspacePanel({
   rootPath = null,
   activeDocumentId = null,
+  activeFilePath = null,
   className,
 }: WorkspacePanelProps): React.JSX.Element | null {
   const workspaceFeatureEnabled = useFeatureFlagsStore(selectFeatureFlag('workspace'));
@@ -36,12 +40,16 @@ export function WorkspacePanel({
   const isSaving = useWorkspaceStore(selectWorkspaceIsSaving);
   const linkSearchQuery = useWorkspaceStore(selectWorkspaceLinkSearchQuery);
   const openWorkspace = useWorkspaceStore((state) => state.openWorkspace);
+  const saveWorkspace = useWorkspaceStore((state) => state.saveWorkspace);
   const getBacklinks = useWorkspaceStore((state) => state.getBacklinks);
   const setLinkSearchQuery = useWorkspaceStore((state) => state.setLinkSearchQuery);
   const clearLinkSearchQuery = useWorkspaceStore((state) => state.clearLinkSearchQuery);
 
+  const fileDocumentId =
+    model?.workspace.documents.find((document) => document.filePath === activeFilePath)?.id ?? null;
+  const backlinkDocumentId = activeDocumentId ?? fileDocumentId;
   const rawBacklinks = useWorkspaceStore((state) =>
-    activeDocumentId ? selectBacklinksForDocument(activeDocumentId)(state) : EMPTY_BACKLINKS
+    backlinkDocumentId ? selectBacklinksForDocument(backlinkDocumentId)(state) : EMPTY_BACKLINKS
   );
 
   const [isProjectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -57,11 +65,18 @@ export function WorkspacePanel({
   }, [rootPath, loadedRootPath, openWorkspace]);
 
   useEffect(() => {
-    if (!workspaceId || !activeDocumentId) {
+    if (!model || !activeFilePath || loadedRootPath !== rootPath) {
       return;
     }
-    void getBacklinks({ workspaceId, documentId: activeDocumentId });
-  }, [workspaceId, activeDocumentId, getBacklinks]);
+    scheduleActiveWorkspaceFile(model, activeFilePath, (next) => saveWorkspace({ model: next }));
+  }, [activeFilePath, loadedRootPath, model, rootPath, saveWorkspace]);
+
+  useEffect(() => {
+    if (!workspaceId || !backlinkDocumentId) {
+      return;
+    }
+    void getBacklinks({ workspaceId, documentId: backlinkDocumentId });
+  }, [workspaceId, backlinkDocumentId, getBacklinks]);
 
   useEffect(() => {
     const focusHandler = () => {
@@ -150,7 +165,7 @@ export function WorkspacePanel({
             onChange={handleBacklinkSearchChange}
             placeholder="Search backlinks"
             className="h-8 w-full rounded border border-input bg-background px-2 text-xs"
-            disabled={!activeDocumentId}
+            disabled={!backlinkDocumentId}
           />
           {linkSearchQuery.length > 0 && (
             <Button type="button" size="sm" variant="outline" onClick={clearLinkSearchQuery}>
@@ -158,7 +173,7 @@ export function WorkspacePanel({
             </Button>
           )}
         </div>
-        {!activeDocumentId ? (
+        {!backlinkDocumentId ? (
           <p className="text-sm text-muted-foreground">Select a document to view backlinks.</p>
         ) : backlinks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No backlinks yet.</p>
