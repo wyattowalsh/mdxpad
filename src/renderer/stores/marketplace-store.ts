@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Draft } from 'immer';
+import { cachedWhen, createSelectorCache } from './cached-selector';
 
 // =============================================================================
 // TYPES
@@ -232,32 +233,37 @@ export const selectIsInstalling =
   (state: MarketplaceStore): boolean =>
     state.installingIds.includes(id);
 
-export const selectFilteredMarketplaceTemplates = (
-  state: MarketplaceStore
-): readonly MarketplaceTemplate[] => {
+const filteredTemplateCache = createSelectorCache<readonly MarketplaceTemplate[]>([]);
+const categoryCache = createSelectorCache<readonly string[]>([]);
+
+function filteredMarketplaceTemplates(state: MarketplaceStore): readonly MarketplaceTemplate[] {
   const { templates, searchQuery, categoryFilter } = state;
   const query = searchQuery.trim().toLowerCase();
-
-  let filtered = [...templates];
-
-  if (query) {
-    filtered = filtered.filter(
-      (t) =>
-        t.name.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query) ||
-        t.author.toLowerCase().includes(query) ||
-        t.category.toLowerCase().includes(query)
-    );
+  if (!query && categoryFilter === null) {
+    return templates;
   }
+  return templates.filter((template) => {
+    const matchesQuery =
+      !query ||
+      template.name.toLowerCase().includes(query) ||
+      template.description.toLowerCase().includes(query) ||
+      template.author.toLowerCase().includes(query) ||
+      template.category.toLowerCase().includes(query);
+    return matchesQuery && (categoryFilter === null || template.category === categoryFilter);
+  });
+}
 
-  if (categoryFilter !== null) {
-    filtered = filtered.filter((t) => t.category === categoryFilter);
-  }
+export const selectFilteredMarketplaceTemplates = (
+  state: MarketplaceStore
+): readonly MarketplaceTemplate[] =>
+  cachedWhen(
+    filteredTemplateCache,
+    [state.templates, state.searchQuery, state.categoryFilter],
+    () => filteredMarketplaceTemplates(state)
+  );
 
-  return filtered;
-};
-
-export const selectMarketplaceCategories = (state: MarketplaceStore): readonly string[] => {
-  const cats = new Set(state.templates.map((t) => t.category));
-  return [...cats].sort();
-};
+export const selectMarketplaceCategories = (state: MarketplaceStore): readonly string[] =>
+  cachedWhen(categoryCache, [state.templates], () => {
+    const categories = new Set(state.templates.map((template) => template.category));
+    return [...categories].sort();
+  });

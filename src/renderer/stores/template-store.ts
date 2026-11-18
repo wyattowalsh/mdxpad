@@ -12,6 +12,7 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { cachedWhen, createSelectorCache } from './cached-selector';
 import { Fzf, byStartAsc } from 'fzf';
 import type {
   Template,
@@ -521,7 +522,7 @@ export const selectClearError = (state: TemplateStore): () => void =>
  * @param state - Template store state
  * @returns Filtered templates array
  */
-export const selectFilteredTemplates = (state: TemplateStore): TemplateMetadata[] => {
+function filterTemplates(state: TemplateStore): TemplateMetadata[] {
   const { templates, _fzfIndex, searchQuery, categoryFilter } = state;
   const query = searchQuery.trim();
 
@@ -554,7 +555,16 @@ export const selectFilteredTemplates = (state: TemplateStore): TemplateMetadata[
   }
 
   return filtered;
-};
+}
+
+const filteredTemplateCache = createSelectorCache<TemplateMetadata[]>([]);
+
+export const selectFilteredTemplates = (state: TemplateStore): TemplateMetadata[] =>
+  cachedWhen(
+    filteredTemplateCache,
+    [state.templates, state._fzfIndex, state.searchQuery, state.categoryFilter],
+    () => filterTemplates(state)
+  );
 
 /**
  * Selector for checking if any templates exist.

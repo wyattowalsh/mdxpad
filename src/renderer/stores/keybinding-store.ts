@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import { cachedWhen, createSelectorCache } from './cached-selector';
 import { immer } from 'zustand/middleware/immer';
 import type { Draft } from 'immer';
 import type { Command, CommandId } from '@shared/types/commands';
@@ -288,10 +289,19 @@ export const selectBindingByCommand =
   (state: KeybindingStore): Keybinding | undefined =>
     state.bindings.find((b) => b.commandId === commandId);
 
+const bindingsByCategory = new Map<string, ReturnType<typeof createSelectorCache<readonly Keybinding[]>>>();
+
 export const selectBindingsByCategory =
   (category: string) =>
-  (state: KeybindingStore): readonly Keybinding[] =>
-    state.bindings.filter((b) => b.category === category);
+  (state: KeybindingStore): readonly Keybinding[] => {
+    const cache = bindingsByCategory.get(category) ?? createSelectorCache<readonly Keybinding[]>([]);
+    if (!bindingsByCategory.has(category)) {
+      bindingsByCategory.set(category, cache);
+    }
+    return cachedWhen(cache, [state.bindings, category], () =>
+      state.bindings.filter((binding) => binding.category === category)
+    );
+  };
 
 export const selectIsModified =
   (commandId: string) =>
@@ -305,7 +315,10 @@ export const selectIsModified =
     );
   };
 
-export const selectCategories = (state: KeybindingStore): readonly string[] => {
-  const cats = new Set(state.bindings.map((b) => b.category));
-  return [...cats].sort();
-};
+const categoryCache = createSelectorCache<readonly string[]>([]);
+
+export const selectCategories = (state: KeybindingStore): readonly string[] =>
+  cachedWhen(categoryCache, [state.bindings], () => {
+    const categories = new Set(state.bindings.map((binding) => binding.category));
+    return [...categories].sort();
+  });

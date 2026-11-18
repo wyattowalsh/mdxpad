@@ -397,8 +397,10 @@ export const selectData = (state: FrontmatterStore): FrontmatterData | null => s
 /**
  * Selector for frontmatter fields.
  */
+const NO_FIELDS: FrontmatterField[] = [];
+
 export const selectFields = (state: FrontmatterStore): FrontmatterField[] =>
-  state.data?.fields ?? [];
+  state.data?.fields ?? NO_FIELDS;
 
 /**
  * Selector for current mode.
