@@ -869,6 +869,33 @@ describe('exportFileCommand', () => {
     });
   });
 
+  it('does not announce an export on a different open file', async () => {
+    documentStoreState.filePath = '/test/new-file.mdx';
+    documentStoreState.content = '# Export me';
+    const mockApi = createMockApi({
+      exportFile: vi.fn().mockImplementation(async () => {
+        documentStoreState.filePath = '/docs/other.mdx';
+        return {
+          ok: true,
+          value: { path: '/test/new-file.html', format: 'html', warnings: ['Used a text PDF'] },
+        };
+      }),
+    });
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        ...INITIAL_DOCUMENT_STATE,
+        content: '# Export me',
+        filePath: '/test/new-file.mdx',
+      },
+    });
+
+    const result = await exportFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(ctx.notify).not.toHaveBeenCalled();
+  });
+
   it('should be disabled when export feature flag is off', () => {
     useFeatureFlagsStore.getState().setFlag('export', false);
     const ctx = createMockContext();

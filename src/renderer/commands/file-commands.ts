@@ -419,6 +419,34 @@ const saveFileAsCommand: Command = {
   enabled: () => true,
 };
 
+type ExportCallResult = Awaited<ReturnType<CommandContext['api']['exportFile']>>;
+
+function reportExportResult(
+  ctx: CommandContext,
+  sourcePath: string | null,
+  result: ExportCallResult
+): CommandResult {
+  if (useDocumentStore.getState().filePath !== sourcePath) {
+    return { ok: true };
+  }
+  if (!result.ok) {
+    if (result.error.code === 'CANCELLED') {
+      return { ok: true };
+    }
+    const message = formatExportError(result.error);
+    ctx.notify({ type: 'error', message: `Failed to export: ${message}` });
+    return { ok: false, error: message };
+  }
+
+  const exportedFileName = result.value.path.split('/').pop() ?? result.value.path;
+  ctx.notify({ type: 'success', message: `Exported: ${exportedFileName}` });
+  const warning = result.value.warnings[0];
+  if (warning) {
+    ctx.notify({ type: 'info', message: warning });
+  }
+  return { ok: true };
+}
+
 /**
  * Export file command.
  * Exports current document to a selected format and path.
@@ -440,39 +468,14 @@ const exportFileCommand: Command = {
       return { ok: false, error: 'Export feature is disabled' };
     }
 
+    const sourcePath = ctx.document.filePath;
     try {
-      const result = await ctx.api.exportFile(liveDocumentContent(ctx), {
-        sourcePath: ctx.document.filePath,
-      });
-
-      if (!result.ok) {
-        if (result.error.code === 'CANCELLED') {
-          return { ok: true };
-        }
-
-        const message = formatExportError(result.error);
-        ctx.notify({
-          type: 'error',
-          message: `Failed to export: ${message}`,
-        });
-        return { ok: false, error: message };
-      }
-
-      const exportedFileName = result.value.path.split('/').pop() ?? result.value.path;
-      ctx.notify({
-        type: 'success',
-        message: `Exported: ${exportedFileName}`,
-      });
-
-      if (result.value.warnings.length > 0) {
-        ctx.notify({
-          type: 'info',
-          message: result.value.warnings[0] ?? 'Export completed with warnings',
-        });
-      }
-
-      return { ok: true };
+      const result = await ctx.api.exportFile(liveDocumentContent(ctx), { sourcePath });
+      return reportExportResult(ctx, sourcePath, result);
     } catch (error) {
+      if (useDocumentStore.getState().filePath !== sourcePath) {
+        return { ok: true };
+      }
       const message = error instanceof Error ? error.message : String(error);
       ctx.notify({
         type: 'error',
