@@ -119,7 +119,7 @@ async function grantWriteCapabilityForPath(
     canceled: false,
     filePaths: [filePath],
   });
-  mockReadFile.mockResolvedValue({ ok: true, value: '# Existing Content' });
+  mockReadFileWithoutFollowingLinks.mockResolvedValue({ ok: true, value: '# Existing Content' });
   mockCreateFileHandle.mockReturnValue(openedHandle);
 
   expect(openHandler).toBeDefined();
@@ -228,7 +228,7 @@ describe('file-handlers', () => {
         canceled: false,
         filePaths: [testPath],
       });
-      mockReadFile.mockResolvedValue({ ok: true, value: testContent });
+      mockReadFileWithoutFollowingLinks.mockResolvedValue({ ok: true, value: testContent });
       mockCreateFileHandle.mockReturnValue(mockHandle);
 
       const handler = registeredHandlers.get('mdxpad:file:open');
@@ -240,7 +240,7 @@ describe('file-handlers', () => {
         properties: ['openFile'],
         filters: [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }],
       });
-      expect(mockReadFile).toHaveBeenCalledWith(testPath);
+      expect(mockReadFileWithoutFollowingLinks).toHaveBeenCalledWith(testPath);
       expect(mockAddToRecentFiles).toHaveBeenCalledWith(testPath);
       expect(result).toEqual({ ok: true, value: mockHandle });
     });
@@ -255,7 +255,7 @@ describe('file-handlers', () => {
       const result = await handler!(authorizedInvokeEvent);
 
       expect(result).toEqual({ ok: false, error: { code: 'CANCELLED' } });
-      expect(mockReadFile).not.toHaveBeenCalled();
+      expect(mockReadFileWithoutFollowingLinks).not.toHaveBeenCalled();
     });
 
     it('should return NOT_FOUND error when file does not exist', async () => {
@@ -265,7 +265,7 @@ describe('file-handlers', () => {
         canceled: false,
         filePaths: [testPath],
       });
-      mockReadFile.mockResolvedValue({
+      mockReadFileWithoutFollowingLinks.mockResolvedValue({
         ok: false,
         error: { code: 'NOT_FOUND', path: testPath },
       });
@@ -286,7 +286,7 @@ describe('file-handlers', () => {
         canceled: false,
         filePaths: [testPath],
       });
-      mockReadFile.mockResolvedValue({
+      mockReadFileWithoutFollowingLinks.mockResolvedValue({
         ok: false,
         error: { code: 'PERMISSION_DENIED', path: testPath },
       });

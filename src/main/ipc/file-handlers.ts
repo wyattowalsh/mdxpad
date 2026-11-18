@@ -28,7 +28,6 @@ import {
   type ExportFormat,
 } from '@shared/contracts/file-schemas';
 import {
-  readFile,
   readFileWithoutFollowingLinks,
   writeFile,
   createFileHandle,
@@ -59,6 +58,7 @@ import { listDirectoryRequest } from './list-directory';
 import { readStaysInsideDirectory } from './read-scope';
 import { saveAsDefaultPath } from './save-as-name';
 import { registerDroppedFileHandler } from './dropped-file';
+import { openableDocumentPath } from './open-document-path';
 import { trustedDirectoryError } from './trusted-directory';
 
 /** File dialog filters for MDX and Markdown files */
@@ -193,17 +193,15 @@ const handleFileOpen = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' } };
     }
 
-    const readResult = await readFile(filePath);
-
-    if (!readResult.ok) {
-      return { ok: false, error: readResult.error };
+    const opened = await openableDocumentPath(filePath);
+    if (!opened.ok) {
+      return { ok: false, error: opened.error };
     }
 
-    grantWriteCapability(filePath);
-    // Add to recent files list
-    addToRecentFiles(filePath);
+    grantWriteCapability(opened.value);
+    addToRecentFiles(opened.value);
 
-    const handle = createFileHandle(filePath);
+    const handle = createFileHandle(opened.value);
     const schemaHandleResult = buildSchemaFileHandle(handle);
     if (!schemaHandleResult.ok) {
       return schemaHandleResult;
