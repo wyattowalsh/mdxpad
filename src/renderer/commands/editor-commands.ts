@@ -21,6 +21,7 @@ import {
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useAISessionStore } from '../stores/ai-session-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
+import { hasWysiwygEdit, isVisualEditCommand, runWysiwygEdit } from '../lib/editor/wysiwyg-command';
 
 /**
  * Create an editor command that wraps a CodeMirror command.
@@ -39,13 +40,17 @@ function createEditorCommand(
     category: 'edit' as const,
     execute: (ctx: CommandContext): CommandResult => {
       if (!ctx.editor) {
+        if (isVisualEditCommand(cmCommand) && runWysiwygEdit(cmCommand)) {
+          return { ok: true };
+        }
         ctx.notify({ type: 'warning', message: 'No editor available' });
         return { ok: false, error: 'No editor available' };
       }
       const success = executeCMCommand(ctx.editor, cmCommand);
       return success ? { ok: true } : { ok: false, error: 'Command failed' };
     },
-    enabled: (ctx: CommandContext) => ctx.editor !== null,
+    enabled: (ctx: CommandContext) =>
+      ctx.editor !== null || (isVisualEditCommand(cmCommand) && hasWysiwygEdit()),
   };
   return shortcut ? { ...base, shortcut } : base;
 }

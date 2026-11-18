@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CommandContext, CommandId } from '@shared/types/commands';
 import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
+import { registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
 
 // =============================================================================
 // MOCKS
@@ -227,6 +228,7 @@ describe('Editor command execution', () => {
     vi.clearAllMocks();
     resetMockAISessionStoreState();
     useFeatureFlagsStore.getState().setFlag('ai', true);
+    registerWysiwygEdit(null);
   });
 
   it('should return error when editor is null', () => {
@@ -240,6 +242,19 @@ describe('Editor command execution', () => {
       type: 'warning',
       message: 'No editor available',
     });
+  });
+
+  it('runs bold in the visual editor when the source editor is closed', () => {
+    const ran: string[] = [];
+    registerWysiwygEdit((command) => {
+      ran.push(command);
+      return true;
+    });
+    const ctx = createMockContext({ editor: null });
+    const cmd = EDITOR_COMMANDS.find((item) => item.id === 'edit.bold');
+    expect(cmd?.execute(ctx)).toEqual({ ok: true });
+    expect(ran).toEqual(['bold']);
+    expect(ctx.notify).not.toHaveBeenCalled();
   });
 
   it('should call executeCMCommand when editor is present', () => {
@@ -445,6 +460,7 @@ describe('AI write command execution', () => {
 describe('Editor command enabled predicate', () => {
   beforeEach(() => {
     useFeatureFlagsStore.getState().setFlag('ai', true);
+    registerWysiwygEdit(null);
   });
 
   it('should be disabled when editor is null', () => {
