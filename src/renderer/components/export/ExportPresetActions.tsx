@@ -116,7 +116,11 @@ function ExportPresetActionsComponent({
     setExportError(null);
     setIsExporting(true);
     void window.mdxpad
-      .exportFile(content, { sourcePath, format: preset.format })
+      .exportFile(content, {
+        sourcePath,
+        format: preset.format,
+        ...(Object.keys(preset.options).length > 0 ? { metadata: { ...preset.options } } : {}),
+      })
       .then((result) => {
         if (documentKeyRef.current !== key) {
           return;

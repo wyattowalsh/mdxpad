@@ -187,6 +187,37 @@ describe('export components', () => {
     });
   });
 
+  it('sends the selected preset options with the export', async () => {
+    const preset = createPreset({
+      format: 'docx',
+      name: 'Word',
+      options: { headingBaseLevel: 2, includeToc: true, title: 'Notes' },
+    });
+    mockExportApi.presetCrud.mockResolvedValueOnce({ ok: true, presets: [preset] });
+    exportFile.mockResolvedValueOnce({
+      ok: true,
+      value: { path: '/tmp/notes.docx', format: 'docx', warnings: [] },
+    });
+    mockExportApi.jobLifecycle.mockResolvedValueOnce({
+      ok: true,
+      job: createJob({ preset, status: 'completed', targetPath: '/tmp/notes.docx' }),
+    });
+
+    render(<ExportPresetActions content="# Note" sourcePath="/tmp/source.mdx" />);
+    await waitFor(() => {
+      expect(mockExportApi.presetCrud).toHaveBeenCalledWith({ action: 'list' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Export document' }));
+
+    await waitFor(() => {
+      expect(exportFile).toHaveBeenCalledWith('# Note', {
+        sourcePath: '/tmp/source.mdx',
+        format: 'docx',
+        metadata: { headingBaseLevel: 2, includeToc: true, title: 'Notes' },
+      });
+    });
+  });
+
   it('invokes CLI for selected export job', async () => {
     const queuedJob = createJob({ status: 'queued' });
     mockExportApi.cliInvoke.mockResolvedValueOnce({

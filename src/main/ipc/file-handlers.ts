@@ -420,11 +420,22 @@ const handleFileExport = createValidatedHandler(
     const exportPath = await writableDocumentPath(saveDialogResult.filePath);
 
     if (binaryExporter) {
+      const metadata = args.metadata;
+      const title =
+        typeof metadata?.title === 'string' && metadata.title.length > 0
+          ? metadata.title
+          : 'MDXPad Export';
+      const author =
+        typeof metadata?.author === 'string' && metadata.author.length > 0
+          ? metadata.author
+          : undefined;
       const exported = await binaryExporter.export({
         content: args.content,
         outputPath: exportPath,
-        title: 'MDXPad Export',
+        title,
         sourcePath: args.sourcePath ?? null,
+        ...(author ? { author } : {}),
+        ...(metadata ? { metadata } : {}),
       });
       if (!exported.ok) {
         return {

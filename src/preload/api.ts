@@ -201,7 +201,11 @@ export interface MdxpadAPI {
    */
   exportFile(
     content: string,
-    options?: { sourcePath?: string | null; format?: ExportFormat }
+    options?: {
+      sourcePath?: string | null;
+      format?: ExportFormat;
+      metadata?: Record<string, unknown>;
+    }
   ): Promise<FileExportResult>;
 
   // === Window Operations ===

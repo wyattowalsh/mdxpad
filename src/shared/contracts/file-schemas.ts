@@ -335,6 +335,7 @@ export const FileExportRequestSchema = z.object({
   content: FileContentSchema,
   sourcePath: FilePathSchema.nullable().optional(),
   format: ExportFormatSchema.optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 /** Inferred FileExportRequest type */

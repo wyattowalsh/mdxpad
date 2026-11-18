@@ -132,12 +132,17 @@ export const fileOperations = {
 
   exportFile: (
     content: string,
-    options?: { sourcePath?: string | null; format?: ExportFormat }
+    options?: {
+      sourcePath?: string | null;
+      format?: ExportFormat;
+      metadata?: Record<string, unknown>;
+    }
   ): Promise<FileExportResult> =>
     validatedInvoke(IPC_CHANNELS.file.export, FileExportRequestSchema, FileExportResponseSchema, {
       content,
       sourcePath: options?.sourcePath ?? null,
       ...(options?.format !== undefined && { format: options.format }),
+      ...(options?.metadata !== undefined && { metadata: options.metadata }),
     }),
 };
 
