@@ -4,14 +4,12 @@
  */
 
 import { app, BrowserWindow, dialog } from 'electron';
-import { promises as fs } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createWindow, loadContent } from './window';
 import { registerIpcHandlers } from './ipc';
 import { initializeApplicationMenu } from './menu';
 import { registerPreviewFrameProtocol } from './preview-frame-protocol';
-import { computeChecksum } from '@shared/lib/checksum';
-import { AutoSaveManager } from './services/auto-save';
+import { AutoSaveManager, readVerifiedAutosave } from './services/auto-save';
 
 /** Global AutoSaveManager instance for crash recovery and auto-saving */
 const autoSaveManager = new AutoSaveManager();
@@ -64,9 +62,8 @@ async function checkCrashRecovery(): Promise<void> {
     // User chose "Recover" - read temp files and store for window creation
     for (const entry of entries) {
       try {
-        const content = await fs.readFile(entry.tempPath, 'utf-8');
-        const stored = (await fs.readFile(`${entry.tempPath}.sha256`, 'utf-8')).trim();
-        if (computeChecksum(content) !== stored) {
+        const content = await readVerifiedAutosave(entry.tempPath);
+        if (content === null) {
           console.error(`Checksum mismatch for recovered file ${entry.tempPath}`);
           continue;
         }

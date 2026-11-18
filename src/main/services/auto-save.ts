@@ -15,6 +15,7 @@ import path from 'node:path';
 import { glob } from 'glob';
 import { computeChecksum } from '@shared/lib/checksum';
 import type { FileId } from '@shared/types/file';
+import { readFileWithoutFollowingLinks } from './file-service';
 
 /** Auto-save interval in milliseconds (30 seconds per FR-014) */
 const AUTO_SAVE_INTERVAL = 30_000;
@@ -97,10 +98,48 @@ async function syncFile(filePath: string): Promise<void> {
   }
 }
 
+async function replaceFileLink(filePath: string): Promise<void> {
+  try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink()) {
+      await fs.unlink(filePath);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+async function regularFile(filePath: string): Promise<boolean> {
+  try {
+    const info = await fs.lstat(filePath);
+    return info.isFile() && !info.isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/** Read an autosave only when the file and its checksum are real files. */
+export async function readVerifiedAutosave(tempPath: string): Promise<string | null> {
+  const checksumPath = `${tempPath}.sha256`;
+  if (!(await regularFile(tempPath)) || !(await regularFile(checksumPath))) {
+    return null;
+  }
+  const content = await readFileWithoutFollowingLinks(tempPath);
+  const stored = await readFileWithoutFollowingLinks(checksumPath);
+  if (!content.ok || !stored.ok) {
+    return null;
+  }
+  return computeChecksum(content.value) === stored.value.trim() ? content.value : null;
+}
+
 async function writeVerifiedTemp(tempPath: string, content: string): Promise<void> {
+  const checksumPath = `${tempPath}.sha256`;
+  await replaceFileLink(tempPath);
+  await replaceFileLink(checksumPath);
   await fs.writeFile(tempPath, content, 'utf-8');
   await syncFile(tempPath);
-  const checksumPath = `${tempPath}.sha256`;
   try {
     await fs.writeFile(checksumPath, computeChecksum(content), 'utf-8');
     await syncFile(checksumPath);
@@ -193,7 +232,10 @@ export class AutoSaveManager {
     const entries: AutoSaveEntry[] = [];
     for (const tempPath of files) {
       try {
-        const stat = await fs.stat(tempPath);
+        const stat = await fs.lstat(tempPath);
+        if (stat.isSymbolicLink() || !stat.isFile()) {
+          continue;
+        }
         const filename = path.basename(tempPath);
         const fileId = filename.replace(AUTO_SAVE_PREFIX, '').replace(AUTO_SAVE_EXT, '') as FileId;
 

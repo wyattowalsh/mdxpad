@@ -13,10 +13,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock Setup
 // ============================================================================
 
-const { mockWriteFile, mockUnlink, mockStat, mockGetPath, mockGlob } = vi.hoisted(() => ({
+const { mockWriteFile, mockUnlink, mockLstat, mockGetPath, mockGlob } = vi.hoisted(() => ({
   mockWriteFile: vi.fn(),
   mockUnlink: vi.fn(),
-  mockStat: vi.fn(),
+  mockLstat: vi.fn(),
   mockGetPath: vi.fn(() => '/tmp'),
   mockGlob: vi.fn(() => Promise.resolve([] as string[])),
 }));
@@ -32,13 +32,13 @@ vi.mock('node:fs', () => ({
     promises: {
       writeFile: mockWriteFile,
       unlink: mockUnlink,
-      stat: mockStat,
+      lstat: mockLstat,
     },
   },
   promises: {
     writeFile: mockWriteFile,
     unlink: mockUnlink,
-    stat: mockStat,
+    lstat: mockLstat,
   },
 }));
 
@@ -68,6 +68,8 @@ describe('AutoSaveManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
+    mockLstat.mockRejectedValue(missing);
     manager = new AutoSaveManager();
   });
 
@@ -282,9 +284,17 @@ describe('AutoSaveManager', () => {
         '/tmp/mdxpad-autosave-def456.mdx',
       ]);
 
-      mockStat
-        .mockResolvedValueOnce({ mtime: new Date('2026-01-01T10:00:00Z') })
-        .mockResolvedValueOnce({ mtime: new Date('2026-01-02T10:00:00Z') });
+      mockLstat
+        .mockResolvedValueOnce({
+          mtime: new Date('2026-01-01T10:00:00Z'),
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        })
+        .mockResolvedValueOnce({
+          mtime: new Date('2026-01-02T10:00:00Z'),
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        });
 
       const entries = await manager.findRecoverable();
 
@@ -297,8 +307,12 @@ describe('AutoSaveManager', () => {
     it('should skip files that cannot be stat-ed', async () => {
       mockGlob.mockResolvedValue(['/tmp/mdxpad-autosave-good.mdx', '/tmp/mdxpad-autosave-bad.mdx']);
 
-      mockStat
-        .mockResolvedValueOnce({ mtime: new Date('2026-01-01T10:00:00Z') })
+      mockLstat
+        .mockResolvedValueOnce({
+          mtime: new Date('2026-01-01T10:00:00Z'),
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        })
         .mockRejectedValueOnce(new Error('ENOENT'));
 
       const entries = await manager.findRecoverable();
@@ -309,16 +323,37 @@ describe('AutoSaveManager', () => {
 
     it('should set originalPath to null for recovery entries', async () => {
       mockGlob.mockResolvedValue(['/tmp/mdxpad-autosave-id1.mdx']);
-      mockStat.mockResolvedValue({ mtime: new Date() });
+      mockLstat.mockResolvedValue({
+        mtime: new Date(),
+        isFile: () => true,
+        isSymbolicLink: () => false,
+      });
 
       const entries = await manager.findRecoverable();
 
       expect(entries[0]!.originalPath).toBeNull();
     });
 
+    it('skips a linked autosave file', async () => {
+      mockGlob.mockResolvedValue(['/tmp/mdxpad-autosave-linked.mdx']);
+      mockLstat.mockResolvedValue({
+        mtime: new Date(),
+        isFile: () => false,
+        isSymbolicLink: () => true,
+      });
+
+      const entries = await manager.findRecoverable();
+
+      expect(entries).toEqual([]);
+    });
+
     it('should include display name with truncated file ID', async () => {
       mockGlob.mockResolvedValue(['/tmp/mdxpad-autosave-abcdefghij.mdx']);
-      mockStat.mockResolvedValue({ mtime: new Date() });
+      mockLstat.mockResolvedValue({
+        mtime: new Date(),
+        isFile: () => true,
+        isSymbolicLink: () => false,
+      });
 
       const entries = await manager.findRecoverable();
 

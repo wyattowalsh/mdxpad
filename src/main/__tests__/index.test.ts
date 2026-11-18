@@ -16,6 +16,7 @@ const {
   mockRegisterPreviewFrameProtocol,
   mockAutoSaveManager,
   mockReadFile,
+  mockReadVerifiedAutosave,
   mockShowMessageBox,
 } = vi.hoisted(() => {
   const eventHandlers: Record<string, () => void> = {};
@@ -33,6 +34,17 @@ const {
   const mockRegisterPreviewFrameProtocol = vi.fn();
 
   const mockReadFile = vi.fn();
+  const mockReadVerifiedAutosave = vi.fn(async (tempPath: string) => {
+    try {
+      const { createHash } = require('node:crypto') as typeof import('node:crypto');
+      const content = String(await mockReadFile(tempPath));
+      const stored = String(await mockReadFile(`${tempPath}.sha256`)).trim();
+      const checksum = createHash('sha256').update(content, 'utf-8').digest('hex');
+      return checksum === stored ? content : null;
+    } catch {
+      return null;
+    }
+  });
   const mockShowMessageBox = vi.fn(async () => ({ response: 1 }));
   const mockAutoSaveManager = {
     findRecoverable: vi.fn(
@@ -67,6 +79,7 @@ const {
     mockRegisterPreviewFrameProtocol,
     mockAutoSaveManager,
     mockReadFile,
+    mockReadVerifiedAutosave,
     mockShowMessageBox,
   };
 });
@@ -113,6 +126,7 @@ vi.mock('../preview-frame-protocol', () => ({
 
 vi.mock('../services/auto-save', () => ({
   AutoSaveManager: vi.fn(() => mockAutoSaveManager),
+  readVerifiedAutosave: mockReadVerifiedAutosave,
 }));
 
 function createDeferred(): { promise: Promise<void>; resolve: () => void } {
