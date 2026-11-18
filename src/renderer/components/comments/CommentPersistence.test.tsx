@@ -6,7 +6,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
 import { CommentPersistence, CommentWorkspace } from './CommentWorkspace';
-import { readCommentThreads } from './comment-storage';
+import { readCommentThreads, writeCommentThreads } from './comment-storage';
 
 function untitledTab(fileName: string): string {
   return useTabStore.getState().addTab({
@@ -24,6 +24,27 @@ describe('CommentPersistence', () => {
     useCommentsStore.getState().reset();
     useTabStore.getState().reset();
     useDocumentStore.getState().reset();
+  });
+
+  it('keeps a comment added before saved comments are loaded', () => {
+    writeCommentThreads('/tmp/a.md', [
+      {
+        id: 'saved',
+        anchorFrom: 0,
+        anchorTo: 4,
+        resolved: false,
+        createdAt: 1,
+        messages: [{ id: 'saved-message', author: 'You', content: 'Saved note', timestamp: 1 }],
+      },
+    ]);
+    useDocumentStore.setState({ filePath: '/tmp/a.md' });
+    useCommentsStore.getState().createThread(5, 9, 'You', 'New note');
+
+    render(<CommentPersistence />);
+
+    const notes = useCommentsStore.getState().threads.map((thread) => thread.messages[0]?.content);
+    expect(notes).toContain('Saved note');
+    expect(notes).toContain('New note');
   });
 
   it('does not show another file’s comments before they are loaded', () => {

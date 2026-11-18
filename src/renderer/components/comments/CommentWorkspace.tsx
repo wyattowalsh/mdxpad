@@ -57,10 +57,21 @@ export function CommentPersistence(): null {
       useCommentsStore.setState({ threads: [], activeThreadId: null, loadedFor: null });
       return undefined;
     }
-    const threads = threadsForDocument(storageKey, previous, activeTabId);
+    const saved = threadsForDocument(storageKey, previous, activeTabId);
+    const current = useCommentsStore.getState();
+    const pending =
+      current.loadedFor === storageKey
+        ? current.threads.filter(
+            (thread) => !saved.some((savedThread) => savedThread.id === thread.id)
+          )
+        : [];
+    const threads = [...pending, ...saved];
+    const activeThreadId = threads.some((thread) => thread.id === current.activeThreadId)
+      ? current.activeThreadId
+      : null;
     useCommentsStore.setState({
-      threads: [...threads],
-      activeThreadId: null,
+      threads,
+      activeThreadId,
       loadedFor: storageKey,
     });
     if (activeTabId !== null && previous === `untitled:${activeTabId}`) {

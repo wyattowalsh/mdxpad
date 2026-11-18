@@ -11,6 +11,9 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Draft } from 'immer';
 import { uid } from '@shared/lib/utils';
+import { editorDocumentKey } from '@renderer/lib/editor-document-key';
+import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 
 // ============================================================================
 // Types
@@ -112,7 +115,15 @@ function makeCreateThread(set: (fn: (draft: DraftState) => void) => void) {
       createdAt: Date.now(),
     };
 
+    const documentKey = editorDocumentKey(
+      useDocumentStore.getState().filePath,
+      useTabStore.getState().activeTabId
+    );
     set((draft) => {
+      if (draft.loadedFor !== documentKey) {
+        draft.threads = [];
+        draft.loadedFor = documentKey;
+      }
       (draft.threads as CommentThread[]).push(thread);
       draft.activeThreadId = threadId;
     });
