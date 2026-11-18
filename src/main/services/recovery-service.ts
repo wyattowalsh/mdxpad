@@ -478,7 +478,7 @@ export class RecoveryService {
     }
   }
 
-  /** Oldest remaining files that push recovery storage over the configured cap. */
+  /** Oldest files that put recovery storage over the cap. The newest file stays. */
   private async idsOverStorageCap(
     manifest: RecoveryManifest,
     maxStorageMB: number,
@@ -498,10 +498,11 @@ export class RecoveryService {
         bytes: await this.recoveryFileBytes(entry.documentId),
       }))
     );
+    const newestId = sizes[sizes.length - 1]?.id;
     let total = sizes.reduce((sum, item) => sum + item.bytes, 0);
     const extra: DocumentId[] = [];
     for (const item of sizes) {
-      if (total <= maxBytes) {
+      if (total <= maxBytes || item.id === newestId) {
         break;
       }
       extra.push(item.id);

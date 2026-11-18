@@ -1012,6 +1012,27 @@ describe('RecoveryService', () => {
       expect(deleted).toEqual([oldest, middle]);
     });
 
+    it('keeps the newest recovery file when it alone is over the storage cap', async () => {
+      const only = '123e4567-e89b-12d3-a456-426614174021';
+      const service = createServiceWithSettings({
+        retentionDays: 30,
+        maxFiles: 50,
+        maxStorageMB: 1,
+      });
+      mockFs.readFile.mockResolvedValue(
+        JSON.stringify(
+          createManifest({
+            [only]: { documentId: only, savedAt: now - 1000, fileName: 'large.mdx' },
+          })
+        )
+      );
+      mockFs.stat.mockResolvedValue({ size: 2_000_000 });
+
+      await service.runRetentionCleanup();
+
+      expect(mockFs.unlink).not.toHaveBeenCalled();
+    });
+
     it('should delete files older than retention period', async () => {
       const oldDocId = '123e4567-e89b-12d3-a456-426614174001';
       const newDocId = '123e4567-e89b-12d3-a456-426614174002';
