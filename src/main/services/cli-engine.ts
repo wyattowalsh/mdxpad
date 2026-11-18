@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import type { ExportCliInvokeRequest } from '@shared/contracts/export-schemas';
+import { LatexExportOptionsSchema } from '@shared/contracts/export-format-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import type { ExportCliEvent, ExportCliOutput } from '@shared/types/export-model';
 import {
@@ -263,6 +264,24 @@ async function writeRichPdfExport(
   return [...built.warnings, 'PDF print was unavailable, so a text PDF was written.'];
 }
 
+function latexPresetMetadata(options: unknown): Record<string, unknown> | undefined {
+  const parsed = LatexExportOptionsSchema.safeParse(options);
+  if (!parsed.success) {
+    return undefined;
+  }
+  const metadata: Record<string, unknown> = {};
+  if (parsed.data.documentClass !== undefined) {
+    metadata.documentClass = parsed.data.documentClass;
+  }
+  if (parsed.data.fontSize !== undefined) {
+    metadata.fontSize = parsed.data.fontSize;
+  }
+  if (parsed.data.packages !== undefined) {
+    metadata.packages = parsed.data.packages;
+  }
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
 async function writeBuiltInExportArtifact(
   request: ExportCliInvokeRequest,
   sourceContent: string
@@ -277,11 +296,14 @@ async function writeBuiltInExportArtifact(
     default: {
       const exporter = getExporter(request.job.format);
       if (exporter) {
+        const metadata =
+          request.job.format === 'latex' ? latexPresetMetadata(request.job.preset.options) : undefined;
         const result = await exporter.export({
           content: sourceContent,
           outputPath: request.job.targetPath,
           title: request.job.preset.name,
           sourcePath: request.job.sourcePath,
+          ...(metadata ? { metadata } : {}),
         });
         if (!result.ok) {
           throw new Error(result.error ?? `Could not export ${request.job.format}`);

@@ -48,6 +48,24 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\section{');
   });
 
+  it('uses the requested document class, font size, and packages', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Hello',
+      outputPath: '/tmp/class.tex',
+      metadata: {
+        documentClass: 'report',
+        fontSize: '12pt',
+        packages: ['booktabs', 'graphicx}\\input{secret'],
+      },
+    });
+
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\documentclass[12pt]{report}');
+    expect(written).toContain('\\usepackage{booktabs}');
+    expect(written).not.toContain('input{secret}');
+  });
+
   it('converts headings to correct LaTeX commands', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {

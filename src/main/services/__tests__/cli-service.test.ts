@@ -220,6 +220,48 @@ describe('invokeExportCli', () => {
     }
   });
 
+  it('writes the LaTeX class and packages from the preset', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-latex-class-'));
+    try {
+      const sourcePath = path.join(tempDir, 'source.mdx');
+      const targetPath = path.join(tempDir, 'output.tex');
+      await writeFile(sourcePath, 'Hello', 'utf-8');
+      grantReadCapability(sourcePath);
+
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          job: {
+            ...createTestRequest().job,
+            sourcePath,
+            targetPath,
+            format: 'latex',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-000000000012',
+              name: 'LaTeX',
+              format: 'latex',
+              options: {
+                documentClass: 'book',
+                fontSize: '10pt',
+                packages: ['booktabs'],
+              },
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(true);
+      const artifact = await readFile(targetPath, 'utf-8');
+      expect(artifact).toContain('\\documentclass[10pt]{book}');
+      expect(artifact).toContain('\\usepackage{booktabs}');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it('runs built-in LaTeX export through the format writer', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-latex-export-'));
     try {

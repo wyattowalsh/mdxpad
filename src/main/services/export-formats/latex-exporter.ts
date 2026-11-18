@@ -1183,12 +1183,49 @@ function contentToLatex(content: string): string {
   return build.output.join('\n');
 }
 
+const LATEX_CLASSES = new Set(['article', 'report', 'book', 'letter']);
+const LATEX_SIZES = new Set(['10pt', '11pt', '12pt']);
+const LATEX_PACKAGE = /^[A-Za-z][A-Za-z0-9-]*$/;
+const BUILTIN_LATEX_PACKAGES = new Set([
+  'inputenc',
+  'fontenc',
+  'hyperref',
+  'amsmath',
+  'amssymb',
+  'graphicx',
+  'ulem',
+]);
+
+function latexChoice(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+  allowed: ReadonlySet<string>,
+  fallback: string
+): string {
+  const value = metadata?.[key];
+  return typeof value === 'string' && allowed.has(value) ? value : fallback;
+}
+
+function extraLatexPackages(metadata: Record<string, unknown> | undefined): string[] {
+  const value = metadata?.packages;
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (item): item is string =>
+      typeof item === 'string' && LATEX_PACKAGE.test(item) && !BUILTIN_LATEX_PACKAGES.has(item)
+  );
+}
+
 function buildLatexDocument(content: string, options: ExportOptions): string {
   const title = options.title ?? 'Untitled';
   const author = options.author ?? '';
+  const metadata = options.metadata;
+  const documentClass = latexChoice(metadata, 'documentClass', LATEX_CLASSES, 'article');
+  const fontSize = latexChoice(metadata, 'fontSize', LATEX_SIZES, '11pt');
 
   const preamble = [
-    '\\documentclass[11pt]{article}',
+    `\\documentclass[${fontSize}]{${documentClass}}`,
     '\\usepackage[utf8]{inputenc}',
     '\\usepackage[T1]{fontenc}',
     '\\usepackage{hyperref}',
@@ -1196,6 +1233,7 @@ function buildLatexDocument(content: string, options: ExportOptions): string {
     '\\usepackage{amssymb}',
     '\\usepackage{graphicx}',
     '\\usepackage[normalem]{ulem}',
+    ...extraLatexPackages(metadata).map((name) => `\\usepackage{${name}}`),
     '',
     `\\title{${escapeLatex(title)}}`,
     `\\author{${escapeLatex(author)}}`,
