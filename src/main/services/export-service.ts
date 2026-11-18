@@ -2,6 +2,7 @@ import * as path from 'node:path';
 
 import { CODE_HIGHLIGHT_CSS } from './export-formats/markdown-code';
 import { LIST_MARKER_CSS } from './export-formats/markdown-list';
+import { inlineLocalImages } from './export-formats/export-image';
 import { markdownToPdfHtml } from './export-formats/pdf-exporter';
 
 import type {
@@ -210,6 +211,17 @@ export function getDefaultExportPath(
   const directory = path.dirname(sourcePath);
   const filename = path.basename(sourcePath, path.extname(sourcePath)) || 'untitled';
   return path.join(directory, `${filename}.${extension}`);
+}
+
+export async function contentForExport(
+  content: string,
+  format: ExportFormat,
+  sourcePath?: string | null
+): Promise<string> {
+  if (format !== 'html' || !sourcePath) {
+    return content;
+  }
+  return inlineLocalImages(content, sourcePath, 'document');
 }
 
 export function serializeForExport(

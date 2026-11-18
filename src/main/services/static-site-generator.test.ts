@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -116,5 +116,56 @@ describe('StaticSiteGenerator', () => {
     const index = await readFile(path.join(output, 'index.html'), 'utf-8');
     expect(index).toContain('hello-world-2.html');
     expect(index).toContain('page.html');
+  });
+
+  it('copies local images beside the published page', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-out-'));
+    tempDirs.push(root, outside);
+    const source = path.join(root, 'note.md');
+    const output = path.join(root, 'out');
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    await mkdir(path.join(root, 'images'));
+    await writeFile(path.join(root, 'pixel.png'), png);
+    await writeFile(path.join(root, 'images', 'nested.png'), png);
+    await writeFile(path.join(root, 'hidden.png'), png);
+    await writeFile(path.join(outside, 'secret.png'), png);
+    const outsideName = path.basename(outside);
+    await writeFile(
+      source,
+      [
+        '![Pixel][pic]',
+        '',
+        '[pic]: pixel.png',
+        '',
+        '![Nested](images/nested.png)',
+        '',
+        '```',
+        '![Hidden](hidden.png)',
+        '```',
+        '',
+        `![Out](../${outsideName}/secret.png)`,
+      ].join('\n')
+    );
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: source, title: 'Note' }],
+      outputDir: output,
+      includeStyles: false,
+      includeHighlighting: false,
+      generateIndex: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(await readFile(path.join(output, 'pixel.png'))).toEqual(png);
+    expect(await readFile(path.join(output, 'images', 'nested.png'))).toEqual(png);
+    await expect(readFile(path.join(output, 'hidden.png'))).rejects.toThrow();
+    await expect(readFile(path.join(output, 'secret.png'))).rejects.toThrow();
+    const html = await readFile(path.join(output, 'note.html'), 'utf-8');
+    expect(html).toContain('src="pixel.png"');
+    expect(html).toContain('src="images/nested.png"');
   });
 });

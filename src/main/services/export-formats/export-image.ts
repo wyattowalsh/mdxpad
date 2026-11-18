@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readStaysInsideDirectory } from '@main/ipc/read-scope';
@@ -52,9 +52,21 @@ export function imagePixels(data: Buffer, kind: ImageKind): { width: number; hei
   return { width: 480, height: 320 };
 }
 
+function localDestination(destination: string): string | null {
+  const address = linkDestination(destination);
+  if (isRemote(address) || address.length === 0 || address.startsWith('//')) {
+    return null;
+  }
+  try {
+    return decodeURI(address);
+  } catch {
+    return address;
+  }
+}
+
 function localPath(directory: string, destination: string): string | null {
-  const raw = linkDestination(destination);
-  if (isRemote(raw) || raw.length === 0) {
+  const raw = localDestination(destination);
+  if (raw === null) {
     return null;
   }
   const resolved = path.resolve(directory, raw);
@@ -128,6 +140,12 @@ function destinationsOutsideFences(content: string): string[] {
         found.push(destination);
       }
     }
+    for (const match of line.matchAll(/<img\b[^>]*\bsrc=(?:"([^"]+)"|'([^']+)')/gi)) {
+      const destination = match[1] ?? match[2];
+      if (destination) {
+        found.push(destination);
+      }
+    }
   }
   return found;
 }
@@ -143,10 +161,18 @@ function replaceOutsideFences(content: string, replacements: ReadonlyMap<string,
       if (fence || boundary) {
         return line;
       }
-      return line.replace(IMAGE, (full, alt: string, destination: string) => {
+      const images = line.replace(IMAGE, (full, alt: string, destination: string) => {
         const replacement = replacements.get(destination);
         return replacement ? `![${alt}](${replacement})` : full;
       });
+      return images.replace(
+        /<img\b[^>]*\bsrc=(?:"([^"]+)"|'([^']+)')/gi,
+        (full, doubleQuoted: string | undefined, singleQuoted: string | undefined) => {
+          const destination = doubleQuoted ?? singleQuoted ?? '';
+          const replacement = replacements.get(destination);
+          return replacement ? full.replace(destination, replacement) : full;
+        }
+      );
     })
     .join('\n');
 }
@@ -170,4 +196,57 @@ export async function inlineLocalImages(
     }
   }
   return replacements.size === 0 ? content : replaceOutsideFences(expanded, replacements);
+}
+
+function publishedTarget(outputDir: string, sourceDir: string, filePath: string): string | null {
+  const relative = path.relative(sourceDir, filePath);
+  if (
+    relative.length === 0 ||
+    relative === '.' ||
+    relative.startsWith('..') ||
+    path.isAbsolute(relative)
+  ) {
+    return null;
+  }
+  const target = path.resolve(outputDir, relative);
+  const fromRoot = path.relative(path.resolve(outputDir), target);
+  if (fromRoot.length === 0 || fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
+    return null;
+  }
+  return target;
+}
+
+async function copyOnePublishedImage(
+  resolved: string,
+  outputDir: string,
+  sourceDir: string
+): Promise<void> {
+  const target = publishedTarget(outputDir, sourceDir, resolved);
+  if (!target) {
+    return;
+  }
+  const info = await stat(resolved);
+  if (!info.isFile() || info.size > MAX_IMAGE_BYTES) {
+    return;
+  }
+  await mkdir(path.dirname(target), { recursive: true });
+  await copyFile(resolved, target);
+}
+
+/** Copy local images next to a published page. Paths outside the source folder stay put. */
+export async function copyPublishedImages(
+  content: string,
+  sourcePath: string,
+  outputDir: string
+): Promise<void> {
+  const sourceDir = path.dirname(sourcePath);
+  const seen = new Set<string>();
+  for (const destination of destinationsOutsideFences(expandImageReferences(content))) {
+    const resolved = localPath(sourceDir, destination);
+    if (!resolved || seen.has(resolved)) {
+      continue;
+    }
+    seen.add(resolved);
+    await copyOnePublishedImage(resolved, outputDir, sourceDir).catch(() => undefined);
+  }
 }

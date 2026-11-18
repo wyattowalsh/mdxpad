@@ -12,6 +12,7 @@ import type {
   PublishProgress,
   PublishResult,
 } from '@shared/contracts/share-schemas';
+import { copyPublishedImages } from './export-formats/export-image';
 import { LIST_MARKER_CSS } from './export-formats/markdown-list';
 import { mermaidModuleScript, renderMarkdownExportBody } from './export-service';
 
@@ -126,6 +127,7 @@ export class StaticSiteGenerator {
 
       try {
         const content = await readFile(fileEntry.path, 'utf-8');
+        await copyPublishedImages(content, fileEntry.path, config.outputDir);
         const title = fileEntry.title ?? this.extractTitle(content, fileEntry.path);
         const slug = this.createSlug(fileEntry.path, usedSlugs);
         const htmlContent = this.convertToHtml(

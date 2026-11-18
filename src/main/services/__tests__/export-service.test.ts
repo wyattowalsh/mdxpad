@@ -1,6 +1,14 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 
-import { EXPORT_SUPPORT_MATRIX, getDefaultExportPath, serializeForExport } from '../export-service';
+import {
+  EXPORT_SUPPORT_MATRIX,
+  contentForExport,
+  getDefaultExportPath,
+  serializeForExport,
+} from '../export-service';
 
 describe('EXPORT_SUPPORT_MATRIX', () => {
   it('marks html, markdown, mdx, pdf, and docx as supported', () => {
@@ -89,6 +97,24 @@ describe('serializeForExport', () => {
     if (result.ok) {
       expect(result.content).toContain('class="mermaid"');
       expect(result.content).toContain('cdn.jsdelivr.net/npm/mermaid');
+    }
+  });
+
+  it('embeds a local image in an HTML file export', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-html-image-'));
+    const source = path.join(root, 'note.md');
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    await writeFile(path.join(root, 'pixel.png'), png);
+    const prepared = await contentForExport('![Pixel](pixel.png)', 'html', source);
+    const result = serializeForExport(prepared, 'html');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.content).toContain('src="data:image/png;base64,');
+      expect(result.content).not.toContain('src="pixel.png"');
     }
   });
 });

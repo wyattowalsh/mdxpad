@@ -39,6 +39,7 @@ import {
 import { addToRecentFiles } from '@main/menu';
 import {
   EXPORT_SUPPORT_MATRIX,
+  contentForExport,
   getDefaultExportPath,
   serializeForExport,
 } from '@main/services/export-service';
@@ -393,7 +394,10 @@ const handleFileExport = createValidatedHandler(
     const binaryExporter = BINARY_EXPORT_FORMATS.has(selectedFormat)
       ? getExporter(selectedFormat)
       : undefined;
-    const serialized = binaryExporter ? null : serializeForExport(args.content, selectedFormat);
+    const exportContent = binaryExporter
+      ? args.content
+      : await contentForExport(args.content, selectedFormat, args.sourcePath);
+    const serialized = binaryExporter ? null : serializeForExport(exportContent, selectedFormat);
     if (serialized && !serialized.ok) {
       return { ok: false, error: serialized.error, support };
     }

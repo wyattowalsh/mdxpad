@@ -40,6 +40,20 @@ describe('inlineLocalImages', () => {
     expect(markdownToPdfHtml(inlined)).toContain('<img src="data:image/png;base64,');
   });
 
+  it('embeds an image whose file name contains a space', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-space-'));
+    const source = path.join(root, 'note.md');
+    await writeFile(path.join(root, 'my photo.png'), PNG);
+    const inlined = await inlineLocalImages(
+      '![Alt](<my photo.png>)\n\n<img src="my photo.png">',
+      source,
+      'data-url'
+    );
+
+    expect(inlined).toContain('![Alt](data:image/png;base64,');
+    expect(inlined).toContain('<img src="data:image/png;base64,');
+  });
+
   it('embeds a WebP and an SVG in a document and leaves them for Word', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-web-'));
     const source = path.join(root, 'note.md');
