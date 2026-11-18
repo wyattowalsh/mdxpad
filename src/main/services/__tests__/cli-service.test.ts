@@ -200,6 +200,9 @@ describe('invokeExportCli', () => {
         expect(extracted.stdout).toContain('word/media/');
         expect(extracted.stdout).toContain('DOCX Heading');
         expect(extracted.stdout).toContain('Body text');
+        expect(extracted.stdout).toContain('Table of Contents');
+        expect(extracted.stdout).toContain('w:val="Heading2"');
+        expect(extracted.stdout).toContain('w:val="Heading3"');
         expect(
           response.output.events.some((event) =>
             event.message.includes('Image embedding is not available')
@@ -207,7 +210,10 @@ describe('invokeExportCli', () => {
         ).toBe(false);
         expect(
           response.output.events.some((event) => event.message.includes('table of contents'))
-        ).toBe(true);
+        ).toBe(false);
+        expect(
+          response.output.events.some((event) => event.message.includes('heading levels'))
+        ).toBe(false);
       }
     } finally {
       await rm(tempDir, { recursive: true, force: true });

@@ -1,3 +1,9 @@
+import {
+  docxHeadingBase,
+  docxTocEntries,
+  docxWantsToc,
+  shiftDocxHeadings,
+} from './docx-heading-options';
 import { writeRegularFile } from './write-regular-file';
 
 import {
@@ -1353,6 +1359,24 @@ function emptyDocxParse(): DocxParse {
   };
 }
 
+function docxTocParagraphs(content: string): Paragraph[] {
+  return [
+    new Paragraph({ children: [new TextRun({ text: 'Table of Contents', bold: true })] }),
+    ...docxTocEntries(content).map(
+      (entry) => new Paragraph({ children: [new TextRun({ text: entry })] })
+    ),
+  ];
+}
+
+function docxParagraphs(
+  content: string,
+  metadata: Record<string, unknown> | undefined
+): (Paragraph | Table)[] {
+  const shifted = shiftDocxHeadings(content, docxHeadingBase(metadata));
+  const body = parseContentToParagraphs(shifted);
+  return docxWantsToc(metadata) ? [...docxTocParagraphs(shifted), ...body] : body;
+}
+
 function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const parse = emptyDocxParse();
   let fence: string | null = null;
@@ -1405,7 +1429,7 @@ export class DocxExporter implements Exporter {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
       const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
-      const paragraphs = parseContentToParagraphs(content);
+      const paragraphs = docxParagraphs(content, options.metadata);
 
       const doc = new Document({
         creator: author,

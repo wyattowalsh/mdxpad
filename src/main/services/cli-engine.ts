@@ -196,24 +196,25 @@ async function writeRichDocxExport(
     throw new Error('Could not export docx');
   }
   const author = parsedOptions.data.author;
+  const metadata: Record<string, unknown> = {};
+  if (parsedOptions.data.headingBaseLevel !== undefined) {
+    metadata.headingBaseLevel = parsedOptions.data.headingBaseLevel;
+  }
+  if (parsedOptions.data.includeToc === true) {
+    metadata.includeToc = true;
+  }
   const result = await exporter.export({
     content: sourceContent,
     outputPath: request.job.targetPath,
     title: parsedOptions.data.title ?? request.job.preset.name,
     sourcePath: request.job.sourcePath,
     ...(author ? { author } : {}),
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
   });
   if (!result.ok) {
     throw new Error(result.error ?? 'Could not export docx');
   }
-  const warnings = [...result.warnings];
-  if (parsedOptions.data.includeToc) {
-    warnings.push('Word export does not include a table of contents.');
-  }
-  if ((parsedOptions.data.headingBaseLevel ?? 1) !== 1) {
-    warnings.push('Word export keeps the heading levels written in the document.');
-  }
-  return warnings;
+  return [...result.warnings];
 }
 
 async function printPdfExport(
