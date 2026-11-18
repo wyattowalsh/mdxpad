@@ -385,7 +385,8 @@ describe('EpubExporter', () => {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('th, td { text-align: left; }');
+    expect(html).toContain('border: 1px solid #d1d5db');
+    expect(html).toContain('text-align: left');
     expect(html).toContain('<th>Name</th>');
     expect(html).toContain('<td>A</td>');
   });

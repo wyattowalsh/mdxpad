@@ -70,7 +70,8 @@ describe('serializeForExport', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.content).toContain('th, td { text-align: left; }');
+      expect(result.content).toContain('border: 1px solid #d1d5db');
+      expect(result.content).toContain('text-align: left');
       expect(result.content).toContain('<h1 id="title">Title</h1>');
       expect(result.content).toContain('<strong>there</strong>');
       expect(result.content).not.toContain('mdxpad-export-source');

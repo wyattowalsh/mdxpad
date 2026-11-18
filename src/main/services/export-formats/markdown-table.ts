@@ -156,8 +156,9 @@ export function parseMarkdownTable(lines: readonly string[]): MarkdownTable | nu
   return { headers: header, aligns, rows };
 }
 
-/** Browsers center `th`. Left is the table default, so every HTML surface sets it. */
-export const TABLE_CELL_CSS = 'th, td { text-align: left; }';
+/** Browsers center `th` and draw no cell borders. Every HTML surface sets both. */
+export const TABLE_CELL_CSS =
+  'table { border-collapse: collapse; } th, td { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; text-align: left; }';
 
 export function markdownTableToHtml(
   table: MarkdownTable,
