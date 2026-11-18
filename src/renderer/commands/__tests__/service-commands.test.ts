@@ -89,6 +89,39 @@ describe('git status', () => {
   });
 });
 
+describe('git diff', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+    useTabStore.getState().reset();
+  });
+
+  it('mentions unsaved editor files when the disk diff is empty', async () => {
+    useDocumentStore.setState({
+      filePath: '/notes/readme.md',
+      content: 'draft',
+      isDirty: true,
+    });
+    const diff = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { diff: '', filesChanged: 0 },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'draft', isDirty: true },
+      api: { git: { diff } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.diff');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(diff).toHaveBeenCalledWith('/notes');
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Git diff: no unstaged changes. Unsaved in the editor: readme.md',
+    });
+  });
+});
+
 describe('git log and diff', () => {
   it('summarizes the latest commits and an empty diff', () => {
     expect(

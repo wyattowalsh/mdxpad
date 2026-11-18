@@ -186,6 +186,18 @@ function unsavedEditorFiles(directory: string): readonly string[] {
   return [...names];
 }
 
+function gitDiffMessage(
+  directory: string,
+  diff: Parameters<typeof summarizeGitDiff>[0]
+): string {
+  const unsaved = unsavedEditorFiles(directory);
+  const disk = summarizeGitDiff(diff);
+  if (unsaved.length === 0) {
+    return disk;
+  }
+  return `${disk}. Unsaved in the editor: ${unsaved.join(', ')}`;
+}
+
 function gitStatusMessage(
   directory: string,
   status: Parameters<typeof summarizeGitStatus>[0]
@@ -305,7 +317,7 @@ const gitDiffCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    ctx.notify({ type: 'info', message: summarizeGitDiff(result.value) });
+    ctx.notify({ type: 'info', message: gitDiffMessage(dir, result.value) });
     return { ok: true };
   },
 };
