@@ -16,6 +16,24 @@ describe('source picture paste', () => {
     }
   });
 
+  it('puts a picture after a code fence', async () => {
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '```\ncode\n```\n',
+        extensions: [sourceImagePasteExtension()],
+      }),
+    });
+    views.push(view);
+    const inside = view.state.doc.line(2).from;
+    view.dispatch({ selection: { anchor: inside } });
+    const bytes = Uint8Array.from(atob(PIXEL), (char) => char.charCodeAt(0));
+    const file = new File([bytes], 'pixel.png', { type: 'image/png' });
+    expect(await insertSourceImage(view, file)).toBe(true);
+    const saved = view.state.doc.toString();
+    expect(saved).toContain('```\ncode\n```');
+    expect(saved.indexOf('```')).toBeLessThan(saved.indexOf('![pixel]'));
+  });
+
   it('inserts a pasted picture as Markdown', async () => {
     const view = new EditorView({
       state: EditorState.create({

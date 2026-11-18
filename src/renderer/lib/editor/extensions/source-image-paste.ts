@@ -7,6 +7,31 @@ function imageMarkdown(alt: string, src: string): string {
   return `![${safe}](${src})`;
 }
 
+function positionAfterFence(doc: EditorView['state']['doc'], pos: number): number | null {
+  const cursorLine = doc.lineAt(pos).number;
+  let marker = '';
+  let openAt = 0;
+  for (let number = cursorLine; number >= 1; number -= 1) {
+    const match = /^(```+|~~~+)/.exec(doc.line(number).text);
+    if (!match?.[1]) {
+      continue;
+    }
+    openAt = number;
+    marker = match[1];
+    break;
+  }
+  if (openAt === 0) {
+    return null;
+  }
+  for (let number = openAt + 1; number <= doc.lines; number += 1) {
+    const line = doc.line(number);
+    if (line.text.startsWith(marker) && pos <= line.to) {
+      return line.to;
+    }
+  }
+  return null;
+}
+
 /** Insert a picture's Markdown at the source caret. */
 export async function insertSourceImage(view: EditorView, file: File): Promise<boolean> {
   const picture = await readClipboardImage(file);
@@ -14,10 +39,14 @@ export async function insertSourceImage(view: EditorView, file: File): Promise<b
     return false;
   }
   const selection = view.state.selection.main;
+  const afterFence = positionAfterFence(view.state.doc, selection.from);
   const markdown = imageMarkdown(picture.alt, picture.src);
+  const insert = afterFence === null ? markdown : `\n${markdown}`;
+  const from = afterFence ?? selection.from;
+  const to = afterFence ?? selection.to;
   view.dispatch({
-    changes: { from: selection.from, to: selection.to, insert: markdown },
-    selection: { anchor: selection.from + markdown.length },
+    changes: { from, to, insert },
+    selection: { anchor: from + insert.length },
   });
   view.focus();
   return true;

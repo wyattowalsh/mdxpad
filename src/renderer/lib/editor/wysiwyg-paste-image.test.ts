@@ -3,6 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { parseMdxContent } from './prosemirror-mdx-parser';
+import { serializeMdxContent } from './prosemirror-mdx-serializer';
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { insertPastedImage } from './wysiwyg-paste-image';
 
@@ -27,6 +28,24 @@ describe('pasted pictures', () => {
     for (const view of views.splice(0)) {
       view.destroy();
     }
+  });
+
+  it('puts a picture after a code block and keeps the code inside', async () => {
+    const doc = parseMdxContent('```\ncode\n```\n');
+    if (!doc) {
+      throw new Error('markdown did not parse');
+    }
+    const host = document.createElement('div');
+    const view = new EditorView(host, {
+      state: EditorState.create({ doc, schema: mdxSchema }),
+    });
+    views.push(view);
+    const bytes = Uint8Array.from(atob(PIXEL), (char) => char.charCodeAt(0));
+    const file = new File([bytes], 'pixel.png', { type: 'image/png' });
+    expect(await insertPastedImage(view, file)).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved).toContain('```\ncode\n```');
+    expect(saved.indexOf('```')).toBeLessThan(saved.indexOf('![pixel]'));
   });
 
   it('inserts a pasted picture at the caret', async () => {
