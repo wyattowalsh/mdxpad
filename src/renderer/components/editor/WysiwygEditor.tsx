@@ -29,6 +29,7 @@ import { cn } from '@shared/lib/utils';
 import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
+import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
 import { TaskListItemView } from '../../lib/editor/prosemirror-task-item';
 
 // =============================================================================
@@ -150,6 +151,8 @@ function useEditorView(
       nodeViews: {
         image: (node) => new WysiwygImageView(node),
         list_item: (node, view, getPos) => new TaskListItemView(node, view, getPos),
+        footnote_ref: (node, view) => new FootnoteJumpView(node, view, 'footnote_label'),
+        footnote_label: (node, view) => new FootnoteJumpView(node, view, 'footnote_ref'),
       },
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);

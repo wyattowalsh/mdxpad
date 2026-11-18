@@ -1,5 +1,7 @@
-import { Fragment, type Node as ProseMirrorNode, type NodeSpec } from 'prosemirror-model';
 import type { MarkdownSerializerState } from 'prosemirror-markdown';
+import { Fragment, type Node as ProseMirrorNode, type NodeSpec } from 'prosemirror-model';
+import { TextSelection } from 'prosemirror-state';
+import type { EditorView, NodeView } from 'prosemirror-view';
 
 const DEFINITION = /\[\^([^\]]+)\]:/g;
 const REFERENCE = /\[\^([^\]]+)\](?!:)/g;
@@ -194,4 +196,66 @@ function mapLabels(node: ProseMirrorNode): ProseMirrorNode {
 /** Show the `[^id]:` in front of a note as the note's superscript. */
 export function liftFootnoteLabels(doc: ProseMirrorNode): ProseMirrorNode {
   return mapLabels(doc);
+}
+
+function footnotePosition(
+  doc: ProseMirrorNode,
+  typeName: 'footnote_ref' | 'footnote_label',
+  id: string
+): number | null {
+  let found: number | null = null;
+  doc.descendants((node, pos) => {
+    if (found === null && node.type.name === typeName && footnoteId(node) === id) {
+      found = pos;
+    }
+    return found === null;
+  });
+  return found;
+}
+
+/** Superscript that moves the caret between a footnote and its note. */
+export class FootnoteJumpView implements NodeView {
+  readonly dom: HTMLElement;
+  private node: ProseMirrorNode;
+
+  constructor(
+    node: ProseMirrorNode,
+    private readonly view: EditorView,
+    private readonly target: 'footnote_ref' | 'footnote_label'
+  ) {
+    this.node = node;
+    this.dom = document.createElement('sup');
+    this.dom.className = node.type.name === 'footnote_label' ? 'footnote-label' : 'footnote-ref';
+    this.dom.dataset.id = footnoteId(node);
+    this.dom.textContent = footnoteId(node);
+    this.dom.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      this.jump();
+    });
+  }
+
+  update(node: ProseMirrorNode): boolean {
+    if (node.type !== this.node.type) {
+      return false;
+    }
+    this.node = node;
+    this.dom.dataset.id = footnoteId(node);
+    this.dom.textContent = footnoteId(node);
+    return true;
+  }
+
+  stopEvent(event: Event): boolean {
+    return event.type === 'mousedown' || event.type === 'click';
+  }
+
+  private jump(): void {
+    const pos = footnotePosition(this.view.state.doc, this.target, footnoteId(this.node));
+    const target = pos === null ? null : this.view.state.doc.nodeAt(pos);
+    if (pos === null || !target) {
+      return;
+    }
+    const selection = TextSelection.near(this.view.state.doc.resolve(pos + target.nodeSize));
+    this.view.dispatch(this.view.state.tr.setSelection(selection).scrollIntoView());
+    this.view.focus();
+  }
 }

@@ -1,9 +1,41 @@
-import { describe, expect, it } from 'vitest';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { afterEach, describe, expect, it } from 'vitest';
 
+import { FootnoteJumpView } from './prosemirror-footnote-ref';
 import { parseMdxContent } from './prosemirror-mdx-parser';
+import { mdxSchema } from './prosemirror-mdx-schema';
 import { serializeMdxContent } from './prosemirror-mdx-serializer';
 
 describe('visual footnote reference', () => {
+  const views: EditorView[] = [];
+
+  afterEach(() => {
+    for (const view of views.splice(0)) {
+      view.destroy();
+    }
+  });
+
+  it('moves the caret to the note when the superscript is clicked', () => {
+    const doc = parseMdxContent('A footnote[^1].\n\n[^1]: The note\n');
+    if (!doc) {
+      throw new Error('footnote markdown did not parse');
+    }
+    const host = document.createElement('div');
+    const view = new EditorView(host, {
+      state: EditorState.create({ doc, schema: mdxSchema }),
+      nodeViews: {
+        footnote_ref: (node, editor) => new FootnoteJumpView(node, editor, 'footnote_label'),
+        footnote_label: (node, editor) => new FootnoteJumpView(node, editor, 'footnote_ref'),
+      },
+    });
+    views.push(view);
+    host
+      .querySelector('sup.footnote-ref')
+      ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(view.state.selection.$from.parent.textContent).toContain('The note');
+  });
+
   it('shows a defined marker as a superscript and saves the marker', () => {
     const doc = parseMdxContent('A footnote[^1].\n\n[^1]: The note\n');
     if (!doc) {
