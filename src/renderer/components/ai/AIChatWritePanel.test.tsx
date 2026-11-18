@@ -11,6 +11,7 @@ import type { AISession } from '@shared/types/root';
 import type { WorkspaceModel } from '@shared/types/workspace';
 import { useAIProviderStore } from '@renderer/features/ai-provider/store';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import {
   useAISessionStore,
   type LoadAttachmentOptions,
@@ -119,6 +120,7 @@ function readPrompt(startStream: { mock: { calls: unknown[][] } }): string {
 }
 
 function resetPanelStores(): void {
+  registerLiveSourceText(null);
   useAISessionStore.getState().reset();
   useAISessionStore.setState({
     loadSessions: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -302,6 +304,34 @@ describe('AIChatWritePanel', () => {
       )
     );
     expect(prompt).not.toContain('## Instruction');
+  });
+
+  it('sends keystrokes that are still only in the editor', () => {
+    const session = createSession();
+    const startStream = vi
+      .fn<(request: StartStreamRequest) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    useDocumentStore.setState({
+      filePath: '/notes/draft.mdx',
+      content: 'Hello',
+    });
+    registerLiveSourceText(() => 'Hello!');
+    useAISessionStore.setState({
+      selectedSessionId: session.id,
+      selectedSession: session,
+      startStream,
+    });
+
+    render(<AIChatWritePanel />);
+    fireEvent.change(screen.getByTestId('ai-write-action-select'), {
+      target: { value: 'continue' },
+    });
+    fireEvent.change(screen.getByTestId('ai-write-input'), {
+      target: { value: 'Add a closing line.' },
+    });
+    fireEvent.click(screen.getByTestId('ai-run-action-button'));
+
+    expect(readPrompt(startStream)).toContain('Hello!');
   });
 
   it('includes an empty document in the write prompt', () => {

@@ -21,6 +21,7 @@ import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import { editorDocumentKey } from '@renderer/lib/editor-document-key';
 import { selectFeatureFlag, useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
 import { selectFilePath, useDocumentStore } from '@renderer/stores/document-store';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import { selectWorkspaceModel, useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { selectActiveProvider, useAIProviderStore } from '@renderer/features/ai-provider/store';
 import {
@@ -220,11 +221,12 @@ export function AIChatWritePanel({
       }
 
       const document = useDocumentStore.getState();
+      const body = liveSourceText() ?? document.content;
       await startStream({
         prompt: buildWritePrompt(
           actionText,
           document.filePath ?? 'Untitled',
-          document.content,
+          body,
           instruction
         ),
       });
@@ -392,7 +394,8 @@ export function AIChatWritePanel({
               data-testid="ai-insert-result-button"
               onClick={() => {
                 const document = useDocumentStore.getState();
-                document.setContent(documentAfterWrite(writeAction, document.content, streamText));
+                const body = liveSourceText() ?? document.content;
+                document.setContent(documentAfterWrite(writeAction, body, streamText));
               }}
             >
               {writeAction === 'rewrite' ? 'Replace document' : 'Insert into document'}
