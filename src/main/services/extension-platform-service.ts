@@ -26,7 +26,9 @@ const HIGH_RISK_CAPABILITIES = new Set([
   'network.request',
 ]);
 
-const EMPTY_REGISTRY: ExtensionRegistry = { extensions: [] };
+function freshRegistry(): ExtensionRegistry {
+  return { extensions: [] };
+}
 
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'extensions-platform');
@@ -36,13 +38,18 @@ async function ensureDirectory(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+async function readRegistryFile(filePath: string): Promise<ExtensionRegistry> {
   try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink() || !info.isFile()) {
+      return freshRegistry();
+    }
     const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as T;
+    const parsed = JSON.parse(content) as Partial<ExtensionRegistry>;
+    return { extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [] };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return fallback;
+      return freshRegistry();
     }
     throw error;
   }
@@ -96,7 +103,7 @@ export class ExtensionPlatformService {
 
   private async readRegistry(): Promise<ExtensionRegistry> {
     await ensureDirectory(this.baseDir);
-    return readJsonFile(this.getRegistryPath(), EMPTY_REGISTRY);
+    return readRegistryFile(this.getRegistryPath());
   }
 
   private async writeRegistry(registry: ExtensionRegistry): Promise<void> {
