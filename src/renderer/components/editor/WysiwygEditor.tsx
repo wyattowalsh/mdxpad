@@ -41,6 +41,7 @@ import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block'
 import { insertHardBreak } from '../../lib/editor/wysiwyg-break';
 import { wysiwygInputRules } from '../../lib/editor/wysiwyg-input-rules';
 import { markdownForSlice } from '../../lib/editor/wysiwyg-copy';
+import { clipboardImage, insertPastedImage } from '../../lib/editor/wysiwyg-paste-image';
 import { pastePlainText } from '../../lib/editor/wysiwyg-paste';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
@@ -184,6 +185,12 @@ function useEditorView(
         return markdownForSlice(state.schema, slice);
       },
       handlePaste(editorView, event) {
+        const image = clipboardImage(event.clipboardData);
+        if (image) {
+          event.preventDefault();
+          void insertPastedImage(editorView, image);
+          return true;
+        }
         const data = event.clipboardData;
         const handled = pastePlainText(
           editorView,
@@ -194,6 +201,18 @@ function useEditorView(
           event.preventDefault();
         }
         return handled;
+      },
+      handleDrop(editorView, event, _slice, moved) {
+        if (moved) {
+          return false;
+        }
+        const image = clipboardImage(event.dataTransfer);
+        if (!image) {
+          return false;
+        }
+        event.preventDefault();
+        void insertPastedImage(editorView, image);
+        return true;
       },
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);
