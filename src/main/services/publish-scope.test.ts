@@ -7,6 +7,7 @@ import { grantReadCapability } from '@main/ipc/document-capability';
 
 import {
   directoryWasChosen,
+  publishableFiles,
   publishScopeError,
   rememberChosenDirectory,
   resetChosenDirectories,
@@ -79,5 +80,26 @@ describe('publish scope', () => {
         generateIndex: false,
       })
     ).toContain('not an opened file');
+  });
+
+  it('allows editor text for a file that has not been opened', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-'));
+    tempDirs.push(root);
+    const output = path.join(root, 'out');
+    await mkdir(output);
+    rememberChosenDirectory(output);
+
+    expect(
+      publishScopeError({
+        files: [{ path: '/tmp/not-opened.md', title: 'Draft', content: '# Draft' }],
+        outputDir: output,
+        includeStyles: false,
+        includeHighlighting: false,
+        generateIndex: false,
+      })
+    ).toBeNull();
+    expect(publishableFiles([{ path: '/tmp/not-opened.md', content: '# Draft' }])).toEqual([
+      { path: 'not-opened.md', content: '# Draft' },
+    ]);
   });
 });

@@ -175,6 +175,25 @@ describe('StaticSiteGenerator', () => {
     expect(html).toContain('src="images/nested.png"');
   });
 
+  it('publishes an untitled document from the supplied text', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-untitled-'));
+    tempDirs.push(root);
+    const output = path.join(root, 'out');
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: 'Untitled.md', title: 'Untitled', content: '# Draft\n\n![x](pixel.png)\n' }],
+      outputDir: output,
+      includeStyles: false,
+      includeHighlighting: false,
+      generateIndex: false,
+    });
+
+    expect(result.success).toBe(true);
+    const html = await readFile(path.join(output, 'untitled.html'), 'utf-8');
+    expect(html).toContain('Draft');
+    await expect(readFile(path.join(output, 'pixel.png'))).rejects.toThrow();
+  });
+
   it('publishes the editor text instead of the copy on disk', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-live-'));
     tempDirs.push(root);

@@ -47,6 +47,34 @@ describe('PublishUtilityPanel', () => {
     expect(await screen.findByText('Generated 1 file(s)')).toBeTruthy();
   });
 
+  it('publishes an untitled document from the editor', async () => {
+    useDocumentStore.setState({ filePath: null, fileName: 'Untitled', content: '# Draft' });
+    const publish = vi.fn().mockResolvedValue({ success: true, filesGenerated: 1, errors: [] });
+    vi.stubGlobal('mdxpad', {
+      share: {
+        onPublishProgress: () => () => undefined,
+        chooseDirectory: vi.fn().mockResolvedValue({ canceled: false, path: '/tmp/site' }),
+        openDirectory: vi.fn(),
+        publish,
+      },
+    });
+
+    render(<PublishUtilityPanel />);
+    fireEvent.click(screen.getByText('Browse'));
+    await screen.findByText('/tmp/site');
+    fireEvent.click(screen.getByText('Publish 1 file'));
+
+    await waitFor(() => {
+      expect(publish).toHaveBeenCalledWith({
+        files: [{ path: 'Untitled.md', title: 'Untitled', content: '# Draft' }],
+        outputDir: '/tmp/site',
+        includeStyles: true,
+        includeHighlighting: true,
+        generateIndex: true,
+      });
+    });
+  });
+
   it('shows why publishing failed', async () => {
     useDocumentStore.setState({ filePath: '/docs/note.mdx', fileName: 'note.mdx' });
     vi.stubGlobal('mdxpad', {

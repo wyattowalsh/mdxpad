@@ -24,7 +24,9 @@ export function PublishUtilityPanel(): React.JSX.Element {
     return window.mdxpad.share.onPublishProgress(setProgress);
   }, []);
 
-  const files = filePath ? [{ path: filePath, name: fileName, selected: true }] : [];
+  const pageName = fileName.trim().length > 0 ? fileName : 'Untitled';
+  const pagePath = filePath ?? `${pageName}.md`;
+  const files = [{ path: pagePath, name: pageName, selected: true }];
 
   return (
     <PublishWebPanel
@@ -60,11 +62,11 @@ export function PublishUtilityPanel(): React.JSX.Element {
         void window.mdxpad.share.openDirectory(outputDir);
       }}
       onPublish={(options: PublishRequestOptions) => {
-        if (!window.mdxpad.share || !filePath || outputDir.length === 0) {
+        if (!window.mdxpad.share || outputDir.length === 0) {
           setLastResult({
             success: false,
             filesGenerated: 0,
-            errors: [filePath ? 'Choose an output folder' : 'Open a file before publishing'],
+            errors: ['Choose an output folder'],
           });
           return;
         }
@@ -72,7 +74,7 @@ export function PublishUtilityPanel(): React.JSX.Element {
         setLastResult(null);
         void window.mdxpad.share
           .publish({
-            files: [{ path: filePath, title: fileName, content }],
+            files: [{ path: pagePath, title: pageName, content }],
             outputDir,
             includeStyles: options.includeStyles,
             includeHighlighting: true,

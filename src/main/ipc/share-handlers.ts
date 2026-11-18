@@ -31,6 +31,7 @@ import type { ShareLinkService } from '@main/services/share-link-service';
 import { StaticSiteGenerator } from '@main/services/static-site-generator';
 import {
   directoryWasChosen,
+  publishableFiles,
   publishScopeError,
   rememberChosenDirectory,
 } from '@main/services/publish-scope';
@@ -103,17 +104,18 @@ function createMoveUntitledHandler(service: ShareLinkService) {
  */
 function createPublishHandler(generator: StaticSiteGenerator, window: BrowserWindow) {
   return createValidatedHandler(PublishRequestSchema, async (args): Promise<PublishResponse> => {
-    const scopeError = publishScopeError(args);
+    const request = { ...args, files: publishableFiles(args.files) };
+    const scopeError = publishScopeError(request);
     if (scopeError !== null) {
       return {
         success: false,
-        outputDir: args.outputDir,
+        outputDir: request.outputDir,
         filesGenerated: 0,
         indexPath: null,
         errors: [scopeError],
       };
     }
-    const result = await generator.generate(args, (progress) => {
+    const result = await generator.generate(request, (progress) => {
       if (!window.isDestroyed()) {
         window.webContents.send(ShareChannels.PUBLISH_PROGRESS, progress);
       }

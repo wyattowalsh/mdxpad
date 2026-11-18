@@ -48,9 +48,23 @@ export function publishScopeError(config: PublishConfig): string | null {
     return 'Choose an output folder before publishing';
   }
   for (const file of config.files) {
+    if (file.content !== undefined) {
+      continue;
+    }
     if (!hasReadCapability(file.path)) {
       return `Publish source is not an opened file: ${file.path}`;
     }
   }
   return null;
+}
+
+/** Keep an unopened path from being used as a directory of images. */
+export function publishableFiles(files: PublishConfig['files']): PublishConfig['files'] {
+  return files.map((file) => {
+    if (file.content === undefined || hasReadCapability(file.path)) {
+      return file;
+    }
+    const base = path.basename(file.path).replace(/^\.+/u, '');
+    return { ...file, path: base.length > 0 ? base : 'Untitled.md' };
+  });
 }

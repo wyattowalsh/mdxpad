@@ -6,6 +6,7 @@
  */
 
 import { lstat, writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import { join, basename, extname } from 'node:path';
 import type {
   PublishConfig,
@@ -143,7 +144,9 @@ export class StaticSiteGenerator {
 
       try {
         const content = fileEntry.content ?? (await readPublishSource(fileEntry.path));
-        await copyPublishedImages(content, fileEntry.path, config.outputDir);
+        if (path.isAbsolute(fileEntry.path)) {
+          await copyPublishedImages(content, fileEntry.path, config.outputDir);
+        }
         const title = fileEntry.title ?? this.extractTitle(content, fileEntry.path);
         const slug = this.createSlug(fileEntry.path, usedSlugs);
         const htmlContent = this.convertToHtml(
