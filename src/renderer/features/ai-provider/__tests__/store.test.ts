@@ -324,6 +324,62 @@ describe('AI Provider Store', () => {
     });
   });
 
+  describe('fetchUsageStats', () => {
+    function usageResult(totalRequests: number) {
+      return {
+        success: true,
+        stats: {
+          totalRequests,
+          successfulRequests: totalRequests,
+          failedRequests: 0,
+          totalTokens: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          estimatedCostUsd: 0,
+          avgDurationMs: 0,
+          byProvider: [],
+          byModel: [],
+          byOperation: [],
+        },
+      };
+    }
+
+    it('keeps the usage range that was selected last', async () => {
+      let finishMonth: (value: ReturnType<typeof usageResult>) => void = () => undefined;
+      let finishToday: (value: ReturnType<typeof usageResult>) => void = () => undefined;
+      mockAIApi.queryUsage
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishMonth = resolve;
+            })
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishToday = resolve;
+            })
+        );
+
+      const month = useAIProviderStore.getState().fetchUsageStats('month');
+      const today = useAIProviderStore.getState().fetchUsageStats('day');
+      finishMonth(usageResult(40));
+      await month;
+
+      expect(useAIProviderStore.getState().usageStatsTimeRange).toBe('day');
+      expect(useAIProviderStore.getState().usageStats).toBeNull();
+      expect(useAIProviderStore.getState().isLoading).toBe(true);
+
+      finishToday(usageResult(3));
+      await today;
+
+      const state = useAIProviderStore.getState();
+      expect(state.usageStatsTimeRange).toBe('day');
+      expect(state.usageStats?.totalRequests).toBe(3);
+      expect(state.isLoading).toBe(false);
+    });
+  });
+
   describe('Selectors', () => {
     it('should select active provider', () => {
       useAIProviderStore.setState({

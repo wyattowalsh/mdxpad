@@ -21,6 +21,8 @@ import { announceFinishedExport } from './announce-export';
 
 let cliInvokeRequestId = 0;
 let llmsGenerationRequestId = 0;
+let jobLifecycleRequestId = 0;
+let presetCrudRequestId = 0;
 
 type CliRunStatus = 'idle' | 'running' | 'success' | 'error';
 type LlmsGenerationSuccess = Extract<LlmsGenerationResponse, { ok: true }>;
@@ -87,6 +89,10 @@ function upsertPreset(presets: ExportPreset[], preset: ExportPreset): void {
   }
 
   presets.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function singleExportJob(response: ExportJobLifecycleResponse): ExportJob | null {
+  return response.ok && 'job' in response ? response.job : null;
 }
 
 function applyJobLifecycleResponse(
@@ -193,6 +199,7 @@ export const useExportStore = create<ExportStore>()(
     ...createInitialState(),
 
     runJobLifecycle: async (request) => {
+      const requestId = ++jobLifecycleRequestId;
       set((draft) => {
         draft.isLoadingJobs = true;
         draft.jobsError = null;
@@ -200,12 +207,24 @@ export const useExportStore = create<ExportStore>()(
 
       try {
         const response = await getExportApi().jobLifecycle(request);
+        const current = requestId === jobLifecycleRequestId;
+        const finishedJob = singleExportJob(response);
+        if (!current && finishedJob === null) {
+          return response;
+        }
         set((draft) => {
-          applyJobLifecycleResponse(draft, response);
-          draft.isLoadingJobs = false;
+          if (current) {
+            applyJobLifecycleResponse(draft, response);
+            draft.isLoadingJobs = false;
+          } else if (finishedJob) {
+            upsertJob(draft, finishedJob);
+          }
         });
         return response;
       } catch (error) {
+        if (requestId !== jobLifecycleRequestId) {
+          return null;
+        }
         set((draft) => {
           draft.isLoadingJobs = false;
           draft.jobsError = toErrorMessage(error, 'Failed to manage export jobs');
@@ -221,6 +240,7 @@ export const useExportStore = create<ExportStore>()(
     },
 
     runPresetCrud: async (request) => {
+      const requestId = ++presetCrudRequestId;
       set((draft) => {
         draft.isLoadingPresets = true;
         draft.presetsError = null;
@@ -228,12 +248,25 @@ export const useExportStore = create<ExportStore>()(
 
       try {
         const response = await getExportApi().presetCrud(request);
+        const current = requestId === presetCrudRequestId;
+        const replacesList = response.ok && 'presets' in response;
+        if (!current && replacesList) {
+          return response;
+        }
+        if (!current && !response.ok) {
+          return response;
+        }
         set((draft) => {
           applyPresetCrudResponse(draft, response);
-          draft.isLoadingPresets = false;
+          if (current) {
+            draft.isLoadingPresets = false;
+          }
         });
         return response;
       } catch (error) {
+        if (requestId !== presetCrudRequestId) {
+          return null;
+        }
         set((draft) => {
           draft.isLoadingPresets = false;
           draft.presetsError = toErrorMessage(error, 'Failed to manage export presets');
@@ -382,6 +415,8 @@ export const useExportStore = create<ExportStore>()(
     reset: () => {
       cliInvokeRequestId += 1;
       llmsGenerationRequestId += 1;
+      jobLifecycleRequestId += 1;
+      presetCrudRequestId += 1;
       set((draft) => {
         Object.assign(draft, createInitialState());
       });

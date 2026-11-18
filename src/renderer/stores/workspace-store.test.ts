@@ -278,6 +278,49 @@ describe('useWorkspaceStore', () => {
     expect(state.error).toBeNull();
   });
 
+  it('keeps loading backlinks for the document that was opened last', async () => {
+    let finishOld: (value: GetBacklinksResponse) => void = () => undefined;
+    let finishNew: (value: GetBacklinksResponse) => void = () => undefined;
+    mockWorkspaceApi.getBacklinks
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishNew = resolve;
+          })
+      );
+
+    const first = useWorkspaceStore.getState().getBacklinks({
+      workspaceId: WORKSPACE_ID,
+      documentId: SOURCE_DOCUMENT_ID,
+    });
+    const second = useWorkspaceStore.getState().getBacklinks({
+      workspaceId: WORKSPACE_ID,
+      documentId: TARGET_DOCUMENT_ID,
+    });
+    finishOld({
+      ok: false,
+      error: { code: 'WORKSPACE_NOT_FOUND', message: 'Missing document' },
+    });
+    await first;
+
+    expect(useWorkspaceStore.getState().isLoading).toBe(true);
+    expect(useWorkspaceStore.getState().error).toBeNull();
+
+    finishNew({ ok: true, value: [] });
+    await second;
+
+    const state = useWorkspaceStore.getState();
+    expect(state.isLoading).toBe(false);
+    expect(state.error).toBeNull();
+    expect(selectBacklinksForDocument(TARGET_DOCUMENT_ID)(state)).toEqual([]);
+  });
+
   it('filters backlinks by link search query', async () => {
     const documentId: WorkspaceDocumentId = TARGET_DOCUMENT_ID;
     const backlinks = [

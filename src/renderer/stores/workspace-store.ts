@@ -24,6 +24,7 @@ import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
 
 let openWorkspaceRequestId = 0;
 let saveWorkspaceRequestId = 0;
+let backlinksRequestId = 0;
 
 interface WorkspaceOperationsApi {
   openWorkspace(request: OpenWorkspaceRequest): Promise<OpenWorkspaceResponse>;
@@ -410,6 +411,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         return { ok: true, value: existing } as GetBacklinksResponse;
       }
 
+      const requestId = ++backlinksRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -419,11 +421,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       try {
         const response = await getWorkspaceApi().getBacklinks(request);
         set((draft) => {
-          draft.isLoading = false;
+          if (requestId === backlinksRequestId) {
+            draft.isLoading = false;
+            if (!response.ok) {
+              draft.error = response.error;
+            }
+          }
           if (response.ok) {
             draft.backlinksByDocumentId[request.documentId] = response.value;
-          } else {
-            draft.error = response.error;
           }
         });
         if (response.ok) {
@@ -438,6 +443,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         return response;
       } catch (error) {
         const workspaceError = toWorkspaceError(error, 'Failed to load backlinks');
+        if (requestId !== backlinksRequestId) {
+          return { ok: false, error: workspaceError };
+        }
         set((draft) => {
           draft.isLoading = false;
           draft.error = workspaceError;
@@ -467,6 +475,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     reset: () => {
       openWorkspaceRequestId += 1;
       saveWorkspaceRequestId += 1;
+      backlinksRequestId += 1;
       set((draft) => {
         draft.model = null;
         draft.backlinksByDocumentId = {};

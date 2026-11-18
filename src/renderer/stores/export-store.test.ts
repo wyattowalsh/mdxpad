@@ -132,6 +132,110 @@ describe('useExportStore', () => {
     expect(state.isLoadingJobs).toBe(false);
   });
 
+  it('keeps the newer export job list when an older list finishes late', async () => {
+    const older = createJob({ id: TEST_ID, status: 'failed' });
+    const newer = createJob({ id: TEST_ID_TWO, status: 'completed' });
+    let finishOld: (value: ExportJobLifecycleResponse) => void = () => undefined;
+    let finishNew: (value: ExportJobLifecycleResponse) => void = () => undefined;
+    mockExportApi.jobLifecycle
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishNew = resolve;
+          })
+      );
+
+    const first = useExportStore.getState().loadJobs('failed');
+    const second = useExportStore.getState().loadJobs();
+    finishOld({ ok: true, jobs: [older] });
+    await first;
+
+    expect(useExportStore.getState().isLoadingJobs).toBe(true);
+    expect(useExportStore.getState().jobs).toEqual([]);
+
+    finishNew({ ok: true, jobs: [newer] });
+    await second;
+
+    expect(useExportStore.getState().jobs.map((job) => job.id)).toEqual([TEST_ID_TWO]);
+    expect(useExportStore.getState().isLoadingJobs).toBe(false);
+  });
+
+  it('keeps an export that finishes while a newer job list is open', async () => {
+    const created = createJob({ id: TEST_ID, status: 'completed' });
+    const listed = createJob({
+      id: TEST_ID_TWO,
+      status: 'queued',
+      createdAt: '2026-02-18T09:00:00.000Z',
+    });
+    let finishCreate: (value: ExportJobLifecycleResponse) => void = () => undefined;
+    let finishList: (value: ExportJobLifecycleResponse) => void = () => undefined;
+    mockExportApi.jobLifecycle
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishCreate = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishList = resolve;
+          })
+      );
+
+    const creating = useExportStore.getState().runJobLifecycle({ action: 'create', job: created });
+    const listing = useExportStore.getState().loadJobs();
+    finishList({ ok: true, jobs: [listed] });
+    await listing;
+    finishCreate({ ok: true, job: created });
+    await creating;
+
+    expect(useExportStore.getState().jobs.map((job) => job.id).sort()).toEqual(
+      [TEST_ID, TEST_ID_TWO].sort()
+    );
+    expect(useExportStore.getState().isLoadingJobs).toBe(false);
+  });
+
+  it('keeps the newer preset list when an older list finishes late', async () => {
+    const older = createPreset({ id: TEST_ID, name: 'Older' });
+    const newer = createPreset({ id: TEST_ID_TWO, name: 'Newer' });
+    let finishOld: (value: ExportPresetCrudResponse) => void = () => undefined;
+    let finishNew: (value: ExportPresetCrudResponse) => void = () => undefined;
+    mockExportApi.presetCrud
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishNew = resolve;
+          })
+      );
+
+    const first = useExportStore.getState().loadPresets();
+    const second = useExportStore.getState().loadPresets();
+    finishOld({ ok: true, presets: [older] });
+    await first;
+
+    expect(useExportStore.getState().isLoadingPresets).toBe(true);
+    expect(useExportStore.getState().presets).toEqual([]);
+
+    finishNew({ ok: true, presets: [newer] });
+    await second;
+
+    expect(useExportStore.getState().presets.map((preset) => preset.id)).toEqual([TEST_ID_TWO]);
+    expect(useExportStore.getState().isLoadingPresets).toBe(false);
+  });
+
   it('loads presets via preload export API', async () => {
     const preset = createPreset();
     mockExportApi.presetCrud.mockResolvedValue({

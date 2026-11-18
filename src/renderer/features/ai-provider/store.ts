@@ -20,6 +20,7 @@ import type { SidecarLifecycleStatusResponseSchemaType } from '@shared/ai/schema
 import { usageStatsFromQuery } from './usage-stats-map';
 
 let providerListRequestId = 0;
+let usageStatsRequestId = 0;
 
 // =============================================================================
 // WINDOW TYPE DECLARATION
@@ -524,13 +525,19 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     // =========================================================================
 
     fetchUsageStats: async (timeRange) => {
+      const requestId = ++usageStatsRequestId;
       set((state) => {
         state.isLoading = true;
         state.error = null;
+        state.usageStats = null;
+        state.usageStatsTimeRange = timeRange;
       });
 
       try {
         const result = await getAIApi().queryUsage({ timeRange });
+        if (requestId !== usageStatsRequestId) {
+          return;
+        }
 
         if (result.success && result.stats) {
           const usageStats = usageStatsFromQuery(timeRange, result.stats);
@@ -546,6 +553,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
           });
         }
       } catch (error) {
+        if (requestId !== usageStatsRequestId) {
+          return;
+        }
         set((state) => {
           state.isLoading = false;
           state.error = error instanceof Error ? error.message : 'Failed to fetch usage stats';
