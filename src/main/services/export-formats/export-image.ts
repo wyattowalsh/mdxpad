@@ -1,4 +1,5 @@
-import { copyFile, mkdir, readFile, stat } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { lstat, mkdir, open, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readStaysInsideDirectory } from '@main/ipc/read-scope';
@@ -224,13 +225,51 @@ function publishedTarget(outputDir: string, sourceDir: string, filePath: string)
   return target;
 }
 
+async function destinationInsideOutput(outputDir: string, target: string): Promise<boolean> {
+  const realOutput = await realpath(outputDir);
+  const relative = path.relative(path.resolve(outputDir), target);
+  if (relative.length === 0 || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return false;
+  }
+  let current = realOutput;
+  for (const segment of relative.split(path.sep)) {
+    if (segment.length === 0 || segment === '.' || segment === '..') {
+      return false;
+    }
+    const next = path.join(current, segment);
+    try {
+      const info = await lstat(next);
+      if (info.isSymbolicLink()) {
+        return false;
+      }
+    } catch {
+      return true;
+    }
+    current = next;
+  }
+  return true;
+}
+
+async function writePublishedFile(target: string, data: Buffer): Promise<void> {
+  const handle = await open(
+    target,
+    fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+    0o600
+  );
+  try {
+    await handle.writeFile(data);
+  } finally {
+    await handle.close();
+  }
+}
+
 async function copyOnePublishedImage(
   resolved: string,
   outputDir: string,
   sourceDir: string
 ): Promise<void> {
   const target = publishedTarget(outputDir, sourceDir, resolved);
-  if (!target) {
+  if (!target || !(await destinationInsideOutput(outputDir, target))) {
     return;
   }
   const info = await stat(resolved);
@@ -238,7 +277,8 @@ async function copyOnePublishedImage(
     return;
   }
   await mkdir(path.dirname(target), { recursive: true });
-  await copyFile(resolved, target);
+  const data = await readFile(resolved);
+  await writePublishedFile(target, data);
 }
 
 /** Copy local images next to a published page. Paths outside the source folder stay put. */

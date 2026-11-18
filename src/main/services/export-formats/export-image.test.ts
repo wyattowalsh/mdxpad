@@ -1,17 +1,42 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { DocxExporter } from './docx-exporter';
-import { inlineLocalImages } from './export-image';
+import { copyPublishedImages, inlineLocalImages } from './export-image';
 import { markdownToPdfHtml } from './pdf-exporter';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64'
 );
+
+describe('copyPublishedImages', () => {
+  it('does not write a published image through a link', async () => {
+    const sourceDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-src-'));
+    const output = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-out-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-secret-'));
+    const source = path.join(sourceDir, 'note.md');
+    const secret = path.join(outside, 'secret.png');
+    await mkdir(path.join(sourceDir, 'images'));
+    await writeFile(path.join(sourceDir, 'pixel.png'), PNG);
+    await writeFile(path.join(sourceDir, 'images', 'nested.png'), PNG);
+    await writeFile(secret, Buffer.from('secret'));
+    await symlink(secret, path.join(output, 'pixel.png'));
+    await symlink(outside, path.join(output, 'images'));
+
+    await copyPublishedImages(
+      '![In](pixel.png)\n\n![Nested](images/nested.png)\n',
+      source,
+      output
+    );
+
+    expect(await readFile(secret, 'utf8')).toBe('secret');
+    await expect(readFile(path.join(outside, 'nested.png'))).rejects.toThrow();
+  });
+});
 
 describe('inlineLocalImages', () => {
   it('embeds an image beside the source and leaves one outside that folder', async () => {
