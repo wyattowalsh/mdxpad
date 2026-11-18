@@ -66,6 +66,30 @@ describe('DocxExporter', () => {
     expect(xml).toContain('third');
   });
 
+  it('keeps a parenthesis on each ordered item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '1) one\n2) two\n\n0) zero',
+      outputPath: '/tmp/paren.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('1)');
+    expect(xml).toContain('2)');
+    expect(xml).toContain('0)');
+    expect(xml).toContain('one');
+    expect(xml).toContain('two');
+    expect(xml).toContain('zero');
+  });
+
   it('keeps snake_case as plain text and still emphasizes _words_', () => {
     expect(parseInlineFormatting('use snake_case_name here')).toEqual([
       { text: 'use snake_case_name here' },

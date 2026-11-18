@@ -912,13 +912,18 @@ function flushPendingParagraph(parse: DocxParse): void {
   parse.blocks.push(paragraphFromLines(lines));
 }
 
+function orderedMarker(item: MarkdownListItem): string {
+  const delimiter = item.delimiter === ')' ? ')' : '.';
+  return `${item.start}${delimiter} `;
+}
+
 function listParagraph(item: MarkdownListItem, quoteDepth = 0): Paragraph {
   const children = listItemChildren(item.text);
   const indent = quoteDepth > 0 ? { left: 720 * quoteDepth } : undefined;
-  if (item.ordered && item.start !== 1) {
+  if (item.ordered && (item.delimiter === ')' || item.start !== 1)) {
     return new Paragraph({
       indent: { left: 720 * (item.level + 1) + 720 * quoteDepth, hanging: 360 },
-      children: [new TextRun({ text: `${item.start}. ` }), ...children],
+      children: [new TextRun({ text: orderedMarker(item) }), ...children],
     });
   }
   if (item.ordered) {
@@ -1047,8 +1052,7 @@ function takeDocxList(
     delimiter: frame.item.delimiter ?? ('' as const),
   }));
   const openItem =
-    item !== null &&
-    shouldOpenListItem(item, frames, parse.listBreak, parse.pending.length > 0);
+    item !== null && shouldOpenListItem(item, frames, parse.listBreak, parse.pending.length > 0);
   if (item && openItem) {
     flushPendingParagraph(parse);
     const column = listContentColumn(line) ?? 2;
