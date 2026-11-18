@@ -18,6 +18,10 @@ import { history, redo, undo } from 'prosemirror-history';
 import { baseKeymap, toggleMark, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
+import {
+  selectSpellcheckEnabled,
+  useEditorPreferencesStore,
+} from '../../stores/editor-preferences-store';
 import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer';
 import {
   documentFromMarkdown,
@@ -383,6 +387,14 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
     }, []);
 
     const viewRef = useEditorView(containerRef, content, documentKey, onChangeRef, onStateUpdate);
+    const spellcheckEnabled = useEditorPreferencesStore(selectSpellcheckEnabled);
+    React.useEffect(() => {
+      const dom = viewRef.current?.dom;
+      if (dom) {
+        dom.spellcheck = spellcheckEnabled;
+        dom.setAttribute('spellcheck', spellcheckEnabled ? 'true' : 'false');
+      }
+    }, [spellcheckEnabled, viewRef]);
     React.useEffect(() => {
       registerWysiwygInsert((markdown) => {
         const view = viewRef.current;

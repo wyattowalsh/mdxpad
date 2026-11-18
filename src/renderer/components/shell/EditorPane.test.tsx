@@ -17,6 +17,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EditorPane, type CursorPosition } from './EditorPane';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
+import { useEditorPreferencesStore } from '@renderer/stores/editor-preferences-store';
 
 // =============================================================================
 // TEST HELPERS
@@ -579,8 +580,24 @@ describe('offsetToLineColumn helper', () => {
 describe('EditorPane mode switch', () => {
   afterEach(() => {
     useEditorModeStore.getState().setMode('source');
+    useEditorPreferencesStore.setState({ spellcheckEnabled: false });
     localStorage.removeItem('mdxpad:editor-mode');
     cleanup();
+  });
+
+  it('follows the spellcheck preference in the visual editor', async () => {
+    useEditorModeStore.getState().setMode('wysiwyg');
+    useEditorPreferencesStore.setState({ spellcheckEnabled: false });
+    const { container } = render(<EditorPane />);
+    await waitFor(() => {
+      expect(container.querySelector('.ProseMirror')?.getAttribute('spellcheck')).toBe('false');
+    });
+    act(() => {
+      useEditorPreferencesStore.setState({ spellcheckEnabled: true });
+    });
+    await waitFor(() => {
+      expect(container.querySelector('.ProseMirror')?.getAttribute('spellcheck')).toBe('true');
+    });
   });
 
   it('shows WYSIWYG and returns to the source editor', async () => {
