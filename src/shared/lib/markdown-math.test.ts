@@ -74,6 +74,12 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('$$\na <= b\n$$')).toContain('a <= b');
     expect(prepareMarkdownSource('$$\na < b\n$$')).not.toContain('&lt;');
     expect(prepareMarkdownSource('Compare a < b')).toContain('a &lt; b');
+    expect(prepareMarkdownSource('[link](https://example.com/a\\(b\\))')).toBe(
+      '[link](https://example.com/a\\(b\\))'
+    );
+    expect(prepareMarkdownSource('[area \\(x^2\\)](https://example.com)')).toBe(
+      '[area $x^2$](https://example.com)'
+    );
     expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
       'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
     );

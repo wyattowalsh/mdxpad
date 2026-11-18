@@ -1,3 +1,5 @@
+import { readMarkdownTarget } from './markdown-link';
+
 const ESCAPE_MARK = '\uE011';
 const PUNCTUATION = new Set('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~');
 
@@ -78,6 +80,39 @@ export interface ProtectedEscapes {
   readonly chars: readonly string[];
 }
 
+function shiftEscapeMarks(text: string, offset: number): string {
+  return text.replaceAll(
+    new RegExp(`${ESCAPE_MARK}(\\d+)${ESCAPE_MARK}`, 'g'),
+    (_match, slot: string) => `${ESCAPE_MARK}${Number(slot) + offset}${ESCAPE_MARK}`
+  );
+}
+
+/** Leave backslash escapes in a link address for the destination parser. */
+function protectLink(
+  raw: string,
+  index: number,
+  already: number
+): { text: string; chars: string[]; next: number } | null {
+  if (raw[index] !== '[' && !(raw[index] === '!' && raw[index + 1] === '[')) {
+    return null;
+  }
+  const target = readMarkdownTarget(raw, index);
+  if (target?.start !== index) {
+    return null;
+  }
+  const labelStart = index + (target.image ? 2 : 1);
+  const labelEnd = labelStart + target.label.length;
+  const label = protectEscapes(raw.slice(labelStart, labelEnd));
+  return {
+    text:
+      raw.slice(index, labelStart) +
+      shiftEscapeMarks(label.text, already) +
+      raw.slice(labelEnd, target.end),
+    chars: [...label.chars],
+    next: target.end,
+  };
+}
+
 /** Keep a backslash escape literal outside code spans. */
 export function protectEscapes(raw: string): ProtectedEscapes {
   const chars: string[] = [];
@@ -89,6 +124,13 @@ export function protectEscapes(raw: string): ProtectedEscapes {
       const span = readCodeSpan(raw, index);
       text += span ? raw.slice(index, span.end) : current;
       index = span ? span.end : index + 1;
+      continue;
+    }
+    const link = protectLink(raw, index, chars.length);
+    if (link) {
+      text += link.text;
+      chars.push(...link.chars);
+      index = link.next;
       continue;
     }
     const next = raw.charAt(index + 1);

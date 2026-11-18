@@ -683,6 +683,18 @@ describe('PdfExporter', () => {
     );
   });
 
+  it('keeps an escaped parenthesis and a spaced address in a link', async () => {
+    await exporter.export({
+      content: '[link](https://example.com/a\\(b\\))\n\n[spaced](<https://example.com/a b>)\n',
+      outputPath: '/tmp/escaped-link.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<a href="https://example.com/a(b)">link</a>');
+    expect(html).toContain('<a href="https://example.com/a%20b">spaced</a>');
+    expect(html).not.toContain('katex');
+  });
+
   it('keeps an inline HTML tag', async () => {
     await exporter.export({
       content: 'Say <em>hello</em> and a < b',

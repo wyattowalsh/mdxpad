@@ -12,5 +12,7 @@ describe('linkDestination', () => {
     expect(linkTitle('https://example.com')).toBeNull();
     expect(linkTitle('https://example.com "foo\\"bar"')).toBe('foo"bar');
     expect(linkDestination('https://example.com "foo\\"bar"')).toBe('https://example.com');
+    expect(linkDestination('https://example.com/a\\(b\\)')).toBe('https://example.com/a(b)');
+    expect(linkDestination('<https://example.com/a b>')).toBe('https://example.com/a%20b');
   });
 });

@@ -220,6 +220,56 @@ function takeTexSpan(value: string, index: number): string | null {
   return value.slice(index, end + close.length);
 }
 
+const LINK_INSIDE =
+  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))+';
+
+function balancedLabelEnd(value: string, openIndex: number): number | null {
+  let depth = 0;
+  for (let index = openIndex; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === '[') {
+      depth += 1;
+      continue;
+    }
+    if (char !== ']') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return index;
+    }
+  }
+  return null;
+}
+
+/** A markdown link or image, so TeX delimiters inside its address stay escapes. */
+function markdownLinkAt(
+  value: string,
+  index: number
+): { labelStart: number; labelEnd: number; end: number } | null {
+  const image = value[index] === '!' && value[index + 1] === '[';
+  const open = image ? index + 1 : index;
+  if (value[open] !== '[') {
+    return null;
+  }
+  const close = balancedLabelEnd(value, open);
+  if (close === null || value[close + 1] !== '(') {
+    return null;
+  }
+  const destination = new RegExp(`^(${LINK_INSIDE})\\)`).exec(value.slice(close + 2));
+  if (!destination?.[0]) {
+    return null;
+  }
+  return { labelStart: open + 1, labelEnd: close, end: close + 2 + destination[0].length };
+}
+
+function shiftMath(text: string, offset: number): string {
+  return text.replaceAll(
+    new RegExp(`${MATH_MARK}(\\d+)${MATH_MARK}`, 'g'),
+    (_match, marker: string) => `${MATH_MARK}${Number(marker) + offset}${MATH_MARK}`
+  );
+}
+
 function shieldMath(value: string): { text: string; math: string[] } {
   const math: string[] = [];
   let text = '';
@@ -229,6 +279,16 @@ function shieldMath(value: string): { text: string; math: string[] } {
     if (code) {
       text += code.text;
       index = code.next;
+      continue;
+    }
+    const link = markdownLinkAt(value, index);
+    if (link) {
+      const label = shieldMath(value.slice(link.labelStart, link.labelEnd));
+      text += value.slice(index, link.labelStart);
+      text += shiftMath(label.text, math.length);
+      text += value.slice(link.labelEnd, link.end);
+      math.push(...label.math);
+      index = link.end;
       continue;
     }
     const span = takeDollarSpan(value, index) ?? takeTexSpan(value, index);
@@ -272,6 +332,14 @@ function replaceTexMath(prose: string): string {
     if (code) {
       result += code.text;
       index = code.next;
+      continue;
+    }
+    const link = markdownLinkAt(prose, index);
+    if (link) {
+      result += prose.slice(index, link.labelStart);
+      result += replaceTexMath(prose.slice(link.labelStart, link.labelEnd));
+      result += prose.slice(link.labelEnd, link.end);
+      index = link.end;
       continue;
     }
     if (prose.startsWith('\\[', index)) {

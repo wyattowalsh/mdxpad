@@ -125,10 +125,38 @@ export function findMarkdownTarget(raw: string, from: number): MarkdownTarget | 
   return null;
 }
 
+const DESTINATION_ESCAPE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
+
+function unescapeDestination(value: string): string {
+  let result = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const next = value[index + 1] ?? '';
+    if (value[index] === '\\' && DESTINATION_ESCAPE.test(next)) {
+      result += next;
+      index += 1;
+      continue;
+    }
+    result += value[index] ?? '';
+  }
+  return result;
+}
+
+function encodeDestination(value: string): string {
+  try {
+    return encodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
 /** Keep the link or image address and drop an optional Markdown title. */
 export function linkDestination(raw: string): string {
   const decoded = raw.trim().replaceAll('&quot;', '"').replaceAll('&#39;', "'");
-  return unwrapDestination(decoded) ?? stripTitle(decoded) ?? decoded;
+  const angled = unwrapDestination(decoded);
+  if (angled !== null) {
+    return encodeDestination(angled);
+  }
+  return encodeDestination(unescapeDestination(stripTitle(decoded) ?? decoded));
 }
 
 /** Read a Markdown title that follows a link or image address. */
