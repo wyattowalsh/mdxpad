@@ -3,6 +3,7 @@
  * All file system operations run exclusively in the main process (Constitution Section 3.1).
  */
 
+import { constants as fsConstants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { BrowserWindow } from 'electron';
@@ -56,6 +57,29 @@ export async function readFile(filePath: string): Promise<FileResult<string>> {
     // SEC-2: Only log basename to avoid exposing full paths in logs
     console.error(`[FileService] Failed to read file "${path.basename(filePath)}":`, fileError);
     return { ok: false, error: fileError };
+  }
+}
+
+function isSymlinkOpenError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ELOOP';
+}
+
+/** Read a file without following a symlink at the final path. */
+export async function readFileWithoutFollowingLinks(filePath: string): Promise<FileResult<string>> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const content = await handle.readFile({ encoding: 'utf8' });
+    return { ok: true, value: content };
+  } catch (error: unknown) {
+    if (isSymlinkOpenError(error)) {
+      return { ok: false, error: { code: 'PERMISSION_DENIED', path: filePath } };
+    }
+    const fileError = mapFsError(error, filePath);
+    console.error(`[FileService] Failed to read file "${path.basename(filePath)}":`, fileError);
+    return { ok: false, error: fileError };
+  } finally {
+    await handle?.close();
   }
 }
 

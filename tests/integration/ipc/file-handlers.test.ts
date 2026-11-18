@@ -28,6 +28,7 @@ vi.mock('electron', () => ({
 // Mock file-service module
 vi.mock('@main/services/file-service', () => ({
   readFile: vi.fn(),
+  readFileWithoutFollowingLinks: vi.fn(),
   writeFile: vi.fn(),
   createFileHandle: vi.fn(),
   createFileServiceIntegration: vi.fn(() => ({
@@ -54,6 +55,7 @@ vi.mock('node:fs', async () => {
 import { registerFileHandlers } from '@main/ipc/file-handlers';
 import {
   readFile,
+  readFileWithoutFollowingLinks,
   writeFile,
   createFileHandle,
   createFileServiceIntegration,
@@ -78,6 +80,7 @@ const mockDialog = dialog as unknown as {
 const mockApp = app as unknown as { getVersion: Mock };
 const mockIpcMain = ipcMain as unknown as { handle: Mock };
 const mockReadFile = readFile as Mock;
+const mockReadFileWithoutFollowingLinks = readFileWithoutFollowingLinks as Mock;
 const mockWriteFile = writeFile as Mock;
 const mockCreateFileHandle = createFileHandle as Mock;
 const mockCreateFileServiceIntegration = createFileServiceIntegration as Mock;
@@ -160,6 +163,7 @@ describe('file-handlers', () => {
       close: vi.fn(),
     });
     mockReadFile.mockResolvedValue({ ok: true, value: '' });
+    mockReadFileWithoutFollowingLinks.mockResolvedValue({ ok: true, value: '' });
 
     // Register handlers
     registerFileHandlers(ipcMain, mockBrowserWindow);
@@ -433,12 +437,12 @@ describe('file-handlers', () => {
       const testContent = '# Test Content';
 
       await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, testPath);
-      mockReadFile.mockResolvedValue({ ok: true, value: testContent });
+      mockReadFileWithoutFollowingLinks.mockResolvedValue({ ok: true, value: testContent });
 
       const handler = registeredHandlers.get('mdxpad:file:read');
       const result = await handler!(authorizedInvokeEvent, { path: testPath });
 
-      expect(mockReadFile).toHaveBeenCalledWith(testPath);
+      expect(mockReadFileWithoutFollowingLinks).toHaveBeenCalledWith(testPath);
       expect(result).toEqual({ ok: true, value: testContent });
     });
 
@@ -451,7 +455,7 @@ describe('file-handlers', () => {
         ok: false,
         error: { code: 'PERMISSION_DENIED', path: testPath },
       });
-      expect(mockReadFile).not.toHaveBeenCalled();
+      expect(mockReadFileWithoutFollowingLinks).not.toHaveBeenCalled();
     });
   });
 
@@ -698,7 +702,7 @@ describe('error code mapping', () => {
 
   it('should map read errors to NOT_FOUND', async () => {
     await grantWriteCapabilityForPath(registeredHandlers, authorizedInvokeEvent, '/missing.mdx');
-    mockReadFile.mockResolvedValue({
+    mockReadFileWithoutFollowingLinks.mockResolvedValue({
       ok: false,
       error: { code: 'NOT_FOUND', path: '/missing.mdx' },
     });

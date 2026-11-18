@@ -37,6 +37,7 @@ vi.mock('electron', () => ({
 
 vi.mock('@main/services/file-service', () => ({
   readFile: vi.fn().mockResolvedValue({ ok: true, value: '# Test' }),
+  readFileWithoutFollowingLinks: vi.fn().mockResolvedValue({ ok: true, value: '# Test' }),
   writeFile: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
   createFileHandle: vi.fn().mockImplementation((filePath: string) => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -269,7 +270,7 @@ describe('registerFileHandlers authorization', () => {
     expect(readCanonical).toEqual({ ok: true, value: '# Test' });
     expect(readDialogPath).toEqual({ ok: true, value: '# Test' });
     expect(saved).toEqual({ ok: true, value: undefined });
-    expect(FileService.readFile).toHaveBeenCalledWith('/private/tmp/a.mdx');
+    expect(FileService.readFileWithoutFollowingLinks).toHaveBeenCalledWith('/private/tmp/a.mdx');
     expect(FileService.writeFile).toHaveBeenCalledWith('/tmp/a.mdx', '# Updated');
   });
 

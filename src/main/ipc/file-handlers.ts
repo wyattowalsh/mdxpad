@@ -29,6 +29,7 @@ import {
 } from '@shared/contracts/file-schemas';
 import {
   readFile,
+  readFileWithoutFollowingLinks,
   writeFile,
   createFileHandle,
   createFileServiceIntegration,
@@ -318,7 +319,7 @@ const handleFileRead = createValidatedHandler(
       return { ok: false, error: permissionDenied(args.path) };
     }
 
-    const readResult = await readFile(args.path);
+    const readResult = await readFileWithoutFollowingLinks(args.path);
     if (readResult.ok && inTrustedDirectory && !leavesTrustedDirectory) {
       grantWriteCapability(args.path);
     } else if (readResult.ok) {
