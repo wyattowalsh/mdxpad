@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommandContext } from '@shared/types/commands';
 import type { DocumentId } from '@shared/types/document';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import type { WorkspaceModel } from '@shared/types/workspace';
 import {
@@ -376,6 +377,7 @@ describe('search.workspace', () => {
   beforeEach(() => {
     useWorkspaceStore.getState().reset();
     useDocumentStore.getState().reset();
+    useTabStore.getState().reset();
   });
 
   it('indexes an unindexed folder before searching and passes exclude patterns', async () => {
@@ -444,6 +446,51 @@ describe('search.workspace', () => {
     expect(notify).toHaveBeenCalledWith({
       type: 'info',
       message: 'Search for "brand new": 1 match (readme.md)',
+    });
+  });
+
+  it('includes an unsaved tab that is not the active file', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'readme'
+    );
+    useTabStore.getState().addTab({
+      filePath: '/notes/other.md',
+      fileName: 'other.md',
+      isDirty: true,
+      content: 'hidden phrase',
+      savedContent: '',
+    });
+    vi.spyOn(window, 'prompt').mockReturnValue('hidden phrase');
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { indexed: true, fileCount: 1, lastIndexedAt: null },
+    });
+    const search = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { results: [], totalResults: 0, queryTimeMs: 1 },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: {
+        filePath: '/notes/readme.md',
+        content: 'readme',
+        isDirty: false,
+        fileId: 'file-1',
+      },
+      api: { search: { status, search } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'search.workspace');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Search for "hidden phrase": 1 match (other.md)',
     });
   });
 

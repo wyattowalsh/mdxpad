@@ -3,6 +3,7 @@ import type { DocumentId } from '@shared/types/document';
 import type { FileHandle, FileId } from '@shared/types/file';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { IMPORT_COMMANDS } from './import-commands';
@@ -140,6 +141,27 @@ function includeOpenEditor(
   return [{ filePath, fileName }, ...results];
 }
 
+function withOpenDocuments(
+  results: readonly { readonly filePath?: string; readonly fileName?: string }[],
+  ctx: CommandContext,
+  query: string
+): readonly { readonly filePath?: string; readonly fileName?: string }[] {
+  const state = useDocumentStore.getState();
+  const sameFile = state.filePath !== null && state.filePath === ctx.document.filePath;
+  const withActive = includeOpenEditor(
+    results,
+    sameFile ? state.filePath : null,
+    sameFile ? state.content : '',
+    query
+  );
+  return useTabStore.getState().tabs.reduce((current, tab) => {
+    if (tab.filePath === null || tab.filePath === state.filePath) {
+      return current;
+    }
+    return includeOpenEditor(current, tab.filePath, tab.content, query);
+  }, withActive);
+}
+
 function requireWorkspaceDir(ctx: CommandContext): string | null {
   const dir = workspaceDir(ctx.document.filePath);
   if (!dir) {
@@ -198,14 +220,7 @@ async function searchWorkspaceFolder(
     ctx.notify({ type: 'error', message: result.error.message });
     return { ok: false, error: result.error.message };
   }
-  const openFile = useDocumentStore.getState();
-  const sameFile = openFile.filePath !== null && openFile.filePath === ctx.document.filePath;
-  const results = includeOpenEditor(
-    result.value.results,
-    sameFile ? openFile.filePath : null,
-    sameFile ? openFile.content : '',
-    queryText
-  );
+  const results = withOpenDocuments(result.value.results, ctx, queryText);
   ctx.notify({
     type: 'info',
     message: summarizeSearchResults(queryText, results),
