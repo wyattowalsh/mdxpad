@@ -134,6 +134,8 @@ interface StreamErrorEvent {
   };
 }
 
+let sessionListRequestId = 0;
+let sessionSelectRequestId = 0;
 let streamListenersBound = false;
 let removeChunkListener: (() => void) | null = null;
 let removeCompleteListener: (() => void) | null = null;
@@ -289,6 +291,8 @@ export const useAISessionStore = create<AISessionStore>()(
     ...INITIAL_AI_SESSION_STATE,
 
     loadSessions: async (workspaceId?: string) => {
+      const requestId = ++sessionListRequestId;
+      const selectGeneration = sessionSelectRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -298,6 +302,9 @@ export const useAISessionStore = create<AISessionStore>()(
         const response = await window.mdxpad.ai.listSessions(
           workspaceId ? { workspaceId } : undefined
         );
+        if (requestId !== sessionListRequestId) {
+          return;
+        }
         const activeSessionIdToRestore = response.activeSessionId ?? null;
 
         set((draft) => {
@@ -321,10 +328,17 @@ export const useAISessionStore = create<AISessionStore>()(
           draft.isLoading = false;
         });
 
-        if (activeSessionIdToRestore !== null && get().selectedSessionId === null) {
+        if (
+          activeSessionIdToRestore !== null &&
+          get().selectedSessionId === null &&
+          selectGeneration === sessionSelectRequestId
+        ) {
           await get().selectSession(activeSessionIdToRestore);
         }
       } catch (error) {
+        if (requestId !== sessionListRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = getErrorMessage(error, 'Failed to load AI sessions');
           draft.isLoading = false;
@@ -343,6 +357,7 @@ export const useAISessionStore = create<AISessionStore>()(
         const response = await window.mdxpad.ai.createSession(request);
         if (response.success && response.session) {
           const session = response.session;
+          sessionListRequestId += 1;
           set((draft) => {
             draft.sessions = [
               session,
@@ -382,6 +397,7 @@ export const useAISessionStore = create<AISessionStore>()(
 
     selectSession: async (sessionId) => {
       if (sessionId === null) {
+        sessionSelectRequestId += 1;
         set((draft) => {
           draft.selectedSessionId = null;
           draft.selectedSession = null;
@@ -393,6 +409,7 @@ export const useAISessionStore = create<AISessionStore>()(
         return;
       }
 
+      const requestId = ++sessionSelectRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -400,6 +417,9 @@ export const useAISessionStore = create<AISessionStore>()(
 
       try {
         const response = await window.mdxpad.ai.restoreSession({ sessionId });
+        if (requestId !== sessionSelectRequestId) {
+          return;
+        }
         if (response.session) {
           const session = response.session;
           set((draft) => {
@@ -424,6 +444,9 @@ export const useAISessionStore = create<AISessionStore>()(
           draft.isLoading = false;
         });
       } catch (error) {
+        if (requestId !== sessionSelectRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = getErrorMessage(error, 'Failed to load AI session');
           draft.isLoading = false;
@@ -452,6 +475,7 @@ export const useAISessionStore = create<AISessionStore>()(
         });
 
         if (response.success) {
+          sessionListRequestId += 1;
           set((draft) => {
             draft.sessions = draft.sessions.filter((session) => session.id !== targetSessionId);
             draft.sessionContexts = omitRecordKey(draft.sessionContexts, targetSessionId);
@@ -734,6 +758,8 @@ export const useAISessionStore = create<AISessionStore>()(
       }),
 
     reset: () => {
+      sessionListRequestId += 1;
+      sessionSelectRequestId += 1;
       unbindStreamListeners();
       set((draft) => {
         draft.sessions = [];

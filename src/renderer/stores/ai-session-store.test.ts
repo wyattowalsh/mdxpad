@@ -272,6 +272,56 @@ describe('useAISessionStore', () => {
     });
   });
 
+  it('keeps the AI session that was opened last', async () => {
+    const older = createSession();
+    const newer = createSession({ id: '55555555-5555-4555-8555-555555555555' });
+    let finishOld: (value: { session: AISession }) => void = () => undefined;
+    mockAIApi.restoreSession
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ session: newer });
+
+    const first = useAISessionStore.getState().selectSession(older.id);
+    const second = useAISessionStore.getState().selectSession(newer.id);
+    await second;
+    finishOld({ session: older });
+    await first;
+
+    expect(useAISessionStore.getState().selectedSessionId).toBe(newer.id);
+    expect(useAISessionStore.getState().isLoading).toBe(false);
+  });
+
+  it('keeps a session created while an older list is in flight', async () => {
+    const created = createSession({ id: '55555555-5555-4555-8555-555555555555' });
+    let finishList: (value: { sessions: AISession[]; activeSessionId: null }) => void = () =>
+      undefined;
+    mockAIApi.listSessions.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishList = resolve;
+        })
+    );
+    mockAIApi.createSession.mockResolvedValue({ success: true, session: created });
+
+    const pending = useAISessionStore.getState().loadSessions(DEFAULT_WORKSPACE_ID);
+    await useAISessionStore.getState().createSession({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      providerId: DEFAULT_PROVIDER_ID,
+      modelId: 'gpt-4o',
+      contextDocumentIds: [],
+    });
+    finishList({ sessions: [], activeSessionId: null });
+    await pending;
+
+    expect(useAISessionStore.getState().sessions.map((session) => session.id)).toEqual([
+      created.id,
+    ]);
+  });
+
   it('tracks stream lifecycle from start to completion', async () => {
     const session = createSession();
     const prompt = createPrompt({

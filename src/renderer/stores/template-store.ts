@@ -183,12 +183,7 @@ export const useTemplateStore = create<TemplateStore>()(
       try {
         const result = await window.mdxpad.template.list();
 
-        // Check staleness BEFORE processing result
         if (requestId !== loadTemplatesRequestId) {
-          set((draft) => {
-            draft.isLoading = false;
-            draft.error = null; // Clear error on stale request
-          });
           return;
         }
 
@@ -214,12 +209,7 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
-        // Check staleness BEFORE processing error
         if (requestId !== loadTemplatesRequestId) {
-          set((draft) => {
-            draft.isLoading = false;
-            draft.error = null; // Clear error on stale request
-          });
           return;
         }
 
@@ -243,12 +233,7 @@ export const useTemplateStore = create<TemplateStore>()(
       try {
         const result = await window.mdxpad.template.get(id);
 
-        // Check staleness BEFORE processing result
         if (requestId !== selectTemplateRequestId) {
-          set((draft) => {
-            draft.isLoading = false;
-            draft.error = null; // Clear error on stale request
-          });
           return;
         }
 
@@ -267,12 +252,7 @@ export const useTemplateStore = create<TemplateStore>()(
           });
         }
       } catch (err) {
-        // Check staleness BEFORE processing error
         if (requestId !== selectTemplateRequestId) {
-          set((draft) => {
-            draft.isLoading = false;
-            draft.error = null; // Clear error on stale request
-          });
           return;
         }
 
