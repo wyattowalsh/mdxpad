@@ -410,6 +410,27 @@ describe('openFileCommand', () => {
     confirmSpy.mockRestore();
   });
 
+  it('does not replace a file opened while the chosen file was still being read', async () => {
+    documentStoreState.filePath = null;
+    documentStoreState.content = '';
+    const mockApi = createMockApi({
+      readFile: vi.fn().mockImplementation(async () => {
+        documentStoreState.filePath = '/docs/other.mdx';
+        documentStoreState.content = 'other';
+        return { ok: true, value: '# Chosen' };
+      }),
+    });
+    const ctx = createMockContext({ api: mockApi });
+
+    const result = await openFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockOpenDocument).not.toHaveBeenCalled();
+    expect(ctx.notify).not.toHaveBeenCalled();
+    documentStoreState.filePath = null;
+    documentStoreState.content = '';
+  });
+
   it('should handle file not found error', async () => {
     const mockApi = createMockApi({
       openFile: vi.fn().mockResolvedValue({

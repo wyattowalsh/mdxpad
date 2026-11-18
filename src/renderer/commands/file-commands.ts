@@ -90,15 +90,21 @@ function formatExportError(error: FileExportError): string {
 async function loadFileIntoStore(
   handle: FileHandle,
   api: CommandContext['api']
-): Promise<CommandResult> {
+): Promise<CommandResult & { readonly opened?: boolean }> {
   // Ensure path exists (should always be set when openFile returns success)
   const filePath = handle.path;
   if (!filePath) {
     return { ok: false, error: 'No file path returned' };
   }
 
-  // Read the file content
+  const before = useDocumentStore.getState();
+  const beforePath = before.filePath;
+  const beforeContent = before.content;
   const readResult = await api.readFile(filePath);
+  const current = useDocumentStore.getState();
+  if (current.filePath !== beforePath || current.content !== beforeContent) {
+    return { ok: true, opened: false };
+  }
   if (!readResult.ok) {
     return { ok: false, error: formatFileError(readResult.error) };
   }
@@ -111,7 +117,7 @@ async function loadFileIntoStore(
   };
   useDocumentStore.getState().openDocument(docHandle, readResult.value);
 
-  return { ok: true };
+  return { ok: true, opened: true };
 }
 
 /**
@@ -237,6 +243,9 @@ const openFileCommand: Command = {
       if (!loadResult.ok) {
         ctx.notify({ type: 'error', message: `Failed to open file: ${loadResult.error}` });
         return loadResult;
+      }
+      if (loadResult.opened === false) {
+        return { ok: true };
       }
 
       ctx.notify({ type: 'success', message: `Opened: ${result.value.name}` });
