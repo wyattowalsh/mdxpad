@@ -417,7 +417,7 @@ const handleFileExport = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' }, support };
     }
 
-    const exportPath = await writableDocumentPath(saveDialogResult.filePath);
+    const exportPath = saveDialogResult.filePath;
 
     if (binaryExporter) {
       const metadata = args.metadata;
