@@ -4,7 +4,14 @@ import type { DocumentId } from '@shared/types/document';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
-import { activateDocumentTab, closeDocumentTab, subscribeDocumentTabs } from './document-tabs';
+import {
+  activateDocumentTab,
+  activateRelativeDocumentTab,
+  closeActiveDocumentTab,
+  closeDocumentTab,
+  reopenClosedTab,
+  subscribeDocumentTabs,
+} from './document-tabs';
 
 describe('document tabs', () => {
   beforeEach(() => {
@@ -91,6 +98,30 @@ describe('document tabs', () => {
 
     expect(useTabStore.getState().tabs).toHaveLength(1);
     expect(useDocumentStore.getState().content).toBe('notes');
+    stop();
+  });
+
+  it('reopens a closed tab and moves between tabs', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved a'
+    );
+    useDocumentStore.getState().openDocument(
+      { fileId: 'b' as DocumentId, filePath: '/docs/b.mdx', mtime: 1 },
+      'saved b'
+    );
+
+    closeActiveDocumentTab();
+    expect(useDocumentStore.getState().filePath).toBe('/docs/a.mdx');
+    expect(useTabStore.getState().tabs).toHaveLength(1);
+
+    reopenClosedTab();
+    expect(useDocumentStore.getState().filePath).toBe('/docs/b.mdx');
+    expect(useDocumentStore.getState().content).toBe('saved b');
+
+    activateRelativeDocumentTab(-1);
+    expect(useDocumentStore.getState().filePath).toBe('/docs/a.mdx');
     stop();
   });
 });

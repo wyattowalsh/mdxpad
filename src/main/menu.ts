@@ -18,6 +18,7 @@ import {
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 
+import { IPC_EVENTS } from '@shared/lib/ipc';
 import { RecentFilesService, type RecentFileEntry } from './services/recent-files';
 import { readFile, createFileHandle } from './services/file-service';
 import { grantWriteCapability } from './ipc/document-capability';
@@ -305,7 +306,7 @@ function buildTabMenuItems(window: BrowserWindow): MenuItemConstructorOptions[] 
     tabItems.push({
       label: `Tab ${i}`,
       accelerator: `CmdOrCtrl+${i}`,
-      click: () => window.webContents.send('mdxpad:menu:switch-tab', i),
+      click: () => window.webContents.send(IPC_EVENTS.menuSwitchTab, i),
       visible: false,
     });
   }
@@ -314,22 +315,22 @@ function buildTabMenuItems(window: BrowserWindow): MenuItemConstructorOptions[] 
     {
       label: 'Close Tab',
       accelerator: 'CmdOrCtrl+W',
-      click: () => window.webContents.send('mdxpad:menu:close-tab'),
+      click: () => window.webContents.send(IPC_EVENTS.menuCloseTab),
     },
     {
       label: 'Reopen Closed Tab',
       accelerator: 'CmdOrCtrl+Shift+T',
-      click: () => window.webContents.send('mdxpad:menu:reopen-tab'),
+      click: () => window.webContents.send(IPC_EVENTS.menuReopenTab),
     },
     {
       label: 'Next Tab',
       accelerator: 'CmdOrCtrl+Shift+]',
-      click: () => window.webContents.send('mdxpad:menu:next-tab'),
+      click: () => window.webContents.send(IPC_EVENTS.menuNextTab),
     },
     {
       label: 'Previous Tab',
       accelerator: 'CmdOrCtrl+Shift+[',
-      click: () => window.webContents.send('mdxpad:menu:prev-tab'),
+      click: () => window.webContents.send(IPC_EVENTS.menuPreviousTab),
     }
   );
 

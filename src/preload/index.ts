@@ -107,6 +107,11 @@ const api: MdxpadAPI = {
   onMenuSaveFile: eventSubscriptions.onMenuSaveFile,
   onMenuSaveFileAs: eventSubscriptions.onMenuSaveFileAs,
   onMenuExportFile: eventSubscriptions.onMenuExportFile,
+  onMenuCloseTab: eventSubscriptions.onMenuCloseTab,
+  onMenuReopenTab: eventSubscriptions.onMenuReopenTab,
+  onMenuNextTab: eventSubscriptions.onMenuNextTab,
+  onMenuPreviousTab: eventSubscriptions.onMenuPreviousTab,
+  onMenuSwitchTab: eventSubscriptions.onMenuSwitchTab,
   onAutosaveSettingsChange: eventSubscriptions.onAutosaveSettingsChange,
   onEditorDirtyCheck: eventSubscriptions.onEditorDirtyCheck,
 

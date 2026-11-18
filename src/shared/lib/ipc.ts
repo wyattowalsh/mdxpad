@@ -151,6 +151,16 @@ export const IPC_EVENTS = {
   menuSaveFileAs: 'mdxpad:menu:save-file-as',
   /** Menu events - export file */
   menuExportFile: 'mdxpad:menu:export-file',
+  /** Menu events - close the active tab */
+  menuCloseTab: 'mdxpad:menu:close-tab',
+  /** Menu events - reopen the last closed tab */
+  menuReopenTab: 'mdxpad:menu:reopen-tab',
+  /** Menu events - select the next tab */
+  menuNextTab: 'mdxpad:menu:next-tab',
+  /** Menu events - select the previous tab */
+  menuPreviousTab: 'mdxpad:menu:prev-tab',
+  /** Menu events - select tab 1-9 */
+  menuSwitchTab: 'mdxpad:menu:switch-tab',
 } as const;
 
 /**

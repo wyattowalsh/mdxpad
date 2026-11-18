@@ -487,7 +487,6 @@ const closeWindowCommand: Command = {
   name: 'Close Window',
   description: 'Close the current window',
   category: 'file',
-  shortcut: { key: 'w', modifiers: ['Mod'] },
   icon: '❌',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
     // Check dirty state before closing

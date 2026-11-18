@@ -9,6 +9,22 @@ import { useTabStore, type Tab } from '@renderer/stores/tab-store';
 
 let applyingTab = false;
 
+const MAX_CLOSED_TABS = 20;
+const closedTabs: Omit<Tab, 'id'>[] = [];
+
+function rememberClosedTab(tab: Tab): void {
+  closedTabs.push({
+    filePath: tab.filePath,
+    fileName: tab.fileName,
+    isDirty: tab.isDirty,
+    content: tab.content,
+    savedContent: tab.savedContent,
+  });
+  if (closedTabs.length > MAX_CLOSED_TABS) {
+    closedTabs.shift();
+  }
+}
+
 function tabSnapshot(): Omit<Tab, 'id'> {
   const document = useDocumentStore.getState();
   return {
@@ -124,6 +140,7 @@ export function closeDocumentTab(id: string): void {
   if (tab.isDirty && !checkDirtyState()) {
     return;
   }
+  rememberClosedTab(tab);
   const wasActive = store.activeTabId === id;
   store.removeTab(id);
   if (!wasActive) {
@@ -152,6 +169,10 @@ function closeTabs(ids: readonly string[]): void {
     return;
   }
   for (const id of ids) {
+    const tab = useTabStore.getState().tabs.find((item) => item.id === id);
+    if (tab) {
+      rememberClosedTab(tab);
+    }
     useTabStore.getState().removeTab(id);
   }
   const next = activeTab();
@@ -186,6 +207,49 @@ export function closeDocumentTabsToRight(id: string): void {
     return;
   }
   closeTabs(tabs.slice(index + 1).map((tab) => tab.id));
+}
+
+/** Close whichever tab is showing. */
+export function closeActiveDocumentTab(): void {
+  const id = useTabStore.getState().activeTabId;
+  if (id) {
+    closeDocumentTab(id);
+  }
+}
+
+/** Select a tab by its position in the bar. The first tab is index 0. */
+export function activateDocumentTabAt(index: number): void {
+  const tab = useTabStore.getState().tabs[index];
+  if (tab) {
+    activateDocumentTab(tab.id);
+  }
+}
+
+/** Move to the next or previous tab, wrapping around the bar. */
+export function activateRelativeDocumentTab(offset: number): void {
+  const store = useTabStore.getState();
+  if (store.tabs.length === 0) {
+    return;
+  }
+  const index = store.tabs.findIndex((tab) => tab.id === store.activeTabId);
+  const nextIndex = (Math.max(index, 0) + offset + store.tabs.length) % store.tabs.length;
+  const tab = store.tabs[nextIndex];
+  if (tab) {
+    activateDocumentTab(tab.id);
+  }
+}
+
+/** Open the most recently closed tab again. */
+export function reopenClosedTab(): void {
+  const closed = closedTabs.pop();
+  if (!closed) {
+    return;
+  }
+  const id = useTabStore.getState().addTab(closed);
+  const created = useTabStore.getState().tabs.find((tab) => tab.id === id);
+  if (created) {
+    showTab(created);
+  }
 }
 
 /** Follow document changes for the life of the shell. */

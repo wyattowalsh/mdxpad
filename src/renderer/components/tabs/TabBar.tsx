@@ -94,12 +94,10 @@ function TabBarComponent() {
     [tabs, focusTab]
   );
 
-  // Keyboard shortcuts: Cmd+1-9 to switch tabs, Cmd+W to close active tab
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
 
-      // Cmd+1 through Cmd+9
       const num = parseInt(e.key, 10);
       if (num >= 1 && num <= 9) {
         e.preventDefault();
@@ -108,17 +106,11 @@ function TabBarComponent() {
           activateDocumentTab(targetTab.id);
         }
       }
-
-      // Cmd+W to close active tab
-      if (e.key === 'w' && activeTabId) {
-        e.preventDefault();
-        closeDocumentTab(activeTabId);
-      }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [tabs, activeTabId]);
+  }, [tabs]);
 
   if (tabs.length === 0) return null;
 

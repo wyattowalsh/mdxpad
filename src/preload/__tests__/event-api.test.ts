@@ -136,6 +136,35 @@ describe('eventSubscriptions', () => {
     });
   });
 
+  describe('tab menu events', () => {
+    it('closes, reopens, and switches tabs from the menu', () => {
+      const closeTab = vi.fn();
+      const reopenTab = vi.fn();
+      const nextTab = vi.fn();
+      const previousTab = vi.fn();
+      const switchTab = vi.fn();
+      eventSubscriptions.onMenuCloseTab(closeTab);
+      eventSubscriptions.onMenuReopenTab(reopenTab);
+      eventSubscriptions.onMenuNextTab(nextTab);
+      eventSubscriptions.onMenuPreviousTab(previousTab);
+      eventSubscriptions.onMenuSwitchTab(switchTab);
+
+      emitIpcEvent(IPC_EVENTS.menuCloseTab);
+      emitIpcEvent(IPC_EVENTS.menuReopenTab);
+      emitIpcEvent(IPC_EVENTS.menuNextTab);
+      emitIpcEvent(IPC_EVENTS.menuPreviousTab);
+      emitIpcEvent(IPC_EVENTS.menuSwitchTab, 2);
+      emitIpcEvent(IPC_EVENTS.menuSwitchTab, 0);
+
+      expect(closeTab).toHaveBeenCalledTimes(1);
+      expect(reopenTab).toHaveBeenCalledTimes(1);
+      expect(nextTab).toHaveBeenCalledTimes(1);
+      expect(previousTab).toHaveBeenCalledTimes(1);
+      expect(switchTab).toHaveBeenCalledTimes(1);
+      expect(switchTab).toHaveBeenCalledWith(2);
+    });
+  });
+
   describe('onMenuNewFile', () => {
     it('should register and call callback', () => {
       const callback = vi.fn();

@@ -284,6 +284,24 @@ export interface MdxpadAPI {
    */
   onMenuExportFile(callback: () => void): () => void;
 
+  /** Close the active editor tab from the View menu. */
+  onMenuCloseTab(callback: () => void): () => void;
+
+  /** Reopen the most recently closed tab from the View menu. */
+  onMenuReopenTab(callback: () => void): () => void;
+
+  /** Select the next editor tab from the View menu. */
+  onMenuNextTab(callback: () => void): () => void;
+
+  /** Select the previous editor tab from the View menu. */
+  onMenuPreviousTab(callback: () => void): () => void;
+
+  /**
+   * Select an editor tab by 1-based position from the View menu.
+   * @param callback - Called with a tab number from 1 through 9
+   */
+  onMenuSwitchTab(callback: (index: number) => void): () => void;
+
   /**
    * Subscribe to main-process dirty-state queries.
    * Used by close-window flow to determine whether unsaved changes exist.

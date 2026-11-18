@@ -16,6 +16,12 @@ import { useCommandPalette, buildCommandContext } from './useCommandPalette';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
+import {
+  activateDocumentTabAt,
+  activateRelativeDocumentTab,
+  closeActiveDocumentTab,
+  reopenClosedTab,
+} from '../components/tabs/document-tabs';
 import { registerAllCommands } from '../commands';
 import { FILE_COMMAND_IDS } from '../commands/file-commands';
 import type {
@@ -102,6 +108,21 @@ function getMdxpadApi() {
       /* noop */
     },
     onMenuExportFile: () => () => {
+      /* noop */
+    },
+    onMenuCloseTab: () => () => {
+      /* noop */
+    },
+    onMenuReopenTab: () => () => {
+      /* noop */
+    },
+    onMenuNextTab: () => () => {
+      /* noop */
+    },
+    onMenuPreviousTab: () => () => {
+      /* noop */
+    },
+    onMenuSwitchTab: () => () => {
       /* noop */
     },
     onEditorDirtyCheck: () => () => {
@@ -247,6 +268,11 @@ export function useMenuEvents(
         window.mdxpad.onMenuSaveFile(() => runCommandFromMenu(FILE_COMMAND_IDS.save)),
         window.mdxpad.onMenuSaveFileAs(() => runCommandFromMenu(FILE_COMMAND_IDS.saveAs)),
         window.mdxpad.onMenuExportFile(() => runCommandFromMenu(FILE_COMMAND_IDS.export)),
+        window.mdxpad.onMenuCloseTab(() => closeActiveDocumentTab()),
+        window.mdxpad.onMenuReopenTab(() => reopenClosedTab()),
+        window.mdxpad.onMenuNextTab(() => activateRelativeDocumentTab(1)),
+        window.mdxpad.onMenuPreviousTab(() => activateRelativeDocumentTab(-1)),
+        window.mdxpad.onMenuSwitchTab((index) => activateDocumentTabAt(index - 1)),
       ];
       return true;
     };

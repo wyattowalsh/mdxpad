@@ -47,6 +47,11 @@ const menuOpenFileListeners = new Set<(event: MenuFileOpenEvent) => void>();
 const menuSaveFileListeners = new Set<() => void>();
 const menuSaveFileAsListeners = new Set<() => void>();
 const menuExportFileListeners = new Set<() => void>();
+const menuCloseTabListeners = new Set<() => void>();
+const menuReopenTabListeners = new Set<() => void>();
+const menuNextTabListeners = new Set<() => void>();
+const menuPreviousTabListeners = new Set<() => void>();
+const menuSwitchTabListeners = new Set<(index: number) => void>();
 
 /** Autosave settings change event listeners registry */
 const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => void>();
@@ -117,6 +122,42 @@ ipcRenderer.on(IPC_EVENTS.menuSaveFileAs, () => {
 ipcRenderer.on(IPC_EVENTS.menuExportFile, () => {
   for (const listener of menuExportFileListeners) {
     listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuCloseTab, () => {
+  for (const listener of menuCloseTabListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuReopenTab, () => {
+  for (const listener of menuReopenTabListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuNextTab, () => {
+  for (const listener of menuNextTabListeners) {
+    listener();
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.menuPreviousTab, () => {
+  for (const listener of menuPreviousTabListeners) {
+    listener();
+  }
+});
+
+const menuSwitchTabIndexSchema = z.number().int().min(1).max(9);
+
+ipcRenderer.on(IPC_EVENTS.menuSwitchTab, (_event, data: unknown) => {
+  const parsed = menuSwitchTabIndexSchema.safeParse(data);
+  if (!parsed.success) {
+    return;
+  }
+  for (const listener of menuSwitchTabListeners) {
+    listener(parsed.data);
   }
 });
 
@@ -217,6 +258,46 @@ export const eventSubscriptions = {
     menuExportFileListeners.add(callback);
     return () => {
       menuExportFileListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to close-tab menu event */
+  onMenuCloseTab: (callback: () => void) => {
+    menuCloseTabListeners.add(callback);
+    return () => {
+      menuCloseTabListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to reopen-tab menu event */
+  onMenuReopenTab: (callback: () => void) => {
+    menuReopenTabListeners.add(callback);
+    return () => {
+      menuReopenTabListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to next-tab menu event */
+  onMenuNextTab: (callback: () => void) => {
+    menuNextTabListeners.add(callback);
+    return () => {
+      menuNextTabListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to previous-tab menu event */
+  onMenuPreviousTab: (callback: () => void) => {
+    menuPreviousTabListeners.add(callback);
+    return () => {
+      menuPreviousTabListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to switch-tab menu event. The index is 1 through 9. */
+  onMenuSwitchTab: (callback: (index: number) => void) => {
+    menuSwitchTabListeners.add(callback);
+    return () => {
+      menuSwitchTabListeners.delete(callback);
     };
   },
 

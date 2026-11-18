@@ -157,6 +157,11 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     onMenuSaveFile: vi.fn(() => () => {}),
     onMenuSaveFileAs: vi.fn(() => () => {}),
     onMenuExportFile: vi.fn(() => () => {}),
+    onMenuCloseTab: vi.fn(() => () => {}),
+    onMenuReopenTab: vi.fn(() => () => {}),
+    onMenuNextTab: vi.fn(() => () => {}),
+    onMenuPreviousTab: vi.fn(() => () => {}),
+    onMenuSwitchTab: vi.fn(() => () => {}),
     platform: { os: 'darwin', arch: 'arm64' },
     // Autosave API (Spec 011)
     recoveryCheck: vi.fn().mockResolvedValue({ hasRecoveryData: false, count: 0 }),
@@ -639,8 +644,8 @@ describe('closeWindowCommand', () => {
     expect(closeWindowCommand.id).toBe(FILE_COMMAND_IDS.close);
   });
 
-  it('should have correct keyboard shortcut (Cmd+W)', () => {
-    expect(closeWindowCommand.shortcut).toEqual({ key: 'w', modifiers: ['Mod'] });
+  it('leaves Cmd+W for Close Tab', () => {
+    expect(closeWindowCommand.shortcut).toBeUndefined();
   });
 
   it('should call IPC closeWindow', async () => {
@@ -825,8 +830,8 @@ describe('Keyboard Shortcuts', () => {
     expect(saveFileAsCommand.shortcut).toEqual({ key: 's', modifiers: ['Mod', 'Shift'] });
   });
 
-  it('file.close should have Cmd+W shortcut', () => {
-    expect(closeWindowCommand.shortcut).toEqual({ key: 'w', modifiers: ['Mod'] });
+  it('file.close leaves Cmd+W for Close Tab', () => {
+    expect(closeWindowCommand.shortcut).toBeUndefined();
   });
 
   it('file.export should have Cmd+Shift+E shortcut', () => {
