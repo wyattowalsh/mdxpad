@@ -1,7 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DocumentId } from '@shared/contracts/autosave-schemas';
+import { useDocumentStore } from '@renderer/stores/document-store';
+import { useFrontmatterStore } from '@renderer/stores/frontmatter-store';
 
 import type { AppState } from './useAppState';
 import { useAppDialogs } from './useAppDialogs';
@@ -16,6 +18,41 @@ const conflict = {
   recoveryTimestamp: 1,
   diskModifiedAt: 2,
 };
+
+describe('useAppDialogs frontmatter', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+    useFrontmatterStore.getState().reset();
+  });
+
+  it('shows the new file frontmatter when the document changes', () => {
+    useDocumentStore.setState({
+      filePath: '/notes/a.md',
+      content: '---\ntitle: A\n---\n',
+    });
+    useFrontmatterStore.getState().parseFromDocument('---\ntitle: A\n---\n');
+    const content = { current: '---\ntitle: A\n---\n' };
+    const state = {
+      handleNotification: vi.fn(),
+      recovery: { entries: [], handleDecision: vi.fn(), releaseRecovery: vi.fn() },
+    } as unknown as AppState;
+
+    renderHook(() => useAppDialogs({ ...state, documentContent: content.current } as AppState));
+
+    act(() => {
+      content.current = '---\ntitle: B\n---\n';
+      useDocumentStore.setState({
+        filePath: '/notes/b.md',
+        content: content.current,
+      });
+    });
+
+    const title = useFrontmatterStore
+      .getState()
+      .data?.fields.find((field) => field.name === 'title');
+    expect(title?.value).toBe('B');
+  });
+});
 
 describe('useAppDialogs conflict save as', () => {
   const previousMdxpad = window.mdxpad;

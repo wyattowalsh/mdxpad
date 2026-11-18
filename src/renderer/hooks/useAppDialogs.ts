@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDocumentStore } from '../stores/document-store';
 import { useFrontmatterStore } from '../stores/frontmatter-store';
+import { selectActiveTabId, useTabStore } from '../stores/tab-store';
 import { replaceFrontmatter } from '../lib/frontmatter';
 import type {
   RecoveryDecision,
@@ -19,6 +20,47 @@ import type {
 import type { AppState } from './useAppState';
 
 const FRONTMATTER_SYNC_DELAY_MS = 150;
+
+function useFrontmatterDocumentSync(content: string): void {
+  const filePath = useDocumentStore((state) => state.filePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const documentKey = filePath ?? `untitled:${activeTabId ?? 'new'}`;
+  const previousKey = useRef(documentKey);
+  const isMountedRef = useRef(true);
+  const syncTokenRef = useRef(0);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const keyChanged = previousKey.current !== documentKey;
+    previousKey.current = documentKey;
+    syncTokenRef.current += 1;
+    const syncToken = syncTokenRef.current;
+    const apply = (): void => {
+      if (!isMountedRef.current || syncTokenRef.current !== syncToken) {
+        return;
+      }
+      const frontmatterStore = useFrontmatterStore.getState();
+      if (!keyChanged && frontmatterStore.lastChangeSource === 'panel') {
+        return;
+      }
+      frontmatterStore.parseFromDocument(content);
+    };
+    if (keyChanged) {
+      apply();
+      return;
+    }
+    const timeoutId = window.setTimeout(apply, FRONTMATTER_SYNC_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [content, documentKey]);
+}
 
 async function saveRecoveryCopy(conflict: FileConflict | null, state: AppState): Promise<boolean> {
   if (!conflict) {
@@ -73,7 +115,7 @@ export interface AppDialogsState {
 export function useAppDialogs(state: AppState): AppDialogsState {
   const [activeConflict, setActiveConflict] = useState<FileConflict | null>(null);
   const isMountedRef = useRef(true);
-  const frontmatterSyncTokenRef = useRef(0);
+  useFrontmatterDocumentSync(state.documentContent);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -81,26 +123,6 @@ export function useAppDialogs(state: AppState): AppDialogsState {
       isMountedRef.current = false;
     };
   }, []);
-
-  // Frontmatter sync from document content
-  useEffect(() => {
-    frontmatterSyncTokenRef.current += 1;
-    const syncToken = frontmatterSyncTokenRef.current;
-    const contentSnapshot = state.documentContent;
-    const timeoutId = window.setTimeout(() => {
-      if (!isMountedRef.current || frontmatterSyncTokenRef.current !== syncToken) {
-        return;
-      }
-      const frontmatterStore = useFrontmatterStore.getState();
-      if (frontmatterStore.lastChangeSource !== 'panel') {
-        frontmatterStore.parseFromDocument(contentSnapshot);
-      }
-    }, FRONTMATTER_SYNC_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [state.documentContent]);
 
   // Frontmatter panel -> document sync
   useEffect(() => {

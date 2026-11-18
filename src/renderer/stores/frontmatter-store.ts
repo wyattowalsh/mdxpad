@@ -175,6 +175,7 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
           fields: [] as FrontmatterField[],
         };
         const data: WritableDraft<FrontmatterData> = (draft.data ??= castDraft(newData));
+        data.exists = true;
 
         // Check if field already exists
         const existing = data.fields.find((f) => f.name === name);
