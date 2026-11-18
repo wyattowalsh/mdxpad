@@ -21,6 +21,7 @@ import { usageStatsFromQuery } from './usage-stats-map';
 
 let providerListRequestId = 0;
 let usageStatsRequestId = 0;
+let sidecarRequestId = 0;
 
 // =============================================================================
 // WINDOW TYPE DECLARATION
@@ -421,6 +422,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     },
 
     fetchSidecarStatus: async () => {
+      const requestId = ++sidecarRequestId;
       set((state) => {
         state.isSidecarLoading = true;
         state.error = null;
@@ -428,6 +430,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const status = await getAIApi().getSidecarStatus();
+        if (requestId !== sidecarRequestId) {
+          return status;
+        }
         set((state) => {
           state.sidecarStatus = status;
           state.isSidecarLoading = false;
@@ -437,6 +442,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         });
         return status;
       } catch (error) {
+        if (requestId !== sidecarRequestId) {
+          return null;
+        }
         set((state) => {
           state.isSidecarLoading = false;
           state.error = error instanceof Error ? error.message : 'Failed to fetch sidecar status';
@@ -446,6 +454,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     },
 
     configureSidecar: async (config) => {
+      const requestId = ++sidecarRequestId;
       set((state) => {
         state.isSidecarLoading = true;
         state.error = null;
@@ -453,6 +462,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const status = await getAIApi().configureSidecar(config);
+        if (requestId !== sidecarRequestId) {
+          return status;
+        }
         set((state) => {
           state.sidecarStatus = status;
           state.isSidecarLoading = false;
@@ -462,6 +474,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         });
         return status;
       } catch (error) {
+        if (requestId !== sidecarRequestId) {
+          return null;
+        }
         set((state) => {
           state.isSidecarLoading = false;
           state.error = error instanceof Error ? error.message : 'Failed to configure sidecar';
@@ -471,6 +486,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     },
 
     startSidecar: async (config) => {
+      const requestId = ++sidecarRequestId;
       set((state) => {
         state.isSidecarLoading = true;
         state.error = null;
@@ -478,6 +494,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const status = await getAIApi().startSidecar(config);
+        if (requestId !== sidecarRequestId) {
+          return status;
+        }
         set((state) => {
           state.sidecarStatus = status;
           state.isSidecarLoading = false;
@@ -487,6 +506,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         });
         return status;
       } catch (error) {
+        if (requestId !== sidecarRequestId) {
+          return null;
+        }
         set((state) => {
           state.isSidecarLoading = false;
           state.error = error instanceof Error ? error.message : 'Failed to start sidecar';
@@ -496,6 +518,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     },
 
     stopSidecar: async () => {
+      const requestId = ++sidecarRequestId;
       set((state) => {
         state.isSidecarLoading = true;
         state.error = null;
@@ -503,6 +526,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const status = await getAIApi().stopSidecar();
+        if (requestId !== sidecarRequestId) {
+          return status;
+        }
         set((state) => {
           state.sidecarStatus = status;
           state.isSidecarLoading = false;
@@ -512,6 +538,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         });
         return status;
       } catch (error) {
+        if (requestId !== sidecarRequestId) {
+          return null;
+        }
         set((state) => {
           state.isSidecarLoading = false;
           state.error = error instanceof Error ? error.message : 'Failed to stop sidecar';

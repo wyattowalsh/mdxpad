@@ -235,6 +235,33 @@ describe('AI Provider Store', () => {
       expect(useAIProviderStore.getState().isSidecarLoading).toBe(false);
     });
 
+    it('keeps the sidecar status from the latest action', async () => {
+      let finishStatus: (value: { success: boolean; status: 'stopped' }) => void = () => undefined;
+      mockAIApi.getSidecarStatus.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishStatus = resolve;
+          })
+      );
+      mockAIApi.startSidecar.mockResolvedValue({
+        success: true,
+        status: 'running',
+        endpoint: 'http://127.0.0.1:11470',
+      });
+
+      const pending = useAIProviderStore.getState().fetchSidecarStatus();
+      const started = useAIProviderStore.getState().startSidecar({
+        modelPath: '/models/llama.gguf',
+        port: 11470,
+      });
+      await started;
+      finishStatus({ success: true, status: 'stopped' });
+      await pending;
+
+      expect(useAIProviderStore.getState().sidecarStatus?.status).toBe('running');
+      expect(useAIProviderStore.getState().isSidecarLoading).toBe(false);
+    });
+
     it('should configure sidecar and persist status', async () => {
       const config = {
         modelPath: '/models/llama.gguf',

@@ -241,6 +241,88 @@ describe('useWorkspaceStore', () => {
     expect(state.isSaving).toBe(false);
   });
 
+  it('keeps a failed project create off the workspace opened later', async () => {
+    useWorkspaceStore.getState().setModel(createWorkspaceModel());
+    const base = createWorkspaceModel();
+    const newer: WorkspaceModel = {
+      ...base,
+      workspace: {
+        ...base.workspace,
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Newer',
+        rootPath: '/newer',
+      },
+    };
+    let finishCreate: (value: CreateProjectResponse) => void = () => undefined;
+    mockWorkspaceApi.createProject.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCreate = resolve;
+        })
+    );
+    mockWorkspaceApi.openWorkspace.mockResolvedValue({ ok: true, value: newer });
+
+    const creating = useWorkspaceStore.getState().createProject({
+      workspaceId: WORKSPACE_ID,
+      name: 'Project Alpha',
+      rootPath: '/workspace/projects/alpha',
+      documentIds: [],
+      activeDocumentId: null,
+    });
+    await useWorkspaceStore.getState().openWorkspace({ rootPath: '/newer' });
+    finishCreate({
+      ok: false,
+      error: { code: 'WORKSPACE_NOT_FOUND', message: 'Old project failed' },
+    });
+    await creating;
+
+    const state = useWorkspaceStore.getState();
+    expect(state.model?.workspace.name).toBe('Newer');
+    expect(state.error).toBeNull();
+    expect(state.isSaving).toBe(false);
+    expect(state.isLoading).toBe(false);
+  });
+
+  it('keeps saving when an older project create fails', async () => {
+    useWorkspaceStore.getState().setModel(createWorkspaceModel());
+    let finishCreate: (value: CreateProjectResponse) => void = () => undefined;
+    let finishSave: (value: SaveWorkspaceResponse) => void = () => undefined;
+    mockWorkspaceApi.createProject.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCreate = resolve;
+        })
+    );
+    mockWorkspaceApi.saveWorkspace.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+    );
+
+    const creating = useWorkspaceStore.getState().createProject({
+      workspaceId: WORKSPACE_ID,
+      name: 'Project Alpha',
+      rootPath: '/workspace/projects/alpha',
+      documentIds: [],
+      activeDocumentId: null,
+    });
+    const saving = useWorkspaceStore.getState().saveWorkspace();
+    finishCreate({
+      ok: false,
+      error: { code: 'WORKSPACE_INVALID_STATE', message: 'Old project failed' },
+    });
+    await creating;
+
+    expect(useWorkspaceStore.getState().isSaving).toBe(true);
+    expect(useWorkspaceStore.getState().error).toBeNull();
+
+    finishSave({ ok: true, value: undefined });
+    await saving;
+    expect(useWorkspaceStore.getState().isSaving).toBe(false);
+    expect(useWorkspaceStore.getState().error).toBeNull();
+  });
+
   it('updates link index when addLink succeeds', async () => {
     useWorkspaceStore.getState().setModel(createWorkspaceModel());
     const link = createLinkRecord();

@@ -25,6 +25,7 @@ import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
 let openWorkspaceRequestId = 0;
 let saveWorkspaceRequestId = 0;
 let backlinksRequestId = 0;
+let workspaceWriteRequestId = 0;
 
 interface WorkspaceOperationsApi {
   openWorkspace(request: OpenWorkspaceRequest): Promise<OpenWorkspaceResponse>;
@@ -167,6 +168,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
     openWorkspace: async (request) => {
       const requestId = ++openWorkspaceRequestId;
+      const writeId = ++workspaceWriteRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -180,6 +182,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }
         set((draft) => {
           draft.isLoading = false;
+          if (writeId === workspaceWriteRequestId) {
+            draft.isSaving = false;
+          }
           if (response.ok) {
             draft.model = castDraft(response.value);
           } else {
@@ -206,6 +211,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }
         set((draft) => {
           draft.isLoading = false;
+          if (writeId === workspaceWriteRequestId) {
+            draft.isSaving = false;
+          }
           draft.error = workspaceError;
         });
         recordLocalTelemetryEvent('workspace', 'open-workspace', 'failed', {
@@ -232,6 +240,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       }
 
       const requestId = ++saveWorkspaceRequestId;
+      const writeId = ++workspaceWriteRequestId;
       const savedWorkspaceId = modelToSave.workspace.id;
       set((draft) => {
         draft.isSaving = true;
@@ -246,8 +255,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           return response;
         }
         set((draft) => {
-          draft.isSaving = false;
-          if (draft.model !== null && draft.model.workspace.id !== savedWorkspaceId) {
+          const currentWrite = writeId === workspaceWriteRequestId;
+          if (currentWrite) {
+            draft.isSaving = false;
+          }
+          if (
+            !currentWrite ||
+            (draft.model !== null && draft.model.workspace.id !== savedWorkspaceId)
+          ) {
             return;
           }
           if (response.ok) {
@@ -270,8 +285,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           return { ok: false, error: workspaceError };
         }
         set((draft) => {
-          draft.isSaving = false;
-          if (draft.model !== null && draft.model.workspace.id !== savedWorkspaceId) {
+          const currentWrite = writeId === workspaceWriteRequestId;
+          if (currentWrite) {
+            draft.isSaving = false;
+          }
+          if (
+            !currentWrite ||
+            (draft.model !== null && draft.model.workspace.id !== savedWorkspaceId)
+          ) {
             return;
           }
           draft.error = workspaceError;
@@ -284,6 +305,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     },
 
     createProject: async (request) => {
+      const requestId = ++workspaceWriteRequestId;
       set((draft) => {
         draft.isSaving = true;
         draft.error = null;
@@ -293,9 +315,13 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       try {
         const response = await getWorkspaceApi().createProject(request);
         set((draft) => {
-          draft.isSaving = false;
+          const currentWrite = requestId === workspaceWriteRequestId;
+          const sameWorkspace = draft.model?.workspace.id === request.workspaceId;
+          if (currentWrite) {
+            draft.isSaving = false;
+          }
           if (response.ok) {
-            if (draft.model?.workspace.id === request.workspaceId) {
+            if (sameWorkspace && draft.model) {
               draft.model = castDraft({
                 ...draft.model,
                 workspace: {
@@ -305,7 +331,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 projects: [...draft.model.projects, response.value],
               });
             }
-          } else {
+          } else if (currentWrite && (draft.model === null || sameWorkspace)) {
             draft.error = response.error;
           }
         });
@@ -319,9 +345,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         return response;
       } catch (error) {
         const workspaceError = toWorkspaceError(error, 'Failed to create project');
+        if (requestId !== workspaceWriteRequestId) {
+          return { ok: false, error: workspaceError };
+        }
         set((draft) => {
           draft.isSaving = false;
-          draft.error = workspaceError;
+          if (draft.model === null || draft.model.workspace.id === request.workspaceId) {
+            draft.error = workspaceError;
+          }
         });
         recordLocalTelemetryEvent('workspace', 'create-project', 'failed', {
           details: { code: workspaceError.code },
@@ -331,6 +362,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     },
 
     addLink: async (request) => {
+      const requestId = ++workspaceWriteRequestId;
       set((draft) => {
         draft.isSaving = true;
         draft.error = null;
@@ -340,7 +372,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       try {
         const response = await getWorkspaceApi().addLink(request);
         set((draft) => {
-          draft.isSaving = false;
+          const currentWrite = requestId === workspaceWriteRequestId;
+          if (currentWrite) {
+            draft.isSaving = false;
+          }
           if (response.ok) {
             if (draft.model?.workspace.id !== request.workspaceId) {
               return;
@@ -377,7 +412,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
               },
               linkIndex: nextLinkIndex,
             });
-          } else {
+          } else if (
+            currentWrite &&
+            (draft.model === null || draft.model.workspace.id === request.workspaceId)
+          ) {
             draft.error = response.error;
           }
         });
@@ -393,9 +431,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         return response;
       } catch (error) {
         const workspaceError = toWorkspaceError(error, 'Failed to add workspace link');
+        if (requestId !== workspaceWriteRequestId) {
+          return { ok: false, error: workspaceError };
+        }
         set((draft) => {
           draft.isSaving = false;
-          draft.error = workspaceError;
+          if (draft.model === null || draft.model.workspace.id === request.workspaceId) {
+            draft.error = workspaceError;
+          }
         });
         recordLocalTelemetryEvent('workspace', 'add-link', 'failed', {
           details: { code: workspaceError.code },
@@ -476,6 +519,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       openWorkspaceRequestId += 1;
       saveWorkspaceRequestId += 1;
       backlinksRequestId += 1;
+      workspaceWriteRequestId += 1;
       set((draft) => {
         draft.model = null;
         draft.backlinksByDocumentId = {};
