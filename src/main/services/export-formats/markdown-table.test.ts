@@ -78,6 +78,18 @@ describe('parseMarkdownTable', () => {
     );
   });
 
+  it('accepts a separator made of one hyphen', () => {
+    const table = parseMarkdownTable(['| a | b |', '| - | -: |', '| *c* | **d** |']);
+    expect(table).toEqual({
+      headers: ['a', 'b'],
+      aligns: ['left', 'right'],
+      rows: [['*c*', '**d**']],
+    });
+    expect(closeOpenTableRows('a | b\n- | -\n*c* | **d**\n')).toBe(
+      '| a | b |\n| - | - |\n| *c* | **d** |\n'
+    );
+  });
+
   it('writes column alignment into HTML and LaTeX', () => {
     const table = parseMarkdownTable(['| L | C | R |', '| :--- | :---: | ---: |', '| a | b | c |']);
     expect(table).not.toBeNull();

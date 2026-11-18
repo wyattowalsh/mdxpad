@@ -99,7 +99,7 @@ function containsDelimiterPipe(line: string): boolean {
 }
 
 function alignOf(cell: string): TableAlign | null {
-  const match = /^\s*(:?)-{3,}(:?)\s*$/.exec(cell);
+  const match = /^\s*(:?)-+(:?)\s*$/.exec(cell);
   if (!match) {
     return null;
   }

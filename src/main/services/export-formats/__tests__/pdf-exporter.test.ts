@@ -645,6 +645,18 @@ describe('PdfExporter', () => {
     expect(html).toContain('<th>Name</th>');
     expect(html).toContain('<td>A</td>');
     expect(html).toContain('<td>1</td>');
+    const short = await exporter.export({
+      content: '| a | b |\n| - | - |\n| *c* | **d** |',
+      outputPath: '/tmp/short-table.pdf',
+    });
+    expect(short.ok).toBe(true);
+    const shortHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(shortHtml).toContain('<th>a</th>');
+    expect(shortHtml).toContain('<td><em>c</em></td>');
+    expect(shortHtml).toContain('<td><strong>d</strong></td>');
+    expect(shortHtml).not.toContain('| - |');
   });
 
   it('keeps an escaped pipe and a right-aligned column', async () => {
