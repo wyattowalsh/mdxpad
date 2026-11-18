@@ -662,6 +662,49 @@ describe('saveFileCommand', () => {
     useTabStore.getState().reset();
   });
 
+  it('leaves newer edits in another tab unsaved', async () => {
+    useTabStore.getState().reset();
+    const activeId = useTabStore.getState().addTab({
+      filePath: '/docs/active.mdx',
+      fileName: 'active.mdx',
+      isDirty: true,
+      content: 'active',
+      savedContent: '',
+    });
+    const otherId = useTabStore.getState().addTab({
+      filePath: '/docs/other.mdx',
+      fileName: 'other.mdx',
+      isDirty: true,
+      content: 'other',
+      savedContent: '',
+    });
+    useTabStore.getState().setActiveTab(activeId);
+    const mockApi = createMockApi({
+      writeFile: vi.fn().mockImplementation(async () => {
+        useTabStore.getState().updateTab(otherId, { content: 'other more', isDirty: true });
+        return { ok: true, value: undefined };
+      }),
+    });
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: '11111111-1111-4111-8111-111111111111',
+        filePath: '/docs/active.mdx',
+        content: 'active',
+        isDirty: true,
+      },
+    });
+
+    const result = await saveFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.writeFile).toHaveBeenCalledWith('/docs/other.mdx', 'other');
+    const other = useTabStore.getState().tabs.find((tab) => tab.id === otherId);
+    expect(other?.content).toBe('other more');
+    expect(other?.isDirty).toBe(true);
+    useTabStore.getState().reset();
+  });
+
   it('should be enabled only when document is dirty', () => {
     const cleanCtx = createMockContext({
       document: { fileId: null, filePath: null, content: '', isDirty: false },

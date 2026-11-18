@@ -319,14 +319,18 @@ export async function saveInactiveDocuments(api: CommandContext['api']): Promise
     if (!tab.filePath || hasPendingExternalChange(tab.filePath)) {
       continue;
     }
-    const result = await api.writeFile(tab.filePath, tab.content);
+    const written = tab.content;
+    const result = await api.writeFile(tab.filePath, written);
     if (!result.ok) {
       return false;
     }
-    useTabStore.getState().updateTab(tab.id, {
-      savedContent: tab.content,
-      isDirty: false,
-    });
+    const current = useTabStore.getState().tabs.find((item) => item.id === tab.id);
+    if (current?.content === written) {
+      useTabStore.getState().updateTab(tab.id, {
+        savedContent: written,
+        isDirty: false,
+      });
+    }
   }
   return true;
 }
