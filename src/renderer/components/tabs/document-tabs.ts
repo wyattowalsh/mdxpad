@@ -45,12 +45,15 @@ function showTab(tab: Tab): void {
   }
 }
 
-function claimEmptyUntitled(current: Tab): boolean {
+function claimUntitledTab(current: Tab): boolean {
   const document = useDocumentStore.getState();
   if (current.filePath !== null || document.filePath === null) {
     return false;
   }
-  if (current.isDirty || current.content.length > 0) {
+  const blank = !current.isDirty && current.content.length === 0;
+  const savedInPlace =
+    current.content === document.content || current.content === document.savedContent;
+  if (!blank && !savedInPlace) {
     return false;
   }
   useTabStore.getState().updateTab(current.id, tabSnapshot());
@@ -83,7 +86,7 @@ export function syncDocumentTab(): void {
     useTabStore.getState().updateTab(current.id, tabSnapshot());
     return;
   }
-  if (current && claimEmptyUntitled(current)) {
+  if (current && claimUntitledTab(current)) {
     return;
   }
   if (document.filePath !== null && adoptOpenFile(document.filePath)) {

@@ -46,6 +46,26 @@ describe('document tabs', () => {
     stop();
   });
 
+  it('keeps a saved untitled document on the same tab', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().setContent('# Note');
+    const id = useTabStore.getState().activeTabId;
+
+    useDocumentStore.getState().markSaved({
+      fileId: 'note' as DocumentId,
+      filePath: '/docs/note.mdx',
+      mtime: 1,
+    });
+
+    const tabs = useTabStore.getState().tabs;
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]?.id).toBe(id);
+    expect(tabs[0]?.filePath).toBe('/docs/note.mdx');
+    expect(tabs[0]?.isDirty).toBe(false);
+    expect(tabs[0]?.content).toBe('# Note');
+    stop();
+  });
+
   it('turns a blank untitled tab into the opened file', () => {
     const stop = subscribeDocumentTabs();
     expect(useTabStore.getState().tabs).toHaveLength(1);

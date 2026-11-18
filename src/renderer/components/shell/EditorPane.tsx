@@ -16,6 +16,7 @@ import { ExternalChangeNotice } from './ExternalChangeNotice';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 import {
   selectHighContrastEnabled,
   selectLargeText,
@@ -137,6 +138,8 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   // Connect to document store
   const content = useDocumentStore(selectContent);
   const filePath = useDocumentStore((state) => state.filePath);
+  const activeTabId = useTabStore((state) => state.activeTabId);
+  const documentKey = filePath ?? activeTabId ?? 'untitled';
   const setContent = useDocumentStore((state) => state.setContent);
   const keymapMode = useEditorPreferencesStore(selectKeymapMode);
   const fontFamily = useEditorPreferencesStore(selectFontFamily);
@@ -207,7 +210,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   // This satisfies exactOptionalPropertyTypes
   const editorProps = {
     value: content,
-    documentKey: filePath ?? '',
+    documentKey,
     onChange: handleChange,
     onSelectionChange: handleSelectionChange,
     theme,
@@ -247,7 +250,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
         <WysiwygEditor
           ref={wysiwygRef}
           content={content}
-          documentKey={filePath ?? ''}
+          documentKey={documentKey}
           onChange={setContent}
           {...(onCursorChange !== undefined && { onCursorChange })}
           className="min-h-0 flex-1"
