@@ -12,7 +12,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import {
   countWords,
   countCharacters,
-  documentBody,
+  countableProse,
   estimateReadingTime,
 } from '@renderer/lib/text-stats';
 
@@ -32,7 +32,7 @@ export function useTextStats(): TextStats {
   const content = useDocumentStore((state) => state.content);
 
   return useMemo(() => {
-    const body = documentBody(content);
+    const body = countableProse(content);
     const wordCount = countWords(body);
     const charCount = countCharacters(body);
     const readingTime = estimateReadingTime(body);

@@ -46,6 +46,16 @@ describe('useTextStats', () => {
     expect(result.current.wordCount).toBe(2);
   });
 
+  it('does not count a fenced sample as reading time', () => {
+    const { result } = renderHook(() => useTextStats());
+
+    act(() => {
+      useDocumentStore.getState().setContent('# Hello\n\n```\nconst secret = 1\n```\n\nworld');
+    });
+
+    expect(result.current.wordCount).toBe(2);
+  });
+
   it('should compute reading time', () => {
     const { result } = renderHook(() => useTextStats());
 

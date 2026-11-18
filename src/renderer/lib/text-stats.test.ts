@@ -8,7 +8,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { countWords, countCharacters, documentBody, estimateReadingTime } from './text-stats';
+import {
+  countWords,
+  countCharacters,
+  countableProse,
+  documentBody,
+  estimateReadingTime,
+} from './text-stats';
 
 describe('countWords', () => {
   it('should return 0 for empty string', () => {
@@ -68,6 +74,29 @@ describe('documentBody', () => {
 
   it('keeps a horizontal rule that is not closed', () => {
     expect(documentBody('---\n\nHello world')).toBe('---\n\nHello world');
+  });
+});
+
+describe('countableProse', () => {
+  it('counts the heading text and leaves the marker out', () => {
+    expect(countWords(countableProse('# Hello world'))).toBe(2);
+  });
+
+  it('leaves fenced code out of the count', () => {
+    const source = '# Hello\n\n```ts\nconst secret = 1\n```\n\nworld';
+    expect(countWords(countableProse(source))).toBe(2);
+  });
+
+  it('counts link text and leaves the address out', () => {
+    expect(countWords(countableProse('See [the notes](https://example.com/a/b).'))).toBe(3);
+  });
+
+  it('counts an image description and leaves the path out', () => {
+    expect(countWords(countableProse('![a cat](../secret.png) sat'))).toBe(3);
+  });
+
+  it('leaves a task marker out', () => {
+    expect(countWords(countableProse('- [x] Finish the notes'))).toBe(3);
   });
 });
 

@@ -23,6 +23,25 @@ export function documentBody(text: string): string {
 }
 
 /**
+ * Keep the words a reader sees.
+ * Frontmatter, fenced code, marker characters, and link addresses are left out.
+ */
+export function countableProse(text: string): string {
+  return documentBody(text)
+    .replace(/^[ \t]{0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n[ \t]{0,3}\1[ \t]*$/gm, '\n')
+    .replace(/!\[([^\]]*)]\([^)\n]*\)/g, '$1')
+    .replace(/\[([^\]]*)]\([^)\n]*\)/g, '$1')
+    .replace(/\[([^\]]*)]\[[^\]\n]*]/g, '$1')
+    .replace(/^[ \t]*\[[^\]]+]:[ \t]+\S+.*$/gm, '')
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]{0,3}(?:>[ \t]?)+/gm, '')
+    .replace(/^[ \t]{0,3}[-*+][ \t]+\[[ xX]][ \t]+/gm, '')
+    .replace(/^[ \t]{0,3}[-*+][ \t]+/gm, '')
+    .replace(/^[ \t]{0,3}\d+[.)][ \t]+/gm, '')
+    .replace(/^[ \t]{0,3}(?:-{3,}|\*{3,}|_{3,})[ \t]*$/gm, '');
+}
+
+/**
  * Count the number of words in text.
  * Handles Latin scripts (whitespace-separated) and CJK characters (each character = 1 word).
  *
