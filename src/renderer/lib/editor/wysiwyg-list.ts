@@ -82,6 +82,24 @@ function nodesCanJoin(doc: ProseMirrorNode, pos: number): boolean {
   return Boolean(before && after && before.type.compatibleContent(after.type));
 }
 
+function joinAt(
+  state: Parameters<Command>[0],
+  dispatch: Parameters<Command>[1],
+  boundary: number
+): boolean {
+  if (!nodesCanJoin(state.doc, boundary)) {
+    return false;
+  }
+  if (!dispatch) {
+    return true;
+  }
+  const joinedItems = state.tr.join(boundary);
+  const between = joinedItems.mapping.map(boundary);
+  const joined = nodesCanJoin(joinedItems.doc, between) ? joinedItems.join(between) : joinedItems;
+  dispatch(joined.scrollIntoView());
+  return true;
+}
+
 const joinListItemBackward: Command = (state, dispatch, view) => {
   const { $from, empty } = state.selection;
   if (!empty || $from.parentOffset !== 0 || $from.depth < 2) {
@@ -97,18 +115,24 @@ const joinListItemBackward: Command = (state, dispatch, view) => {
   if ($from.index(-2) === 0) {
     return liftListItem(mdxSchema.nodes.list_item)(state, dispatch, view);
   }
-  const boundary = $from.before($from.depth - 1);
-  if (!nodesCanJoin(state.doc, boundary)) {
+  return joinAt(state, dispatch, $from.before($from.depth - 1));
+}
+
+const joinListItemForward: Command = (state, dispatch) => {
+  const { $from, empty } = state.selection;
+  if (!empty || $from.depth < 2 || $from.parentOffset !== $from.parent.content.size) {
     return false;
   }
-  if (!dispatch) {
-    return true;
+  const item = $from.node(-1);
+  const list = $from.node(-2);
+  const bullet = list.type === mdxSchema.nodes.bullet_list;
+  const ordered = list.type === mdxSchema.nodes.ordered_list;
+  const atItemEnd = $from.indexAfter(-1) === item.childCount;
+  const hasNext = $from.index(-2) + 1 < list.childCount;
+  if (item.type !== mdxSchema.nodes.list_item || (!bullet && !ordered) || !atItemEnd || !hasNext) {
+    return false;
   }
-  const joinedItems = state.tr.join(boundary);
-  const between = joinedItems.mapping.map(boundary);
-  const joined = nodesCanJoin(joinedItems.doc, between) ? joinedItems.join(between) : joinedItems;
-  dispatch(joined.scrollIntoView());
-  return true;
+  return joinAt(state, dispatch, $from.after($from.depth - 1));
 };
 
 /** Enter starts the next item, or leaves the list from an empty item. */
@@ -118,5 +142,6 @@ export function visualListKeymap(): Record<string, Command> {
     Tab: sinkListItem(mdxSchema.nodes.list_item),
     'Shift-Tab': liftListItem(mdxSchema.nodes.list_item),
     Backspace: joinListItemBackward,
+    Delete: joinListItemForward,
   };
 }

@@ -81,6 +81,22 @@ describe('visual lists', () => {
     expect(saved).toContain('Hello');
   });
 
+  it('joins the next list item on Delete', () => {
+    const view = open('- one\n- two\n');
+    views.push(view);
+    let end = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'one') {
+        end = pos + node.text.length;
+      }
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));
+    expect(visualListKeymap().Delete?.(view.state, view.dispatch)).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved).toContain('onetwo');
+    expect(saved.match(/^- /gm)?.length).toBe(1);
+  });
+
   it('joins a list item with the one above on Backspace', () => {
     const view = open('- one\n- two\n');
     views.push(view);
