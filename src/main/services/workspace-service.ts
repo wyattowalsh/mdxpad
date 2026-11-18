@@ -162,6 +162,10 @@ export class WorkspaceService {
           if (!fileIsInsideWorkspace(model.workspace.rootPath, document.filePath)) {
             return null;
           }
+          const info = await fs.lstat(document.filePath);
+          if (info.isSymbolicLink() || !info.isFile()) {
+            return null;
+          }
           const content = await fs.readFile(document.filePath, 'utf-8');
           return {
             id: document.id,
@@ -182,6 +186,16 @@ export class WorkspaceService {
 
     collectionCache.set(cacheKey, { data: index, timestamp: Date.now() });
     return index;
+  }
+
+  private async readModelText(modelPath: string): Promise<string> {
+    const info = await fs.lstat(modelPath);
+    if (info.isSymbolicLink()) {
+      const error = new Error('Workspace model is a link') as NodeJS.ErrnoException;
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return fs.readFile(modelPath, 'utf-8');
   }
 
   private getWorkspaceModelPath(rootPath: string): string {
@@ -212,7 +226,7 @@ export class WorkspaceService {
 
     const modelPath = this.getWorkspaceModelPath(rootPath);
     try {
-      const rawContent = await fs.readFile(modelPath, 'utf-8');
+      const rawContent = await this.readModelText(modelPath);
       const parsedJson = JSON.parse(rawContent) as unknown;
       const parsedModel = WorkspaceModelSchema.safeParse(parsedJson);
       if (!parsedModel.success) {

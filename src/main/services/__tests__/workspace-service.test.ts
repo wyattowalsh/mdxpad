@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -288,6 +288,105 @@ Draft details.`,
         '5..10': 1,
       })
     );
+  });
+
+  it('does not open a workspace model that is a link', async () => {
+    const first = await new WorkspaceService().openWorkspace({ rootPath: workspaceRoot });
+    expect(first.ok).toBe(true);
+    if (!first.ok) {
+      return;
+    }
+
+    const modelPath = path.join(workspaceRoot, WORKSPACE_MODEL_RELATIVE_PATH);
+    const outside = path.join(tempDir, 'secret-model.json');
+    const linked = JSON.parse(await readFile(modelPath, 'utf-8')) as {
+      workspace: { name: string };
+    };
+    linked.workspace.name = 'Secret Workspace';
+    await writeFile(outside, JSON.stringify(linked));
+    await rm(modelPath);
+    await symlink(outside, modelPath);
+
+    const opened = await new WorkspaceService().openWorkspace({ rootPath: workspaceRoot });
+
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+    expect(opened.value.workspace.name).toBe('workspace');
+    expect(JSON.parse(await readFile(outside, 'utf-8'))).toMatchObject({
+      workspace: { name: 'Secret Workspace' },
+    });
+    expect((await lstat(modelPath)).isSymbolicLink()).toBe(false);
+  });
+
+  it('does not collect frontmatter through a linked document', async () => {
+    const service = new WorkspaceService();
+    const opened = await service.openWorkspace({ rootPath: workspaceRoot });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+
+    const docsRoot = path.join(workspaceRoot, 'docs');
+    await mkdir(docsRoot, { recursive: true });
+    const roadmapPath = path.join(docsRoot, 'roadmap.mdx');
+    const aliasPath = path.join(docsRoot, 'alias.mdx');
+    await writeFile(
+      roadmapPath,
+      `---
+title: Roadmap
+status: published
+---
+
+Roadmap details.`,
+      'utf-8'
+    );
+    await symlink(roadmapPath, aliasPath);
+
+    const now = new Date().toISOString();
+    const roadmapId = randomUUID();
+    const aliasId = randomUUID();
+    const saveResult = await service.saveWorkspace({
+      model: {
+        ...opened.value,
+        workspace: {
+          ...opened.value.workspace,
+          documents: [
+            {
+              id: roadmapId,
+              title: 'Roadmap',
+              filePath: roadmapPath,
+              tags: [],
+              createdAt: now,
+              updatedAt: now,
+            },
+            {
+              id: aliasId,
+              title: 'Alias',
+              filePath: aliasPath,
+              tags: [],
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          updatedAt: now,
+        },
+      },
+    });
+    expect(saveResult.ok).toBe(true);
+
+    const queryResult = await service.queryMetadataCollection({
+      workspaceId: opened.value.workspace.id,
+      documentIds: [],
+      filters: [{ field: 'status', operator: 'eq', value: 'published' }],
+      limit: 10,
+    });
+    expect(queryResult.ok).toBe(true);
+    if (!queryResult.ok) {
+      return;
+    }
+    expect(queryResult.value.map((row) => row.id)).toEqual([roadmapId]);
   });
 
   it('returns not found when opening a missing workspace root', async () => {
