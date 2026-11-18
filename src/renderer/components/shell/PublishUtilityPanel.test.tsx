@@ -2,12 +2,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 
 import { PublishUtilityPanel } from './PublishUtilityPanel';
 
 describe('PublishUtilityPanel', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
+    registerLiveSourceText(null);
     vi.unstubAllGlobals();
   });
 
@@ -138,5 +140,36 @@ describe('PublishUtilityPanel', () => {
     fireEvent.click(screen.getByText('Publish 1 file'));
 
     expect(await screen.findByText('Open this file before publishing it')).toBeTruthy();
+  });
+
+  it('publishes keystrokes that are still only in the editor', async () => {
+    useDocumentStore.setState({
+      filePath: '/docs/note.mdx',
+      fileName: 'note.mdx',
+      content: 'Hello',
+    });
+    registerLiveSourceText(() => 'Hello!');
+    const publish = vi.fn().mockResolvedValue({ success: true, filesGenerated: 1, errors: [] });
+    vi.stubGlobal('mdxpad', {
+      share: {
+        onPublishProgress: () => () => undefined,
+        chooseDirectory: vi.fn().mockResolvedValue({ canceled: false, path: '/tmp/site' }),
+        openDirectory: vi.fn(),
+        publish,
+      },
+    });
+
+    render(<PublishUtilityPanel />);
+    fireEvent.click(screen.getByText('Browse'));
+    await screen.findByText('/tmp/site');
+    fireEvent.click(screen.getByText('Publish 1 file'));
+
+    await waitFor(() => {
+      expect(publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: [{ path: '/docs/note.mdx', title: 'note.mdx', content: 'Hello!' }],
+        })
+      );
+    });
   });
 });

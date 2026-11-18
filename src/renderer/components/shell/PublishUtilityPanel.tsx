@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PublishProgress } from '@shared/contracts/share-schemas';
 import { editorDocumentKey } from '@renderer/lib/editor-document-key';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import {
@@ -99,12 +100,13 @@ export function PublishUtilityPanel(): React.JSX.Element {
           return;
         }
         const publishedFor = documentKey;
+        const snapshot = liveSourceText() ?? content;
         publishingFor.current = publishedFor;
         setIsPublishing(true);
         setLastResult(null);
         void window.mdxpad.share
           .publish({
-            files: [{ path: pagePath, title: pageName, content }],
+            files: [{ path: pagePath, title: pageName, content: snapshot }],
             outputDir,
             includeStyles: options.includeStyles,
             includeHighlighting: true,
