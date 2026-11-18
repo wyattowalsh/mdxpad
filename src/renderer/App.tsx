@@ -50,6 +50,7 @@ import { initThemeManager } from './features/plugins/theme-manager';
 import { openFileFromPath } from './lib/open-file-from-path';
 import { MountedUtilityPanels } from './components/shell/MountedUtilityPanels';
 import { CommentPersistence } from './components/comments/CommentWorkspace';
+import { TagPersistence } from './components/tags/TagPersistence';
 import { AiWriteSidebar } from './components/ai/AiWriteSidebar';
 import { useAppState } from './hooks/useAppState';
 import { useAppDialogs } from './hooks/useAppDialogs';
@@ -388,6 +389,7 @@ export function App(): React.ReactElement {
 
       <CommandPalette getContext={getCommandContext} palette={palette} />
       <CommentPersistence />
+      <TagPersistence />
       <MountedUtilityPanels editorRef={state.editorRef} />
 
       <div

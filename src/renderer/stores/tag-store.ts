@@ -64,6 +64,7 @@ export interface TagStoreActions {
   readonly clearSelectedTags: () => void;
   readonly assignTagToFile: (filePath: string, tagId: string) => void;
   readonly removeTagFromFile: (filePath: string, tagId: string) => void;
+  readonly moveTagsToFile: (fromKey: string, toKey: string) => void;
   readonly reset: () => void;
 }
 
@@ -224,6 +225,30 @@ function createTagSelectionActions(set: TagSetter, get: TagGetter) {
         if (existing) {
           draft.fileTagMap[filePath] = existing.filter((t) => t !== tagId);
         }
+      });
+      persistToStorage(get());
+    },
+    moveTagsToFile: (fromKey: string, toKey: string): void => {
+      if (fromKey === toKey) {
+        return;
+      }
+      const moving = get().fileTagMap[fromKey];
+      if (!moving || moving.length === 0) {
+        return;
+      }
+      set((draft) => {
+        const existing = draft.fileTagMap[toKey] ?? [];
+        const merged = [...existing];
+        for (const tagId of moving) {
+          if (!merged.includes(tagId)) {
+            merged.push(tagId);
+          }
+        }
+        const retained = Object.fromEntries(
+          Object.entries(draft.fileTagMap).filter(([key]) => key !== fromKey)
+        );
+        retained[toKey] = merged;
+        draft.fileTagMap = retained;
       });
       persistToStorage(get());
     },
