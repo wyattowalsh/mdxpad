@@ -1,6 +1,6 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseMdxContent } from './prosemirror-mdx-parser';
 import { mdxSchema } from './prosemirror-mdx-schema';
@@ -22,6 +22,7 @@ describe('applyVisualEdit', () => {
   const views: EditorView[] = [];
 
   afterEach(() => {
+    vi.restoreAllMocks();
     for (const view of views.splice(0)) {
       view.destroy();
     }
@@ -41,6 +42,19 @@ describe('applyVisualEdit', () => {
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
     expect(applyVisualEdit(view, 'bold')).toBe(true);
     expect(serializeMdxContent(view.state.doc)).toContain('**Hello**');
+  });
+
+  it('jumps to the requested source line', () => {
+    const view = viewWith('Hello\n\nGoodbye\n');
+    views.push(view);
+    const goodbye =
+      serializeMdxContent(view.state.doc)
+        .split('\n')
+        .findIndex((line) => line.trim() === 'Goodbye') + 1;
+    vi.spyOn(globalThis, 'prompt').mockReturnValue(String(goodbye));
+    expect(applyVisualEdit(view, 'goToLine')).toBe(true);
+    expect(view.state.selection.$from.parent.textContent).toBe('Goodbye');
+    vi.restoreAllMocks();
   });
 
   it('turns the current paragraph into a heading', () => {

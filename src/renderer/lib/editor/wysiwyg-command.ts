@@ -5,6 +5,7 @@ import type { EditorView } from 'prosemirror-view';
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { insertWysiwygLink } from './wysiwyg-document';
 import { insertMarkdownBlock } from './wysiwyg-insert';
+import { focusSourceLineInView } from './wysiwyg-source-line';
 
 export const VISUAL_EDIT_COMMANDS = [
   'bold',
@@ -17,6 +18,7 @@ export const VISUAL_EDIT_COMMANDS = [
   'heading1',
   'heading2',
   'heading3',
+  'goToLine',
 ] as const;
 
 export type VisualEditCommand = (typeof VISUAL_EDIT_COMMANDS)[number];
@@ -56,12 +58,23 @@ function headingLevel(command: VisualEditCommand): number | null {
     case 'codeBlock':
     case 'undo':
     case 'redo':
+    case 'goToLine':
       return null;
     default: {
       const unreachable: never = command;
       return unreachable;
     }
   }
+}
+
+function goToRequestedLine(view: EditorView): boolean {
+  const raw = globalThis.prompt('Go to line:');
+  const line = Number(raw);
+  if (!raw || !Number.isInteger(line) || line < 1) {
+    view.focus();
+    return true;
+  }
+  return focusSourceLineInView(view, line, 1);
 }
 
 /** Apply a palette formatting command to the visual editor. */
@@ -97,6 +110,8 @@ export function applyVisualEdit(view: EditorView, command: VisualEditCommand): b
       redo(view.state, view.dispatch);
       view.focus();
       return true;
+    case 'goToLine':
+      return goToRequestedLine(view);
     case 'heading1':
     case 'heading2':
     case 'heading3':
