@@ -171,6 +171,32 @@ export function autosaveIntervalFromSlider(value: number): number {
   return AUTOSAVE_INTERVAL_STEPS[value] ?? DEFAULT_AUTOSAVE_SETTINGS.intervalMs;
 }
 
+type RecoveryLimitField = 'retentionDays' | 'maxFiles' | 'maxStorageMB';
+
+const RECOVERY_LIMITS: Record<RecoveryLimitField, { readonly min: number; readonly max: number }> = {
+  retentionDays: { min: 1, max: 365 },
+  maxFiles: { min: 5, max: 200 },
+  maxStorageMB: { min: 10, max: 1000 },
+};
+
+function recoveryLimitPatch(
+  field: RecoveryLimitField,
+  value: number
+): Partial<AutosaveSettings> {
+  switch (field) {
+    case 'retentionDays':
+      return { retentionDays: value };
+    case 'maxFiles':
+      return { maxFiles: value };
+    case 'maxStorageMB':
+      return { maxStorageMB: value };
+    default: {
+      const unreachable: never = field;
+      return unreachable;
+    }
+  }
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -193,6 +219,56 @@ export function autosaveIntervalFromSlider(value: number): number {
  * />
  * ```
  */
+function RecoveryLimitInput({
+  id,
+  label,
+  hint,
+  min,
+  max,
+  value,
+  disabled,
+  onValue,
+  onCommit,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly hint: string;
+  readonly min: number;
+  readonly max: number;
+  readonly value: number;
+  readonly disabled: boolean;
+  readonly onValue: (value: number) => void;
+  readonly onCommit: (raw: string) => void;
+}): React.JSX.Element {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="space-y-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <input
+        id={id}
+        data-testid={id}
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        disabled={disabled}
+        className="h-8 w-20 rounded-md border border-input bg-transparent px-2 text-sm"
+        onChange={(event) => {
+          const next = Number(event.target.value);
+          if (Number.isInteger(next)) {
+            onValue(next);
+          }
+        }}
+        onBlur={(event) => {
+          onCommit(event.target.value);
+        }}
+      />
+    </div>
+  );
+}
+
 function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.JSX.Element {
   // Local state for settings form
   const [settings, setLocalSettings] = useState<AutosaveSettings>(DEFAULT_AUTOSAVE_SETTINGS);
@@ -247,18 +323,19 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
     setLocalSettings((prev) => ({ ...prev, intervalMs }));
   }, []);
 
-  const handleRetentionCommit = useCallback(async (raw: string) => {
-    const retentionDays = Number(raw);
-    if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 365) {
+  const handleLimitCommit = useCallback(async (field: RecoveryLimitField, raw: string) => {
+    const value = Number(raw);
+    const bounds = RECOVERY_LIMITS[field];
+    if (!Number.isInteger(value) || value < bounds.min || value > bounds.max) {
       setLocalSettings(await getSettings());
       return;
     }
     setIsSaving(true);
     try {
-      const updated = await setSettings({ retentionDays });
+      const updated = await setSettings(recoveryLimitPatch(field, value));
       setLocalSettings(updated);
     } catch (error) {
-      console.error('[SettingsPanel] Failed to update recovery retention:', error);
+      console.error('[SettingsPanel] Failed to update recovery limit:', error);
       setLocalSettings(await getSettings());
     } finally {
       setIsSaving(false);
@@ -377,33 +454,45 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <Label htmlFor="recovery-retention">Keep recovery files</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Days before old recovery files are removed
-                  </p>
-                </div>
-                <input
-                  id="recovery-retention"
-                  data-testid="recovery-retention-days"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={settings.retentionDays}
-                  disabled={isSaving}
-                  className="h-8 w-20 rounded-md border border-input bg-transparent px-2 text-sm"
-                  onChange={(event) => {
-                    const next = Number(event.target.value);
-                    if (Number.isInteger(next)) {
-                      setLocalSettings((prev) => ({ ...prev, retentionDays: next }));
-                    }
-                  }}
-                  onBlur={(event) => {
-                    void handleRetentionCommit(event.target.value);
-                  }}
-                />
-              </div>
+              <RecoveryLimitInput
+                id="recovery-retention-days"
+                label="Keep recovery files"
+                hint="Days before old recovery files are removed"
+                min={RECOVERY_LIMITS.retentionDays.min}
+                max={RECOVERY_LIMITS.retentionDays.max}
+                value={settings.retentionDays}
+                disabled={isSaving}
+                onValue={(next) => setLocalSettings((prev) => ({ ...prev, retentionDays: next }))}
+                onCommit={(raw) => {
+                  void handleLimitCommit('retentionDays', raw);
+                }}
+              />
+              <RecoveryLimitInput
+                id="recovery-max-files"
+                label="Maximum recovery files"
+                hint="Oldest files are removed after this count"
+                min={RECOVERY_LIMITS.maxFiles.min}
+                max={RECOVERY_LIMITS.maxFiles.max}
+                value={settings.maxFiles}
+                disabled={isSaving}
+                onValue={(next) => setLocalSettings((prev) => ({ ...prev, maxFiles: next }))}
+                onCommit={(raw) => {
+                  void handleLimitCommit('maxFiles', raw);
+                }}
+              />
+              <RecoveryLimitInput
+                id="recovery-max-storage"
+                label="Recovery storage (MB)"
+                hint="Oldest files are removed after this size"
+                min={RECOVERY_LIMITS.maxStorageMB.min}
+                max={RECOVERY_LIMITS.maxStorageMB.max}
+                value={settings.maxStorageMB}
+                disabled={isSaving}
+                onValue={(next) => setLocalSettings((prev) => ({ ...prev, maxStorageMB: next }))}
+                onCommit={(raw) => {
+                  void handleLimitCommit('maxStorageMB', raw);
+                }}
+              />
 
               {/* Info Note */}
               <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">

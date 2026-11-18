@@ -228,9 +228,9 @@ describe('SettingsPanel', () => {
     expect(autosaveIntervalFromSlider(AUTOSAVE_INTERVAL_STEPS.length - 1)).toBe(600000);
   });
 
-  it('saves how long recovery files are kept', async () => {
+  it('saves recovery retention, file count, and storage limits', async () => {
     const previous = window.mdxpad;
-    const set = vi.fn(async (partial: { retentionDays: number }) => ({
+    const set = vi.fn(async (partial: Partial<typeof DEFAULT_AUTOSAVE_SETTINGS>) => ({
       ...DEFAULT_AUTOSAVE_SETTINGS,
       ...partial,
     }));
@@ -244,12 +244,20 @@ describe('SettingsPanel', () => {
 
     try {
       render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
-      const input = await screen.findByTestId('recovery-retention-days');
-      fireEvent.change(input, { target: { value: '14' } });
-      fireEvent.blur(input);
+      const retention = await screen.findByTestId('recovery-retention-days');
+      const files = screen.getByTestId('recovery-max-files');
+      const storage = screen.getByTestId('recovery-max-storage');
+      fireEvent.change(retention, { target: { value: '14' } });
+      fireEvent.blur(retention);
+      fireEvent.change(files, { target: { value: '12' } });
+      fireEvent.blur(files);
+      fireEvent.change(storage, { target: { value: '25' } });
+      fireEvent.blur(storage);
 
       await waitFor(() => {
         expect(set).toHaveBeenCalledWith({ retentionDays: 14 });
+        expect(set).toHaveBeenCalledWith({ maxFiles: 12 });
+        expect(set).toHaveBeenCalledWith({ maxStorageMB: 25 });
       });
     } finally {
       window.mdxpad = previous;
