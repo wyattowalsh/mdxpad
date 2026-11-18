@@ -687,7 +687,10 @@ export class RecoveryService {
       if (!manifestInfo) {
         return EMPTY_RECOVERY_MANIFEST;
       }
-      const content = await fs.readFile(manifestPath, 'utf-8');
+      const content = await this.readRegularFile(manifestPath);
+      if (content === null) {
+        return EMPTY_RECOVERY_MANIFEST;
+      }
       const parsed: unknown = JSON.parse(content);
 
       // Validate manifest structure
@@ -719,7 +722,10 @@ export class RecoveryService {
       if (!fileInfo) {
         return null;
       }
-      const content = await fs.readFile(filePath, 'utf-8');
+      const content = await this.readRegularFile(filePath);
+      if (content === null) {
+        return null;
+      }
       const parsed = JSON.parse(content) as unknown;
 
       // Validate schema

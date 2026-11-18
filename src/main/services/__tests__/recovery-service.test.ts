@@ -732,7 +732,16 @@ describe('RecoveryService', () => {
         mtime: new Date(),
         size: 0,
       });
-      mockFs.open.mockRejectedValue(Object.assign(new Error('loop'), { code: 'ELOOP' }));
+      mockFs.open.mockImplementation(async (filePath: string) => {
+        if (filePath === '/test/conflict.mdx') {
+          throw Object.assign(new Error('loop'), { code: 'ELOOP' });
+        }
+        return {
+          readFile: () => mockFs.readFile(filePath),
+          sync: () => Promise.resolve(),
+          close: () => Promise.resolve(),
+        };
+      });
 
       const result = await recoveryService.getPreview(createDocumentId(docId));
 
@@ -1415,11 +1424,26 @@ describe('RecoveryService', () => {
 
       await recoveryService.checkForRecovery();
 
-      // Should have read from the correct path
-      expect(mockFs.readFile).toHaveBeenCalledWith(
+      expect(mockFs.open).toHaveBeenCalledWith(
         expect.stringContaining('/custom/userData/recovery/manifest.json'),
-        'utf-8'
+        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW
       );
+    });
+
+    it('does not read a recovery manifest that becomes a link', async () => {
+      mockFs.lstat.mockResolvedValue({
+        isSymbolicLink: () => false,
+        isFile: () => true,
+        mtime: new Date(),
+        size: 10,
+      });
+      mockFs.open.mockRejectedValue(Object.assign(new Error('loop'), { code: 'ELOOP' }));
+      mockFs.readFile.mockResolvedValue('{"secret":true}');
+
+      const result = await recoveryService.checkForRecovery();
+
+      expect(result).toEqual({ hasRecoveryData: false, count: 0 });
+      expect(mockFs.readFile).not.toHaveBeenCalled();
     });
 
     it('should create recovery directory if it does not exist', async () => {
