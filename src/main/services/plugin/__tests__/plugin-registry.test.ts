@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-registry.test
  */
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -115,5 +115,33 @@ describe('PluginRegistry', () => {
   it('returns undefined when setting error of non-existent plugin', async () => {
     const result = await registry.setError('nonexistent', 'oops');
     expect(result).toBeUndefined();
+  });
+
+  it('does not read or overwrite a registry that is a link', async () => {
+    const outside = path.join(tempDir, 'outside.json');
+    const registryPath = path.join(tempDir, 'registry.json');
+    await writeFile(
+      outside,
+      JSON.stringify({
+        plugins: [
+          {
+            id: 'secret',
+            manifest: testManifest,
+            state: 'installed',
+            installedAt: 1,
+          },
+        ],
+      })
+    );
+    await symlink(outside, registryPath);
+
+    await expect(registry.listPlugins()).resolves.toEqual([]);
+    await registry.addPlugin('local', testManifest);
+
+    expect(await readFile(outside, 'utf-8')).toContain('secret');
+    expect((await lstat(registryPath)).isSymbolicLink()).toBe(false);
+    await expect(registry.listPlugins()).resolves.toEqual([
+      expect.objectContaining({ id: 'local' }),
+    ]);
   });
 });

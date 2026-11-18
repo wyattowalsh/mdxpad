@@ -27,6 +27,10 @@ export class PluginRegistry {
 
   private async read(): Promise<RegistryData> {
     try {
+      const info = await fs.lstat(this.registryPath);
+      if (info.isSymbolicLink() || !info.isFile()) {
+        return { ...EMPTY_REGISTRY, plugins: [] };
+      }
       const content = await fs.readFile(this.registryPath, 'utf-8');
       return JSON.parse(content) as RegistryData;
     } catch (error) {
@@ -40,7 +44,21 @@ export class PluginRegistry {
   private async write(data: RegistryData): Promise<void> {
     const dir = path.dirname(this.registryPath);
     await fs.mkdir(dir, { recursive: true });
+    await this.replaceRegistryLink();
     await fs.writeFile(this.registryPath, JSON.stringify(data, null, 2), 'utf-8');
+  }
+
+  private async replaceRegistryLink(): Promise<void> {
+    try {
+      const info = await fs.lstat(this.registryPath);
+      if (info.isSymbolicLink()) {
+        await fs.unlink(this.registryPath);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
   }
 
   async listPlugins(): Promise<PluginRecord[]> {
