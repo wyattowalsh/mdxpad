@@ -29,6 +29,10 @@ import { cn } from '@shared/lib/utils';
 import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
 import { insertMarkdownBlock, registerWysiwygInsert } from '../../lib/editor/wysiwyg-insert';
 import { focusOutlineInView, registerWysiwygOutline } from '../../lib/editor/wysiwyg-outline';
+import {
+  focusSourceLineInView,
+  registerWysiwygSourceLine,
+} from '../../lib/editor/wysiwyg-source-line';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -325,9 +329,14 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
         const view = viewRef.current;
         return view ? focusOutlineInView(view, item) : false;
       });
+      registerWysiwygSourceLine((line, column) => {
+        const view = viewRef.current;
+        return view ? focusSourceLineInView(view, line, column) : false;
+      });
       return () => {
         registerWysiwygInsert(null);
         registerWysiwygOutline(null);
+        registerWysiwygSourceLine(null);
       };
     }, [viewRef]);
     React.useImperativeHandle(

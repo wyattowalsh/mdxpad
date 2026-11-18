@@ -10,6 +10,8 @@
 import { useCallback } from 'react';
 import { EditorView } from '@codemirror/view';
 
+import { focusWysiwygSourceLine } from '@renderer/lib/editor/wysiwyg-source-line';
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -64,9 +66,7 @@ export interface UseErrorNavigationResult {
  * navigateToError({ line: 10, column: 5 });
  * ```
  */
-export function useErrorNavigation(
-  options: UseErrorNavigationOptions
-): UseErrorNavigationResult {
+export function useErrorNavigation(options: UseErrorNavigationOptions): UseErrorNavigationResult {
   const { editorRef } = options;
 
   /**
@@ -83,7 +83,10 @@ export function useErrorNavigation(
   const navigateToError = useCallback(
     (error: ErrorLocation): void => {
       const view = editorRef.current;
-      if (!view) return;
+      if (!view) {
+        focusWysiwygSourceLine(error.line, error.column);
+        return;
+      }
 
       const doc = view.state.doc;
 
