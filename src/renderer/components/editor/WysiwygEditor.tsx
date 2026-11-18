@@ -33,6 +33,7 @@ import {
   focusSourceLineInView,
   registerWysiwygSourceLine,
 } from '../../lib/editor/wysiwyg-source-line';
+import { registerWysiwygComment, wysiwygCommentAnchor } from '../../lib/editor/wysiwyg-comment';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -333,10 +334,19 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
         const view = viewRef.current;
         return view ? focusSourceLineInView(view, line, column) : false;
       });
+      registerWysiwygComment(() => {
+        const view = viewRef.current;
+        if (!view) {
+          return null;
+        }
+        const { from, to } = view.state.selection;
+        return wysiwygCommentAnchor(view.state.doc, from, to);
+      });
       return () => {
         registerWysiwygInsert(null);
         registerWysiwygOutline(null);
         registerWysiwygSourceLine(null);
+        registerWysiwygComment(null);
       };
     }, [viewRef]);
     React.useImperativeHandle(

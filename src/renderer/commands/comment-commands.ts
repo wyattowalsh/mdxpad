@@ -6,27 +6,35 @@ import type { Command, CommandId, CommandResult, CommandContext } from '@shared/
 import { useCommandRegistry } from '@renderer/stores/command-registry-store';
 import { useCommentsStore } from '@renderer/stores/comments-store';
 import { useUtilityPanelStore } from '@renderer/stores/utility-panel-store';
+import { readWysiwygComment } from '@renderer/lib/editor/wysiwyg-comment';
 
-function addComment(ctx: CommandContext): CommandResult {
-  if (!ctx.editor) {
-    ctx.notify({ type: 'warning', message: 'No editor available' });
-    return { ok: false, error: 'No editor available' };
-  }
-  const { from, to } = ctx.editor.state.selection.main;
-  if (from === to) {
-    ctx.notify({ type: 'warning', message: 'Select text to comment on' });
-    return { ok: false, error: 'Select text to comment on' };
-  }
-  const quote = ctx.editor.state.sliceDoc(from, to).trim();
-  if (quote.length === 0) {
-    ctx.notify({ type: 'warning', message: 'Select text to comment on' });
-    return { ok: false, error: 'Select text to comment on' };
-  }
+function openComment(from: number, to: number, quote: string): CommandResult {
   const threadId = useCommentsStore.getState().createThread(from, to, 'You', quote);
   useCommentsStore.getState().setActiveThread(threadId);
   useUtilityPanelStore.getState().setActiveUtilityPanel('comments');
-  ctx.notify({ type: 'info', message: 'Comment added' });
   return { ok: true };
+}
+
+function addComment(ctx: CommandContext): CommandResult {
+  const visual = ctx.editor ? null : readWysiwygComment();
+  const from = ctx.editor?.state.selection.main.from ?? visual?.anchorFrom;
+  const to = ctx.editor?.state.selection.main.to ?? visual?.anchorTo;
+  const quote = ctx.editor ? ctx.editor.state.sliceDoc(from ?? 0, to ?? 0).trim() : visual?.quote;
+  if (from === undefined || to === undefined || from === to || !quote) {
+    ctx.notify({
+      type: 'warning',
+      message: ctx.editor || visual ? 'Select text to comment on' : 'No editor available',
+    });
+    return {
+      ok: false,
+      error: ctx.editor || visual ? 'Select text to comment on' : 'No editor available',
+    };
+  }
+  const result = openComment(from, to, quote);
+  if (result.ok) {
+    ctx.notify({ type: 'info', message: 'Comment added' });
+  }
+  return result;
 }
 
 const addCommentCommand: Command = {
