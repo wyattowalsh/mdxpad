@@ -44,11 +44,12 @@ export interface SettingsPanelProps {
 // ============================================================================
 
 /**
- * Slider steps for autosave interval.
- * Per Constitution VII.3: minimum every 30 seconds if dirty.
- * Per FR-009: range 5s to 10min, slider shows common use 5s-30s.
+ * Autosave interval choices.
+ * FR-009: 5 seconds through 10 minutes.
  */
-const INTERVAL_STEPS = [5000, 10000, 15000, 20000, 30000] as const;
+export const AUTOSAVE_INTERVAL_STEPS = [
+  5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000,
+] as const;
 
 const FEATURE_FLAG_OPTIONS: readonly {
   key: FeatureFlagKey;
@@ -156,8 +157,8 @@ function formatInterval(ms: number): string {
  * @returns Slider step index (0-based)
  */
 function msToSliderValue(ms: number): number {
-  const idx = INTERVAL_STEPS.findIndex((s) => s >= ms);
-  return idx >= 0 ? idx : INTERVAL_STEPS.length - 1;
+  const idx = AUTOSAVE_INTERVAL_STEPS.findIndex((step) => step >= ms);
+  return idx >= 0 ? idx : AUTOSAVE_INTERVAL_STEPS.length - 1;
 }
 
 /**
@@ -166,8 +167,8 @@ function msToSliderValue(ms: number): number {
  * @param value - Slider step index
  * @returns Interval in milliseconds
  */
-function sliderValueToMs(value: number): number {
-  return INTERVAL_STEPS[value] ?? DEFAULT_AUTOSAVE_SETTINGS.intervalMs;
+export function autosaveIntervalFromSlider(value: number): number {
+  return AUTOSAVE_INTERVAL_STEPS[value] ?? DEFAULT_AUTOSAVE_SETTINGS.intervalMs;
 }
 
 // ============================================================================
@@ -242,13 +243,13 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
 
   // Handle interval change (optimistic update during drag)
   const handleIntervalChange = useCallback((value: number[]) => {
-    const intervalMs = sliderValueToMs(value[0] ?? 0);
+    const intervalMs = autosaveIntervalFromSlider(value[0] ?? 0);
     setLocalSettings((prev) => ({ ...prev, intervalMs }));
   }, []);
 
   // Commit interval on slider release
   const handleIntervalCommit = useCallback(async (value: number[]) => {
-    const intervalMs = sliderValueToMs(value[0] ?? 0);
+    const intervalMs = autosaveIntervalFromSlider(value[0] ?? 0);
     setIsSaving(true);
 
     try {
@@ -343,7 +344,7 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                   id="autosave-interval"
                   value={[msToSliderValue(settings.intervalMs)]}
                   min={0}
-                  max={INTERVAL_STEPS.length - 1}
+                  max={AUTOSAVE_INTERVAL_STEPS.length - 1}
                   step={1}
                   onValueChange={handleIntervalChange}
                   onValueCommit={(value) => {
@@ -354,7 +355,7 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>5s</span>
-                  <span>30s</span>
+                  <span>10 min</span>
                 </div>
               </div>
 

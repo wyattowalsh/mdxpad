@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { SettingsPanel } from '../settings-panel';
+import { AUTOSAVE_INTERVAL_STEPS, SettingsPanel, autosaveIntervalFromSlider } from '../settings-panel';
 import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
 
 // =============================================================================
@@ -215,13 +215,15 @@ describe('SettingsPanel', () => {
     });
   });
 
-  it('should show interval labels (5s and 30s)', async () => {
+  it('should show interval labels from 5 seconds to 10 minutes', async () => {
     render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText('5s')).toBeTruthy();
-      expect(screen.getByText('30s')).toBeTruthy();
+      expect(screen.getByText('10 min')).toBeTruthy();
     });
+    expect(autosaveIntervalFromSlider(0)).toBe(5000);
+    expect(autosaveIntervalFromSlider(AUTOSAVE_INTERVAL_STEPS.length - 1)).toBe(600000);
   });
 
   it('should display default interval as "30 seconds"', async () => {
