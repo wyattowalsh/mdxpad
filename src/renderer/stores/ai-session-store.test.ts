@@ -237,6 +237,38 @@ describe('useAISessionStore', () => {
     });
   });
 
+  it('keeps a session switch in place when an older prompt attach fails', async () => {
+    const firstSession = createSession();
+    const secondSession = createSession({ id: '55555555-5555-4555-8555-555555555555' });
+    const prompt = createPrompt();
+    useAISessionStore.setState({
+      sessions: [firstSession, secondSession],
+      selectedSessionId: firstSession.id,
+      selectedSession: firstSession,
+      selectedSessionContext: { sessionId: firstSession.id },
+    });
+    let finishAttach: (value: { success: false; error: { code: string; message: string } }) => void =
+      () => undefined;
+    mockAIApi.attachPrompt.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishAttach = resolve;
+        })
+    );
+    mockAIApi.restoreSession.mockResolvedValue({ session: secondSession });
+
+    const attaching = useAISessionStore.getState().attachPrompt(prompt.id);
+    const selecting = useAISessionStore.getState().selectSession(secondSession.id);
+    await selecting;
+    finishAttach({ success: false, error: { code: 'FAILED', message: 'Attach failed' } });
+    await attaching;
+
+    const state = useAISessionStore.getState();
+    expect(state.selectedSessionId).toBe(secondSession.id);
+    expect(state.error).toBeNull();
+    expect(state.isLoading).toBe(false);
+  });
+
   it('attaches prompt and instruction to the selected session', async () => {
     const session = createSession();
     const prompt = createPrompt();

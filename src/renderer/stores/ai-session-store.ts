@@ -137,6 +137,11 @@ interface StreamErrorEvent {
 let sessionListRequestId = 0;
 let sessionSelectRequestId = 0;
 let attachmentOptionsRequestId = 0;
+let attachmentActionRequestId = 0;
+
+function attachmentStillCurrent(requestId: number, selectGeneration: number): boolean {
+  return requestId === attachmentActionRequestId && selectGeneration === sessionSelectRequestId;
+}
 let streamListenersBound = false;
 let removeChunkListener: (() => void) | null = null;
 let removeCompleteListener: (() => void) | null = null;
@@ -556,6 +561,8 @@ export const useAISessionStore = create<AISessionStore>()(
         return;
       }
 
+      const requestId = ++attachmentActionRequestId;
+      const selectGeneration = sessionSelectRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -563,6 +570,7 @@ export const useAISessionStore = create<AISessionStore>()(
 
       try {
         const response = await window.mdxpad.ai.attachPrompt({ sessionId, promptFileId });
+        const current = attachmentStillCurrent(requestId, selectGeneration);
         if (response.success) {
           set((draft) => {
             const context =
@@ -571,8 +579,13 @@ export const useAISessionStore = create<AISessionStore>()(
             if (draft.selectedSessionId === sessionId) {
               draft.selectedSessionContext = castDraft(context);
             }
-            draft.isLoading = false;
+            if (current) {
+              draft.isLoading = false;
+            }
           });
+          return;
+        }
+        if (!current) {
           return;
         }
 
@@ -581,6 +594,9 @@ export const useAISessionStore = create<AISessionStore>()(
           draft.isLoading = false;
         });
       } catch (error) {
+        if (!attachmentStillCurrent(requestId, selectGeneration)) {
+          return;
+        }
         set((draft) => {
           draft.error = getErrorMessage(error, 'Failed to attach prompt file');
           draft.isLoading = false;
@@ -597,6 +613,8 @@ export const useAISessionStore = create<AISessionStore>()(
         return;
       }
 
+      const requestId = ++attachmentActionRequestId;
+      const selectGeneration = sessionSelectRequestId;
       set((draft) => {
         draft.isLoading = true;
         draft.error = null;
@@ -607,6 +625,7 @@ export const useAISessionStore = create<AISessionStore>()(
           sessionId,
           instructionFileId,
         });
+        const current = attachmentStillCurrent(requestId, selectGeneration);
         if (response.success) {
           set((draft) => {
             const context =
@@ -615,8 +634,13 @@ export const useAISessionStore = create<AISessionStore>()(
             if (draft.selectedSessionId === sessionId) {
               draft.selectedSessionContext = castDraft(context);
             }
-            draft.isLoading = false;
+            if (current) {
+              draft.isLoading = false;
+            }
           });
+          return;
+        }
+        if (!current) {
           return;
         }
 
@@ -628,6 +652,9 @@ export const useAISessionStore = create<AISessionStore>()(
           draft.isLoading = false;
         });
       } catch (error) {
+        if (!attachmentStillCurrent(requestId, selectGeneration)) {
+          return;
+        }
         set((draft) => {
           draft.error = getErrorMessage(error, 'Failed to attach instruction file');
           draft.isLoading = false;
@@ -769,6 +796,7 @@ export const useAISessionStore = create<AISessionStore>()(
       sessionListRequestId += 1;
       sessionSelectRequestId += 1;
       attachmentOptionsRequestId += 1;
+      attachmentActionRequestId += 1;
       unbindStreamListeners();
       set((draft) => {
         draft.sessions = [];
