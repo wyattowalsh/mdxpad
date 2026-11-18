@@ -181,6 +181,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(struck).toContain('~~`code`~~');
     expect(struck).not.toContain('`~~code~~`');
     expect(roundTrip('~~hello `x`~~\n')).toContain('~~hello `x`~~');
+    const image = roundTrip('~~![alt](a.png)~~\n');
+    expect(image).toContain('~~![alt](a.png)~~');
+    const imageDoc = parseMdxContent(image.endsWith('\n') ? image : `${image}\n`);
+    let imageStruck = false;
+    imageDoc?.descendants((node) => {
+      if (node.type.name === 'image') {
+        imageStruck = node.marks.some((mark) => mark.type.name === 'strikethrough');
+      }
+    });
+    expect(imageStruck).toBe(true);
+    expect(roundTrip('~~hello ![alt](a.png)~~\n')).toContain('~~hello ![alt](a.png)~~');
   });
 
   it('keeps strikethrough', () => {

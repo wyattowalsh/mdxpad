@@ -164,7 +164,14 @@ const nodeSerializers: NodeSerializerMap = {
     const alt = (node.attrs.alt as string) || '';
     const src = node.attrs.src as string;
     const title = node.attrs.title as string | null;
+    const struck = node.marks.some((mark) => mark.type.name === 'strikethrough');
+    if (struck) {
+      state.write('~~');
+    }
     state.write(`![${markdownAlt(alt)}](${markdownTarget(src, title)})`);
+    if (struck) {
+      state.write('~~');
+    }
   },
 
   hard_break(state, node, parent, index) {
@@ -411,9 +418,9 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
         )
       );
     state.renderContent(content);
-    // A strike that continues into a code span is closed and reopened, which
-    // writes "~~~~`" between the words. Join that pair back into one strike.
-    return state.out.replaceAll('~~~~`', '`');
+    // A strike that continues into code or an image is closed and reopened,
+    // which writes "~~~~" before the next marker. Join that pair back into one strike.
+    return state.out.replaceAll('~~~~`', '`').replaceAll('~~~~![', '![');
   }
 }
 
