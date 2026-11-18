@@ -148,6 +148,39 @@ describe('useWorkspaceStore', () => {
     expect(useWorkspaceStore.getState().model).toEqual(model);
   });
 
+  it('keeps the newer workspace when an older open finishes late', async () => {
+    const older = createWorkspaceModel();
+    const base = createWorkspaceModel();
+    const newer: WorkspaceModel = {
+      ...base,
+      workspace: {
+        ...base.workspace,
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Newer',
+        rootPath: '/newer',
+      },
+    };
+    let finishOld: (value: OpenWorkspaceResponse) => void = () => undefined;
+    mockWorkspaceApi.openWorkspace
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ ok: true, value: newer });
+
+    const first = useWorkspaceStore.getState().openWorkspace({ rootPath: '/workspace' });
+    const second = useWorkspaceStore.getState().openWorkspace({ rootPath: '/newer' });
+    await second;
+    finishOld({ ok: true, value: older });
+    await first;
+
+    expect(useWorkspaceStore.getState().model?.workspace.name).toBe('Newer');
+    expect(useWorkspaceStore.getState().model?.workspace.rootPath).toBe('/newer');
+    expect(useWorkspaceStore.getState().isLoading).toBe(false);
+  });
+
   it('stores workspace errors when openWorkspace fails', async () => {
     const error: WorkspaceError = {
       code: 'WORKSPACE_NOT_FOUND',
