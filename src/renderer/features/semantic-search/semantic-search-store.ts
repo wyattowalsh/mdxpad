@@ -11,6 +11,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { SemanticSearchResult } from '@shared/contracts/semantic-search-schemas';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
+import { withOpenDocumentMatches } from './open-document-matches';
 
 // =============================================================================
 // STATE
@@ -113,9 +114,10 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
           undefined,
           readExcludesForDirectory(workspacePath)
         );
-        if (response.success && response.results) {
+        if (response.success) {
+          const matches = withOpenDocumentMatches(response.results ?? [], workspacePath, query);
           set((draft) => {
-            draft.results = response.results ?? [];
+            draft.results = matches;
             draft.isSearching = false;
           });
         } else {

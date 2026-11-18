@@ -3,12 +3,17 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { DocumentId } from '@shared/types/document';
+import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 import { useSemanticSearchStore } from './semantic-search-store';
 
 describe('useSemanticSearchStore', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     useSemanticSearchStore.getState().reset();
+    useDocumentStore.getState().reset();
+    useTabStore.getState().reset();
   });
 
   it('should initialize with empty state', () => {
@@ -83,6 +88,47 @@ describe('useSemanticSearchStore', () => {
     const state = useSemanticSearchStore.getState();
     expect(state.isSearching).toBe(false);
     expect(state.error).toBe('Open a file inside a folder to search');
+  });
+
+  it('includes unsaved editor text the embedding index missed', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    useDocumentStore.getState().setContent('brand new phrase');
+    useTabStore.getState().addTab({
+      filePath: '/notes/other.md',
+      fileName: 'other.md',
+      isDirty: true,
+      content: 'brand new in the other tab',
+      savedContent: '',
+    });
+    useTabStore.getState().addTab({
+      filePath: '/outside/secret.md',
+      fileName: 'secret.md',
+      isDirty: true,
+      content: 'brand new phrase outside',
+      savedContent: '',
+    });
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        search: vi.fn().mockResolvedValue({ success: true, results: [] }),
+      },
+    });
+    useSemanticSearchStore.getState().setQuery('brand new');
+
+    await useSemanticSearchStore.getState().search('/notes');
+
+    const results = useSemanticSearchStore.getState().results;
+    expect(results.map((result) => result.filePath)).toEqual([
+      '/notes/other.md',
+      '/notes/readme.md',
+    ]);
+    expect(results[1]?.content).toContain('brand new phrase');
   });
 
   it('says when semantic search is unavailable', async () => {
