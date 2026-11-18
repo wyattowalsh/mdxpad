@@ -2,11 +2,12 @@
  * Comment list for the open file, with replies on the selected thread.
  */
 
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 import { useDocumentStore } from '@renderer/stores/document-store';
-import { useCommentsStore } from '@renderer/stores/comments-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
+import { useCommentsStore, type CommentThread } from '@renderer/stores/comments-store';
 import { CommentPanel } from './CommentPanel';
 import { CommentThreadView } from './CommentThread';
 import { sourcePosition } from './comment-position';
@@ -22,20 +23,49 @@ function revealCommentThread(view: EditorView, anchorFrom: number): void {
   });
 }
 
+function commentStorageKey(filePath: string | null, activeTabId: string | null): string | null {
+  if (filePath) {
+    return filePath;
+  }
+  if (activeTabId) {
+    return `untitled:${activeTabId}`;
+  }
+  return null;
+}
+
+function threadsForDocument(
+  storageKey: string,
+  previousKey: string | null,
+  activeTabId: string | null
+): readonly CommentThread[] {
+  const saved = readCommentThreads(storageKey);
+  const savingThisUntitledTab =
+    activeTabId !== null && previousKey === `untitled:${activeTabId}` && saved.length === 0;
+  return savingThisUntitledTab ? useCommentsStore.getState().threads : saved;
+}
+
 export function CommentPersistence(): null {
   const filePath = useDocumentStore((state) => state.filePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const storageKey = commentStorageKey(filePath, activeTabId);
+  const previousKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!filePath) {
+    const previous = previousKey.current;
+    previousKey.current = storageKey;
+    if (!storageKey) {
       useCommentsStore.getState().reset();
       return;
     }
-    const saved = readCommentThreads(filePath);
-    useCommentsStore.setState({ threads: saved, activeThreadId: null });
+    const threads = threadsForDocument(storageKey, previous, activeTabId);
+    useCommentsStore.setState({ threads: [...threads], activeThreadId: null });
+    if (activeTabId !== null && previous === `untitled:${activeTabId}`) {
+      writeCommentThreads(storageKey, threads);
+    }
     return useCommentsStore.subscribe((state) => {
-      writeCommentThreads(filePath, state.threads);
+      writeCommentThreads(storageKey, state.threads);
     });
-  }, [filePath]);
+  }, [activeTabId, storageKey]);
 
   return null;
 }
