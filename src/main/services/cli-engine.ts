@@ -168,6 +168,13 @@ function assertPathWithinBase(
   }
 }
 
+function assertExportTarget(targetPath: string, basePath: string | undefined): void {
+  assertPathWithinBase(targetPath, basePath, 'Target path');
+  if (basePath) {
+    resolveWorkspaceFilePath(basePath, targetPath);
+  }
+}
+
 function isAllowedCommand(command: string): boolean {
   return ALLOWED_COMMANDS.has(command.trim());
 }
@@ -331,7 +338,7 @@ async function runBuiltInExportCommand(
 ): Promise<CliEngineRunResult> {
   try {
     const sourceContent = await builtInExportText(request);
-    assertPathWithinBase(request.job.targetPath, request.cwd, 'Target path');
+    assertExportTarget(request.job.targetPath, request.cwd);
     await fs.mkdir(path.dirname(request.job.targetPath), { recursive: true });
     const warnings = await writeBuiltInExportArtifact(request, sourceContent);
 

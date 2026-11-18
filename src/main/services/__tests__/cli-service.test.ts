@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -250,6 +250,50 @@ describe('invokeExportCli', () => {
       }
     } finally {
       await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not write an export through a linked folder', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-link-dir-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-link-out-'));
+    try {
+      const sourcePath = path.join(tempDir, 'source.mdx');
+      const targetPath = path.join(tempDir, 'out', 'output.tex');
+      await writeFile(sourcePath, '# Latex Heading\n\nBody text.', 'utf-8');
+      await symlink(outside, path.join(tempDir, 'out'));
+      grantReadCapability(sourcePath);
+
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          job: {
+            ...createTestRequest().job,
+            sourcePath,
+            targetPath,
+            format: 'latex',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-000000000011',
+              name: 'LaTeX',
+              format: 'latex',
+              options: {},
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(false);
+      if (!response.ok && response.output) {
+        expect(
+          response.output.events.some((event) => event.message.includes('outside the workspace'))
+        ).toBe(true);
+      }
+      await expect(readFile(path.join(outside, 'output.tex'))).rejects.toThrow();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
     }
   });
 
