@@ -15,7 +15,9 @@ import {
   type EmbeddingAvailabilitySource,
 } from './embedding-availability';
 import type { IAIService } from './ai-types';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { pathMatchesExclude } from '@main/services/search/path-excludes';
+import { resolveWorkspaceFilePath } from './agent-path';
 import { readRealDirectory } from './directory-entries';
 import { VectorStore, type VectorEntry } from './vector-store';
 
@@ -113,10 +115,11 @@ export async function findIndexableFiles(
       if (!INDEXABLE_EXTENSIONS.has(ext)) continue;
 
       try {
-        const stat = await fs.promises.stat(fullPath);
-        if (stat.size <= MAX_FILE_SIZE) {
-          results.push(fullPath);
+        const info = await fs.promises.lstat(fullPath);
+        if (info.isSymbolicLink() || !info.isFile() || info.size > MAX_FILE_SIZE) {
+          continue;
         }
+        results.push(fullPath);
       } catch {
         // Skip files that can't be stat'd
       }
@@ -125,6 +128,19 @@ export async function findIndexableFiles(
 
   await walk(dirPath);
   return results;
+}
+
+export async function readIndexableContent(filePath: string): Promise<string | null> {
+  try {
+    const info = await fs.promises.lstat(filePath);
+    if (info.isSymbolicLink() || !info.isFile() || info.size > MAX_FILE_SIZE) {
+      return null;
+    }
+    const read = await readFileWithoutFollowingLinks(filePath);
+    return read.ok ? read.value : null;
+  } catch {
+    return null;
+  }
 }
 
 function vectorsForFile(
@@ -210,8 +226,11 @@ export class EmbeddingService {
       const batchEntries: VectorEntry[] = [];
 
       for (const filePath of batch) {
+        const content = await readIndexableContent(filePath);
+        if (content === null) {
+          continue;
+        }
         try {
-          const content = await fs.promises.readFile(filePath, 'utf-8');
           const chunks = chunkText(content);
 
           // Generate embeddings for all chunks at once
@@ -302,11 +321,24 @@ export class EmbeddingService {
     await this.assertAvailable();
     const store = await this.getStore(workspacePath);
 
-    // Remove old entries for this file
+    let resolved = filePath;
+    try {
+      resolved = resolveWorkspaceFilePath(workspacePath, filePath);
+    } catch {
+      return;
+    }
+
     store.removeByFilePath(filePath);
+    if (resolved !== filePath) {
+      store.removeByFilePath(resolved);
+    }
 
     try {
-      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const content = await readIndexableContent(resolved);
+      if (content === null) {
+        await store.saveToDisk();
+        return;
+      }
       const chunks = chunkText(content);
 
       const response = await this.aiService.generateEmbedding({
@@ -318,8 +350,8 @@ export class EmbeddingService {
           const emb = response.embeddings[i];
           if (!emb) return null;
           return {
-            id: `${filePath}:${i}`,
-            filePath,
+            id: `${resolved}:${i}`,
+            filePath: resolved,
             content: chunk,
             chunkIndex: i,
             embedding: emb,

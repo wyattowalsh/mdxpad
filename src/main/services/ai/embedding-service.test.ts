@@ -9,7 +9,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { ProviderConfig, ProviderType } from '@shared/ai/types';
 import type { IAIService } from './ai-types';
 import { EmbeddingsUnavailableError } from './embedding-availability';
-import { chunkText, EmbeddingService } from './embedding-service';
+import { chunkText, EmbeddingService, readIndexableContent } from './embedding-service';
 
 function provider(type: ProviderType): ProviderConfig {
   return {
@@ -199,5 +199,63 @@ describe('EmbeddingService#indexWorkspace', () => {
     const result = await embeddingService.indexWorkspace(workspacePath);
     expect(result.indexedFiles).toBe(1);
     expect(aiService.generateEmbedding).toHaveBeenCalled();
+  });
+
+  it('does not embed the text behind a linked note', async () => {
+    const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-link-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-secret-'));
+    tempDirs.push(workspacePath, outside);
+    fs.writeFileSync(path.join(workspacePath, 'note.md'), 'visible', 'utf-8');
+    const secret = path.join(outside, 'secret.md');
+    fs.writeFileSync(secret, 'SECRET', 'utf-8');
+    fs.symlinkSync(secret, path.join(workspacePath, 'linked.md'));
+
+    const aiService = embeddingAi();
+    const result = await new EmbeddingService(aiService).indexWorkspace(workspacePath);
+    const texts = vi
+      .mocked(aiService.generateEmbedding)
+      .mock.calls.flatMap((call) => call[0].texts);
+
+    expect(result.indexedFiles).toBe(1);
+    expect(texts).toContain('visible');
+    expect(texts).not.toContain('SECRET');
+  });
+
+  it('does not embed a file outside the workspace', async () => {
+    const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-root-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-out-'));
+    tempDirs.push(workspacePath, outside);
+    const secret = path.join(outside, 'secret.md');
+    fs.writeFileSync(secret, 'SECRET', 'utf-8');
+
+    const aiService = embeddingAi();
+    await new EmbeddingService(aiService).updateFile(workspacePath, secret);
+
+    expect(aiService.generateEmbedding).not.toHaveBeenCalled();
+  });
+});
+
+describe('readIndexableContent', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of tempDirs) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    tempDirs.length = 0;
+  });
+
+  it('reads a regular note and skips a link', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdxpad-embedding-read-'));
+    tempDirs.push(dir);
+    const note = path.join(dir, 'note.md');
+    const secret = path.join(dir, 'secret.md');
+    const link = path.join(dir, 'linked.md');
+    fs.writeFileSync(note, 'visible', 'utf-8');
+    fs.writeFileSync(secret, 'SECRET', 'utf-8');
+    fs.symlinkSync(secret, link);
+
+    await expect(readIndexableContent(note)).resolves.toBe('visible');
+    await expect(readIndexableContent(link)).resolves.toBeNull();
   });
 });
