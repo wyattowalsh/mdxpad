@@ -20,11 +20,11 @@ export function listContentColumn(line: string): number | null {
     return null;
   }
   const expanded = line.replaceAll('\t', '    ');
-  const match = /^( *)([-*+]|\d+\.)[ \t]+/.exec(expanded);
+  const match = /^( *)([-*+]|\d+[.)])[ \t]+/.exec(expanded);
   if (!match) {
     return null;
   }
-  return (match[1]?.length ?? 0) + (match[2]?.length ?? 1) + 1;
+  return match[0].length;
 }
 
 /** An indented line that continues the open list item, such as a wrapped sentence. */

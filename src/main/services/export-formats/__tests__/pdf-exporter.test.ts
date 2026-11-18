@@ -300,6 +300,29 @@ describe('PdfExporter', () => {
     expect(html.indexOf('</blockquote><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
   });
 
+  it('keeps a fenced block inside a parenthesis list item', async () => {
+    await exporter.export({
+      content: '10) item\n\n    ```js\n    const x = 1\n    ```\n\n    after\n',
+      outputPath: '/tmp/paren-code.pdf',
+    });
+    const inside = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(inside).toContain('<li><p>item</p><pre><code class="language-js">');
+    expect(inside).toContain('</code></pre><p>after</p></li>');
+    await exporter.export({
+      content: '10) item\n\n   ```js\n   const x = 1\n   ```\n',
+      outputPath: '/tmp/paren-code-out.pdf',
+    });
+    const outside = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(outside).toContain('<li>item</li>');
+    expect(outside.indexOf('</ol>')).toBeLessThan(
+      outside.indexOf('<pre><code class="language-js">')
+    );
+  });
+
   it('keeps a fenced block inside a list item', async () => {
     await exporter.export({
       content: '- item\n\n  ```js\n  const x = 1\n  ```\n\n  after\n',
@@ -339,7 +362,8 @@ describe('PdfExporter', () => {
 
   it('does not let a later number interrupt a paragraph', async () => {
     await exporter.export({
-      content: 'See version\n14. Next sentence.\n\n- foo\n  2. bar\n\n- foo\n  1. bar\n\n- foo\n\n  2. bar\n',
+      content:
+        'See version\n14. Next sentence.\n\n- foo\n  2. bar\n\n- foo\n  1. bar\n\n- foo\n\n  2. bar\n',
       outputPath: '/tmp/list-interrupt.pdf',
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
@@ -420,7 +444,9 @@ describe('PdfExporter', () => {
       String(endedUrl).replace('data:text/html;charset=utf-8,', '')
     );
     expect(endedHtml).toContain('</ul>\n<p>baz</p>');
-    expect(endedHtml.indexOf('</ul>\n<p>baz</p>')).toBeGreaterThan(endedHtml.indexOf('<li>child</li>'));
+    expect(endedHtml.indexOf('</ul>\n<p>baz</p>')).toBeGreaterThan(
+      endedHtml.indexOf('<li>child</li>')
+    );
   });
 
   it('wraps every item when a blank line separates them', async () => {
@@ -669,9 +695,7 @@ describe('PdfExporter', () => {
       String(looseUrl).replace('data:text/html;charset=utf-8,', '')
     );
     expect(looseHtml).toContain('<li><p><input type="checkbox" disabled /> one</p></li>');
-    expect(looseHtml).toContain(
-      '<li><p><input type="checkbox" disabled checked /> two</p></li>'
-    );
+    expect(looseHtml).toContain('<li><p><input type="checkbox" disabled checked /> two</p></li>');
   });
 
   it('renders a markdown table', async () => {
@@ -751,9 +775,7 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain(
-      '<a href="https://example.com"><img src="a.png" alt="alt" /></a>'
-    );
+    expect(html).toContain('<a href="https://example.com"><img src="a.png" alt="alt" /></a>');
   });
 
   it('keeps an escaped parenthesis and a spaced address in a link', async () => {

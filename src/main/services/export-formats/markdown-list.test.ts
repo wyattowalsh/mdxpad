@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   closeHtmlLists,
+  listContentColumn,
   parseListItem,
   pushHtmlListItem,
   shouldOpenListItem,
@@ -38,6 +39,10 @@ describe('parseListItem', () => {
       text: 'third',
       delimiter: '.',
     });
+    expect(listContentColumn('1) one')).toBe(3);
+    expect(listContentColumn('10) ten')).toBe(4);
+    expect(listContentColumn('10. ten')).toBe(4);
+    expect(listContentColumn('- item')).toBe(2);
     expect(parseListItem('1) one')).toEqual({
       level: 0,
       ordered: true,
@@ -59,8 +64,7 @@ describe('parseListItem', () => {
     expect(first && shouldOpenListItem(first, [], false, true)).toBe(true);
     const nested = parseListItem('  2. bar');
     expect(
-      nested &&
-        shouldOpenListItem(nested, [{ level: 0, kind: 'ul', delimiter: '' }], false, false)
+      nested && shouldOpenListItem(nested, [{ level: 0, kind: 'ul', delimiter: '' }], false, false)
     ).toBe(false);
   });
 
