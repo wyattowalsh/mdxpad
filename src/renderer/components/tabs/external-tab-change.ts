@@ -62,6 +62,10 @@ export function noteInactiveExternalChange(
     }
     return true;
   }
+  if (content === tab.savedContent) {
+    pending.delete(filePath);
+    return true;
+  }
   if (!tab.isDirty) {
     pending.delete(filePath);
     store.updateTab(tab.id, { content, savedContent: content, isDirty: false });

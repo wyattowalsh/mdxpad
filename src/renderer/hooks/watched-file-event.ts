@@ -33,7 +33,7 @@ export async function applyWatchedFileEvent(
     noteInactiveExternalChange(event.path, readable.value, Date.now());
     return;
   }
-  if (state.content === readable.value) {
+  if (state.content === readable.value || state.savedContent === readable.value) {
     if (state.fileMissing) {
       useDocumentStore.setState({ fileMissing: false });
     }

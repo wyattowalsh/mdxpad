@@ -8,6 +8,7 @@ import { useTabStore } from '@renderer/stores/tab-store';
 
 import { activateDocumentTab, hasUnsavedWork, subscribeDocumentTabs } from './document-tabs';
 import {
+  hasPendingExternalChange,
   noteFileRemoved,
   noteInactiveExternalChange,
   resetPendingExternalChanges,
@@ -155,6 +156,25 @@ describe('external changes in background tabs', () => {
     expect(result.ok).toBe(true);
     expect(saveFile).toHaveBeenCalled();
     expect(useDocumentStore.getState().fileMissing).toBe(false);
+    stop();
+  });
+
+  it('does not flag a background file when the disk matches its last save', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore
+      .getState()
+      .openDocument({ fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 }, 'saved a');
+    useDocumentStore.getState().setContent('edited a');
+    useDocumentStore
+      .getState()
+      .openDocument({ fileId: 'b' as DocumentId, filePath: '/docs/b.mdx', mtime: 1 }, 'saved b');
+
+    expect(noteInactiveExternalChange('/docs/a.mdx', 'saved a', 9)).toBe(true);
+
+    const first = useTabStore.getState().tabs.find((tab) => tab.filePath === '/docs/a.mdx');
+    expect(first?.content).toBe('edited a');
+    expect(first?.isDirty).toBe(true);
+    expect(hasPendingExternalChange('/docs/a.mdx')).toBe(false);
     stop();
   });
 });

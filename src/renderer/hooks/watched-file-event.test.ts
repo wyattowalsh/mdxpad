@@ -41,4 +41,21 @@ describe('watched file events', () => {
 
     expect(useDocumentStore.getState().fileMissing).toBe(false);
   });
+
+  it('does not flag a conflict when the disk matches the last saved text', async () => {
+    useDocumentStore.setState({
+      filePath: '/notes/a.md',
+      content: 'saved!',
+      savedContent: 'saved',
+      isDirty: true,
+    });
+
+    await applyWatchedFileEvent({ type: 'change', path: '/notes/a.md' }, async () => ({
+      ok: true,
+      value: 'saved',
+    }));
+
+    expect(useDocumentStore.getState().externalChangeDetected).toBe(false);
+    expect(useDocumentStore.getState().content).toBe('saved!');
+  });
 });
