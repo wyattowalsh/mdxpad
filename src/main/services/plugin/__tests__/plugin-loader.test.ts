@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-loader.test
  */
 
-import { access, mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { access, mkdtemp, rm, symlink, writeFile, mkdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -133,6 +133,23 @@ describe('PluginLoader', () => {
       await loader.loadPlugin('loadable');
 
       expect(loader.isLoaded('loadable')).toBe(true);
+    });
+
+    it('does not load an entry point that is a link', async () => {
+      const outside = path.join(tempDir, 'secret.js');
+      await writeFile(outside, 'module.exports = { leaked: true };');
+      const pluginDir = await createPluginDir(tempDir, 'linked-entry', {
+        name: 'Linked',
+        version: '1.0.0',
+        description: 'test',
+        permissions: [],
+      });
+      await rm(path.join(pluginDir, 'index.js'));
+      await symlink(outside, path.join(pluginDir, 'index.js'));
+      await loader.installPlugin(pluginDir);
+
+      await expect(loader.loadPlugin('linked-entry')).rejects.toThrow('outside the workspace');
+      expect(loader.isLoaded('linked-entry')).toBe(false);
     });
 
     it('does not load an entry point outside the plugin directory', async () => {

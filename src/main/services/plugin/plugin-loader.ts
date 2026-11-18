@@ -18,6 +18,7 @@ import { normalizeCapabilityPath } from '@main/ipc/document-capability';
 import { trustedDirectoryError } from '@main/ipc/trusted-directory';
 import type { PluginManifest, PluginRecord } from '@shared/contracts/plugin-schemas';
 
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { resolveWorkspaceFilePath } from '../ai/agent-path';
 import { loadManifest, derivePluginId } from './plugin-manifest';
 import { PluginRegistry } from './plugin-registry';
@@ -69,7 +70,14 @@ function buildSandboxApi(manifest: PluginManifest, pluginRoot: string): PluginSa
   };
 
   const readFile = manifest.permissions.includes('file-read')
-    ? (filePath: string) => fs.readFile(resolveWorkspaceFilePath(pluginRoot, filePath), 'utf-8')
+    ? async (filePath: string) => {
+        const target = resolveWorkspaceFilePath(pluginRoot, filePath);
+        const read = await readFileWithoutFollowingLinks(target);
+        if (!read.ok) {
+          throw new Error('Plugin file could not be read');
+        }
+        return read.value;
+      }
     : undefined;
 
   const writeFile = manifest.permissions.includes('file-write')
@@ -139,16 +147,15 @@ export class PluginLoader {
     const pluginPath = path.join(this.pluginDir, pluginId);
     const entryPath = resolveWorkspaceFilePath(pluginPath, record.manifest.entryPoint);
 
-    let code: string;
-    try {
-      code = await fs.readFile(entryPath, 'utf-8');
-    } catch {
+    const read = await readFileWithoutFollowingLinks(entryPath);
+    if (!read.ok) {
       await this.registry.setError(
         pluginId,
         `Entry point not found: ${record.manifest.entryPoint}`
       );
       throw new Error(`Plugin entry point not found: ${entryPath}`);
     }
+    const code = read.value;
 
     const sandboxApi = buildSandboxApi(record.manifest, pluginPath);
     const sandbox = {

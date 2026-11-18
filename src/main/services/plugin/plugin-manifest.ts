@@ -24,14 +24,24 @@ import type { PluginManifest } from '@shared/contracts/plugin-schemas';
 export async function loadManifest(pluginDir: string): Promise<PluginManifest> {
   const manifestPath = path.join(pluginDir, 'manifest.json');
 
-  let raw: string;
+  let info: Awaited<ReturnType<typeof fs.lstat>>;
   try {
-    raw = await fs.readFile(manifestPath, 'utf-8');
+    info = await fs.lstat(manifestPath);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') {
       throw new Error(`Plugin manifest not found: ${manifestPath}`);
     }
+    throw new Error(`Failed to read plugin manifest: ${manifestPath}`);
+  }
+  if (info.isSymbolicLink() || !info.isFile()) {
+    throw new Error(`Plugin manifest is a link: ${manifestPath}`);
+  }
+
+  let raw: string;
+  try {
+    raw = await fs.readFile(manifestPath, 'utf-8');
+  } catch {
     throw new Error(`Failed to read plugin manifest: ${manifestPath}`);
   }
 

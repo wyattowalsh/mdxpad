@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-manifest.test
  */
 
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, symlink, writeFile, mkdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -57,6 +57,24 @@ describe('loadManifest', () => {
     await writeFile(path.join(pluginDir, 'manifest.json'), 'not valid json');
 
     await expect(loadManifest(pluginDir)).rejects.toThrow('Invalid JSON');
+  });
+
+  it('does not read a manifest that is a link', async () => {
+    const pluginDir = path.join(tempDir, 'linked');
+    const outside = path.join(tempDir, 'secret.json');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      outside,
+      JSON.stringify({
+        name: 'Secret',
+        version: '1.0.0',
+        description: 'hidden',
+        permissions: [],
+      })
+    );
+    await symlink(outside, path.join(pluginDir, 'manifest.json'));
+
+    await expect(loadManifest(pluginDir)).rejects.toThrow('Plugin manifest is a link');
   });
 
   it('throws if manifest does not match schema', async () => {
