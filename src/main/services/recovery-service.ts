@@ -471,8 +471,8 @@ export class RecoveryService {
   private async recoveryFileBytes(documentId: DocumentId): Promise<number> {
     try {
       const recoveryDir = await this.getRecoveryDirPath();
-      const stat = await fs.stat(path.join(recoveryDir, `${documentId}.json`));
-      return stat.size;
+      const info = await this.regularFileInfo(path.join(recoveryDir, `${documentId}.json`));
+      return info ? Number(info.size) : 0;
     } catch {
       return 0;
     }
@@ -616,11 +616,11 @@ export class RecoveryService {
     }
 
     try {
-      const stat = await fs.stat(recoveryFile.filePath);
-      const diskModifiedAt = stat.mtime.getTime();
-
-      // If disk file was modified after recovery save, there's a conflict
-      return diskModifiedAt > recoveryFile.savedAt;
+      const info = await this.regularFileInfo(recoveryFile.filePath);
+      if (!info) {
+        return false;
+      }
+      return info.mtime.getTime() > recoveryFile.savedAt;
     } catch {
       // File doesn't exist or can't be read - no conflict
       return false;
@@ -683,6 +683,10 @@ export class RecoveryService {
       const recoveryDir = await this.getRecoveryDirPath();
       const manifestPath = path.join(recoveryDir, MANIFEST_FILE);
 
+      const manifestInfo = await this.regularFileInfo(manifestPath);
+      if (!manifestInfo) {
+        return EMPTY_RECOVERY_MANIFEST;
+      }
       const content = await fs.readFile(manifestPath, 'utf-8');
       const parsed: unknown = JSON.parse(content);
 
@@ -711,6 +715,10 @@ export class RecoveryService {
   private async readRecoveryFile(documentId: DocumentId): Promise<RecoveryFile | null> {
     try {
       const filePath = this.getRecoveryFilePath(documentId);
+      const fileInfo = await this.regularFileInfo(filePath);
+      if (!fileInfo) {
+        return null;
+      }
       const content = await fs.readFile(filePath, 'utf-8');
       const parsed = JSON.parse(content) as unknown;
 
@@ -856,8 +864,11 @@ export class RecoveryService {
     }
 
     try {
-      const stat = await fs.stat(recoveryFile.filePath);
-      const diskModifiedAt = stat.mtime.getTime();
+      const info = await this.regularFileInfo(recoveryFile.filePath);
+      if (!info) {
+        return null;
+      }
+      const diskModifiedAt = info.mtime.getTime();
 
       // If disk file was modified after recovery save, there's a conflict
       if (diskModifiedAt > recoveryFile.savedAt) {
@@ -893,6 +904,23 @@ export class RecoveryService {
    * @param error - The error to check
    * @returns True if the error is ENOENT
    */
+  private async regularFileInfo(
+    filePath: string
+  ): Promise<Awaited<ReturnType<typeof fs.lstat>> | null> {
+    try {
+      const info = await fs.lstat(filePath);
+      if (info.isSymbolicLink() || !info.isFile()) {
+        return null;
+      }
+      return info;
+    } catch (error) {
+      if (this.isEnoentError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   private isEnoentError(error: unknown): boolean {
     return (
       error instanceof Error &&

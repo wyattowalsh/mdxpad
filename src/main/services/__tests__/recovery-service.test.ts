@@ -29,6 +29,7 @@ vi.mock('node:fs', () => {
     unlink: vi.fn(),
     rename: vi.fn(),
     stat: vi.fn(),
+    lstat: vi.fn(),
     readdir: vi.fn(),
   };
   return {
@@ -77,6 +78,7 @@ const mockFs = {
   unlink: fs.unlink as Mock,
   rename: fs.rename as Mock,
   stat: fs.stat as Mock,
+  lstat: fs.lstat as Mock,
   readdir: fs.readdir as Mock,
 };
 
@@ -155,6 +157,12 @@ describe('RecoveryService', () => {
     mockFs.rename.mockResolvedValue(undefined);
     mockFs.unlink.mockResolvedValue(undefined);
     mockFs.stat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    mockFs.lstat.mockResolvedValue({
+      isSymbolicLink: () => false,
+      isFile: () => true,
+      mtime: new Date(0),
+      size: 0,
+    });
     mockFs.readdir.mockResolvedValue([]);
 
     // Create service instances
@@ -645,8 +653,11 @@ describe('RecoveryService', () => {
         return Promise.resolve('# Disk Content');
       });
 
-      mockFs.stat.mockResolvedValue({
+      mockFs.lstat.mockResolvedValue({
+        isSymbolicLink: () => false,
+        isFile: () => true,
         mtime: new Date(diskModifiedAt),
+        size: 0,
       });
 
       const result = await recoveryService.getPreview(createDocumentId(docId));
@@ -657,6 +668,42 @@ describe('RecoveryService', () => {
         expect(result.conflict?.diskContent).toBe('# Disk Content');
         expect(result.conflict?.recoveryContent).toBe('# Recovery Content');
       }
+    });
+
+    it('does not show the target of a linked document as a disk conflict', async () => {
+      const file = createRecoveryFile(docId, '# Recovery Content', {
+        filePath: '/test/conflict.mdx',
+      });
+      mockFs.readFile.mockImplementation((filePath: string) => {
+        if (filePath.includes(docId)) {
+          return Promise.resolve(JSON.stringify(file));
+        }
+        return Promise.resolve('# Secret');
+      });
+      mockFs.lstat.mockImplementation((filePath: string) => {
+        if (filePath === '/test/conflict.mdx') {
+          return Promise.resolve({
+            isSymbolicLink: () => true,
+            isFile: () => false,
+            mtime: new Date(),
+            size: 0,
+          });
+        }
+        return Promise.resolve({
+          isSymbolicLink: () => false,
+          isFile: () => true,
+          mtime: new Date(0),
+          size: 0,
+        });
+      });
+
+      const result = await recoveryService.getPreview(createDocumentId(docId));
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.conflict).toBeNull();
+      }
+      expect(mockFs.readFile).not.toHaveBeenCalledWith('/test/conflict.mdx', 'utf-8');
     });
 
     it('should not detect conflict for untitled documents', async () => {
@@ -997,7 +1044,12 @@ describe('RecoveryService', () => {
         [newest]: { documentId: newest, savedAt: now - 1000, fileName: 'new.mdx' },
       });
       mockFs.readFile.mockResolvedValue(JSON.stringify(currentManifest));
-      mockFs.stat.mockResolvedValue({ size: 600_000 });
+      mockFs.lstat.mockResolvedValue({
+        isSymbolicLink: () => false,
+        isFile: () => true,
+        mtime: new Date(0),
+        size: 600_000,
+      });
       const deleted: string[] = [];
       mockFs.unlink.mockImplementation((filePath: string) => {
         const match = /([0-9a-f-]+)\.json$/.exec(filePath);
@@ -1026,7 +1078,12 @@ describe('RecoveryService', () => {
           })
         )
       );
-      mockFs.stat.mockResolvedValue({ size: 2_000_000 });
+      mockFs.lstat.mockResolvedValue({
+        isSymbolicLink: () => false,
+        isFile: () => true,
+        mtime: new Date(0),
+        size: 2_000_000,
+      });
 
       await service.runRetentionCleanup();
 
