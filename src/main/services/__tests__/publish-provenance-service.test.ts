@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -118,6 +118,30 @@ describe('PublishProvenanceService', () => {
 
     const provenance = await service.listProvenance();
     expect(provenance).toHaveLength(2);
+  });
+
+  it('does not append provenance through a link', async () => {
+    const outside = path.join(tempDir, 'outside.jsonl');
+    const log = path.join(tempDir, 'provenance.jsonl');
+    await writeFile(outside, '{"secret":true}\n', 'utf-8');
+    await symlink(outside, log);
+    const service = new PublishProvenanceService(tempDir);
+    const sourcePath = path.join(tempDir, 'notes.mdx');
+    await writeFile(sourcePath, '# Notes', 'utf-8');
+    grantReadCapability(sourcePath);
+
+    await expect(service.listProvenance()).resolves.toEqual([]);
+    const published = await service.publish({
+      providerId: 'filesystem-export',
+      sourcePath,
+      content: '# Notes',
+      frontmatter: undefined,
+    });
+
+    expect(published.ok).toBe(true);
+    expect(await readFile(outside, 'utf-8')).toBe('{"secret":true}\n');
+    expect((await lstat(log)).isSymbolicLink()).toBe(false);
+    await expect(service.listProvenance(sourcePath)).resolves.toHaveLength(1);
   });
 
   it('does not write a published copy of a file that is not open', async () => {

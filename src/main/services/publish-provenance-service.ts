@@ -28,6 +28,10 @@ async function ensureDirectory(dir: string): Promise<void> {
 
 async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
   try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink() || !info.isFile()) {
+      return fallback;
+    }
     const content = await fs.readFile(filePath, 'utf-8');
     return JSON.parse(content) as T;
   } catch (error) {
@@ -35,6 +39,19 @@ async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
       return fallback;
     }
     throw error;
+  }
+}
+
+async function detachFileLink(filePath: string): Promise<void> {
+  try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink()) {
+      await fs.unlink(filePath);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
   }
 }
 
@@ -119,8 +136,10 @@ export class PublishProvenanceService {
 
   private async writeProvenanceRecord(record: ProvenanceRecord): Promise<void> {
     await ensureDirectory(this.baseDir);
+    const provenancePath = this.getProvenancePath();
+    await detachFileLink(provenancePath);
     const line = `${JSON.stringify(record)}\n`;
-    await fs.appendFile(this.getProvenancePath(), line, 'utf-8');
+    await fs.appendFile(provenancePath, line, 'utf-8');
   }
 
   private async updateBacklinkIndex(
@@ -148,7 +167,12 @@ export class PublishProvenanceService {
 
   public async listProvenance(sourcePath?: string): Promise<ProvenanceRecord[]> {
     try {
-      const content = await fs.readFile(this.getProvenancePath(), 'utf-8');
+      const provenancePath = this.getProvenancePath();
+      const info = await fs.lstat(provenancePath);
+      if (info.isSymbolicLink() || !info.isFile()) {
+        return [];
+      }
+      const content = await fs.readFile(provenancePath, 'utf-8');
       const records = content
         .split('\n')
         .map((line) => line.trim())
