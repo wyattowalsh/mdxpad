@@ -97,4 +97,27 @@ describe('openFileFromPath', () => {
     expect(window.mdxpad.readFile).not.toHaveBeenCalled();
     expect(useDocumentStore.getState().content).toBe('edited');
   });
+
+  it('does not show an open error after another file is already open', async () => {
+    let finishRead: (value: { ok: false; error: { code: 'NOT_FOUND'; path: string } }) => void =
+      () => undefined;
+    vi.mocked(window.mdxpad.readFile).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        })
+    );
+
+    const pending = openFileFromPath('/docs/missing.mdx');
+    useDocumentStore.getState().openDocument(
+      { fileId: 'b' as DocumentId, filePath: '/docs/b.mdx', mtime: 1 },
+      'kept'
+    );
+    finishRead({ ok: false, error: { code: 'NOT_FOUND', path: '/docs/missing.mdx' } });
+    await pending;
+
+    expect(useDocumentStore.getState().filePath).toBe('/docs/b.mdx');
+    expect(useDocumentStore.getState().content).toBe('kept');
+    expect(useStatusMessageStore.getState().message).toBe('');
+  });
 });

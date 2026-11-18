@@ -50,6 +50,10 @@ function documentUnchanged(before: OpenSnapshot): boolean {
   return state.filePath === before.filePath && state.content === before.content;
 }
 
+function stillOnSameFile(before: OpenSnapshot): boolean {
+  return useDocumentStore.getState().filePath === before.filePath;
+}
+
 function placeOpenedFile(filePath: string, content: string, before: OpenSnapshot): void {
   if (!documentUnchanged(before)) {
     return;
@@ -74,6 +78,9 @@ export async function openFileFromPath(filePath: string): Promise<void> {
     return;
   }
   const result = await window.mdxpad.readFile(filePath);
+  if (!stillOnSameFile(before)) {
+    return;
+  }
   if (!result.ok) {
     showOpenFailure(result.error);
     return;
@@ -85,7 +92,13 @@ export async function openFirstExistingFile(paths: readonly string[]): Promise<v
   const before = snapshotDocument();
   let missing: FileError | null = null;
   for (const filePath of paths) {
+    if (!stillOnSameFile(before)) {
+      return;
+    }
     const result = await window.mdxpad.readFile(filePath);
+    if (!stillOnSameFile(before)) {
+      return;
+    }
     if (result.ok) {
       placeOpenedFile(filePath, result.value, before);
       return;
@@ -96,7 +109,7 @@ export async function openFirstExistingFile(paths: readonly string[]): Promise<v
     }
     missing = result.error;
   }
-  if (missing) {
+  if (missing && stillOnSameFile(before)) {
     showOpenFailure(missing);
   }
 }
