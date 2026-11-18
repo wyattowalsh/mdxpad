@@ -43,6 +43,17 @@ describe('openableDocumentPath', () => {
     });
   });
 
+  it('reports a dangling link as a missing file', async () => {
+    const dir = await tempDir();
+    const link = path.join(dir, 'gone.md');
+    await symlink(path.join(dir, 'missing.md'), link);
+
+    await expect(openableDocumentPath(link)).resolves.toEqual({
+      ok: false,
+      error: { code: 'NOT_FOUND', path: link },
+    });
+  });
+
   it('reports a missing file', async () => {
     const dir = await tempDir();
     const missing = path.join(dir, 'missing.md');

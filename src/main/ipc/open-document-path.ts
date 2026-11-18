@@ -4,7 +4,7 @@
  * no-follow read loads that document.
  */
 
-import { realpath } from 'node:fs/promises';
+import { lstat, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
@@ -18,6 +18,14 @@ async function canonicalPath(filePath: string): Promise<string | null> {
   }
 }
 
+async function isSymbolicLink(filePath: string): Promise<boolean> {
+  try {
+    return (await lstat(filePath)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export async function openableDocumentPath(filePath: string): Promise<FileResult<string>> {
   const direct = await readFileWithoutFollowingLinks(filePath);
   if (direct.ok) {
@@ -28,13 +36,16 @@ export async function openableDocumentPath(filePath: string): Promise<FileResult
   }
 
   const canonical = await canonicalPath(filePath);
-  if (canonical === null || canonical === path.resolve(filePath)) {
-    return direct;
+  if (canonical !== null && canonical !== path.resolve(filePath)) {
+    const target = await readFileWithoutFollowingLinks(canonical);
+    if (!target.ok) {
+      return target;
+    }
+    return { ok: true, value: canonical };
   }
 
-  const target = await readFileWithoutFollowingLinks(canonical);
-  if (!target.ok) {
-    return target;
+  if (await isSymbolicLink(filePath)) {
+    return { ok: false, error: { code: 'NOT_FOUND', path: filePath } };
   }
-  return { ok: true, value: canonical };
+  return direct;
 }
