@@ -8,7 +8,7 @@
  */
 
 import { memo } from 'react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ui/tooltip';
 
 export interface WordCountProps {
   readonly wordCount: number;
@@ -20,6 +20,7 @@ function WordCountComponent({ wordCount, charCount }: WordCountProps) {
   const formattedChars = charCount.toLocaleString();
 
   return (
+    <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
         <span
@@ -33,6 +34,7 @@ function WordCountComponent({ wordCount, charCount }: WordCountProps) {
         <p>{formattedChars} characters</p>
       </TooltipContent>
     </Tooltip>
+    </TooltipProvider>
   );
 }
 

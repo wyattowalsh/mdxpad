@@ -81,6 +81,7 @@ export interface AppState {
   readonly filePath: string | null;
   readonly fileName: string;
   readonly isDirty: boolean;
+  readonly fileMissing: boolean;
   readonly documentContent: string;
 
   // Local state
@@ -152,6 +153,7 @@ export function useAppState(): AppState {
   const filePath = useDocumentStore(selectFilePath);
   const fileName = useDocumentStore(selectFileName);
   const isDirty = useDocumentStore(selectIsDirty);
+  const fileMissing = useDocumentStore((store) => store.fileMissing);
   const documentContent = useDocumentStore(selectContent);
   const setContent = useDocumentStore.getState().setContent;
   const newDocument = useDocumentStore.getState().newDocument;
@@ -423,6 +425,7 @@ export function useAppState(): AppState {
     filePath,
     fileName,
     isDirty,
+    fileMissing,
     documentContent,
     cursorPosition,
     errors,

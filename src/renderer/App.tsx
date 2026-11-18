@@ -24,6 +24,7 @@ import { SettingsPanel } from './components/settings-panel';
 import { TabBar } from './components/tabs';
 import { subscribeDocumentTabs } from './components/tabs/document-tabs';
 import { documentWindowTitle } from './lib/document-window-title';
+import { useTextStats } from './hooks/useTextStats';
 import { Breadcrumb } from './components/breadcrumb';
 import {
   Dialog,
@@ -115,14 +116,15 @@ export function App(): React.ReactElement {
   const aiProviderSettingsOpen = useAIProviderStore((s) => s.settingsOpen);
   const closeAiProviderSettings = useAIProviderStore((s) => s.closeSettings);
   const distractionFree = useEditorPreferencesStore((s) => s.distractionFreeEnabled);
+  const textStats = useTextStats();
   useEffect(() => {
     initThemeManager();
     applySavedCustomCss();
   }, []);
   useEffect(() => subscribeDocumentTabs(), []);
   useEffect(() => {
-    document.title = documentWindowTitle(state.fileName, state.isDirty);
-  }, [state.fileName, state.isDirty]);
+    document.title = documentWindowTitle(state.fileName, state.isDirty, state.fileMissing);
+  }, [state.fileName, state.isDirty, state.fileMissing]);
 
   // File explorer filter state
   const filterQuery = useFileExplorerStore(selectFilterQuery);
@@ -375,6 +377,13 @@ export function App(): React.ReactElement {
         <StatusBar
           fileName={state.fileName}
           isDirty={state.isDirty}
+          isOrphan={state.fileMissing}
+          documentStats={{
+            wordCount: textStats.wordCount,
+            charCount: textStats.charCount,
+            readingTimeMinutes: textStats.readingTime.minutes,
+            readingTimeSeconds: textStats.readingTime.seconds,
+          }}
           line={state.cursorPosition.line}
           column={state.cursorPosition.column}
           errors={state.errors}

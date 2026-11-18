@@ -229,6 +229,24 @@ describe('App', () => {
     expect(openWorkspace).not.toHaveBeenCalled();
   });
 
+  it('shows the word count and a deleted file in the status bar', () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '22222222-2222-4222-8222-222222222222' as DocumentId,
+        filePath: '/notes/deleted.mdx',
+        mtime: 1,
+      },
+      'one two'
+    );
+    useDocumentStore.getState().markFileMissing();
+    render(<App />);
+
+    expect(screen.getByTestId('file-info-orphan').textContent).toBe('(Deleted)');
+    expect(screen.getByTestId('word-count').textContent).toBe('2 words');
+    expect(screen.getByTestId('reading-time').textContent).toBe('< 1 min read');
+    expect(document.title).toBe('deleted.mdx (deleted) — MDXPad');
+  });
+
   it('renders core application shell regions', () => {
     render(<App />);
 

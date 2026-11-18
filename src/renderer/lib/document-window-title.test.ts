@@ -7,5 +7,6 @@ describe('document window title', () => {
     expect(documentWindowTitle('notes.md', false)).toBe('notes.md — MDXPad');
     expect(documentWindowTitle('notes.md', true)).toBe('• notes.md — MDXPad');
     expect(documentWindowTitle('   ', false)).toBe('Untitled — MDXPad');
+    expect(documentWindowTitle('notes.md', true, true)).toBe('notes.md (deleted) — MDXPad');
   });
 });
