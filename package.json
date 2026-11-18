@@ -116,6 +116,7 @@
     "minisearch": "^7.2.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-history": "^1.5.1",
+    "prosemirror-inputrules": "1.6.0",
     "prosemirror-keymap": "^1.2.3",
     "prosemirror-markdown": "^1.13.4",
     "prosemirror-model": "^1.25.4",

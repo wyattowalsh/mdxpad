@@ -12,6 +12,7 @@ import * as React from 'react';
 import 'katex/dist/katex.min.css';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import { undoInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { history, redo, undo } from 'prosemirror-history';
 import { baseKeymap, toggleMark, wrapIn } from 'prosemirror-commands';
@@ -38,6 +39,7 @@ import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-c
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
 import { insertHardBreak } from '../../lib/editor/wysiwyg-break';
+import { wysiwygInputRules } from '../../lib/editor/wysiwyg-input-rules';
 import { markdownForSlice } from '../../lib/editor/wysiwyg-copy';
 import { pastePlainText } from '../../lib/editor/wysiwyg-paste';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
@@ -159,6 +161,8 @@ function useEditorView(
       doc,
       plugins: [
         history(),
+        wysiwygInputRules(),
+        keymap({ Backspace: undoInputRule }),
         wysiwygSlashPlugin(),
         wysiwygMathPlugin(),
         keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
