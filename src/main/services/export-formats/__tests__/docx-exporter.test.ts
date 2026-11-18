@@ -90,6 +90,29 @@ describe('DocxExporter', () => {
     expect(xml).toContain('zero');
   });
 
+  it('keeps plus and star bullets', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '+ plus\n\n* star\n- dash',
+      outputPath: '/tmp/bullets.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('+ ');
+    expect(xml).toContain('plus');
+    expect(xml).toContain('* ');
+    expect(xml).toContain('star');
+    expect(xml).toContain('dash');
+  });
+
   it('keeps snake_case as plain text and still emphasizes _words_', () => {
     expect(parseInlineFormatting('use snake_case_name here')).toEqual([
       { text: 'use snake_case_name here' },

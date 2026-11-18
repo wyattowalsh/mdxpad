@@ -933,6 +933,12 @@ function listParagraph(item: MarkdownListItem, quoteDepth = 0): Paragraph {
       children,
     });
   }
+  if (item.delimiter === '+' || item.delimiter === '*') {
+    return new Paragraph({
+      indent: { left: 720 * (item.level + 1) + 720 * quoteDepth, hanging: 360 },
+      children: [new TextRun({ text: `${item.delimiter} ` }), ...children],
+    });
+  }
   return new Paragraph({ bullet: { level: item.level }, ...(indent ? { indent } : {}), children });
 }
 
