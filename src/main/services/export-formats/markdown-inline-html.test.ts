@@ -71,6 +71,7 @@ describe('renderMarkdownInline', () => {
       '<a href="https://example.com">docs</a>'
     );
     expect(renderMarkdownInline('[empty]()')).toBe('<a href="">empty</a>');
+    expect(renderMarkdownInline('[link](</url>)')).toBe('<a href="/url">link</a>');
   });
 
   it('keeps an escaped asterisk literal', () => {

@@ -4,7 +4,13 @@ import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-au
 import { decodeHtmlEntities } from './markdown-entity';
 import { renderEmphasis } from './markdown-emphasis';
 import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
-import { findMarkdownTarget, linkDestination, linkTitle, type MarkdownTarget } from './markdown-link';
+import {
+  findMarkdownTarget,
+  linkDestination,
+  linkTitle,
+  readMarkdownTarget,
+  type MarkdownTarget,
+} from './markdown-link';
 
 function escapeHtml(value: string): string {
   return value
@@ -104,6 +110,38 @@ function inlineHtmlEnd(value: string, index: number): number {
   return inlineTagEnd(value, index);
 }
 
+function shiftHtmlMarks(text: string, offset: number): string {
+  return text.replaceAll(
+    new RegExp(`${HTML_MARK}(\\d+)${HTML_MARK}`, 'g'),
+    (_match, slot: string) => `${HTML_MARK}${Number(slot) + offset}${HTML_MARK}`
+  );
+}
+
+function protectHtmlLink(
+  raw: string,
+  index: number,
+  tags: string[]
+): { text: string; next: number } | null {
+  if (raw[index] !== '[' && !(raw[index] === '!' && raw[index + 1] === '[')) {
+    return null;
+  }
+  const target = readMarkdownTarget(raw, index);
+  if (target?.start !== index) {
+    return null;
+  }
+  const labelStart = index + (target.image ? 2 : 1);
+  const labelEnd = labelStart + target.label.length;
+  const label = protectInlineHtml(raw.slice(labelStart, labelEnd));
+  tags.push(...label.tags);
+  return {
+    text:
+      raw.slice(index, labelStart) +
+      shiftHtmlMarks(label.text, tags.length - label.tags.length) +
+      raw.slice(labelEnd, target.end),
+    next: target.end,
+  };
+}
+
 function protectInlineHtml(raw: string): { text: string; tags: string[] } {
   const tags: string[] = [];
   let text = '';
@@ -114,6 +152,12 @@ function protectInlineHtml(raw: string): { text: string; tags: string[] } {
       const span = readCodeSpan(raw, index);
       text += span ? raw.slice(index, span.end) : char;
       index = span ? span.end : index + 1;
+      continue;
+    }
+    const link = protectHtmlLink(raw, index, tags);
+    if (link) {
+      text += link.text;
+      index = link.next;
       continue;
     }
     const end = char === '<' ? inlineHtmlEnd(raw, index) : -1;
