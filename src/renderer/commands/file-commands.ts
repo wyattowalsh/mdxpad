@@ -17,7 +17,7 @@ import { isFeatureEnabled } from '../stores/feature-flags-store';
 import { liveDocumentContent } from './live-document';
 import { useTabStore } from '../stores/tab-store';
 import { revealNextDirtyTab } from '../components/tabs/document-tabs';
-import { hasPendingExternalChange } from '../components/tabs/external-tab-change';
+import { fileIsMissing, hasPendingExternalChange } from '../components/tabs/external-tab-change';
 
 // =============================================================================
 // COMMAND IDS
@@ -283,7 +283,9 @@ async function saveOtherOpenFiles(ctx: CommandContext): Promise<CommandResult | 
 export async function saveInactiveDocuments(api: CommandContext['api']): Promise<boolean> {
   const activeId = useTabStore.getState().activeTabId;
   const pending = useTabStore.getState().tabs.filter((tab) => {
-    return tab.id !== activeId && tab.isDirty && tab.filePath !== null;
+    return (
+      tab.id !== activeId && tab.filePath !== null && (tab.isDirty || fileIsMissing(tab.filePath))
+    );
   });
   for (const tab of pending) {
     if (!tab.filePath || hasPendingExternalChange(tab.filePath)) {

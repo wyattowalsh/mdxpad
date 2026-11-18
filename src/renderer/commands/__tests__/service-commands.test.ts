@@ -227,6 +227,47 @@ describe('git.commit', () => {
     expect(commit).toHaveBeenCalledWith('/notes', 'Save notes', ['readme.md']);
   });
 
+  it('writes a deleted open file back before committing it', async () => {
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Restore notes')
+    );
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'saved text'
+    );
+    useDocumentStore.getState().markFileMissing();
+    const saveFile = vi.fn().mockResolvedValue({ ok: true, value: undefined });
+    const add = vi.fn().mockResolvedValue({ ok: true, value: { success: true } });
+    const commit = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { hash: 'abcdef123456', message: 'Restore notes' },
+    });
+    const context = {
+      document: {
+        filePath: '/notes/readme.md',
+        content: 'saved text',
+        isDirty: false,
+        fileId: 'file-1',
+      },
+      api: { git: { add, commit }, saveFile },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(saveFile).toHaveBeenCalledWith(
+      { id: 'file-1', path: '/notes/readme.md', name: 'readme.md' },
+      'saved text'
+    );
+    expect(useDocumentStore.getState().fileMissing).toBe(false);
+    expect(commit).toHaveBeenCalled();
+  });
+
   it('saves unsaved edits before committing them', async () => {
     vi.stubGlobal(
       'prompt',

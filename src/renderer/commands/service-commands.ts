@@ -336,7 +336,7 @@ function commitBuffer(
   if (state.filePath === filePath) {
     return {
       content: state.content,
-      isDirty: state.isDirty,
+      isDirty: state.isDirty || state.fileMissing,
       fileId: state.fileId,
       changedOnDisk: state.externalChangeDetected,
     };
