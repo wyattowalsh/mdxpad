@@ -42,7 +42,8 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { MARKDOWN_LINK_INSIDE, findMarkdownTarget, linkDestination, linkTitle } from './markdown-link';
+import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
+import { findMarkdownTarget, linkDestination, linkTitle } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -115,21 +116,6 @@ function attachTarget(
   }
 }
 
-function emphasize(
-  segments: InlineSegment[],
-  text: string,
-  marks: { readonly bold?: boolean; readonly italic?: boolean; readonly strike?: boolean }
-): void {
-  for (const segment of parseInlineFormatting(text)) {
-    segments.push({
-      ...segment,
-      ...(segment.bold === true || marks.bold === true ? { bold: true } : {}),
-      ...(segment.italic === true || marks.italic === true ? { italic: true } : {}),
-      ...(segment.strike === true || marks.strike === true ? { strike: true } : {}),
-    });
-  }
-}
-
 interface InlineSegment {
   text: string;
   bold?: boolean;
@@ -141,12 +127,10 @@ interface InlineSegment {
   strike?: boolean;
 }
 
-const INLINE_PATTERN = new RegExp(
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\((' +
-    MARKDOWN_LINK_INSIDE +
-    ')\\)|~~(.+?)~~)',
-  'g'
-);
+interface EmphasisFlags {
+  readonly bold?: boolean;
+  readonly italic?: boolean;
+}
 
 export function parseInlineFormatting(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
@@ -156,7 +140,7 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
       continue;
     }
     if (part.text.length > 0) {
-      segments.push(...parseInlineMarks(part.text));
+      segments.push(...closeStrike(parseEmphasisText(part.text, {})));
     }
   }
   if (segments.length === 0) {
@@ -165,98 +149,85 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
   return segments;
 }
 
-function appendMatchedInline(segments: InlineSegment[], text: string, match: RegExpExecArray): void {
-  const matchIndex = match.index;
-  const image =
-    match[9] !== undefined && match[10] !== undefined && matchIndex > 0 && text[matchIndex - 1] === '!';
-  if (image) {
-    pushImage(segments, match[9] ?? '', match[10] ?? '');
-    return;
+function withFlags(segments: InlineSegment[], marks: EmphasisFlags): InlineSegment[] {
+  if (marks.bold !== true && marks.italic !== true) {
+    return segments;
   }
-  if (match[2] !== undefined) {
-    emphasize(segments, match[2], { bold: true, italic: true });
-    return;
-  }
-  if (match[3] !== undefined) {
-    emphasize(segments, match[3], { bold: true, italic: true });
-    return;
-  }
-  if (match[4] !== undefined) {
-    emphasize(segments, match[4], { bold: true });
-    return;
-  }
-  if (match[5] !== undefined) {
-    emphasize(segments, match[5], { bold: true });
-    return;
-  }
-  if (match[6] !== undefined) {
-    segments.push({ text: match[6], code: true });
-    return;
-  }
-  if (match[7] !== undefined) {
-    emphasize(segments, match[7], { italic: true });
-    return;
-  }
-  if (match[8] !== undefined) {
-    emphasize(segments, match[8], { italic: true });
-    return;
-  }
-  if (match[9] !== undefined && match[10] !== undefined) {
-    attachTarget(segments, match[9], linkDestination(match[10]), 'link');
-    return;
-  }
-  if (match[11] !== undefined) {
-    emphasize(segments, match[11], { strike: true });
-  }
+  return segments.map((segment) => ({
+    ...segment,
+    ...(marks.bold === true ? { bold: true } : {}),
+    ...(marks.italic === true ? { italic: true } : {}),
+  }));
 }
 
-function parseInlineMarks(text: string): InlineSegment[] {
+function parsePlainMarks(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
-  const regex = new RegExp(INLINE_PATTERN.source, 'g');
-  let lastIndex = 0;
-
-  while (lastIndex < text.length) {
-    regex.lastIndex = lastIndex;
-    const match = regex.exec(text);
-    const target = findMarkdownTarget(text, lastIndex);
-    const markAt = match?.index ?? text.length;
-    const targetStart = target?.start ?? Number.POSITIVE_INFINITY;
-    if (target && targetStart <= markAt) {
-      if (targetStart > lastIndex) {
-        segments.push({ text: text.slice(lastIndex, targetStart) });
-      }
-      if (target.image) {
-        pushImage(segments, target.label, target.destination);
-      } else {
-        attachTarget(segments, target.label, linkDestination(target.destination), 'link');
-      }
-      lastIndex = target.end;
-      continue;
-    }
-    if (!match) {
-      segments.push({ text: text.slice(lastIndex) });
-      lastIndex = text.length;
+  let cursor = 0;
+  while (cursor < text.length) {
+    const target = findMarkdownTarget(text, cursor);
+    if (!target) {
+      segments.push({ text: text.slice(cursor) });
       break;
     }
-    const image =
-      match[9] !== undefined && match[10] !== undefined && match.index > 0 && text[match.index - 1] === '!';
-    const prefixEnd = image ? match.index - 1 : match.index;
-    if (prefixEnd > lastIndex) {
-      segments.push({ text: text.slice(lastIndex, prefixEnd) });
+    if (target.start > cursor) {
+      segments.push({ text: text.slice(cursor, target.start) });
     }
-    appendMatchedInline(segments, text, match);
-    lastIndex = match.index + match[0].length;
+    if (target.image) {
+      pushImage(segments, target.label, target.destination);
+    } else {
+      attachTarget(segments, target.label, linkDestination(target.destination), 'link');
+    }
+    cursor = target.end;
   }
+  return segments.length > 0 ? segments : [{ text }];
+}
 
-  if (lastIndex < text.length) {
-    segments.push({ text: text.slice(lastIndex) });
+function parseEmphasisText(text: string, marks: EmphasisFlags): InlineSegment[] {
+  const matches = collectEmphasis(text);
+  const outer = outerEmphasisMatches(matches, 0, text.length);
+  if (outer.length === 0) {
+    return withFlags(parsePlainMarks(text), marks);
   }
-
-  if (segments.length === 0) {
-    segments.push({ text });
+  const segments: InlineSegment[] = [];
+  let cursor = 0;
+  for (const match of outer) {
+    if (match.start > cursor) {
+      segments.push(...withFlags(parsePlainMarks(text.slice(cursor, match.start)), marks));
+    }
+    segments.push(
+      ...parseEmphasisText(text.slice(match.start + match.size, match.end - match.size), {
+        bold: marks.bold === true || match.size === 2,
+        italic: marks.italic === true || match.size === 1,
+      })
+    );
+    cursor = match.end;
   }
-
+  if (cursor < text.length) {
+    segments.push(...withFlags(parsePlainMarks(text.slice(cursor)), marks));
+  }
   return segments;
+}
+
+function closeStrike(segments: InlineSegment[]): InlineSegment[] {
+  const result: InlineSegment[] = [];
+  let open = false;
+  for (const segment of segments) {
+    if (segment.link || segment.image || !segment.text.includes('~~')) {
+      result.push(open ? { ...segment, strike: true } : segment);
+      continue;
+    }
+    const parts = segment.text.split('~~');
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index] ?? '';
+      if (part.length > 0) {
+        result.push({ ...segment, text: part, ...(open ? { strike: true } : {}) });
+      }
+      if (index < parts.length - 1) {
+        open = !open;
+      }
+    }
+  }
+  return result;
 }
 
 function createParagraphChildren(

@@ -74,6 +74,12 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('***both***')).toEqual([
       { text: 'both', bold: true, italic: true },
     ]);
+    expect(parseInlineFormatting('a * b * c')).toEqual([{ text: 'a * b * c' }]);
+    expect(parseInlineFormatting('***foo** bar*')).toEqual([
+      { text: 'foo', bold: true, italic: true },
+      { text: ' bar', italic: true },
+    ]);
+    expect(parseInlineFormatting('_foo_bar_')).toEqual([{ text: 'foo_bar', italic: true }]);
     expect(parseInlineFormatting('**bold *inner* text**')).toEqual([
       { text: 'bold ', bold: true },
       { text: 'inner', bold: true, italic: true },

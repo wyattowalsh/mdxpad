@@ -129,24 +129,52 @@ function renderRange(
   from: number,
   to: number,
   matches: readonly EmphasisMatch[],
-  renderText: (text: string) => string
+  renderText: (text: string) => string,
+  wrap: (size: 1 | 2, inner: string) => string
 ): string {
   let html = '';
   let cursor = from;
   for (const match of outermost(matches, from, to)) {
     html += renderText(value.slice(cursor, match.start));
-    const inner = renderRange(value, match.start + match.size, match.end - match.size, matches, renderText);
-    html += match.size === 2 ? `<strong>${inner}</strong>` : `<em>${inner}</em>`;
+    const inner = renderRange(
+      value,
+      match.start + match.size,
+      match.end - match.size,
+      matches,
+      renderText,
+      wrap
+    );
+    html += wrap(match.size, inner);
     cursor = match.end;
   }
   return html + renderText(value.slice(cursor, to));
 }
 
+export function collectEmphasis(value: string): EmphasisMatch[] {
+  return matchRuns(collectRuns(value));
+}
+
+export function outerEmphasisMatches(
+  matches: readonly EmphasisMatch[],
+  from: number,
+  to: number
+): EmphasisMatch[] {
+  return outermost(matches, from, to);
+}
+
+function htmlWrap(size: 1 | 2, inner: string): string {
+  return size === 2 ? `<strong>${inner}</strong>` : `<em>${inner}</em>`;
+}
+
 /** Render CommonMark emphasis, leaving code spans and links for the text renderer. */
-export function renderEmphasis(value: string, renderText: (text: string) => string): string {
-  const matches = matchRuns(collectRuns(value));
+export function renderEmphasis(
+  value: string,
+  renderText: (text: string) => string,
+  wrap: (size: 1 | 2, inner: string) => string = htmlWrap
+): string {
+  const matches = collectEmphasis(value);
   if (matches.length === 0) {
     return renderText(value);
   }
-  return renderRange(value, 0, value.length, matches, renderText);
+  return renderRange(value, 0, value.length, matches, renderText, wrap);
 }

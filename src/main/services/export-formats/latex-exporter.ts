@@ -14,10 +14,10 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
 import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
-import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
+import { findCodeSpan, protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
+import { renderEmphasis } from './markdown-emphasis';
 import { decodeHtmlEntities } from './markdown-entity';
 import {
-  MARKDOWN_LINK_INSIDE,
   findMarkdownTarget,
   linkDestination,
   linkTitle,
@@ -172,11 +172,6 @@ function restoreLatexAutolinks(
   );
 }
 
-const INLINE_PATTERN =
-  '(\\*\\*\\*(.+?)\\*\\*\\*|(?<![\\w])___(.+?)___(?![\\w])|\\*\\*(.+?)\\*\\*|(?<![\\w])__(.+?)__(?![\\w])|`([^`]+)`|\\*([^*]*(?:\\*\\*[^*]*)*)\\*|(?<![\\w])_([^_]*(?:__[^_]*)*)_(?![\\w])|\\[([^\\]]+)\\]\\((' +
-  MARKDOWN_LINK_INSIDE +
-  ')\\)|~~(.+?)~~)';
-
 function formatProtected(raw: string): string {
   let result = '';
   for (const part of splitCodeSpans(raw)) {
@@ -186,7 +181,7 @@ function formatProtected(raw: string): string {
 }
 
 function latexTarget(prefix: string, target: MarkdownTarget): string {
-  const before = escapeLatex(decodeHtmlEntities(prefix));
+  const before = latexText(prefix);
   if (target.image) {
     const path = linkDestination(decodeHtmlEntities(target.destination));
     const alt = target.label.length > 0 ? target.label : path;
@@ -195,49 +190,58 @@ function latexTarget(prefix: string, target: MarkdownTarget): string {
   return before + latexHref(target.label, target.destination);
 }
 
-function formatInlineMarks(raw: string): string {
+function latexText(value: string): string {
+  return escapeLatex(decodeHtmlEntities(value)).replaceAll('\\textasciitilde{}', '~');
+}
+
+function formatLatexPlain(raw: string): string {
   let result = '';
   let cursor = 0;
-  const marks = new RegExp(INLINE_PATTERN, 'g');
   while (cursor < raw.length) {
-    marks.lastIndex = cursor;
-    const match = marks.exec(raw);
+    const code = findCodeSpan(raw, cursor);
     const target = findMarkdownTarget(raw, cursor);
-    const markAt = match?.index ?? raw.length;
-    const targetStart = target?.start ?? Number.POSITIVE_INFINITY;
-    if (target && targetStart <= markAt) {
+    const codeAt = code?.start ?? raw.length;
+    const targetAt = target?.start ?? raw.length;
+    if (code && codeAt <= targetAt) {
+      result += latexText(raw.slice(cursor, code.start));
+      result += wrapLatex('texttt', code.text);
+      cursor = code.end;
+      continue;
+    }
+    if (target) {
       result += latexTarget(raw.slice(cursor, target.start), target);
       cursor = target.end;
       continue;
     }
-    if (!match) {
-      return result + escapeLatex(decodeHtmlEntities(raw.slice(cursor)));
-    }
-    const index = match.index;
-    const image =
-      match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';
-    result += escapeLatex(decodeHtmlEntities(raw.slice(cursor, image ? index - 1 : index)));
-    if (image) {
-      const alt = match[9] ?? '';
-      const src = match[10] ?? '';
-      const path = linkDestination(decodeHtmlEntities(src));
-      result += latexImage(path, alt.length > 0 ? alt : path, linkTitle(decodeHtmlEntities(src)));
-    } else if (match[2] !== undefined || match[3] !== undefined) {
-      result += `\\textbf{\\textit{${formatProtected(match[2] ?? match[3] ?? '')}}}`;
-    } else if (match[4] !== undefined || match[5] !== undefined) {
-      result += `\\textbf{${formatProtected(match[4] ?? match[5] ?? '')}}`;
-    } else if (match[6] !== undefined) {
-      result += wrapLatex('texttt', match[6]);
-    } else if (match[7] !== undefined || match[8] !== undefined) {
-      result += `\\textit{${formatProtected(match[7] ?? match[8] ?? '')}}`;
-    } else if (match[9] !== undefined && match[10] !== undefined) {
-      result += latexHref(match[9], match[10]);
-    } else if (match[11] !== undefined) {
-      result += `\\sout{${formatProtected(match[11])}}`;
-    }
-    cursor = index + match[0].length;
+    return result + latexText(raw.slice(cursor));
   }
-  return result + escapeLatex(decodeHtmlEntities(raw.slice(cursor)));
+  return result;
+}
+
+function applyLatexStrike(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    if (!value.startsWith('~~', index)) {
+      result += value[index] ?? '';
+      index += 1;
+      continue;
+    }
+    const end = value.indexOf('~~', index + 2);
+    if (end === -1) {
+      return result + value.slice(index);
+    }
+    result += `\\sout{${value.slice(index + 2, end)}}`;
+    index = end + 2;
+  }
+  return result;
+}
+
+function formatInlineMarks(raw: string): string {
+  const emphasized = renderEmphasis(raw, formatLatexPlain, (size, inner) =>
+    size === 2 ? `\\textbf{${inner}}` : `\\textit{${inner}}`
+  );
+  return applyLatexStrike(emphasized).replaceAll('~', '\\textasciitilde{}');
 }
 
 function latexHref(label: string, rawHref: string): string {
