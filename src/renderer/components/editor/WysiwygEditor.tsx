@@ -38,6 +38,7 @@ import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-c
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
 import { insertHardBreak } from '../../lib/editor/wysiwyg-break';
+import { pastePlainText } from '../../lib/editor/wysiwyg-paste';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
@@ -171,6 +172,18 @@ function useEditorView(
         list_item: (node, view, getPos) => new TaskListItemView(node, view, getPos),
         footnote_ref: (node, view) => new FootnoteJumpView(node, view, 'footnote_label'),
         footnote_label: (node, view) => new FootnoteJumpView(node, view, 'footnote_ref'),
+      },
+      handlePaste(editorView, event) {
+        const data = event.clipboardData;
+        const handled = pastePlainText(
+          editorView,
+          data?.getData('text/plain') ?? '',
+          data?.getData('text/html') ?? ''
+        );
+        if (handled) {
+          event.preventDefault();
+        }
+        return handled;
       },
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);
