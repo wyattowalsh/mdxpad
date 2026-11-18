@@ -81,6 +81,22 @@ describe('visual lists', () => {
     expect(saved).toContain('Hello');
   });
 
+  it('joins a list item with the one above on Backspace', () => {
+    const view = open('- one\n- two\n');
+    views.push(view);
+    let start = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'two') {
+        start = pos;
+      }
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start)));
+    expect(visualListKeymap().Backspace?.(view.state, view.dispatch)).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved).toContain('onetwo');
+    expect(saved.match(/^- /gm)?.length).toBe(1);
+  });
+
   it('starts a new item when Enter is pressed in a list', () => {
     const view = open('Hello\n');
     views.push(view);
