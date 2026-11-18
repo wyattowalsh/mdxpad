@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -214,6 +214,34 @@ describe('StaticSiteGenerator', () => {
     expect(html).toContain('Live note');
     expect(html).not.toContain('>Disk<');
     expect(await readFile(source, 'utf-8')).toBe('# Disk\n');
+  });
+
+  it('does not overwrite a file linked from the published page', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-page-link-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-page-secret-'));
+    tempDirs.push(root, outside);
+    const output = path.join(root, 'out');
+    const secret = path.join(outside, 'secret.html');
+    await mkdir(output);
+    await writeFile(secret, 'secret');
+    await symlink(secret, path.join(output, 'note.html'));
+    await symlink(secret, path.join(output, 'index.html'));
+    await symlink(secret, path.join(output, 'styles.css'));
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: path.join(root, 'note.md'), title: 'Note', content: '# Note\n' }],
+      outputDir: output,
+      includeStyles: true,
+      includeHighlighting: false,
+      generateIndex: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(await readFile(secret, 'utf8')).toBe('secret');
+    expect((await lstat(path.join(output, 'note.html'))).isSymbolicLink()).toBe(false);
+    expect(await readFile(path.join(output, 'note.html'), 'utf8')).toContain('Note');
+    expect(await readFile(path.join(output, 'index.html'), 'utf8')).toContain('Note');
+    expect((await lstat(path.join(output, 'styles.css'))).isSymbolicLink()).toBe(false);
   });
 
   it('does not publish the text behind a linked note', async () => {

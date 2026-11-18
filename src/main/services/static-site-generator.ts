@@ -5,7 +5,8 @@
  * @module main/services/static-site-generator
  */
 
-import { lstat, writeFile, mkdir } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { lstat, mkdir, open, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { join, basename, extname } from 'node:path';
 import type {
@@ -44,6 +45,37 @@ interface ProcessedFile {
 // ============================================================================
 
 const DEFAULT_TITLE = 'MDXPad Site';
+
+function missingFile(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+async function replacePublishedLink(filePath: string): Promise<void> {
+  try {
+    const info = await lstat(filePath);
+    if (info.isSymbolicLink()) {
+      await unlink(filePath);
+    }
+  } catch (error) {
+    if (!missingFile(error)) {
+      throw error;
+    }
+  }
+}
+
+async function writePublishedText(filePath: string, content: string): Promise<void> {
+  await replacePublishedLink(filePath);
+  const handle = await open(
+    filePath,
+    fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+    0o644
+  );
+  try {
+    await handle.writeFile(content, 'utf-8');
+  } finally {
+    await handle.close();
+  }
+}
 
 async function readPublishSource(filePath: string): Promise<string> {
   const info = await lstat(filePath);
@@ -156,7 +188,7 @@ export class StaticSiteGenerator {
           config.includeHighlighting
         );
         processedFiles.push({ path: fileEntry.path, title, htmlContent, slug });
-        await writeFile(join(config.outputDir, `${slug}.html`), htmlContent, 'utf-8');
+        await writePublishedText(join(config.outputDir, `${slug}.html`), htmlContent);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         errors.push(`Failed to process ${fileEntry.path}: ${msg}`);
@@ -180,11 +212,11 @@ export class StaticSiteGenerator {
       indexPath = join(config.outputDir, 'index.html');
       const siteTitle = config.title ?? this.defaultTitle;
       const indexHtml = this.generateIndexPage(siteTitle, processedFiles, config.includeStyles);
-      await writeFile(indexPath, indexHtml, 'utf-8');
+      await writePublishedText(indexPath, indexHtml);
     }
 
     if (config.includeStyles) {
-      await writeFile(join(config.outputDir, 'styles.css'), this.getDefaultStyles(), 'utf-8');
+      await writePublishedText(join(config.outputDir, 'styles.css'), this.getDefaultStyles());
     }
 
     return indexPath;
