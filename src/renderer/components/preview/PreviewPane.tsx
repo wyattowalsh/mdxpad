@@ -52,6 +52,7 @@
 import * as React from 'react';
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { usePreview } from '@renderer/hooks/usePreview';
+import { usePreviewStore } from '@renderer/stores/preview-store';
 import { useErrorReporting } from '@renderer/hooks/useErrorReporting';
 import { ErrorDisplay } from './ErrorDisplay';
 import { LoadingIndicator } from './LoadingIndicator';
@@ -324,6 +325,7 @@ export const PreviewPane = memo(function PreviewPane({
   onScrollReport,
   className = '',
 }: PreviewPaneProps): React.ReactNode {
+  const errorDocumentKey = usePreviewStore((store) => store.errorDocumentKey);
   const { state, lastSuccessfulRender, lastSuccessfulDocumentKey } = usePreview(source, {
     ...(documentKey !== undefined ? { documentKey } : {}),
   });
@@ -398,7 +400,9 @@ export const PreviewPane = memo(function PreviewPane({
 
   const showWarning = source.length > PERFORMANCE_THRESHOLD && !isWarningDismissed;
   const isCompiling = state.status === 'compiling';
-  const isError = state.status === 'error';
+  const errorForDocument =
+    documentKey === undefined || errorDocumentKey === null || errorDocumentKey === documentKey;
+  const isError = state.status === 'error' && errorForDocument;
   const errors = isError && !isErrorDismissed ? state.errors : [];
   const isEmptySource = source.trim() === '';
   const showEmptyState = isEmptySource && !renderableContent && !isCompiling;

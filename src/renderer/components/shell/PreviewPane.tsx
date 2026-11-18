@@ -184,7 +184,16 @@ function ShellPreviewPaneComponent({
 
   // Report errors to parent for StatusBar
   const previewState = usePreviewStore((s) => s.state);
+  const errorDocumentKey = usePreviewStore((s) => s.errorDocumentKey);
   useEffect(() => {
+    if (
+      previewState.status === 'error' &&
+      errorDocumentKey !== null &&
+      errorDocumentKey !== documentKey
+    ) {
+      onErrorsChange?.([]);
+      return;
+    }
     if (previewState.status === 'error') {
       const errors: CompilationError[] = previewState.errors.map((e) => ({
         message: e.message,
@@ -195,7 +204,7 @@ function ShellPreviewPaneComponent({
     } else if (previewState.status === 'success' && !isTimedOut) {
       onErrorsChange?.([]);
     }
-  }, [previewState, isTimedOut, onErrorsChange]);
+  }, [documentKey, errorDocumentKey, previewState, isTimedOut, onErrorsChange]);
 
   // Handle error click to navigate in editor
   const handleErrorClick = useCallback(

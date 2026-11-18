@@ -56,7 +56,10 @@ function triggerCompilation(
   currentRequestIdRef: React.RefObject<RequestId | null>,
   startCompiling: () => void,
   setSuccess: (r: CompileSuccess, documentKey?: string) => void,
-  setError: (e: readonly import('@shared/types/preview').CompileError[]) => void,
+  setError: (
+    e: readonly import('@shared/types/preview').CompileError[],
+    documentKey?: string
+  ) => void,
   documentKey?: string
 ): void {
   if (source === '') {
@@ -80,7 +83,7 @@ function triggerCompilation(
     onError: (errors) => {
       if (currentRequestIdRef.current === requestId) {
         (currentRequestIdRef as { current: RequestId | null }).current = null;
-        setError(errors);
+        setError(errors, documentKey);
       }
     },
   });

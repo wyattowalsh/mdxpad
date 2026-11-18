@@ -22,6 +22,8 @@ export interface PreviewStoreState {
   readonly lastSuccessfulRenderAt: number | null;
   /** Document that produced the last successful render. */
   readonly lastSuccessfulDocumentKey: string | null;
+  /** Document that produced the current compile error. */
+  readonly errorDocumentKey: string | null;
   /** Current scroll ratio (0-1) */
   readonly scrollRatio: number;
 }
@@ -35,7 +37,7 @@ export interface PreviewStoreActions {
   /** Transition to success state */
   setSuccess: (result: CompileSuccess, documentKey?: string) => void;
   /** Transition to error state */
-  setError: (errors: readonly CompileError[]) => void;
+  setError: (errors: readonly CompileError[], documentKey?: string) => void;
   /** Reset to idle state */
   reset: () => void;
   /** Update scroll position */
@@ -55,6 +57,7 @@ const initialState: PreviewStoreState = {
   lastSuccessfulRender: null,
   lastSuccessfulRenderAt: null,
   lastSuccessfulDocumentKey: null,
+  errorDocumentKey: null,
   scrollRatio: 0,
 };
 
@@ -94,10 +97,11 @@ export const usePreviewStore = create<PreviewStore>()(
         draft.lastSuccessfulDocumentKey = documentKey ?? null;
       }),
 
-    setError: (errors) =>
+    setError: (errors, documentKey) =>
       set((draft) => {
         // Spread to create mutable copy for Immer draft
         draft.state = { status: 'error', errors: [...errors] };
+        draft.errorDocumentKey = documentKey ?? null;
         // Note: lastSuccessfulRender is preserved for error recovery
       }),
 
@@ -107,6 +111,7 @@ export const usePreviewStore = create<PreviewStore>()(
         draft.lastSuccessfulRender = null;
         draft.lastSuccessfulRenderAt = null;
         draft.lastSuccessfulDocumentKey = null;
+        draft.errorDocumentKey = null;
         draft.scrollRatio = 0;
       }),
 

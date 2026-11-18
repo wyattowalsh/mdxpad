@@ -130,6 +130,14 @@ describe('usePreviewStore', () => {
       }
     });
 
+    it('remembers which document failed to compile', () => {
+      usePreviewStore.getState().setError([createMockError()], '/docs/a.md');
+      expect(usePreviewStore.getState().errorDocumentKey).toBe('/docs/a.md');
+
+      usePreviewStore.getState().setError([createMockError()], '/docs/b.md');
+      expect(usePreviewStore.getState().errorDocumentKey).toBe('/docs/b.md');
+    });
+
     it('should preserve last successful render for recovery', () => {
       const success = createMockSuccess();
       usePreviewStore.getState().setSuccess(success);
