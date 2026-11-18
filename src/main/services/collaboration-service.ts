@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app } from 'electron';
 
@@ -36,22 +36,27 @@ async function ensureDirectory(dir: string): Promise<void> {
 }
 
 async function readDocumentFile(filePath: string): Promise<CollaborationDocumentState> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    const info = await fs.lstat(filePath);
-    if (info.isSymbolicLink() || !info.isFile()) {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
       return freshDocumentState();
     }
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await handle.readFile({ encoding: 'utf8' });
     const parsed = JSON.parse(content) as Partial<CollaborationDocumentState>;
     return {
       threads: parsed.threads ?? [],
       suggestions: parsed.suggestions ?? [],
     };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
       return freshDocumentState();
     }
     throw error;
+  } finally {
+    await handle?.close();
   }
 }
 
