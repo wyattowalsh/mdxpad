@@ -6,6 +6,7 @@ import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 import { MARKETPLACE_LIST_CHANNEL } from '@shared/contracts/marketplace-schemas';
 import {
+  catalogFromTemplateDirectory,
   registerMarketplaceHandlers,
   sanitizeMarketplaceCatalog,
 } from '../template-marketplace-service';
@@ -78,5 +79,60 @@ describe('marketplace catalog', () => {
     ).resolves.toEqual({ success: true, data: [validTemplate] });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it('lists the templates shipped with the app when no catalog file exists', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-market-'));
+    tempDirs.push(root);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const window = {
+      webContents: { id: 4, send: vi.fn(), mainFrame: { routingId: 8 } },
+    } as unknown as BrowserWindow;
+    registerMarketplaceHandlers(window, root);
+
+    const list = handlers[MARKETPLACE_LIST_CHANNEL];
+    const result = await list?.({
+      sender: { id: 4 },
+      senderFrame: { routingId: 8 },
+    } as unknown as IpcMainInvokeEvent);
+
+    expect(result).toMatchObject({ success: true });
+    const names = (result as { data: { name: string }[] }).data.map((item) => item.name);
+    expect(names).toContain('Blog Post');
+    expect(names).toContain('Meeting Notes');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(handlers['marketplace:install']).toBeUndefined();
+    fetchSpy.mockRestore();
+  });
+
+  it('builds a catalog entry from a template file', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-market-'));
+    tempDirs.push(root);
+    await writeFile(
+      path.join(root, 'field-note.mdxt'),
+      `---
+name: "Field Note"
+description: "A short field note"
+category: "notes"
+author: "mdxpad"
+---
+
+# Note
+`
+    );
+
+    await expect(catalogFromTemplateDirectory(root)).resolves.toEqual([
+      {
+        id: 'field-note',
+        name: 'Field Note',
+        description: 'A short field note',
+        author: 'mdxpad',
+        category: 'notes',
+        previewUrl: '',
+        downloadUrl: '',
+        version: '1.0.0',
+        downloads: 0,
+      },
+    ]);
   });
 });

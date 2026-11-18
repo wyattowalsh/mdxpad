@@ -15,6 +15,7 @@ import {
   MarketplaceTemplateSchema,
 } from '@shared/contracts/marketplace-schemas';
 import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
+import { parseTemplateMetadataFile } from './template/parser';
 
 // =============================================================================
 // TYPES
@@ -73,6 +74,63 @@ export function sanitizeMarketplaceCatalog(value: unknown): MarketplaceTemplateD
   return templates;
 }
 
+/** Directories that hold the templates shipped with the app. */
+export function marketplaceTemplateDirectories(resourcesPath: string): readonly string[] {
+  return Array.from(
+    new Set([
+      path.join(resourcesPath, 'templates'),
+      path.resolve(process.cwd(), 'resources', 'templates'),
+    ])
+  );
+}
+
+export async function catalogFromTemplateDirectory(
+  directory: string
+): Promise<MarketplaceTemplateData[]> {
+  let names: string[];
+  try {
+    names = await fs.readdir(directory);
+  } catch {
+    return [];
+  }
+
+  const templates: MarketplaceTemplateData[] = [];
+  for (const name of names) {
+    if (!name.endsWith('.mdxt')) {
+      continue;
+    }
+    try {
+      const metadata = await parseTemplateMetadataFile(path.join(directory, name), true);
+      templates.push({
+        id: metadata.id,
+        name: metadata.name,
+        description: metadata.description,
+        author: metadata.author ?? 'mdxpad',
+        category: metadata.category,
+        previewUrl: '',
+        downloadUrl: '',
+        version: '1.0.0',
+        downloads: 0,
+      });
+    } catch {
+      // Skip a template the catalog cannot describe.
+    }
+  }
+  return templates.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function bundledCatalog(
+  templateDirectories: readonly string[]
+): Promise<MarketplaceTemplateData[]> {
+  for (const directory of templateDirectories) {
+    const templates = await catalogFromTemplateDirectory(directory);
+    if (templates.length > 0) {
+      return templates;
+    }
+  }
+  return [];
+}
+
 async function readLocalCatalog(resourcesPath: string): Promise<MarketplaceTemplateData[] | null> {
   try {
     const content = await fs.readFile(path.join(resourcesPath, LOCAL_CATALOG_FILENAME), 'utf-8');
@@ -84,11 +142,17 @@ async function readLocalCatalog(resourcesPath: string): Promise<MarketplaceTempl
 
 async function fetchCatalog(
   catalogUrl: string,
-  resourcesPath: string
+  resourcesPath: string,
+  templateDirectories: readonly string[]
 ): Promise<MarketplaceResult<readonly MarketplaceTemplateData[]>> {
   const local = await readLocalCatalog(resourcesPath);
   if (local !== null) {
     return { success: true, data: local };
+  }
+
+  const bundled = await bundledCatalog(templateDirectories);
+  if (bundled.length > 0) {
+    return { success: true, data: bundled };
   }
 
   try {
@@ -121,6 +185,6 @@ async function fetchCatalog(
  */
 export function registerMarketplaceHandlers(window: BrowserWindow, resourcesPath: string): void {
   registerAuthorizedIpcHandler(ipcMain, window, MARKETPLACE_LIST_CHANNEL, () =>
-    fetchCatalog(DEFAULT_CATALOG_URL, resourcesPath)
+    fetchCatalog(DEFAULT_CATALOG_URL, resourcesPath, marketplaceTemplateDirectories(resourcesPath))
   );
 }
