@@ -52,6 +52,26 @@ const MANIFEST_FILE = 'manifest.json';
 
 const autosaveWriteLock = createWriteLock();
 
+function enqueueDocumentSave(
+  tails: Map<string, Promise<void>>,
+  documentId: string,
+  write: () => Promise<AutosaveTriggerResponse>
+): Promise<AutosaveTriggerResponse> {
+  const previous = tails.get(documentId) ?? Promise.resolve();
+  const result = previous.catch(() => undefined).then(write);
+  const tail = result.then(
+    () => undefined,
+    () => undefined
+  );
+  tails.set(documentId, tail);
+  void result.finally(() => {
+    if (tails.get(documentId) === tail) {
+      tails.delete(documentId);
+    }
+  });
+  return result;
+}
+
 async function atomicWriteWithLock(targetPath: string, content: string): Promise<void> {
   const lease = await autosaveWriteLock.acquire(path.resolve(targetPath));
   try {
@@ -107,7 +127,7 @@ async function atomicWriteWithLock(targetPath: string, content: string): Promise
 export class AutosaveService {
   private readonly settingsService: AutosaveSettingsService;
   private recoveryDirPath: string | null = null;
-  private savingDocuments = new Set<string>();
+  private saveTails = new Map<string, Promise<void>>();
   private diskSpaceCache: { available: boolean; timestamp: number } | null = null;
   private manifestQueue: Promise<unknown> = Promise.resolve();
 
@@ -140,17 +160,15 @@ export class AutosaveService {
    * @returns Promise resolving to success with timestamp or error response
    */
   async saveDocument(request: AutosaveTriggerRequest): Promise<AutosaveTriggerResponse> {
+    return enqueueDocumentSave(this.saveTails, request.documentId, () =>
+      this.writeRecoveryFile(request)
+    );
+  }
+
+  private async writeRecoveryFile(
+    request: AutosaveTriggerRequest
+  ): Promise<AutosaveTriggerResponse> {
     const { documentId, filePath, fileName, content } = request;
-
-    // Skip duplicate saves for the same document
-    if (this.savingDocuments.has(documentId)) {
-      return {
-        ok: true,
-        savedAt: Date.now(),
-      };
-    }
-
-    this.savingDocuments.add(documentId);
 
     try {
       const recoveryDir = await this.getRecoveryDir();
@@ -203,8 +221,6 @@ export class AutosaveService {
       };
     } catch (error) {
       return this.mapWriteError(error);
-    } finally {
-      this.savingDocuments.delete(documentId);
     }
   }
 

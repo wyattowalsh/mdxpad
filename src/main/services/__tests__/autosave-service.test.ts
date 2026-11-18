@@ -489,6 +489,44 @@ describe('AutosaveService', () => {
       expect(Object.keys(manifestOnDisk.entries)).toHaveLength(2);
     });
 
+    it('writes a second save that arrives while the first save is still writing', async () => {
+      const documentId = createTestDocumentId();
+      let releaseFirstWrite: () => void = () => undefined;
+      const firstWrite = new Promise<void>((resolve) => {
+        releaseFirstWrite = resolve;
+      });
+      let recoveryWrites = 0;
+
+      mockWriteFile.mockImplementation(async (filePath: string) => {
+        if (filePath.includes(documentId) && filePath.endsWith('.json.tmp')) {
+          recoveryWrites += 1;
+          if (recoveryWrites === 1) {
+            await firstWrite;
+          }
+        }
+      });
+
+      const first = service.saveDocument(createTestRequest({ documentId, content: 'first draft' }));
+      await Promise.resolve();
+      const second = service.saveDocument(
+        createTestRequest({ documentId, content: 'second draft' })
+      );
+      releaseFirstWrite();
+
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+      const recoveryBodies = mockWriteFile.mock.calls
+        .filter((call) => {
+          const filePath = String(call[0]);
+          return filePath.includes(documentId) && filePath.endsWith('.json.tmp');
+        })
+        .map((call) => String(call[1]));
+
+      expect(firstResult.ok).toBe(true);
+      expect(secondResult.ok).toBe(true);
+      expect(recoveryBodies.some((body) => body.includes('second draft'))).toBe(true);
+      expect(recoveryBodies[recoveryBodies.length - 1]).toContain('second draft');
+    });
+
     it('should use atomic write for manifest updates', async () => {
       const request = createTestRequest();
 

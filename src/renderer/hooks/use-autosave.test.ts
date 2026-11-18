@@ -500,6 +500,44 @@ describe('useAutosave', () => {
       // startSave is called for saves, queue should only process once at a time
       expect(mockAutosaveActions.startSave).toHaveBeenCalled();
     });
+
+    it('saves the latest text when a change arrives during a save', async () => {
+      setDirtyDocument('first draft');
+      let finishFirstSave: (value: { ok: true; savedAt: number }) => void = () => undefined;
+      const autosaveTrigger = vi.fn(
+        (_request: { content: string }) =>
+          new Promise<{ ok: true; savedAt: number }>((resolve) => {
+            if (autosaveTrigger.mock.calls.length === 1) {
+              finishFirstSave = resolve;
+              return;
+            }
+            resolve({ ok: true, savedAt: 2 });
+          })
+      );
+      (window as unknown as Record<string, unknown>).mdxpad = {
+        ...(window as unknown as Record<string, Record<string, unknown>>).mdxpad,
+        autosaveTrigger,
+      };
+
+      const { rerender } = renderHook(() => useAutosave({ debounceMs: 100 }));
+
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+      });
+      mockDocumentState.content = 'second draft';
+      rerender();
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+      });
+
+      await act(async () => {
+        finishFirstSave({ ok: true, savedAt: 1 });
+        await vi.runAllTimersAsync();
+      });
+
+      expect(autosaveTrigger).toHaveBeenCalledTimes(2);
+      expect(autosaveTrigger.mock.calls[1]?.[0]).toMatchObject({ content: 'second draft' });
+    });
   });
 
   // ===========================================================================

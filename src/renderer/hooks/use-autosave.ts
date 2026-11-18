@@ -167,6 +167,8 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const settingsRef = useRef<AutosaveSettings>(DEFAULT_AUTOSAVE_SETTINGS);
   const isReadOnlyRef = useRef<boolean>(false);
   const documentIdRef = useRef<string | null>(null);
+  const documentSnapshotRef = useRef({ content, filePath, fileName });
+  documentSnapshotRef.current = { content, filePath, fileName };
 
   // A saved file uses its file id. An untitled tab keeps a separate id.
   useEffect(() => {
@@ -270,11 +272,12 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
       startSave(documentId);
 
       try {
+        const snapshot = documentSnapshotRef.current;
         const request: AutosaveTriggerRequest = {
           documentId: documentId as AutosaveTriggerRequest['documentId'],
-          filePath,
-          fileName,
-          content,
+          filePath: snapshot.filePath,
+          fileName: snapshot.fileName,
+          content: snapshot.content,
         };
 
         const response = await triggerAutosave(request);
@@ -324,7 +327,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
         }
       }
     },
-    [filePath, fileName, content, startSave, completeSave, failSave, setPaused]
+    [startSave, completeSave, failSave, setPaused]
   );
 
   /**
@@ -395,7 +398,18 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
       debounceTimeoutRef.current = null;
       void performSave();
     }, debounceMs);
-  }, [isDirty, enabled, storeEnabled, consecutiveFailures, optDebounceMs, performSave, setPaused]);
+  }, [
+    content,
+    fileName,
+    filePath,
+    isDirty,
+    enabled,
+    storeEnabled,
+    consecutiveFailures,
+    optDebounceMs,
+    performSave,
+    setPaused,
+  ]);
 
   // Subscribe to settings changes (T020)
   useEffect(() => {
