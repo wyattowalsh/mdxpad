@@ -14,7 +14,12 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, cleanup, waitFor, act, fireEvent, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { undo } from '@codemirror/commands';
+import { EditorView } from '@codemirror/view';
+import type { DocumentId } from '@shared/types/document';
+
 import { EditorPane, type CursorPosition } from './EditorPane';
+import { useTabStore } from '@renderer/stores/tab-store';
 import { useAccessibilityStore } from '@renderer/stores/accessibility-store';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
@@ -129,6 +134,60 @@ describe('EditorPane', () => {
   // ===========================================================================
   // Basic Rendering Tests
   // ===========================================================================
+
+  it('does not undo a new file back into the previous file', async () => {
+    useTabStore.getState().reset();
+    useEditorModeStore.getState().setMode('source');
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '11111111-1111-4111-8111-111111111111' as DocumentId,
+        filePath: '/docs/a.mdx',
+        mtime: 1,
+      },
+      'alpha'
+    );
+    const { container } = render(<EditorPane />);
+    await waitFor(() => {
+      expect(container.querySelector('.cm-content')?.textContent).toContain('alpha');
+    });
+    const firstContent = container.querySelector('.cm-content');
+    if (!(firstContent instanceof HTMLElement)) {
+      throw new Error('Editor did not mount');
+    }
+    const first = EditorView.findFromDOM(firstContent);
+    if (!first) {
+      throw new Error('Editor view was not found');
+    }
+    first.dispatch({ changes: { from: first.state.doc.length, insert: ' typed' } });
+    await waitFor(() => {
+      expect(useDocumentStore.getState().content).toContain('typed');
+    });
+
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '22222222-2222-4222-8222-222222222222' as DocumentId,
+        filePath: '/docs/b.mdx',
+        mtime: 1,
+      },
+      'beta'
+    );
+    await waitFor(() => {
+      expect(container.querySelector('.cm-content')?.textContent).toContain('beta');
+    });
+    const secondContent = container.querySelector('.cm-content');
+    if (!(secondContent instanceof HTMLElement)) {
+      throw new Error('Editor did not show the next file');
+    }
+    const second = EditorView.findFromDOM(secondContent);
+    if (!second) {
+      throw new Error('Editor view was not found');
+    }
+    undo(second);
+
+    expect(second.state.doc.toString()).toBe('beta');
+    expect(useDocumentStore.getState().content).toBe('beta');
+    expect(useDocumentStore.getState().filePath).toBe('/docs/b.mdx');
+  });
 
   describe('rendering', () => {
     it('should render the editor', async () => {

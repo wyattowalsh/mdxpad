@@ -139,7 +139,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const content = useDocumentStore(selectContent);
   const filePath = useDocumentStore((state) => state.filePath);
   const activeTabId = useTabStore((state) => state.activeTabId);
-  const documentKey = filePath ?? activeTabId ?? 'untitled';
+  const documentKey = activeTabId ?? filePath ?? 'untitled';
   const setContent = useDocumentStore((state) => state.setContent);
   const keymapMode = useEditorPreferencesStore(selectKeymapMode);
   const fontFamily = useEditorPreferencesStore(selectFontFamily);
@@ -248,6 +248,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
       <ExternalChangeNotice />
       {editorMode === 'wysiwyg' ? (
         <WysiwygEditor
+          key={documentKey}
           ref={wysiwygRef}
           content={content}
           documentKey={documentKey}
@@ -256,7 +257,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
           className="min-h-0 flex-1"
         />
       ) : (
-        <MDXEditor {...editorProps} />
+        <MDXEditor key={documentKey} {...editorProps} />
       )}
     </div>
   );
