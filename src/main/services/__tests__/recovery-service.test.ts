@@ -21,7 +21,8 @@ vi.mock('electron', () => ({
 }));
 
 // Mock node:fs/promises
-vi.mock('node:fs', () => {
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
   const mockPromises = {
     mkdir: vi.fn(),
     readFile: vi.fn(),
@@ -31,10 +32,12 @@ vi.mock('node:fs', () => {
     stat: vi.fn(),
     lstat: vi.fn(),
     readdir: vi.fn(),
+    open: vi.fn(),
   };
   return {
-    default: { promises: mockPromises },
+    default: { promises: mockPromises, constants: actual.constants },
     promises: mockPromises,
+    constants: actual.constants,
   };
 });
 
@@ -59,7 +62,7 @@ vi.mock('../autosave-service', () => ({
 }));
 
 // Import after mocks are set up
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import { app } from 'electron';
 import { RecoveryService } from '../recovery-service';
 import { AutosaveSettingsService } from '../autosave-settings';
@@ -80,6 +83,7 @@ const mockFs = {
   stat: fs.stat as Mock,
   lstat: fs.lstat as Mock,
   readdir: fs.readdir as Mock,
+  open: fs.open as Mock,
 };
 
 const mockApp = app as unknown as { getPath: Mock };
@@ -157,6 +161,11 @@ describe('RecoveryService', () => {
     mockFs.rename.mockResolvedValue(undefined);
     mockFs.unlink.mockResolvedValue(undefined);
     mockFs.stat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    mockFs.open.mockImplementation(async (filePath: string) => ({
+      readFile: () => mockFs.readFile(filePath),
+      sync: () => Promise.resolve(),
+      close: () => Promise.resolve(),
+    }));
     mockFs.lstat.mockResolvedValue({
       isSymbolicLink: () => false,
       isFile: () => true,
@@ -703,6 +712,38 @@ describe('RecoveryService', () => {
       if (result.ok) {
         expect(result.conflict).toBeNull();
       }
+      expect(mockFs.readFile).not.toHaveBeenCalledWith('/test/conflict.mdx', 'utf-8');
+    });
+
+    it('does not follow a link that appears before the conflict is read', async () => {
+      const file = createRecoveryFile(docId, '# Recovery Content', {
+        savedAt: Date.now() - 60000,
+        filePath: '/test/conflict.mdx',
+      });
+      mockFs.readFile.mockImplementation((filePath: string) => {
+        if (filePath.includes(docId)) {
+          return Promise.resolve(JSON.stringify(file));
+        }
+        return Promise.resolve('# Secret');
+      });
+      mockFs.lstat.mockResolvedValue({
+        isSymbolicLink: () => false,
+        isFile: () => true,
+        mtime: new Date(),
+        size: 0,
+      });
+      mockFs.open.mockRejectedValue(Object.assign(new Error('loop'), { code: 'ELOOP' }));
+
+      const result = await recoveryService.getPreview(createDocumentId(docId));
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.conflict).toBeNull();
+      }
+      expect(mockFs.open).toHaveBeenCalledWith(
+        '/test/conflict.mdx',
+        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW
+      );
       expect(mockFs.readFile).not.toHaveBeenCalledWith('/test/conflict.mdx', 'utf-8');
     });
 

@@ -22,7 +22,7 @@
  */
 
 import { app } from 'electron';
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import { computeChecksum } from '@shared/lib/checksum';
@@ -872,7 +872,10 @@ export class RecoveryService {
 
       // If disk file was modified after recovery save, there's a conflict
       if (diskModifiedAt > recoveryFile.savedAt) {
-        const diskContent = await fs.readFile(recoveryFile.filePath, 'utf-8');
+        const diskContent = await this.readRegularFile(recoveryFile.filePath);
+        if (diskContent === null) {
+          return null;
+        }
 
         return {
           documentId: recoveryFile.documentId,
@@ -904,6 +907,30 @@ export class RecoveryService {
    * @param error - The error to check
    * @returns True if the error is ENOENT
    */
+  /** Read a regular file. A symlink is not followed. */
+  private async readRegularFile(filePath: string): Promise<string | null> {
+    let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+    try {
+      handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+      return await handle.readFile({ encoding: 'utf8' });
+    } catch (error) {
+      if (this.isEnoentError(error) || this.isLinkError(error)) {
+        return null;
+      }
+      throw error;
+    } finally {
+      await handle?.close();
+    }
+  }
+
+  private isLinkError(error: unknown): boolean {
+    if (!(error instanceof Error) || !('code' in error)) {
+      return false;
+    }
+    const code = (error as { code?: string }).code;
+    return code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM';
+  }
+
   private async regularFileInfo(
     filePath: string
   ): Promise<Awaited<ReturnType<typeof fs.lstat>> | null> {
