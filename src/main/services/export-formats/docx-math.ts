@@ -7,6 +7,8 @@ import {
   type MathComponent,
 } from 'docx';
 
+import { isCurrencySpan } from '@shared/lib/currency-span';
+
 interface Cursor {
   source: string;
   index: number;
@@ -24,17 +26,6 @@ const SYMBOLS: Record<string, string> = {
   neq: '≠',
   infty: '∞',
 };
-
-function isCurrencySpan(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return false;
-  }
-  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
-    return true;
-  }
-  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
-}
 
 function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
   const end = raw.indexOf(delimiter, start + delimiter.length);

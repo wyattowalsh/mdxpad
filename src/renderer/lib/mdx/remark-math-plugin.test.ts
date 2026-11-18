@@ -138,4 +138,12 @@ describe('remark math prices', () => {
       expect(result.code).toContain('katex');
     }
   });
+
+  it('renders a formula written in words', async () => {
+    const result = await compileMdx(testId('words'), 'Compare $n and m$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('katex');
+    }
+  });
 });

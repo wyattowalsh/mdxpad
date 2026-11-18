@@ -1,5 +1,6 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
+import { isCurrencySpan } from './currency-span';
 import {
   escapeLooseTags,
   escapeTemplatePlaceholders,
@@ -180,17 +181,6 @@ function escapeMdxSyntax(value: string): string {
 
 const MATH_MARK = '\uE017';
 
-function isCurrency(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return false;
-  }
-  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
-    return true;
-  }
-  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
-}
-
 function takeDollarSpan(value: string, index: number): string | null {
   const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : '';
   if (delimiter.length === 0) {
@@ -201,7 +191,7 @@ function takeDollarSpan(value: string, index: number): string | null {
     return null;
   }
   const interior = value.slice(index + delimiter.length, end);
-  if (interior.length === 0 || isCurrency(interior)) {
+  if (interior.length === 0 || isCurrencySpan(interior)) {
     return null;
   }
   return value.slice(index, end + delimiter.length);

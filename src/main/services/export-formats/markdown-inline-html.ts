@@ -1,5 +1,7 @@
 import katex from 'katex';
 
+import { isCurrencySpan } from '@shared/lib/currency-span';
+
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { renderEmphasis } from './markdown-emphasis';
@@ -18,17 +20,6 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
-}
-
-function isCurrencySpan(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return false;
-  }
-  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
-    return true;
-  }
-  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
 }
 
 function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {

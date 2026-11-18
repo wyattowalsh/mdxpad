@@ -9,25 +9,15 @@
 
 import remarkMath from 'remark-math';
 import type { Plugin } from 'unified';
+
+import { isCurrencySpan } from '@shared/lib/currency-span';
+
 import type { MdxPluginDefinition, MdxPipelinePlugin } from './plugin-pipeline';
 
 interface TreeNode {
   type: string;
   value?: string;
   children?: TreeNode[];
-}
-
-function isCurrencyMath(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return false;
-  }
-  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
-    return true;
-  }
-  // remark-math can treat "$5 and $10" as one span. A spaced word is a price phrase.
-  // A formula such as "$a + b$" has no word and keeps its operators.
-  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
 }
 
 function unwrapCurrencyMath(tree: TreeNode): void {
@@ -43,7 +33,7 @@ function unwrapCurrencyMath(tree: TreeNode): void {
     if (
       child.type === 'inlineMath' &&
       typeof child.value === 'string' &&
-      isCurrencyMath(child.value)
+      isCurrencySpan(child.value)
     ) {
       children.splice(index, 1, { type: 'text', value: `$${child.value}$` });
       continue;

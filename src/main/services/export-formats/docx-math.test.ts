@@ -10,6 +10,10 @@ describe('splitDocxPieces', () => {
       { kind: 'math', tex: 'x^2' },
       { kind: 'text', text: ' and $5 and $10' },
     ]);
+    expect(splitDocxPieces('Compare $n and m$')).toEqual([
+      { kind: 'text', text: 'Compare ' },
+      { kind: 'math', tex: 'n and m' },
+    ]);
   });
 });
 

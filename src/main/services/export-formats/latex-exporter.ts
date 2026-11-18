@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
+import { isCurrencySpan } from '@shared/lib/currency-span';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
@@ -90,17 +91,6 @@ function wrapLatex(command: string, content: string): string {
 }
 
 const MATH_MARK = '\uE001';
-
-function isCurrencySpan(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return false;
-  }
-  if (/\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed)) {
-    return true;
-  }
-  return /\s/.test(value) && /[A-Za-z]{2,}/.test(trimmed) && !/[\\^_{}=+*/<>]/.test(value);
-}
 
 function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
   const end = raw.indexOf(delimiter, start + delimiter.length);

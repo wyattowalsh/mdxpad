@@ -125,6 +125,9 @@ describe('renderMarkdownInline', () => {
     expect(formula).toContain('<math');
     expect(formula).toContain('$5 and $10');
     expect(formula).not.toContain('$x^2$');
+    const words = renderMarkdownInline('Compare $n and m$');
+    expect(words).toContain('<math');
+    expect(words).not.toContain('$n and m$');
   });
 
   it('decodes a character reference and leaves one inside code', () => {
