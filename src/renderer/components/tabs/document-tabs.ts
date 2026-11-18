@@ -7,6 +7,7 @@ import { documentIdForPath } from '@renderer/lib/document-id';
 import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
 import type { AutosaveTriggerRequest } from '@shared/contracts/autosave-ipc';
+import { externalChangeFields } from './external-tab-change';
 import { recoveryDocumentId } from './tab-recovery-id';
 
 let applyingTab = false;
@@ -101,6 +102,7 @@ function activeTab(): Tab | null {
 function showTab(tab: Tab): void {
   applyingTab = true;
   try {
+    const external = externalChangeFields(tab.filePath);
     useDocumentStore.setState({
       fileId: tab.filePath === null ? null : documentIdForPath(tab.filePath),
       filePath: tab.filePath,
@@ -109,9 +111,9 @@ function showTab(tab: Tab): void {
       savedContent: tab.savedContent,
       isDirty: tab.content !== tab.savedContent,
       lastKnownMtime: null,
-      externalChangeDetected: false,
-      externalContent: null,
-      externalMtime: null,
+      externalChangeDetected: external.externalChangeDetected,
+      externalContent: external.externalContent,
+      externalMtime: external.externalMtime,
     });
   } finally {
     applyingTab = false;

@@ -17,6 +17,7 @@ import { isFeatureEnabled } from '../stores/feature-flags-store';
 import { liveDocumentContent } from './live-document';
 import { useTabStore } from '../stores/tab-store';
 import { revealNextDirtyTab } from '../components/tabs/document-tabs';
+import { hasPendingExternalChange } from '../components/tabs/external-tab-change';
 
 // =============================================================================
 // COMMAND IDS
@@ -284,7 +285,7 @@ async function saveInactiveDocuments(api: CommandContext['api']): Promise<boolea
     return tab.id !== activeId && tab.isDirty && tab.filePath !== null;
   });
   for (const tab of pending) {
-    if (!tab.filePath) {
+    if (!tab.filePath || hasPendingExternalChange(tab.filePath)) {
       continue;
     }
     const result = await api.writeFile(tab.filePath, tab.content);

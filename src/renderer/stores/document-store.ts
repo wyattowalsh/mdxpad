@@ -11,6 +11,10 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { DocumentState, DocumentFileHandle } from '@shared/types/document';
 import { INITIAL_DOCUMENT_STATE } from '@shared/types/document';
+import {
+  clearPendingExternalChange,
+  resetPendingExternalChanges,
+} from '@renderer/components/tabs/external-tab-change';
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -96,7 +100,7 @@ export type DocumentStore = DocumentState & DocumentStoreActions;
  * ```
  */
 export const useDocumentStore = create<DocumentStore>()(
-  immer((set) => ({
+  immer((set, get) => ({
     ...INITIAL_DOCUMENT_STATE,
 
     newDocument: () => {
@@ -136,7 +140,8 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.isDirty = content !== draft.savedContent;
       }),
 
-    markSaved: (handle) =>
+    markSaved: (handle) => {
+      const filePath = get().filePath;
       set((draft) => {
         // Update savedContent to match current content
         draft.savedContent = draft.content;
@@ -152,9 +157,14 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
-      }),
+      });
+      if (filePath) {
+        clearPendingExternalChange(filePath);
+      }
+    },
 
-    reset: () =>
+    reset: () => {
+      resetPendingExternalChanges();
       set((draft) => {
         draft.fileId = null;
         draft.filePath = null;
@@ -166,7 +176,8 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
-      }),
+      });
+    },
 
     updateMtime: (mtime) =>
       set((draft) => {
@@ -188,14 +199,20 @@ export const useDocumentStore = create<DocumentStore>()(
         }
       }),
 
-    dismissExternalChange: () =>
+    dismissExternalChange: () => {
+      const filePath = get().filePath;
       set((draft) => {
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
-      }),
+      });
+      if (filePath) {
+        clearPendingExternalChange(filePath);
+      }
+    },
 
-    acceptExternalChange: () =>
+    acceptExternalChange: () => {
+      const filePath = get().filePath;
       set((draft) => {
         if (draft.externalContent !== null && draft.externalMtime !== null) {
           draft.content = draft.externalContent;
@@ -206,7 +223,11 @@ export const useDocumentStore = create<DocumentStore>()(
           draft.externalContent = null;
           draft.externalMtime = null;
         }
-      }),
+      });
+      if (filePath) {
+        clearPendingExternalChange(filePath);
+      }
+    },
   }))
 );
 

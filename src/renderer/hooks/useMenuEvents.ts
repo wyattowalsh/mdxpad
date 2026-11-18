@@ -23,6 +23,7 @@ import {
   hasUnsavedWork,
   reopenClosedTab,
 } from '../components/tabs/document-tabs';
+import { noteInactiveExternalChange } from '../components/tabs/external-tab-change';
 import { registerAllCommands } from '../commands';
 import { FILE_COMMAND_IDS } from '../commands/file-commands';
 import type {
@@ -319,15 +320,18 @@ export function useMenuEvents(
     const mdxpad = getMdxpadApi();
 
     const unsubscribe = mdxpad.onFileChange((event) => {
-      const { fileId, filePath, handleExternalChange } = useDocumentStore.getState();
-      const sameFile = event.fileId === fileId || event.path === filePath;
-      if (!filePath || !sameFile || event.type !== 'change') return;
+      if (event.type !== 'change') return;
 
       void (async () => {
         const result = await mdxpad.readFile(event.path);
-        if (result.ok) {
-          handleExternalChange(result.value, Date.now());
+        if (!result.ok) return;
+        const changedAt = Date.now();
+        const state = useDocumentStore.getState();
+        if (state.filePath === event.path) {
+          state.handleExternalChange(result.value, changedAt);
+          return;
         }
+        noteInactiveExternalChange(event.path, result.value, changedAt);
       })();
     });
 
