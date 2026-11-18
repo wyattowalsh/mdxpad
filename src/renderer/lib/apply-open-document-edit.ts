@@ -1,8 +1,9 @@
 /**
- * Apply an AI revision only when it targets the document that is open.
+ * Apply an AI revision to the open document or to another file that is already open in a tab.
  */
 
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 
 export const UNTITLED_EDIT_PATH = 'untitled';
 export const MAX_REVISION_CHARS = 6000;
@@ -19,9 +20,18 @@ export function unwrapDocumentRevision(text: string): string {
 
 export function applyOpenDocumentEdit(path: string, modified: string): boolean {
   const state = useDocumentStore.getState();
-  if (path !== openDocumentEditPath(state.filePath)) {
+  if (path === openDocumentEditPath(state.filePath)) {
+    state.setContent(modified);
+    return true;
+  }
+  const tabs = useTabStore.getState();
+  const tab = tabs.tabs.find((item) => item.id !== tabs.activeTabId && item.filePath === path);
+  if (!tab) {
     return false;
   }
-  state.setContent(modified);
+  tabs.updateTab(tab.id, {
+    content: modified,
+    isDirty: modified !== tab.savedContent,
+  });
   return true;
 }

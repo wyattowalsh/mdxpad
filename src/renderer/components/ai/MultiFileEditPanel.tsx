@@ -14,7 +14,6 @@ import {
   useMultiFileAiStore,
   selectFileEdits,
   selectIsActive,
-  selectProgress,
 } from '../../stores/multi-file-ai-store';
 import type { FileEdit } from '../../stores/multi-file-ai-store';
 import { applyOpenDocumentEdit } from '@renderer/lib/apply-open-document-edit';
@@ -211,7 +210,11 @@ FileEditRow.displayName = 'FileEditRow';
 export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ className }) => {
   const fileEdits = useMultiFileAiStore(selectFileEdits);
   const isActive = useMultiFileAiStore(selectIsActive);
-  const progress = useMultiFileAiStore(selectProgress);
+  const progress = React.useMemo(() => {
+    const total = fileEdits.length;
+    const pending = fileEdits.filter((edit) => edit.status === 'pending').length;
+    return { total, completed: total - pending, pending };
+  }, [fileEdits]);
   const applyEdit = useMultiFileAiStore((s) => s.applyEdit);
   const rejectEdit = useMultiFileAiStore((s) => s.rejectEdit);
   const rejectAll = useMultiFileAiStore((s) => s.rejectAll);
