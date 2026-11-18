@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
 
@@ -54,6 +54,27 @@ describe('EditorVoiceControl', () => {
 
     expect(useDocumentStore.getState().content).toBe('Hello there');
     expect(voice.clearTranscript).toHaveBeenCalledOnce();
+  });
+
+  it('keeps recognized speech on the file that was open', () => {
+    voice.transcript = 'there';
+    useDocumentStore.setState({ content: 'Hello', filePath: '/notes/a.md' });
+
+    render(<EditorVoiceControl />);
+    act(() => {
+      useDocumentStore.setState({ content: 'Other', filePath: '/notes/b.md' });
+    });
+
+    expect(screen.queryByRole('button', { name: 'Insert' })).toBeNull();
+    expect(useDocumentStore.getState().content).toBe('Other');
+
+    act(() => {
+      useDocumentStore.setState({ content: 'Hello', filePath: '/notes/a.md' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
+
+    expect(useDocumentStore.getState().content).toBe('Hello there');
+    expect(useDocumentStore.getState().filePath).toBe('/notes/a.md');
   });
 
   it('clears recognized speech without inserting it', () => {

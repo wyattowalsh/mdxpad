@@ -6,7 +6,6 @@ import { Label } from '@ui/label';
 import { Textarea } from '@ui/textarea';
 import {
   useAISessionStore,
-  editorDocumentKey,
   selectAttachedInstructionId,
   selectAttachedPromptId,
   selectError,
@@ -19,6 +18,7 @@ import {
   selectStreamText,
 } from '@renderer/stores/ai-session-store';
 import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
+import { editorDocumentKey } from '@renderer/lib/editor-document-key';
 import { selectFeatureFlag, useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
 import { selectFilePath, useDocumentStore } from '@renderer/stores/document-store';
 import { selectWorkspaceModel, useWorkspaceStore } from '@renderer/stores/workspace-store';

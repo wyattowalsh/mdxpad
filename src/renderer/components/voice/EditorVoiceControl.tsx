@@ -3,11 +3,13 @@
  */
 
 import type { EditorView } from '@codemirror/view';
-import { useCallback, useEffect, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
 
 import { useVoiceInput } from '@renderer/hooks/useVoiceInput';
+import { editorDocumentKey } from '@renderer/lib/editor-document-key';
 import { insertVoiceAtSelection } from '@renderer/lib/insert-document-text';
-import { useDocumentStore } from '@renderer/stores/document-store';
+import { selectFilePath, useDocumentStore } from '@renderer/stores/document-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import { VOICE_TOGGLE_EVENT } from '@renderer/lib/voice-toggle';
 import { VoiceInputButton } from './VoiceInputButton';
 import { VoiceTranscript } from './VoiceTranscript';
@@ -29,6 +31,32 @@ export function EditorVoiceControl({
     stop,
     clearTranscript,
   } = useVoiceInput();
+  const filePath = useDocumentStore(selectFilePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const documentKey = editorDocumentKey(filePath, activeTabId);
+  const spokenFor = useRef<string | null>(null);
+  const hasSpeech = transcript.length > 0 || interimTranscript.length > 0 || isListening;
+  if (!hasSpeech) {
+    spokenFor.current = null;
+  } else {
+    spokenFor.current ??= documentKey;
+  }
+  const showSpeech = spokenFor.current === documentKey;
+
+  const currentDocumentKey = useCallback(
+    () =>
+      editorDocumentKey(useDocumentStore.getState().filePath, useTabStore.getState().activeTabId),
+    []
+  );
+
+  const startHere = useCallback(() => {
+    const key = currentDocumentKey();
+    if (spokenFor.current !== null && spokenFor.current !== key) {
+      clearTranscript();
+    }
+    spokenFor.current = key;
+    start();
+  }, [clearTranscript, currentDocumentKey, start]);
 
   useEffect(() => {
     const toggle = (): void => {
@@ -36,16 +64,19 @@ export function EditorVoiceControl({
         stop();
         return;
       }
-      start();
+      startHere();
     };
     window.addEventListener(VOICE_TOGGLE_EVENT, toggle);
     return () => {
       window.removeEventListener(VOICE_TOGGLE_EVENT, toggle);
     };
-  }, [isListening, start, stop]);
+  }, [isListening, startHere, stop]);
 
   const insertTranscript = useCallback(
     (addition: string) => {
+      if (spokenFor.current !== null && spokenFor.current !== currentDocumentKey()) {
+        return;
+      }
       if (insertSpeech) {
         insertSpeech(addition);
       } else {
@@ -65,7 +96,7 @@ export function EditorVoiceControl({
       }
       clearTranscript();
     },
-    [clearTranscript, editorRef, insertSpeech]
+    [clearTranscript, currentDocumentKey, editorRef, insertSpeech]
   );
 
   return (
@@ -74,15 +105,15 @@ export function EditorVoiceControl({
         <VoiceInputButton
           isListening={isListening}
           isSupported={isSupported}
-          onStart={start}
+          onStart={startHere}
           onStop={stop}
         />
         {error ? <span className="max-w-48 truncate text-xs text-red-600">{error}</span> : null}
       </div>
       <VoiceTranscript
-        transcript={transcript}
-        interimTranscript={interimTranscript}
-        isListening={isListening}
+        transcript={showSpeech ? transcript : ''}
+        interimTranscript={showSpeech ? interimTranscript : ''}
+        isListening={showSpeech && isListening}
         onInsert={insertTranscript}
         onClear={clearTranscript}
       />

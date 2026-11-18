@@ -11,19 +11,12 @@ import type {
   AISessionRestorationMetadata,
 } from '@shared/contracts/ai-schemas';
 import type { AISession } from '@shared/types/root';
+import { editorDocumentKey } from '../lib/editor-document-key';
 import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
 import { useDocumentStore } from './document-store';
 import { useTabStore } from './tab-store';
 
-export function editorDocumentKey(filePath: string | null, activeTabId: string | null): string {
-  if (filePath) {
-    return filePath;
-  }
-  if (activeTabId) {
-    return `untitled:${activeTabId}`;
-  }
-  return 'untitled:new';
-}
+export { editorDocumentKey };
 
 export type AIStreamStatus =
   | 'idle'
