@@ -92,6 +92,54 @@ describe('PandocBridge', () => {
     expect(mockStdin.end).toHaveBeenCalledOnce();
   });
 
+  it('does not send a local file address to pandoc', async () => {
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/local/bin/pandoc',
+      version: '3.1.0',
+    });
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    const mockStdin = { write: vi.fn(), end: vi.fn() };
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return { stdin: mockStdin };
+      }
+    );
+
+    const result = await bridge.export({
+      content: [
+        '![Secret](/etc/passwd.png)',
+        '',
+        '[Disk](file:///etc/passwd)',
+        '',
+        '[Run](javascript:alert(1))',
+        '',
+        '![Pixel](pixel.png)',
+        '',
+        '[Docs](https://example.com)',
+      ].join('\n'),
+      outputPath: '/tmp/out.html',
+    });
+
+    expect(result.ok).toBe(true);
+    const sent = mockStdin.write.mock.calls[0]?.[0] as string;
+    expect(sent).not.toContain('/etc/passwd');
+    expect(sent).not.toContain('file:');
+    expect(sent).not.toContain('javascript:');
+    expect(sent).toContain('![Pixel](pixel.png)');
+    expect(sent).toContain('https://example.com');
+    expect(sent).toContain('Secret');
+    expect(sent).toContain('Disk');
+  });
+
   it('includes pandoc stderr as warnings', async () => {
     const { detectPandoc } = await import('../pandoc-detector');
     (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
