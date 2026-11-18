@@ -1,4 +1,6 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
+import type { DocumentId } from '@shared/types/document';
+import type { FileHandle, FileId } from '@shared/types/file';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
@@ -214,6 +216,74 @@ const gitDiffCommand: Command = {
   },
 };
 
+function commitBuffer(ctx: CommandContext, filePath: string): {
+  readonly content: string;
+  readonly isDirty: boolean;
+  readonly fileId: string | null;
+  readonly changedOnDisk: boolean;
+} {
+  const state = useDocumentStore.getState();
+  if (state.filePath === filePath) {
+    return {
+      content: state.content,
+      isDirty: state.isDirty,
+      fileId: state.fileId,
+      changedOnDisk: state.externalChangeDetected,
+    };
+  }
+  return {
+    content: ctx.document.content,
+    isDirty: ctx.document.isDirty,
+    fileId: ctx.document.fileId,
+    changedOnDisk: false,
+  };
+}
+
+function saveFailureMessage(error: { readonly code: string; readonly message?: string }): string {
+  if (error.code === 'UNKNOWN' && error.message) {
+    return error.message;
+  }
+  return error.code;
+}
+
+async function saveBeforeGitCommit(
+  ctx: CommandContext,
+  filePath: string
+): Promise<CommandResult | null> {
+  const buffer = commitBuffer(ctx, filePath);
+  if (!buffer.isDirty) {
+    return null;
+  }
+  if (buffer.changedOnDisk) {
+    ctx.notify({
+      type: 'warning',
+      message: 'This file changed on disk. Save it before committing.',
+    });
+    return { ok: false, error: 'File changed on disk' };
+  }
+
+  const handle: FileHandle = {
+    id: (buffer.fileId ?? filePath) as FileId,
+    path: filePath,
+    name: filePath.slice(filePath.lastIndexOf('/') + 1),
+  };
+  const saved = await ctx.api.saveFile(handle, buffer.content);
+  if (!saved.ok) {
+    const message = saveFailureMessage(saved.error);
+    ctx.notify({ type: 'error', message: `Could not save before commit: ${message}` });
+    return { ok: false, error: message };
+  }
+  const openFile = useDocumentStore.getState();
+  if (openFile.filePath === filePath) {
+    useDocumentStore.getState().markSaved({
+      fileId: openFile.fileId ?? (handle.id as unknown as DocumentId),
+      filePath,
+      mtime: Date.now(),
+    });
+  }
+  return null;
+}
+
 const gitCommitCommand: Command = {
   id: 'git.commit' as CommandId,
   name: 'Git Commit',
@@ -232,6 +302,10 @@ const gitCommitCommand: Command = {
     if (message === null || message.trim().length === 0) {
       ctx.notify({ type: 'info', message: 'Commit cancelled' });
       return { ok: false, error: 'Commit cancelled' };
+    }
+    const saved = await saveBeforeGitCommit(ctx, filePath);
+    if (saved) {
+      return saved;
     }
     const fileName = filePath.slice(filePath.lastIndexOf('/') + 1);
     const added = await ctx.api.git.add(dir, [fileName]);

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CommandContext } from '@shared/types/commands';
+import type { DocumentId } from '@shared/types/document';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import type { WorkspaceModel } from '@shared/types/workspace';
@@ -76,6 +77,10 @@ describe('git log and diff', () => {
 });
 
 describe('git.commit', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+  });
+
   it('stages the open file and commits the entered message', async () => {
     vi.stubGlobal(
       'prompt',
@@ -98,6 +103,94 @@ describe('git.commit', () => {
     expect(add).toHaveBeenCalledWith('/notes', ['readme.md']);
     expect(commit).toHaveBeenCalledWith('/notes', 'Save notes', ['readme.md']);
     expect(notify).toHaveBeenCalledWith({ type: 'success', message: 'Committed abcdef1' });
+  });
+
+  it('saves unsaved edits before committing them', async () => {
+    vi.stubGlobal('prompt', vi.fn(() => 'Save edits'));
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    useDocumentStore.getState().setContent('# edited');
+    const saveFile = vi.fn().mockResolvedValue({ ok: true, value: undefined });
+    const add = vi.fn().mockResolvedValue({ ok: true, value: { success: true } });
+    const commit = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { hash: 'abcdef123456', message: 'Save edits' },
+    });
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
+      api: { git: { add, commit }, saveFile },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(saveFile).toHaveBeenCalledWith(
+      { id: 'file-1', path: '/notes/readme.md', name: 'readme.md' },
+      '# edited'
+    );
+    expect(add).toHaveBeenCalled();
+    expect(commit).toHaveBeenCalled();
+    expect(useDocumentStore.getState().isDirty).toBe(false);
+  });
+
+  it('does not commit when the save fails', async () => {
+    vi.stubGlobal('prompt', vi.fn(() => 'Save edits'));
+    const saveFile = vi.fn().mockResolvedValue({ ok: false, error: { code: 'EACCES' } });
+    const add = vi.fn();
+    const context = {
+      document: {
+        filePath: '/notes/readme.md',
+        content: '# edited',
+        isDirty: true,
+        fileId: 'file-1',
+      },
+      api: { git: { add }, saveFile },
+      notify: vi.fn(),
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: false, error: 'EACCES' });
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a file that changed on disk', async () => {
+    vi.stubGlobal('prompt', vi.fn(() => 'Save edits'));
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    useDocumentStore.getState().setContent('# edited');
+    useDocumentStore.getState().handleExternalChange('disk', 2);
+    const saveFile = vi.fn();
+    const add = vi.fn();
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
+      api: { git: { add }, saveFile },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({
+      ok: false,
+      error: 'File changed on disk',
+    });
+    expect(saveFile).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'This file changed on disk. Save it before committing.',
+    });
   });
 });
 
