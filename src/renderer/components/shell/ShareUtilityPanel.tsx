@@ -3,6 +3,7 @@ import type { ShareAccessMode, ShareLink } from '@shared/contracts/share-schemas
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import { ShareDialog } from '@renderer/components/share/ShareDialog';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useUtilityPanelStore } from '@renderer/stores/utility-panel-store';
 
 function shareDocumentId(filePath: string | null, activeTabId: string | null): string | null {
@@ -31,7 +32,6 @@ function savingUntitledTab(
 export function ShareUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const activeTabId = useTabStore(selectActiveTabId);
-  const content = useDocumentStore((state) => state.content);
   const [linkState, setLinkState] = useState<{
     readonly docId: string;
     readonly links: readonly ShareLink[];
@@ -86,8 +86,9 @@ export function ShareUtilityPanel(): React.JSX.Element {
         if (!window.mdxpad.share || !docId) return;
         setError(null);
         const createdFor = docId;
+        const snapshot = liveSourceText() ?? useDocumentStore.getState().content;
         void window.mdxpad.share
-          .createLink({ docId, accessMode, expiresInMs: null, content })
+          .createLink({ docId, accessMode, expiresInMs: null, content: snapshot })
           .then((result) => {
             if (currentDocumentId() !== createdFor) return;
             setLinkState((current) => {

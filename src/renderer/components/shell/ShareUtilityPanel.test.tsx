@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 
 import { ShareUtilityPanel } from './ShareUtilityPanel';
 
@@ -20,6 +21,7 @@ describe('ShareUtilityPanel', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
+    registerLiveSourceText(null);
   });
 
   it('shows why share links did not load', async () => {
@@ -150,5 +152,38 @@ describe('ShareUtilityPanel', () => {
     });
 
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('shares the keystrokes that are still only in the editor', async () => {
+    const createLink = vi.fn().mockResolvedValue({
+      link: {
+        id: '11111111-1111-4111-8111-111111111111',
+        token: 'tokentokentoken1',
+        docId: '/tmp/note.mdx',
+        url: 'https://example.com/s/tokentokentoken1',
+        accessMode: 'read-only',
+        createdAt: 1,
+        expiresAt: null,
+        isActive: true,
+      },
+    });
+    const getLinks = vi.fn().mockResolvedValue({ links: [] });
+    vi.stubGlobal('mdxpad', {
+      share: { getLinks, createLink, revokeLink: vi.fn(), moveUntitled: vi.fn() },
+    });
+    useDocumentStore.setState({ filePath: '/tmp/note.mdx', content: 'Hello' });
+    registerLiveSourceText(() => 'Hello!');
+
+    render(<ShareUtilityPanel />);
+    await waitFor(() => {
+      expect(getLinks).toHaveBeenCalled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Link' }));
+
+    await waitFor(() => {
+      expect(createLink).toHaveBeenCalledWith(
+        expect.objectContaining({ docId: '/tmp/note.mdx', content: 'Hello!' })
+      );
+    });
   });
 });
