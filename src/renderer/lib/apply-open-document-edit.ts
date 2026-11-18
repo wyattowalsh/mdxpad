@@ -19,18 +19,33 @@ export function unwrapDocumentRevision(text: string): string {
   return fenced?.[1] ?? trimmed;
 }
 
-export function applyOpenDocumentEdit(path: string, modified: string): boolean {
+function openTab(path: string) {
+  const tabs = useTabStore.getState();
+  return tabs.tabs.find((item) => item.id !== tabs.activeTabId && item.filePath === path);
+}
+
+function currentText(path: string): string | null {
   const state = useDocumentStore.getState();
   if (path === openDocumentEditPath(state.filePath)) {
+    return state.content;
+  }
+  return openTab(path)?.content ?? null;
+}
+
+export function applyOpenDocumentEdit(path: string, modified: string, original?: string): boolean {
+  const state = useDocumentStore.getState();
+  if (path === openDocumentEditPath(state.filePath)) {
+    if (original !== undefined && state.content !== original) {
+      return false;
+    }
     state.setContent(modified);
     return true;
   }
-  const tabs = useTabStore.getState();
-  const tab = tabs.tabs.find((item) => item.id !== tabs.activeTabId && item.filePath === path);
-  if (!tab) {
+  const tab = openTab(path);
+  if (!tab || (original !== undefined && tab.content !== original)) {
     return false;
   }
-  tabs.updateTab(tab.id, {
+  useTabStore.getState().updateTab(tab.id, {
     content: modified,
     isDirty: modified !== tab.savedContent,
   });
@@ -63,8 +78,15 @@ function writeFailure(path: string, error: FileError): string {
 }
 
 /** Apply an edit in the editor, or write a closed file the user can already save. */
-export async function acceptDocumentEdit(path: string, modified: string): Promise<string | null> {
-  if (applyOpenDocumentEdit(path, modified)) {
+export async function acceptDocumentEdit(
+  path: string,
+  modified: string,
+  original?: string
+): Promise<string | null> {
+  if (original !== undefined && currentText(path) !== null && currentText(path) !== original) {
+    return 'This file changed before the edit was accepted.';
+  }
+  if (applyOpenDocumentEdit(path, modified, original)) {
     return null;
   }
   if (!('mdxpad' in window) || typeof window.mdxpad.writeFile !== 'function') {

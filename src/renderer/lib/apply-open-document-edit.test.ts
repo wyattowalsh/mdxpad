@@ -54,6 +54,16 @@ describe('open document edits', () => {
     expect(other?.isDirty).toBe(true);
   });
 
+  it('does not replace an open file that changed after the edit was proposed', async () => {
+    useDocumentStore.setState({ content: 'newer', filePath: null });
+
+    await expect(acceptDocumentEdit(openDocumentEditPath(null), 'revised', 'old')).resolves.toBe(
+      'This file changed before the edit was accepted.'
+    );
+
+    expect(useDocumentStore.getState().content).toBe('newer');
+  });
+
   it('writes a closed file when that file can already be saved', async () => {
     const writeFile = vi.fn().mockResolvedValue({ ok: true, value: undefined });
     Object.defineProperty(window, 'mdxpad', { configurable: true, value: { writeFile } });

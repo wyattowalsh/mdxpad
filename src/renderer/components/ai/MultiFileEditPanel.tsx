@@ -226,7 +226,7 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
     if (edit?.status !== 'pending') {
       return;
     }
-    void acceptDocumentEdit(edit.path, edit.modified).then((message) => {
+    void acceptDocumentEdit(edit.path, edit.modified, edit.original).then((message) => {
       if (message) {
         setApplyError(message);
         return;
@@ -241,7 +241,7 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
     void Promise.all(
       pending.map(async (edit) => ({
         path: edit.path,
-        message: await acceptDocumentEdit(edit.path, edit.modified),
+        message: await acceptDocumentEdit(edit.path, edit.modified, edit.original),
       }))
     ).then((results) => {
       const blocked = results.flatMap((result) => (result.message ? [getFileName(result.path)] : []));
