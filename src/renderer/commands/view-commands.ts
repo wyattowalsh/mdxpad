@@ -53,6 +53,17 @@ const toggleOutlineCommand: Command = {
   },
 };
 
+const toggleFrontmatterCommand: Command = {
+  id: 'view.toggle-frontmatter' as CommandId,
+  name: 'Toggle Frontmatter',
+  description: 'Show or hide the frontmatter panel',
+  category: 'view',
+  execute: (): CommandResult => {
+    useUILayoutStore.getState().toggleFrontmatter();
+    return { ok: true };
+  },
+};
+
 const zoomInCommand: Command = {
   id: 'view.zoom-in' as CommandId,
   name: 'Zoom In',
@@ -174,6 +185,7 @@ const VIEW_COMMANDS: readonly Command[] = [
   togglePreviewCommand,
   toggleSidebarCommand,
   toggleOutlineCommand,
+  toggleFrontmatterCommand,
   zoomInCommand,
   zoomOutCommand,
   resetZoomCommand,

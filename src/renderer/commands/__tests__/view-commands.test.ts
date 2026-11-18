@@ -15,6 +15,7 @@ import type { CommandContext } from '@shared/types/commands';
 const mockTogglePreview = vi.fn();
 const mockToggleSidebar = vi.fn();
 const mockToggleOutline = vi.fn();
+const mockToggleFrontmatter = vi.fn();
 const mockZoomIn = vi.fn();
 const mockZoomOut = vi.fn();
 const mockResetZoom = vi.fn();
@@ -25,6 +26,7 @@ vi.mock('../../stores/ui-layout-store', () => ({
       togglePreview: mockTogglePreview,
       toggleSidebar: mockToggleSidebar,
       toggleOutline: mockToggleOutline,
+      toggleFrontmatter: mockToggleFrontmatter,
       zoomIn: mockZoomIn,
       zoomOut: mockZoomOut,
       resetZoom: mockResetZoom,
@@ -79,8 +81,8 @@ function createMockContext(overrides: Partial<CommandContext> = {}): CommandCont
 // =============================================================================
 
 describe('VIEW_COMMANDS', () => {
-  it('should contain 13 commands', () => {
-    expect(VIEW_COMMANDS).toHaveLength(13);
+  it('should contain 14 commands', () => {
+    expect(VIEW_COMMANDS).toHaveLength(14);
   });
 
   it('should have unique IDs', () => {
@@ -94,6 +96,7 @@ describe('View command IDs', () => {
     'view.toggle-preview',
     'view.toggle-sidebar',
     'view.toggle-outline',
+    'view.toggle-frontmatter',
     'view.zoom-in',
     'view.zoom-out',
     'view.reset-zoom',
@@ -156,6 +159,14 @@ describe('View command execution', () => {
     const result = cmd.execute(ctx);
     expect(result).toEqual({ ok: true });
     expect(mockToggleOutline).toHaveBeenCalledTimes(1);
+  });
+
+  it('toggle-frontmatter should call toggleFrontmatter', () => {
+    const cmd = VIEW_COMMANDS.find((c) => c.id === 'view.toggle-frontmatter')!;
+    const ctx = createMockContext();
+    const result = cmd.execute(ctx);
+    expect(result).toEqual({ ok: true });
+    expect(mockToggleFrontmatter).toHaveBeenCalledTimes(1);
   });
 
   it('zoom-in should call zoomIn', () => {
