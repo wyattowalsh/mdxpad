@@ -190,8 +190,10 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.lastKnownMtime = mtime;
       }),
 
-    handleExternalChange: (content, mtime) =>
+    handleExternalChange: (content, mtime) => {
+      const filePath = get().filePath;
       set((draft) => {
+        draft.fileMissing = false;
         // If document is not dirty, just update content directly
         if (!draft.isDirty) {
           draft.content = content;
@@ -203,7 +205,11 @@ export const useDocumentStore = create<DocumentStore>()(
           draft.externalContent = content;
           draft.externalMtime = mtime;
         }
-      }),
+      });
+      if (filePath) {
+        clearPendingExternalChange(filePath);
+      }
+    },
 
     dismissExternalChange: () => {
       const filePath = get().filePath;
