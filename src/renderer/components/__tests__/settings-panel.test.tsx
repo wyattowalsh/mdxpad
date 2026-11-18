@@ -7,6 +7,8 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
+
 import { AUTOSAVE_INTERVAL_STEPS, SettingsPanel, autosaveIntervalFromSlider } from '../settings-panel';
 import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
 
@@ -224,6 +226,34 @@ describe('SettingsPanel', () => {
     });
     expect(autosaveIntervalFromSlider(0)).toBe(5000);
     expect(autosaveIntervalFromSlider(AUTOSAVE_INTERVAL_STEPS.length - 1)).toBe(600000);
+  });
+
+  it('saves how long recovery files are kept', async () => {
+    const previous = window.mdxpad;
+    const set = vi.fn(async (partial: { retentionDays: number }) => ({
+      ...DEFAULT_AUTOSAVE_SETTINGS,
+      ...partial,
+    }));
+    window.mdxpad = {
+      ...previous,
+      settings: {
+        get: async () => DEFAULT_AUTOSAVE_SETTINGS,
+        set,
+      },
+    } as unknown as typeof window.mdxpad;
+
+    try {
+      render(<SettingsPanel isOpen={true} onClose={vi.fn()} />);
+      const input = await screen.findByTestId('recovery-retention-days');
+      fireEvent.change(input, { target: { value: '14' } });
+      fireEvent.blur(input);
+
+      await waitFor(() => {
+        expect(set).toHaveBeenCalledWith({ retentionDays: 14 });
+      });
+    } finally {
+      window.mdxpad = previous;
+    }
   });
 
   it('should display default interval as "30 seconds"', async () => {

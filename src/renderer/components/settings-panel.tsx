@@ -247,6 +247,24 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
     setLocalSettings((prev) => ({ ...prev, intervalMs }));
   }, []);
 
+  const handleRetentionCommit = useCallback(async (raw: string) => {
+    const retentionDays = Number(raw);
+    if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 365) {
+      setLocalSettings(await getSettings());
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const updated = await setSettings({ retentionDays });
+      setLocalSettings(updated);
+    } catch (error) {
+      console.error('[SettingsPanel] Failed to update recovery retention:', error);
+      setLocalSettings(await getSettings());
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   // Commit interval on slider release
   const handleIntervalCommit = useCallback(async (value: number[]) => {
     const intervalMs = autosaveIntervalFromSlider(value[0] ?? 0);
@@ -357,6 +375,34 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                   <span>5s</span>
                   <span>10 min</span>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="recovery-retention">Keep recovery files</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Days before old recovery files are removed
+                  </p>
+                </div>
+                <input
+                  id="recovery-retention"
+                  data-testid="recovery-retention-days"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={settings.retentionDays}
+                  disabled={isSaving}
+                  className="h-8 w-20 rounded-md border border-input bg-transparent px-2 text-sm"
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (Number.isInteger(next)) {
+                      setLocalSettings((prev) => ({ ...prev, retentionDays: next }));
+                    }
+                  }}
+                  onBlur={(event) => {
+                    void handleRetentionCommit(event.target.value);
+                  }}
+                />
               </div>
 
               {/* Info Note */}
