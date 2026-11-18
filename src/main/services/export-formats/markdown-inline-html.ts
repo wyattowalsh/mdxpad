@@ -248,6 +248,25 @@ function renderPlain(raw: string): string {
   return result;
 }
 
+function nextStrike(html: string, from: number): number {
+  let index = from;
+  while (index < html.length) {
+    if (html.startsWith('<code', index)) {
+      const end = html.indexOf('</code>', index);
+      if (end === -1) {
+        return -1;
+      }
+      index = end + '</code>'.length;
+      continue;
+    }
+    if (html.startsWith('~~', index)) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
 function applyStrike(html: string): string {
   let result = '';
   let index = 0;
@@ -260,8 +279,8 @@ function applyStrike(html: string): string {
       continue;
     }
     if (html.startsWith('~~', index)) {
-      const end = html.indexOf('~~', index + 2);
-      if (end !== -1 && !html.slice(index + 2, end).includes('<code')) {
+      const end = nextStrike(html, index + 2);
+      if (end !== -1) {
         result += `<del>${html.slice(index + 2, end)}</del>`;
         index = end + 2;
         continue;

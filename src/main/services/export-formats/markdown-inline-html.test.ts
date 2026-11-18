@@ -67,6 +67,9 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('**bold** and _italic_ and `code` and ~~gone~~')).toBe(
       '<strong>bold</strong> and <em>italic</em> and <code>code</code> and <del>gone</del>'
     );
+    expect(renderMarkdownInline('~~`code`~~')).toBe('<del><code>code</code></del>');
+    expect(renderMarkdownInline('~~hello `x`~~')).toBe('<del>hello <code>x</code></del>');
+    expect(renderMarkdownInline('`~~not~~`')).toBe('<code>~~not~~</code>');
     expect(renderMarkdownInline('[docs](https://example.com)')).toBe(
       '<a href="https://example.com">docs</a>'
     );
