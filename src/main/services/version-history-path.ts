@@ -1,6 +1,8 @@
-import { realpathSync } from 'node:fs';
-import { realpath } from 'node:fs/promises';
+import { constants as fsConstants, realpathSync } from 'node:fs';
+import { open, realpath } from 'node:fs/promises';
 import path from 'node:path';
+
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 
 const OPENED_DOCUMENT_ERROR = 'Version history can only write the opened document';
 const SNAPSHOT_ID = /^snapshot-\d+-[a-f0-9]{8}$/;
@@ -53,6 +55,37 @@ export async function assertOpenedDocumentWrite(
   }
 
   return canonical;
+}
+
+function isLinkError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ELOOP';
+}
+
+export async function readOpenedDocument(filePath: string): Promise<string> {
+  const read = await readFileWithoutFollowingLinks(filePath);
+  if (!read.ok) {
+    throw new Error(read.error.code === 'NOT_FOUND' ? 'File not found' : OPENED_DOCUMENT_ERROR);
+  }
+  return read.value;
+}
+
+export async function writeOpenedDocument(filePath: string, content: string): Promise<void> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    handle = await open(
+      filePath,
+      fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+      0o644
+    );
+    await handle.writeFile(content, 'utf-8');
+  } catch (error) {
+    if (isLinkError(error)) {
+      throw new Error(OPENED_DOCUMENT_ERROR);
+    }
+    throw error;
+  } finally {
+    await handle?.close();
+  }
 }
 
 export function snapshotFile(historyDir: string, id: string): string {

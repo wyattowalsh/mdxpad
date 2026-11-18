@@ -26,8 +26,10 @@ import type {
 import {
   assertOpenedDocumentWrite,
   assertSnapshotId,
+  readOpenedDocument,
   sameOpenedFile,
   snapshotFile,
+  writeOpenedDocument,
 } from './version-history-path';
 
 const execFileAsync = promisify(execFile);
@@ -172,7 +174,7 @@ export class VersionHistoryService {
       // Create backup of current file if requested
       if (createBackup) {
         try {
-          const currentContent = await fs.readFile(openedPath, 'utf-8');
+          const currentContent = await readOpenedDocument(openedPath);
           await this.createSnapshotInternal(
             openedPath,
             currentContent,
@@ -185,7 +187,7 @@ export class VersionHistoryService {
       }
 
       // Write restored content to file
-      await fs.writeFile(openedPath, version.content, 'utf-8');
+      await writeOpenedDocument(openedPath, version.content);
 
       return {
         ok: true,
@@ -209,7 +211,7 @@ export class VersionHistoryService {
   async createSnapshot(filePath: string, label?: string): Promise<CreateSnapshotResponse> {
     try {
       const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
-      const content = await fs.readFile(openedPath, 'utf-8');
+      const content = await readOpenedDocument(openedPath);
       const entry = await this.createSnapshotInternal(openedPath, content, 'manual', label);
 
       return { ok: true, entry };

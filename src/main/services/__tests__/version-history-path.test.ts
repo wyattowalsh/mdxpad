@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   assertOpenedDocumentWrite,
   assertSnapshotId,
+  readOpenedDocument,
   sameOpenedFile,
   snapshotFile,
+  writeOpenedDocument,
 } from '../version-history-path';
 
 describe('version history path guards', () => {
@@ -43,6 +45,40 @@ describe('version history path guards', () => {
       expect(opened).toBe(real);
       expect(sameOpenedFile(link, realFile)).toBe(true);
       expect(sameOpenedFile(link, path.join(dir, 'other.md'))).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('writes a regular opened document', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-history-write-'));
+    try {
+      const note = path.join(dir, 'note.md');
+      await writeFile(note, 'old');
+
+      await writeOpenedDocument(note, 'restored');
+
+      await expect(readOpenedDocument(note)).resolves.toBe('restored');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not write a restore through a link', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-history-restore-link-'));
+    try {
+      const target = path.join(dir, 'target.md');
+      const link = path.join(dir, 'note.md');
+      await writeFile(target, 'secret');
+      await symlink(target, link);
+
+      await expect(writeOpenedDocument(link, 'restored')).rejects.toThrow(
+        'Version history can only write the opened document'
+      );
+      await expect(readFile(target, 'utf-8')).resolves.toBe('secret');
+      await expect(readOpenedDocument(link)).rejects.toThrow(
+        'Version history can only write the opened document'
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
