@@ -11,6 +11,10 @@ import { VersionTimeline } from '@renderer/components/history/VersionTimeline';
 import { applyRestoredVersion } from './apply-restored-version';
 import { restoreChangeCounts } from './restore-change-counts';
 
+function documentStillOpen(filePath: string): boolean {
+  return useDocumentStore.getState().filePath === filePath;
+}
+
 export function HistoryUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const content = useDocumentStore((state) => state.content);
@@ -106,11 +110,17 @@ export function HistoryUtilityPanel(): React.JSX.Element {
               void historyApi
                 .createSnapshot(filePath, 'Editor snapshot', content)
                 .then(async (result) => {
+                  if (!documentStillOpen(filePath)) {
+                    return;
+                  }
                   if (!result.ok) {
                     setError(result.error ?? 'Could not save a snapshot');
                     return;
                   }
                   const history = await historyApi.getHistory(filePath);
+                  if (!documentStillOpen(filePath)) {
+                    return;
+                  }
                   loadHistory(history.entries, filePath);
                 })
                 .catch((caught: unknown) => {
@@ -159,6 +169,10 @@ export function HistoryUtilityPanel(): React.JSX.Element {
             void historyApi
               .restore(selected.id, filePath, createBackup, content)
               .then(async (result) => {
+                if (!documentStillOpen(filePath)) {
+                  setRestoreError('The open document changed before the version was restored');
+                  return;
+                }
                 if (!result.ok || result.content === undefined) {
                   setRestoreError(result.error ?? 'Could not restore this version');
                   return;
@@ -168,6 +182,9 @@ export function HistoryUtilityPanel(): React.JSX.Element {
                   return;
                 }
                 const history = await historyApi.getHistory(filePath);
+                if (!documentStillOpen(filePath)) {
+                  return;
+                }
                 loadHistory(history.entries, filePath);
                 setRestoreOpen(false);
               })

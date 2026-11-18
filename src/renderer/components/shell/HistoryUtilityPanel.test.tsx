@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -77,6 +77,53 @@ describe('HistoryUtilityPanel', () => {
         'Open this file before reading its history'
       );
     });
+  });
+
+  it('does not replace the open file history with a snapshot from the previous file', async () => {
+    useDocumentStore.setState({ filePath: '/tmp/a.md', content: 'A' });
+    let finishSnapshot: (value: { ok: boolean }) => void = () => undefined;
+    const createSnapshot = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishSnapshot = resolve;
+        })
+    );
+    const getHistory = vi.fn().mockImplementation((filePath: string) =>
+      Promise.resolve({
+        entries: [
+          {
+            id: filePath,
+            timestamp: 1,
+            source: 'manual',
+            label: filePath.endsWith('b.md') ? 'File B' : 'File A',
+          },
+        ],
+      })
+    );
+    vi.stubGlobal('mdxpad', {
+      history: { getHistory, getVersion: vi.fn(), createSnapshot },
+    });
+
+    render(<HistoryUtilityPanel />);
+    await waitFor(() => {
+      expect(screen.getByText('File A')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save a snapshot of the editor' }));
+    act(() => {
+      useDocumentStore.setState({ filePath: '/tmp/b.md', content: 'B' });
+    });
+    await waitFor(() => {
+      expect(screen.getByText('File B')).toBeTruthy();
+    });
+    await act(async () => {
+      finishSnapshot({ ok: true });
+    });
+
+    await waitFor(() => {
+      expect(useVersionHistoryStore.getState().currentFilePath).toBe('/tmp/b.md');
+    });
+    expect(screen.getByText('File B')).toBeTruthy();
+    expect(screen.queryByText('File A')).toBeNull();
   });
 
   it('saves a snapshot of the editor text', async () => {
