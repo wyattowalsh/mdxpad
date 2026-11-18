@@ -48,6 +48,7 @@ import { minimapExtension } from '../../lib/editor/extensions/minimap';
 import { focusModeExtension } from '../../lib/editor/extensions/focus-mode';
 import { distractionFreeExtension } from '../../lib/editor/extensions/distraction-free';
 import { spellcheckExtension } from '../../lib/editor/extensions/spellcheck';
+import { highContrastTheme } from './high-contrast-theme';
 import { createFontSettingsExtension } from '../../lib/editor/extensions/font-settings';
 import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps';
 import { codeExecutionExtension } from '../../lib/editor/extensions/code-execution';
@@ -126,6 +127,8 @@ export interface MDXEditorConfig extends EditorConfig {
   readonly enableFocusMode?: boolean;
   /** Enable spellcheck (default: false) */
   readonly enableSpellcheck?: boolean;
+  /** Replace the editor colors with the high-contrast theme. */
+  readonly enableHighContrast?: boolean;
   /** Enable snippet autocompletion (default: true) */
   readonly enableSnippets?: boolean;
   /** Font family CSS value (default: 'monospace') */
@@ -165,6 +168,7 @@ const DEFAULTS: Required<
   enableMinimap: false,
   enableFocusMode: false,
   enableSpellcheck: false,
+  enableHighContrast: false,
   enableSnippets: true,
   fontFamily: 'monospace',
   fontSize: 14,
@@ -294,7 +298,9 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   }
 
   // Theme (compartment for dynamic switching)
-  extensions.push(themeCompartment.of(getThemeExtension(opts.theme)));
+  extensions.push(
+    themeCompartment.of(opts.enableHighContrast ? highContrastTheme : getThemeExtension(opts.theme))
+  );
 
   // Line numbers
   if (opts.lineNumbers) {

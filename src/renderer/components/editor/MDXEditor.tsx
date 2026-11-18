@@ -73,6 +73,8 @@ export interface MDXEditorProps {
   readonly enableFocusMode?: boolean;
   /** Enable spellcheck extension. */
   readonly enableSpellcheck?: boolean;
+  /** Use the high-contrast editor theme. */
+  readonly enableHighContrast?: boolean;
   /** Editor font family. */
   readonly fontFamily?: string;
   /** Editor font size in pixels. */
@@ -151,6 +153,7 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
     enableMinimap,
     enableFocusMode,
     enableSpellcheck,
+    enableHighContrast,
     fontFamily,
     fontSize,
     fontLineHeight,
@@ -173,6 +176,7 @@ function buildHookOptions(props: MDXEditorProps): UseCodeMirrorOptions {
     ...(enableMinimap !== undefined && { enableMinimap }),
     ...(enableFocusMode !== undefined && { enableFocusMode }),
     ...(enableSpellcheck !== undefined && { enableSpellcheck }),
+    ...(enableHighContrast !== undefined && { enableHighContrast }),
     ...(fontFamily !== undefined && { fontFamily }),
     ...(fontSize !== undefined && { fontSize }),
     ...(fontLineHeight !== undefined && { fontLineHeight }),
@@ -296,6 +300,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
     enableMinimap,
     enableFocusMode,
     enableSpellcheck,
+    enableHighContrast,
     fontFamily,
     fontSize,
     fontLineHeight,
@@ -323,6 +328,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
         ...(enableMinimap !== undefined && { enableMinimap }),
         ...(enableFocusMode !== undefined && { enableFocusMode }),
         ...(enableSpellcheck !== undefined && { enableSpellcheck }),
+        ...(enableHighContrast !== undefined && { enableHighContrast }),
         ...(fontFamily !== undefined && { fontFamily }),
         ...(fontSize !== undefined && { fontSize }),
         ...(fontLineHeight !== undefined && { fontLineHeight }),
@@ -352,6 +358,7 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
       enableMinimap,
       enableFocusMode,
       enableSpellcheck,
+      enableHighContrast,
       fontFamily,
       fontSize,
       fontLineHeight,

@@ -7,6 +7,7 @@ import { focusModeExtension } from '../../lib/editor/extensions/focus-mode';
 import { spellcheckExtension } from '../../lib/editor/extensions/spellcheck';
 import { createKeymapExtension, type KeymapMode } from '../../lib/editor/keymaps';
 import { getThemeExtension, type EditorTheme } from './themes';
+import { highContrastTheme } from './high-contrast-theme';
 
 export interface RuntimeCompartments {
   readonly themeCompartment: Compartment;
@@ -29,6 +30,7 @@ export interface RuntimeReconfigureOptions {
   readonly fontSize?: number | undefined;
   readonly fontLineHeight?: number | undefined;
   readonly syntaxTheme?: Extension | null | undefined;
+  readonly enableHighContrast?: boolean | undefined;
 }
 
 export function reconfigureRuntimeExtensions(
@@ -42,9 +44,10 @@ export function reconfigureRuntimeExtensions(
     ...(options.fontSize !== undefined && { fontSize: options.fontSize }),
     ...(options.fontLineHeight !== undefined && { lineHeight: options.fontLineHeight }),
   });
+  const baseTheme = options.syntaxTheme ?? getThemeExtension(options.theme ?? 'system');
   const effects: StateEffect<unknown>[] = [
     compartments.themeCompartment.reconfigure(
-      options.syntaxTheme ?? getThemeExtension(options.theme ?? 'system')
+      options.enableHighContrast ? highContrastTheme : baseTheme
     ),
     compartments.wordWrapCompartment.reconfigure(wordWrap.extension),
     compartments.fontSettingsCompartment.reconfigure(fontSettings.extension),

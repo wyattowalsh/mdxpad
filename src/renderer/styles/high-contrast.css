@@ -149,6 +149,30 @@
   border-left: 3px solid var(--hc-accent-secondary);
 }
 
+.high-contrast .prosemirror-editor,
+.high-contrast .ProseMirror {
+  background-color: var(--hc-bg-primary);
+  color: var(--hc-fg-primary);
+  caret-color: var(--hc-accent-secondary);
+}
+
+.high-contrast .ProseMirror ::selection {
+  background-color: var(--hc-selection-bg);
+  color: var(--hc-selection-fg);
+}
+
+.high-contrast .ProseMirror pre,
+.high-contrast .ProseMirror code,
+.high-contrast .ProseMirror blockquote {
+  background-color: var(--hc-bg-secondary);
+  color: var(--hc-fg-primary);
+}
+
+.high-contrast .ProseMirror hr {
+  border-color: var(--hc-border-primary);
+  background-color: var(--hc-border-primary);
+}
+
 /* ============================================================================
  * Scrollbars
  * ============================================================================ */
@@ -182,7 +206,8 @@
   line-height: 1.6;
 }
 
-.large-text .cm-editor {
+.large-text .cm-editor,
+.large-text .ProseMirror {
   font-size: 1.25rem;
   line-height: 1.6;
 }

@@ -15,6 +15,7 @@ import { render, cleanup, waitFor, act, fireEvent, screen } from '@testing-libra
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EditorPane, type CursorPosition } from './EditorPane';
+import { useAccessibilityStore } from '@renderer/stores/accessibility-store';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
 import { useEditorPreferencesStore } from '@renderer/stores/editor-preferences-store';
@@ -589,6 +590,8 @@ describe('EditorPane mode switch', () => {
       distractionFreeEnabled: false,
       focusModeEnabled: false,
     });
+    useAccessibilityStore.setState({ highContrastEnabled: false, largeText: false });
+    localStorage.removeItem('mdxpad:accessibility');
     localStorage.removeItem('mdxpad:editor-mode');
     cleanup();
   });
@@ -632,6 +635,35 @@ describe('EditorPane mode switch', () => {
     await waitFor(() => {
       const editor = container.querySelector('.ProseMirror');
       expect((editor as HTMLElement).style.whiteSpace).toBe('pre-wrap');
+    });
+  });
+
+  it('uses high contrast and large text in the visual editor', async () => {
+    useEditorModeStore.getState().setMode('wysiwyg');
+    useAccessibilityStore.setState({ highContrastEnabled: true, largeText: true });
+    const { container } = render(<EditorPane />);
+    await waitFor(() => {
+      const editor = container.querySelector('.ProseMirror');
+      expect(editor).toBeInstanceOf(HTMLElement);
+      const style = (editor as HTMLElement).style;
+      expect(style.backgroundColor).toBe('#000000');
+      expect(style.color).toBe('#ffffff');
+      expect(style.caretColor).toBe('#ffff00');
+      expect(style.fontSize).toBe('1.25rem');
+      expect(style.lineHeight).toBe('1.6');
+    });
+    const frame = container.querySelector('.prosemirror-editor');
+    expect(frame).toBeInstanceOf(HTMLElement);
+    expect((frame as HTMLElement).style.backgroundColor).toBe('#000000');
+    act(() => {
+      useAccessibilityStore.setState({ highContrastEnabled: false, largeText: false });
+    });
+    await waitFor(() => {
+      const editor = container.querySelector('.ProseMirror');
+      expect(editor).toBeInstanceOf(HTMLElement);
+      const style = (editor as HTMLElement).style;
+      expect(style.backgroundColor).toBe('');
+      expect(style.fontSize).toBe('14px');
     });
   });
 

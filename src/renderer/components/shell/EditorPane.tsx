@@ -16,6 +16,11 @@ import { ExternalChangeNotice } from './ExternalChangeNotice';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
+import {
+  selectHighContrastEnabled,
+  selectLargeText,
+  useAccessibilityStore,
+} from '@renderer/stores/accessibility-store';
 import { selectEditorMode, useEditorModeStore } from '@renderer/stores/editor-mode-store';
 import {
   useEditorPreferencesStore,
@@ -147,6 +152,8 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     wysiwygRef.current?.insertSpeech(text);
   }, []);
   const distractionFree = useEditorPreferencesStore(selectDistractionFreeEnabled);
+  const highContrast = useAccessibilityStore(selectHighContrastEnabled);
+  const largeText = useAccessibilityStore(selectLargeText);
   useEffect(() => {
     const dom = editorRef?.current?.dom;
     if (!dom) {
@@ -217,8 +224,9 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
     enableFocusMode: focusModeEnabled,
     enableSpellcheck: spellcheckEnabled,
     fontFamily,
-    fontSize,
-    fontLineHeight: lineHeight,
+    fontSize: largeText ? 20 : fontSize,
+    fontLineHeight: largeText ? 1.6 : lineHeight,
+    enableHighContrast: highContrast,
     syntaxTheme,
     ariaLabel: 'MDX Document Editor',
     ...(className !== undefined && { className }),

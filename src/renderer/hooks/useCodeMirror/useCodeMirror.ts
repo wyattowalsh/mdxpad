@@ -52,6 +52,7 @@ export interface UseCodeMirrorOptions {
   readonly enableMinimap?: boolean;
   readonly enableFocusMode?: boolean;
   readonly enableSpellcheck?: boolean;
+  readonly enableHighContrast?: boolean;
   readonly fontFamily?: string;
   readonly fontSize?: number;
   readonly fontLineHeight?: number;
@@ -140,6 +141,7 @@ function buildExtensionConfig(options: UseCodeMirrorOptions): Partial<MDXEditorC
       enableMinimap: options.enableMinimap,
       enableFocusMode: options.enableFocusMode,
       enableSpellcheck: options.enableSpellcheck,
+      enableHighContrast: options.enableHighContrast,
       fontFamily: options.fontFamily,
       fontSize: options.fontSize,
       fontLineHeight: options.fontLineHeight,
@@ -359,9 +361,11 @@ export function useCodeMirror(options: UseCodeMirrorOptions = {}): UseCodeMirror
       fontSize: options.fontSize,
       fontLineHeight: options.fontLineHeight,
       syntaxTheme: options.syntaxTheme ?? null,
+      enableHighContrast: options.enableHighContrast,
     });
   }, [
     options.syntaxTheme,
+    options.enableHighContrast,
     options.theme,
     options.lineWrapping,
     options.keymapMode,

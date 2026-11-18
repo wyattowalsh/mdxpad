@@ -19,6 +19,11 @@ import { baseKeymap, toggleMark, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
 import {
+  selectHighContrastEnabled,
+  selectLargeText,
+  useAccessibilityStore,
+} from '../../stores/accessibility-store';
+import {
   selectFontFamily,
   selectFontSize,
   selectLineHeight,
@@ -423,6 +428,8 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
     const lineHeight = useEditorPreferencesStore(selectLineHeight);
     const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
     const distractionFree = useEditorPreferencesStore(selectDistractionFreeEnabled);
+    const highContrast = useAccessibilityStore(selectHighContrastEnabled);
+    const largeText = useAccessibilityStore(selectLargeText);
     React.useEffect(() => {
       const dom = viewRef.current?.dom;
       if (!dom) {
@@ -431,12 +438,22 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
       dom.spellcheck = spellcheckEnabled;
       dom.setAttribute('spellcheck', spellcheckEnabled ? 'true' : 'false');
       dom.style.fontFamily = fontFamily;
-      dom.style.fontSize = `${fontSize}px`;
-      dom.style.lineHeight = String(lineHeight);
+      dom.style.fontSize = largeText ? '1.25rem' : `${fontSize}px`;
+      dom.style.lineHeight = largeText ? '1.6' : String(lineHeight);
       dom.style.whiteSpace = wordWrapEnabled ? 'pre-wrap' : 'pre';
       dom.style.maxWidth = distractionFree ? '72ch' : '';
       dom.style.marginLeft = distractionFree ? 'auto' : '';
       dom.style.marginRight = distractionFree ? 'auto' : '';
+      const background = highContrast ? '#000000' : '';
+      const foreground = highContrast ? '#ffffff' : '';
+      dom.style.backgroundColor = background;
+      dom.style.color = foreground;
+      dom.style.caretColor = highContrast ? '#ffff00' : '';
+      const frame = containerRef.current;
+      if (frame) {
+        frame.style.backgroundColor = background;
+        frame.style.color = foreground;
+      }
     }, [
       spellcheckEnabled,
       fontFamily,
@@ -444,6 +461,8 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
       lineHeight,
       wordWrapEnabled,
       distractionFree,
+      highContrast,
+      largeText,
       viewRef,
     ]);
     React.useEffect(() => {
