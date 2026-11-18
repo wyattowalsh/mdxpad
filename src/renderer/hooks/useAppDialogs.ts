@@ -12,6 +12,7 @@ import { useDocumentStore } from '../stores/document-store';
 import { useFrontmatterStore } from '../stores/frontmatter-store';
 import { selectActiveTabId, useTabStore } from '../stores/tab-store';
 import { replaceFrontmatter } from '../lib/frontmatter';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import type {
   RecoveryDecision,
   ConflictResolution,
@@ -140,7 +141,8 @@ export function useAppDialogs(state: AppState): AppDialogsState {
         return;
       }
 
-      const currentContent = useDocumentStore.getState().content;
+      const typed = liveSourceText();
+      const currentContent = typed ?? useDocumentStore.getState().content;
       const nextContent = replaceFrontmatter(currentContent, frontmatterState.serializeToYaml());
 
       if (nextContent !== currentContent) {

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DocumentId } from '@shared/contracts/autosave-schemas';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useFrontmatterStore } from '@renderer/stores/frontmatter-store';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 
 import type { AppState } from './useAppState';
 import { useAppDialogs } from './useAppDialogs';
@@ -23,6 +24,7 @@ describe('useAppDialogs frontmatter', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useFrontmatterStore.getState().reset();
+    registerLiveSourceText(null);
   });
 
   it('shows the new file frontmatter when the document changes', () => {
@@ -51,6 +53,26 @@ describe('useAppDialogs frontmatter', () => {
       .getState()
       .data?.fields.find((field) => field.name === 'title');
     expect(title?.value).toBe('B');
+  });
+
+  it('keeps editor keystrokes when a frontmatter field changes', () => {
+    const stored = '---\ntitle: A\n---\nHello';
+    useDocumentStore.setState({ filePath: '/notes/a.md', content: stored });
+    useFrontmatterStore.getState().parseFromDocument(stored);
+    registerLiveSourceText(() => '---\ntitle: A\n---\nHello!');
+    const state = {
+      documentContent: stored,
+      handleNotification: vi.fn(),
+      recovery: { entries: [], handleDecision: vi.fn(), releaseRecovery: vi.fn() },
+    } as unknown as AppState;
+
+    renderHook(() => useAppDialogs(state));
+    act(() => {
+      useFrontmatterStore.getState().updateField(['title'], 'B');
+    });
+
+    expect(useDocumentStore.getState().content).toContain('Hello!');
+    expect(useDocumentStore.getState().content).toContain('title: B');
   });
 });
 
