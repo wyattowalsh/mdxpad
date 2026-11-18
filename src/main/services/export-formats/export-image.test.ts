@@ -60,6 +60,36 @@ describe('inlineLocalImages', () => {
     expect(word).not.toContain('data:image/svg');
   });
 
+  it('embeds a referenced WebP and leaves one inside a code fence', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-ref-'));
+    const source = path.join(root, 'note.md');
+    await writeFile(path.join(root, 'photo.webp'), Buffer.from('RIFFwebp'));
+    const content = [
+      '![Photo][pic]',
+      '',
+      '[pic]: photo.webp "Sunset"',
+      '',
+      '```',
+      '![Photo][pic]',
+      '```',
+      '',
+      '- item',
+      '',
+      '    ![Also][pic]',
+    ].join('\n');
+
+    const document = await inlineLocalImages(content, source, 'document');
+    const html = markdownToPdfHtml(document);
+
+    expect(document).toContain('![Photo](data:image/webp;base64,');
+    expect(document).toContain('"Sunset"');
+    expect(document).toContain('```\n![Photo][pic]\n```');
+    expect(document).toContain('![Also](data:image/webp;base64,');
+    expect(html).toContain('src="data:image/webp;base64,');
+    expect(html).toContain('title="Sunset"');
+    expect(html).toContain('![Photo][pic]');
+  });
+
   it('stores that image inside a Word document', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-docx-'));
     const source = path.join(root, 'note.md');

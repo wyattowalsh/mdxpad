@@ -1,5 +1,6 @@
 import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode, openingFence } from './markdown-fence';
+import { listContentColumn } from './markdown-list';
 import { quoteBody } from './markdown-quote';
 import { closeOpenTableRows } from './markdown-table';
 
@@ -245,6 +246,111 @@ function withoutDefinitions(lines: readonly string[], consumed: ReadonlySet<numb
     }
     return consumed.has(index) ? '' : line;
   });
+}
+
+function imageMarkerEscaped(line: string, index: number): boolean {
+  let slashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && line[cursor] === '\\'; cursor -= 1) {
+    slashes += 1;
+  }
+  return slashes % 2 === 1;
+}
+
+function rewriteImageReferenceLine(line: string, references: ReadonlyMap<string, string>): string {
+  let result = '';
+  let index = 0;
+  while (index < line.length) {
+    const code = copyCodeSpan(line, index);
+    if (code) {
+      result += code.text;
+      index = code.next;
+      continue;
+    }
+    const marker =
+      line[index] === '!' && line[index + 1] === '[' && !imageMarkerEscaped(line, index);
+    const match = marker ? REFERENCE.exec(line.slice(index + 1)) : null;
+    const text = match?.[1];
+    const explicit = match?.[2];
+    const label = explicit === undefined || explicit.length === 0 ? text : explicit;
+    const href = label ? references.get(referenceLabel(label)) : undefined;
+    if (match && text && href) {
+      result += `![${text}](${href})`;
+      index += match[0].length + 1;
+      continue;
+    }
+    result += line[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
+function leadingSpaces(line: string): number {
+  return /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+}
+
+function updateListColumn(current: number | null, line: string): number | null {
+  const column = listContentColumn(line);
+  if (column !== null) {
+    return column;
+  }
+  if (line.trim().length === 0 || (current !== null && leadingSpaces(line) >= current)) {
+    return current;
+  }
+  return null;
+}
+
+function lineStartsIndentedCode(
+  line: string,
+  previousBlank: boolean,
+  listColumn: number | null
+): boolean {
+  const indented = line.startsWith('    ') || line.startsWith('\t');
+  return indented && previousBlank && !(listColumn !== null && leadingSpaces(line) >= listColumn);
+}
+
+function rewriteImageReferenceLines(
+  content: string,
+  references: ReadonlyMap<string, string>
+): string {
+  const output: string[] = [];
+  let fence: string | null = null;
+  let inCode = false;
+  let listColumn: number | null = null;
+  for (const line of content.split('\n')) {
+    const next = advanceFence(line, fence);
+    const inside = fence !== null || next !== null;
+    fence = next;
+    if (inside) {
+      inCode = false;
+      output.push(line);
+      continue;
+    }
+    const indented = line.startsWith('    ') || line.startsWith('\t');
+    const previousBlank = output.length === 0 || (output[output.length - 1] ?? '').trim() === '';
+    if (inCode && (indented || line.trim().length === 0)) {
+      output.push(line);
+      continue;
+    }
+    if (lineStartsIndentedCode(line, previousBlank, listColumn)) {
+      inCode = true;
+      listColumn = null;
+      output.push(line);
+      continue;
+    }
+    inCode = false;
+    output.push(line.trim().length === 0 ? line : rewriteImageReferenceLine(line, references));
+    listColumn = updateListColumn(listColumn, line);
+  }
+  return output.join('\n');
+}
+
+/** Turn image references into inline images so export can embed the files. */
+export function expandImageReferences(content: string): string {
+  const { references } = collectReferences(fenceIndentedCode(content).split('\n'));
+  if (references.size === 0) {
+    return content;
+  }
+  return rewriteImageReferenceLines(content, references);
 }
 
 /** Turn reference links into inline links and drop their definition lines. */

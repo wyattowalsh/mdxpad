@@ -5,6 +5,7 @@ import { readStaysInsideDirectory } from '@main/ipc/read-scope';
 
 import { advanceFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
+import { expandImageReferences } from './markdown-reference';
 
 const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -159,13 +160,14 @@ export async function inlineLocalImages(
   if (!sourcePath) {
     return content;
   }
+  const expanded = expandImageReferences(content);
   const directory = path.dirname(sourcePath);
   const replacements = new Map<string, string>();
-  for (const destination of new Set(destinationsOutsideFences(content))) {
+  for (const destination of new Set(destinationsOutsideFences(expanded))) {
     const next = await replacementFor(directory, destination, mode);
     if (next) {
       replacements.set(destination, next);
     }
   }
-  return replacements.size === 0 ? content : replaceOutsideFences(content, replacements);
+  return replacements.size === 0 ? content : replaceOutsideFences(expanded, replacements);
 }
