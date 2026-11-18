@@ -12,8 +12,8 @@ import type {
   PublishProgress,
   PublishResult,
 } from '@shared/contracts/share-schemas';
-import { markdownToPdfHtml } from './export-formats/pdf-exporter';
 import { LIST_MARKER_CSS } from './export-formats/markdown-list';
+import { mermaidModuleScript, renderMarkdownExportBody } from './export-service';
 
 // ============================================================================
 // Types
@@ -216,10 +216,10 @@ export class StaticSiteGenerator {
     // Strip frontmatter
     const content = mdxContent.replace(/^---\s*\n[\s\S]*?---\s*\n/, '');
 
-    const html = this.convertMarkdownToHtml(content);
-
+    const rendered = renderMarkdownExportBody(content);
     const styleLink = includeStyles ? '<link rel="stylesheet" href="styles.css">' : '';
     const markerStyle = `<style>${LIST_MARKER_CSS}</style>`;
+    const mermaidScript = rendered.hasMermaid ? mermaidModuleScript() : '';
 
     const highlightStyle = includeHighlighting
       ? '<style>.code-block{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto;font-family:monospace;}</style>'
@@ -238,14 +238,11 @@ export class StaticSiteGenerator {
 <body>
   <article class="mdxpad-content">
     <h1>${this.escapeHtml(title)}</h1>
-    ${html}
+    ${rendered.body}
+    ${mermaidScript}
   </article>
 </body>
 </html>`;
-  }
-
-  private convertMarkdownToHtml(content: string): string {
-    return markdownToPdfHtml(content);
   }
 
   private generateIndexPage(

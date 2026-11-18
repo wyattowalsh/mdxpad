@@ -146,17 +146,23 @@ function buildHtmlBody(content: string): { body: string; hasMermaid: boolean } {
   return { body: sections.join('\n'), hasMermaid };
 }
 
-function buildHtmlDocument(content: string): ExportSerializationSuccess {
-  const { body, hasMermaid } = buildHtmlBody(content);
-  const warnings: string[] = [];
-
-  const mermaidScript = hasMermaid
-    ? `
+export function mermaidModuleScript(): string {
+  return `
   <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ startOnLoad: true, securityLevel: 'strict' });
-  </script>`
-    : '';
+  </script>`;
+}
+
+export function renderMarkdownExportBody(content: string): { body: string; hasMermaid: boolean } {
+  return buildHtmlBody(content);
+}
+
+function buildHtmlDocument(content: string): ExportSerializationSuccess {
+  const { body, hasMermaid } = renderMarkdownExportBody(content);
+  const warnings: string[] = [];
+
+  const mermaidScript = hasMermaid ? mermaidModuleScript() : '';
 
   if (hasMermaid) {
     warnings.push('Mermaid diagrams in exported HTML require access to jsdelivr to render.');

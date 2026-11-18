@@ -63,6 +63,29 @@ describe('StaticSiteGenerator', () => {
     expect(css).toContain('ul.plus > li::before');
   });
 
+  it('publishes a mermaid diagram', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-'));
+    tempDirs.push(root);
+    const source = path.join(root, 'diagram.md');
+    const output = path.join(root, 'out');
+    await writeFile(source, '```mermaid\ngraph TD\n  A-->B\n```\n');
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: source, title: 'Diagram' }],
+      outputDir: output,
+      includeStyles: false,
+      includeHighlighting: false,
+      generateIndex: false,
+    });
+
+    expect(result.success).toBe(true);
+    const html = await readFile(path.join(output, 'diagram.html'), 'utf-8');
+    expect(html).toContain('class="mermaid"');
+    expect(html).toContain('graph TD');
+    expect(html).toContain('cdn.jsdelivr.net/npm/mermaid');
+    expect(html).toContain("securityLevel: 'strict'");
+  });
+
   it('gives each page its own file when names slug to the same text', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-'));
     tempDirs.push(root);
