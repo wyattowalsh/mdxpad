@@ -315,8 +315,8 @@ describe('newFileCommand', () => {
     });
   });
 
-  it('should discard dirty untitled changes without prompting and create a new document', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm');
+  it('keeps an unsaved untitled document when New File is cancelled', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const mockApi = createMockApi();
     const ctx = createMockContext({
       api: mockApi,
@@ -331,9 +331,25 @@ describe('newFileCommand', () => {
     const result = await newFileCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
-    expect(confirmSpy).not.toHaveBeenCalled();
-    expect(mockApi.saveFileAs).not.toHaveBeenCalled();
-    expect(mockMarkSaved).not.toHaveBeenCalled();
+    expect(confirmSpy).toHaveBeenCalledWith('You have unsaved changes. Continue without saving?');
+    expect(mockNewDocument).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('creates a new document after an unsaved untitled document is discarded', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const ctx = createMockContext({
+      document: {
+        fileId: null,
+        filePath: null,
+        content: '# Unsaved',
+        isDirty: true,
+      },
+    });
+
+    const result = await newFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
     expect(mockNewDocument).toHaveBeenCalledTimes(1);
     confirmSpy.mockRestore();
   });

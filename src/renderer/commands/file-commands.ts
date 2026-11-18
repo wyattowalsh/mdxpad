@@ -200,8 +200,7 @@ const newFileCommand: Command = {
   shortcut: { key: 'n', modifiers: ['Mod'] },
   icon: '📄',
   execute: (ctx: CommandContext): CommandResult => {
-    // Dirty saved docs: keep existing confirm behavior
-    if (ctx.document.filePath && ctx.document.isDirty && !checkDirtyState()) {
+    if (ctx.document.isDirty && !checkDirtyState()) {
       return { ok: true };
     }
 
