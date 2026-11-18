@@ -36,6 +36,7 @@ import {
 import { registerWysiwygComment, wysiwygCommentAnchor } from '../../lib/editor/wysiwyg-comment';
 import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
+import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -106,6 +107,7 @@ function createMdxKeymap() {
     'Mod-i': toggleMark(mdxSchema.marks.italic),
     'Mod-`': toggleMark(mdxSchema.marks.code),
     'Mod-shift-s': toggleMark(mdxSchema.marks.strikethrough),
+    ...visualListKeymap(),
   });
 }
 
@@ -230,7 +232,16 @@ function useFormatHandlers(viewRef: React.RefObject<EditorView | null>) {
     [viewRef]
   );
 
-  return { execMark, execHeading, execWrapIn };
+  const execList = React.useCallback(
+    (kind: 'bullet' | 'ordered') => {
+      const view = viewRef.current;
+      if (!view) return;
+      toggleVisualList(view, kind);
+    },
+    [viewRef]
+  );
+
+  return { execMark, execHeading, execWrapIn, execList };
 }
 
 function useInsertHandlers(viewRef: React.RefObject<EditorView | null>) {
@@ -283,8 +294,8 @@ function buildToolbarActions(
     onStrikethrough: () => fmt.execMark('strikethrough'),
     onCode: () => fmt.execMark('code'),
     onHeading: fmt.execHeading,
-    onBulletList: () => fmt.execWrapIn('bullet_list'),
-    onOrderedList: () => fmt.execWrapIn('ordered_list'),
+    onBulletList: () => fmt.execList('bullet'),
+    onOrderedList: () => fmt.execList('ordered'),
     onBlockquote: () => fmt.execWrapIn('blockquote'),
     onHorizontalRule: ins.insertHorizontalRule,
     onLink: ins.insertLink,

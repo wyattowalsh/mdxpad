@@ -120,6 +120,7 @@
     "prosemirror-markdown": "^1.13.4",
     "prosemirror-model": "^1.25.4",
     "prosemirror-schema-basic": "^1.2.4",
+    "prosemirror-schema-list": "1.6.0",
     "prosemirror-state": "^1.4.4",
     "prosemirror-view": "^1.41.6",
     "react-resizable-panels": "^4.1.0",
