@@ -13,6 +13,7 @@ import {
   fileIsMissing,
 } from './external-tab-change';
 import { recoveryDocumentId } from './tab-recovery-id';
+import { captureLiveEditor } from './publish-editor-document';
 
 let applyingTab = false;
 
@@ -208,6 +209,7 @@ export function syncDocumentTab(): void {
 
 /** Save the current document into its tab, then show the selected tab. */
 export function activateDocumentTab(id: string): void {
+  captureLiveEditor();
   const store = useTabStore.getState();
   if (store.activeTabId === id) {
     return;
@@ -230,6 +232,7 @@ export function activateDocumentTab(id: string): void {
 
 /** Close one tab. A dirty tab stays open when the confirmation is declined. */
 export function closeDocumentTab(id: string): void {
+  captureLiveEditor();
   const store = useTabStore.getState();
   const tab = store.tabs.find((item) => item.id === id);
   if (!tab) {
@@ -360,6 +363,7 @@ function tabNeedsAttention(tab: Tab, activeId: string | null): boolean {
 
 /** True when the active document or another open tab still needs the user. */
 export function hasUnsavedWork(): boolean {
+  captureLiveEditor();
   const document = useDocumentStore.getState();
   if (document.isDirty || document.fileMissing) {
     return true;

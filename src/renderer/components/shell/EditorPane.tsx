@@ -16,6 +16,7 @@ import { ExternalChangeNotice } from './ExternalChangeNotice';
 import { EditorVoiceControl } from '../voice/EditorVoiceControl';
 import { WysiwygEditor, type WysiwygEditorHandle } from '../editor/WysiwygEditor';
 import { publishEditorDocument } from '@renderer/components/tabs/publish-editor-document';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import {
@@ -161,6 +162,26 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
       onCursorChangeRef.current?.({ line: 1, column: 1 });
     }
   }, [editorMode]);
+  useEffect(() => {
+    if (editorMode !== 'source' || editorRef === undefined) {
+      registerLiveSourceText(null);
+      return undefined;
+    }
+    registerLiveSourceText(() => {
+      const view = editorRef.current;
+      if (!view) {
+        return null;
+      }
+      const closed = view as unknown as { readonly isDestroyed?: boolean };
+      if (closed.isDestroyed === true) {
+        return null;
+      }
+      return view.state.doc.toString();
+    });
+    return () => {
+      registerLiveSourceText(null);
+    };
+  }, [editorMode, editorRef]);
   const wysiwygRef = useRef<WysiwygEditorHandle>(null);
   const insertWysiwygSpeech = useCallback((text: string) => {
     wysiwygRef.current?.insertSpeech(text);

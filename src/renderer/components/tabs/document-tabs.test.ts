@@ -4,6 +4,7 @@ import type { DocumentId } from '@shared/types/document';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
+import { registerLiveSourceText } from './live-source-text';
 import {
   activateDocumentTab,
   activateRelativeDocumentTab,
@@ -18,6 +19,7 @@ describe('document tabs', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
+    registerLiveSourceText(null);
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -168,6 +170,26 @@ describe('document tabs', () => {
 
     expect(useTabStore.getState().tabs).toHaveLength(1);
     expect(useDocumentStore.getState().content).toBe('notes');
+    stop();
+  });
+
+  it('keeps a tab open when its newest keystrokes are still only in the editor', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'Hello'
+    );
+    registerLiveSourceText(() => 'Hello!');
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const id = useTabStore.getState().activeTabId;
+
+    if (id) {
+      closeDocumentTab(id);
+    }
+
+    expect(useTabStore.getState().tabs).toHaveLength(1);
+    expect(useDocumentStore.getState().content).toBe('Hello!');
+    registerLiveSourceText(null);
     stop();
   });
 
