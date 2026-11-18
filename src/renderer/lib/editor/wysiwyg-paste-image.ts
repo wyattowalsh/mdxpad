@@ -57,7 +57,10 @@ function positionAfterCode(view: EditorView): number | null {
 /** Read a pasted picture and insert it at the caret. */
 export function insertPastedImage(view: EditorView, file: File): Promise<boolean> {
   return readClipboardImage(file).then((picture) => {
-    const image = picture ? view.state.schema.nodes.image?.create(picture) : null;
+    if (!picture || view.isDestroyed) {
+      return false;
+    }
+    const image = view.state.schema.nodes.image?.create(picture);
     const paragraph = image ? view.state.schema.nodes.paragraph?.create(null, image) : null;
     if (!image || !paragraph) {
       return false;

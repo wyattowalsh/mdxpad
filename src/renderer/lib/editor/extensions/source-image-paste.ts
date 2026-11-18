@@ -2,6 +2,13 @@ import { EditorView } from '@codemirror/view';
 
 import { clipboardImage, readClipboardImage } from '../wysiwyg-paste-image';
 
+function sourceEditorClosed(view: EditorView): boolean {
+  // CodeMirror marks a closed editor with a private flag. Reading it avoids
+  // inserting into a view that has already been removed from the page.
+  const editor = view as unknown as { readonly destroyed?: boolean };
+  return editor.destroyed === true;
+}
+
 function imageMarkdown(alt: string, src: string): string {
   const safe = alt.replaceAll(']', '\\]').replaceAll('\n', ' ');
   return `![${safe}](${src})`;
@@ -35,7 +42,7 @@ function positionAfterFence(doc: EditorView['state']['doc'], pos: number): numbe
 /** Insert a picture's Markdown at the source caret. */
 export async function insertSourceImage(view: EditorView, file: File): Promise<boolean> {
   const picture = await readClipboardImage(file);
-  if (!picture) {
+  if (!picture || sourceEditorClosed(view)) {
     return false;
   }
   const selection = view.state.selection.main;

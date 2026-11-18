@@ -48,4 +48,16 @@ describe('source picture paste', () => {
     expect(view.state.doc.toString().startsWith('![pixel](data:image/png')).toBe(true);
     expect(view.state.doc.toString()).toContain('Hello');
   });
+
+  it('does not insert a picture after the editor is closed', async () => {
+    const view = new EditorView({
+      state: EditorState.create({ doc: 'Hello' }),
+    });
+    const bytes = Uint8Array.from(atob(PIXEL), (char) => char.charCodeAt(0));
+    const file = new File([bytes], 'pixel.png', { type: 'image/png' });
+    const pending = insertSourceImage(view, file);
+    view.destroy();
+
+    expect(await pending).toBe(false);
+  });
 });
