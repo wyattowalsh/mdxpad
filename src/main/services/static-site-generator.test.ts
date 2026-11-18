@@ -55,10 +55,12 @@ describe('StaticSiteGenerator', () => {
     const html = await readFile(path.join(output, 'note.html'), 'utf-8');
     expect(html).toContain('<ol class="paren"');
     expect(html).toContain('<ul class="plus">');
+    expect(html).toContain('th, td { text-align: left; }');
     expect(html).toContain('ol.paren > li::before');
     expect(html).toContain('class="katex"');
     expect(html).toContain('x^2');
     const css = await readFile(path.join(output, 'styles.css'), 'utf-8');
+    expect(css).toContain('th, td { text-align: left; }');
     expect(css).toContain('ol.paren > li::before');
     expect(css).toContain('ul.plus > li::before');
   });
@@ -80,6 +82,7 @@ describe('StaticSiteGenerator', () => {
 
     expect(result.success).toBe(true);
     const html = await readFile(path.join(output, 'diagram.html'), 'utf-8');
+    expect(html).toContain('th, td { text-align: left; }');
     expect(html).toContain('class="mermaid"');
     expect(html).toContain('graph TD');
     expect(html).toContain('cdn.jsdelivr.net/npm/mermaid');

@@ -2,6 +2,7 @@ import * as path from 'node:path';
 
 import { CODE_HIGHLIGHT_CSS } from './export-formats/markdown-code';
 import { LIST_MARKER_CSS } from './export-formats/markdown-list';
+import { TABLE_CELL_CSS } from './export-formats/markdown-table';
 import { inlineLocalImages } from './export-formats/export-image';
 import { markdownToPdfHtml } from './export-formats/pdf-exporter';
 
@@ -187,6 +188,7 @@ function buildHtmlDocument(content: string): ExportSerializationSuccess {
     blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding-left: 1rem; }
     table { border-collapse: collapse; margin: 1rem 0; }
     th, td { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; }
+    ${TABLE_CELL_CSS}
     .mermaid { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; }
   </style>
 </head>

@@ -14,6 +14,7 @@ import type {
 } from '@shared/contracts/share-schemas';
 import { copyPublishedImages } from './export-formats/export-image';
 import { LIST_MARKER_CSS } from './export-formats/markdown-list';
+import { TABLE_CELL_CSS } from './export-formats/markdown-table';
 import { mermaidModuleScript, renderMarkdownExportBody } from './export-service';
 
 // ============================================================================
@@ -220,7 +221,7 @@ export class StaticSiteGenerator {
 
     const rendered = renderMarkdownExportBody(content);
     const styleLink = includeStyles ? '<link rel="stylesheet" href="styles.css">' : '';
-    const markerStyle = `<style>${LIST_MARKER_CSS}</style>`;
+    const markerStyle = `<style>${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>`;
     const mermaidScript = rendered.hasMermaid ? mermaidModuleScript() : '';
 
     const highlightStyle = includeHighlighting
@@ -322,6 +323,7 @@ hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
 nav ul { list-style: none; padding: 0; }
 nav li { padding: 0.5em 0; border-bottom: 1px solid var(--color-border); }
 ${LIST_MARKER_CSS}
+${TABLE_CELL_CSS}
 `;
   }
 

@@ -5,7 +5,12 @@ import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
-import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
+import {
+  isTableRow,
+  markdownTableToHtml,
+  parseMarkdownTable,
+  TABLE_CELL_CSS,
+} from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
 import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
@@ -459,7 +464,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   if (state.fence) {
     htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
   }
-  return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}</style>\n${htmlLines.join('\n')}`;
+  return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlLines.join('\n')}`;
 }
 
 export class EpubExporter implements Exporter {

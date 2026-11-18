@@ -156,6 +156,9 @@ export function parseMarkdownTable(lines: readonly string[]): MarkdownTable | nu
   return { headers: header, aligns, rows };
 }
 
+/** Browsers center `th`. Left is the table default, so every HTML surface sets it. */
+export const TABLE_CELL_CSS = 'th, td { text-align: left; }';
+
 export function markdownTableToHtml(
   table: MarkdownTable,
   renderCell: (cell: string) => string
