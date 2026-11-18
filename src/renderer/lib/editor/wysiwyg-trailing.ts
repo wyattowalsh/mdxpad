@@ -1,7 +1,7 @@
 import type { ResolvedPos } from 'prosemirror-model';
 import { NodeSelection, TextSelection, type Command } from 'prosemirror-state';
 
-const TRAPPED = new Set(['code_block', 'jsx_block', 'table', 'horizontal_rule']);
+const TRAPPED = new Set(['code_block', 'jsx_block', 'table', 'horizontal_rule', 'blockquote']);
 
 function tableCellDepth($from: ResolvedPos): number {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
@@ -23,6 +23,19 @@ function atEndOfTable($from: ResolvedPos): boolean {
   const lastRow = $from.index(cellDepth - 2) === table.childCount - 1;
   const lastCell = $from.index(cellDepth - 1) === row.childCount - 1;
   return lastRow && lastCell && $from.parentOffset === $from.parent.content.size;
+}
+
+function atQuoteEdge($from: ResolvedPos, edge: 'start' | 'end'): boolean {
+  if ($from.node(1).type.name !== 'blockquote') {
+    return false;
+  }
+  const quote = $from.node(1);
+  if (edge === 'end') {
+    return (
+      $from.index(1) === quote.childCount - 1 && $from.parentOffset === $from.parent.content.size
+    );
+  }
+  return $from.index(1) === 0 && $from.parentOffset === 0;
 }
 
 function atStartOfTable($from: ResolvedPos): boolean {
@@ -52,6 +65,9 @@ export function trappedAtDocumentEnd(state: Parameters<Command>[0]): boolean {
   if (name === 'table') {
     return atEndOfTable($from);
   }
+  if (name === 'blockquote') {
+    return atQuoteEdge($from, 'end');
+  }
   return false;
 }
 
@@ -72,10 +88,13 @@ export function trappedAtDocumentStart(state: Parameters<Command>[0]): boolean {
   if (name === 'table') {
     return atStartOfTable($from);
   }
+  if (name === 'blockquote') {
+    return atQuoteEdge($from, 'start');
+  }
   return false;
 }
 
-/** Add a paragraph before the leading code block, table, or rule. */
+/** Add a paragraph before the leading code block, quote, table, or rule. */
 export function prependLeadingParagraph(
   state: Parameters<Command>[0],
   dispatch: Parameters<Command>[1]
@@ -95,8 +114,11 @@ export function prependLeadingParagraph(
   return true;
 }
 
-/** Add a paragraph after the final code block, table, or rule. */
-export function appendTrailingParagraph(state: Parameters<Command>[0], dispatch: Parameters<Command>[1]): boolean {
+/** Add a paragraph after the final code block, quote, table, or rule. */
+export function appendTrailingParagraph(
+  state: Parameters<Command>[0],
+  dispatch: Parameters<Command>[1]
+): boolean {
   if (!trappedAtDocumentEnd(state)) {
     return false;
   }

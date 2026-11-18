@@ -61,6 +61,36 @@ describe('trailing visual blocks', () => {
     expect(view.state.doc.child(1).type.name).toBe('code_block');
   });
 
+  it('adds a paragraph after a final quote and before a leading quote', () => {
+    const view = open('> Quoted\n');
+    views.push(view);
+    caretAtEnd(view, 'Quoted');
+    expect(appendTrailingParagraph(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.firstChild?.type.name).toBe('blockquote');
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+
+    const leading = open('> Quoted\n');
+    views.push(leading);
+    let start = 0;
+    leading.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Quoted') {
+        start = pos;
+      }
+    });
+    leading.dispatch(leading.state.tr.setSelection(TextSelection.create(leading.state.doc, start)));
+    expect(prependLeadingParagraph(leading.state, leading.dispatch)).toBe(true);
+    expect(leading.state.doc.firstChild?.type.name).toBe('paragraph');
+    expect(leading.state.doc.child(1).type.name).toBe('blockquote');
+  });
+
+  it('leaves a quote alone when a paragraph already follows it', () => {
+    const view = open('> Quoted\n\nAfter\n');
+    views.push(view);
+    caretAtEnd(view, 'Quoted');
+    expect(appendTrailingParagraph(view.state, view.dispatch)).toBe(false);
+    expect(view.state.doc.childCount).toBe(2);
+  });
+
   it('leaves the cursor inside a code block that is not at the end', () => {
     const view = open('```\ncode\n```\n\nAfter\n');
     views.push(view);
