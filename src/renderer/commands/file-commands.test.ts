@@ -678,6 +678,8 @@ describe('saveFileCommand', () => {
 describe('saveFileAsCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    documentStoreState.filePath = null;
+    documentStoreState.content = '';
   });
 
   it('should have correct command ID', () => {
@@ -689,6 +691,7 @@ describe('saveFileAsCommand', () => {
   });
 
   it('should call IPC saveFileAs', async () => {
+    documentStoreState.content = '# New Document';
     const mockApi = createMockApi();
     const ctx = createMockContext({
       api: mockApi,
@@ -715,6 +718,36 @@ describe('saveFileAsCommand', () => {
       type: 'success',
       message: 'Saved as: new-file.mdx',
     });
+  });
+
+  it('does not retarget a different open file', async () => {
+    documentStoreState.content = '# New Document';
+    const mockApi = createMockApi({
+      saveFileAs: vi.fn().mockImplementation(async () => {
+        documentStoreState.filePath = '/docs/other.mdx';
+        documentStoreState.content = 'other';
+        return {
+          ok: true,
+          value: { id: 'test-id', path: '/test/new-file.mdx', name: 'new-file.mdx' },
+        };
+      }),
+    });
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: null,
+        filePath: null,
+        content: '# New Document',
+        isDirty: true,
+      },
+    });
+
+    const result = await saveFileAsCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.saveFileAs).toHaveBeenCalledWith('# New Document');
+    expect(mockMarkSaved).not.toHaveBeenCalled();
+    expect(ctx.notify).not.toHaveBeenCalled();
   });
 
   it('should handle cancelled dialog', async () => {

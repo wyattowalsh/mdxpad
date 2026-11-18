@@ -128,7 +128,9 @@ async function executeSaveFileAs(
   ctx: CommandContext
 ): Promise<{ result: CommandResult; saved: boolean }> {
   try {
-    const result = await ctx.api.saveFileAs(liveDocumentContent(ctx));
+    const savedFromPath = ctx.document.filePath;
+    const savedText = liveDocumentContent(ctx);
+    const result = await ctx.api.saveFileAs(savedText);
 
     if (!result.ok) {
       // User cancelled Save As dialog
@@ -159,7 +161,11 @@ async function executeSaveFileAs(
       filePath: savedPath,
       mtime: Date.now(), // Use current time as mtime
     };
-    useDocumentStore.getState().markSaved(docHandle);
+    const current = useDocumentStore.getState();
+    if (current.filePath !== savedFromPath || current.content !== savedText) {
+      return { result: { ok: true }, saved: false };
+    }
+    current.markSaved(docHandle);
 
     ctx.notify({
       type: 'success',
