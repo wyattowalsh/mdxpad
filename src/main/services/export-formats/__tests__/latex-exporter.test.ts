@@ -5,6 +5,8 @@ import type { ExportOptions } from '../types';
 
 vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
+  lstat: vi.fn().mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' })),
+  unlink: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('LatexExporter', () => {

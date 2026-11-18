@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { writeRegularFile } from './write-regular-file';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { isCurrencySpan } from '@shared/lib/currency-span';
@@ -1229,7 +1229,7 @@ export class LatexExporter implements Exporter {
     try {
       const content = await inlineLocalImages(options.content, options.sourcePath, 'absolute');
       const latex = buildLatexDocument(content, options);
-      await writeFile(options.outputPath, latex, 'utf-8');
+      await writeRegularFile(options.outputPath, latex);
       return { ok: true, outputPath: options.outputPath, warnings };
     } catch (error) {
       return {

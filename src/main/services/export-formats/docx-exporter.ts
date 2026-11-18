@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { writeRegularFile } from './write-regular-file';
 
 import {
   AlignmentType,
@@ -1429,7 +1429,7 @@ export class DocxExporter implements Exporter {
       });
 
       const buffer = await Packer.toBuffer(doc);
-      await writeFile(options.outputPath, buffer);
+      await writeRegularFile(options.outputPath, buffer);
 
       return { ok: true, outputPath: options.outputPath, warnings };
     } catch (error) {

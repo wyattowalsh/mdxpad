@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { writeRegularFile } from './write-regular-file';
 
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
@@ -494,7 +494,7 @@ export class EpubExporter implements Exporter {
       const epubBuffer = await epubCreate({ title, author }, epubContent);
 
       const buffer = epubBuffer instanceof Buffer ? epubBuffer : Buffer.from(epubBuffer);
-      await writeFile(options.outputPath, buffer);
+      await writeRegularFile(options.outputPath, buffer);
 
       return {
         ok: true,

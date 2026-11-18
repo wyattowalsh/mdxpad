@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { writeRegularFile } from './write-regular-file';
 
 import { PdfExportPresetOptionsSchema } from '@shared/types/root';
 import { buildPdfDocument } from '../export-document-builders';
@@ -511,7 +511,7 @@ async function writeTextPdf(options: ExportOptions): Promise<ExportResult> {
     ...(options.author ? { author: options.author } : {}),
   });
   const built = buildPdfDocument(options.content, parsed.success ? parsed.data : {});
-  await writeFile(options.outputPath, built.content);
+  await writeRegularFile(options.outputPath, built.content);
   return {
     ok: true,
     outputPath: options.outputPath,
@@ -544,7 +544,7 @@ export class PdfExporter implements Exporter {
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
       const pdfBuffer = await win.webContents.printToPDF(buildPrintOptions(options));
-      await writeFile(options.outputPath, pdfBuffer);
+      await writeRegularFile(options.outputPath, pdfBuffer);
 
       return { ok: true, outputPath: options.outputPath, warnings };
     } catch {
