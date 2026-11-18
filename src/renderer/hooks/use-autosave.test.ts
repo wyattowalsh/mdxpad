@@ -586,7 +586,10 @@ describe('useAutosave', () => {
       });
 
       // failSave should be called with an error message
-      expect(mockAutosaveActions.failSave).toHaveBeenCalledWith(expect.any(String));
+      expect(mockAutosaveActions.failSave).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String)
+      );
     });
 
     it('should recover from max-failure pause when saveNow retries explicitly', async () => {

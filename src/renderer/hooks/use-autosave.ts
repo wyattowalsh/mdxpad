@@ -283,7 +283,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
         const response = await triggerAutosave(request);
 
         if (response.ok) {
-          completeSave(response.savedAt);
+          completeSave(response.savedAt, documentId);
           setConsecutiveFailures(0);
           consecutiveFailuresRef.current = 0;
           setPaused(false);
@@ -292,7 +292,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
             new Date(response.savedAt).toISOString()
           );
         } else {
-          failSave(response.message);
+          failSave(response.message, documentId);
           setConsecutiveFailures((prev) => {
             const newCount = prev + 1;
             consecutiveFailuresRef.current = newCount;
@@ -306,7 +306,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        failSave(message);
+        failSave(message, documentId);
         setConsecutiveFailures((prev) => {
           const newCount = prev + 1;
           consecutiveFailuresRef.current = newCount;

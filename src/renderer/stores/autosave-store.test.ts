@@ -103,6 +103,23 @@ describe('useAutosaveStore', () => {
       const state = useAutosaveStore.getState();
       expect(state.pendingSaveDocumentId).toBe('doc-2');
     });
+
+    it('keeps a newer save running when an older one finishes', () => {
+      useAutosaveStore.getState().startSave('doc-a');
+      useAutosaveStore.getState().startSave('doc-b');
+
+      useAutosaveStore.getState().completeSave(1, 'doc-a');
+      expect(useAutosaveStore.getState().isSaving).toBe(true);
+      expect(useAutosaveStore.getState().pendingSaveDocumentId).toBe('doc-b');
+
+      useAutosaveStore.getState().failSave('disk full', 'doc-a');
+      expect(useAutosaveStore.getState().isSaving).toBe(true);
+      expect(useAutosaveStore.getState().lastError).toBeNull();
+
+      useAutosaveStore.getState().completeSave(2, 'doc-b');
+      expect(useAutosaveStore.getState().isSaving).toBe(false);
+      expect(useAutosaveStore.getState().lastSaveAt).toBe(2);
+    });
   });
 
   describe('completeSave', () => {

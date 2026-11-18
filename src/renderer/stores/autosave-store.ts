@@ -65,9 +65,9 @@ export interface AutosaveStoreActions {
   /** Mark a save operation as in progress for a document */
   startSave: (documentId: string) => void;
   /** Mark a save operation as successfully completed */
-  completeSave: (savedAt: number) => void;
+  completeSave: (savedAt: number, documentId?: string) => void;
   /** Mark a save operation as failed with an error */
-  failSave: (error: string) => void;
+  failSave: (error: string, documentId?: string) => void;
   /** Clear error state */
   clearError: () => void;
   /** Pause or unpause autosave with optional reason */
@@ -124,8 +124,15 @@ export const useAutosaveStore = create<AutosaveStore>()(
         draft.pendingSaveDocumentId = documentId;
       }),
 
-    completeSave: (savedAt) =>
+    completeSave: (savedAt, documentId) =>
       set((draft) => {
+        if (
+          documentId !== undefined &&
+          draft.pendingSaveDocumentId !== null &&
+          draft.pendingSaveDocumentId !== documentId
+        ) {
+          return;
+        }
         draft.isSaving = false;
         draft.pendingSaveDocumentId = null;
         draft.lastSaveAt = savedAt;
@@ -133,8 +140,15 @@ export const useAutosaveStore = create<AutosaveStore>()(
         draft.lastError = null;
       }),
 
-    failSave: (error) =>
+    failSave: (error, documentId) =>
       set((draft) => {
+        if (
+          documentId !== undefined &&
+          draft.pendingSaveDocumentId !== null &&
+          draft.pendingSaveDocumentId !== documentId
+        ) {
+          return;
+        }
         draft.isSaving = false;
         draft.pendingSaveDocumentId = null;
         draft.lastSaveResult = 'error';
