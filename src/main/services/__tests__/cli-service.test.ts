@@ -126,8 +126,13 @@ describe('invokeExportCli', () => {
       expect(response.ok).toBe(true);
       if (response.ok) {
         const artifact = await readFile(targetPath, 'utf-8');
-        expect(artifact.startsWith('%PDF-1.4')).toBe(true);
-        expect(artifact).toContain('/Title (Preset PDF)');
+        expect(artifact.startsWith('%PDF')).toBe(true);
+        const usedTextPdf = response.output.events.some((event) =>
+          event.message.includes('text PDF was written')
+        );
+        if (usedTextPdf) {
+          expect(artifact).toContain('/Title (Preset PDF)');
+        }
         expect(
           response.output.events.some((event) => event.message.includes('built-in PDF exporter'))
         ).toBe(true);

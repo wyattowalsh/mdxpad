@@ -6,9 +6,14 @@ import * as path from 'node:path';
 import type { ExportCliInvokeRequest } from '@shared/contracts/export-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import type { ExportCliEvent, ExportCliOutput } from '@shared/types/export-model';
-import { DocxExportPresetOptionsSchema, PdfExportPresetOptionsSchema } from '@shared/types/root';
+import {
+  DocxExportPresetOptionsSchema,
+  PdfExportPresetOptionsSchema,
+  type PdfExportPresetOptions,
+} from '@shared/types/root';
 
 import { hasReadCapability } from '@main/ipc/document-capability';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 
 import { resolveWorkspaceFilePath } from './ai/agent-path';
 import { buildPdfDocument } from './export-document-builders';
@@ -204,6 +209,52 @@ async function writeRichDocxExport(
   return warnings;
 }
 
+async function printPdfExport(
+  request: ExportCliInvokeRequest,
+  sourceContent: string,
+  options: PdfExportPresetOptions
+): Promise<string[] | null> {
+  const exporter = getExporter('pdf');
+  if (!exporter) {
+    return null;
+  }
+  const metadata: Record<string, unknown> = {};
+  if (options.pageSize) {
+    metadata.pageSize = options.pageSize;
+  }
+  if (options.marginInches !== undefined) {
+    const margin = options.marginInches;
+    metadata.margins = { top: margin, right: margin, bottom: margin, left: margin };
+  }
+  const author = options.author;
+  const result = await exporter.export({
+    content: sourceContent,
+    outputPath: request.job.targetPath,
+    title: options.title ?? request.job.preset.name,
+    sourcePath: request.job.sourcePath,
+    ...(author ? { author } : {}),
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+  });
+  return result.ok ? [...result.warnings] : null;
+}
+
+async function writeRichPdfExport(
+  request: ExportCliInvokeRequest,
+  sourceContent: string
+): Promise<string[]> {
+  const parsedOptions = PdfExportPresetOptionsSchema.safeParse(request.job.preset.options);
+  if (!parsedOptions.success) {
+    throw new Error(formatValidationIssues(parsedOptions.error.issues));
+  }
+  const printed = await printPdfExport(request, sourceContent, parsedOptions.data);
+  if (printed) {
+    return printed;
+  }
+  const built = buildPdfDocument(sourceContent, parsedOptions.data);
+  await atomicWrite(request.job.targetPath, built.content);
+  return [...built.warnings, 'PDF print was unavailable, so a text PDF was written.'];
+}
+
 async function writeBuiltInExportArtifact(
   request: ExportCliInvokeRequest,
   sourceContent: string
@@ -211,16 +262,8 @@ async function writeBuiltInExportArtifact(
   const warnings: string[] = [];
 
   switch (request.job.format) {
-    case 'pdf': {
-      const parsedOptions = PdfExportPresetOptionsSchema.safeParse(request.job.preset.options);
-      if (!parsedOptions.success) {
-        throw new Error(formatValidationIssues(parsedOptions.error.issues));
-      }
-      const built = buildPdfDocument(sourceContent, parsedOptions.data);
-      warnings.push(...built.warnings);
-      await atomicWrite(request.job.targetPath, built.content);
-      return warnings;
-    }
+    case 'pdf':
+      return writeRichPdfExport(request, sourceContent);
     case 'docx':
       return writeRichDocxExport(request, sourceContent);
     default: {
@@ -266,7 +309,11 @@ async function runBuiltInExportCommand(
       path.relative(sourceDir, path.resolve(request.job.targetPath))
     );
 
-    const sourceContent = await fs.readFile(request.job.sourcePath, 'utf-8');
+    const sourceResult = await readFileWithoutFollowingLinks(request.job.sourcePath);
+    if (!sourceResult.ok) {
+      throw new Error('The source file could not be read');
+    }
+    const sourceContent = sourceResult.value;
     assertPathWithinBase(request.job.targetPath, request.cwd, 'Target path');
     await fs.mkdir(path.dirname(request.job.targetPath), { recursive: true });
     const warnings = await writeBuiltInExportArtifact(request, sourceContent);
