@@ -42,6 +42,8 @@ export type DiagramStore = DiagramState & DiagramActions;
 // INITIAL STATE
 // =============================================================================
 
+let diagramRequestId = 0;
+
 const INITIAL_STATE: DiagramState = {
   description: '',
   mermaidCode: '',
@@ -68,6 +70,7 @@ export const useDiagramStore = create<DiagramStore>()(
     generate: async () => {
       const description = get().description.trim();
       if (!description) return;
+      const requestId = ++diagramRequestId;
       const documentKey = editorDocumentKey(
         useDocumentStore.getState().filePath,
         useTabStore.getState().activeTabId
@@ -95,6 +98,9 @@ export const useDiagramStore = create<DiagramStore>()(
           systemPrompt: DIAGRAM_SYSTEM_PROMPT,
           temperature: 0.3,
         });
+        if (requestId !== diagramRequestId) {
+          return;
+        }
 
         const mermaidCode =
           response.success && response.text ? extractMermaidCode(response.text) : '';
@@ -119,6 +125,9 @@ export const useDiagramStore = create<DiagramStore>()(
           }
         });
       } catch (error) {
+        if (requestId !== diagramRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = error instanceof Error ? error.message : 'Generation failed';
           draft.status = 'error';
@@ -141,6 +150,7 @@ export const useDiagramStore = create<DiagramStore>()(
     },
 
     reset: () => {
+      diagramRequestId += 1;
       set(() => ({ ...INITIAL_STATE }));
     },
   }))

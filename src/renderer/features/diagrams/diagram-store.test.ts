@@ -104,6 +104,41 @@ describe('useDiagramStore', () => {
     expect(state.mermaidCode).toBe('flowchart TD\n  A-->B');
     expect(state.documentKey).toBe('/notes/login.md');
   });
+
+  it('keeps the newest diagram when an older one finishes later', async () => {
+    let finishOld: (value: { success: boolean; text: string }) => void = () => undefined;
+    let calls = 0;
+    vi.stubGlobal('mdxpad', {
+      ai: {
+        generateText: vi.fn().mockImplementation(() => {
+          calls += 1;
+          if (calls === 1) {
+            return new Promise((resolve) => {
+              finishOld = resolve;
+            });
+          }
+          return Promise.resolve({
+            success: true,
+            text: '```mermaid\nflowchart LR\n  B-->C\n```',
+          });
+        }),
+      },
+    });
+    useDocumentStore.setState({ filePath: '/notes/a.md' });
+    useDiagramStore.getState().setDescription('first');
+    const first = useDiagramStore.getState().generate();
+    useDocumentStore.setState({ filePath: '/notes/b.md' });
+    useDiagramStore.getState().setDescription('second');
+    await useDiagramStore.getState().generate();
+    finishOld({ success: true, text: '```mermaid\nflowchart TD\n  A-->B\n```' });
+    await first;
+
+    const state = useDiagramStore.getState();
+    expect(state.status).toBe('success');
+    expect(state.mermaidCode).toBe('flowchart LR\n  B-->C');
+    expect(state.documentKey).toBe('/notes/b.md');
+    expect(state.error).toBeNull();
+  });
 });
 
 describe('extractMermaidCode', () => {
