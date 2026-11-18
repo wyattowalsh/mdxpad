@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -146,6 +147,13 @@ describe('invokeExportCli', () => {
         '# DOCX Heading\n\n## Section\n\n![diagram](./diagram.png)\n\nBody text.',
         'utf-8'
       );
+      await writeFile(
+        path.join(tempDir, 'diagram.png'),
+        Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          'base64'
+        )
+      );
       grantReadCapability(sourcePath);
 
       const request = createTestRequest({
@@ -175,11 +183,25 @@ describe('invokeExportCli', () => {
       if (response.ok) {
         const artifact = await readFile(targetPath);
         expect(artifact.subarray(0, 2).toString()).toBe('PK');
-        expect(artifact.includes(Buffer.from('word/document.xml'))).toBe(true);
+        const extracted = spawnSync(
+          'python3',
+          [
+            '-c',
+            'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print("\\n".join(z.namelist())); print(z.read("word/document.xml").decode("utf-8"))',
+            targetPath,
+          ],
+          { encoding: 'utf8' }
+        );
+        expect(extracted.stdout).toContain('word/media/');
+        expect(extracted.stdout).toContain('DOCX Heading');
+        expect(extracted.stdout).toContain('Body text');
         expect(
           response.output.events.some((event) =>
             event.message.includes('Image embedding is not available')
           )
+        ).toBe(false);
+        expect(
+          response.output.events.some((event) => event.message.includes('table of contents'))
         ).toBe(true);
       }
     } finally {

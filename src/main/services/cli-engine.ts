@@ -11,7 +11,7 @@ import { DocxExportPresetOptionsSchema, PdfExportPresetOptionsSchema } from '@sh
 import { hasReadCapability } from '@main/ipc/document-capability';
 
 import { resolveWorkspaceFilePath } from './ai/agent-path';
-import { buildDocxDocument, buildPdfDocument } from './export-document-builders';
+import { buildPdfDocument } from './export-document-builders';
 import { getExporter } from './export-formats';
 import { serializeForExport } from './export-service';
 
@@ -171,15 +171,37 @@ function isBuiltInExportCommand(request: ExportCliInvokeRequest): boolean {
   return request.command.trim() === 'mdxpad-export';
 }
 
-async function writeBinaryAtomically(targetPath: string, content: Uint8Array): Promise<void> {
-  const tempPath = `${targetPath}.tmp`;
-  try {
-    await fs.writeFile(tempPath, content);
-    await fs.rename(tempPath, targetPath);
-  } catch (error) {
-    await fs.unlink(tempPath).catch(() => undefined);
-    throw error;
+async function writeRichDocxExport(
+  request: ExportCliInvokeRequest,
+  sourceContent: string
+): Promise<string[]> {
+  const parsedOptions = DocxExportPresetOptionsSchema.safeParse(request.job.preset.options);
+  if (!parsedOptions.success) {
+    throw new Error(formatValidationIssues(parsedOptions.error.issues));
   }
+  const exporter = getExporter('docx');
+  if (!exporter) {
+    throw new Error('Could not export docx');
+  }
+  const author = parsedOptions.data.author;
+  const result = await exporter.export({
+    content: sourceContent,
+    outputPath: request.job.targetPath,
+    title: parsedOptions.data.title ?? request.job.preset.name,
+    sourcePath: request.job.sourcePath,
+    ...(author ? { author } : {}),
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? 'Could not export docx');
+  }
+  const warnings = [...result.warnings];
+  if (parsedOptions.data.includeToc) {
+    warnings.push('Word export does not include a table of contents.');
+  }
+  if ((parsedOptions.data.headingBaseLevel ?? 1) !== 1) {
+    warnings.push('Word export keeps the heading levels written in the document.');
+  }
+  return warnings;
 }
 
 async function writeBuiltInExportArtifact(
@@ -199,16 +221,8 @@ async function writeBuiltInExportArtifact(
       await atomicWrite(request.job.targetPath, built.content);
       return warnings;
     }
-    case 'docx': {
-      const parsedOptions = DocxExportPresetOptionsSchema.safeParse(request.job.preset.options);
-      if (!parsedOptions.success) {
-        throw new Error(formatValidationIssues(parsedOptions.error.issues));
-      }
-      const built = buildDocxDocument(sourceContent, parsedOptions.data);
-      warnings.push(...built.warnings);
-      await writeBinaryAtomically(request.job.targetPath, built.content);
-      return warnings;
-    }
+    case 'docx':
+      return writeRichDocxExport(request, sourceContent);
     default: {
       const exporter = getExporter(request.job.format);
       if (exporter) {
