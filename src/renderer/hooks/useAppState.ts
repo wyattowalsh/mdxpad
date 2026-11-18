@@ -119,8 +119,11 @@ export interface AppState {
   readonly handlePreviewErrorClick: (line: number, column?: number) => void;
   readonly handleOutlineNavigate: (item: OutlineItem) => void;
   readonly handleBreadcrumbNavigate: (segment: {
+    label: string;
     line?: number | undefined;
     column?: number | undefined;
+    level?: OutlineItem['level'] | undefined;
+    outlineId?: string | undefined;
   }) => void;
   readonly handleTemplateSelect: (template: Template) => void;
   readonly handleVariableSubmit: (values: Record<string, string>) => void;
@@ -188,7 +191,7 @@ export function useAppState(): AppState {
 
   // Outline sync & navigation
   useOutlineSync();
-  const { navigateToItem, navigateToPosition } = useOutlineNavigation({ editorRef });
+  const { navigateToItem } = useOutlineNavigation({ editorRef });
 
   // Error navigation (P1-1 wire-up)
   const { navigateToError } = useErrorNavigation({ editorRef });
@@ -284,13 +287,27 @@ export function useAppState(): AppState {
   );
 
   const handleBreadcrumbNavigate = useCallback(
-    (segment: { line?: number | undefined; column?: number | undefined }): void => {
+    (segment: {
+      label: string;
+      line?: number | undefined;
+      column?: number | undefined;
+      level?: OutlineItem['level'] | undefined;
+      outlineId?: string | undefined;
+    }): void => {
       if (segment.line === undefined) {
         return;
       }
-      navigateToPosition(segment.line, segment.column ?? 1);
+      navigateToItem({
+        id: segment.outlineId ?? segment.label,
+        type: 'heading',
+        label: segment.label,
+        level: segment.level ?? 1,
+        line: segment.line,
+        column: segment.column ?? 1,
+        children: [],
+      });
     },
-    [navigateToPosition]
+    [navigateToItem]
   );
 
   // Handlers - Templates

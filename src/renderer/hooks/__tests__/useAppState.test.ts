@@ -250,6 +250,32 @@ describe('useAppState', () => {
     });
   });
 
+  describe('handleBreadcrumbNavigate', () => {
+    it('moves the editor to the heading at the cursor', () => {
+      const { result } = renderHook(() => useAppState());
+
+      act(() => {
+        result.current.handleBreadcrumbNavigate({
+          label: 'Details',
+          line: 8,
+          column: 1,
+          level: 2,
+          outlineId: 'details',
+        });
+      });
+
+      expect(mockNavigateToItem).toHaveBeenCalledWith({
+        id: 'details',
+        type: 'heading',
+        label: 'Details',
+        level: 2,
+        line: 8,
+        column: 1,
+        children: [],
+      });
+    });
+  });
+
   describe('handleErrorsChange', () => {
     it('should update errors', () => {
       const { result } = renderHook(() => useAppState());

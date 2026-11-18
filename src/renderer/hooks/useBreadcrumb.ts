@@ -20,6 +20,8 @@ export interface BreadcrumbSegment {
   readonly path?: string | undefined;
   readonly line?: number | undefined;
   readonly column?: number | undefined;
+  readonly level?: OutlineItem['level'] | undefined;
+  readonly outlineId?: string | undefined;
 }
 
 /**
@@ -73,6 +75,8 @@ function getActiveHeading(
     type: 'heading' as const,
     line: current.line,
     column: current.column,
+    level: current.level,
+    outlineId: current.id,
   };
 }
 

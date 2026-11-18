@@ -119,5 +119,7 @@ describe('useBreadcrumb', () => {
     const heading = atDetails.result.current.find((segment) => segment.type === 'heading');
     expect(heading?.label).toBe('Details');
     expect(heading?.line).toBe(8);
+    expect(heading?.level).toBe(2);
+    expect(heading?.outlineId).toBe('details');
   });
 });
