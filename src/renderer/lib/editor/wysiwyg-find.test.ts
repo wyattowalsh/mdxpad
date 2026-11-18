@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { parseMdxContent } from './prosemirror-mdx-parser';
 import { mdxSchema } from './prosemirror-mdx-schema';
+import { serializeMdxContent } from './prosemirror-mdx-serializer';
 import { findNextInView, replaceNextInView } from './wysiwyg-find';
 
 function open(source: string): EditorView {
@@ -24,6 +25,13 @@ describe('visual find', () => {
     for (const view of views.splice(0)) {
       view.destroy();
     }
+  });
+
+  it('keeps bold when replacing a word inside it', () => {
+    const view = open('**Hello world**\n');
+    views.push(view);
+    expect(replaceNextInView(view, 'world', 'earth')).toBe(true);
+    expect(serializeMdxContent(view.state.doc)).toContain('**Hello earth**');
   });
 
   it('finds words that cross a bold boundary', () => {

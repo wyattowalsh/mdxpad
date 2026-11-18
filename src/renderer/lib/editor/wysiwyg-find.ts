@@ -76,11 +76,9 @@ export function replaceNextInView(view: EditorView, query: string, replacement: 
   if (!current) {
     return false;
   }
-  const tr = view.state.tr.replaceWith(
-    current.from,
-    current.to,
-    replacement.length > 0 ? view.state.schema.text(replacement) : []
-  );
+  const marks = view.state.doc.resolve(current.from).marks();
+  const inserted = replacement.length > 0 ? view.state.schema.text(replacement, marks) : [];
+  const tr = view.state.tr.replaceWith(current.from, current.to, inserted);
   const end = current.from + replacement.length;
   const selection =
     replacement.length === 0
