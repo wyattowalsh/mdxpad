@@ -19,7 +19,7 @@
  */
 
 import { app } from 'electron';
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import { statfs } from 'node:fs/promises';
 import path from 'node:path';
 import { atomicWrite } from '@shared/lib/atomic-write';
@@ -51,6 +51,35 @@ const RECOVERY_DIR_NAME = 'recovery';
 const MANIFEST_FILE = 'manifest.json';
 
 const autosaveWriteLock = createWriteLock();
+
+function isLinkOpenError(error: unknown): boolean {
+  if (!(error instanceof Error) || !('code' in error)) {
+    return false;
+  }
+  const code = (error as { code?: string }).code;
+  return code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM';
+}
+
+/** Read the manifest without following a symlink. */
+async function readManifestText(manifestPath: string): Promise<string | null> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    handle = await fs.open(manifestPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    return await handle.readFile({ encoding: 'utf8' });
+  } catch (error) {
+    if (
+      (error instanceof Error &&
+        'code' in error &&
+        (error as { code?: string }).code === 'ENOENT') ||
+      isLinkOpenError(error)
+    ) {
+      return null;
+    }
+    throw error;
+  } finally {
+    await handle?.close();
+  }
+}
 
 function enqueueDocumentSave(
   tails: Map<string, Promise<void>>,
@@ -315,7 +344,10 @@ export class AutosaveService {
       if (info.isSymbolicLink() || !info.isFile()) {
         return EMPTY_RECOVERY_MANIFEST;
       }
-      const content = await fs.readFile(manifestPath, 'utf-8');
+      const content = await readManifestText(manifestPath);
+      if (content === null) {
+        return EMPTY_RECOVERY_MANIFEST;
+      }
       const parsed: unknown = JSON.parse(content);
 
       // Validate manifest structure

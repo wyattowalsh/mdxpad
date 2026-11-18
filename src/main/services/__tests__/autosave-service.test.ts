@@ -31,6 +31,7 @@ const {
   mockLstat,
   mockStatfs,
   mockGetPath,
+  mockOpen,
 } = vi.hoisted(() => ({
   mockMkdir: vi.fn(),
   mockWriteFile: vi.fn(),
@@ -40,6 +41,7 @@ const {
   mockLstat: vi.fn(),
   mockStatfs: vi.fn(),
   mockGetPath: vi.fn(() => '/mock/user/data'),
+  mockOpen: vi.fn(),
 }));
 
 // Mock electron app module
@@ -50,26 +52,23 @@ vi.mock('electron', () => ({
 }));
 
 // Mock fs module with proper structure
-vi.mock('node:fs', () => ({
-  default: {
-    promises: {
-      mkdir: mockMkdir,
-      writeFile: mockWriteFile,
-      rename: mockRename,
-      readFile: mockReadFile,
-      unlink: mockUnlink,
-      lstat: mockLstat,
-    },
-  },
-  promises: {
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  const promises = {
     mkdir: mockMkdir,
     writeFile: mockWriteFile,
     rename: mockRename,
     readFile: mockReadFile,
     unlink: mockUnlink,
     lstat: mockLstat,
-  },
-}));
+    open: mockOpen,
+  };
+  return {
+    default: { promises, constants: actual.constants },
+    promises,
+    constants: actual.constants,
+  };
+});
 
 // Mock statfs for disk space checks - needs default export
 vi.mock('node:fs/promises', () => ({
@@ -164,6 +163,11 @@ describe('AutosaveService', () => {
       isSymbolicLink: () => false,
       isFile: () => true,
     });
+    mockOpen.mockImplementation(async (filePath: string) => ({
+      readFile: () => mockReadFile(filePath, 'utf8'),
+      sync: () => Promise.resolve(),
+      close: () => Promise.resolve(),
+    }));
     mockUnlink.mockResolvedValue(undefined);
     mockStatfs.mockResolvedValue({
       bfree: 1000000,
@@ -588,6 +592,16 @@ describe('AutosaveService', () => {
         isSymbolicLink: () => true,
         isFile: () => false,
       });
+      mockReadFile.mockResolvedValue(JSON.stringify({ version: 1, entries: { secret: {} } }));
+
+      const manifest = await service.readManifest();
+
+      expect(manifest).toEqual(EMPTY_RECOVERY_MANIFEST);
+      expect(mockReadFile).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty manifest when the manifest becomes a link before it is opened', async () => {
+      mockOpen.mockRejectedValueOnce(Object.assign(new Error('loop'), { code: 'ELOOP' }));
       mockReadFile.mockResolvedValue(JSON.stringify({ version: 1, entries: { secret: {} } }));
 
       const manifest = await service.readManifest();
