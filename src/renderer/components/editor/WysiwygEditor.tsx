@@ -66,6 +66,7 @@ import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-lis
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
 import { trailingBlockKeymap } from '../../lib/editor/wysiwyg-trailing';
+import { sourceCursorAt, type SourceCursor } from '../../lib/editor/wysiwyg-cursor';
 import { refreshFocusMode, wysiwygFocusPlugin } from '../../lib/editor/wysiwyg-focus';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
@@ -79,6 +80,8 @@ import { TaskListItemView } from '../../lib/editor/prosemirror-task-item';
 export interface WysiwygEditorProps {
   readonly content: string;
   readonly onChange: (content: string) => void;
+  /** Reports the caret as a 1-indexed source line and column. */
+  readonly onCursorChange?: (position: SourceCursor) => void;
   readonly className?: string;
   /** Changing this opens the visual document at the start. */
   readonly documentKey?: string;
@@ -382,10 +385,12 @@ function buildToolbarActions(
 }
 
 export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditorProps>(
-  function WysiwygEditor({ content, documentKey, onChange, className }, ref) {
+  function WysiwygEditor({ content, documentKey, onChange, onCursorChange, className }, ref) {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const onChangeRef = React.useRef(onChange);
     onChangeRef.current = onChange;
+    const onCursorChangeRef = React.useRef(onCursorChange);
+    onCursorChangeRef.current = onCursorChange;
 
     const [activeMarks, setActiveMarks] = React.useState<ActiveMarks>({
       bold: false,
@@ -402,6 +407,7 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
     const onStateUpdate = React.useCallback((state: EditorState) => {
       setActiveMarks(computeActiveMarks(state));
       setActiveBlocks(computeActiveBlocks(state));
+      onCursorChangeRef.current?.(sourceCursorAt(state.doc, state.selection.head));
     }, []);
 
     const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);

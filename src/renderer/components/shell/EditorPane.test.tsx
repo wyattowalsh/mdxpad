@@ -638,6 +638,16 @@ describe('EditorPane mode switch', () => {
     });
   });
 
+  it('reports the visual caret as a source line', async () => {
+    useDocumentStore.getState().setContent('Hello\n\nWorld');
+    useEditorModeStore.getState().setMode('wysiwyg');
+    const onCursorChange = vi.fn();
+    render(<EditorPane onCursorChange={onCursorChange} />);
+    await waitFor(() => {
+      expect(onCursorChange).toHaveBeenCalledWith({ line: 1, column: 1 });
+    });
+  });
+
   it('uses high contrast and large text in the visual editor', async () => {
     useEditorModeStore.getState().setMode('wysiwyg');
     useAccessibilityStore.setState({ highContrastEnabled: true, largeText: true });

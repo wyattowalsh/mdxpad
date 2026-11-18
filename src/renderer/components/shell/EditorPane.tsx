@@ -249,6 +249,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
           content={content}
           documentKey={filePath ?? ''}
           onChange={setContent}
+          {...(onCursorChange !== undefined && { onCursorChange })}
           className="min-h-0 flex-1"
         />
       ) : (
