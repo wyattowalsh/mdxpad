@@ -7,7 +7,7 @@
 
 import MiniSearch from 'minisearch';
 import { watch, type FSWatcher } from 'chokidar';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { lstat, readFile, readdir, stat } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
 import type {
   SearchQueryResponse,
@@ -133,6 +133,10 @@ async function collectFiles(
     const current = queue.shift();
     if (!current) break;
     try {
+      const info = await lstat(current);
+      if (info.isSymbolicLink() || !info.isDirectory()) {
+        continue;
+      }
       const entries = await readdir(current, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;

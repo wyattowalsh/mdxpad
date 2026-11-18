@@ -10,6 +10,7 @@ vi.mock('node:fs/promises', () => ({
   readFile: vi.fn(),
   readdir: vi.fn(),
   stat: vi.fn(),
+  lstat: vi.fn(),
 }));
 
 // Mock chokidar
@@ -20,13 +21,18 @@ vi.mock('chokidar', () => ({
   })),
 }));
 
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { lstat, readFile, readdir, stat } from 'node:fs/promises';
 import { watch } from 'chokidar';
 import { indexWorkspace, search, getStatus, closeIndex } from './search-service';
 
 describe('search-service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(lstat).mockResolvedValue({
+      isSymbolicLink: () => false,
+      isDirectory: () => true,
+      isFile: () => false,
+    } as never);
   });
 
   afterEach(async () => {
@@ -88,6 +94,43 @@ describe('search-service', () => {
 
       const result = await indexWorkspace('/workspace');
       expect(result.indexedFiles).toBe(1);
+    });
+
+    it('does not index a directory replaced by a symlink', async () => {
+      vi.mocked(lstat).mockImplementation(async (target) => {
+        const symlink = String(target).endsWith('/linked');
+        return {
+          isSymbolicLink: () => symlink,
+          isDirectory: () => !symlink,
+          isFile: () => false,
+        } as never;
+      });
+      vi.mocked(readdir).mockImplementation(async (target) => {
+        if (String(target) === '/workspace') {
+          return [
+            {
+              name: 'linked',
+              isDirectory: () => true,
+              isFile: () => false,
+              isSymbolicLink: () => false,
+            },
+          ] as never;
+        }
+        return [
+          {
+            name: 'secret.md',
+            isDirectory: () => false,
+            isFile: () => true,
+            isSymbolicLink: () => false,
+          },
+        ] as never;
+      });
+      vi.mocked(readFile).mockResolvedValue('hidden');
+
+      const result = await indexWorkspace('/workspace');
+
+      expect(result.indexedFiles).toBe(0);
+      expect(readFile).not.toHaveBeenCalled();
     });
 
     it('should skip symbolic links', async () => {
