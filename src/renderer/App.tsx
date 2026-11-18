@@ -23,6 +23,7 @@ import { ConflictDialog } from './components/conflict-dialog';
 import { SettingsPanel } from './components/settings-panel';
 import { TabBar } from './components/tabs';
 import { subscribeDocumentTabs } from './components/tabs/document-tabs';
+import { documentWindowTitle } from './lib/document-window-title';
 import { Breadcrumb } from './components/breadcrumb';
 import {
   Dialog,
@@ -119,6 +120,9 @@ export function App(): React.ReactElement {
     applySavedCustomCss();
   }, []);
   useEffect(() => subscribeDocumentTabs(), []);
+  useEffect(() => {
+    document.title = documentWindowTitle(state.fileName, state.isDirty);
+  }, [state.fileName, state.isDirty]);
 
   // File explorer filter state
   const filterQuery = useFileExplorerStore(selectFilterQuery);
