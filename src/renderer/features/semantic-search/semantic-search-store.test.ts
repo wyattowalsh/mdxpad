@@ -180,4 +180,34 @@ describe('useSemanticSearchStore', () => {
     expect(state.fileCount).toBe(3);
     expect(state.chunkCount).toBe(8);
   });
+
+  it('drops a search result after the folder is cleared', async () => {
+    let finishSearch: (value: {
+      success: boolean;
+      results: { filePath: string; content: string; score: number; chunkIndex: number }[];
+    }) => void = () => undefined;
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        search: vi.fn().mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              finishSearch = resolve;
+            })
+        ),
+      },
+    });
+    useSemanticSearchStore.getState().setQuery('secret');
+    const pending = useSemanticSearchStore.getState().search('/notes/a');
+    useSemanticSearchStore.getState().clearResults();
+    finishSearch({
+      success: true,
+      results: [
+        { filePath: '/notes/a/secret.md', content: 'secret', score: 1, chunkIndex: 0 },
+      ],
+    });
+    await pending;
+
+    expect(useSemanticSearchStore.getState().results).toEqual([]);
+    expect(useSemanticSearchStore.getState().isSearching).toBe(false);
+  });
 });

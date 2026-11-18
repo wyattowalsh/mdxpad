@@ -27,6 +27,8 @@ export interface SemanticSearchState {
   chunkCount: number;
   lastIndexedAt: string | null;
   error: string | null;
+  resultGeneration: number;
+  statusGeneration: number;
 }
 
 export interface SemanticSearchActions {
@@ -72,6 +74,8 @@ const INITIAL_STATE: SemanticSearchState = {
   chunkCount: 0,
   lastIndexedAt: null,
   error: null,
+  resultGeneration: 0,
+  statusGeneration: 0,
 };
 
 // =============================================================================
@@ -102,7 +106,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
         return;
       }
 
+      const generation = get().resultGeneration + 1;
       set((draft) => {
+        draft.resultGeneration = generation;
         draft.isSearching = true;
         draft.error = null;
       });
@@ -114,6 +120,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
           undefined,
           readExcludesForDirectory(workspacePath)
         );
+        if (get().resultGeneration !== generation) {
+          return;
+        }
         if (response.success) {
           const matches = withOpenDocumentMatches(response.results ?? [], workspacePath, query);
           set((draft) => {
@@ -127,6 +136,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
           });
         }
       } catch (error) {
+        if (get().resultGeneration !== generation) {
+          return;
+        }
         set((draft) => {
           draft.error = error instanceof Error ? error.message : 'Search failed';
           draft.isSearching = false;
@@ -145,7 +157,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
         return;
       }
 
+      const generation = get().statusGeneration + 1;
       set((draft) => {
+        draft.statusGeneration = generation;
         draft.isIndexing = true;
         draft.error = null;
       });
@@ -156,6 +170,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
           forceReindex,
           readExcludesForDirectory(workspacePath)
         );
+        if (get().statusGeneration !== generation) {
+          return;
+        }
         if (response.success) {
           const indexedFiles = response.indexedFiles ?? 0;
           set((draft) => {
@@ -173,6 +190,9 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
           });
         }
       } catch (error) {
+        if (get().statusGeneration !== generation) {
+          return;
+        }
         set((draft) => {
           draft.error = error instanceof Error ? error.message : 'Indexing failed';
           draft.isIndexing = false;
@@ -185,8 +205,15 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
       if (workspacePath.trim().length === 0 || semanticSearch === null) {
         return;
       }
+      const generation = get().statusGeneration + 1;
+      set((draft) => {
+        draft.statusGeneration = generation;
+      });
       try {
         const response = await semanticSearch.getIndexStatus(workspacePath);
+        if (get().statusGeneration !== generation) {
+          return;
+        }
         if (response.success) {
           set((draft) => {
             draft.isIndexed = response.isIndexed ?? false;
@@ -204,6 +231,10 @@ export const useSemanticSearchStore = create<SemanticSearchStore>()(
       set((draft) => {
         draft.results = [];
         draft.query = '';
+        draft.resultGeneration += 1;
+        draft.statusGeneration += 1;
+        draft.isSearching = false;
+        draft.isIndexing = false;
       });
     },
 
