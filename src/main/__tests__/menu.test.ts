@@ -481,6 +481,10 @@ describe('Opening Recent Files', () => {
     mockRecentFilesServiceInstance.getRecent.mockReturnValue([]);
 
     vi.mocked(access).mockResolvedValue(undefined);
+    vi.mocked(FileService.readFileWithoutFollowingLinks).mockResolvedValue({
+      ok: true,
+      value: '# Test',
+    });
   });
 
   it('should read and send file content when file exists', async () => {
@@ -512,7 +516,10 @@ describe('Opening Recent Files', () => {
     const mockEntry = { path: '/test/missing.mdx', accessedAt: Date.now() };
     mockRecentFilesServiceInstance.getRecent.mockReturnValue([mockEntry]);
 
-    vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+    vi.mocked(FileService.readFileWithoutFollowingLinks).mockResolvedValue({
+      ok: false,
+      error: { code: 'NOT_FOUND', path: '/test/missing.mdx' },
+    });
 
     buildApplicationMenu(window);
 

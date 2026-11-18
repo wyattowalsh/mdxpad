@@ -16,12 +16,12 @@ import {
   shell,
 } from 'electron';
 import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
 
 import { IPC_EVENTS } from '@shared/lib/ipc';
 import { RecentFilesService, type RecentFileEntry } from './services/recent-files';
 import { readFileWithoutFollowingLinks, createFileHandle } from './services/file-service';
 import { grantWriteCapability } from './ipc/document-capability';
+import { openableDocumentPath } from './ipc/open-document-path';
 import type { FileHandle as SchemaFileHandle } from '@shared/contracts/file-schemas';
 
 /** Singleton instance of RecentFilesService */
@@ -63,79 +63,61 @@ function safeOpenExternal(url: string): void {
   void shell.openExternal(url);
 }
 
-/**
- * Checks if a file exists at the given path.
- * @param filePath - The absolute path to check
- * @returns true if file exists, false otherwise
- */
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Opens a file from a recent file entry.
- * Handles missing files by showing an error dialog and removing from recent list.
- *
- * @param entry - The recent file entry to open
- * @param window - The BrowserWindow to send the file to
- */
-async function openRecentFile(entry: RecentFileEntry, window: BrowserWindow): Promise<void> {
-  const exists = await fileExists(entry.path);
-
-  if (!exists) {
-    // File no longer exists - show error and remove from recent
+async function showRecentOpenError(
+  window: BrowserWindow,
+  filePath: string,
+  code: string
+): Promise<void> {
+  if (code === 'NOT_FOUND') {
     await dialog.showMessageBox(window, {
       type: 'error',
       title: 'File Not Found',
-      message: `The file "${path.basename(entry.path)}" could not be found.`,
-      detail: `Path: ${entry.path}\n\nThe file may have been moved or deleted. It will be removed from the recent files list.`,
+      message: `The file "${path.basename(filePath)}" could not be found.`,
+      detail: `Path: ${filePath}\n\nThe file may have been moved or deleted. It will be removed from the recent files list.`,
       buttons: ['OK'],
     });
-
-    // Remove from recent files list
-    getRecentFilesService().removeRecent(entry.path);
-
-    // Refresh menu to reflect the change
+    getRecentFilesService().removeRecent(filePath);
     refreshApplicationMenu();
     return;
   }
 
-  // Read the file content
-  const readResult = await readFileWithoutFollowingLinks(entry.path);
+  const detail =
+    code === 'PERMISSION_DENIED'
+      ? 'Permission denied when reading the file.'
+      : `An error occurred: ${code}`;
+  await dialog.showMessageBox(window, {
+    type: 'error',
+    title: 'Error Opening File',
+    message: `Could not open "${path.basename(filePath)}"`,
+    detail,
+    buttons: ['OK'],
+  });
+}
 
-  if (!readResult.ok) {
-    // Show error dialog for read failure
-    const errorMessage =
-      readResult.error.code === 'PERMISSION_DENIED'
-        ? 'Permission denied when reading the file.'
-        : `An error occurred: ${readResult.error.code}`;
-
-    await dialog.showMessageBox(window, {
-      type: 'error',
-      title: 'Error Opening File',
-      message: `Could not open "${path.basename(entry.path)}"`,
-      detail: errorMessage,
-      buttons: ['OK'],
-    });
+/**
+ * Opens a file from a recent file entry.
+ * A link opens the real file. A missing file is removed from the recent list.
+ */
+async function openRecentFile(entry: RecentFileEntry, window: BrowserWindow): Promise<void> {
+  const opened = await openableDocumentPath(entry.path);
+  if (!opened.ok) {
+    await showRecentOpenError(window, entry.path, opened.error.code);
     return;
   }
 
-  grantWriteCapability(entry.path);
+  const readResult = await readFileWithoutFollowingLinks(opened.value);
+  if (!readResult.ok) {
+    await showRecentOpenError(window, opened.value, readResult.error.code);
+    return;
+  }
 
-  // Create file handle and update recent files
-  const handle = createFileHandle(entry.path);
-  getRecentFilesService().addRecent(entry.path);
-
-  // Refresh menu to update recent files order
+  if (opened.value !== entry.path) {
+    getRecentFilesService().removeRecent(entry.path);
+  }
+  grantWriteCapability(opened.value);
+  const handle = createFileHandle(opened.value);
+  getRecentFilesService().addRecent(opened.value);
   refreshApplicationMenu();
-
-  // Send file to renderer via IPC
-  // The renderer needs to handle the 'mdxpad:menu:open-file' event
   window.webContents.send('mdxpad:menu:open-file', {
     handle: handle as unknown as SchemaFileHandle,
     content: readResult.value,
