@@ -372,7 +372,8 @@ const cancelAIWriteActionCommand: Command = {
     });
     return { ok: true };
   },
-  enabled: (ctx: CommandContext) => ctx.editor !== null && isFeatureEnabled('ai'),
+  enabled: (ctx: CommandContext) =>
+    (ctx.editor !== null || hasWysiwygWrite()) && isFeatureEnabled('ai'),
 };
 
 // =============================================================================

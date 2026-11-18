@@ -465,6 +465,21 @@ describe('AI write command execution', () => {
     });
   });
 
+  it('cancels an in-progress AI write action from the visual editor', async () => {
+    mockAISessionStoreState.isStreaming = true;
+    registerWysiwygWrite({
+      read: () => null,
+      apply: () => false,
+    });
+    const ctx = createMockContext({ editor: null });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-cancel-write-action');
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockAISessionStoreState.cancelStream).toHaveBeenCalledTimes(1);
+  });
+
   it('should cancel an in-progress AI write action', async () => {
     mockAISessionStoreState.isStreaming = true;
     const ctx = createMockContext({
@@ -499,6 +514,16 @@ describe('Editor command enabled predicate', () => {
     for (const cmd of EDITOR_COMMANDS) {
       expect(cmd.enabled?.(ctx)).toBe(false);
     }
+  });
+
+  it('enables canceling an AI write while the visual editor is open', () => {
+    registerWysiwygWrite({
+      read: () => null,
+      apply: () => false,
+    });
+    const ctx = createMockContext({ editor: null });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-cancel-write-action');
+    expect(cmd?.enabled?.(ctx)).toBe(true);
   });
 
   it('should be enabled when editor is present', () => {
