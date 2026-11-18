@@ -1,4 +1,4 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -44,6 +44,22 @@ describe('visual lists', () => {
     expect(toggleVisualList(view, 'ordered')).toBe(true);
     expect(serializeMdxContent(view.state.doc)).toContain('1. Hello');
     expect(serializeMdxContent(view.state.doc)).not.toContain('- Hello');
+  });
+
+  it('nests the second item when Tab is pressed', () => {
+    const view = open('- one\n- two\n');
+    views.push(view);
+    let from = 0;
+    let to = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'two') {
+        from = pos;
+        to = pos + node.nodeSize;
+      }
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+    expect(visualListKeymap().Tab?.(view.state, view.dispatch)).toBe(true);
+    expect(serializeMdxContent(view.state.doc)).toContain('  - two');
   });
 
   it('starts a new item when Enter is pressed in a list', () => {

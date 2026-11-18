@@ -14,7 +14,7 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { history, redo, undo } from 'prosemirror-history';
-import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-commands';
+import { baseKeymap, toggleMark, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
 import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer';
@@ -36,6 +36,7 @@ import {
 import { registerWysiwygComment, wysiwygCommentAnchor } from '../../lib/editor/wysiwyg-comment';
 import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
+import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
@@ -214,8 +215,7 @@ function useFormatHandlers(viewRef: React.RefObject<EditorView | null>) {
     (level: number) => {
       const view = viewRef.current;
       if (!view) return;
-      setBlockType(mdxSchema.nodes.heading, { level })(view.state, view.dispatch);
-      view.focus();
+      toggleHeading(view, level);
     },
     [viewRef]
   );
@@ -226,6 +226,10 @@ function useFormatHandlers(viewRef: React.RefObject<EditorView | null>) {
       if (!view) return;
       const nodeType = mdxSchema.nodes[nodeName];
       if (!nodeType) return;
+      if (nodeName === 'blockquote') {
+        toggleBlockquote(view);
+        return;
+      }
       wrapIn(nodeType)(view.state, view.dispatch);
       view.focus();
     },

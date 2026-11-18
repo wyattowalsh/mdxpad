@@ -1,7 +1,8 @@
 import { redo, undo } from 'prosemirror-history';
-import { setBlockType, toggleMark } from 'prosemirror-commands';
+import { toggleMark } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
 
+import { toggleHeading } from './wysiwyg-block';
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { insertWysiwygLink } from './wysiwyg-document';
 import { insertMarkdownBlock } from './wysiwyg-insert';
@@ -89,9 +90,7 @@ function goToRequestedLine(view: EditorView): boolean {
 export function applyVisualEdit(view: EditorView, command: VisualEditCommand): boolean {
   const level = headingLevel(command);
   if (level !== null) {
-    setBlockType(mdxSchema.nodes.heading, { level })(view.state, view.dispatch);
-    view.focus();
-    return true;
+    return toggleHeading(view, level);
   }
   switch (command) {
     case 'bold':

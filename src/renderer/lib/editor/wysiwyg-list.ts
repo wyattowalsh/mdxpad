@@ -1,6 +1,6 @@
 import type { Command } from 'prosemirror-state';
 import type { NodeType } from 'prosemirror-model';
-import { liftListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
+import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
 import type { EditorView } from 'prosemirror-view';
 
 import { mdxSchema } from './prosemirror-mdx-schema';
@@ -57,9 +57,11 @@ export function toggleVisualList(view: EditorView, kind: VisualListKind): boolea
   return run(view, wrapInList(type));
 }
 
-/** Enter inside a list item starts the next item. */
+/** Enter starts the next item. Tab nests it, and Shift-Tab lifts it. */
 export function visualListKeymap(): Record<string, Command> {
   return {
     Enter: splitListItem(mdxSchema.nodes.list_item),
+    Tab: sinkListItem(mdxSchema.nodes.list_item),
+    'Shift-Tab': liftListItem(mdxSchema.nodes.list_item),
   };
 }
