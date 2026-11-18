@@ -293,9 +293,21 @@ function markdownAlt(alt: string): string {
   return alt.replace(/[\\[\]]/g, (char) => `\\${char}`);
 }
 
+function localHref(href: string): string {
+  if (/^(?:https?:|data:|mailto:)/i.test(href) || href.startsWith('//')) {
+    return href;
+  }
+  try {
+    return decodeURI(href);
+  } catch {
+    return href;
+  }
+}
+
 function markdownDestination(href: string): string {
-  const needsAngles = /[()\s]/.test(href) && !href.includes('<') && !href.includes('>');
-  return needsAngles ? `<${href}>` : href;
+  const value = localHref(href);
+  const needsAngles = /[()\s]/.test(value) && !value.includes('<') && !value.includes('>');
+  return needsAngles ? `<${value}>` : value;
 }
 
 function markdownTitle(title: string): string {

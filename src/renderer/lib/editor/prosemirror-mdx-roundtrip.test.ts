@@ -56,6 +56,12 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('![diagram](./a.png "title")\n')).toContain('![diagram](./a.png "title")');
   });
 
+  it('keeps a space in an image path', () => {
+    const serialized = roundTrip('![Alt](<my photo.png> "Sunset")\n');
+    expect(serialized).toContain('![Alt](<my photo.png> "Sunset")');
+    expect(serialized).not.toContain('%20');
+  });
+
   it('keeps a task checkbox', () => {
     const serialized = roundTrip('- [ ] todo\n');
     expect(serialized).toContain('[ ] todo');
