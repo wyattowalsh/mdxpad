@@ -59,6 +59,47 @@ describe('visual markdown shortcuts', () => {
     expect(view.state.doc.firstChild?.attrs.level).toBe(1);
   });
 
+  it('turns single asterisks into italic text', () => {
+    const view = open();
+    views.push(view);
+    type(view, '*Hello*');
+    expect(view.state.doc.textContent).toBe('Hello');
+    expect(serializeMdxContent(view.state.doc)).toContain('*Hello*');
+  });
+
+  it('turns a quote marker into a blockquote', () => {
+    const view = open();
+    views.push(view);
+    type(view, '> ');
+    expect(view.state.doc.firstChild?.type.name).toBe('blockquote');
+  });
+
+  it('turns underscores into italic text', () => {
+    const view = open();
+    views.push(view);
+    type(view, '_Hello_');
+    expect(view.state.doc.textContent).toBe('Hello');
+    const marks = view.state.doc.firstChild?.firstChild?.marks.map((mark) => mark.type.name) ?? [];
+    expect(marks).toContain('italic');
+  });
+
+  it('turns a markdown link into a link', () => {
+    const view = open();
+    views.push(view);
+    type(view, '[hi](https://ex.test)');
+    expect(view.state.doc.textContent).toBe('hi');
+    const mark = view.state.doc.firstChild?.firstChild?.marks.find((item) => item.type.name === 'link');
+    expect(mark?.attrs.href).toBe('https://ex.test');
+  });
+
+  it('turns a markdown image into an image', () => {
+    const view = open();
+    views.push(view);
+    type(view, '![cat](https://ex.test/cat.png)');
+    expect(view.state.doc.firstChild?.firstChild?.type.name).toBe('image');
+    expect(view.state.doc.firstChild?.firstChild?.attrs.src).toBe('https://ex.test/cat.png');
+  });
+
   it('turns a dash and a space into a bullet list', () => {
     const view = open();
     views.push(view);

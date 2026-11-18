@@ -24,6 +24,38 @@ function markRule(pattern: RegExp, mark: MarkType): InputRule {
   );
 }
 
+function linkRule(): InputRule {
+  return new InputRule(
+    /(?<!!)\[([^\]]+)\]\(([^)\s]+)\)$/,
+    (state, match, start, end) => {
+      const label = match[1];
+      const href = match[2];
+      const mark = href ? state.schema.marks.link?.create({ href }) : null;
+      if (!label || !mark) {
+        return null;
+      }
+      const tr = state.tr.replaceWith(start, end, state.schema.text(label, [mark]));
+      return tr.removeStoredMark(mark.type);
+    },
+    { inCodeMark: false }
+  );
+}
+
+function imageRule(): InputRule {
+  return new InputRule(
+    /!\[([^\]]*)\]\(([^)\s]+)\)$/,
+    (state, match, start, end) => {
+      const src = match[2];
+      const image = src ? state.schema.nodes.image?.create({ src, alt: match[1] ?? '' }) : null;
+      if (!image) {
+        return null;
+      }
+      return state.tr.replaceWith(start, end, image);
+    },
+    { inCodeMark: false }
+  );
+}
+
 function horizontalRule(state: EditorState, _match: RegExpMatchArray, start: number, end: number): Transaction | null {
   const $start = state.doc.resolve(start);
   const rule = state.schema.nodes.horizontal_rule?.create();
@@ -42,6 +74,9 @@ function markdownShortcutRules(): InputRule[] {
     markRule(/~~([^~]+)~~$/, mdxSchema.marks.strikethrough),
     markRule(/`([^`]+)`$/, mdxSchema.marks.code),
     markRule(/(?<!\*)\*([^*]+)\*$/, mdxSchema.marks.italic),
+    markRule(/(?<![\w_])_([^_]+)_$/, mdxSchema.marks.italic),
+    linkRule(),
+    imageRule(),
     heading,
     wrappingInputRule(/^\s*>\s$/, mdxSchema.nodes.blockquote),
     wrappingInputRule(/^\s*[-+*]\s$/, mdxSchema.nodes.bullet_list),
