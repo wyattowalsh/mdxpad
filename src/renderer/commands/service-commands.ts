@@ -407,7 +407,7 @@ async function saveBeforeGitCommit(
     return { ok: false, error: message };
   }
   const openFile = useDocumentStore.getState();
-  if (openFile.filePath === filePath) {
+  if (openFile.filePath === filePath && openFile.content === buffer.content) {
     useDocumentStore.getState().markSaved({
       fileId: openFile.fileId ?? (handle.id as unknown as DocumentId),
       filePath,
@@ -415,6 +415,22 @@ async function saveBeforeGitCommit(
     });
   }
   return null;
+}
+
+function notifyForCommittedFile(
+  ctx: CommandContext,
+  filePath: string,
+  notification: { type: 'success' | 'error'; message: string }
+): void {
+  const openPath = useDocumentStore.getState().filePath;
+  if (openPath !== null && openPath !== filePath) {
+    ctx.notify({
+      type: 'info',
+      message: 'The open file changed before that folder finished.',
+    });
+    return;
+  }
+  ctx.notify(notification);
 }
 
 async function saveOpenFilesBeforeCommit(
@@ -455,15 +471,18 @@ const gitCommitCommand: Command = {
     const fileName = filePath.slice(filePath.lastIndexOf('/') + 1);
     const added = await ctx.api.git.add(dir, [fileName]);
     if (!added.ok) {
-      ctx.notify({ type: 'error', message: added.error.message });
+      notifyForCommittedFile(ctx, filePath, { type: 'error', message: added.error.message });
       return { ok: false, error: added.error.message };
     }
     const result = await ctx.api.git.commit(dir, message.trim(), [fileName]);
     if (!result.ok) {
-      ctx.notify({ type: 'error', message: result.error.message });
+      notifyForCommittedFile(ctx, filePath, { type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    ctx.notify({ type: 'success', message: `Committed ${result.value.hash.slice(0, 7)}` });
+    notifyForCommittedFile(ctx, filePath, {
+      type: 'success',
+      message: `Committed ${result.value.hash.slice(0, 7)}`,
+    });
     return { ok: true };
   },
 };
