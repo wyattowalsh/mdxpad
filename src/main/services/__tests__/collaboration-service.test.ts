@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -66,5 +66,69 @@ describe('CollaborationService', () => {
     expect(apply.outdated).toBe(true);
     expect(apply.applied).toBe(false);
     expect(apply.suggestion.state).toBe('outdated');
+  });
+
+  it('keeps a new document free of another document comments', async () => {
+    const service = new CollaborationService(tempDir);
+    await service.addComment({
+      documentId: 'doc-a',
+      anchor: {
+        blockId: 'heading-1',
+        startOffset: 0,
+        endOffset: 5,
+        headingPath: ['Title'],
+      },
+      author: 'alice',
+      message: 'Only on A',
+    });
+
+    const other = await service.list('doc-b');
+    expect(other.threads).toEqual([]);
+    expect(other.suggestions).toEqual([]);
+  });
+
+  it('does not load comments through a link', async () => {
+    const outside = path.join(tempDir, 'outside.json');
+    const documentPath = path.join(tempDir, 'doc-link.json');
+    await writeFile(
+      outside,
+      JSON.stringify({
+        threads: [
+          {
+            id: 'secret-thread',
+            documentId: 'doc-link',
+            anchor: { blockId: 'x', startOffset: 0, endOffset: 1, headingPath: [] },
+            state: 'open',
+            messages: [{ id: 'm', author: 'eve', message: 'hidden', createdAt: 1 }],
+            updatedAt: 1,
+          },
+        ],
+        suggestions: [],
+      }),
+      'utf-8'
+    );
+    await symlink(outside, documentPath);
+    const service = new CollaborationService(tempDir);
+
+    const listed = await service.list('doc-link');
+    expect(listed.threads).toEqual([]);
+
+    await service.addComment({
+      documentId: 'doc-link',
+      anchor: {
+        blockId: 'heading-1',
+        startOffset: 0,
+        endOffset: 5,
+        headingPath: ['Title'],
+      },
+      author: 'alice',
+      message: 'Local note',
+    });
+
+    expect(await readFile(outside, 'utf-8')).toContain('hidden');
+    expect((await lstat(documentPath)).isSymbolicLink()).toBe(false);
+    const saved = await service.list('doc-link');
+    expect(saved.threads).toHaveLength(1);
+    expect(saved.threads[0]?.messages[0]?.message).toBe('Local note');
   });
 });

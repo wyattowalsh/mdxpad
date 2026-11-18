@@ -23,10 +23,9 @@ interface CollaborationDocumentState {
   suggestions: CollaborationSuggestion[];
 }
 
-const EMPTY_STATE: CollaborationDocumentState = {
-  threads: [],
-  suggestions: [],
-};
+function freshDocumentState(): CollaborationDocumentState {
+  return { threads: [], suggestions: [] };
+}
 
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'collaboration');
@@ -36,13 +35,21 @@ async function ensureDirectory(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+async function readDocumentFile(filePath: string): Promise<CollaborationDocumentState> {
   try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink() || !info.isFile()) {
+      return freshDocumentState();
+    }
     const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as T;
+    const parsed = JSON.parse(content) as Partial<CollaborationDocumentState>;
+    return {
+      threads: parsed.threads ?? [],
+      suggestions: parsed.suggestions ?? [],
+    };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return fallback;
+      return freshDocumentState();
     }
     throw error;
   }
@@ -61,7 +68,7 @@ export class CollaborationService {
 
   private async readDocumentState(documentId: string): Promise<CollaborationDocumentState> {
     await ensureDirectory(this.baseDir);
-    return readJsonFile(this.getDocumentPath(documentId), EMPTY_STATE);
+    return readDocumentFile(this.getDocumentPath(documentId));
   }
 
   private async writeDocumentState(
