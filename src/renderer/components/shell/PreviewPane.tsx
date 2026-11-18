@@ -11,6 +11,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { PreviewPane as BasePreviewPane } from '../preview/PreviewPane';
 import { useDocumentStore, selectContent, selectFilePath } from '@renderer/stores/document-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import { usePreviewStore } from '@renderer/stores/preview-store';
 import type { CompilationError } from './StatusBar/types';
 import type { ScrollReportSignal } from '@shared/types/preview-iframe';
@@ -74,34 +75,34 @@ export interface ShellPreviewPaneProps {
  * />
  * ```
  */
+function previewSourceKey(filePath: string | null, content: string): string {
+  return `${filePath ?? ''}:${content}`;
+}
+
 function usePreviewDocumentSource(content: string): string {
   const filePath = useDocumentStore(selectFilePath);
-  const [previewSource, setPreviewSource] = useState(content);
+  const [inlined, setInlined] = useState<{ key: string; content: string } | null>(null);
 
   useEffect(() => {
-    const inline = window.mdxpad.inlinePreviewImages;
+    const inline = 'mdxpad' in window ? window.mdxpad.inlinePreviewImages : undefined;
     if (!filePath || inline === undefined) {
-      setPreviewSource(content);
       return;
     }
+    const key = previewSourceKey(filePath, content);
     let cancelled = false;
     void inline(content, filePath)
       .then((next) => {
         if (!cancelled) {
-          setPreviewSource(next);
+          setInlined({ key, content: next });
         }
       })
-      .catch(() => {
-        if (!cancelled) {
-          setPreviewSource(content);
-        }
-      });
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, [content, filePath]);
 
-  return previewSource;
+  return inlined?.key === previewSourceKey(filePath, content) ? inlined.content : content;
 }
 
 function ShellPreviewPaneComponent({
@@ -114,6 +115,9 @@ function ShellPreviewPaneComponent({
 }: ShellPreviewPaneProps): React.JSX.Element {
   // Get content from document store
   const content = useDocumentStore(selectContent);
+  const filePath = useDocumentStore(selectFilePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const documentKey = filePath ?? `untitled:${activeTabId ?? 'new'}`;
   const previewSource = usePreviewDocumentSource(content);
 
   // Track compilation timeout state
@@ -207,6 +211,7 @@ function ShellPreviewPaneComponent({
     'source' | 'onErrorClick'
   > & { source: string; onErrorClick: (line: number, column?: number) => void } = {
     source: previewSource,
+    documentKey,
     theme: theme ?? 'light',
     onErrorClick: handleErrorClick,
     scrollRatio,

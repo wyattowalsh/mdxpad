@@ -7,11 +7,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { castDraft } from 'immer';
-import type {
-  PreviewState,
-  CompileSuccess,
-  CompileError,
-} from '@shared/types/preview';
+import type { PreviewState, CompileSuccess, CompileError } from '@shared/types/preview';
 import type { OutlineAST } from '@shared/types/outline';
 
 /**
@@ -24,6 +20,8 @@ export interface PreviewStoreState {
   readonly lastSuccessfulRender: CompileSuccess | null;
   /** Timestamp of last successful render (for staleness detection) */
   readonly lastSuccessfulRenderAt: number | null;
+  /** Document that produced the last successful render. */
+  readonly lastSuccessfulDocumentKey: string | null;
   /** Current scroll ratio (0-1) */
   readonly scrollRatio: number;
 }
@@ -35,7 +33,7 @@ export interface PreviewStoreActions {
   /** Transition to compiling state */
   startCompiling: () => void;
   /** Transition to success state */
-  setSuccess: (result: CompileSuccess) => void;
+  setSuccess: (result: CompileSuccess, documentKey?: string) => void;
   /** Transition to error state */
   setError: (errors: readonly CompileError[]) => void;
   /** Reset to idle state */
@@ -56,6 +54,7 @@ const initialState: PreviewStoreState = {
   state: { status: 'idle' },
   lastSuccessfulRender: null,
   lastSuccessfulRenderAt: null,
+  lastSuccessfulDocumentKey: null,
   scrollRatio: 0,
 };
 
@@ -86,12 +85,13 @@ export const usePreviewStore = create<PreviewStore>()(
         draft.state = { status: 'compiling' };
       }),
 
-    setSuccess: (result) =>
+    setSuccess: (result, documentKey) =>
       set((draft) => {
         // Use castDraft for readonly OutlineAST compatibility with Immer
         draft.state = { status: 'success', result: castDraft(result) };
         draft.lastSuccessfulRender = castDraft(result);
         draft.lastSuccessfulRenderAt = Date.now();
+        draft.lastSuccessfulDocumentKey = documentKey ?? null;
       }),
 
     setError: (errors) =>
@@ -106,6 +106,7 @@ export const usePreviewStore = create<PreviewStore>()(
         draft.state = { status: 'idle' };
         draft.lastSuccessfulRender = null;
         draft.lastSuccessfulRenderAt = null;
+        draft.lastSuccessfulDocumentKey = null;
         draft.scrollRatio = 0;
       }),
 
@@ -127,8 +128,7 @@ export const usePreviewStore = create<PreviewStore>()(
  * @param state - Preview store state
  * @returns Current status: 'idle' | 'compiling' | 'success' | 'error'
  */
-export const selectStatus = (state: PreviewStore): PreviewState['status'] =>
-  state.state.status;
+export const selectStatus = (state: PreviewStore): PreviewState['status'] => state.state.status;
 
 /**
  * Selector for checking if currently compiling.
@@ -145,8 +145,7 @@ export const selectIsCompiling = (state: PreviewStore): boolean =>
  * @param state - Preview store state
  * @returns True if status is 'error'
  */
-export const selectIsError = (state: PreviewStore): boolean =>
-  state.state.status === 'error';
+export const selectIsError = (state: PreviewStore): boolean => state.state.status === 'error';
 
 /**
  * Selector for checking if in success state.
@@ -154,8 +153,7 @@ export const selectIsError = (state: PreviewStore): boolean =>
  * @param state - Preview store state
  * @returns True if status is 'success'
  */
-export const selectIsSuccess = (state: PreviewStore): boolean =>
-  state.state.status === 'success';
+export const selectIsSuccess = (state: PreviewStore): boolean => state.state.status === 'success';
 
 /**
  * Selector for current errors (empty array if not in error state).
@@ -172,9 +170,7 @@ export const selectErrors = (state: PreviewStore): readonly CompileError[] =>
  * @param state - Preview store state
  * @returns Current success result if in success state, otherwise null
  */
-export const selectSuccessResult = (
-  state: PreviewStore
-): CompileSuccess | null =>
+export const selectSuccessResult = (state: PreviewStore): CompileSuccess | null =>
   state.state.status === 'success' ? state.state.result : null;
 
 /**
@@ -184,9 +180,7 @@ export const selectSuccessResult = (
  * @param state - Preview store state
  * @returns Current success result if available, otherwise last successful render (for error recovery)
  */
-export const selectRenderableContent = (
-  state: PreviewStore
-): CompileSuccess | null => {
+export const selectRenderableContent = (state: PreviewStore): CompileSuccess | null => {
   if (state.state.status === 'success') {
     return state.state.result;
   }
@@ -199,9 +193,8 @@ export const selectRenderableContent = (
  * @param state - Preview store state
  * @returns Last successful compile result, or null if none exists
  */
-export const selectLastSuccessfulRender = (
-  state: PreviewStore
-): CompileSuccess | null => state.lastSuccessfulRender;
+export const selectLastSuccessfulRender = (state: PreviewStore): CompileSuccess | null =>
+  state.lastSuccessfulRender;
 
 /**
  * Selector for scroll ratio.
@@ -209,8 +202,7 @@ export const selectLastSuccessfulRender = (
  * @param state - Preview store state
  * @returns Current scroll ratio between 0 and 1
  */
-export const selectScrollRatio = (state: PreviewStore): number =>
-  state.scrollRatio;
+export const selectScrollRatio = (state: PreviewStore): number => state.scrollRatio;
 
 /**
  * Selector for outline AST from current successful compile result.
@@ -219,9 +211,7 @@ export const selectScrollRatio = (state: PreviewStore): number =>
  * @param state - Preview store state
  * @returns OutlineAST if available, otherwise null
  */
-export const selectOutlineAST = (
-  state: PreviewStore
-): OutlineAST | null => {
+export const selectOutlineAST = (state: PreviewStore): OutlineAST | null => {
   if (state.state.status !== 'success') {
     return null;
   }
@@ -234,9 +224,8 @@ export const selectOutlineAST = (
  * @param state - Preview store state
  * @returns Timestamp of last successful render, or null if none exists
  */
-export const selectLastSuccessfulRenderAt = (
-  state: PreviewStore
-): number | null => state.lastSuccessfulRenderAt;
+export const selectLastSuccessfulRenderAt = (state: PreviewStore): number | null =>
+  state.lastSuccessfulRenderAt;
 
 /**
  * Selector for staleness indicator.
@@ -259,5 +248,4 @@ export const selectIsStale = (state: PreviewStore): boolean => {
  * @returns True if preview is stale (older than 30 seconds)
  */
 export const selectIsPreviewStale = (state: PreviewStore): boolean =>
-  state.lastSuccessfulRenderAt !== null &&
-  Date.now() - state.lastSuccessfulRenderAt > 30000;
+  state.lastSuccessfulRenderAt !== null && Date.now() - state.lastSuccessfulRenderAt > 30000;

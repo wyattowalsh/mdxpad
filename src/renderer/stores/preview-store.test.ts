@@ -26,6 +26,7 @@ const INITIAL_STATE = {
   state: { status: 'idle' as const },
   lastSuccessfulRender: null,
   lastSuccessfulRenderAt: null,
+  lastSuccessfulDocumentKey: null,
   scrollRatio: 0,
 };
 
@@ -138,10 +139,7 @@ describe('usePreviewStore', () => {
     });
 
     it('should handle multiple errors', () => {
-      const errors = [
-        createMockError(),
-        { message: 'Another error', line: 10, column: 5 },
-      ];
+      const errors = [createMockError(), { message: 'Another error', line: 10, column: 5 }];
       usePreviewStore.getState().setError(errors);
 
       const state = usePreviewStore.getState();

@@ -58,6 +58,7 @@ import { LoadingIndicator } from './LoadingIndicator';
 import { PreviewFrame } from './PreviewFrame';
 import { PreviewErrorBoundary } from './PreviewErrorBoundary';
 import type { CategorizedError } from '@shared/types/errors';
+import type { CompileSuccess, PreviewState } from '@shared/types/preview';
 import type { ScrollReportSignal } from '@shared/types/preview-iframe';
 
 // ============================================================================
@@ -107,6 +108,11 @@ export interface PreviewPaneProps {
    * @example '# Hello World\n\n<Callout>Note</Callout>'
    */
   readonly source: string;
+
+  /**
+   * Open document identity. A preview from another document is not shown.
+   */
+  readonly documentKey?: string | undefined;
 
   /**
    * Editor scroll position as a ratio (0-1) for synchronization.
@@ -296,15 +302,37 @@ const SuccessIndicator = memo(function SuccessIndicator({
  * - useCallback for stable callback references
  * - Memoized sub-components (PerformanceWarning, StaticSecurityWarning, etc.)
  */
+function previewForDocument(
+  state: PreviewState,
+  lastSuccessfulRender: CompileSuccess | null,
+  lastSuccessfulDocumentKey: string | null | undefined,
+  documentKey: string | undefined
+): CompileSuccess | null {
+  const sameDocument = documentKey === undefined || lastSuccessfulDocumentKey === documentKey;
+  if (!sameDocument) {
+    return null;
+  }
+  return state.status === 'success' ? state.result : lastSuccessfulRender;
+}
+
 export const PreviewPane = memo(function PreviewPane({
   source,
+  documentKey,
   scrollRatio,
   theme,
   onErrorClick,
   onScrollReport,
   className = '',
 }: PreviewPaneProps): React.ReactNode {
-  const { state, lastSuccessfulRender } = usePreview(source);
+  const { state, lastSuccessfulRender, lastSuccessfulDocumentKey } = usePreview(source, {
+    ...(documentKey !== undefined ? { documentKey } : {}),
+  });
+  const renderableContent = previewForDocument(
+    state,
+    lastSuccessfulRender,
+    lastSuccessfulDocumentKey,
+    documentKey
+  );
   const { reportError } = useErrorReporting({ logToConsole: true });
   const [isWarningDismissed, setIsWarningDismissed] = useState(false);
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
@@ -363,20 +391,15 @@ export const PreviewPane = memo(function PreviewPane({
   }, [state.status]);
 
   // Handle skip link click
-  const handleSkipToContent = useCallback(
-    (event: React.MouseEvent<HTMLAnchorElement>): void => {
-      event.preventDefault();
-      previewContentRef.current?.focus();
-    },
-    []
-  );
+  const handleSkipToContent = useCallback((event: React.MouseEvent<HTMLAnchorElement>): void => {
+    event.preventDefault();
+    previewContentRef.current?.focus();
+  }, []);
 
   const showWarning = source.length > PERFORMANCE_THRESHOLD && !isWarningDismissed;
   const isCompiling = state.status === 'compiling';
   const isError = state.status === 'error';
   const errors = isError && !isErrorDismissed ? state.errors : [];
-  const renderableContent =
-    state.status === 'success' ? state.result : lastSuccessfulRender;
   const isEmptySource = source.trim() === '';
   const showEmptyState = isEmptySource && !renderableContent && !isCompiling;
 
@@ -390,17 +413,9 @@ export const PreviewPane = memo(function PreviewPane({
         : '';
 
   return (
-    <div
-      className={`preview-pane ${className}`.trim()}
-      role="region"
-      aria-label="MDX Preview"
-    >
+    <div className={`preview-pane ${className}`.trim()} role="region" aria-label="MDX Preview">
       {/* Skip link for keyboard users */}
-      <a
-        href="#preview-content"
-        className="preview-skip-link"
-        onClick={handleSkipToContent}
-      >
+      <a href="#preview-content" className="preview-skip-link" onClick={handleSkipToContent}>
         Skip to preview content
       </a>
 
@@ -411,19 +426,11 @@ export const PreviewPane = memo(function PreviewPane({
 
       {/* Performance warning */}
       {showWarning && (
-        <PerformanceWarning
-          sourceLength={source.length}
-          onDismiss={handleWarningDismiss}
-        />
+        <PerformanceWarning sourceLength={source.length} onDismiss={handleWarningDismiss} />
       )}
 
       {/* Status announcements for screen readers */}
-      <div
-        className="visually-hidden"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
+      <div className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
         {statusMessage}
       </div>
 

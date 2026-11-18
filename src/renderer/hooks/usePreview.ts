@@ -24,21 +24,23 @@ export interface UsePreviewOptions {
   debounceMs?: number | undefined;
   /** Whether to enable compilation. When false, compilation is paused. Defaults to true. */
   enabled?: boolean | undefined;
+  /** Identifies the open document so a preview is not reused for another file. */
+  documentKey?: string | undefined;
 }
 
 /** Result returned by the usePreview hook. */
 export interface UsePreviewResult {
   state: PreviewState;
   lastSuccessfulRender: CompileSuccess | null;
+  lastSuccessfulDocumentKey: string | null;
   scrollRatio: number;
   setScrollRatio: (ratio: number) => void;
 }
 
 /** Convert worker response to CompileSuccess type. */
 function toCompileSuccess(response: CompileResponseSuccess): CompileSuccess {
-  const outline = (
-    response as CompileResponseSuccess & { outline?: CompileSuccess['outline'] }
-  ).outline;
+  const outline = (response as CompileResponseSuccess & { outline?: CompileSuccess['outline'] })
+    .outline;
   return {
     ok: true,
     code: response.code,
@@ -53,10 +55,14 @@ function triggerCompilation(
   getCompiler: () => MDXCompiler,
   currentRequestIdRef: React.RefObject<RequestId | null>,
   startCompiling: () => void,
-  setSuccess: (r: CompileSuccess) => void,
-  setError: (e: readonly import('@shared/types/preview').CompileError[]) => void
+  setSuccess: (r: CompileSuccess, documentKey?: string) => void,
+  setError: (e: readonly import('@shared/types/preview').CompileError[]) => void,
+  documentKey?: string
 ): void {
-  if (source === '') { setSuccess({ ok: true, code: '', frontmatter: {}, outline: null }); return; }
+  if (source === '') {
+    setSuccess({ ok: true, code: '', frontmatter: {}, outline: null }, documentKey);
+    return;
+  }
 
   startCompiling();
   const compiler = getCompiler();
@@ -68,7 +74,7 @@ function triggerCompilation(
     onSuccess: (response) => {
       if (currentRequestIdRef.current === requestId) {
         (currentRequestIdRef as { current: RequestId | null }).current = null;
-        setSuccess(toCompileSuccess(response));
+        setSuccess(toCompileSuccess(response), documentKey);
       }
     },
     onError: (errors) => {
@@ -90,8 +96,10 @@ export function usePreview(source: string, options?: UsePreviewOptions): UsePrev
   const debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const enabled = options?.enabled ?? true;
 
+  const documentKey = options?.documentKey;
   const state = usePreviewStore((s) => s.state);
   const lastSuccessfulRender = usePreviewStore((s) => s.lastSuccessfulRender);
+  const lastSuccessfulDocumentKey = usePreviewStore((s) => s.lastSuccessfulDocumentKey);
   const scrollRatio = usePreviewStore((s) => s.scrollRatio);
   const setScrollRatio = usePreviewStore((s) => s.setScrollRatio);
   const startCompiling = usePreviewStore((s) => s.startCompiling);
@@ -113,24 +121,39 @@ export function usePreview(source: string, options?: UsePreviewOptions): UsePrev
       return;
     }
 
-    if (debounceTimeoutRef.current !== null) { clearTimeout(debounceTimeoutRef.current); debounceTimeoutRef.current = null; }
+    if (debounceTimeoutRef.current !== null) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
     if (currentRequestIdRef.current !== null && compilerRef.current !== null) {
       compilerRef.current.cancel(currentRequestIdRef.current);
       currentRequestIdRef.current = null;
     }
     debounceTimeoutRef.current = setTimeout(() => {
       debounceTimeoutRef.current = null;
-      triggerCompilation(source, getCompiler, currentRequestIdRef, startCompiling, setSuccess, setError);
+      triggerCompilation(
+        source,
+        getCompiler,
+        currentRequestIdRef,
+        startCompiling,
+        setSuccess,
+        setError,
+        documentKey
+      );
     }, debounceMs);
-  }, [source, debounceMs, enabled, getCompiler, startCompiling, setSuccess, setError]);
+  }, [source, debounceMs, enabled, documentKey, getCompiler, startCompiling, setSuccess, setError]);
 
-  useEffect(() => () => {
-    if (debounceTimeoutRef.current !== null) clearTimeout(debounceTimeoutRef.current);
-    if (currentRequestIdRef.current !== null && compilerRef.current !== null) compilerRef.current.cancel(currentRequestIdRef.current);
-    if (compilerRef.current !== null) compilerRef.current.terminate();
-  }, []);
+  useEffect(
+    () => () => {
+      if (debounceTimeoutRef.current !== null) clearTimeout(debounceTimeoutRef.current);
+      if (currentRequestIdRef.current !== null && compilerRef.current !== null)
+        compilerRef.current.cancel(currentRequestIdRef.current);
+      if (compilerRef.current !== null) compilerRef.current.terminate();
+    },
+    []
+  );
 
-  return { state, lastSuccessfulRender, scrollRatio, setScrollRatio };
+  return { state, lastSuccessfulRender, lastSuccessfulDocumentKey, scrollRatio, setScrollRatio };
 }
 
 /**

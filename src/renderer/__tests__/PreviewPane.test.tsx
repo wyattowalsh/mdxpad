@@ -210,18 +210,17 @@ describe('PreviewPane', () => {
       outline: undefined,
     };
 
-    const errors: CompileError[] = [
-      { message: 'Current compilation failed', line: 1 },
-    ];
+    const errors: CompileError[] = [{ message: 'Current compilation failed', line: 1 }];
 
     mockedUsePreview.mockReturnValue({
       state: { status: 'error', errors },
       lastSuccessfulRender,
+      lastSuccessfulDocumentKey: '/notes/a.md',
       scrollRatio: 0,
       setScrollRatio: vi.fn(),
     });
 
-    render(<PreviewPane source="broken mdx" />);
+    render(<PreviewPane source="broken mdx" documentKey="/notes/a.md" />);
 
     // Both error display and preview frame should be shown
     const errorDisplay = screen.getByTestId('error-display');
@@ -230,9 +229,34 @@ describe('PreviewPane', () => {
     const previewFrame = screen.getByTestId('preview-frame');
     expect(previewFrame).toBeDefined();
     expect(previewFrame.dataset.code).toBe(lastSuccessfulRender.code);
-    expect(previewFrame.dataset.frontmatter).toBe(
-      JSON.stringify(lastSuccessfulRender.frontmatter)
-    );
+    expect(previewFrame.dataset.frontmatter).toBe(JSON.stringify(lastSuccessfulRender.frontmatter));
+  });
+
+  it('hides a preview that belongs to another document', () => {
+    mockedUsePreview.mockReturnValue({
+      state: {
+        status: 'success',
+        result: {
+          ok: true,
+          code: 'function MDXContent() { return "Other"; }',
+          frontmatter: {},
+          outline: null,
+        },
+      },
+      lastSuccessfulRender: {
+        ok: true,
+        code: 'function MDXContent() { return "Other"; }',
+        frontmatter: {},
+        outline: null,
+      },
+      lastSuccessfulDocumentKey: '/notes/a.md',
+      scrollRatio: 0,
+      setScrollRatio: vi.fn(),
+    });
+
+    render(<PreviewPane source="# B" documentKey="/notes/b.md" />);
+
+    expect(screen.queryByTestId('preview-frame')).toBeNull();
   });
 
   // ============================================================================
@@ -240,9 +264,7 @@ describe('PreviewPane', () => {
   // ============================================================================
   it('onErrorClick callback is passed to ErrorDisplay', () => {
     const onErrorClick = vi.fn();
-    const errors: CompileError[] = [
-      { message: 'Error at line 5', line: 5, column: 10 },
-    ];
+    const errors: CompileError[] = [{ message: 'Error at line 5', line: 5, column: 10 }];
 
     mockedUsePreview.mockReturnValue({
       state: { status: 'error', errors },
@@ -313,9 +335,7 @@ describe('PreviewPane', () => {
   // Test 11: className prop is applied
   // ============================================================================
   it('className prop is applied', () => {
-    const { container } = render(
-      <PreviewPane source="" className="custom-class another-class" />
-    );
+    const { container } = render(<PreviewPane source="" className="custom-class another-class" />);
 
     const previewPane = container.querySelector('.preview-pane');
     expect(previewPane).not.toBeNull();
