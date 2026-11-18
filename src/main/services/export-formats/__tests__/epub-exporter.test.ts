@@ -52,8 +52,35 @@ describe('EpubExporter', () => {
     const contentArg = createFn.mock.calls[0]?.[1] as { title: string; content: string }[];
     expect(optionsArg.title).toBe('Test Book');
     expect(optionsArg.author).toBe('Test Author');
-    // Should have at least the two chapters
     expect(contentArg.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('passes a language and an https cover, and drops an unsafe cover', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: 'Hello',
+      title: 'Guide',
+      outputPath: '/tmp/lang.epub',
+      metadata: {
+        language: 'en-GB',
+        coverUrl: 'file:///etc/passwd',
+      },
+    });
+
+    const createFn = epubGen.default as ReturnType<typeof vi.fn>;
+    const optionsArg = createFn.mock.calls[0]?.[0] as { lang?: string; cover?: string };
+    expect(optionsArg.lang).toBe('en-GB');
+    expect(optionsArg.cover).toBeUndefined();
+
+    await exporter.export({
+      content: 'Hello',
+      title: 'Guide',
+      outputPath: '/tmp/cover.epub',
+      metadata: { coverUrl: 'https://example.com/cover.jpg' },
+    });
+    const coverArg = createFn.mock.calls[1]?.[0] as { cover?: string; lang?: string };
+    expect(coverArg.cover).toBe('https://example.com/cover.jpg');
+    expect(coverArg.lang).toBeUndefined();
   });
 
   it('drops a closing hash run from a chapter title', async () => {

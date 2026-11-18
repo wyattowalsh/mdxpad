@@ -468,6 +468,26 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlFootnoteMarkers(htmlLines.join('\n'))}`;
 }
 
+const EPUB_LANGUAGE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+
+function epubLanguage(metadata: Record<string, unknown> | undefined): string | undefined {
+  const value = metadata?.language;
+  return typeof value === 'string' && EPUB_LANGUAGE.test(value) ? value : undefined;
+}
+
+function epubCover(metadata: Record<string, unknown> | undefined): string | undefined {
+  const value = metadata?.coverUrl;
+  if (typeof value !== 'string' || !value.startsWith('https://')) {
+    return undefined;
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export class EpubExporter implements Exporter {
   readonly format = 'epub';
   readonly label = 'EPUB';
@@ -491,7 +511,17 @@ export class EpubExporter implements Exporter {
       const epubGen = await import('epub-gen-memory');
       const epubCreate = epubGen.default;
 
-      const epubBuffer = await epubCreate({ title, author }, epubContent);
+      const lang = epubLanguage(options.metadata);
+      const cover = epubCover(options.metadata);
+      const epubBuffer = await epubCreate(
+        {
+          title,
+          author,
+          ...(lang ? { lang } : {}),
+          ...(cover ? { cover } : {}),
+        },
+        epubContent
+      );
 
       const buffer = epubBuffer instanceof Buffer ? epubBuffer : Buffer.from(epubBuffer);
       await writeRegularFile(options.outputPath, buffer);

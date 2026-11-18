@@ -4,7 +4,10 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import type { ExportCliInvokeRequest } from '@shared/contracts/export-schemas';
-import { LatexExportOptionsSchema } from '@shared/contracts/export-format-schemas';
+import {
+  EpubExportOptionsSchema,
+  LatexExportOptionsSchema,
+} from '@shared/contracts/export-format-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
 import type { ExportCliEvent, ExportCliOutput } from '@shared/types/export-model';
 import {
@@ -282,6 +285,52 @@ function latexPresetMetadata(options: unknown): Record<string, unknown> | undefi
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
+function epubPresetFields(options: unknown): {
+  title?: string;
+  author?: string;
+  metadata?: Record<string, unknown>;
+} {
+  const parsed = EpubExportOptionsSchema.safeParse(options);
+  if (!parsed.success) {
+    return {};
+  }
+  const metadata: Record<string, unknown> = {};
+  if (parsed.data.language !== undefined) {
+    metadata.language = parsed.data.language;
+  }
+  if (parsed.data.coverUrl !== undefined) {
+    metadata.coverUrl = parsed.data.coverUrl;
+  }
+  return {
+    ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+    ...(parsed.data.author !== undefined ? { author: parsed.data.author } : {}),
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+  };
+}
+
+function presetExportFields(request: ExportCliInvokeRequest): {
+  title: string;
+  author?: string;
+  metadata?: Record<string, unknown>;
+} {
+  if (request.job.format === 'latex') {
+    const metadata = latexPresetMetadata(request.job.preset.options);
+    return {
+      title: request.job.preset.name,
+      ...(metadata ? { metadata } : {}),
+    };
+  }
+  if (request.job.format === 'epub') {
+    const fields = epubPresetFields(request.job.preset.options);
+    return {
+      title: fields.title ?? request.job.preset.name,
+      ...(fields.author ? { author: fields.author } : {}),
+      ...(fields.metadata ? { metadata: fields.metadata } : {}),
+    };
+  }
+  return { title: request.job.preset.name };
+}
+
 async function writeBuiltInExportArtifact(
   request: ExportCliInvokeRequest,
   sourceContent: string
@@ -296,14 +345,14 @@ async function writeBuiltInExportArtifact(
     default: {
       const exporter = getExporter(request.job.format);
       if (exporter) {
-        const metadata =
-          request.job.format === 'latex' ? latexPresetMetadata(request.job.preset.options) : undefined;
+        const fields = presetExportFields(request);
         const result = await exporter.export({
           content: sourceContent,
           outputPath: request.job.targetPath,
-          title: request.job.preset.name,
+          title: fields.title,
           sourcePath: request.job.sourcePath,
-          ...(metadata ? { metadata } : {}),
+          ...(fields.author ? { author: fields.author } : {}),
+          ...(fields.metadata ? { metadata: fields.metadata } : {}),
         });
         if (!result.ok) {
           throw new Error(result.error ?? `Could not export ${request.job.format}`);

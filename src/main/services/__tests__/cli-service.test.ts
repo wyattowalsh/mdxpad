@@ -262,6 +262,61 @@ describe('invokeExportCli', () => {
     }
   });
 
+  it('writes the EPUB language and title from the preset', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-epub-lang-'));
+    try {
+      const sourcePath = path.join(tempDir, 'source.mdx');
+      const targetPath = path.join(tempDir, 'output.epub');
+      await writeFile(sourcePath, '# Chapter\n\nHello', 'utf-8');
+      grantReadCapability(sourcePath);
+
+      const response = await invokeExportCli(
+        createTestRequest({
+          command: 'mdxpad-export',
+          args: [],
+          cwd: tempDir,
+          job: {
+            ...createTestRequest().job,
+            sourcePath,
+            targetPath,
+            format: 'epub',
+            generationMode: 'native',
+            preset: {
+              id: '10000000-0000-4000-8000-000000000013',
+              name: 'EPUB',
+              format: 'epub',
+              options: {
+                title: 'Field Guide',
+                author: 'Ada',
+                language: 'en-GB',
+                coverUrl: 'file:///etc/passwd',
+              },
+            },
+          },
+        })
+      );
+
+      expect(response.ok).toBe(true);
+      const artifact = await readFile(targetPath);
+      const extracted = spawnSync(
+        'python3',
+        [
+          '-c',
+          'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); print("\\n".join(z.read(name).decode("utf-8", "replace") for name in z.namelist() if name.endswith((".opf", ".xhtml", ".html", ".ncx"))))',
+          targetPath,
+        ],
+        { encoding: 'utf8' }
+      );
+      expect(artifact.subarray(0, 2).toString()).toBe('PK');
+      expect(extracted.stdout).toContain('en-GB');
+      expect(extracted.stdout).toContain('Field Guide');
+      expect(extracted.stdout).toContain('Ada');
+      expect(extracted.stdout).not.toContain('passwd');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it('runs built-in LaTeX export through the format writer', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-latex-export-'));
     try {
