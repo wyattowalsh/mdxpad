@@ -3,9 +3,38 @@ import { isTableRow } from './markdown-table';
 
 const DEFINITION = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/;
 const SUPERSCRIPT = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+const REF_MARK = '\uE020';
+const NOTE_MARK = '\uE022';
+const MARK_END = '\uE021';
 
 function superscript(value: number): string {
   return String(value).replace(/\d/g, (digit) => SUPERSCRIPT[Number(digit)] ?? digit);
+}
+
+function footnoteMark(kind: string, number: number): string {
+  return `${kind}${number}${MARK_END}`;
+}
+
+/** Superscripts for Word, LaTeX, and the plain PDF builder. */
+export function plainFootnoteMarkers(value: string): string {
+  return value
+    .replaceAll(new RegExp(`${REF_MARK}(\\d+)${MARK_END}`, 'g'), (_match, num: string) =>
+      superscript(Number(num))
+    )
+    .replaceAll(new RegExp(`${NOTE_MARK}\\d+${MARK_END}`, 'g'), '');
+}
+
+/** Links for HTML, PDF, and EPUB. The note target is the matching span. */
+export function htmlFootnoteMarkers(value: string): string {
+  return value
+    .replaceAll(
+      new RegExp(`${REF_MARK}(\\d+)${MARK_END}`, 'g'),
+      (_match, num: string) => `<sup><a href="#fn-${num}" id="fnref-${num}">${num}</a></sup>`
+    )
+    .replaceAll(
+      new RegExp(`${NOTE_MARK}(\\d+)${MARK_END}`, 'g'),
+      (_match, num: string) => `<span id="fn-${num}"></span>`
+    );
 }
 
 function noteNumber(id: string, order: string[]): number {
@@ -44,7 +73,7 @@ function replaceFootnoteLine(
       const end = line.indexOf(']', index + 2);
       const id = end === -1 ? '' : line.slice(index + 2, end);
       if (id.length > 0 && notes.has(id)) {
-        result += superscript(noteNumber(id, order));
+        result += footnoteMark(REF_MARK, noteNumber(id, order));
         index = end + 1;
         continue;
       }
@@ -130,11 +159,12 @@ function bodyHasBlock(body: string): boolean {
 }
 
 function formatBlockNote(number: number, body: string): string {
+  const mark = footnoteMark(NOTE_MARK, number);
   const [first = '', ...rest] = body.split('\n');
   if (lineStartsBlock(first)) {
-    return `**${number}.**\n\n${body}`;
+    return `${mark}\n**${number}.**\n\n${body}`;
   }
-  return `**${number}.** ${first}\n\n${rest.join('\n')}`;
+  return `${mark}\n**${number}.** ${first}\n\n${rest.join('\n')}`;
 }
 
 function formatNote(number: number, body: string): string {
@@ -142,7 +172,7 @@ function formatNote(number: number, body: string): string {
     return formatBlockNote(number, body);
   }
   const [first, ...rest] = body.split('\n');
-  const head = `${number}. ${first ?? ''}`;
+  const head = `${footnoteMark(NOTE_MARK, number)}\n${number}. ${first ?? ''}`;
   if (rest.length === 0) {
     return head;
   }

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyFootnotes } from './markdown-footnote';
+import { applyFootnotes, htmlFootnoteMarkers, plainFootnoteMarkers } from './markdown-footnote';
 import { expandLinkReferences } from './markdown-reference';
 
 describe('applyFootnotes', () => {
   it('numbers a marker and lists the note', () => {
-    const rendered = applyFootnotes('A footnote[^1].\n\n[^1]: Note\n');
+    const rendered = plainFootnoteMarkers(applyFootnotes('A footnote[^1].\n\n[^1]: Note\n'));
     expect(rendered).toContain('footnote¹.');
+    const linked = htmlFootnoteMarkers(applyFootnotes('A footnote[^1].\n\n[^1]: Note\n'));
+    expect(linked).toContain('<sup><a href="#fn-1" id="fnref-1">1</a></sup>');
+    expect(linked).toContain('<span id="fn-1"></span>');
     expect(rendered).toContain('## Notes');
     expect(rendered).toContain('1. Note');
     expect(rendered).not.toContain('[^1]');
@@ -31,7 +34,7 @@ describe('applyFootnotes', () => {
   });
 
   it('keeps an indented continuation in the note', () => {
-    const rendered = applyFootnotes('See[^1].\n\n[^1]: First\n    second\n');
+    const rendered = plainFootnoteMarkers(applyFootnotes('See[^1].\n\n[^1]: First\n    second\n'));
     expect(rendered).toContain('1. First\n    second');
     const expanded = expandLinkReferences('See[^1].\n\n[^1]: First\n\n    second\n');
     expect(expanded).toContain('1. First\n\n    second');
@@ -42,10 +45,12 @@ describe('applyFootnotes', () => {
     const fenced = applyFootnotes('```\n[^1]\n```\n\n[^1]: Note\n');
     expect(fenced).toContain('```\n[^1]\n```');
     expect(fenced).toContain('1. Note');
-    const escaped = applyFootnotes('See \\[^1].\n\n[^1]: Note\n');
+    const escaped = plainFootnoteMarkers(applyFootnotes('See \\[^1].\n\n[^1]: Note\n'));
     expect(escaped).toContain('\\[^1]');
     expect(escaped).not.toContain('\\¹');
-    const nested = applyFootnotes('See[^1].\n\n[^1]: Also[^2].\n\n[^2]: Inner\n');
+    const nested = plainFootnoteMarkers(
+      applyFootnotes('See[^1].\n\n[^1]: Also[^2].\n\n[^2]: Inner\n')
+    );
     expect(nested).toContain('Also².');
     expect(nested).toContain('2. Inner');
   });

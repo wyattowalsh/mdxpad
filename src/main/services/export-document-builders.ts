@@ -29,6 +29,7 @@ import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { expandLinkReferences } from './export-formats/markdown-reference';
+import { plainFootnoteMarkers } from './export-formats/markdown-footnote';
 import { createStoredZip, toUtf8Bytes } from './zip-utils';
 
 interface MarkdownHeadingBlock {
@@ -703,7 +704,7 @@ function takeBuilderFenceLine(
 
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
-  const lines = expandLinkReferences(prepareMarkdownSource(markdown))
+  const lines = plainFootnoteMarkers(expandLinkReferences(prepareMarkdownSource(markdown)))
     .replaceAll('\r\n', '\n')
     .split('\n');
   let fence: string | null = null;

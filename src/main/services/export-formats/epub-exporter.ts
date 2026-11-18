@@ -17,6 +17,7 @@ import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
+import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 import {
@@ -464,7 +465,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   if (state.fence) {
     htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
   }
-  return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlLines.join('\n')}`;
+  return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlFootnoteMarkers(htmlLines.join('\n'))}`;
 }
 
 export class EpubExporter implements Exporter {

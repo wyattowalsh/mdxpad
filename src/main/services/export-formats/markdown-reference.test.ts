@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { plainFootnoteMarkers } from './markdown-footnote';
 import { expandLinkReferences } from './markdown-reference';
 
 describe('expandLinkReferences', () => {
@@ -83,7 +84,9 @@ describe('expandLinkReferences', () => {
   });
 
   it('turns a footnote into a numbered note', () => {
-    const expanded = expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n');
+    const expanded = plainFootnoteMarkers(
+      expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n')
+    );
     expect(expanded).toContain('footnote¹.');
     expect(expanded).toContain('1. Note');
     expect(expanded).not.toContain('[^1]');

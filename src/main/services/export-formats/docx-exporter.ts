@@ -29,6 +29,7 @@ import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
+import { plainFootnoteMarkers } from './markdown-footnote';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
@@ -1358,7 +1359,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const codeLines: string[] = [];
   const language = { current: '' };
 
-  for (const line of expandLinkReferences(prepareMarkdownSource(content)).split('\n')) {
+  for (const line of plainFootnoteMarkers(expandLinkReferences(prepareMarkdownSource(content))).split(
+    '\n'
+  )) {
     fence = readDocxLine(parse, line, fence, codeLines, language);
   }
 

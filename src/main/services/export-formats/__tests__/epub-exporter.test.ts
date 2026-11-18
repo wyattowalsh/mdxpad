@@ -375,6 +375,21 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('[x]');
   });
 
+  it('links a footnote in chapter HTML', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: 'A footnote[^1].\n\n[^1]: Note',
+      outputPath: '/tmp/note.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('<sup><a href="#fn-1" id="fnref-1">1</a></sup>');
+    expect(html).toContain('id="fn-1"');
+    expect(html).not.toContain('[^1]');
+  });
+
   it('renders a markdown table in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

@@ -12,6 +12,7 @@ import { readHtmlBlock } from './markdown-html';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
+import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 import {
@@ -403,7 +404,7 @@ export function markdownToPdfHtml(content: string): string {
   flushPdfParagraph(build);
   closePdfList(build);
   flushPdfFence(build);
-  return build.parts.join('\n');
+  return htmlFootnoteMarkers(build.parts.join('\n'));
 }
 
 function contentToHtml(content: string, title: string): string {

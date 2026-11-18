@@ -10,6 +10,7 @@ import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
+import { plainFootnoteMarkers } from './markdown-footnote';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
@@ -1151,7 +1152,9 @@ function contentToLatex(content: string): string {
     slugCounts: new Map<string, number>(),
   };
 
-  for (const line of expandLinkReferences(prepareMarkdownSource(content)).split('\n')) {
+  for (const line of plainFootnoteMarkers(expandLinkReferences(prepareMarkdownSource(content))).split(
+    '\n'
+  )) {
     appendLatexSourceLine(build, line);
   }
 
