@@ -766,6 +766,35 @@ describe('DocxExporter', () => {
     expect(extracted.stdout.toString()).toContain('https://example.com');
   });
 
+  it('does not point a picture or link at a local file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: [
+        '![Secret](/etc/passwd.png)',
+        '',
+        '[Disk](file:///etc/passwd)',
+        '',
+        '[Run](javascript:alert(1))',
+      ].join('\n'),
+      outputPath: '/tmp/local-file.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const packed = extracted.stdout.toString();
+    expect(packed).not.toContain('/etc/passwd');
+    expect(packed).not.toContain('file:');
+    expect(packed).not.toContain('javascript:');
+    expect(packed).toContain('Secret');
+    expect(packed).toContain('Disk');
+  });
+
   it('keeps parentheses inside a link address', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

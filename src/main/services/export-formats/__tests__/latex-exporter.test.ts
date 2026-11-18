@@ -251,6 +251,29 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\href{mailto:ada@example.com}{\\href');
   });
 
+  it('does not point a picture or link at a local file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: [
+        '![Secret](/etc/passwd.png)',
+        '',
+        '[Disk](file:///etc/passwd)',
+        '',
+        '[Run](javascript:alert(1))',
+        '',
+        '![Pixel](pixel.png)',
+      ].join('\n'),
+      outputPath: '/tmp/local-file.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).not.toContain('/etc/passwd');
+    expect(written).not.toContain('file:');
+    expect(written).not.toContain('javascript:');
+    expect(written).toContain('\\includegraphics{pixel.png}');
+    expect(written).toContain('Secret');
+    expect(written).toContain('Disk');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

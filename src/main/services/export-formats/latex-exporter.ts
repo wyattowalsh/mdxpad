@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { writeRegularFile } from './write-regular-file';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
@@ -8,7 +10,7 @@ import { inlineLocalImages } from './export-image';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
-import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
+import { advanceFence, closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { plainFootnoteMarkers } from './markdown-footnote';
@@ -19,6 +21,7 @@ import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
 import { findCodeSpan, protectEscapes, restoreEscapes } from './markdown-escape';
 import { renderEmphasis } from './markdown-emphasis';
 import { decodeHtmlEntities } from './markdown-entity';
+import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import {
   findMarkdownTarget,
   linkDestination,
@@ -292,7 +295,11 @@ function latexHref(label: string, rawHref: string): string {
   if (anchor) {
     return `\\hyperref[${anchor}]{${formatProtected(label)}}`;
   }
-  return `\\href{${escapeLatex(destination)}}{${formatProtected(label)}}`;
+  const safe = safeLinkAddress(destination);
+  if (safe === null || safe.startsWith('/') || safe.startsWith('\\')) {
+    return formatProtected(label);
+  }
+  return `\\href{${escapeLatex(safe)}}{${formatProtected(label)}}`;
 }
 
 function formatInline(source: string): string {
@@ -1255,6 +1262,42 @@ function buildLatexDocument(content: string, options: ExportOptions): string {
   ].join('\n');
 }
 
+const LATEX_IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
+
+function latexPictureAllowed(address: string, root: string | null): boolean {
+  if (safeImageAddress(address) !== null) {
+    return true;
+  }
+  if (root === null || !address.startsWith('/') || address.startsWith('//')) {
+    return false;
+  }
+  const relative = path.relative(root, address);
+  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function stripOutsideLatexPictures(
+  content: string,
+  sourcePath: string | null | undefined
+): string {
+  const root = sourcePath ? path.dirname(path.resolve(sourcePath)) : null;
+  let fence: string | null = null;
+  return content
+    .split('\n')
+    .map((line) => {
+      const next = advanceFence(line, fence);
+      const boundary = fence !== next;
+      fence = next;
+      if (fence || boundary) {
+        return line;
+      }
+      return line.replace(LATEX_IMAGE, (full, alt: string, destination: string) => {
+        const address = linkDestination(decodeHtmlEntities(destination));
+        return latexPictureAllowed(address, root) ? full : alt;
+      });
+    })
+    .join('\n');
+}
+
 export class LatexExporter implements Exporter {
   readonly format = 'latex';
   readonly label = 'LaTeX';
@@ -1265,7 +1308,10 @@ export class LatexExporter implements Exporter {
     const warnings: string[] = [];
 
     try {
-      const content = await inlineLocalImages(options.content, options.sourcePath, 'absolute');
+      const content = stripOutsideLatexPictures(
+        await inlineLocalImages(options.content, options.sourcePath, 'absolute'),
+        options.sourcePath
+      );
       const latex = buildLatexDocument(content, options);
       await writeRegularFile(options.outputPath, latex);
       return { ok: true, outputPath: options.outputPath, warnings };

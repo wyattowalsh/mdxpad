@@ -49,6 +49,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
+import { safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
 import { findMarkdownTarget, linkDestination, linkTitle } from './markdown-link';
 import {
@@ -285,6 +286,29 @@ function imageKindFromMime(raw: string): ImageKind | null {
   return null;
 }
 
+function docxExternalTarget(raw: string): string | null {
+  const safe = safeLinkAddress(decodeHtmlEntities(raw));
+  if (safe === null || safe.startsWith('/') || safe.startsWith('\\')) {
+    return null;
+  }
+  return safe;
+}
+
+function docxHyperlink(
+  raw: string,
+  child: TextRun | ImageRun
+): TextRun | ExternalHyperlink | InternalHyperlink | ImageRun {
+  const anchor = headingAnchor(decodeHtmlEntities(raw));
+  if (anchor) {
+    return new InternalHyperlink({ children: [child], anchor });
+  }
+  const target = docxExternalTarget(raw);
+  if (target === null) {
+    return child;
+  }
+  return new ExternalHyperlink({ children: [child], link: target });
+}
+
 function docxImage(src: string, alt: string, title = ''): ImageRun | null {
   const match = /^data:image\/(png|jpe?g|gif|bmp);base64,([A-Za-z0-9+/=]+)$/i.exec(src);
   const encoded = match?.[2];
@@ -316,35 +340,15 @@ function createTextRuns(
       );
       if (segment.link) {
         const child = picture ?? styledRun(segment, segment.text || 'image', 'Hyperlink');
-        const anchor = headingAnchor(decodeHtmlEntities(segment.link));
-        if (anchor) {
-          return new InternalHyperlink({ children: [child], anchor });
-        }
-        return new ExternalHyperlink({
-          children: [child],
-          link: decodeHtmlEntities(segment.link),
-        });
+        return docxHyperlink(segment.link, child);
       }
       if (picture) {
         return picture;
       }
-      return new ExternalHyperlink({
-        children: [styledRun(segment, segment.text || segment.image, 'Hyperlink')],
-        link: decodeHtmlEntities(segment.image),
-      });
+      return docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink'));
     }
     if (segment.link) {
-      const anchor = headingAnchor(decodeHtmlEntities(segment.link));
-      if (anchor) {
-        return new InternalHyperlink({
-          children: [styledRun(segment, segment.text, 'Hyperlink')],
-          anchor,
-        });
-      }
-      return new ExternalHyperlink({
-        children: [styledRun(segment, segment.text, 'Hyperlink')],
-        link: decodeHtmlEntities(segment.link),
-      });
+      return docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
     }
     return styledRun(segment, segment.text);
   });
