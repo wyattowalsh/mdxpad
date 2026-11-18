@@ -140,6 +140,11 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const activeTabId = useTabStore((state) => state.activeTabId);
   const documentKey = activeTabId ?? filePath ?? 'untitled';
+  const onCursorChangeRef = useRef(onCursorChange);
+  onCursorChangeRef.current = onCursorChange;
+  useEffect(() => {
+    onCursorChangeRef.current?.({ line: 1, column: 1 });
+  }, [documentKey]);
   const setContent = useDocumentStore((state) => state.setContent);
   const keymapMode = useEditorPreferencesStore(selectKeymapMode);
   const fontFamily = useEditorPreferencesStore(selectFontFamily);

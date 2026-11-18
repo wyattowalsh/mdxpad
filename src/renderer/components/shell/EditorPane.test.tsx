@@ -697,6 +697,36 @@ describe('EditorPane mode switch', () => {
     });
   });
 
+  it('reports the start of the next document', async () => {
+    useTabStore.getState().reset();
+    useEditorModeStore.getState().setMode('source');
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '11111111-1111-4111-8111-111111111111' as DocumentId,
+        filePath: '/docs/a.mdx',
+        mtime: 1,
+      },
+      'alpha\nbeta'
+    );
+    const onCursorChange = vi.fn();
+    render(<EditorPane onCursorChange={onCursorChange} />);
+    await waitFor(() => {
+      expect(onCursorChange).toHaveBeenCalled();
+    });
+    onCursorChange.mockClear();
+    act(() => {
+      useDocumentStore.getState().openDocument(
+        {
+          fileId: '22222222-2222-4222-8222-222222222222' as DocumentId,
+          filePath: '/docs/b.mdx',
+          mtime: 2,
+        },
+        'next'
+      );
+    });
+    expect(onCursorChange).toHaveBeenCalledWith({ line: 1, column: 1 });
+  });
+
   it('reports the visual caret as a source line', async () => {
     useDocumentStore.getState().setContent('Hello\n\nWorld');
     useEditorModeStore.getState().setMode('wysiwyg');
