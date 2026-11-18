@@ -15,6 +15,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { clearSchemaCache } from '@renderer/lib/frontmatter';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import {
   useFrontmatterStore,
   selectData,
@@ -798,6 +800,42 @@ describe('useFrontmatterStore', () => {
       const state = useFrontmatterStore.getState();
 
       expect(state.isLoadingSchema).toBe(false);
+    });
+
+    it('keeps the schema for the file that is open', async () => {
+      clearSchemaCache();
+      useDocumentStore.getState().reset();
+      const previousMdxpad = window.mdxpad;
+      let finishAlpha: (value: { ok: true; value: string }) => void = () => undefined;
+      window.mdxpad = {
+        readFile: (path: string) => {
+          if (path.startsWith('/alpha/')) {
+            return new Promise((resolve) => {
+              finishAlpha = resolve;
+            });
+          }
+          return Promise.resolve({
+            ok: true,
+            value: JSON.stringify({ properties: { status: { type: 'string' } } }),
+          });
+        },
+      } as unknown as typeof window.mdxpad;
+
+      useDocumentStore.setState({ filePath: '/alpha/note.md' });
+      const first = useFrontmatterStore.getState().loadSchema();
+      useDocumentStore.setState({ filePath: '/beta/note.md' });
+      await useFrontmatterStore.getState().loadSchema();
+      finishAlpha({
+        ok: true,
+        value: JSON.stringify({ properties: { title: { type: 'string' } } }),
+      });
+      await first;
+
+      expect(useFrontmatterStore.getState().schema?.properties).toHaveProperty('status');
+      expect(useFrontmatterStore.getState().schema?.properties).not.toHaveProperty('title');
+      expect(useFrontmatterStore.getState().isLoadingSchema).toBe(false);
+      window.mdxpad = previousMdxpad;
+      clearSchemaCache();
     });
 
     it('should clear schemaError on successful load', async () => {

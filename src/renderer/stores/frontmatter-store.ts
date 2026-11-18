@@ -34,6 +34,8 @@ import {
 } from '@renderer/lib/frontmatter';
 import { useDocumentStore } from '@renderer/stores/document-store';
 
+let schemaRequestId = 0;
+
 // =============================================================================
 // INITIAL STATE
 // =============================================================================
@@ -334,14 +336,24 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     // =========================================================================
 
     loadSchema: async (): Promise<void> => {
+      const requestId = ++schemaRequestId;
+      const filePath = useDocumentStore.getState().filePath;
       set((draft) => {
         draft.isLoadingSchema = true;
         draft.schemaError = null;
       });
 
       try {
-        const filePath = useDocumentStore.getState().filePath;
         const loadedSchema = await loadSchemaForWorkspace(filePath);
+        if (requestId !== schemaRequestId) {
+          return;
+        }
+        if (useDocumentStore.getState().filePath !== filePath) {
+          set((draft) => {
+            draft.isLoadingSchema = false;
+          });
+          return;
+        }
 
         set((draft) => {
           draft.schema = castDraft(loadedSchema);
@@ -353,8 +365,16 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
           draft.isLoadingSchema = false;
         });
       } catch (error) {
+        if (requestId !== schemaRequestId) {
+          return;
+        }
+        if (useDocumentStore.getState().filePath !== filePath) {
+          set((draft) => {
+            draft.isLoadingSchema = false;
+          });
+          return;
+        }
         set((draft) => {
-          // On error, fall back to empty schema
           draft.schema = castDraft(EMPTY_SCHEMA);
           draft.schemaError = error instanceof Error ? error.message : 'Failed to load schema';
           draft.isLoadingSchema = false;
@@ -376,7 +396,10 @@ export const useFrontmatterStore = create<FrontmatterStore>()(
     // RESET
     // =========================================================================
 
-    reset: () => set(INITIAL_STATE),
+    reset: () => {
+      schemaRequestId += 1;
+      set(INITIAL_STATE);
+    },
 
     setChangeSource: (source: ChangeSource) =>
       set((draft) => {

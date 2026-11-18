@@ -37,6 +37,10 @@ function useFrontmatterDocumentSync(content: string): void {
   }, []);
 
   useEffect(() => {
+    void useFrontmatterStore.getState().loadSchema();
+  }, [documentKey]);
+
+  useEffect(() => {
     const keyChanged = previousKey.current !== documentKey;
     previousKey.current = documentKey;
     syncTokenRef.current += 1;
