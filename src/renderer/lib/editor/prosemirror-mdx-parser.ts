@@ -196,9 +196,13 @@ function listIsTight(tokens: readonly MarkdownToken[], index: number): boolean {
   return false;
 }
 
+function unescapeMarkdown(value: string): string {
+  return value.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1');
+}
+
 function imageAlt(token: MarkdownToken): string {
   if (token.content.length > 0) {
-    return token.content;
+    return unescapeMarkdown(token.content);
   }
   const text = token.children?.find((child) => child.type === 'text');
   return text?.content ?? '';

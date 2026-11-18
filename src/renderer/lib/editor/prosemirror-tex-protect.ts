@@ -57,8 +57,43 @@ function readDestination(value: string, open: number): { text: string; next: num
   return { text: value.slice(open, index + 1), next: index + 1 };
 }
 
-/** Hide TeX delimiters from Markdown, leaving escaped parentheses in link addresses. */
+function matchedTex(value: string): Set<number> {
+  const matched = new Set<number>();
+  const stack: { index: number; close: string }[] = [];
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      index = code.next;
+      continue;
+    }
+    const destination = readDestination(value, index);
+    if (destination) {
+      index = destination.next;
+      continue;
+    }
+    const token = value.slice(index, index + 2);
+    if (token === '\\[' || token === '\\(') {
+      stack.push({ index, close: token === '\\[' ? '\\]' : '\\)' });
+      index += 2;
+      continue;
+    }
+    const top = stack[stack.length - 1];
+    if (top?.close === token) {
+      stack.pop();
+      matched.add(top.index);
+      matched.add(index);
+      index += 2;
+      continue;
+    }
+    index += 1;
+  }
+  return matched;
+}
+
+/** Hide matched TeX delimiters from Markdown, leaving escaped parentheses in link addresses. */
 export function protectTexDelimiters(value: string): string {
+  const matched = matchedTex(value);
   let result = '';
   let index = 0;
   while (index < value.length) {
@@ -75,7 +110,7 @@ export function protectTexDelimiters(value: string): string {
       continue;
     }
     const pair = TEX_PAIR[value.slice(index, index + 2)];
-    if (pair) {
+    if (pair && matched.has(index)) {
       result += pair;
       index += 2;
       continue;

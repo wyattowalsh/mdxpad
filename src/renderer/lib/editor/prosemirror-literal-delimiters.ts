@@ -59,6 +59,53 @@ function emphasisStays(open: string, text: string): boolean {
   );
 }
 
+function runNeedsEscape(value: string, index: number): boolean {
+  const char = value[index];
+  if ((char !== '*' && char !== '_') || (index > 0 && value[index - 1] === char)) {
+    return false;
+  }
+  let end = index;
+  while (value[end] === char) {
+    end += 1;
+  }
+  if (index === 0 || end === value.length) {
+    return true;
+  }
+  const before = value[index - 1] ?? '';
+  const after = value[end] ?? '';
+  const space = (item: string) => item.length === 0 || /\s/.test(item);
+  return !space(after) || !space(before);
+}
+
+function dropHarmlessEscapes(original: string, escaped: string): string {
+  const keep = new Set<number>();
+  for (let index = 0; index < original.length; index += 1) {
+    if (!runNeedsEscape(original, index)) {
+      continue;
+    }
+    const char = original[index];
+    let end = index;
+    while (original[end] === char) {
+      keep.add(end);
+      end += 1;
+    }
+  }
+  let result = '';
+  let source = 0;
+  for (let index = 0; index < escaped.length; index += 1) {
+    const next = escaped[index + 1];
+    if (escaped[index] === '\\' && next === original[source] && (next === '*' || next === '_')) {
+      if (keep.has(source)) {
+        result += '\\';
+      }
+      continue;
+    }
+    result += escaped[index] ?? '';
+    source += 1;
+  }
+  return result;
+}
+
 function escapeMarkerRun(indent: string, marks: string, tail: string): string {
   let escaped = indent;
   for (const char of marks) {
@@ -78,6 +125,17 @@ function protectBlockMarkers(line: string): string {
   return line.replace(/^(\s{0,3})\*(?=[ \t]|$)/, '$1\\*');
 }
 
+/** A backslash already in the text is one character, so it is written as `\\`. */
+export function relaxPunctuationEscapes(escaped: string): string {
+  return escaped
+    .replaceAll('\\\\\\[', '\\\\[')
+    .replaceAll('\\\\\\]', '\\\\]')
+    .replaceAll('\\\\\\(', '\\\\(')
+    .replaceAll('\\\\\\)', '\\\\)')
+    .replaceAll(/(?<!\\)\\\]/g, ']')
+    .replaceAll(/(?<!\\)\\\)/g, ')');
+}
+
 export function restoreLiteralDelimiters(
   original: string,
   escaped: string,
@@ -87,10 +145,9 @@ export function restoreLiteralDelimiters(
   if (collectEmphasis(original).length > 0) {
     return escaped;
   }
-  const restored = escaped.replaceAll('\\*', '*').replaceAll('\\_', '_');
-  const candidate = startOfLine ? protectBlockMarkers(restored) : restored;
-  if (emphasis.length > 0 && !emphasisStays(emphasis, original)) {
-    return escaped;
-  }
-  return candidate;
+  const restored =
+    emphasis.length > 0 && emphasisStays(emphasis, original)
+      ? escaped.replaceAll('\\*', '*').replaceAll('\\_', '_')
+      : dropHarmlessEscapes(original, escaped);
+  return startOfLine ? protectBlockMarkers(restored) : restored;
 }

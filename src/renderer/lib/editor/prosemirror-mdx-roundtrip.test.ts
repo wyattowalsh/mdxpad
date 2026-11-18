@@ -283,6 +283,25 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
   });
 
+  it('keeps an unmatched bracket from gaining backslashes', () => {
+    expect(roundTrip('\\[not math]\n')).toBe('\\[not math]');
+    expect(roundTrip('see \\[x]\n')).toBe('see \\[x]');
+    expect(roundTrip('> \\[note]\n')).toBe('> \\[note]');
+    expect(roundTrip('\\[\na+b\n\\]\n')).toBe('\\[\na+b\n\\]');
+    expect(roundTrip('\\]not\n')).toBe(']not');
+  });
+
+  it('keeps a literal marker beside emphasis', () => {
+    expect(roundTrip('\\__not strong__\n')).toBe('\\_*not strong*\\_');
+    expect(roundTrip('mix \\*em **both*** end\n')).toBe('mix \\*em **both**\\* end');
+  });
+
+  it('keeps an image description that escapes a star', () => {
+    expect(roundTrip('![a\\*b](a.png)\n')).toBe('![a*b](a.png)');
+    const again = roundTrip('![a*b](a.png)\n');
+    expect(roundTrip(again.endsWith('\n') ? again : `${again}\n`)).toBe(again);
+  });
+
   it('keeps an escaped star inside emphasis', () => {
     expect(roundTrip('*foo\\*bar*\n')).toBe('*foo\\*bar*');
     expect(roundTrip('**foo\\*bar**\n')).toBe('**foo*bar**');

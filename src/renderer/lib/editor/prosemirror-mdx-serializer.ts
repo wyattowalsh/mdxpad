@@ -12,7 +12,11 @@ import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { emphasizeOutside } from './prosemirror-emphasis-order';
-import { emphasisOpen, restoreLiteralDelimiters } from './prosemirror-literal-delimiters';
+import {
+  emphasisOpen,
+  relaxPunctuationEscapes,
+  restoreLiteralDelimiters,
+} from './prosemirror-literal-delimiters';
 import { serializeTable } from './prosemirror-mdx-table';
 
 // =============================================================================
@@ -183,9 +187,14 @@ const nodeSerializers: NodeSerializerMap = {
     if (!writer.atBlockStart && writer.out.endsWith('\n')) {
       writer.atBlockStart = true;
     }
+    const text = node.text ?? '';
+    if (/^\\[[\]()]$/.test(text)) {
+      state.text(text, false);
+      return;
+    }
     writer.emphasisOpen = emphasisOpen(node.marks);
     try {
-      writeTextPreservingMath(state, node.text ?? '');
+      writeTextPreservingMath(state, text);
     } finally {
       writer.emphasisOpen = '';
     }
@@ -381,11 +390,13 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
     writer.emphasisOpen = '';
     const escape = state.esc.bind(state);
     state.esc = (value: string, startOfLine = false) =>
-      restoreLiteralDelimiters(
-        value,
-        restoreTildeRuns(escape(value, startOfLine)),
-        startOfLine,
-        writer.emphasisOpen
+      relaxPunctuationEscapes(
+        restoreLiteralDelimiters(
+          value,
+          restoreTildeRuns(escape(value, startOfLine)),
+          startOfLine,
+          writer.emphasisOpen
+        )
       );
     state.renderContent(content);
     return state.out;
