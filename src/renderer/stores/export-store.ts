@@ -20,6 +20,7 @@ import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
 import { announceFinishedExport } from './announce-export';
 
 let cliInvokeRequestId = 0;
+let llmsGenerationRequestId = 0;
 
 type CliRunStatus = 'idle' | 'running' | 'success' | 'error';
 type LlmsGenerationSuccess = Extract<LlmsGenerationResponse, { ok: true }>;
@@ -316,6 +317,7 @@ export const useExportStore = create<ExportStore>()(
     },
 
     generateLlms: async (request) => {
+      const requestId = ++llmsGenerationRequestId;
       set((draft) => {
         draft.isGeneratingLlms = true;
         draft.llmsResult = null;
@@ -327,6 +329,9 @@ export const useExportStore = create<ExportStore>()(
 
       try {
         const response = await getExportApi().llmsGenerate(request);
+        if (requestId !== llmsGenerationRequestId) {
+          return;
+        }
         set((draft) => {
           draft.isGeneratingLlms = false;
           if (response.ok) {
@@ -345,6 +350,9 @@ export const useExportStore = create<ExportStore>()(
           });
         }
       } catch (error) {
+        if (requestId !== llmsGenerationRequestId) {
+          return;
+        }
         set((draft) => {
           draft.isGeneratingLlms = false;
           draft.llmsError = toErrorMessage(error, 'Failed to generate llms file');
@@ -373,6 +381,7 @@ export const useExportStore = create<ExportStore>()(
 
     reset: () => {
       cliInvokeRequestId += 1;
+      llmsGenerationRequestId += 1;
       set((draft) => {
         Object.assign(draft, createInitialState());
       });

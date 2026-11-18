@@ -260,6 +260,60 @@ describe('useExportStore', () => {
     expect(state.jobs).toEqual([failedJob]);
   });
 
+  it('keeps the newer llms file when an older run finishes late', async () => {
+    let finishOld: (value: LlmsGenerationResponse) => void = () => undefined;
+    let finishNew: (value: LlmsGenerationResponse) => void = () => undefined;
+    mockExportApi.llmsGenerate
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishNew = resolve;
+          })
+      );
+
+    const first = useExportStore.getState().generateLlms({
+      action: 'generate',
+      target: 'llms.txt',
+      sourcePath: '/tmp/source.mdx',
+      content: '# old',
+      outputPath: '/tmp/old.txt',
+      overwrite: true,
+    });
+    const second = useExportStore.getState().generateLlms({
+      action: 'generate',
+      target: 'llms-full.txt',
+      sourcePath: '/tmp/source.mdx',
+      content: '# new',
+      outputPath: '/tmp/new.txt',
+      overwrite: true,
+    });
+    finishOld({
+      ok: true,
+      target: 'llms.txt',
+      path: '/tmp/old.txt',
+      bytesWritten: 1,
+    });
+    await first;
+    expect(useExportStore.getState().isGeneratingLlms).toBe(true);
+    expect(selectLlmsResult(useExportStore.getState())).toBeNull();
+
+    finishNew({
+      ok: true,
+      target: 'llms-full.txt',
+      path: '/tmp/new.txt',
+      bytesWritten: 2,
+    });
+    await second;
+    expect(selectLlmsResult(useExportStore.getState())?.path).toBe('/tmp/new.txt');
+    expect(useExportStore.getState().isGeneratingLlms).toBe(false);
+  });
+
   it('stores llms generation success result', async () => {
     mockExportApi.llmsGenerate.mockResolvedValue({
       ok: true,

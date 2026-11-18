@@ -19,6 +19,8 @@ import type {
 import type { SidecarLifecycleStatusResponseSchemaType } from '@shared/ai/schemas';
 import { usageStatsFromQuery } from './usage-stats-map';
 
+let providerListRequestId = 0;
+
 // =============================================================================
 // WINDOW TYPE DECLARATION
 // =============================================================================
@@ -190,6 +192,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
     // =========================================================================
 
     fetchProviders: async () => {
+      const requestId = ++providerListRequestId;
       set((state) => {
         state.isLoading = true;
         state.error = null;
@@ -197,6 +200,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
       try {
         const result = await getAIApi().listProviders();
+        if (requestId !== providerListRequestId) {
+          return;
+        }
         const providers = result.providers.map((p) => normalizeProviderConfig(p));
         const activeProviderId = result.activeProviderId;
         set((state) => {
@@ -205,6 +211,9 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
           state.isLoading = false;
         });
       } catch (error) {
+        if (requestId !== providerListRequestId) {
+          return;
+        }
         set((state) => {
           state.isLoading = false;
           state.error = error instanceof Error ? error.message : 'Failed to fetch providers';
@@ -229,6 +238,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
         if (result.success && result.provider) {
           const provider = normalizeProviderConfig(result.provider);
+          providerListRequestId += 1;
           set((state) => {
             state.providers.push(provider);
             state.isLoading = false;
@@ -268,6 +278,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
         if (result.success && result.provider) {
           const provider = normalizeProviderConfig(result.provider);
+          providerListRequestId += 1;
           set((state) => {
             const index = state.providers.findIndex((p) => p.id === id);
             if (index !== -1) {
@@ -302,6 +313,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
         const result = await getAIApi().removeProvider(id);
 
         if (result.success) {
+          providerListRequestId += 1;
           set((state) => {
             state.providers = state.providers.filter((p) => p.id !== id);
             if (state.activeProviderId === id) {
@@ -340,6 +352,7 @@ export const useAIProviderStore = create<AIProviderState & AIProviderActions>()(
 
         if (result.success) {
           const activeProviderId = result.activeProviderId ?? id;
+          providerListRequestId += 1;
           set((state) => {
             // Update all providers to reflect new active state
             state.providers.forEach((p) => {

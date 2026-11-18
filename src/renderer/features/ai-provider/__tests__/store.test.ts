@@ -104,6 +104,36 @@ describe('AI Provider Store', () => {
       expect(state.isLoading).toBe(false);
     });
 
+    it('keeps a provider added while an older list is in flight', async () => {
+      const added: ProviderConfig = {
+        id: 'added',
+        displayName: 'Added',
+        type: 'openai',
+        isActive: false,
+        status: 'disconnected',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      };
+      let finishList: (value: { providers: ProviderConfig[]; activeProviderId: null }) => void =
+        () => undefined;
+      mockAIApi.listProviders.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishList = resolve;
+          })
+      );
+      mockAIApi.addProvider.mockResolvedValue({ success: true, provider: added });
+
+      const pending = useAIProviderStore.getState().fetchProviders();
+      await useAIProviderStore.getState().addProvider({ displayName: 'Added', type: 'openai' });
+      finishList({ providers: [], activeProviderId: null });
+      await pending;
+
+      expect(useAIProviderStore.getState().providers.map((provider) => provider.id)).toEqual([
+        'added',
+      ]);
+    });
+
     it('should handle fetch error', async () => {
       mockAIApi.listProviders.mockRejectedValue(new Error('Network error'));
 
