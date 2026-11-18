@@ -152,14 +152,23 @@ function convertInlineFormatting(raw: string): string {
   return restoreMath(formatInline(protectedMath.text), protectedMath.slots);
 }
 
+function latexFilename(src: string): string {
+  let value = src;
+  try {
+    value = decodeURI(src);
+  } catch {
+    value = src;
+  }
+  return value.replaceAll('\\', '/').replaceAll('%', '\\%').replaceAll('}', '');
+}
+
 function latexImage(src: string, alt: string, title: string | null): string {
   const caption = title ? ` \\textit{${escapeLatex(title)}}` : '';
   if (/^https?:\/\//i.test(src)) {
     const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
     return `\\href{${escapeLatex(src)}}{${label}}${caption}`;
   }
-  const path = src.replaceAll('%', '\\%').replaceAll('}', '');
-  return `\\includegraphics{${path}}${caption}`;
+  return `\\includegraphics{${latexFilename(src)}}${caption}`;
 }
 
 function restoreLatexAutolinks(
