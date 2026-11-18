@@ -5,13 +5,14 @@
  * @module main/services/static-site-generator
  */
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { lstat, writeFile, mkdir } from 'node:fs/promises';
 import { join, basename, extname } from 'node:path';
 import type {
   PublishConfig,
   PublishProgress,
   PublishResult,
 } from '@shared/contracts/share-schemas';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { copyPublishedImages } from './export-formats/export-image';
 import { LIST_MARKER_CSS } from './export-formats/markdown-list';
 import { TABLE_CELL_CSS } from './export-formats/markdown-table';
@@ -42,6 +43,20 @@ interface ProcessedFile {
 // ============================================================================
 
 const DEFAULT_TITLE = 'MDXPad Site';
+
+async function readPublishSource(filePath: string): Promise<string> {
+  const info = await lstat(filePath);
+  if (info.isSymbolicLink() || !info.isFile()) {
+    throw new Error('Publish source is a link');
+  }
+  const read = await readFileWithoutFollowingLinks(filePath);
+  if (!read.ok) {
+    const message =
+      read.error.code === 'UNKNOWN' ? read.error.message : 'Publish source could not be read';
+    throw new Error(message);
+  }
+  return read.value;
+}
 
 // ============================================================================
 // Static Site Generator
@@ -127,7 +142,7 @@ export class StaticSiteGenerator {
       onProgress?.(progress);
 
       try {
-        const content = await readFile(fileEntry.path, 'utf-8');
+        const content = await readPublishSource(fileEntry.path);
         await copyPublishedImages(content, fileEntry.path, config.outputDir);
         const title = fileEntry.title ?? this.extractTitle(content, fileEntry.path);
         const slug = this.createSlug(fileEntry.path, usedSlugs);

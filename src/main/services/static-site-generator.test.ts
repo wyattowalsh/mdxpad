@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -173,5 +173,29 @@ describe('StaticSiteGenerator', () => {
     const html = await readFile(path.join(output, 'note.html'), 'utf-8');
     expect(html).toContain('src="pixel.png"');
     expect(html).toContain('src="images/nested.png"');
+  });
+
+  it('does not publish the text behind a linked note', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-link-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-secret-'));
+    tempDirs.push(root, outside);
+    const secret = path.join(outside, 'secret.md');
+    const link = path.join(root, 'note.md');
+    const output = path.join(root, 'out');
+    await writeFile(secret, '# Secret\n\nhidden\n');
+    await symlink(secret, link);
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: link, title: 'Note' }],
+      outputDir: output,
+      includeStyles: false,
+      includeHighlighting: false,
+      generateIndex: false,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toContain('Publish source is a link');
+    expect(result.filesGenerated).toBe(0);
+    await expect(readFile(path.join(output, 'note.html'))).rejects.toThrow();
   });
 });
