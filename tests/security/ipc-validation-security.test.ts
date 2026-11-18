@@ -163,7 +163,15 @@ describe('Share IPC handler validation', () => {
     expect(handlers.has(ShareChannels.CREATE_LINK)).toBe(true);
     expect(handlers.has(ShareChannels.REVOKE_LINK)).toBe(true);
     expect(handlers.has(ShareChannels.GET_LINKS)).toBe(true);
+    expect(handlers.has(ShareChannels.MOVE_UNTITLED)).toBe(true);
     expect(handlers.has(ShareChannels.PUBLISH)).toBe(true);
+  });
+
+  it('rejects moving share links from a saved file', async () => {
+    const handler = handlers.get(ShareChannels.MOVE_UNTITLED);
+    await expect(
+      handler!(evt(), { fromDocId: '/tmp/one.md', toDocId: '/tmp/two.md' })
+    ).rejects.toThrow(/Validation failed/);
   });
 
   it.each([

@@ -12,6 +12,7 @@ import {
   CreateShareLinkRequestSchema,
   RevokeShareLinkRequestSchema,
   GetShareLinksRequestSchema,
+  MoveUntitledShareLinksRequestSchema,
   ReadShareRequestSchema,
   ReadShareResponseSchema,
   PublishRequestSchema,
@@ -21,6 +22,7 @@ import {
   type CreateShareLinkResponse,
   type RevokeShareLinkResponse,
   type GetShareLinksResponse,
+  type MoveUntitledShareLinksResponse,
   type ReadShareResponse,
   type PublishResponse,
 } from '@shared/contracts/share-schemas';
@@ -86,6 +88,16 @@ function createGetLinksHandler(service: ShareLinkService) {
   );
 }
 
+function createMoveUntitledHandler(service: ShareLinkService) {
+  return createValidatedHandler(
+    MoveUntitledShareLinksRequestSchema,
+    (args): Promise<MoveUntitledShareLinksResponse> => {
+      const links = service.moveUntitledDocument(args.fromDocId, args.toDocId);
+      return Promise.resolve({ links: [...links] });
+    }
+  );
+}
+
 /**
  * Create the publish handler.
  */
@@ -133,6 +145,7 @@ export function registerShareHandlers(
   const handleCreateLink = createCreateLinkHandler(service);
   const handleRevokeLink = createRevokeLinkHandler(service);
   const handleGetLinks = createGetLinksHandler(service);
+  const handleMoveUntitled = createMoveUntitledHandler(service);
   const handlePublish = createPublishHandler(generator, window);
   const handleRead = createValidatedHandler(
     ReadShareRequestSchema,
@@ -153,6 +166,12 @@ export function registerShareHandlers(
   );
   registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.GET_LINKS, (_event, args) =>
     handleGetLinks(args)
+  );
+  registerAuthorizedIpcHandler(
+    ipcMainInstance,
+    window,
+    ShareChannels.MOVE_UNTITLED,
+    (_event, args) => handleMoveUntitled(args)
   );
   registerAuthorizedIpcHandler(ipcMainInstance, window, ShareChannels.READ, (_event, args) =>
     handleRead(args)

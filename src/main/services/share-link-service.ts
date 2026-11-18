@@ -195,6 +195,30 @@ export class ShareLinkService {
   }
 
   /**
+   * Move links created for one untitled tab onto the file that tab was saved as.
+   * A saved file cannot be the source, so one file's links stay on that file.
+   */
+  moveUntitledDocument(fromDocId: string, toDocId: string): readonly ShareLink[] {
+    if (!fromDocId.startsWith('untitled:') || fromDocId.length <= 'untitled:'.length) {
+      throw new Error('Share links can only move from an untitled document');
+    }
+    if (toDocId.length === 0 || toDocId.startsWith('untitled:')) {
+      throw new Error('Share links can only move onto a saved file');
+    }
+    const moving = this.getLinksByDocId(fromDocId);
+    const existing = this.getLinksByDocId(toDocId);
+    if (existing.length + moving.length > this.maxLinksPerDoc) {
+      throw new Error(
+        `Maximum share links (${this.maxLinksPerDoc}) reached for document ${toDocId}`
+      );
+    }
+    for (const link of moving) {
+      this.links.set(link.id, { ...link, docId: toDocId });
+    }
+    return this.getLinksByDocId(toDocId);
+  }
+
+  /**
    * Remove expired and inactive links.
    * @returns Number of links removed
    */

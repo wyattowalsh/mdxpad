@@ -172,6 +172,25 @@ export const GetShareLinksResponseSchema = z.object({
   links: z.array(ShareLinkSchema),
 });
 
+export const MoveUntitledShareLinksRequestSchema = z.object({
+  fromDocId: z
+    .string()
+    .startsWith('untitled:')
+    .min('untitled:'.length + 1),
+  toDocId: z
+    .string()
+    .min(1)
+    .refine((value) => !value.startsWith('untitled:'), {
+      message: 'Saved file path required',
+    }),
+});
+export type MoveUntitledShareLinksRequest = z.infer<typeof MoveUntitledShareLinksRequestSchema>;
+
+export const MoveUntitledShareLinksResponseSchema = z.object({
+  links: z.array(ShareLinkSchema),
+});
+export type MoveUntitledShareLinksResponse = z.infer<typeof MoveUntitledShareLinksResponseSchema>;
+
 /** Inferred GetShareLinksResponse type */
 export type GetShareLinksResponse = z.infer<typeof GetShareLinksResponseSchema>;
 
@@ -233,6 +252,7 @@ export const ShareChannels = {
   CREATE_LINK: 'mdxpad:share:create-link',
   REVOKE_LINK: 'mdxpad:share:revoke-link',
   GET_LINKS: 'mdxpad:share:get-links',
+  MOVE_UNTITLED: 'mdxpad:share:move-untitled',
   READ: 'mdxpad:share:read',
   PUBLISH: 'mdxpad:share:publish',
   PUBLISH_PROGRESS: 'mdxpad:share:publish-progress',

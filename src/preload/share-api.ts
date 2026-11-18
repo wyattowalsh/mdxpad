@@ -17,6 +17,8 @@ import {
   RevokeShareLinkResponseSchema,
   GetShareLinksRequestSchema,
   GetShareLinksResponseSchema,
+  MoveUntitledShareLinksRequestSchema,
+  MoveUntitledShareLinksResponseSchema,
   ReadShareRequestSchema,
   ReadShareResponseSchema,
   PublishRequestSchema,
@@ -31,6 +33,8 @@ import {
   type RevokeShareLinkResponse,
   type GetShareLinksRequest,
   type GetShareLinksResponse,
+  type MoveUntitledShareLinksRequest,
+  type MoveUntitledShareLinksResponse,
   type ReadShareRequest,
   type ReadShareResponse,
   type PublishRequest,
@@ -88,6 +92,11 @@ export interface ShareApi {
    * @returns Array of share links
    */
   getLinks(request?: GetShareLinksRequest): Promise<GetShareLinksResponse>;
+
+  /**
+   * Move links from an untitled tab onto the file that tab was saved as.
+   */
+  moveUntitled(request: MoveUntitledShareLinksRequest): Promise<MoveUntitledShareLinksResponse>;
 
   /**
    * Read document text for a share token.
@@ -185,6 +194,19 @@ export const shareApi: ShareApi = {
     return validatedShareInvoke(
       ShareChannels.GET_LINKS,
       GetShareLinksResponseSchema,
+      reqParsed.data
+    );
+  },
+
+  moveUntitled: async (request) => {
+    const reqParsed = MoveUntitledShareLinksRequestSchema.safeParse(request);
+    if (!reqParsed.success) {
+      throw new Error(`Move untitled links request validation failed: ${reqParsed.error.message}`);
+    }
+
+    return validatedShareInvoke(
+      ShareChannels.MOVE_UNTITLED,
+      MoveUntitledShareLinksResponseSchema,
       reqParsed.data
     );
   },
