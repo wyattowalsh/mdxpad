@@ -371,11 +371,16 @@ function MDXEditorComponent(props: MDXEditorProps): React.JSX.Element {
 
   // Sync external editorRef with the internal view
   useEffect(() => {
-    if (editorRef) {
-      // Update editorRef to point to current view
-      (editorRef as React.RefObject<EditorView | null> & { current: EditorView | null }).current =
-        getView();
+    if (!editorRef) {
+      return undefined;
     }
+    const mutable = editorRef as React.RefObject<EditorView | null> & {
+      current: EditorView | null;
+    };
+    mutable.current = getView();
+    return () => {
+      mutable.current = null;
+    };
   }, [editorRef, getView]);
 
   // Increment version when external value prop changes

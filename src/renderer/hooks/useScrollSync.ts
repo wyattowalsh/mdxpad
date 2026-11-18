@@ -34,6 +34,11 @@ import {
   type PositionMapper,
   type HeadingWithPosition,
 } from '@renderer/lib/sync';
+import {
+  readWysiwygScroll,
+  subscribeWysiwygScroll,
+  type WysiwygScrollTarget,
+} from '@renderer/lib/editor/wysiwyg-scroll';
 
 // =============================================================================
 // Types
@@ -119,6 +124,34 @@ function getEditorCursorLine(view: EditorView): number {
   return view.state.doc.lineAt(cursor).number;
 }
 
+function visualScrollTarget(
+  editorRef: React.RefObject<EditorView | null>
+): WysiwygScrollTarget | null {
+  return editorRef.current ? null : readWysiwygScroll();
+}
+
+function editorScrollElement(editorRef: React.RefObject<EditorView | null>): HTMLElement | null {
+  return editorRef.current?.scrollDOM ?? readWysiwygScroll()?.element ?? null;
+}
+
+function revealMappedLine(
+  view: EditorView | null,
+  visual: WysiwygScrollTarget | null,
+  editorLine: number
+): void {
+  if (view) {
+    const totalLines = getEditorTotalLines(view);
+    const targetLine = Math.max(1, Math.min(editorLine, totalLines));
+    const lineInfo = view.state.doc.line(targetLine);
+    view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
+    return;
+  }
+  if (!visual) {
+    return;
+  }
+  visual.revealLine(Math.max(1, Math.min(editorLine, visual.totalLines())));
+}
+
 // =============================================================================
 // Initialization Hooks
 // =============================================================================
@@ -174,8 +207,9 @@ function useEditorToPreviewSync(
 ): () => void {
   return useCallback(() => {
     const view = editorRef.current;
+    const visual = visualScrollTarget(editorRef);
     const iframe = getPreviewIframe(previewRef);
-    if (!view || !iframe?.contentWindow) return;
+    if ((!view && !visual) || !iframe?.contentWindow) return;
     if (!isEnabled || isPaused || !isEditorToPreviewEnabled) return;
 
     const lock = getScrollLock();
@@ -183,7 +217,7 @@ function useEditorToPreviewSync(
 
     setIsSyncing(true);
 
-    const firstLine = getEditorFirstVisibleLine(view);
+    const firstLine = view ? getEditorFirstVisibleLine(view) : (visual?.firstVisibleLine() ?? 1);
     const mapping = getPositionMapper().editorToPreview(firstLine);
     const maxScroll = getPreviewScrollMax(iframe);
     const ratio = maxScroll > 0 ? mapping.previewScrollTop / maxScroll : 0;
@@ -235,7 +269,8 @@ function usePreviewToEditorSync(
   return useCallback(
     (report: PreviewScrollReport) => {
       const view = editorRef.current;
-      if (!view) return;
+      const visual = visualScrollTarget(editorRef);
+      if (!view && !visual) return;
       if (!isEnabled || isPaused || !isPreviewToEditorEnabled) return;
 
       const lock = getScrollLock();
@@ -247,12 +282,9 @@ function usePreviewToEditorSync(
       mapper.updatePreviewHeight(report.scrollHeight, report.clientHeight);
 
       const mapping = mapper.previewToEditor(report.scrollTop);
-      const totalLines = getEditorTotalLines(view);
-      const targetLine = Math.max(1, Math.min(mapping.editorLine, totalLines));
-      const lineInfo = view.state.doc.line(targetLine);
       const prefersReducedMotion = getPrefersReducedMotion();
 
-      view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
+      revealMappedLine(view, visual, mapping.editorLine);
 
       onPreviewScroll({
         pane: 'preview',
@@ -318,6 +350,7 @@ function usePreviewMessageListener(
 
 function useEditorScrollListener(
   editorRef: React.RefObject<EditorView | null>,
+  scrollEpoch: number,
   isEnabled: boolean,
   isPaused: boolean,
   isEditorToPreviewEnabled: boolean,
@@ -325,10 +358,8 @@ function useEditorScrollListener(
   debounceTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>
 ): void {
   useEffect(() => {
-    const view = editorRef.current;
-    if (!view) return;
-
-    const scrollElement = view.scrollDOM;
+    const scrollElement = editorScrollElement(editorRef);
+    if (!scrollElement) return;
 
     const handler = (): void => {
       if (!isEnabled || isPaused || !isEditorToPreviewEnabled) return;
@@ -353,6 +384,7 @@ function useEditorScrollListener(
     };
   }, [
     editorRef,
+    scrollEpoch,
     isEnabled,
     isPaused,
     isEditorToPreviewEnabled,
@@ -368,8 +400,17 @@ function useEditorScrollListener(
  * only when the cursor moves beyond SYNC_THRESHOLD_LINES from the
  * last synced position. Uses debouncing to maintain <16ms keystroke latency.
  */
+function readCursorLine(editorRef: React.RefObject<EditorView | null>): number | null {
+  const view = editorRef.current;
+  if (view) {
+    return getEditorCursorLine(view);
+  }
+  return readWysiwygScroll()?.cursorLine() ?? null;
+}
+
 function useCursorTrackingListener(
   editorRef: React.RefObject<EditorView | null>,
+  scrollEpoch: number,
   isEnabled: boolean,
   isPaused: boolean,
   isEditorToPreviewEnabled: boolean,
@@ -380,8 +421,8 @@ function useCursorTrackingListener(
   debounceTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>
 ): void {
   useEffect(() => {
-    const view = editorRef.current;
-    if (!view || !enableCursorTracking) return;
+    const scrollElement = editorScrollElement(editorRef);
+    if (!scrollElement || !enableCursorTracking) return;
 
     // Track document changes and cursor movements
     // We use a MutationObserver-like approach via EditorView's update listener
@@ -397,10 +438,8 @@ function useCursorTrackingListener(
 
       if (!isEnabled || isPaused || !isEditorToPreviewEnabled) return;
 
-      const currentView = editorRef.current;
-      if (!currentView) return;
-
-      const currentLine = getEditorCursorLine(currentView);
+      const currentLine = readCursorLine(editorRef);
+      if (currentLine === null) return;
       lastCursorLineRef.current = currentLine;
 
       // T024: Only sync if cursor moved beyond threshold
@@ -422,8 +461,6 @@ function useCursorTrackingListener(
 
     // Listen to document changes (typing) via the DOM
     // This approach has minimal overhead
-    const scrollElement = view.scrollDOM;
-
     // Use keyup event for typing detection - fires after keystroke completes
     const keyHandler = (event: KeyboardEvent): void => {
       // Ignore modifier keys
@@ -451,6 +488,7 @@ function useCursorTrackingListener(
     };
   }, [
     editorRef,
+    scrollEpoch,
     isEnabled,
     isPaused,
     isEditorToPreviewEnabled,
@@ -468,8 +506,19 @@ function useCursorTrackingListener(
  * Subscribes to editor document changes and clears the position cache
  * when content changes to prevent stale mappings.
  */
+function readContentSample(
+  editorRef: React.RefObject<EditorView | null>
+): { length: number; sample: string } | null {
+  const view = editorRef.current;
+  if (view) {
+    return { length: view.state.doc.length, sample: view.state.doc.sliceString(0, 100) };
+  }
+  return readWysiwygScroll()?.contentSample() ?? null;
+}
+
 function useContentChangeListener(
   editorRef: React.RefObject<EditorView | null>,
+  scrollEpoch: number,
   cacheRef: React.RefObject<PositionCache | null>
 ): void {
   // Track last document version to detect changes
@@ -477,24 +526,19 @@ function useContentChangeListener(
   const lastDocVersionRef = useRef<{ length: number; sample: string } | null>(null);
 
   useEffect(() => {
-    const view = editorRef.current;
-    if (!view) return;
+    const scrollElement = editorScrollElement(editorRef);
+    const initial = readContentSample(editorRef);
+    if (!scrollElement || !initial) return;
 
     // Initialize version with both length and content sample
-    lastDocVersionRef.current = {
-      length: view.state.doc.length,
-      sample: view.state.doc.sliceString(0, 100),
-    };
-
-    // Listen for input events which indicate content changes
-    const scrollElement = view.scrollDOM;
+    lastDocVersionRef.current = initial;
 
     const checkContentChange = (): void => {
-      const currentView = editorRef.current;
-      if (!currentView) return;
+      const current = readContentSample(editorRef);
+      if (!current) return;
 
-      const currentLength = currentView.state.doc.length;
-      const currentSample = currentView.state.doc.sliceString(0, 100);
+      const currentLength = current.length;
+      const currentSample = current.sample;
 
       if (
         lastDocVersionRef.current !== null &&
@@ -517,7 +561,7 @@ function useContentChangeListener(
     return () => {
       scrollElement.removeEventListener('input', inputHandler);
     };
-  }, [editorRef, cacheRef]);
+  }, [editorRef, scrollEpoch, cacheRef]);
 }
 
 // =============================================================================
@@ -605,6 +649,8 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [scrollEpoch, setScrollEpoch] = useState(0);
+  useEffect(() => subscribeWysiwygScroll(() => setScrollEpoch((value) => value + 1)), []);
 
   const refs = useSyncRefs();
   const getScrollLock = useScrollLockGetter(refs.scrollLock, setIsSyncing);
@@ -641,6 +687,7 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   usePreviewMessageListener(previewRef, handlePreviewScrollReport);
   useEditorScrollListener(
     editorRef,
+    scrollEpoch,
     isEnabled,
     isPaused,
     isEditorToPreviewEnabled,
@@ -651,6 +698,7 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   // T023, T024, T025: Cursor tracking for typing sync
   useCursorTrackingListener(
     editorRef,
+    scrollEpoch,
     isEnabled,
     isPaused,
     isEditorToPreviewEnabled,
@@ -662,7 +710,7 @@ export function useScrollSync(options: UseScrollSyncOptions): UseScrollSyncResul
   );
 
   // T029, T030: Cache invalidation on content change
-  useContentChangeListener(editorRef, refs.positionCache);
+  useContentChangeListener(editorRef, scrollEpoch, refs.positionCache);
 
   const { pauseSync, resumeSync, updateAST, updateEditorLines, updatePreviewHeight } =
     useControlFunctions(setIsPaused, getPositionMapper);

@@ -67,6 +67,11 @@ import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
 import { trailingBlockKeymap } from '../../lib/editor/wysiwyg-trailing';
 import { sourceCursorAt, type SourceCursor } from '../../lib/editor/wysiwyg-cursor';
+import {
+  firstVisibleSourceLine,
+  registerWysiwygScroll,
+  sourceLineCount,
+} from '../../lib/editor/wysiwyg-scroll';
 import { refreshFocusMode, wysiwygFocusPlugin } from '../../lib/editor/wysiwyg-focus';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
@@ -428,6 +433,29 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
       }
       view.dispatch(refreshFocusMode(view));
     }, [focusModeEnabled, viewRef]);
+    React.useEffect(() => {
+      const view = viewRef.current;
+      const scroller = containerRef.current;
+      if (!view || !scroller) {
+        return undefined;
+      }
+      registerWysiwygScroll({
+        element: scroller,
+        firstVisibleLine: () => firstVisibleSourceLine(view, scroller),
+        cursorLine: () => sourceCursorAt(view.state.doc, view.state.selection.head).line,
+        totalLines: () => sourceLineCount(view.state.doc),
+        revealLine: (line) => {
+          focusSourceLineInView(view, line, 1);
+        },
+        contentSample: () => {
+          const text = serializeMdxContent(view.state.doc);
+          return { length: text.length, sample: text.slice(0, 100) };
+        },
+      });
+      return () => {
+        registerWysiwygScroll(null);
+      };
+    }, [viewRef]);
     const spellcheckEnabled = useEditorPreferencesStore(selectSpellcheckEnabled);
     const fontFamily = useEditorPreferencesStore(selectFontFamily);
     const fontSize = useEditorPreferencesStore(selectFontSize);

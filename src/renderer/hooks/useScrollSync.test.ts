@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useScrollSync } from './useScrollSync';
+import { registerWysiwygScroll } from '@renderer/lib/editor/wysiwyg-scroll';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { useSyncStore } from '@renderer/stores/sync-store';
@@ -90,6 +91,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  registerWysiwygScroll(null);
   document.body.innerHTML = '';
   vi.clearAllMocks();
 });
@@ -224,6 +226,56 @@ describe('useScrollSync', () => {
 
       cleanupEditor(editor);
     });
+
+    it('sends a scroll command from the visual editor', () => {
+      const iframe = createMockIframe();
+      const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
+      registerWysiwygScroll({
+        element: document.createElement('div'),
+        firstVisibleLine: () => 8,
+        cursorLine: () => 8,
+        totalLines: () => 20,
+        revealLine: () => undefined,
+        contentSample: () => ({ length: 4, sample: 'Hi' }),
+      });
+      const editorRef = { current: null };
+      const previewRef = { current: iframe };
+
+      const { result } = renderHook(() => useScrollSync({ editorRef, previewRef }));
+      act(() => {
+        result.current.syncEditorToPreview();
+      });
+
+      expect(postMessageSpy).toHaveBeenCalled();
+      const [command] = postMessageSpy.mock.calls.at(-1) ?? [];
+      expect(command).toMatchObject({ type: 'scroll' });
+    });
+
+    it('follows a scroll in the visual editor after it opens', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const iframe = createMockIframe();
+      const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
+      const editorRef = { current: null };
+      const previewRef = { current: iframe };
+
+      renderHook(() => useScrollSync({ editorRef, previewRef }));
+      act(() => {
+        registerWysiwygScroll({
+          element,
+          firstVisibleLine: () => 8,
+          cursorLine: () => 8,
+          totalLines: () => 20,
+          revealLine: () => undefined,
+          contentSample: () => ({ length: 4, sample: 'Hi' }),
+        });
+      });
+      element.dispatchEvent(new Event('scroll'));
+
+      await waitFor(() => {
+        expect(postMessageSpy).toHaveBeenCalled();
+      });
+    });
   });
 
   describe('syncPreviewToEditor', () => {
@@ -236,6 +288,40 @@ describe('useScrollSync', () => {
       expect(() => {
         result.current.syncPreviewToEditor();
       }).not.toThrow();
+    });
+
+    it('reveals the mapped line in the visual editor', () => {
+      const revealLine = vi.fn();
+      registerWysiwygScroll({
+        element: document.createElement('div'),
+        firstVisibleLine: () => 1,
+        cursorLine: () => 1,
+        totalLines: () => 40,
+        revealLine,
+        contentSample: () => ({ length: 4, sample: 'Hi' }),
+      });
+      const iframe = createMockIframe();
+      const editorRef = { current: null };
+      const previewRef = { current: iframe };
+      renderHook(() => useScrollSync({ editorRef, previewRef }));
+
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              type: 'scroll-report',
+              ratio: 0,
+              scrollTop: 0,
+              scrollHeight: 800,
+              clientHeight: 400,
+            },
+            origin: window.location.origin,
+            source: iframe.contentWindow,
+          })
+        );
+      });
+
+      expect(revealLine).toHaveBeenCalledWith(1);
     });
 
     it('should not sync when disabled', () => {
