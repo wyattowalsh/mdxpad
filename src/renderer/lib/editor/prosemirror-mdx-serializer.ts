@@ -11,6 +11,7 @@ import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdow
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
+import { emphasizeOutside } from './prosemirror-emphasis-order';
 import { serializeTable } from './prosemirror-mdx-table';
 
 // =============================================================================
@@ -306,6 +307,7 @@ interface WritableSerializerState {
   out: string;
   esc: (value: string, startOfLine?: boolean) => string;
   renderContent: (content: ProseMirrorNode) => void;
+  renderInline: (parent: ProseMirrorNode, fromBlockStart?: boolean) => void;
 }
 
 function restoreTildeRuns(escaped: string): string {
@@ -321,7 +323,15 @@ function openSerializerState(
     marks: object,
     options: object
   ) => WritableSerializerState;
-  return new State(serializer.nodes, serializer.marks, { ...serializer.options, ...options });
+  const state = new State(serializer.nodes, serializer.marks, {
+    ...serializer.options,
+    ...options,
+  });
+  const renderInline = state.renderInline.bind(state);
+  state.renderInline = (parent, fromBlockStart) => {
+    renderInline(emphasizeOutside(parent), fromBlockStart);
+  };
+  return state;
 }
 
 class MdxMarkdownSerializer extends MarkdownSerializer {

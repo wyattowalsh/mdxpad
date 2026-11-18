@@ -256,4 +256,12 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('H~2~O and `H~2~O`');
     expect(serialized).not.toContain('\\~');
   });
+
+  it('keeps nested emphasis on the same words', () => {
+    expect(roundTrip('***foo** bar*\n')).toBe('***foo** bar*');
+    expect(roundTrip('***foo* bar**\n')).toBe('***foo* bar**');
+    expect(roundTrip('***both***\n')).toBe('***both***');
+    expect(roundTrip('**foo *bar* baz**\n')).toBe('**foo *bar* baz**');
+    expect(roundTrip('*foo **bar** baz*\n')).toBe('*foo **bar** baz*');
+  });
 });
