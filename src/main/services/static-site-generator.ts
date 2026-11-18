@@ -216,11 +216,10 @@ export class StaticSiteGenerator {
     // Strip frontmatter
     const content = mdxContent.replace(/^---\s*\n[\s\S]*?---\s*\n/, '');
 
-    // Basic MDX to HTML conversion (simplified — full MDX compilation
-    // would use @mdx-js/mdx but that requires a renderer runtime)
     const html = this.convertMarkdownToHtml(content);
 
     const styleLink = includeStyles ? '<link rel="stylesheet" href="styles.css">' : '';
+    const markerStyle = `<style>${LIST_MARKER_CSS}</style>`;
 
     const highlightStyle = includeHighlighting
       ? '<style>.code-block{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:8px;overflow-x:auto;font-family:monospace;}</style>'
@@ -233,6 +232,7 @@ export class StaticSiteGenerator {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${this.escapeHtml(title)}</title>
   ${styleLink}
+  ${markerStyle}
   ${highlightStyle}
 </head>
 <body>

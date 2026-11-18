@@ -55,6 +55,7 @@ describe('StaticSiteGenerator', () => {
     const html = await readFile(path.join(output, 'note.html'), 'utf-8');
     expect(html).toContain('<ol class="paren"');
     expect(html).toContain('<ul class="plus">');
+    expect(html).toContain('ol.paren > li::before');
     expect(html).toContain('class="katex"');
     expect(html).toContain('x^2');
     const css = await readFile(path.join(output, 'styles.css'), 'utf-8');

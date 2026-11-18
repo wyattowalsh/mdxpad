@@ -68,6 +68,20 @@ describe('serializeForExport', () => {
     }
   });
 
+  it('styles parenthesis and bullet markers in html export', () => {
+    const result = serializeForExport('1) one\n\n+ plus\n* star', 'html');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.content).toContain('<ol class="paren"');
+      expect(result.content).toContain('<ul class="plus">');
+      expect(result.content).toContain('<ul class="star">');
+      expect(result.content).toContain('ol.paren > li::before');
+      expect(result.content).toContain('ul.plus > li::before');
+      expect(result.content).toContain('ul.star > li::before');
+    }
+  });
+
   it('generates html export with mermaid rendering hook for mermaid fences', () => {
     const result = serializeForExport('```mermaid\ngraph TD\n  A-->B\n```', 'html');
 
