@@ -12,6 +12,7 @@ import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { emphasizeOutside } from './prosemirror-emphasis-order';
+import { restoreLiteralDelimiters } from './prosemirror-literal-delimiters';
 import { serializeTable } from './prosemirror-mdx-table';
 
 // =============================================================================
@@ -358,7 +359,7 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
     const state = openSerializerState(this, options);
     const escape = state.esc.bind(state);
     state.esc = (value: string, startOfLine = false) =>
-      restoreTildeRuns(escape(value, startOfLine));
+      restoreLiteralDelimiters(value, restoreTildeRuns(escape(value, startOfLine)), startOfLine);
     state.renderContent(content);
     return state.out;
   }

@@ -266,6 +266,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('1. one\n2. two\n')).toBe('1. one\n2. two');
   });
 
+  it('keeps literal stars that are not emphasis', () => {
+    expect(roundTrip('a * b * c\n')).toBe('a * b * c');
+    expect(roundTrip('*foo**bar*\n')).toBe('*foo**bar*');
+    expect(roundTrip('\\*foo\\*\n')).toBe('\\*foo\\*');
+    expect(roundTrip('\\* item\n')).toBe('\\* item');
+    expect(roundTrip('\\*\\*\\*\n')).toBe('\\*\\*\\*');
+  });
+
   it('keeps nested emphasis on the same words', () => {
     expect(roundTrip('***foo** bar*\n')).toBe('***foo** bar*');
     expect(roundTrip('***foo* bar**\n')).toBe('***foo* bar**');
