@@ -97,9 +97,10 @@ export const fileOperations = {
       content,
     }) as Promise<FileResult<void>>,
 
-  saveFileAs: (content: string): Promise<FileResult<FileHandle>> =>
+  saveFileAs: (content: string, suggestedName?: string): Promise<FileResult<FileHandle>> =>
     validatedInvoke(IPC_CHANNELS.file.saveAs, FileSaveAsRequestSchema, FileSaveAsResponseSchema, {
       content,
+      ...(suggestedName !== undefined && suggestedName.length > 0 ? { suggestedName } : {}),
     }) as Promise<FileResult<FileHandle>>,
 
   readFile: (path: string): Promise<FileResult<string>> =>

@@ -145,6 +145,8 @@ export const FileSaveResponseSchema = FileResultVoidSchema;
  */
 export const FileSaveAsRequestSchema = z.object({
   content: FileContentSchema,
+  /** Original document path or name. The dialog shows a recovered basename. */
+  suggestedName: z.string().max(1024).optional(),
 });
 
 /** Inferred FileSaveAsRequest type */

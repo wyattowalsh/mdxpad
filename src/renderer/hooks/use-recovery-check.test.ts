@@ -573,4 +573,73 @@ describe('useRecoveryCheck', () => {
       });
     });
   });
+
+  describe('releaseRecovery', () => {
+    const previousMdxpad = window.mdxpad;
+
+    afterEach(() => {
+      window.mdxpad = previousMdxpad;
+    });
+
+    function recoveryEntry(id: string, fileName: string): RecoveryDialogEntry {
+      return {
+        documentId: id as DocumentId,
+        fileName,
+        filePath: `/docs/${fileName}`,
+        savedAt: 1,
+        contentPreview: 'preview',
+        isValid: true,
+        hasConflict: true,
+      };
+    }
+
+    it('drops one recovery file and keeps the other', async () => {
+      const first = recoveryEntry('123e4567-e89b-12d3-a456-426614174001', 'one.mdx');
+      const second = recoveryEntry('123e4567-e89b-12d3-a456-426614174002', 'two.mdx');
+      const recoveryDiscard = vi.fn(async () => ({ discardedCount: 1 }));
+      window.mdxpad = {
+        recoveryCheck: async () => ({ hasRecoveryData: true, count: 2 }),
+        recoveryList: async () => ({ entries: [first, second] }),
+        recoveryDiscard,
+      } as unknown as typeof window.mdxpad;
+
+      const { result } = renderHook(() => useRecoveryCheck());
+      await waitFor(() => {
+        expect(result.current.entries).toHaveLength(2);
+      });
+
+      let released = false;
+      await act(async () => {
+        released = await result.current.releaseRecovery(first.documentId);
+      });
+
+      expect(released).toBe(true);
+      expect(recoveryDiscard).toHaveBeenCalledWith({ documentIds: [first.documentId] });
+      expect(result.current.entries.map((item) => item.documentId)).toEqual([second.documentId]);
+      expect(result.current.isDialogOpen).toBe(true);
+      expect(result.current.hasRecoveryData).toBe(true);
+    });
+
+    it('closes recovery when the last file is released', async () => {
+      const only = recoveryEntry('123e4567-e89b-12d3-a456-426614174003', 'only.mdx');
+      window.mdxpad = {
+        recoveryCheck: async () => ({ hasRecoveryData: true, count: 1 }),
+        recoveryList: async () => ({ entries: [only] }),
+        recoveryDiscard: async () => ({ discardedCount: 1 }),
+      } as unknown as typeof window.mdxpad;
+
+      const { result } = renderHook(() => useRecoveryCheck());
+      await waitFor(() => {
+        expect(result.current.entries).toHaveLength(1);
+      });
+
+      await act(async () => {
+        await result.current.releaseRecovery(only.documentId);
+      });
+
+      expect(result.current.entries).toEqual([]);
+      expect(result.current.isDialogOpen).toBe(false);
+      expect(result.current.hasRecoveryData).toBe(false);
+    });
+  });
 });

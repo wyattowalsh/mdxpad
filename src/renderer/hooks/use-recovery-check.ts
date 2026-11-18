@@ -32,6 +32,7 @@ import type {
 import type {
   RecoveryDialogEntry,
   RecoveryDecision,
+  DocumentId,
 } from '@shared/contracts/autosave-schemas';
 
 // =============================================================================
@@ -90,6 +91,13 @@ const discardRecovery = (
   return Promise.resolve({ discardedCount: request.documentIds.length });
 };
 
+function withoutRecoveryEntry(
+  entries: readonly RecoveryDialogEntry[],
+  documentId: DocumentId
+): readonly RecoveryDialogEntry[] {
+  return entries.filter((entry) => entry.documentId !== documentId);
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -114,6 +122,11 @@ export interface UseRecoveryCheckResult {
   error: string | null;
   /** Whether a recovery operation is in progress */
   isProcessing: boolean;
+  /**
+   * Discard one saved recovery file and leave every other entry in place.
+   * Returns false when that file is still listed.
+   */
+  releaseRecovery: (documentId: DocumentId) => Promise<boolean>;
 }
 
 /**
@@ -218,6 +231,8 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
 
   /** Recovery entries for dialog display */
   const [entries, setEntries] = useState<readonly RecoveryDialogEntry[]>([]);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
 
   /** Whether the recovery dialog is open */
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -405,6 +420,30 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
     }
   }, [entries]);
 
+  const releaseRecovery = useCallback(async (documentId: DocumentId): Promise<boolean> => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const response = await discardRecovery({ documentIds: [documentId] });
+      if (response.discardedCount < 1) {
+        setError('Could not remove the saved recovery copy');
+        return false;
+      }
+      const nextEntries = withoutRecoveryEntry(entriesRef.current, documentId);
+      setEntries(nextEntries);
+      const stillHasRecovery = nextEntries.length > 0;
+      setHasRecoveryData(stillHasRecovery);
+      setIsDialogOpen(stillHasRecovery);
+      return true;
+    } catch (err) {
+      console.error('[useRecoveryCheck] Failed to release one recovery file:', err);
+      setError(err instanceof Error ? err.message : 'Recovery operation failed');
+      return false;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
   // ==========================================================================
   // RETURN
   // ==========================================================================
@@ -415,6 +454,7 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
     entries,
     isDialogOpen,
     handleDecision,
+    releaseRecovery,
     restoredDocuments,
     error,
     isProcessing,

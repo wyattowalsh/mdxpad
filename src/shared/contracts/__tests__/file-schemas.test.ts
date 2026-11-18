@@ -206,6 +206,14 @@ describe('FileSaveAsRequestSchema', () => {
     const result = FileSaveAsRequestSchema.safeParse({ content: '# New Content' });
     expect(result.success).toBe(true);
   });
+
+  it('should accept a suggested document name', () => {
+    const result = FileSaveAsRequestSchema.safeParse({
+      content: '# New Content',
+      suggestedName: '/docs/note.mdx',
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('FileReadRequestSchema', () => {

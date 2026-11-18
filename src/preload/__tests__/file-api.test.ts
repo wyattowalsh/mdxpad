@@ -145,6 +145,22 @@ describe('fileOperations', () => {
         { content: 'new content' }
       );
     });
+
+    it('should pass a suggested document name', async () => {
+      mockValidatedInvoke.mockResolvedValue({
+        success: true,
+        data: { id: 'new-id', path: '/new.mdx', name: 'new.mdx' },
+      });
+
+      await fileOperations.saveFileAs('new content', '/docs/note.mdx');
+
+      expect(mockValidatedInvoke).toHaveBeenCalledWith(
+        IPC_CHANNELS.file.saveAs,
+        expect.any(Object),
+        expect.any(Object),
+        { content: 'new content', suggestedName: '/docs/note.mdx' }
+      );
+    });
   });
 
   describe('readFile', () => {

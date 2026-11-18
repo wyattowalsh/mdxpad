@@ -29,7 +29,7 @@ async function saveRecoveryCopy(conflict: FileConflict | null, state: AppState):
     return false;
   }
 
-  const saved = await window.mdxpad.saveFileAs(conflict.recoveryContent);
+  const saved = await window.mdxpad.saveFileAs(conflict.recoveryContent, conflict.filePath);
   if (!saved.ok) {
     if (saved.error.code === 'CANCELLED') {
       return false;
@@ -42,7 +42,15 @@ async function saveRecoveryCopy(conflict: FileConflict | null, state: AppState):
     return false;
   }
 
-  await state.recovery.handleDecision({ action: 'decline' });
+  const released = await state.recovery.releaseRecovery(conflict.documentId);
+  if (!released) {
+    state.handleNotification({
+      type: 'error',
+      message: `Saved recovery copy to ${saved.value.name}, and that recovery entry is still available`,
+    });
+    return false;
+  }
+
   state.handleNotification({
     type: 'success',
     message: `Saved recovery copy to ${saved.value.name}`,

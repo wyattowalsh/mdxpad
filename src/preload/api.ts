@@ -165,7 +165,7 @@ export interface MdxpadAPI {
    * @param content - Content to save
    * @returns New FileHandle on success, error on cancel/failure
    */
-  saveFileAs(content: string): Promise<FileResult<FileHandle>>;
+  saveFileAs(content: string, suggestedName?: string): Promise<FileResult<FileHandle>>;
 
   /**
    * Read file content from path.

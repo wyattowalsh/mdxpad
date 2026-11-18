@@ -1,0 +1,113 @@
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { DocumentId } from '@shared/contracts/autosave-schemas';
+
+import type { AppState } from './useAppState';
+import { useAppDialogs } from './useAppDialogs';
+
+const documentId = '123e4567-e89b-12d3-a456-426614174000' as DocumentId;
+
+const conflict = {
+  documentId,
+  filePath: '/docs/note.mdx',
+  recoveryContent: 'recovered text',
+  diskContent: 'disk text',
+  recoveryTimestamp: 1,
+  diskModifiedAt: 2,
+};
+
+describe('useAppDialogs conflict save as', () => {
+  const previousMdxpad = window.mdxpad;
+
+  afterEach(() => {
+    window.mdxpad = previousMdxpad;
+  });
+
+  async function openConflict(state: AppState) {
+    const { result } = renderHook(() => useAppDialogs(state));
+    await act(async () => {
+      await result.current.handleRecoveryDecision({
+        action: 'accept',
+        selectedIds: [documentId],
+      });
+    });
+    return result;
+  }
+
+  it('saves the recovery copy and releases only that document', async () => {
+    const saveFileAs = vi.fn(async () => ({
+      ok: true as const,
+      value: { id: 'saved', path: '/docs/note-recovered.mdx', name: 'note-recovered.mdx' },
+    }));
+    window.mdxpad = {
+      ...previousMdxpad,
+      saveFileAs,
+      recoveryPreview: async () => ({ ok: true as const, content: 'recovered text', conflict }),
+    } as unknown as typeof window.mdxpad;
+    const releaseRecovery = vi.fn(async () => true);
+    const handleDecision = vi.fn();
+    const handleNotification = vi.fn();
+    const state = {
+      documentContent: '',
+      handleNotification,
+      recovery: {
+        entries: [{ documentId, hasConflict: true }],
+        handleDecision,
+        releaseRecovery,
+      },
+    } as unknown as AppState;
+
+    const result = await openConflict(state);
+    await act(async () => {
+      await result.current.handleConflictResolve({
+        choice: 'save-as',
+        documentId,
+        newPath: '',
+      });
+    });
+
+    expect(saveFileAs).toHaveBeenCalledWith('recovered text', '/docs/note.mdx');
+    expect(releaseRecovery).toHaveBeenCalledWith(documentId);
+    expect(handleDecision).not.toHaveBeenCalled();
+    expect(handleNotification).toHaveBeenCalledWith({
+      type: 'success',
+      message: 'Saved recovery copy to note-recovered.mdx',
+    });
+    expect(result.current.activeConflict).toBeNull();
+  });
+
+  it('leaves recovery files in place when Save As is cancelled', async () => {
+    const saveFileAs = vi.fn(async () => ({
+      ok: false as const,
+      error: { code: 'CANCELLED' as const },
+    }));
+    window.mdxpad = {
+      ...previousMdxpad,
+      saveFileAs,
+      recoveryPreview: async () => ({ ok: true as const, content: 'recovered text', conflict }),
+    } as unknown as typeof window.mdxpad;
+    const releaseRecovery = vi.fn(async () => true);
+    const state = {
+      documentContent: '',
+      handleNotification: vi.fn(),
+      recovery: {
+        entries: [{ documentId, hasConflict: true }],
+        handleDecision: vi.fn(),
+        releaseRecovery,
+      },
+    } as unknown as AppState;
+
+    const result = await openConflict(state);
+    await act(async () => {
+      await result.current.handleConflictResolve({
+        choice: 'save-as',
+        documentId,
+        newPath: '',
+      });
+    });
+
+    expect(releaseRecovery).not.toHaveBeenCalled();
+    expect(result.current.activeConflict?.recoveryContent).toBe('recovered text');
+  });
+});

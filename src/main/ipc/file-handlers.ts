@@ -58,6 +58,7 @@ import {
 import { registerInlinePreviewImages } from './inline-preview-images';
 import { listTrustedDirectory } from './list-directory';
 import { readStaysInsideDirectory } from './read-scope';
+import { saveAsDefaultPath } from './save-as-name';
 import { trustedDirectoryError } from './trusted-directory';
 
 /** File dialog filters for MDX and Markdown files */
@@ -268,7 +269,7 @@ const handleFileSaveAs = createValidatedHandler(
 
     const result = await dialog.showSaveDialog({
       filters: MDX_FILTERS,
-      defaultPath: 'untitled.mdx',
+      defaultPath: saveAsDefaultPath(args.suggestedName),
     });
 
     if (result.canceled || !result.filePath) {
