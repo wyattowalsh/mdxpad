@@ -31,17 +31,30 @@ function withSentinel(doc: ProseMirrorNode, pos: number): ProseMirrorNode | null
   }
 }
 
-/** 1-indexed source position of a caret in the visual document. */
-export function sourceCursorAt(doc: ProseMirrorNode, pos: number): SourceCursor {
+function markedSource(doc: ProseMirrorNode, pos: number): { source: string; index: number } | null {
   const clamped = Math.max(0, Math.min(pos, doc.content.size));
   const marked = withSentinel(doc, clamped);
   if (!marked) {
-    return { line: 1, column: 1 };
+    return null;
   }
   const serialized = serializeMdxContent(marked);
   const index = serialized.indexOf(SENTINEL);
   if (index < 0) {
+    return null;
+  }
+  return { source: serialized.replace(SENTINEL, ''), index };
+}
+
+/** Offset of a caret in the serialized Markdown, or null when it cannot be mapped. */
+export function sourceOffsetAt(doc: ProseMirrorNode, pos: number): number | null {
+  return markedSource(doc, pos)?.index ?? null;
+}
+
+/** 1-indexed source position of a caret in the visual document. */
+export function sourceCursorAt(doc: ProseMirrorNode, pos: number): SourceCursor {
+  const marked = markedSource(doc, pos);
+  if (!marked) {
     return { line: 1, column: 1 };
   }
-  return cursorFromOffset(serialized.replace(SENTINEL, ''), index);
+  return cursorFromOffset(marked.source, marked.index);
 }

@@ -63,6 +63,7 @@ import { markdownForSlice } from '../../lib/editor/wysiwyg-copy';
 import { clipboardImage, insertPastedImage } from '../../lib/editor/wysiwyg-paste-image';
 import { pastePlainText } from '../../lib/editor/wysiwyg-paste';
 import { handleVisualLinkClick } from '../../lib/editor/wysiwyg-link-click';
+import { handleVisualImportClick } from '../../lib/editor/wysiwyg-import-click';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
@@ -247,8 +248,11 @@ function useEditorView(
         void insertPastedImage(editorView, image);
         return true;
       },
-      handleClick(editorView, _pos, event) {
-        return handleVisualLinkClick(editorView, event);
+      handleClick(editorView, pos, event) {
+        if (handleVisualLinkClick(editorView, event)) {
+          return true;
+        }
+        return handleVisualImportClick(editorView, pos, event);
       },
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);

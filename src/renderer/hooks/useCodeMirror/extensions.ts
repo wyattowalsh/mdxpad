@@ -55,33 +55,10 @@ import { codeExecutionExtension } from '../../lib/editor/extensions/code-executi
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
 import { commentDecorationExtension } from '../../lib/editor/comment-decorations';
-import { importPathCandidates, openFirstExistingFile } from '@renderer/lib/open-file-from-path';
-import { joinRelativePath } from '@renderer/lib/resolve-beside-file';
-import { useDocumentStore } from '@renderer/stores/document-store';
+import { openImportSpecifier } from '@renderer/lib/open-import';
 import { predictNextEdit } from '../../lib/editor/next-edit-provider';
 import { nextEditPrediction } from '../../lib/editor/extensions/next-edit-prediction';
 import { sourceImagePasteExtension } from '../../lib/editor/extensions/source-image-paste';
-
-function openImportedFile(specifier: string): void {
-  if (!specifier.startsWith('.')) {
-    return;
-  }
-  const current = useDocumentStore.getState().filePath;
-  if (current?.includes('/') !== true) {
-    return;
-  }
-  let decoded = specifier;
-  try {
-    decoded = decodeURIComponent(specifier);
-  } catch {
-    return;
-  }
-  const directory = current.slice(0, current.lastIndexOf('/'));
-  const resolved = joinRelativePath(directory, decoded);
-  if (resolved) {
-    void openFirstExistingFile(importPathCandidates(resolved));
-  }
-}
 
 /**
  * Extended configuration for MDX editor, building on shared EditorConfig.
@@ -285,7 +262,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   // Enhanced find & replace with regex
   extensions.push(regexSearchExtension());
   extensions.push(codeExecutionExtension());
-  extensions.push(goToDefinitionExtension(openImportedFile));
+  extensions.push(goToDefinitionExtension(openImportSpecifier));
   extensions.push(commentDecorationExtension());
   extensions.push(nextEditPrediction(predictNextEdit));
 
