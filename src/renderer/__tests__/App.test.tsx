@@ -8,6 +8,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { App } from '../App';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
+import { useTabStore } from '../stores/tab-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useFrontmatterStore } from '../stores/frontmatter-store';
 import { useAIProviderStore } from '../features/ai-provider/store';
@@ -164,6 +165,7 @@ describe('App', () => {
       authoring: true,
     });
     useDocumentStore.getState().reset();
+    useTabStore.getState().reset();
     useSettingsStore.getState().close();
     useFrontmatterStore.getState().reset();
     useAIProviderStore.getState().closeSettings();

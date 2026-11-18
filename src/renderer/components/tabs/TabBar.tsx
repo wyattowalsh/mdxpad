@@ -14,17 +14,19 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { cn } from '@shared/lib/utils';
 import { useTabStore } from '@renderer/stores/tab-store';
+import {
+  activateDocumentTab,
+  closeDocumentTab,
+  closeDocumentTabsToRight,
+  closeOtherDocumentTabs,
+} from './document-tabs';
 import { TabItem } from './TabItem';
 import { TabContextMenu } from './TabContextMenu';
 
 function TabBarComponent() {
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
-  const setActiveTab = useTabStore((s) => s.setActiveTab);
-  const removeTab = useTabStore((s) => s.removeTab);
   const reorderTabs = useTabStore((s) => s.reorderTabs);
-  const closeOtherTabs = useTabStore((s) => s.closeOtherTabs);
-  const closeTabsToRight = useTabStore((s) => s.closeTabsToRight);
 
   const [contextMenuTabId, setContextMenuTabId] = useState<string | null>(null);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -85,11 +87,11 @@ function TabBarComponent() {
       event.preventDefault();
       const nextTab = tabs[targetIndex];
       if (nextTab) {
-        setActiveTab(nextTab.id);
+        activateDocumentTab(nextTab.id);
         focusTab(nextTab.id);
       }
     },
-    [tabs, setActiveTab, focusTab]
+    [tabs, focusTab]
   );
 
   // Keyboard shortcuts: Cmd+1-9 to switch tabs, Cmd+W to close active tab
@@ -103,20 +105,20 @@ function TabBarComponent() {
         e.preventDefault();
         const targetTab = tabs[num - 1];
         if (targetTab) {
-          setActiveTab(targetTab.id);
+          activateDocumentTab(targetTab.id);
         }
       }
 
       // Cmd+W to close active tab
       if (e.key === 'w' && activeTabId) {
         e.preventDefault();
-        removeTab(activeTabId);
+        closeDocumentTab(activeTabId);
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [tabs, activeTabId, setActiveTab, removeTab]);
+  }, [tabs, activeTabId]);
 
   if (tabs.length === 0) return null;
 
@@ -143,9 +145,9 @@ function TabBarComponent() {
                 fileName={tab.fileName}
                 isDirty={tab.isDirty}
                 isActive={tab.id === activeTabId}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => activateDocumentTab(tab.id)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
-                onClose={() => removeTab(tab.id)}
+                onClose={() => closeDocumentTab(tab.id)}
                 onContextMenu={(e) => handleContextMenu(tab.id, e)}
               />
             );
@@ -157,9 +159,9 @@ function TabBarComponent() {
                   tabId={tab.id}
                   open={contextMenuOpen}
                   onOpenChange={setContextMenuOpen}
-                  onClose={() => removeTab(tab.id)}
-                  onCloseOthers={() => closeOtherTabs(tab.id)}
-                  onCloseToRight={() => closeTabsToRight(tab.id)}
+                  onClose={() => closeDocumentTab(tab.id)}
+                  onCloseOthers={() => closeOtherDocumentTabs(tab.id)}
+                  onCloseToRight={() => closeDocumentTabsToRight(tab.id)}
                 >
                   {tabElement}
                 </TabContextMenu>

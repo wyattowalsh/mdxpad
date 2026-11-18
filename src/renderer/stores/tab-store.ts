@@ -21,6 +21,7 @@ export interface Tab {
   readonly fileName: string;
   readonly isDirty: boolean;
   readonly content: string;
+  readonly savedContent: string;
 }
 
 export interface TabState {
@@ -125,6 +126,9 @@ export const useTabStore = create<TabStore>()(
           if (updates.isDirty !== undefined)
             (tab as { isDirty: boolean }).isDirty = updates.isDirty;
           if (updates.content !== undefined) (tab as { content: string }).content = updates.content;
+          if (updates.savedContent !== undefined) {
+            (tab as { savedContent: string }).savedContent = updates.savedContent;
+          }
         }),
 
       closeOtherTabs: (id) =>

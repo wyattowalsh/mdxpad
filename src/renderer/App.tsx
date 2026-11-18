@@ -22,6 +22,7 @@ import { RecoveryDialog } from './components/recovery-dialog';
 import { ConflictDialog } from './components/conflict-dialog';
 import { SettingsPanel } from './components/settings-panel';
 import { TabBar } from './components/tabs';
+import { subscribeDocumentTabs } from './components/tabs/document-tabs';
 import { Breadcrumb } from './components/breadcrumb';
 import {
   Dialog,
@@ -112,6 +113,7 @@ export function App(): React.ReactElement {
     initThemeManager();
     applySavedCustomCss();
   }, []);
+  useEffect(() => subscribeDocumentTabs(), []);
 
   // File explorer filter state
   const filterQuery = useFileExplorerStore(selectFilterQuery);

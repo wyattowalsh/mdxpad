@@ -27,6 +27,7 @@ function addTestTab(
     fileName: overrides.fileName ?? 'file.mdx',
     isDirty: overrides.isDirty ?? false,
     content: overrides.content ?? '',
+    savedContent: overrides.content ?? '',
   });
 }
 

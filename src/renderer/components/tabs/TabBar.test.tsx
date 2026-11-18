@@ -17,6 +17,7 @@ function addTab(fileName: string) {
     fileName,
     isDirty: false,
     content: '',
+    savedContent: '',
   });
 }
 
