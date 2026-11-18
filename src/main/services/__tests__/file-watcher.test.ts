@@ -101,6 +101,7 @@ describe('FileWatcher', () => {
       expect(mockChokidarWatch).toHaveBeenCalledWith(filePath, {
         persistent: true,
         ignoreInitial: true,
+        followSymlinks: false,
         awaitWriteFinish: {
           stabilityThreshold: 500, // FR-011: 500ms debounce threshold
           pollInterval: 100,
@@ -200,6 +201,22 @@ describe('FileWatcher', () => {
 
       // Simulate file change
       changeHandler?.();
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith('mdxpad:file:change', {
+        fileId,
+        path: filePath,
+        type: 'change',
+      });
+    });
+
+    it('should report a recreated file as a change', () => {
+      const fileId = 'test-file-id' as FileId;
+      const filePath = '/test/document.mdx';
+
+      watcher.watch(fileId, filePath);
+
+      const addHandler = mockWatcherInstance.on.mock.calls.find((call) => call[0] === 'add')?.[1];
+      addHandler?.();
 
       expect(mockWindow.webContents.send).toHaveBeenCalledWith('mdxpad:file:change', {
         fileId,

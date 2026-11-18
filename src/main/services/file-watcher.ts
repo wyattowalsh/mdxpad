@@ -92,6 +92,7 @@ export class FileWatcher {
     const watcher = chokidar.watch(filePath, {
       persistent: true,
       ignoreInitial: true,
+      followSymlinks: false,
       awaitWriteFinish: {
         stabilityThreshold: 500, // FR-011: 500ms debounce threshold
         pollInterval: 100,
@@ -99,13 +100,15 @@ export class FileWatcher {
       atomic: true, // Handle atomic saves (temp file + rename)
     });
 
-    watcher.on('change', () => {
+    const reportChange = (): void => {
       try {
         this.emitChange(fileId, filePath, 'change');
       } catch (error) {
         console.error('[FileWatcher] Error in change handler:', error);
       }
-    });
+    };
+    watcher.on('change', reportChange);
+    watcher.on('add', reportChange);
 
     watcher.on('unlink', () => {
       try {
