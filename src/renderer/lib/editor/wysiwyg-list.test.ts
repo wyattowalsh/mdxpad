@@ -1,3 +1,4 @@
+import { newlineInCode } from 'prosemirror-commands';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -111,6 +112,38 @@ describe('visual lists', () => {
     const saved = serializeMdxContent(view.state.doc);
     expect(saved).toContain('onetwo');
     expect(saved.match(/^- /gm)?.length).toBe(1);
+  });
+
+  it('keeps Enter and Backspace inside a code block in a list', () => {
+    const view = open('- item\n\n  ```\n  code\n  ```\n');
+    views.push(view);
+    let middle = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'code') {
+        middle = pos + 2;
+      }
+    });
+    expect(middle).toBeGreaterThan(0);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, middle)));
+    const enter = visualListKeymap().Enter;
+    expect(enter?.(view.state, view.dispatch, view)).toBe(false);
+    expect(newlineInCode(view.state, view.dispatch)).toBe(true);
+    const saved = serializeMdxContent(view.state.doc);
+    expect(saved).toContain('co\n  de');
+    expect(saved.match(/```/g)?.length).toBe(2);
+
+    let codeStart = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text?.startsWith('co')) {
+        codeStart = pos;
+      }
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, codeStart)));
+    expect(visualListKeymap().Backspace?.(view.state, view.dispatch, view)).toBe(false);
+    const afterBackspace = serializeMdxContent(view.state.doc);
+    expect(afterBackspace).toContain('co\n  de');
+    expect(afterBackspace.match(/```/g)?.length).toBe(2);
+    expect(afterBackspace.match(/^- /gm)?.length).toBe(1);
   });
 
   it('starts a new item when Enter is pressed in a list', () => {

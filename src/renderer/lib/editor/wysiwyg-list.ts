@@ -60,7 +60,14 @@ export function toggleVisualList(view: EditorView, kind: VisualListKind): boolea
   return run(view, wrapInList(type));
 }
 
+function editingCode(state: Parameters<Command>[0]): boolean {
+  return state.selection.$from.parent.type.spec.code === true;
+}
+
 const enterListItem: Command = (state, dispatch, view) => {
+  if (editingCode(state)) {
+    return false;
+  }
   const item = mdxSchema.nodes.list_item;
   if (splitListItem(item)(state, dispatch, view)) {
     return true;
@@ -104,6 +111,9 @@ function joinAt(
 }
 
 const joinListItemBackward: Command = (state, dispatch, view) => {
+  if (editingCode(state)) {
+    return false;
+  }
   const { $from, empty } = state.selection;
   if (!empty || $from.parentOffset !== 0 || $from.depth < 2) {
     return false;
@@ -122,6 +132,9 @@ const joinListItemBackward: Command = (state, dispatch, view) => {
 };
 
 const joinListItemForward: Command = (state, dispatch) => {
+  if (editingCode(state)) {
+    return false;
+  }
   const { $from, empty } = state.selection;
   if (!empty || $from.depth < 2 || $from.parentOffset !== $from.parent.content.size) {
     return false;
