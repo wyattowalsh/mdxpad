@@ -142,17 +142,20 @@ describe('Share IPC handler validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     handlers = captureHandlers();
+    const link = {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      token: 'a'.repeat(64),
+      docId: 'doc1',
+      url: 'mdxpad://share/t',
+      accessMode: 'read-only' as const,
+      createdAt: Date.now(),
+      expiresAt: null,
+      isActive: true,
+    };
     const svc = {
-      createLink: vi.fn(() => ({
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        token: 'a'.repeat(64),
-        docId: 'doc1',
-        url: 'mdxpad://share/t',
-        accessMode: 'read-only' as const,
-        createdAt: Date.now(),
-        expiresAt: null,
-        isActive: true,
-      })),
+      createLink: vi.fn(() => link),
+      whenSaved: vi.fn(() => Promise.resolve()),
+      getLink: vi.fn(() => link),
       revokeLink: vi.fn(() => true),
       getLinks: vi.fn(() => []),
     } as unknown as ShareLinkService;

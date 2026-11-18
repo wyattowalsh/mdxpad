@@ -33,6 +33,26 @@ describe('ShareLinkService.readByToken', () => {
     });
   });
 
+  it('removes a share link when saving it fails', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-fail-'));
+    tempDirs.push(root);
+    const blocked = path.join(root, 'blocked');
+    await writeFile(blocked, 'not a directory');
+    const service = new ShareLinkService({
+      storagePath: path.join(blocked, 'share-links.json'),
+    });
+    const link = service.createLink({
+      docId: 'doc-1',
+      accessMode: 'read-only',
+      expiresInMs: null,
+      content: '# Shared',
+    });
+    await service.whenSaved();
+
+    expect(service.getLink(link.id)).toBeNull();
+    expect(service.getLinks()).toEqual([]);
+  });
+
   it('does not read or write a share list through a link', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-link-'));
     const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-secret-'));

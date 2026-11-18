@@ -7,7 +7,7 @@
 
 import { randomUUID, randomBytes } from 'node:crypto';
 import type { ShareLink, ShareAccessMode } from '@shared/contracts/share-schemas';
-import { readShareStore, writeShareStore } from './share-link-store';
+import { readShareStore, writeShareStore, type ShareStoreData } from './share-link-store';
 
 // ============================================================================
 // Types
@@ -60,6 +60,9 @@ export class ShareLinkService {
   private readonly storagePath: string | null;
   private loaded = false;
   private saveTail: Promise<void> = Promise.resolve();
+  private pendingSave: Promise<void> = Promise.resolve();
+  private lastWrittenLinks = new Map<string, ShareLink>();
+  private lastWrittenContents = new Map<string, string>();
 
   constructor(options: ShareLinkServiceOptions = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
@@ -82,28 +85,61 @@ export class ShareLinkService {
         this.contents.set(link.id, content);
       }
     }
+    this.rememberWritten();
   }
 
   whenSaved(): Promise<void> {
     return this.saveTail;
   }
 
-  private scheduleSave(): void {
-    if (this.storagePath === null) {
-      return;
-    }
+  private captureShareStore(): ShareStoreData {
     const contents: Record<string, string> = {};
     for (const [id, content] of this.contents) {
       contents[id] = content;
     }
-    const snapshot = {
-      links: Array.from(this.links.values()),
-      contents,
-    };
+    return { links: Array.from(this.links.values()), contents };
+  }
+
+  private rememberWritten(): void {
+    this.lastWrittenLinks = new Map(this.links);
+    this.lastWrittenContents = new Map(this.contents);
+  }
+
+  private replaceWritten(snapshot: ShareStoreData): void {
+    this.lastWrittenLinks = new Map(snapshot.links.map((link) => [link.id, link]));
+    this.lastWrittenContents = new Map(Object.entries(snapshot.contents));
+  }
+
+  private restoreWritten(): void {
+    this.links.clear();
+    this.contents.clear();
+    for (const [id, link] of this.lastWrittenLinks) {
+      this.links.set(id, link);
+    }
+    for (const [id, content] of this.lastWrittenContents) {
+      this.contents.set(id, content);
+    }
+  }
+
+  private scheduleSave(): void {
+    if (this.storagePath === null) {
+      this.pendingSave = Promise.resolve();
+      return;
+    }
+    const snapshot = this.captureShareStore();
     const target = this.storagePath;
-    this.saveTail = this.saveTail
-      .then(() => writeShareStore(target, snapshot))
-      .catch(() => undefined);
+    const attempt = this.saveTail.catch(() => undefined).then(async () => {
+      try {
+        await writeShareStore(target, snapshot);
+        this.replaceWritten(snapshot);
+      } catch {
+        if (this.pendingSave === attempt) {
+          this.restoreWritten();
+        }
+      }
+    });
+    this.pendingSave = attempt;
+    this.saveTail = attempt;
   }
 
   /**

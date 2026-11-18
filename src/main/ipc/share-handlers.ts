@@ -47,15 +47,19 @@ import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 function createCreateLinkHandler(service: ShareLinkService) {
   return createValidatedHandler(
     CreateShareLinkRequestSchema,
-    (args): Promise<CreateShareLinkResponse> => {
+    async (args): Promise<CreateShareLinkResponse> => {
       const link = service.createLink({
         docId: args.docId,
         accessMode: args.accessMode,
         expiresInMs: args.expiresInMs,
         ...(args.content !== undefined ? { content: args.content } : {}),
       });
+      await service.whenSaved();
+      if (service.getLink(link.id) === null) {
+        throw new Error('Could not save the share link');
+      }
 
-      return Promise.resolve({ success: true as const, link });
+      return { success: true as const, link };
     }
   );
 }
@@ -66,12 +70,16 @@ function createCreateLinkHandler(service: ShareLinkService) {
 function createRevokeLinkHandler(service: ShareLinkService) {
   return createValidatedHandler(
     RevokeShareLinkRequestSchema,
-    (args): Promise<RevokeShareLinkResponse> => {
+    async (args): Promise<RevokeShareLinkResponse> => {
       const revoked = service.revokeLink(args.id);
       if (!revoked) {
-        return Promise.reject(new Error(`Share link ${args.id} not found`));
+        throw new Error(`Share link ${args.id} not found`);
       }
-      return Promise.resolve({ success: true as const });
+      await service.whenSaved();
+      if (service.getLink(args.id)?.isActive !== false) {
+        throw new Error('Could not save the revoked share link');
+      }
+      return { success: true as const };
     }
   );
 }
@@ -92,9 +100,15 @@ function createGetLinksHandler(service: ShareLinkService) {
 function createMoveUntitledHandler(service: ShareLinkService) {
   return createValidatedHandler(
     MoveUntitledShareLinksRequestSchema,
-    (args): Promise<MoveUntitledShareLinksResponse> => {
+    async (args): Promise<MoveUntitledShareLinksResponse> => {
       const links = service.moveUntitledDocument(args.fromDocId, args.toDocId);
-      return Promise.resolve({ links: [...links] });
+      await service.whenSaved();
+      const saved = service.getLinks(args.toDocId);
+      const kept = links.every((link) => saved.some((item) => item.id === link.id));
+      if (!kept) {
+        throw new Error('Could not save share links for the file');
+      }
+      return { links: [...service.getLinks(args.toDocId)] };
     }
   );
 }
