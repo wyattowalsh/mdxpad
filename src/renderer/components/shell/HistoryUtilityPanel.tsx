@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDocumentStore } from '@renderer/stores/document-store';
-import { selectEntries, useVersionHistoryStore } from '@renderer/stores/version-history-store';
+import {
+  selectCurrentFilePath,
+  selectEntries,
+  useVersionHistoryStore,
+} from '@renderer/stores/version-history-store';
 import { VersionDiff } from '@renderer/components/history/VersionDiff';
 import { VersionRestoreDialog } from '@renderer/components/history/VersionRestoreDialog';
 import { VersionTimeline } from '@renderer/components/history/VersionTimeline';
@@ -11,8 +15,10 @@ export function HistoryUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const content = useDocumentStore((state) => state.content);
   const entries = useVersionHistoryStore(selectEntries);
+  const historyPath = useVersionHistoryStore(selectCurrentFilePath);
   const selectedEntryId = useVersionHistoryStore((state) => state.selectedEntryId);
   const loadHistory = useVersionHistoryStore((state) => state.loadHistory);
+  const clearHistory = useVersionHistoryStore((state) => state.clearHistory);
   const selectEntry = useVersionHistoryStore((state) => state.selectEntry);
   const error = useVersionHistoryStore((state) => state.error);
   const setError = useVersionHistoryStore((state) => state.setError);
@@ -24,10 +30,12 @@ export function HistoryUtilityPanel(): React.JSX.Element {
 
   useEffect(() => {
     if (!filePath || !window.mdxpad.history) {
+      clearHistory();
       setError(null);
       return;
     }
     let cancelled = false;
+    clearHistory();
     setLoading(true);
     setError(null);
     void window.mdxpad.history
@@ -43,10 +51,10 @@ export function HistoryUtilityPanel(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [filePath, loadHistory, setError, setLoading]);
+  }, [clearHistory, filePath, loadHistory, setError, setLoading]);
 
   useEffect(() => {
-    if (!filePath || !selectedEntryId || !window.mdxpad.history) {
+    if (!filePath || historyPath !== filePath || !selectedEntryId || !window.mdxpad.history) {
       setVersionContent(null);
       return;
     }
@@ -64,9 +72,10 @@ export function HistoryUtilityPanel(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [filePath, selectedEntryId, setError]);
+  }, [filePath, historyPath, selectedEntryId, setError]);
 
-  const selected = entries.find((entry) => entry.id === selectedEntryId) ?? null;
+  const visibleEntries = historyPath === filePath ? entries : [];
+  const selected = visibleEntries.find((entry) => entry.id === selectedEntryId) ?? null;
   const counts = useMemo(() => {
     if (versionContent === null) {
       return { restored: 0, removed: 0 };
@@ -112,8 +121,8 @@ export function HistoryUtilityPanel(): React.JSX.Element {
             Save a snapshot of the editor
           </button>
           <VersionTimeline
-            entries={entries}
-            selectedEntryId={selectedEntryId}
+            entries={visibleEntries}
+            selectedEntryId={selected ? selectedEntryId : null}
             onSelect={selectEntry}
           />
         </>

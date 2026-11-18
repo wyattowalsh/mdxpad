@@ -38,6 +38,27 @@ describe('HistoryUtilityPanel', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('hides versions that belong to another file', () => {
+    useVersionHistoryStore
+      .getState()
+      .loadHistory(
+        [{ id: 'snapshot-old', timestamp: 1, source: 'manual', label: 'Other file' }],
+        '/tmp/other.mdx'
+      );
+    useDocumentStore.setState({ filePath: '/tmp/note.mdx' });
+    vi.stubGlobal('mdxpad', {
+      history: {
+        getHistory: vi.fn().mockReturnValue(new Promise(() => undefined)),
+        getVersion: vi.fn(),
+      },
+    });
+
+    render(<HistoryUtilityPanel />);
+
+    expect(screen.queryByText('Other file')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save a snapshot of the editor' })).toBeTruthy();
+  });
+
   it('shows why version history did not load', async () => {
     useDocumentStore.setState({ filePath: '/tmp/note.mdx' });
     vi.stubGlobal('mdxpad', {
