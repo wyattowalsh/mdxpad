@@ -4,6 +4,7 @@
  */
 
 import type { SemanticSearchResult } from '@shared/contracts/semantic-search-schemas';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
@@ -37,7 +38,7 @@ function openDocuments(workspacePath: string): Map<string, string> {
   const documents = new Map<string, string>();
   const state = useDocumentStore.getState();
   if (state.filePath && insideWorkspace(workspacePath, state.filePath)) {
-    documents.set(state.filePath, state.content);
+    documents.set(state.filePath, liveSourceText() ?? state.content);
   }
   for (const tab of useTabStore.getState().tabs) {
     if (

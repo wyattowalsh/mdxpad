@@ -92,6 +92,48 @@ describe('git status', () => {
     });
   });
 
+  it('mentions keystrokes that have not been stored yet', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'saved'
+    );
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: {
+        current: 'main',
+        staged: [],
+        modified: [],
+        notAdded: [],
+        created: [],
+        deleted: [],
+        conflicted: [],
+      },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: {
+        filePath: '/notes/readme.md',
+        content: 'saved',
+        isDirty: false,
+        fileId: 'file-1',
+      },
+      editor: { state: { doc: { toString: () => 'saved!' } }, isDestroyed: false },
+      api: { git: { status } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.status');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Git status: clean on main. Unsaved in the editor: readme.md',
+    });
+  });
+
   it('does not report git status after the open file leaves that folder', async () => {
     useDocumentStore.setState({ filePath: '/notes/readme.md', content: 'draft' });
     let finishStatus: (value: {
@@ -640,8 +682,7 @@ describe('import.html', () => {
 
   it('does not report an import error after the document changes', async () => {
     useDocumentStore.getState().setContent('<p>Hi</p>');
-    let finishImport: (value: { ok: false; error: { message: string } }) => void = () =>
-      undefined;
+    let finishImport: (value: { ok: false; error: { message: string } }) => void = () => undefined;
     const fromHtml = vi.fn(
       () =>
         new Promise((resolve) => {
@@ -938,6 +979,40 @@ describe('search.workspace', () => {
     expect(notify).toHaveBeenCalledWith({
       type: 'info',
       message: 'Search for "brand new": 1 match (readme.md)',
+    });
+  });
+
+  it('includes keystrokes the document store has not stored', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    vi.spyOn(window, 'prompt').mockReturnValue('fresh phrase');
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { indexed: true, fileCount: 1, lastIndexedAt: null },
+    });
+    const search = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { results: [], totalResults: 0, queryTimeMs: 1 },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
+      editor: { state: { doc: { toString: () => 'fresh phrase' } }, isDestroyed: false },
+      api: { search: { status, search } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'search.workspace');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Search for "fresh phrase": 1 match (readme.md)',
     });
   });
 

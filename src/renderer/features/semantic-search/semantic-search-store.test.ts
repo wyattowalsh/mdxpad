@@ -2,8 +2,9 @@
  * Unit tests for Semantic Search Store.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { DocumentId } from '@shared/types/document';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import { useSemanticSearchStore } from './semantic-search-store';
@@ -11,9 +12,14 @@ import { useSemanticSearchStore } from './semantic-search-store';
 describe('useSemanticSearchStore', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    registerLiveSourceText(null);
     useSemanticSearchStore.getState().reset();
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
+  });
+
+  afterEach(() => {
+    registerLiveSourceText(null);
   });
 
   it('should initialize with empty state', () => {
@@ -131,6 +137,30 @@ describe('useSemanticSearchStore', () => {
     expect(results[1]?.content).toContain('brand new phrase');
   });
 
+  it('includes keystrokes that have not reached the document store', async () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'old'
+    );
+    registerLiveSourceText(() => 'fresh phrase');
+    vi.stubGlobal('mdxpad', {
+      semanticSearch: {
+        search: vi.fn().mockResolvedValue({ success: true, results: [] }),
+      },
+    });
+    useSemanticSearchStore.getState().setQuery('fresh phrase');
+
+    await useSemanticSearchStore.getState().search('/notes');
+
+    const results = useSemanticSearchStore.getState().results;
+    expect(results.map((result) => result.filePath)).toEqual(['/notes/readme.md']);
+    expect(results[0]?.content).toContain('fresh phrase');
+  });
+
   it('says when semantic search is unavailable', async () => {
     useSemanticSearchStore.getState().setQuery('notes');
     await useSemanticSearchStore.getState().search('/notes');
@@ -201,9 +231,7 @@ describe('useSemanticSearchStore', () => {
     useSemanticSearchStore.getState().clearResults();
     finishSearch({
       success: true,
-      results: [
-        { filePath: '/notes/a/secret.md', content: 'secret', score: 1, chunkIndex: 0 },
-      ],
+      results: [{ filePath: '/notes/a/secret.md', content: 'secret', score: 1, chunkIndex: 0 }],
     });
     await pending;
 

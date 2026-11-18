@@ -1,7 +1,10 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import type { DocumentId } from '@shared/types/document';
 import type { FileHandle, FileId } from '@shared/types/file';
-import { fileIsMissing, hasPendingExternalChange } from '@renderer/components/tabs/external-tab-change';
+import {
+  fileIsMissing,
+  hasPendingExternalChange,
+} from '@renderer/components/tabs/external-tab-change';
 import { saveInactiveDocuments } from './file-commands';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -9,7 +12,12 @@ import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { IMPORT_COMMANDS } from './import-commands';
-import { documentStillMatches, liveDocumentContent, syncSavedText } from './live-document';
+import {
+  documentStillMatches,
+  editorHasUnsavedText,
+  liveDocumentContent,
+  syncSavedText,
+} from './live-document';
 
 function parentDirectory(filePath: string): string {
   return filePath.slice(0, filePath.lastIndexOf('/'));
@@ -153,7 +161,7 @@ function withOpenDocuments(
   const withActive = includeOpenEditor(
     results,
     sameFile ? state.filePath : null,
-    sameFile ? state.content : '',
+    sameFile ? liveDocumentContent(ctx) : '',
     query
   );
   return useTabStore.getState().tabs.reduce((current, tab) => {
@@ -164,7 +172,7 @@ function withOpenDocuments(
   }, withActive);
 }
 
-function unsavedEditorFiles(directory: string): readonly string[] {
+function unsavedEditorFiles(directory: string, ctx: CommandContext): readonly string[] {
   const root = directory.endsWith('/') ? directory.slice(0, -1) : directory;
   const inside = (filePath: string | null): filePath is string =>
     filePath !== null && (filePath === root || filePath.startsWith(`${root}/`));
@@ -173,7 +181,7 @@ function unsavedEditorFiles(directory: string): readonly string[] {
     names.add(filePath.slice(filePath.lastIndexOf('/') + 1));
   };
   const state = useDocumentStore.getState();
-  if (inside(state.filePath) && (state.isDirty || state.fileMissing)) {
+  if (inside(state.filePath) && (state.isDirty || state.fileMissing || editorHasUnsavedText(ctx))) {
     add(state.filePath);
   }
   for (const tab of useTabStore.getState().tabs) {
@@ -189,9 +197,10 @@ function unsavedEditorFiles(directory: string): readonly string[] {
 
 function gitDiffMessage(
   directory: string,
-  diff: Parameters<typeof summarizeGitDiff>[0]
+  diff: Parameters<typeof summarizeGitDiff>[0],
+  ctx: CommandContext
 ): string {
-  const unsaved = unsavedEditorFiles(directory);
+  const unsaved = unsavedEditorFiles(directory, ctx);
   const disk = summarizeGitDiff(diff);
   if (unsaved.length === 0) {
     return disk;
@@ -201,9 +210,10 @@ function gitDiffMessage(
 
 function gitStatusMessage(
   directory: string,
-  status: Parameters<typeof summarizeGitStatus>[0]
+  status: Parameters<typeof summarizeGitStatus>[0],
+  ctx: CommandContext
 ): string {
-  const unsaved = unsavedEditorFiles(directory);
+  const unsaved = unsavedEditorFiles(directory, ctx);
   const disk = summarizeGitStatus(status);
   if (unsaved.length === 0) {
     return disk;
@@ -253,7 +263,7 @@ const gitStatusCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    notifyFolderResult(ctx, dir, gitStatusMessage(dir, result.value), workspaceDir);
+    notifyFolderResult(ctx, dir, gitStatusMessage(dir, result.value, ctx), workspaceDir);
     return { ok: true };
   },
 };
@@ -287,15 +297,8 @@ async function searchWorkspaceFolder(
     return { ok: false, error: result.error.message };
   }
   const results = withOpenDocuments(result.value.results, ctx, queryText);
-  notifyFolderResult(
-    ctx,
-    dir,
-    summarizeSearchResults(queryText, results),
-    (filePath) =>
-      searchDirectoryForFile(
-        filePath,
-        useWorkspaceStore.getState().model?.workspace.rootPath ?? null
-      )
+  notifyFolderResult(ctx, dir, summarizeSearchResults(queryText, results), (filePath) =>
+    searchDirectoryForFile(filePath, useWorkspaceStore.getState().model?.workspace.rootPath ?? null)
   );
   return { ok: true };
 }
@@ -341,7 +344,7 @@ const gitDiffCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    notifyFolderResult(ctx, dir, gitDiffMessage(dir, result.value), workspaceDir);
+    notifyFolderResult(ctx, dir, gitDiffMessage(dir, result.value, ctx), workspaceDir);
     return { ok: true };
   },
 };
