@@ -218,6 +218,16 @@ function buildAppMenu(): MenuItemConstructorOptions | null {
  * @param window - The main BrowserWindow for IPC communication
  * @returns The File menu configuration
  */
+function closeWindowMenuItem(window: BrowserWindow): MenuItemConstructorOptions {
+  return {
+    label: 'Close Window',
+    accelerator: 'CmdOrCtrl+Shift+W',
+    click: () => {
+      window.close();
+    },
+  };
+}
+
 function buildFileMenu(window: BrowserWindow): MenuItemConstructorOptions {
   const isMac = process.platform === 'darwin';
   return {
@@ -252,7 +262,7 @@ function buildFileMenu(window: BrowserWindow): MenuItemConstructorOptions {
         click: () => window.webContents.send('mdxpad:menu:export-file'),
       },
       { type: 'separator' },
-      isMac ? { role: 'close' } : { role: 'quit' },
+      isMac ? closeWindowMenuItem(window) : { role: 'quit' },
     ],
   };
 }
@@ -371,7 +381,7 @@ function buildViewMenu(window: BrowserWindow): MenuItemConstructorOptions {
  * Builds the Window menu with minimize, zoom, and window management options.
  * @returns The Window menu configuration
  */
-function buildWindowMenu(): MenuItemConstructorOptions {
+function buildWindowMenu(window: BrowserWindow): MenuItemConstructorOptions {
   const isMac = process.platform === 'darwin';
   return {
     label: 'Window',
@@ -385,7 +395,7 @@ function buildWindowMenu(): MenuItemConstructorOptions {
             { type: 'separator' as const },
             { role: 'window' as const },
           ]
-        : [{ role: 'close' as const }]),
+        : [closeWindowMenuItem(window)]),
     ],
   };
 }
@@ -433,7 +443,7 @@ function buildMenuTemplate(window: BrowserWindow): MenuItemConstructorOptions[] 
     buildFileMenu(window),
     buildEditMenu(window),
     buildViewMenu(window),
-    buildWindowMenu(),
+    buildWindowMenu(window),
     buildHelpMenu()
   );
 

@@ -369,6 +369,51 @@ describe('Menu Actions', () => {
       expect(window.webContents.send).toHaveBeenCalledWith('mdxpad:menu:save-file-as');
     });
 
+    it('reserves Cmd+W for Close Tab', () => {
+      buildApplicationMenu(window);
+
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls[0]![0];
+      const accelerators: string[] = [];
+      const visit = (items: readonly { label?: string; accelerator?: string; submenu?: unknown[] }[]): void => {
+        for (const item of items) {
+          if (item.accelerator === 'CmdOrCtrl+W') {
+            accelerators.push(item.label ?? '');
+          }
+          if (Array.isArray(item.submenu)) {
+            visit(item.submenu as { label?: string; accelerator?: string; submenu?: unknown[] }[]);
+          }
+        }
+      };
+      visit(template as { label?: string; accelerator?: string; submenu?: unknown[] }[]);
+
+      expect(accelerators).toEqual(['Close Tab']);
+    });
+
+    it('closes the window from Close Window without using Cmd+W', () => {
+      const close = vi.fn();
+      (window as unknown as { close: () => void }).close = close;
+      buildApplicationMenu(window);
+
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls[0]![0];
+      const findLabel = (items: readonly { label?: string; submenu?: unknown[] }[]): { label?: string; accelerator?: string; click?: () => void } | undefined => {
+        for (const item of items) {
+          if (item.label === 'Close Window') {
+            return item as { label?: string; accelerator?: string; click?: () => void };
+          }
+          if (Array.isArray(item.submenu)) {
+            const found = findLabel(item.submenu as { label?: string; submenu?: unknown[] }[]);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      const item = findLabel(template as { label?: string; submenu?: unknown[] }[]);
+
+      expect(item?.accelerator).toBe('CmdOrCtrl+Shift+W');
+      item?.click?.();
+      expect(close).toHaveBeenCalledOnce();
+    });
+
     it('should send export-file event on Export click', () => {
       buildApplicationMenu(window);
 
