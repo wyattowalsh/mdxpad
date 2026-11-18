@@ -291,6 +291,17 @@ describe('EpubExporter', () => {
     expect(html).toContain(
       '<ul>\n<li><p>parent</p>\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>'
     );
+    await exporter.export({
+      content: '- parent\n  - child\n\n  more\n',
+      outputPath: '/tmp/nested-tight-child.epub',
+    });
+    const tight = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as {
+      content: string;
+    }[];
+    const tightHtml = tight.map((chapter) => chapter.content).join('\n');
+    expect(tightHtml).toContain(
+      '<ul>\n<li><p>parent</p>\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>'
+    );
   });
 
   it('nests a child list under its parent', async () => {

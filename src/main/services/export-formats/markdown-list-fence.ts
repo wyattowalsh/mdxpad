@@ -5,6 +5,7 @@ import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
 import {
   closeHtmlListFrame,
   isListContinuation,
+  markListLoose,
   parseListItem,
   renderListItemHtml,
   replaceHtmlListItem,
@@ -286,6 +287,9 @@ function continueListParagraph(
   const returned = stack.length - 1 > depth;
   while (stack.length - 1 > depth) {
     closeHtmlListFrame(parts, stack);
+  }
+  if (returned) {
+    markListLoose(parts, stack);
   }
   state.listColumn = frame.column;
   state.listBreak = false;

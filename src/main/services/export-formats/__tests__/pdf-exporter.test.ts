@@ -371,6 +371,19 @@ describe('PdfExporter', () => {
     expect(html).toContain(
       '<ul>\n<li><p>parent</p>\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>'
     );
+    const tightChild = await exporter.export({
+      content: '- one\n- parent\n  - child\n\n  more\n',
+      outputPath: '/tmp/nested-tight-child.pdf',
+    });
+    expect(tightChild.ok).toBe(true);
+    const tightHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(tightHtml).toContain('<li><p>one</p></li>');
+    expect(tightHtml).toContain(
+      '<li><p>parent</p>\n<ul>\n<li>child</li>\n</ul>\n<p>more</p>\n</li>'
+    );
+    expect(tightHtml).not.toContain('<li><p>child</p></li>');
     const ended = await exporter.export({
       content: '- parent\n\n  - child\n\nbaz\n',
       outputPath: '/tmp/nested-ended.pdf',
