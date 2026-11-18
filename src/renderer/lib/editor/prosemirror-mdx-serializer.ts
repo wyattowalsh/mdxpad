@@ -10,6 +10,7 @@
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { taskMarker } from './prosemirror-task-item';
+import { writeFootnoteRef } from './prosemirror-footnote-ref';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
 import { emphasizeOutside } from './prosemirror-emphasis-order';
@@ -176,6 +177,8 @@ const nodeSerializers: NodeSerializerMap = {
       state.write('~~');
     }
   },
+
+  footnote_ref: writeFootnoteRef,
 
   hard_break(state, node, parent, index) {
     const first = parent.firstChild?.isText ? (parent.firstChild.text ?? '') : '';
