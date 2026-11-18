@@ -36,6 +36,21 @@ describe('copyPublishedImages', () => {
     expect(await readFile(secret, 'utf8')).toBe('secret');
     await expect(readFile(path.join(outside, 'nested.png'))).rejects.toThrow();
   });
+
+  it('does not copy a source image that is a link', async () => {
+    const sourceDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-src-link-'));
+    const output = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-out-link-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-publish-secret-link-'));
+    const source = path.join(sourceDir, 'note.md');
+    const secret = path.join(outside, 'secret.png');
+    await writeFile(secret, Buffer.from('secret'));
+    await symlink(secret, path.join(sourceDir, 'pixel.png'));
+
+    await copyPublishedImages('![In](pixel.png)\n', source, output);
+
+    expect(await readFile(secret, 'utf8')).toBe('secret');
+    await expect(readFile(path.join(output, 'pixel.png'))).rejects.toThrow();
+  });
 });
 
 describe('inlineLocalImages', () => {
@@ -63,6 +78,20 @@ describe('inlineLocalImages', () => {
     expect(inlined).toContain(`![Out](../${outsideName}/secret.png)`);
     expect(inlined.match(/data:image\/png/g)).toHaveLength(1);
     expect(markdownToPdfHtml(inlined)).toContain('<img src="data:image/png;base64,');
+  });
+
+  it('does not embed an image that is a link', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-link-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-link-out-'));
+    const source = path.join(root, 'note.md');
+    const secret = path.join(outside, 'secret.png');
+    await writeFile(secret, Buffer.from('secret'));
+    await symlink(secret, path.join(root, 'pixel.png'));
+
+    const inlined = await inlineLocalImages('![In](pixel.png)', source, 'data-url');
+
+    expect(inlined).toBe('![In](pixel.png)');
+    expect(await readFile(secret, 'utf8')).toBe('secret');
   });
 
   it('embeds an image whose file name contains a space', async () => {

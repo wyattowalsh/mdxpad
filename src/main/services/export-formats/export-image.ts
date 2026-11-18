@@ -1,5 +1,5 @@
 import { constants as fsConstants } from 'node:fs';
-import { lstat, mkdir, open, readFile, realpath, stat } from 'node:fs/promises';
+import { lstat, mkdir, open, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readStaysInsideDirectory } from '@main/ipc/read-scope';
@@ -74,17 +74,25 @@ function localPath(directory: string, destination: string): string | null {
   return readStaysInsideDirectory(resolved, directory) ? resolved : null;
 }
 
+async function readRegularFile(filePath: string): Promise<Buffer | null> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    handle = await open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const data = await handle.readFile();
+    return data.byteLength > MAX_IMAGE_BYTES ? null : data;
+  } catch {
+    return null;
+  } finally {
+    await handle?.close();
+  }
+}
+
 async function readInside(directory: string, destination: string): Promise<Buffer | null> {
   const resolved = localPath(directory, destination);
   if (!resolved) {
     return null;
   }
-  try {
-    const data = await readFile(resolved);
-    return data.byteLength > MAX_IMAGE_BYTES ? null : data;
-  } catch {
-    return null;
-  }
+  return readRegularFile(resolved);
 }
 
 function markdownAddress(pathValue: string): string {
@@ -272,12 +280,11 @@ async function copyOnePublishedImage(
   if (!target || !(await destinationInsideOutput(outputDir, target))) {
     return;
   }
-  const info = await stat(resolved);
-  if (!info.isFile() || info.size > MAX_IMAGE_BYTES) {
+  const data = await readRegularFile(resolved);
+  if (!data) {
     return;
   }
   await mkdir(path.dirname(target), { recursive: true });
-  const data = await readFile(resolved);
   await writePublishedFile(target, data);
 }
 
