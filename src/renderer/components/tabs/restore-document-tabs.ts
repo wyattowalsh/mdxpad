@@ -31,6 +31,7 @@ function rememberRecoveredTab(doc: RecoveredTabDocument): string {
 }
 
 function showFirstRecoveredDocument(doc: RecoveredTabDocument): void {
+  shownRecoveryContent = doc.content;
   useDocumentStore.setState((state) => ({
     ...state,
     fileId: (doc.filePath
@@ -49,10 +50,41 @@ function showFirstRecoveredDocument(doc: RecoveredTabDocument): void {
   }));
 }
 
+let shownRecoveryContent: string | null = null;
+
+function sessionHasUserWork(): boolean {
+  const document = useDocumentStore.getState();
+  const showingRecovery =
+    shownRecoveryContent !== null &&
+    document.content === shownRecoveryContent &&
+    document.savedContent.length === 0;
+  if (showingRecovery) {
+    return false;
+  }
+  if (document.filePath !== null || document.content.length > 0 || document.isDirty) {
+    return true;
+  }
+  return useTabStore.getState().tabs.some((tab) => {
+    return tab.filePath !== null || tab.content.length > 0 || tab.isDirty;
+  });
+}
+
+function addRecoveredTabs(documents: readonly RecoveredTabDocument[]): void {
+  whileApplyingTabs(() => {
+    for (const doc of documents) {
+      rememberRecoveredTab(doc);
+    }
+  });
+}
+
 /** Open every recovered document, with the first one in the editor. */
 export function openRecoveredDocuments(documents: readonly RecoveredTabDocument[]): void {
   const first = documents[0];
   if (!first) {
+    return;
+  }
+  if (sessionHasUserWork()) {
+    addRecoveredTabs(documents);
     return;
   }
   whileApplyingTabs(() => {

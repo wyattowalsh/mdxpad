@@ -132,11 +132,7 @@ export function useRecoveryRestore(): UseRecoveryRestoreResult {
 
     try {
       openRecoveredDocuments(recovered);
-      console.debug(
-        '[useRecoveryRestore] Restored %d document(s). The editor is showing %s',
-        recovered.length,
-        recovered[0]?.fileName
-      );
+      console.debug('[useRecoveryRestore] Restored %d document(s)', recovered.length);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[useRecoveryRestore] Failed to restore document:', message);

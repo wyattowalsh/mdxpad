@@ -14,6 +14,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import type { RestoredDocument } from '@shared/contracts/autosave-ipc';
 import type { DocumentId as AutosaveDocumentId } from '@shared/contracts/autosave-schemas';
+import type { DocumentId } from '@shared/types/document';
 
 // =============================================================================
 // Test Setup
@@ -245,6 +246,39 @@ describe('useRecoveryRestore', () => {
         'second.mdx',
       ]);
       expect(useTabStore.getState().tabs[1]?.content).toBe('Second document');
+    });
+
+    it('keeps a file the user already opened', () => {
+      useDocumentStore.getState().openDocument(
+        { fileId: 'file-1' as DocumentId, filePath: '/docs/notes.md', mtime: 1 },
+        'my notes'
+      );
+      useTabStore.getState().addTab({
+        filePath: '/docs/notes.md',
+        fileName: 'notes.md',
+        isDirty: false,
+        content: 'my notes',
+        savedContent: 'my notes',
+      });
+      const { result } = renderHook(() => useRecoveryRestore());
+
+      act(() => {
+        result.current.restoreDocuments([
+          createMockRestoredDocument({
+            documentId: 'recovered-id' as AutosaveDocumentId,
+            content: 'Recovered',
+            fileName: 'recovered.mdx',
+            filePath: '/docs/recovered.mdx',
+          }),
+        ]);
+      });
+
+      expect(useDocumentStore.getState().filePath).toBe('/docs/notes.md');
+      expect(useDocumentStore.getState().content).toBe('my notes');
+      expect(useTabStore.getState().tabs.map((tab) => tab.fileName)).toEqual([
+        'notes.md',
+        'recovered.mdx',
+      ]);
     });
 
     it('keeps every recovered document when the tab bar is following the editor', () => {
