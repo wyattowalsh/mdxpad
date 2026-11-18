@@ -159,9 +159,18 @@ function titleAttribute(raw: string): string {
   return title ? ` title="${escapeText(title)}"` : '';
 }
 
+function inlinePlainText(html: string): string {
+  const withImages = html.replace(/<img\b([^>]*)>/g, (_tag, attrs: string) => {
+    const alt = /\balt="([^"]*)"/.exec(attrs)?.[1] ?? '';
+    return decodeHtmlEntities(alt);
+  });
+  return decodeHtmlEntities(withImages.replace(/<[^>]+>/g, ''));
+}
+
 function renderRichImage(alt: string, src: string): string {
   const path = escapeHtml(decodeHtmlEntities(linkDestination(src)));
-  return `<img src="${path}" alt="${escapeText(alt)}"${titleAttribute(src)} />`;
+  const text = inlinePlainText(renderRich(alt));
+  return `<img src="${path}" alt="${escapeText(text)}"${titleAttribute(src)} />`;
 }
 
 function renderRichMatch(match: RegExpMatchArray): string {

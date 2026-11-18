@@ -25,6 +25,9 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('![A photo](photo.jpg)')).toBe(
       '<img src="photo.jpg" alt="A photo" />'
     );
+    expect(renderMarkdownInline('![*alt*](a.png)')).toBe('<img src="a.png" alt="alt" />');
+    expect(renderMarkdownInline('![a *b* c](a.png)')).toBe('<img src="a.png" alt="a b c" />');
+    expect(renderMarkdownInline('![`code`](a.png)')).toBe('<img src="a.png" alt="code" />');
     expect(renderMarkdownInline('[docs](https://example.com)')).toBe(
       '<a href="https://example.com">docs</a>'
     );
