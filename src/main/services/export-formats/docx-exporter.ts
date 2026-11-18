@@ -42,7 +42,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
+import { MARKDOWN_LINK_INSIDE, findMarkdownTarget, linkDestination, linkTitle } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -164,48 +164,87 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
   return segments;
 }
 
+function appendMatchedInline(segments: InlineSegment[], text: string, match: RegExpExecArray): void {
+  const matchIndex = match.index;
+  const image =
+    match[9] !== undefined && match[10] !== undefined && matchIndex > 0 && text[matchIndex - 1] === '!';
+  if (image) {
+    pushImage(segments, match[9] ?? '', match[10] ?? '');
+    return;
+  }
+  if (match[2] !== undefined) {
+    emphasize(segments, match[2], { bold: true, italic: true });
+    return;
+  }
+  if (match[3] !== undefined) {
+    emphasize(segments, match[3], { bold: true, italic: true });
+    return;
+  }
+  if (match[4] !== undefined) {
+    emphasize(segments, match[4], { bold: true });
+    return;
+  }
+  if (match[5] !== undefined) {
+    emphasize(segments, match[5], { bold: true });
+    return;
+  }
+  if (match[6] !== undefined) {
+    segments.push({ text: match[6], code: true });
+    return;
+  }
+  if (match[7] !== undefined) {
+    emphasize(segments, match[7], { italic: true });
+    return;
+  }
+  if (match[8] !== undefined) {
+    emphasize(segments, match[8], { italic: true });
+    return;
+  }
+  if (match[9] !== undefined && match[10] !== undefined) {
+    attachTarget(segments, match[9], linkDestination(match[10]), 'link');
+    return;
+  }
+  if (match[11] !== undefined) {
+    emphasize(segments, match[11], { strike: true });
+  }
+}
+
 function parseInlineMarks(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   const regex = new RegExp(INLINE_PATTERN.source, 'g');
   let lastIndex = 0;
 
-  for (const match of text.matchAll(regex)) {
-    const matchIndex = match.index;
+  while (lastIndex < text.length) {
+    regex.lastIndex = lastIndex;
+    const match = regex.exec(text);
+    const target = findMarkdownTarget(text, lastIndex);
+    const markAt = match?.index ?? text.length;
+    const targetStart = target?.start ?? Number.POSITIVE_INFINITY;
+    if (target && targetStart <= markAt) {
+      if (targetStart > lastIndex) {
+        segments.push({ text: text.slice(lastIndex, targetStart) });
+      }
+      if (target.image) {
+        pushImage(segments, target.label, target.destination);
+      } else {
+        attachTarget(segments, target.label, linkDestination(target.destination), 'link');
+      }
+      lastIndex = target.end;
+      continue;
+    }
+    if (!match) {
+      segments.push({ text: text.slice(lastIndex) });
+      lastIndex = text.length;
+      break;
+    }
     const image =
-      match[9] !== undefined &&
-      match[10] !== undefined &&
-      matchIndex > 0 &&
-      text[matchIndex - 1] === '!';
-    const prefixEnd = image ? matchIndex - 1 : matchIndex;
+      match[9] !== undefined && match[10] !== undefined && match.index > 0 && text[match.index - 1] === '!';
+    const prefixEnd = image ? match.index - 1 : match.index;
     if (prefixEnd > lastIndex) {
       segments.push({ text: text.slice(lastIndex, prefixEnd) });
     }
-
-    if (image) {
-      const alt = match[9] ?? '';
-      const src = match[10] ?? '';
-      pushImage(segments, alt, src);
-    } else if (match[2] !== undefined) {
-      emphasize(segments, match[2], { bold: true, italic: true });
-    } else if (match[3] !== undefined) {
-      emphasize(segments, match[3], { bold: true, italic: true });
-    } else if (match[4] !== undefined) {
-      emphasize(segments, match[4], { bold: true });
-    } else if (match[5] !== undefined) {
-      emphasize(segments, match[5], { bold: true });
-    } else if (match[6] !== undefined) {
-      segments.push({ text: match[6], code: true });
-    } else if (match[7] !== undefined) {
-      emphasize(segments, match[7], { italic: true });
-    } else if (match[8] !== undefined) {
-      emphasize(segments, match[8], { italic: true });
-    } else if (match[9] !== undefined && match[10] !== undefined) {
-      attachTarget(segments, match[9], linkDestination(match[10]), 'link');
-    } else if (match[11] !== undefined) {
-      emphasize(segments, match[11], { strike: true });
-    }
-
-    lastIndex = matchIndex + match[0].length;
+    appendMatchedInline(segments, text, match);
+    lastIndex = match.index + match[0].length;
   }
 
   if (lastIndex < text.length) {
@@ -295,6 +334,17 @@ function createTextRuns(
         segment.text,
         segment.title ?? ''
       );
+      if (segment.link) {
+        const child = picture ?? styledRun(segment, segment.text || 'image', 'Hyperlink');
+        const anchor = headingAnchor(decodeHtmlEntities(segment.link));
+        if (anchor) {
+          return new InternalHyperlink({ children: [child], anchor });
+        }
+        return new ExternalHyperlink({
+          children: [child],
+          link: decodeHtmlEntities(segment.link),
+        });
+      }
       if (picture) {
         return picture;
       }

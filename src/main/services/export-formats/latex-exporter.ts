@@ -13,10 +13,16 @@ import { expandLinkReferences } from './markdown-reference';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
-import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
+import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { MARKDOWN_LINK_INSIDE, linkDestination, linkTitle } from './markdown-link';
+import {
+  MARKDOWN_LINK_INSIDE,
+  findMarkdownTarget,
+  linkDestination,
+  linkTitle,
+  type MarkdownTarget,
+} from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -158,11 +164,11 @@ function restoreLatexAutolinks(
   value: string,
   links: ReturnType<typeof protectAutolinks>['links']
 ): string {
-  return expandAutolinkText(value, links)
-    .map((part) =>
-      part.href ? `\\href{${escapeLatex(part.href)}}{${escapeLatex(part.text)}}` : part.text
-    )
-    .join('');
+  return replaceAutolinks(value, links, (link, nested) =>
+    nested
+      ? escapeLatex(link.text)
+      : `\\href{${escapeLatex(link.href)}}{${escapeLatex(link.text)}}`
+  );
 }
 
 const INLINE_PATTERN =
@@ -178,10 +184,34 @@ function formatProtected(raw: string): string {
   return result;
 }
 
+function latexTarget(prefix: string, target: MarkdownTarget): string {
+  const before = escapeLatex(decodeHtmlEntities(prefix));
+  if (target.image) {
+    const path = linkDestination(decodeHtmlEntities(target.destination));
+    const alt = target.label.length > 0 ? target.label : path;
+    return before + latexImage(path, alt, linkTitle(decodeHtmlEntities(target.destination)));
+  }
+  return before + latexHref(target.label, target.destination);
+}
+
 function formatInlineMarks(raw: string): string {
   let result = '';
   let cursor = 0;
-  for (const match of raw.matchAll(new RegExp(INLINE_PATTERN, 'g'))) {
+  const marks = new RegExp(INLINE_PATTERN, 'g');
+  while (cursor < raw.length) {
+    marks.lastIndex = cursor;
+    const match = marks.exec(raw);
+    const target = findMarkdownTarget(raw, cursor);
+    const markAt = match?.index ?? raw.length;
+    const targetStart = target?.start ?? Number.POSITIVE_INFINITY;
+    if (target && targetStart <= markAt) {
+      result += latexTarget(raw.slice(cursor, target.start), target);
+      cursor = target.end;
+      continue;
+    }
+    if (!match) {
+      return result + escapeLatex(decodeHtmlEntities(raw.slice(cursor)));
+    }
     const index = match.index;
     const image =
       match[9] !== undefined && match[10] !== undefined && index > 0 && raw[index - 1] === '!';

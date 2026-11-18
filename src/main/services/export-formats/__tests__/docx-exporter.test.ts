@@ -88,6 +88,9 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);
+    expect(parseInlineFormatting('[![alt](a.png)](https://example.com)')).toEqual([
+      { text: 'alt', image: 'a.png', link: 'https://example.com' },
+    ]);
     expect(parseInlineFormatting('Use `` a`b `` here')).toEqual([
       { text: 'Use ' },
       { text: 'a`b', code: true },

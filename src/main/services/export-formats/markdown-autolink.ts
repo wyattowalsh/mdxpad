@@ -1,4 +1,5 @@
 import { readCodeSpan } from './markdown-escape';
+import { readMarkdownTarget } from './markdown-link';
 
 const AUTOLINK_MARK = '\uE010';
 
@@ -132,6 +133,14 @@ export function protectAutolinks(raw: string): ProtectedAutolinks {
       text += span ? raw.slice(index, span.end) : '`';
       index = span ? span.end : index + 1;
       continue;
+    }
+    if (raw[index] === '[') {
+      const target = readMarkdownTarget(raw, index);
+      if (target && !target.image) {
+        text += raw.slice(index, target.end);
+        index = target.end;
+        continue;
+      }
     }
     const destinationEnd = linkDestinationEnd(raw, index);
     if (destinationEnd !== null) {

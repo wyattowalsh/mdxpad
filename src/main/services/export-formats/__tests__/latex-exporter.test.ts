@@ -217,6 +217,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item item continued');
   });
 
+  it('links an image and keeps an email link single', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '[![alt](a.png)](https://example.com)\n\n[ada@example.com](mailto:ada@example.com)',
+      outputPath: '/tmp/image-link.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\href{https://example.com}');
+    expect(written).toContain('\\includegraphics{a.png}');
+    expect(written).not.toContain('](https://example.com)');
+    expect(written).toContain('\\href{mailto:ada@example.com}{ada@example.com}');
+    expect(written).not.toContain('\\href{mailto:ada@example.com}{\\href');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
