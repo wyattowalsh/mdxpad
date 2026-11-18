@@ -34,6 +34,11 @@ function bulletMarker(node: ProseMirrorNode): string {
   return marker === '+' || marker === '*' ? marker : '-';
 }
 
+function listStart(node: ProseMirrorNode): number {
+  const order: unknown = node.attrs.order;
+  return typeof order === 'number' && Number.isInteger(order) && order >= 0 ? order : 1;
+}
+
 function separateDifferentBullets(state: MarkdownSerializerState, node: ProseMirrorNode): void {
   const writer = state as MarkdownSerializerState & {
     closed: ProseMirrorNode | null;
@@ -132,7 +137,7 @@ const nodeSerializers: NodeSerializerMap = {
   },
 
   ordered_list(state, node) {
-    const start = (node.attrs.order as number) || 1;
+    const start = listStart(node);
     const delimiter = node.attrs.delimiter === ')' ? ')' : '.';
     state.renderList(node, '   ', (i) => `${start + i}${delimiter} `);
   },

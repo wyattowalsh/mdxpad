@@ -266,6 +266,11 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('1. one\n2. two\n')).toBe('1. one\n2. two');
   });
 
+  it('keeps a list that starts at zero', () => {
+    expect(roundTrip('0. zero\n1. one\n')).toBe('0. zero\n1. one');
+    expect(roundTrip('0) zero\n1) one\n')).toBe('0) zero\n1) one');
+  });
+
   it('keeps literal stars that are not emphasis', () => {
     expect(roundTrip('a * b * c\n')).toBe('a * b * c');
     expect(roundTrip('*foo**bar*\n')).toBe('*foo**bar*');
