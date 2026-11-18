@@ -93,6 +93,7 @@ function tabSnapshot(): Omit<Tab, 'id'> {
     filePath: document.filePath,
     fileName: document.fileName,
     isDirty: document.isDirty,
+    fileMissing: document.fileMissing || fileIsMissing(document.filePath),
     content: document.content,
     savedContent: document.savedContent,
   };

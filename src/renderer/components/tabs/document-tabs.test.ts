@@ -22,6 +22,17 @@ describe('document tabs', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shows a deleted open file on its tab', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved a'
+    );
+    useDocumentStore.getState().markFileMissing();
+    expect(useTabStore.getState().tabs[0]?.fileMissing).toBe(true);
+    stop();
+  });
+
   it('keeps unsaved edits when another file is opened and restored from its tab', () => {
     const stop = subscribeDocumentTabs();
     useDocumentStore.getState().openDocument(
