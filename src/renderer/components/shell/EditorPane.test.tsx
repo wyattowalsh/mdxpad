@@ -580,7 +580,13 @@ describe('offsetToLineColumn helper', () => {
 describe('EditorPane mode switch', () => {
   afterEach(() => {
     useEditorModeStore.getState().setMode('source');
-    useEditorPreferencesStore.setState({ spellcheckEnabled: false });
+    useEditorPreferencesStore.setState({
+      spellcheckEnabled: false,
+      fontFamily: 'monospace',
+      fontSize: 14,
+      lineHeight: 1.6,
+      wordWrapEnabled: false,
+    });
     localStorage.removeItem('mdxpad:editor-mode');
     cleanup();
   });
@@ -597,6 +603,33 @@ describe('EditorPane mode switch', () => {
     });
     await waitFor(() => {
       expect(container.querySelector('.ProseMirror')?.getAttribute('spellcheck')).toBe('true');
+    });
+  });
+
+  it('uses the font and wrap preferences in the visual editor', async () => {
+    useEditorModeStore.getState().setMode('wysiwyg');
+    useEditorPreferencesStore.setState({
+      fontFamily: 'Georgia',
+      fontSize: 22,
+      lineHeight: 2,
+      wordWrapEnabled: false,
+    });
+    const { container } = render(<EditorPane />);
+    await waitFor(() => {
+      const editor = container.querySelector('.ProseMirror');
+      expect(editor).toBeInstanceOf(HTMLElement);
+      const style = (editor as HTMLElement).style;
+      expect(style.fontFamily).toBe('Georgia');
+      expect(style.fontSize).toBe('22px');
+      expect(style.lineHeight).toBe('2');
+      expect(style.whiteSpace).toBe('pre');
+    });
+    act(() => {
+      useEditorPreferencesStore.setState({ wordWrapEnabled: true });
+    });
+    await waitFor(() => {
+      const editor = container.querySelector('.ProseMirror');
+      expect((editor as HTMLElement).style.whiteSpace).toBe('pre-wrap');
     });
   });
 

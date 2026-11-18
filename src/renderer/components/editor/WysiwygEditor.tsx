@@ -19,7 +19,11 @@ import { baseKeymap, toggleMark, wrapIn } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import { mdxSchema } from '../../lib/editor/prosemirror-mdx-schema';
 import {
+  selectFontFamily,
+  selectFontSize,
+  selectLineHeight,
   selectSpellcheckEnabled,
+  selectWordWrapEnabled,
   useEditorPreferencesStore,
 } from '../../stores/editor-preferences-store';
 import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer';
@@ -388,13 +392,22 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
 
     const viewRef = useEditorView(containerRef, content, documentKey, onChangeRef, onStateUpdate);
     const spellcheckEnabled = useEditorPreferencesStore(selectSpellcheckEnabled);
+    const fontFamily = useEditorPreferencesStore(selectFontFamily);
+    const fontSize = useEditorPreferencesStore(selectFontSize);
+    const lineHeight = useEditorPreferencesStore(selectLineHeight);
+    const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
     React.useEffect(() => {
       const dom = viewRef.current?.dom;
-      if (dom) {
-        dom.spellcheck = spellcheckEnabled;
-        dom.setAttribute('spellcheck', spellcheckEnabled ? 'true' : 'false');
+      if (!dom) {
+        return;
       }
-    }, [spellcheckEnabled, viewRef]);
+      dom.spellcheck = spellcheckEnabled;
+      dom.setAttribute('spellcheck', spellcheckEnabled ? 'true' : 'false');
+      dom.style.fontFamily = fontFamily;
+      dom.style.fontSize = `${fontSize}px`;
+      dom.style.lineHeight = String(lineHeight);
+      dom.style.whiteSpace = wordWrapEnabled ? 'pre-wrap' : 'pre';
+    }, [spellcheckEnabled, fontFamily, fontSize, lineHeight, wordWrapEnabled, viewRef]);
     React.useEffect(() => {
       registerWysiwygInsert((markdown) => {
         const view = viewRef.current;
