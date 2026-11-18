@@ -16,6 +16,7 @@ import {
 } from './embedding-availability';
 import type { IAIService } from './ai-types';
 import { pathMatchesExclude } from '@main/services/search/path-excludes';
+import { readRealDirectory } from './directory-entries';
 import { VectorStore, type VectorEntry } from './vector-store';
 
 // =============================================================================
@@ -83,9 +84,15 @@ export async function findIndexableFiles(
   const results: string[] = [];
 
   async function walk(dir: string): Promise<void> {
-    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    const entries = await readRealDirectory(dir);
+    if (!entries) {
+      return;
+    }
 
     for (const entry of entries) {
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
       const fullPath = path.join(dir, entry.name);
 
       // Skip hidden directories and node_modules

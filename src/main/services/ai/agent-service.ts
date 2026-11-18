@@ -9,8 +9,6 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { streamText, tool, jsonSchema, stepCountIs } from 'ai';
 import type { BrowserWindow } from 'electron';
 
@@ -23,6 +21,7 @@ import type {
   AgentStatus,
 } from '@shared/contracts/agent-schemas';
 import { resolveWorkspaceFilePath, WorkspacePathError } from './agent-path';
+import { collectMatchingFiles, readRealDirectory, readWorkspaceFile } from './directory-entries';
 import { createWriteFileTool, executeApprovedWrite, WriteApprovalGate } from './agent-write';
 
 export { resolveWorkspaceFilePath, WorkspacePathError };
@@ -56,8 +55,7 @@ function createReadFileTool(workspacePath: string | undefined) {
       if (!workspacePath) {
         throw new WorkspacePathError('Workspace path is required');
       }
-      const resolved = resolveWorkspaceFilePath(workspacePath, filePath);
-      return fs.promises.readFile(resolved, 'utf-8');
+      return readWorkspaceFile(workspacePath, filePath);
     },
   });
 }
@@ -73,23 +71,7 @@ function createSearchFilesTool(workspacePath: string | undefined) {
     execute: async ({ query }) => {
       if (!workspacePath) return 'No workspace path set';
       const root = resolveWorkspaceFilePath(workspacePath, '.', { allowRoot: true });
-      const results: string[] = [];
-
-      async function walk(dir: string): Promise<void> {
-        const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-              await walk(full);
-            }
-          } else if (entry.name.includes(query)) {
-            results.push(full);
-          }
-        }
-      }
-
-      await walk(root);
+      const results = await collectMatchingFiles(root, query);
       return results.length > 0 ? results.join('\n') : 'No files found';
     },
   });
@@ -108,7 +90,10 @@ function createListDirectoryTool(workspacePath: string | undefined) {
         throw new WorkspacePathError('Workspace path is required');
       }
       const resolved = resolveWorkspaceFilePath(workspacePath, dirPath, { allowRoot: true });
-      const entries = await fs.promises.readdir(resolved, { withFileTypes: true });
+      const entries = await readRealDirectory(resolved);
+      if (!entries) {
+        throw new WorkspacePathError('Path is outside the workspace');
+      }
       return entries.map((e) => `${e.isDirectory() ? '[dir]' : '[file]'} ${e.name}`).join('\n');
     },
   });
