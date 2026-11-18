@@ -1,7 +1,7 @@
 import katex from 'katex';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, type EditorState } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Plugin, TextSelection, type EditorState } from 'prosemirror-state';
+import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 
 const MATH_PATTERN =
   /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$(?![\s$])([^$\n]+?)(?<![\s$])\$/g;
@@ -11,11 +11,30 @@ function isPrice(value: string): boolean {
   return trimmed.length > 0 && /\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed);
 }
 
-function formulaWidget(tex: string, display: boolean): HTMLElement {
+function placeCaretInFormula(
+  view: EditorView,
+  pos: number | undefined,
+  opener: number,
+  end: number
+): void {
+  if (pos === undefined) {
+    return;
+  }
+  const target = Math.min(Math.max(pos + opener, pos + 1), end - 1);
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, target)));
+  view.focus();
+}
+
+function formulaWidget(
+  tex: string,
+  display: boolean,
+  edit: (event: Event) => void
+): HTMLElement {
   const host = document.createElement(display ? 'div' : 'span');
   host.className = display ? 'wysiwyg-math wysiwyg-math-display' : 'wysiwyg-math';
   host.setAttribute('contenteditable', 'false');
   host.setAttribute('aria-label', tex);
+  host.addEventListener('mousedown', edit);
   host.innerHTML = katex.renderToString(tex, {
     throwOnError: false,
     displayMode: display,
@@ -87,9 +106,19 @@ function decorateRun(state: EditorState, run: TextRun, decorations: Decoration[]
       continue;
     }
     const display = match[1] !== undefined || match[2] !== undefined;
+    const opener = match[4] === undefined ? 2 : 1;
     decorations.push(
       Decoration.inline(from, to, { class: 'wysiwyg-math-source' }),
-      Decoration.widget(from, () => formulaWidget(tex, display), { side: -1, ignoreSelection: true })
+      Decoration.widget(
+        from,
+        (view, getPos) =>
+          formulaWidget(tex, display, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            placeCaretInFormula(view, getPos(), opener, to);
+          }),
+        { side: -1, ignoreSelection: true }
+      )
     );
   }
 }
