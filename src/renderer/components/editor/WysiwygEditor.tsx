@@ -22,6 +22,7 @@ import {
   selectFontFamily,
   selectFontSize,
   selectLineHeight,
+  selectDistractionFreeEnabled,
   selectSpellcheckEnabled,
   selectWordWrapEnabled,
   useEditorPreferencesStore,
@@ -396,6 +397,7 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
     const fontSize = useEditorPreferencesStore(selectFontSize);
     const lineHeight = useEditorPreferencesStore(selectLineHeight);
     const wordWrapEnabled = useEditorPreferencesStore(selectWordWrapEnabled);
+    const distractionFree = useEditorPreferencesStore(selectDistractionFreeEnabled);
     React.useEffect(() => {
       const dom = viewRef.current?.dom;
       if (!dom) {
@@ -407,7 +409,18 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
       dom.style.fontSize = `${fontSize}px`;
       dom.style.lineHeight = String(lineHeight);
       dom.style.whiteSpace = wordWrapEnabled ? 'pre-wrap' : 'pre';
-    }, [spellcheckEnabled, fontFamily, fontSize, lineHeight, wordWrapEnabled, viewRef]);
+      dom.style.maxWidth = distractionFree ? '72ch' : '';
+      dom.style.marginLeft = distractionFree ? 'auto' : '';
+      dom.style.marginRight = distractionFree ? 'auto' : '';
+    }, [
+      spellcheckEnabled,
+      fontFamily,
+      fontSize,
+      lineHeight,
+      wordWrapEnabled,
+      distractionFree,
+      viewRef,
+    ]);
     React.useEffect(() => {
       registerWysiwygInsert((markdown) => {
         const view = viewRef.current;
@@ -474,7 +487,7 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
 
     return (
       <div className={cn('flex flex-col', className)}>
-        <WysiwygToolbar actions={toolbarActions} />
+        {distractionFree ? null : <WysiwygToolbar actions={toolbarActions} />}
         <div
           ref={containerRef}
           className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_.wysiwyg-math-source]:text-[0px] [&_.wysiwyg-math]:inline-block [&_.wysiwyg-math-display]:my-2 [&_.wysiwyg-slash]:my-1 [&_.wysiwyg-slash]:flex [&_.wysiwyg-slash]:w-72 [&_.wysiwyg-slash]:flex-col [&_.wysiwyg-slash]:rounded-md [&_.wysiwyg-slash]:border [&_.wysiwyg-slash]:border-zinc-300 [&_.wysiwyg-slash]:bg-white [&_.wysiwyg-slash]:p-1 dark:[&_.wysiwyg-slash]:border-zinc-700 dark:[&_.wysiwyg-slash]:bg-zinc-900 [&_.wysiwyg-slash-item]:px-2 [&_.wysiwyg-slash-item]:py-1 [&_.wysiwyg-slash-item]:text-left [&_.wysiwyg-slash-item[data-selected=true]]:bg-zinc-200 dark:[&_.wysiwyg-slash-item[data-selected=true]]:bg-zinc-800 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold dark:[&_td]:border-zinc-700 dark:[&_th]:border-zinc-700"

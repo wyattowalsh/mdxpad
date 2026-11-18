@@ -586,6 +586,7 @@ describe('EditorPane mode switch', () => {
       fontSize: 14,
       lineHeight: 1.6,
       wordWrapEnabled: false,
+      distractionFreeEnabled: false,
     });
     localStorage.removeItem('mdxpad:editor-mode');
     cleanup();
@@ -630,6 +631,24 @@ describe('EditorPane mode switch', () => {
     await waitFor(() => {
       const editor = container.querySelector('.ProseMirror');
       expect((editor as HTMLElement).style.whiteSpace).toBe('pre-wrap');
+    });
+  });
+
+  it('centers the visual editor in distraction-free mode', async () => {
+    useEditorModeStore.getState().setMode('wysiwyg');
+    useEditorPreferencesStore.setState({ distractionFreeEnabled: true });
+    const { container } = render(<EditorPane />);
+    await waitFor(() => {
+      const editor = container.querySelector('.ProseMirror');
+      expect(editor).toBeInstanceOf(HTMLElement);
+      expect((editor as HTMLElement).style.maxWidth).toBe('72ch');
+    });
+    expect(screen.queryByRole('button', { name: 'Bold' })).toBeNull();
+    act(() => {
+      useEditorPreferencesStore.setState({ distractionFreeEnabled: false });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeNull();
     });
   });
 
