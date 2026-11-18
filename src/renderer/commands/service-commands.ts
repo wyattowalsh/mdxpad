@@ -211,6 +211,23 @@ function gitStatusMessage(
   return `${disk}. Unsaved in the editor: ${unsaved.join(', ')}`;
 }
 
+function notifyFolderResult(
+  ctx: CommandContext,
+  directory: string,
+  message: string,
+  directoryOf: (filePath: string) => string | null
+): void {
+  const openPath = useDocumentStore.getState().filePath;
+  if (openPath !== null && directoryOf(openPath) !== directory) {
+    ctx.notify({
+      type: 'info',
+      message: 'The open file changed before that folder finished.',
+    });
+    return;
+  }
+  ctx.notify({ type: 'info', message });
+}
+
 function requireWorkspaceDir(ctx: CommandContext): string | null {
   const dir = workspaceDir(ctx.document.filePath);
   if (!dir) {
@@ -236,7 +253,7 @@ const gitStatusCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    ctx.notify({ type: 'info', message: gitStatusMessage(dir, result.value) });
+    notifyFolderResult(ctx, dir, gitStatusMessage(dir, result.value), workspaceDir);
     return { ok: true };
   },
 };
@@ -270,10 +287,16 @@ async function searchWorkspaceFolder(
     return { ok: false, error: result.error.message };
   }
   const results = withOpenDocuments(result.value.results, ctx, queryText);
-  ctx.notify({
-    type: 'info',
-    message: summarizeSearchResults(queryText, results),
-  });
+  notifyFolderResult(
+    ctx,
+    dir,
+    summarizeSearchResults(queryText, results),
+    (filePath) =>
+      searchDirectoryForFile(
+        filePath,
+        useWorkspaceStore.getState().model?.workspace.rootPath ?? null
+      )
+  );
   return { ok: true };
 }
 
@@ -295,7 +318,7 @@ const gitLogCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    ctx.notify({ type: 'info', message: summarizeGitLog(result.value.entries) });
+    notifyFolderResult(ctx, dir, summarizeGitLog(result.value.entries), workspaceDir);
     return { ok: true };
   },
 };
@@ -318,7 +341,7 @@ const gitDiffCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    ctx.notify({ type: 'info', message: gitDiffMessage(dir, result.value) });
+    notifyFolderResult(ctx, dir, gitDiffMessage(dir, result.value), workspaceDir);
     return { ok: true };
   },
 };

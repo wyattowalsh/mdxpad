@@ -87,6 +87,55 @@ describe('git status', () => {
       message: 'Git status: clean on main. Unsaved in the editor: readme.md, other.md',
     });
   });
+
+  it('does not report git status after the open file leaves that folder', async () => {
+    useDocumentStore.setState({ filePath: '/notes/readme.md', content: 'draft' });
+    let finishStatus: (value: {
+      ok: true;
+      value: {
+        current: string;
+        staged: string[];
+        modified: string[];
+        notAdded: string[];
+        created: string[];
+        deleted: string[];
+        conflicted: string[];
+      };
+    }) => void = () => undefined;
+    const status = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishStatus = resolve;
+        })
+    );
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'draft', isDirty: false },
+      api: { git: { status } },
+      notify,
+    } as unknown as CommandContext;
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.status');
+    const pending = command?.execute(context);
+    useDocumentStore.setState({ filePath: '/other/b.md', content: 'other' });
+    finishStatus({
+      ok: true,
+      value: {
+        current: 'main',
+        staged: [],
+        modified: [],
+        notAdded: [],
+        created: [],
+        deleted: [],
+        conflicted: [],
+      },
+    });
+    await pending;
+
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'The open file changed before that folder finished.',
+    });
+  });
 });
 
 describe('git diff', () => {
@@ -574,6 +623,45 @@ describe('search.workspace', () => {
     expect(notify).toHaveBeenCalledWith({
       type: 'info',
       message: 'Search for "Title": 1 match (a.md)',
+    });
+  });
+
+  it('does not report search results after the open file leaves that folder', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('Title');
+    useDocumentStore.setState({ filePath: '/notes/readme.md', content: '# Title\n' });
+    let finishSearch: (value: {
+      ok: true;
+      value: { results: { filePath: string }[]; totalResults: number; queryTimeMs: number };
+    }) => void = () => undefined;
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { indexed: true, fileCount: 1, lastIndexedAt: null },
+    });
+    const search = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishSearch = resolve;
+        })
+    );
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: '# Title\n' },
+      api: { search: { status, index: vi.fn(), search } },
+      notify,
+    } as unknown as CommandContext;
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'search.workspace');
+    const pending = command?.execute(context);
+    await vi.waitFor(() => expect(search).toHaveBeenCalled());
+    useDocumentStore.setState({ filePath: '/elsewhere/a.md', content: 'other' });
+    finishSearch({
+      ok: true,
+      value: { results: [{ filePath: '/notes/a.md' }], totalResults: 1, queryTimeMs: 1 },
+    });
+    await pending;
+
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'The open file changed before that folder finished.',
     });
   });
 
