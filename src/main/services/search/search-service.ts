@@ -7,8 +7,9 @@
 
 import MiniSearch from 'minisearch';
 import { watch, type FSWatcher } from 'chokidar';
-import { lstat, readFile, readdir, stat } from 'node:fs/promises';
+import { lstat, readdir } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
+import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import type {
   SearchQueryResponse,
   SearchIndexResponse,
@@ -102,9 +103,9 @@ async function readFileContent(filePath: string): Promise<string | null> {
   try {
     const link = await lstat(filePath);
     if (link.isSymbolicLink()) return null;
-    const fileStat = await stat(filePath);
-    if (fileStat.size > MAX_FILE_SIZE_BYTES) return null;
-    return await readFile(filePath, 'utf-8');
+    if (link.size > MAX_FILE_SIZE_BYTES) return null;
+    const read = await readFileWithoutFollowingLinks(filePath);
+    return read.ok ? read.value : null;
   } catch {
     return null;
   }

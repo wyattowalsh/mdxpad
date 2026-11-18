@@ -6,12 +6,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock fs/promises
-vi.mock('node:fs/promises', () => ({
-  readFile: vi.fn(),
-  readdir: vi.fn(),
-  stat: vi.fn(),
-  lstat: vi.fn(),
-}));
+vi.mock('node:fs/promises', () => {
+  const readFile = vi.fn();
+  return {
+    readFile,
+    readdir: vi.fn(),
+    stat: vi.fn(),
+    lstat: vi.fn(),
+    open: vi.fn(async (filePath: unknown) => ({
+      readFile: async () => readFile(filePath as never, 'utf-8'),
+      close: async () => undefined,
+    })),
+  };
+});
 
 // Mock chokidar
 vi.mock('chokidar', () => ({
@@ -21,13 +28,19 @@ vi.mock('chokidar', () => ({
   })),
 }));
 
-import { lstat, readFile, readdir, stat } from 'node:fs/promises';
+import { lstat, open, readFile, readdir, stat } from 'node:fs/promises';
 import { watch } from 'chokidar';
 import { indexWorkspace, search, getStatus, closeIndex } from './search-service';
 
 describe('search-service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(open).mockImplementation(async (filePath) => {
+      return {
+        readFile: async () => readFile(filePath, 'utf-8'),
+        close: async () => undefined,
+      } as Awaited<ReturnType<typeof open>>;
+    });
     vi.mocked(lstat).mockResolvedValue({
       isSymbolicLink: () => false,
       isDirectory: () => true,
@@ -193,13 +206,39 @@ describe('search-service', () => {
         },
       ] as never);
 
-      vi.mocked(stat).mockResolvedValue({
-        size: 2_000_000,
+      vi.mocked(lstat).mockResolvedValue({
+        isSymbolicLink: () => false,
         isDirectory: () => false,
+        isFile: () => true,
+        size: 2_000_000,
       } as never);
 
       const result = await indexWorkspace('/workspace');
       expect(result.indexedFiles).toBe(0);
+    });
+
+    it('does not read a file that becomes a link before it is opened', async () => {
+      vi.mocked(readdir).mockResolvedValue([
+        {
+          name: 'note.md',
+          isDirectory: () => false,
+          isFile: () => true,
+          isSymbolicLink: () => false,
+        },
+      ] as never);
+      vi.mocked(lstat).mockResolvedValue({
+        isSymbolicLink: () => false,
+        isDirectory: () => false,
+        isFile: () => true,
+        size: 20,
+      } as never);
+      vi.mocked(open).mockRejectedValue(Object.assign(new Error('loop'), { code: 'ELOOP' }));
+      vi.mocked(readFile).mockResolvedValue('secret');
+
+      const result = await indexWorkspace('/workspace');
+
+      expect(result.indexedFiles).toBe(0);
+      expect(readFile).not.toHaveBeenCalled();
     });
   });
 
