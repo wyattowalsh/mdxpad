@@ -472,6 +472,8 @@ describe('saveFileCommand', () => {
   });
 
   it('should call IPC saveFile for saved documents', async () => {
+    documentStoreState.filePath = '/test/document.mdx';
+    documentStoreState.content = '# Modified Content';
     const mockApi = createMockApi();
     const ctx = createMockContext({
       api: mockApi,
@@ -521,6 +523,60 @@ describe('saveFileCommand', () => {
       expect.objectContaining({ path: '/test/document.mdx' }),
       '# Live edit'
     );
+  });
+
+  it('does not mark a different open file saved', async () => {
+    documentStoreState.filePath = '/test/document.mdx';
+    documentStoreState.content = '# Modified Content';
+    const mockApi = createMockApi({
+      saveFile: vi.fn().mockImplementation(async () => {
+        documentStoreState.filePath = '/docs/other.mdx';
+        documentStoreState.content = 'other edits';
+        return { ok: true, value: undefined };
+      }),
+    });
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: 'test-file-id',
+        filePath: '/test/document.mdx',
+        content: '# Modified Content',
+        isDirty: true,
+      },
+    });
+
+    const result = await saveFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockApi.saveFile).toHaveBeenCalledTimes(1);
+    expect(mockMarkSaved).not.toHaveBeenCalled();
+    expect(ctx.notify).not.toHaveBeenCalled();
+  });
+
+  it('leaves newer keystrokes unsaved', async () => {
+    documentStoreState.filePath = '/test/document.mdx';
+    documentStoreState.content = '# Modified Content';
+    const mockApi = createMockApi({
+      saveFile: vi.fn().mockImplementation(async () => {
+        documentStoreState.content = '# Modified Content!';
+        return { ok: true, value: undefined };
+      }),
+    });
+    const ctx = createMockContext({
+      api: mockApi,
+      document: {
+        fileId: 'test-file-id',
+        filePath: '/test/document.mdx',
+        content: '# Modified Content',
+        isDirty: true,
+      },
+    });
+
+    const result = await saveFileCommand.execute(ctx);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockMarkSaved).not.toHaveBeenCalled();
+    expect(ctx.notify).not.toHaveBeenCalled();
   });
 
   it('saves a conflicted file to a new location', async () => {

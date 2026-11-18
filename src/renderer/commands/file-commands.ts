@@ -267,6 +267,19 @@ const openFileCommand: Command = {
   enabled: () => true,
 };
 
+function finishSave(savedPath: string, savedText: string, ctx: CommandContext): void {
+  const current = useDocumentStore.getState();
+  if (current.filePath !== savedPath || current.content !== savedText) {
+    return;
+  }
+  current.markSaved();
+  revealNextDirtyTab();
+  ctx.notify({
+    type: 'success',
+    message: 'File saved',
+  });
+}
+
 function saveChangedOnDisk(ctx: CommandContext): CommandResult | Promise<CommandResult> {
   ctx.notify({
     type: 'info',
@@ -343,7 +356,9 @@ const saveFileCommand: Command = {
         path: document.filePath,
         name: document.filePath.split('/').pop() ?? 'untitled',
       };
-      const result = await api.saveFile(handle, liveDocumentContent(ctx));
+      const savedPath = document.filePath;
+      const savedText = liveDocumentContent(ctx);
+      const result = await api.saveFile(handle, savedText);
 
       if (!result.ok) {
         const errorMessage = formatFileError(result.error);
@@ -354,14 +369,7 @@ const saveFileCommand: Command = {
         return { ok: false, error: errorMessage };
       }
 
-      // Mark document as saved in the store
-      useDocumentStore.getState().markSaved();
-      revealNextDirtyTab();
-
-      ctx.notify({
-        type: 'success',
-        message: 'File saved',
-      });
+      finishSave(savedPath, savedText, ctx);
       return { ok: true };
     } catch (error) {
       // Check if error has FileError shape (with code property)
