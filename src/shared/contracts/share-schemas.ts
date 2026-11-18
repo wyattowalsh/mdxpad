@@ -63,6 +63,7 @@ export type ShareConfig = z.infer<typeof ShareConfigSchema>;
 export const PublishFileEntrySchema = z.object({
   path: z.string().min(1),
   title: z.string().optional(),
+  content: z.string().optional(),
 });
 
 /** Inferred PublishFileEntry type */

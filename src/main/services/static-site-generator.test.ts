@@ -175,6 +175,28 @@ describe('StaticSiteGenerator', () => {
     expect(html).toContain('src="images/nested.png"');
   });
 
+  it('publishes the editor text instead of the copy on disk', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-live-'));
+    tempDirs.push(root);
+    const source = path.join(root, 'note.md');
+    const output = path.join(root, 'out');
+    await writeFile(source, '# Disk\n');
+
+    const result = await new StaticSiteGenerator().generate({
+      files: [{ path: source, title: 'Note', content: '# Live note\n' }],
+      outputDir: output,
+      includeStyles: false,
+      includeHighlighting: false,
+      generateIndex: false,
+    });
+
+    expect(result.success).toBe(true);
+    const html = await readFile(path.join(output, 'note.html'), 'utf-8');
+    expect(html).toContain('Live note');
+    expect(html).not.toContain('>Disk<');
+    expect(await readFile(source, 'utf-8')).toBe('# Disk\n');
+  });
+
   it('does not publish the text behind a linked note', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-link-'));
     const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-site-secret-'));

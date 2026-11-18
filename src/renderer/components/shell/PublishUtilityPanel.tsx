@@ -9,6 +9,7 @@ import {
 export function PublishUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const fileName = useDocumentStore((state) => state.fileName);
+  const content = useDocumentStore((state) => state.content);
   const [outputDir, setOutputDir] = useState('');
   const [progress, setProgress] = useState<PublishProgress | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -71,7 +72,7 @@ export function PublishUtilityPanel(): React.JSX.Element {
         setLastResult(null);
         void window.mdxpad.share
           .publish({
-            files: [{ path: filePath, title: fileName }],
+            files: [{ path: filePath, title: fileName, content }],
             outputDir,
             includeStyles: options.includeStyles,
             includeHighlighting: true,

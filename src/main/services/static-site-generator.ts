@@ -142,7 +142,7 @@ export class StaticSiteGenerator {
       onProgress?.(progress);
 
       try {
-        const content = await readPublishSource(fileEntry.path);
+        const content = fileEntry.content ?? (await readPublishSource(fileEntry.path));
         await copyPublishedImages(content, fileEntry.path, config.outputDir);
         const title = fileEntry.title ?? this.extractTitle(content, fileEntry.path);
         const slug = this.createSlug(fileEntry.path, usedSlugs);

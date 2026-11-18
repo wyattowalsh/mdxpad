@@ -12,7 +12,11 @@ describe('PublishUtilityPanel', () => {
   });
 
   it('publishes the open file with the selected options', async () => {
-    useDocumentStore.setState({ filePath: '/docs/note.mdx', fileName: 'note.mdx' });
+    useDocumentStore.setState({
+      filePath: '/docs/note.mdx',
+      fileName: 'note.mdx',
+      content: '# Edited',
+    });
     const publish = vi.fn().mockResolvedValue({ success: true, filesGenerated: 1, errors: [] });
     vi.stubGlobal('mdxpad', {
       share: {
@@ -33,7 +37,7 @@ describe('PublishUtilityPanel', () => {
 
     await waitFor(() => {
       expect(publish).toHaveBeenCalledWith({
-        files: [{ path: '/docs/note.mdx', title: 'note.mdx' }],
+        files: [{ path: '/docs/note.mdx', title: 'note.mdx', content: '# Edited' }],
         outputDir: '/tmp/site',
         includeStyles: true,
         includeHighlighting: true,
