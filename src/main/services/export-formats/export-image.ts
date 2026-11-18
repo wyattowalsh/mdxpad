@@ -4,7 +4,7 @@ import path from 'node:path';
 import { readStaysInsideDirectory } from '@main/ipc/read-scope';
 
 import { advanceFence } from './markdown-fence';
-import { linkDestination } from './markdown-link';
+import { linkDestination, linkTitle } from './markdown-link';
 import { expandImageReferences } from './markdown-reference';
 
 const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
@@ -24,7 +24,7 @@ const DOCUMENT_MIME_BY_EXTENSION: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
-export type ImageInlineMode = 'data-url' | 'absolute' | 'document';
+export type ImageInlineMode = 'data-url' | 'absolute' | 'document' | 'resource';
 
 export type ImageKind = 'png' | 'jpg' | 'gif' | 'bmp';
 
@@ -86,13 +86,21 @@ async function readInside(directory: string, destination: string): Promise<Buffe
   }
 }
 
+function markdownAddress(pathValue: string): string {
+  return /[\s()]/.test(pathValue) ? `<${pathValue.replaceAll('>', '%3E')}>` : pathValue;
+}
+
 function withTitle(destination: string, source: string): string {
-  const titled = /^(\S+)(\s+\S[\s\S]*)?$/.exec(destination.trim());
-  return `${source}${titled?.[2] ?? ''}`;
+  const title = linkTitle(destination);
+  const address = markdownAddress(source);
+  if (!title) {
+    return address;
+  }
+  return `${address} "${title.replaceAll('"', '\\"')}"`;
 }
 
 function dataUrlMime(extension: string, mode: ImageInlineMode): string | null {
-  if (mode === 'absolute') {
+  if (mode === 'absolute' || mode === 'resource') {
     return null;
   }
   const table = mode === 'document' ? DOCUMENT_MIME_BY_EXTENSION : MIME_BY_EXTENSION;
@@ -109,8 +117,8 @@ async function replacementFor(
     return null;
   }
   const extension = path.extname(resolved).toLowerCase();
-  if (mode === 'absolute') {
-    if (!imageKind(extension)) {
+  if (mode === 'absolute' || mode === 'resource') {
+    if (mode === 'absolute' && !imageKind(extension)) {
       return null;
     }
     const data = await readInside(directory, destination);

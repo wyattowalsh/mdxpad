@@ -50,8 +50,36 @@ describe('inlineLocalImages', () => {
       'data-url'
     );
 
-    expect(inlined).toContain('![Alt](data:image/png;base64,');
-    expect(inlined).toContain('<img src="data:image/png;base64,');
+    expect(inlined).toMatch(/!\[[^\]]*\]\(data:image\/png;base64,[A-Za-z0-9+/=]+\)/);
+    expect(inlined).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/=]+">/);
+    expect(inlined).not.toContain('photo.png>');
+  });
+
+  it('points Pandoc at a local picture and leaves one outside the folder', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-resource-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-resource-out-'));
+    const source = path.join(root, 'note.md');
+    await writeFile(path.join(root, 'my photo.png'), PNG);
+    await writeFile(path.join(root, 'photo.webp'), Buffer.from('RIFFwebp'));
+    await writeFile(path.join(outside, 'secret.png'), PNG);
+    const outsideName = path.basename(outside);
+    const rewritten = await inlineLocalImages(
+      [
+        '![Space](<my photo.png>)',
+        '',
+        '![Web](photo.webp)',
+        '',
+        `![Out](../${outsideName}/secret.png)`,
+      ].join('\n'),
+      source,
+      'resource'
+    );
+    const photo = path.join(root, 'my photo.png').split(path.sep).join('/');
+    const web = path.join(root, 'photo.webp').split(path.sep).join('/');
+
+    expect(rewritten).toContain(`![Space](<${photo}>)`);
+    expect(rewritten).toContain(`![Web](${web})`);
+    expect(rewritten).toContain(`![Out](../${outsideName}/secret.png)`);
   });
 
   it('embeds a WebP and an SVG in a document and leaves them for Word', async () => {

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 
+import { inlineLocalImages } from './export-image';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 import { detectPandoc } from './pandoc-detector';
 
@@ -124,7 +125,10 @@ export class PandocBridge implements Exporter {
       }
 
       const args = buildPandocArgs(this, options);
-      const { stderr } = await runPandoc(detection.path, args, options.content, this.timeoutMs);
+      const content = options.sourcePath
+        ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
+        : options.content;
+      const { stderr } = await runPandoc(detection.path, args, content, this.timeoutMs);
 
       if (stderr.trim().length > 0) {
         warnings.push(`Pandoc warnings: ${stderr.trim()}`);
