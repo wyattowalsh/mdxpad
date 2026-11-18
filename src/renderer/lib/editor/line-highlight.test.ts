@@ -249,6 +249,40 @@ describe('highlightLineTemporary', () => {
     dispatchSpy.mockRestore();
   });
 
+  it('does not clear a highlight after the editor closes', () => {
+    const highlighted = view;
+    highlightLineTemporary(highlighted, 10);
+    highlighted.destroy();
+    view = new EditorView({
+      state: EditorState.create({
+        doc: 'x',
+        extensions: [lineHighlightExtension],
+      }),
+      parent: container,
+    });
+
+    expect(() => {
+      vi.advanceTimersByTime(HIGHLIGHT_DURATION_MS + 10);
+    }).not.toThrow();
+  });
+
+  it('lets cleanup run after the editor closes', () => {
+    const highlighted = view;
+    const cleanup = highlightLineTemporary(highlighted, 10);
+    highlighted.destroy();
+    view = new EditorView({
+      state: EditorState.create({
+        doc: 'x',
+        extensions: [lineHighlightExtension],
+      }),
+      parent: container,
+    });
+
+    expect(() => {
+      cleanup();
+    }).not.toThrow();
+  });
+
   it('highlights correct line for given position', () => {
     // Position 10 should be in line 2 ("line 2")
     highlightLineTemporary(view, 10);

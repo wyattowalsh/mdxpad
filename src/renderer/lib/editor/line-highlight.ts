@@ -153,29 +153,39 @@ export const lineHighlightExtension = [
  * cancel();
  * ```
  */
+function editorClosed(view: EditorView): boolean {
+  const editor = view as unknown as { readonly destroyed?: boolean };
+  return editor.destroyed === true;
+}
+
+function clearHighlightOn(view: EditorView): void {
+  if (editorClosed(view)) {
+    return;
+  }
+  view.dispatch({
+    effects: clearLineHighlight.of(undefined),
+  });
+}
+
 export function highlightLineTemporary(
   view: EditorView,
   pos: number,
   duration: number = HIGHLIGHT_DURATION_MS
 ): () => void {
-  // Add the highlight
+  if (editorClosed(view)) {
+    return () => undefined;
+  }
   view.dispatch({
     effects: addLineHighlight.of(pos),
   });
 
-  // Set up automatic clearing
   const timeoutId = setTimeout(() => {
-    view.dispatch({
-      effects: clearLineHighlight.of(undefined),
-    });
+    clearHighlightOn(view);
   }, duration);
 
-  // Return cleanup function
   return () => {
     clearTimeout(timeoutId);
-    view.dispatch({
-      effects: clearLineHighlight.of(undefined),
-    });
+    clearHighlightOn(view);
   };
 }
 
@@ -185,7 +195,5 @@ export function highlightLineTemporary(
  * @param view - The EditorView instance
  */
 export function clearHighlight(view: EditorView): void {
-  view.dispatch({
-    effects: clearLineHighlight.of(undefined),
-  });
+  clearHighlightOn(view);
 }
