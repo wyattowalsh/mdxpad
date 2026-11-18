@@ -1,5 +1,5 @@
 import { constants as fsConstants, realpathSync } from 'node:fs';
-import { lstat, open, realpath } from 'node:fs/promises';
+import { lstat, open, realpath, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
@@ -79,6 +79,24 @@ export async function readOpenedDocument(filePath: string): Promise<string> {
     throw new Error(read.error.code === 'NOT_FOUND' ? 'File not found' : OPENED_DOCUMENT_ERROR);
   }
   return read.value;
+}
+
+function isMissingFile(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+export async function writeSnapshotFile(filePath: string, content: string): Promise<void> {
+  try {
+    const info = await lstat(filePath);
+    if (info.isSymbolicLink()) {
+      await unlink(filePath);
+    }
+  } catch (error) {
+    if (!isMissingFile(error)) {
+      throw error;
+    }
+  }
+  await writeOpenedDocument(filePath, content);
 }
 
 export async function writeOpenedDocument(filePath: string, content: string): Promise<void> {

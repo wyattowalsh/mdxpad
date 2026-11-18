@@ -31,6 +31,7 @@ import {
   sameOpenedFile,
   snapshotFile,
   writeOpenedDocument,
+  writeSnapshotFile,
 } from './version-history-path';
 
 const execFileAsync = promisify(execFile);
@@ -253,7 +254,7 @@ export class VersionHistoryService {
     };
 
     const snapshotPath = path.join(historyDir, `${id}.json`);
-    await fs.writeFile(snapshotPath, JSON.stringify(snapshot, null, 2), 'utf-8');
+    await writeSnapshotFile(snapshotPath, JSON.stringify(snapshot, null, 2));
 
     // Cleanup old snapshots
     await this.cleanupSnapshots(filePath);

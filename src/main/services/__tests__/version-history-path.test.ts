@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -11,6 +11,7 @@ import {
   sameOpenedFile,
   snapshotFile,
   writeOpenedDocument,
+  writeSnapshotFile,
 } from '../version-history-path';
 
 describe('version history path guards', () => {
@@ -63,6 +64,24 @@ describe('version history path guards', () => {
 
       await expect(readSnapshotText(snapshot)).resolves.toBe('{"content":"kept"}');
       await expect(readSnapshotText(link)).rejects.toThrow('Version not found');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not write a snapshot through a link', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-history-snapshot-write-'));
+    try {
+      const target = path.join(dir, 'secret.json');
+      const link = path.join(dir, 'snapshot.json');
+      await writeFile(target, 'secret');
+      await symlink(target, link);
+
+      await writeSnapshotFile(link, '{"content":"local"}');
+
+      await expect(readFile(target, 'utf-8')).resolves.toBe('secret');
+      expect((await lstat(link)).isSymbolicLink()).toBe(false);
+      await expect(readFile(link, 'utf-8')).resolves.toBe('{"content":"local"}');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
