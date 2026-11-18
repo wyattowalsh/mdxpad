@@ -143,6 +143,25 @@ describe('AIChatWritePanel', () => {
     resetPanelStores();
   });
 
+  it('inserts a finished draft into the open document', () => {
+    useDocumentStore.setState({ content: 'Hello', filePath: '/notes/draft.mdx' });
+    useAISessionStore.setState({
+      stream: {
+        status: 'idle',
+        streamId: null,
+        text: 'more text',
+        usage: null,
+        error: null,
+      },
+      isStreaming: false,
+    });
+
+    render(<AIChatWritePanel />);
+    fireEvent.click(screen.getByTestId('ai-insert-result-button'));
+
+    expect(useDocumentStore.getState().content).toBe('Hello\n\nmore text');
+  });
+
   it('loads sessions and attachment options on mount', async () => {
     const loadSessions = vi
       .fn<(workspaceId?: string) => Promise<void>>()

@@ -27,6 +27,7 @@ import {
   buildAttachmentLoadOptions,
   buildCreateSessionRequest,
   buildWriteActionPrompt,
+  documentAfterWrite,
   buildWritePrompt,
   resolveListedModelId,
   type WriteActionId,
@@ -371,12 +372,27 @@ export function AIChatWritePanel({
       )}
 
       {streamText && (
-        <pre
-          data-testid="ai-stream-output"
-          className="max-h-48 overflow-auto rounded-md border bg-muted/20 p-3 text-xs whitespace-pre-wrap"
-        >
-          {streamText}
-        </pre>
+        <div className="space-y-2">
+          <pre
+            data-testid="ai-stream-output"
+            className="max-h-48 overflow-auto rounded-md border bg-muted/20 p-3 text-xs whitespace-pre-wrap"
+          >
+            {streamText}
+          </pre>
+          {!isStreaming && (
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="ai-insert-result-button"
+              onClick={() => {
+                const document = useDocumentStore.getState();
+                document.setContent(documentAfterWrite(writeAction, document.content, streamText));
+              }}
+            >
+              {writeAction === 'rewrite' ? 'Replace document' : 'Insert into document'}
+            </Button>
+          )}
+        </div>
       )}
     </section>
   );

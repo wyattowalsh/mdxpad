@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import type { AIInstructionScope, AISessionCreateRequest } from '@shared/contracts/ai-schemas';
+import { insertTextAtSelection } from '@renderer/lib/insert-document-text';
 import type { LoadAttachmentOptions } from '@renderer/stores/ai-session-store';
 
 const documentIdSchema = z.string().uuid();
@@ -117,6 +118,22 @@ export function buildCreateSessionRequest(input: {
     modelId: input.modelId,
     contextDocumentIds: toContextDocumentIds(input.fileId),
   };
+}
+
+/** Rewrite replaces the document. Other actions append the generated text. */
+export function documentAfterWrite(
+  action: WriteActionId,
+  current: string,
+  generated: string
+): string {
+  const text = generated.trim();
+  if (text.length === 0) {
+    return current;
+  }
+  if (action === 'rewrite') {
+    return text;
+  }
+  return insertTextAtSelection(current, text, null);
 }
 
 export function resolveListedModelId(response: ListedModelsResponse): ListedModelResolution {

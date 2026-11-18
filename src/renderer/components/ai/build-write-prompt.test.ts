@@ -3,11 +3,20 @@ import {
   NO_MODELS_AVAILABLE_MESSAGE,
   buildAttachmentLoadOptions,
   buildWritePrompt,
+  documentAfterWrite,
   resolveListedModelId,
   toContextDocumentIds,
 } from './build-write-prompt';
 
 const DOCUMENT_ID = '55555555-5555-4555-8555-555555555555';
+
+describe('documentAfterWrite', () => {
+  it('appends a continuation and replaces the document for a rewrite', () => {
+    expect(documentAfterWrite('continue', 'Hello', 'world')).toBe('Hello\n\nworld');
+    expect(documentAfterWrite('rewrite', 'Hello', 'world')).toBe('world');
+    expect(documentAfterWrite('summarize', 'Hello', '   ')).toBe('Hello');
+  });
+});
 
 describe('buildWritePrompt', () => {
   it('includes the action text and an empty document', () => {
