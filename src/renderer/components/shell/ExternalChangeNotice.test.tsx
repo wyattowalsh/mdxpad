@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { DocumentId } from '@shared/types/document';
 import { useDocumentStore } from '@renderer/stores/document-store';
 
 import { ExternalChangeNotice } from './ExternalChangeNotice';
@@ -49,6 +50,43 @@ describe('ExternalChangeNotice', () => {
     expect(useDocumentStore.getState().filePath).toBe('/docs/copy.md');
     expect(useDocumentStore.getState().content).toBe('local edits');
     expect(useDocumentStore.getState().externalChangeDetected).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('does not retarget a different file when the copy finishes', async () => {
+    let finishSave: (value: {
+      ok: true;
+      value: { id: string; path: string; name: string };
+    }) => void = () => undefined;
+    const saveFileAs = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+    );
+    vi.stubGlobal('mdxpad', { saveFileAs });
+    useDocumentStore.getState().openDocument(
+      { fileId: 'file-1' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved'
+    );
+    useDocumentStore.getState().setContent('local edits');
+    useDocumentStore.getState().handleExternalChange('disk version', 10);
+    render(<ExternalChangeNotice />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save my version as…' }));
+    await act(async () => {
+      useDocumentStore.getState().openDocument(
+        { fileId: 'file-2' as DocumentId, filePath: '/docs/other.md', mtime: 2 },
+        'other'
+      );
+      finishSave({ ok: true, value: { id: 'file-3', path: '/docs/copy.md', name: 'copy.md' } });
+    });
+
+    await waitFor(() => {
+      expect(saveFileAs).toHaveBeenCalledWith('local edits');
+    });
+    expect(useDocumentStore.getState().filePath).toBe('/docs/other.md');
+    expect(useDocumentStore.getState().content).toBe('other');
     vi.unstubAllGlobals();
   });
 });

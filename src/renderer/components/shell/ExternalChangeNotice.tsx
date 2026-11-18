@@ -1,7 +1,7 @@
 import type { DocumentFileHandle, DocumentId } from '@shared/types/document';
 import { useDocumentStore, selectExternalChangeDetected } from '@renderer/stores/document-store';
 
-async function saveConflictCopy(content: string): Promise<void> {
+async function saveConflictCopy(content: string, filePath: string | null): Promise<void> {
   if (!('mdxpad' in window)) {
     return;
   }
@@ -9,12 +9,16 @@ async function saveConflictCopy(content: string): Promise<void> {
   if (!result.ok || !result.value.path) {
     return;
   }
+  const current = useDocumentStore.getState();
+  if (current.filePath !== filePath || current.content !== content) {
+    return;
+  }
   const handle: DocumentFileHandle = {
     fileId: result.value.id as unknown as DocumentId,
     filePath: result.value.path,
     mtime: Date.now(),
   };
-  useDocumentStore.getState().markSaved(handle);
+  current.markSaved(handle);
 }
 
 /**
@@ -25,6 +29,7 @@ export function ExternalChangeNotice(): React.JSX.Element | null {
   const detected = useDocumentStore(selectExternalChangeDetected);
   const fileMissing = useDocumentStore((state) => state.fileMissing);
   const content = useDocumentStore((state) => state.content);
+  const filePath = useDocumentStore((state) => state.filePath);
   const acceptExternalChange = useDocumentStore((state) => state.acceptExternalChange);
 
   if (fileMissing) {
@@ -52,7 +57,11 @@ export function ExternalChangeNotice(): React.JSX.Element | null {
         <button type="button" className="underline" onClick={acceptExternalChange}>
           Use the version on disk
         </button>
-        <button type="button" className="underline" onClick={() => void saveConflictCopy(content)}>
+        <button
+          type="button"
+          className="underline"
+          onClick={() => void saveConflictCopy(content, filePath)}
+        >
           Save my version as…
         </button>
       </div>
