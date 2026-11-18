@@ -11,9 +11,13 @@
  */
 
 import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 
 /** Default temp file suffix */
 const TEMP_SUFFIX = '.tmp';
+
+/** Directory flush errors on platforms that cannot fsync a folder. */
+const DIRECTORY_SYNC_UNSUPPORTED = new Set(['EISDIR', 'EPERM', 'ENOTSUP', 'EINVAL']);
 
 export type AtomicWritePhase =
   | 'before-write-temp'
@@ -70,17 +74,11 @@ export async function atomicWrite(
 
   try {
     await fs.writeFile(tempPath, content, 'utf-8');
-    if (typeof fs.open === 'function') {
-      const tempHandle = await fs.open(tempPath, 'r');
-      try {
-        await tempHandle.sync();
-      } finally {
-        await tempHandle.close();
-      }
-    }
+    await syncFile(tempPath);
     await invokeDurabilityPhaseHook(durabilityContract, 'after-write-temp', context);
     await invokeDurabilityPhaseHook(durabilityContract, 'before-commit', context);
     await fs.rename(tempPath, targetPath);
+    await syncDirectory(path.dirname(targetPath));
     await invokeDurabilityPhaseHook(durabilityContract, 'after-commit', context);
   } catch (err) {
     // Best-effort cleanup — ignore errors (file may not exist)
@@ -90,6 +88,42 @@ export async function atomicWrite(
     await invokeDurabilityPhaseHook(durabilityContract, 'cleanup', context);
     await invokeDurabilityErrorHook(durabilityContract, err, context);
     throw err;
+  }
+}
+
+async function syncFile(filePath: string): Promise<void> {
+  if (typeof fs.open !== 'function') {
+    return;
+  }
+  const handle = await fs.open(filePath, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+function errorCode(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return String(error.code);
+  }
+  return '';
+}
+
+async function syncDirectory(directory: string): Promise<void> {
+  if (typeof fs.open !== 'function') {
+    return;
+  }
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    handle = await fs.open(directory, 'r');
+    await handle.sync();
+  } catch (error) {
+    if (!DIRECTORY_SYNC_UNSUPPORTED.has(errorCode(error))) {
+      throw error;
+    }
+  } finally {
+    await handle?.close();
   }
 }
 

@@ -92,6 +92,69 @@ describe('atomicWrite', () => {
       // No temp file with custom suffix should remain
       expect(existsSync(`${targetPath}.bak`)).toBe(false);
     });
+
+    it('flushes the directory after the rename', async () => {
+      const targetPath = join(tempDir, 'output.txt');
+      const opened: string[] = [];
+      const open = fs.open.bind(fs);
+      const spy = vi.spyOn(fs, 'open').mockImplementation(async (file, flags) => {
+        opened.push(String(file));
+        return open(file, flags);
+      });
+
+      try {
+        await atomicWrite(targetPath, 'hello');
+      } finally {
+        spy.mockRestore();
+      }
+
+      expect(opened).toContain(tempDir);
+      expect(readFileSync(targetPath, 'utf-8')).toBe('hello');
+    });
+
+    it('keeps the renamed file when the directory flush fails', async () => {
+      const targetPath = join(tempDir, 'output.txt');
+      const open = fs.open.bind(fs);
+      const spy = vi.spyOn(fs, 'open').mockImplementation(async (file, flags) => {
+        const handle = await open(file, flags);
+        if (String(file) === tempDir) {
+          handle.sync = async () => {
+            throw Object.assign(new Error('flush failed'), { code: 'EIO' });
+          };
+        }
+        return handle;
+      });
+
+      try {
+        await expect(atomicWrite(targetPath, 'hello')).rejects.toThrow('flush failed');
+      } finally {
+        spy.mockRestore();
+      }
+
+      expect(readFileSync(targetPath, 'utf-8')).toBe('hello');
+    });
+
+    it('finishes the write when a directory cannot be flushed', async () => {
+      const targetPath = join(tempDir, 'output.txt');
+      const open = fs.open.bind(fs);
+      const spy = vi.spyOn(fs, 'open').mockImplementation(async (file, flags) => {
+        const handle = await open(file, flags);
+        if (String(file) === tempDir) {
+          handle.sync = async () => {
+            throw Object.assign(new Error('directories are not flushable'), { code: 'EISDIR' });
+          };
+        }
+        return handle;
+      });
+
+      try {
+        await atomicWrite(targetPath, 'hello');
+      } finally {
+        spy.mockRestore();
+      }
+
+      expect(readFileSync(targetPath, 'utf-8')).toBe('hello');
+    });
   });
 
   describe('durability contract', () => {
