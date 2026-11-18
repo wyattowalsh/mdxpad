@@ -113,6 +113,31 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
   return 'paragraph';
 }
 
+function isIndentedCodeChunk(current: QuoteChunk | null): current is Extract<QuoteChunk, { kind: 'code' }> {
+  return current?.kind === 'code' && openingFence(current.lines[0] ?? '') === null;
+}
+
+/** Keep a blank line when the next indented line continues the same code block. */
+function continueIndentedCode(
+  current: QuoteChunk | null,
+  line: string,
+  pendingBlanks: string[]
+): boolean {
+  if (!isIndentedCodeChunk(current)) {
+    return false;
+  }
+  if (line.trim().length === 0) {
+    pendingBlanks.push('');
+    return true;
+  }
+  if (pendingBlanks.length > 0 && quoteLineKind(line, current) === 'code') {
+    current.lines.push(...pendingBlanks.splice(0), quoteBody(line) ?? line);
+    return true;
+  }
+  pendingBlanks.length = 0;
+  return false;
+}
+
 function takeQuoteLine(
   chunks: QuoteChunk[],
   current: QuoteChunk | null,
@@ -143,7 +168,11 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   const chunks: QuoteChunk[] = [];
   let current: QuoteChunk | null = null;
   let fence: string | null = null;
+  const pendingBlanks: string[] = [];
   for (const line of lines) {
+    if (continueIndentedCode(current, line, pendingBlanks)) {
+      continue;
+    }
     if (fence) {
       if (closesFence(line, fence)) {
         fence = null;

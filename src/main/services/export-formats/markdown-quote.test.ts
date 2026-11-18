@@ -89,6 +89,15 @@ describe('quoteBody', () => {
     expect(code).toContain('<pre><code>');
     expect(code).toContain('const x = 1');
     expect(code).not.toContain('<p>');
+    const continued = quoteToHtml(['    line1', '', '    line2'], (line) => line);
+    expect(continued.match(/<pre>/g)).toHaveLength(1);
+    expect(continued).toContain('line1\n\nline2');
+    const ended = quoteToHtml(['    line1', '', 'after'], (line) => line);
+    expect(ended).toContain('<pre><code>line1</code></pre>');
+    expect(ended).toContain('<p>after</p>');
+    const latex = quoteToLatex(['    line1', '', '    line2'], (line) => line);
+    expect(latex.match(/\\begin\{verbatim\}/g)).toHaveLength(1);
+    expect(latex).toContain('line1\n\nline2');
     expect(isLazyQuoteLine('---')).toBe(false);
     expect(isLazyQuoteLine('===')).toBe(true);
     expect(isLazyQuoteLine('***')).toBe(false);
