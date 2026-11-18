@@ -124,29 +124,28 @@ function ShellPreviewPaneComponent({
   const [isTimedOut, setIsTimedOut] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastContentRef = useRef<string>(content);
+  const lastDocumentKeyRef = useRef<string>(documentKey);
 
   // Get preview state to monitor compilation status
   const previewStatus = usePreviewStore((s) => s.state.status);
 
   // Handle compilation timeout per FR-037a
   useEffect(() => {
-    // Content changed - reset timeout state and start timer
-    if (content !== lastContentRef.current) {
+    const contentChanged = content !== lastContentRef.current;
+    const documentChanged = documentKey !== lastDocumentKeyRef.current;
+    if (contentChanged || documentChanged) {
       lastContentRef.current = content;
+      lastDocumentKeyRef.current = documentKey;
       setIsTimedOut(false);
 
-      // Clear any existing timeout
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
 
-      // Start new timeout timer
       timeoutRef.current = setTimeout(() => {
-        // Only timeout if still compiling
         if (usePreviewStore.getState().state.status === 'compiling') {
           setIsTimedOut(true);
-          // Report timeout error
           onErrorsChange?.([
             {
               message: 'Preview compilation timed out after 3 seconds',
@@ -159,14 +158,13 @@ function ShellPreviewPaneComponent({
       }, COMPILATION_TIMEOUT_MS);
     }
 
-    // Cleanup on unmount
     return () => {
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
     };
-  }, [content, onErrorsChange]);
+  }, [content, documentKey, onErrorsChange]);
 
   // Clear timeout when compilation completes
   useEffect(() => {
