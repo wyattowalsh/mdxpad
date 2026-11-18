@@ -1,5 +1,6 @@
 import type { DocumentId } from '@shared/types/document';
 import type { FileError } from '@shared/types/file';
+import { checkDirtyState } from '@renderer/commands/file-commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useStatusMessageStore } from '@renderer/stores/status-message-store';
 
@@ -35,10 +36,38 @@ function showOpenFailure(error: FileError): void {
   useStatusMessageStore.getState().show(openFailureMessage(error));
 }
 
-export async function openFileFromPath(filePath: string): Promise<void> {
-  const result = await window.mdxpad.readFile(filePath);
-  if (!result.ok) {
-    showOpenFailure(result.error);
+interface OpenSnapshot {
+  readonly filePath: string | null;
+  readonly content: string;
+}
+
+function snapshotDocument(): OpenSnapshot {
+  const state = useDocumentStore.getState();
+  return { filePath: state.filePath, content: state.content };
+}
+
+function documentUnchanged(before: OpenSnapshot): boolean {
+  const state = useDocumentStore.getState();
+  return state.filePath === before.filePath && state.content === before.content;
+}
+
+function placeOpenedFile(
+  filePath: string,
+  content: string,
+  before: OpenSnapshot,
+  alreadyConfirmed: boolean
+): void {
+  if (!documentUnchanged(before)) {
+    return;
+  }
+  const state = useDocumentStore.getState();
+  if (state.filePath === filePath) {
+    return;
+  }
+  if (state.isDirty && !alreadyConfirmed && !checkDirtyState()) {
+    return;
+  }
+  if (!documentUnchanged(before)) {
     return;
   }
   useDocumentStore.getState().openDocument(
@@ -47,23 +76,34 @@ export async function openFileFromPath(filePath: string): Promise<void> {
       filePath,
       mtime: Date.now(),
     },
-    result.value
+    content
   );
 }
 
+export async function openFileFromPath(filePath: string): Promise<void> {
+  const before = snapshotDocument();
+  if (before.filePath === filePath) {
+    return;
+  }
+  const confirmed = useDocumentStore.getState().isDirty;
+  if (confirmed && !checkDirtyState()) {
+    return;
+  }
+  const result = await window.mdxpad.readFile(filePath);
+  if (!result.ok) {
+    showOpenFailure(result.error);
+    return;
+  }
+  placeOpenedFile(filePath, result.value, before, confirmed);
+}
+
 export async function openFirstExistingFile(paths: readonly string[]): Promise<void> {
+  const before = snapshotDocument();
   let missing: FileError | null = null;
   for (const filePath of paths) {
     const result = await window.mdxpad.readFile(filePath);
     if (result.ok) {
-      useDocumentStore.getState().openDocument(
-        {
-          fileId: filePath as unknown as DocumentId,
-          filePath,
-          mtime: Date.now(),
-        },
-        result.value
-      );
+      placeOpenedFile(filePath, result.value, before, false);
       return;
     }
     if (result.error.code !== 'NOT_FOUND') {

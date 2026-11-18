@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { DocumentId } from '@shared/types/document';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useStatusMessageStore } from '@renderer/stores/status-message-store';
 
@@ -58,5 +59,55 @@ describe('openFileFromPath', () => {
 
     expect(useDocumentStore.getState().filePath).toBe('/docs/Button.mdx');
     expect(useStatusMessageStore.getState().message).toBe('');
+  });
+
+  it('keeps unsaved edits until the open is confirmed', async () => {
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved'
+    );
+    useDocumentStore.getState().setContent('edited');
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal('confirm', confirm);
+    vi.mocked(window.mdxpad.readFile).mockResolvedValue({ ok: true, value: '# Other' });
+
+    await openFileFromPath('/docs/b.mdx');
+
+    expect(confirm).toHaveBeenCalledWith('You have unsaved changes. Continue without saving?');
+    expect(window.mdxpad.readFile).not.toHaveBeenCalled();
+    expect(useDocumentStore.getState().content).toBe('edited');
+    expect(useDocumentStore.getState().filePath).toBe('/docs/a.mdx');
+  });
+
+  it('opens the other file after unsaved edits are discarded', async () => {
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved'
+    );
+    useDocumentStore.getState().setContent('edited');
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    vi.mocked(window.mdxpad.readFile).mockResolvedValue({ ok: true, value: '# Other' });
+
+    await openFileFromPath('/docs/b.mdx');
+
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(useDocumentStore.getState().filePath).toBe('/docs/b.mdx');
+    expect(useDocumentStore.getState().content).toBe('# Other');
+  });
+
+  it('does not reload the open file over unsaved edits', async () => {
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved'
+    );
+    useDocumentStore.getState().setContent('edited');
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirm);
+
+    await openFileFromPath('/docs/a.mdx');
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(window.mdxpad.readFile).not.toHaveBeenCalled();
+    expect(useDocumentStore.getState().content).toBe('edited');
   });
 });
