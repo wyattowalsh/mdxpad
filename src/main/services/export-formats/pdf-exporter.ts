@@ -410,7 +410,20 @@ export function markdownToPdfHtml(content: string): string {
   return htmlFootnoteMarkers(build.parts.join('\n'));
 }
 
-function contentToHtml(content: string, title: string): string {
+const PDF_FONT_FAMILY = /^[A-Za-z0-9 ,.'"-]{1,80}$/;
+const DEFAULT_PDF_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif';
+
+function pdfFontFamily(metadata: Record<string, unknown> | undefined): string {
+  const value = metadata?.fontFamily;
+  return typeof value === 'string' && PDF_FONT_FAMILY.test(value) ? value : DEFAULT_PDF_FONT;
+}
+
+function pdfFontSize(metadata: Record<string, unknown> | undefined): string {
+  const value = metadata?.fontSizePt;
+  return typeof value === 'number' && value >= 8 && value <= 24 ? `${value}pt` : '11pt';
+}
+
+function contentToHtml(content: string, title: string, metadata?: Record<string, unknown>): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -420,7 +433,8 @@ function contentToHtml(content: string, title: string): string {
     body {
       margin: 0;
       padding: 2rem;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-family: ${pdfFontFamily(metadata)};
+      font-size: ${pdfFontSize(metadata)};
       color: #1f2937;
       line-height: 1.6;
     }
@@ -503,14 +517,29 @@ function buildPrintOptions(options: ExportOptions): Electron.PrintToPDFOptions {
 
 const TEXT_PDF_WARNING = 'PDF print was unavailable, so a text PDF was written.';
 
-async function writeTextPdf(options: ExportOptions): Promise<ExportResult> {
-  const pageSize = options.metadata?.pageSize;
+function textPdfPreset(options: ExportOptions) {
+  const meta = options.metadata ?? {};
+  const pageSize = meta.pageSize;
+  const margins = meta.margins;
+  const marginInches =
+    margins !== null && typeof margins === 'object' && 'top' in margins
+      ? (margins as { top?: unknown }).top
+      : undefined;
   const parsed = PdfExportPresetOptionsSchema.safeParse({
     ...(pageSize === 'A4' || pageSize === 'Letter' ? { pageSize } : {}),
+    ...(typeof meta.fontSizePt === 'number' ? { fontSizePt: meta.fontSizePt } : {}),
+    ...(typeof meta.fontFamily === 'string' ? { fontFamily: meta.fontFamily } : {}),
+    ...(typeof meta.subject === 'string' ? { subject: meta.subject } : {}),
+    ...(typeof marginInches === 'number' ? { marginInches } : {}),
     ...(options.title ? { title: options.title } : {}),
     ...(options.author ? { author: options.author } : {}),
   });
-  const built = buildPdfDocument(options.content, parsed.success ? parsed.data : {});
+  return parsed.success ? parsed.data : {};
+}
+
+async function writeTextPdf(options: ExportOptions): Promise<ExportResult> {
+  const parsed = textPdfPreset(options);
+  const built = buildPdfDocument(options.content, parsed);
   await writeRegularFile(options.outputPath, built.content);
   return {
     ok: true,
@@ -533,7 +562,7 @@ export class PdfExporter implements Exporter {
     try {
       const title = options.title ?? 'MDXPad Export';
       const content = await inlineLocalImages(options.content, options.sourcePath, 'document');
-      const html = contentToHtml(content, title);
+      const html = contentToHtml(content, title, options.metadata);
 
       win = new BrowserWindow({
         show: false,

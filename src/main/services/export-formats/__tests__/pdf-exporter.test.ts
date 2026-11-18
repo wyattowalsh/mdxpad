@@ -73,6 +73,45 @@ describe('PdfExporter', () => {
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
   });
 
+  it('uses the preset font in the printed document', async () => {
+    await exporter.export({
+      content: 'Hello',
+      outputPath: '/tmp/font.pdf',
+      metadata: { fontFamily: 'Georgia', fontSizePt: 14 },
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('font-family: Georgia');
+    expect(html).toContain('font-size: 14pt');
+  });
+
+  it('keeps a style-breaking font family out of the printed document', async () => {
+    await exporter.export({
+      content: 'Hello',
+      outputPath: '/tmp/font-bad.pdf',
+      metadata: { fontFamily: 'Georgia; } body { background: url(https://evil.example)' },
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('-apple-system');
+    expect(html).not.toContain('evil.example');
+  });
+
+  it('writes the preset subject and font size into a text PDF', async () => {
+    mockPrintToPDF.mockRejectedValueOnce(new Error('print failed'));
+    const result = await exporter.export({
+      content: 'Hello',
+      title: 'Notes',
+      outputPath: '/tmp/subject.pdf',
+      metadata: { subject: 'Field notes', fontSizePt: 14 },
+    });
+
+    expect(result.ok).toBe(true);
+    const written = vi.mocked(writeFile).mock.calls[0]?.[1];
+    expect(written).toContain('/Subject (Field notes)');
+    expect(written).toContain('14.00 Tf');
+  });
+
   it('writes a text PDF when print is unavailable', async () => {
     mockPrintToPDF.mockRejectedValueOnce(new Error('print failed'));
     const result = await exporter.export({

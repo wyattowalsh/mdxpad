@@ -238,6 +238,15 @@ async function printPdfExport(
     const margin = options.marginInches;
     metadata.margins = { top: margin, right: margin, bottom: margin, left: margin };
   }
+  if (options.fontSizePt !== undefined) {
+    metadata.fontSizePt = options.fontSizePt;
+  }
+  if (options.fontFamily !== undefined) {
+    metadata.fontFamily = options.fontFamily;
+  }
+  if (options.subject !== undefined) {
+    metadata.subject = options.subject;
+  }
   const author = options.author;
   const result = await exporter.export({
     content: sourceContent,

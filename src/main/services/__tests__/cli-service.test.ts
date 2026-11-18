@@ -132,6 +132,7 @@ describe('invokeExportCli', () => {
         );
         if (usedTextPdf) {
           expect(artifact).toContain('/Title (Preset PDF)');
+          expect(artifact).toContain('12.00 Tf');
         }
         expect(
           response.output.events.some((event) => event.message.includes('built-in PDF exporter'))
