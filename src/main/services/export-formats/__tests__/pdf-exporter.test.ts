@@ -337,6 +337,20 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('katex-error');
   });
 
+  it('does not let a later number interrupt a paragraph', async () => {
+    await exporter.export({
+      content: 'See version\n14. Next sentence.\n\n- foo\n  2. bar\n\n- foo\n  1. bar\n\n- foo\n\n  2. bar\n',
+      outputPath: '/tmp/list-interrupt.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).toContain('<p>See version 14. Next sentence.</p>');
+    expect(html).not.toContain('<ol start="14">');
+    expect(html).toContain('<li><p>foo 2. bar</p></li>');
+    expect(html).toContain('<ol>\n<li>bar</li>\n</ol>');
+    expect(html).toContain('<ol start="2">');
+  });
+
   it('groups consecutive list items into one list', async () => {
     const options: ExportOptions = {
       content: '- one\n- two\n\n1. first\n2. second',

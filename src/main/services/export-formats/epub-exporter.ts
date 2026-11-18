@@ -21,6 +21,7 @@ import {
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  shouldOpenListItem,
   type HtmlListFrame,
   type MarkdownListItem,
 } from './markdown-list';
@@ -397,7 +398,10 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
     return;
   }
   const item = parseListItem(raw);
-  if (item) {
+  if (
+    item &&
+    shouldOpenListItem(item, state.lists, state.listBreak, state.paragraph.length > 0)
+  ) {
     flushEpubParagraph(htmlLines, state);
     startEpubListItem(htmlLines, state, raw, item);
     return;

@@ -47,6 +47,7 @@ import {
   isListContinuation,
   listContentColumn,
   parseListItem,
+  shouldOpenListItem,
   type MarkdownListItem,
 } from './markdown-list';
 import {
@@ -1069,7 +1070,15 @@ function takeDocxList(
 ): boolean {
   const source = readSourceLine(line);
   const item = source.text.length > 0 && !isThematicBreak(source.text) ? parseListItem(line) : null;
-  if (item) {
+  const frames = parse.listStack.map((frame) => ({
+    level: frame.level,
+    kind: frame.item.ordered ? ('ol' as const) : ('ul' as const),
+    delimiter: frame.item.delimiter ?? ('' as const),
+  }));
+  const openItem =
+    item !== null &&
+    shouldOpenListItem(item, frames, parse.listBreak, parse.pending.length > 0);
+  if (item && openItem) {
     flushPendingParagraph(parse);
     const column = listContentColumn(line) ?? 2;
     if (takeDocxAtxItem(parse, item, column)) {
@@ -1088,9 +1097,12 @@ function takeDocxList(
     return true;
   }
   const lazy = !parse.listBreak && plainLazyListLine(line);
+  const spaces = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  const heldMarker =
+    item !== null && !openItem && openListItem !== null && spaces >= (parse.listColumn ?? 2);
   return (
     openListItem !== null &&
-    (isListContinuation(line, parse.listColumn ?? 2) || lazy) &&
+    (isListContinuation(line, parse.listColumn ?? 2) || lazy || heldMarker) &&
     continueDocxListItem(parse, openListItem, source)
   );
 }

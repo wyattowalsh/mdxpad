@@ -9,6 +9,7 @@ import {
   parseListItem,
   renderListItemHtml,
   replaceHtmlListItem,
+  shouldOpenListItem,
   type HtmlListFrame,
 } from './markdown-list';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
@@ -250,7 +251,11 @@ export function continueOpenList(
   raw: string,
   render: (text: string) => string
 ): boolean {
-  if (stack.length === 0 || raw.trim().length === 0 || parseListItem(raw) !== null) {
+  if (stack.length === 0 || raw.trim().length === 0) {
+    return false;
+  }
+  const marker = parseListItem(raw);
+  if (marker && shouldOpenListItem(marker, stack, state.listBreak, false)) {
     return false;
   }
   if (!state.listBreak && state.listLines.length > 0 && parts.at(-1)?.startsWith('<p>')) {

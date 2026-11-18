@@ -21,6 +21,7 @@ import {
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  shouldOpenListItem,
   type MarkdownListItem,
   type HtmlListFrame,
 } from './markdown-list';
@@ -353,7 +354,10 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
     return;
   }
   const item = parseListItem(raw);
-  if (item) {
+  if (
+    item &&
+    shouldOpenListItem(item, build.lists, build.listBreak, build.paragraph.length > 0)
+  ) {
     flushPdfParagraph(build);
     startPdfListItem(build, raw, item);
     return;

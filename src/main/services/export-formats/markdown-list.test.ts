@@ -4,6 +4,7 @@ import {
   closeHtmlLists,
   parseListItem,
   pushHtmlListItem,
+  shouldOpenListItem,
   type HtmlListFrame,
 } from './markdown-list';
 
@@ -43,6 +44,15 @@ describe('parseListItem', () => {
       delimiter: '.',
     });
     expect(parseListItem('not a list')).toBeNull();
+    const third = parseListItem('14. doors');
+    expect(third && shouldOpenListItem(third, [], false, true)).toBe(false);
+    const first = parseListItem('1. doors');
+    expect(first && shouldOpenListItem(first, [], false, true)).toBe(true);
+    const nested = parseListItem('  2. bar');
+    expect(
+      nested &&
+        shouldOpenListItem(nested, [{ level: 0, kind: 'ul', delimiter: '' }], false, false)
+    ).toBe(false);
   });
 
   it('nests a child list inside its parent', () => {

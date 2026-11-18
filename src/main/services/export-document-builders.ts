@@ -15,6 +15,7 @@ import {
   isListContinuation,
   listContentColumn,
   parseListItem,
+  shouldOpenListItem,
 } from './export-formats/markdown-list';
 import { isLazyQuoteLine, quoteBody } from './export-formats/markdown-quote';
 import { HARD_BREAK, reopenInlineMarks } from './export-formats/markdown-marks';
@@ -534,6 +535,11 @@ function appendBuiltInQuoteContinuation(blocks: MarkdownBlock[], rawLine: string
   return true;
 }
 
+function listItemBreaksParagraph(rawLine: string): boolean {
+  const item = parseListItem(rawLine);
+  return item !== null && shouldOpenListItem(item, [], false, true);
+}
+
 function appendBuiltInProseContinuation(blocks: MarkdownBlock[], rawLine: string): boolean {
   const last = blocks[blocks.length - 1];
   const trimmed = rawLine.trim();
@@ -545,7 +551,7 @@ function appendBuiltInProseContinuation(blocks: MarkdownBlock[], rawLine: string
     trimmed.length === 0 ||
     quoteBody(rawLine) !== null ||
     /^!\[[^\]]*\]\(/.test(trimmed) ||
-    parseListItem(rawLine) !== null ||
+    listItemBreaksParagraph(rawLine) ||
     isThematicBreak(trimmed) ||
     parseAtxHeading(trimmed) !== null ||
     setextLevel(rawLine) !== null ||

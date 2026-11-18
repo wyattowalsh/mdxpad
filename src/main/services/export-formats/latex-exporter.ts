@@ -27,6 +27,7 @@ import {
   isListContinuation,
   listContentColumn,
   parseListItem,
+  shouldOpenListItem,
   type MarkdownListItem,
 } from './markdown-list';
 import {
@@ -448,8 +449,31 @@ function writeLatexTail(output: string[], listState: ListState, raw: string): vo
   output[output.length - 1] = renderLatexItem(listState.tailLines);
 }
 
+function latexListFrames(stack: readonly LatexListFrame[]): {
+  level: number;
+  kind: 'ul' | 'ol';
+  delimiter: '' | '.' | ')';
+}[] {
+  return stack.map((frame) => ({
+    level: frame.level,
+    kind: frame.ordered ? 'ol' : 'ul',
+    delimiter: frame.delimiter,
+  }));
+}
+
+function indentedIntoList(raw: string, column: number): boolean {
+  const spaces = /^ */.exec(raw.replaceAll('\t', '    '))?.[0].length ?? 0;
+  return raw.trim().length > 0 && spaces >= column;
+}
+
 function takeLatexListContinuation(raw: string, output: string[], listState: ListState): boolean {
-  if (listState.stack.length === 0 || !isListContinuation(raw, listState.column ?? 2)) {
+  const column = listState.column ?? 2;
+  const marker = parseListItem(raw);
+  const joinsMarker =
+    marker !== null &&
+    !shouldOpenListItem(marker, latexListFrames(listState.stack), listState.break, false) &&
+    indentedIntoList(raw, column);
+  if (listState.stack.length === 0 || (!isListContinuation(raw, column) && !joinsMarker)) {
     return false;
   }
   if (listState.sealed) {
@@ -679,10 +703,19 @@ function processMarkdownLine(
     return;
   }
   const source = readSourceLine(raw);
-  if (parseListItem(raw)) {
+  const marker = parseListItem(raw);
+  const openMarker =
+    marker !== null &&
+    shouldOpenListItem(
+      marker,
+      latexListFrames(listState.stack),
+      listState.break,
+      prose.length > 0
+    );
+  if (openMarker) {
     flushLatexProse(output, prose);
   }
-  if (processListItem(raw, output, listState, counts)) {
+  if (openMarker && processListItem(raw, output, listState, counts)) {
     listState.column = listContentColumn(raw);
     openLatexMarkerFence(raw, output, listState);
     return;

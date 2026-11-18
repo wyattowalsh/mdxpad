@@ -101,6 +101,30 @@ export interface HtmlListFrame {
   start: number;
 }
 
+/** A new list may break a paragraph only when it is unordered or starts at 1. */
+export function shouldOpenListItem(
+  item: MarkdownListItem,
+  stack: readonly { level: number; kind: 'ul' | 'ol'; delimiter: '' | '.' | ')' }[],
+  separated: boolean,
+  paragraphOpen: boolean
+): boolean {
+  const current = stack[stack.length - 1];
+  const sameList =
+    current?.level === item.level &&
+    current.kind === (item.ordered ? 'ol' : 'ul') &&
+    current.delimiter === (item.delimiter ?? '');
+  if (sameList) {
+    return true;
+  }
+  if (current && item.level > current.level) {
+    return separated || !item.ordered || item.start === 1;
+  }
+  if (stack.length > 0) {
+    return true;
+  }
+  return !paragraphOpen || !item.ordered || item.start === 1;
+}
+
 function sameHtmlList(frame: HtmlListFrame, item: MarkdownListItem): boolean {
   if (frame.level !== item.level) {
     return false;
