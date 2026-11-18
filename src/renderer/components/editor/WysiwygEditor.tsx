@@ -38,6 +38,7 @@ import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-c
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
+import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -151,6 +152,7 @@ function useEditorView(
       doc,
       plugins: [
         history(),
+        wysiwygSlashPlugin(),
         wysiwygMathPlugin(),
         keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
         createMdxKeymap(),
@@ -404,7 +406,7 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
         <WysiwygToolbar actions={toolbarActions} />
         <div
           ref={containerRef}
-          className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_.wysiwyg-math-source]:text-[0px] [&_.wysiwyg-math]:inline-block [&_.wysiwyg-math-display]:my-2 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold dark:[&_td]:border-zinc-700 dark:[&_th]:border-zinc-700"
+          className="prosemirror-editor flex-1 overflow-auto p-4 focus-within:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_.wysiwyg-math-source]:text-[0px] [&_.wysiwyg-math]:inline-block [&_.wysiwyg-math-display]:my-2 [&_.wysiwyg-slash]:my-1 [&_.wysiwyg-slash]:flex [&_.wysiwyg-slash]:w-72 [&_.wysiwyg-slash]:flex-col [&_.wysiwyg-slash]:rounded-md [&_.wysiwyg-slash]:border [&_.wysiwyg-slash]:border-zinc-300 [&_.wysiwyg-slash]:bg-white [&_.wysiwyg-slash]:p-1 dark:[&_.wysiwyg-slash]:border-zinc-700 dark:[&_.wysiwyg-slash]:bg-zinc-900 [&_.wysiwyg-slash-item]:px-2 [&_.wysiwyg-slash-item]:py-1 [&_.wysiwyg-slash-item]:text-left [&_.wysiwyg-slash-item[data-selected=true]]:bg-zinc-200 dark:[&_.wysiwyg-slash-item[data-selected=true]]:bg-zinc-800 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold dark:[&_td]:border-zinc-700 dark:[&_th]:border-zinc-700"
         />
       </div>
     );
