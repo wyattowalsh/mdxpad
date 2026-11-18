@@ -106,4 +106,55 @@ describe('wysiwyg image preview', () => {
 
     expect(image?.getAttribute('src')).toBe('');
   });
+
+  it('does not load an absolute picture path', async () => {
+    const inline = vi.fn(async (markdown: string) => markdown);
+    window.mdxpad = {
+      ...window.mdxpad,
+      inlinePreviewImages: inline,
+    };
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '/docs/note.md' as unknown as DocumentId,
+        filePath: '/docs/note.md',
+        mtime: 1,
+      },
+      '![Secret](/etc/passwd.png)'
+    );
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const view = new EditorView(container, {
+      state: EditorState.create({
+        doc: documentFromMarkdown('![Secret](/etc/passwd.png)\n'),
+        schema: mdxSchema,
+      }),
+      nodeViews: {
+        image: (node) => new WysiwygImageView(node),
+      },
+    });
+    views.push(view);
+    await vi.waitFor(() => {
+      expect(inline).toHaveBeenCalled();
+    });
+    await Promise.resolve();
+    expect(view.dom.querySelector('img')?.getAttribute('src') ?? '').not.toContain('/etc/passwd');
+    expect(serializeMdxContent(view.state.doc)).toContain('/etc/passwd.png');
+  });
+
+  it('does not load a protocol-relative picture', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const view = new EditorView(container, {
+      state: EditorState.create({
+        doc: documentFromMarkdown('![Secret](//localhost/etc/passwd.png)\n'),
+        schema: mdxSchema,
+      }),
+      nodeViews: {
+        image: (node) => new WysiwygImageView(node),
+      },
+    });
+    views.push(view);
+    expect(view.dom.querySelector('img')?.getAttribute('src') ?? '').not.toContain('passwd');
+    expect(serializeMdxContent(view.state.doc)).toContain('//localhost/etc/passwd.png');
+  });
 });

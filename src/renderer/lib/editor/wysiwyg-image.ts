@@ -4,6 +4,7 @@ import type { NodeView } from 'prosemirror-view';
 import { useDocumentStore } from '@renderer/stores/document-store';
 
 const REMOTE_IMAGE = /^(?:https?:|data:|mailto:)/i;
+const DISPLAYABLE_IMAGE = /^(?:https?:|data:image\/)/i;
 
 interface ImageAttrs {
   readonly src: string;
@@ -42,7 +43,7 @@ function paintImage(dom: HTMLImageElement, attrs: ImageAttrs, src: string): void
     dom.removeAttribute('title');
   }
   dom.dataset.mdxSrc = attrs.src;
-  dom.src = src;
+  dom.src = DISPLAYABLE_IMAGE.test(src) ? src : '';
 }
 
 /** Show a local picture without changing the markdown address stored on the node. */
