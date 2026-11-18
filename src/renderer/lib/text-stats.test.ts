@@ -98,6 +98,10 @@ describe('countableProse', () => {
   it('leaves a task marker out', () => {
     expect(countWords(countableProse('- [x] Finish the notes'))).toBe(3);
   });
+
+  it('leaves an HTML comment out of the count', () => {
+    expect(countWords(countableProse('Hello <!-- secret words here --> world'))).toBe(2);
+  });
 });
 
 describe('countCharacters', () => {

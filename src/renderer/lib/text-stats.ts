@@ -29,6 +29,7 @@ export function documentBody(text: string): string {
 export function countableProse(text: string): string {
   return documentBody(text)
     .replace(/^[ \t]{0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n[ \t]{0,3}\1[ \t]*$/gm, '\n')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/!\[([^\]]*)]\([^)\n]*\)/g, '$1')
     .replace(/\[([^\]]*)]\([^)\n]*\)/g, '$1')
     .replace(/\[([^\]]*)]\[[^\]\n]*]/g, '$1')
