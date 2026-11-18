@@ -1,6 +1,6 @@
-import type { DocumentId } from '@shared/types/document';
 import type { FileError } from '@shared/types/file';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { documentIdForPath } from './document-id';
 import { useStatusMessageStore } from '@renderer/stores/status-message-store';
 
 function openFailureMessage(error: FileError): string {
@@ -60,7 +60,7 @@ function placeOpenedFile(filePath: string, content: string, before: OpenSnapshot
   }
   useDocumentStore.getState().openDocument(
     {
-      fileId: filePath as unknown as DocumentId,
+      fileId: documentIdForPath(filePath),
       filePath,
       mtime: Date.now(),
     },

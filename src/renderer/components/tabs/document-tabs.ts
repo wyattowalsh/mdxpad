@@ -2,12 +2,13 @@
  * Keep the open document and the tab bar on the same file.
  */
 
-import type { DocumentId } from '@shared/types/document';
 import { checkDirtyState } from '@renderer/commands/file-commands';
-import type { AutosaveTriggerRequest } from '@shared/contracts/autosave-ipc';
+import { documentIdForPath } from '@renderer/lib/document-id';
 import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
-import { recoveryDocumentId } from './tab-recovery-id';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
+import type { AutosaveTriggerRequest } from '@shared/contracts/autosave-ipc';
+
+import { recoveryDocumentId } from './tab-recovery-id';
 
 let applyingTab = false;
 
@@ -93,7 +94,7 @@ function showTab(tab: Tab): void {
   applyingTab = true;
   try {
     useDocumentStore.setState({
-      fileId: tab.filePath === null ? null : (tab.filePath as unknown as DocumentId),
+      fileId: tab.filePath === null ? null : documentIdForPath(tab.filePath),
       filePath: tab.filePath,
       fileName: tab.fileName,
       content: tab.content,
@@ -145,6 +146,19 @@ export function syncDocumentTab(): void {
     return;
   }
   const document = useDocumentStore.getState();
+  const recoveredId = document.filePath
+    ? documentIdForPath(document.filePath, document.fileId)
+    : null;
+  if (recoveredId && document.fileId !== recoveredId) {
+    applyingTab = true;
+    try {
+      useDocumentStore.setState({
+        fileId: recoveredId,
+      });
+    } finally {
+      applyingTab = false;
+    }
+  }
   const current = activeTab();
   if (current?.filePath === document.filePath) {
     if (keepUntitledAndStartFresh(current)) {

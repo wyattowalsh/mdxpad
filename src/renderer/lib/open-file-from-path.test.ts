@@ -26,6 +26,10 @@ describe('openFileFromPath', () => {
 
     expect(useDocumentStore.getState().content).toBe('# Note');
     expect(useDocumentStore.getState().filePath).toBe('/docs/note.mdx');
+    expect(useDocumentStore.getState().fileId).not.toBe('/docs/note.mdx');
+    expect(useDocumentStore.getState().fileId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    );
     expect(useStatusMessageStore.getState().message).toBe('');
   });
 
