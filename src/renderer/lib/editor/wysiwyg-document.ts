@@ -1,10 +1,17 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { parseMdxContent } from './prosemirror-mdx-parser';
 import { serializeMdxContent } from './prosemirror-mdx-serializer';
+
+const EXTERNAL_DOCUMENT_META = 'mdxpad-external-document';
+
+/** True when the visual editor loaded markdown from outside the typing session. */
+export function isExternalDocumentUpdate(transaction: Transaction): boolean {
+  return transaction.getMeta(EXTERNAL_DOCUMENT_META) === true;
+}
 
 export function documentFromMarkdown(content: string): ProseMirrorNode {
   const doc = parseMdxContent(content) ?? mdxSchema.nodes.doc.createAndFill();
@@ -46,7 +53,8 @@ export function replaceWysiwygDocument(
     .replaceWith(0, view.state.doc.content.size, next.content)
     .setDocAttribute('frontmatter', frontmatter)
     .setDocAttribute('linkDefinitions', linkDefinitions)
-    .setMeta('addToHistory', false);
+    .setMeta('addToHistory', false)
+    .setMeta(EXTERNAL_DOCUMENT_META, true);
   const position = Math.max(0, Math.min(cursor, tr.doc.content.size));
   tr.setSelection(TextSelection.near(tr.doc.resolve(position)));
   view.dispatch(tr);

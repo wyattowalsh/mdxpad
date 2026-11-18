@@ -8,6 +8,7 @@ import { serializeMdxContent } from './prosemirror-mdx-serializer';
 import {
   documentFromMarkdown,
   insertWysiwygLink,
+  isExternalDocumentUpdate,
   replaceWysiwygDocument,
 } from './wysiwyg-document';
 
@@ -79,6 +80,31 @@ describe('replaceWysiwygDocument', () => {
     expect(serialized).toContain('title: New');
     expect(serialized).not.toContain('title: Old');
     expect(serialized).toContain('# Changed');
+  });
+
+  it('does not report an outside replacement as an edit', () => {
+    const edits: string[] = [];
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const view = new EditorView(container, {
+      state: EditorState.create({
+        doc: documentFromMarkdown('Hello'),
+        schema: mdxSchema,
+      }),
+      dispatchTransaction(transaction) {
+        const next = view.state.apply(transaction);
+        view.updateState(next);
+        if (transaction.docChanged && !isExternalDocumentUpdate(transaction)) {
+          edits.push(serializeMdxContent(next.doc));
+        }
+      },
+    });
+    views.push(view);
+
+    replaceWysiwygDocument(view, 'Goodbye', 'start');
+
+    expect(edits).toEqual([]);
+    expect(view.state.doc.textContent).toContain('Goodbye');
   });
 
   it('inserts a link at an empty caret', () => {

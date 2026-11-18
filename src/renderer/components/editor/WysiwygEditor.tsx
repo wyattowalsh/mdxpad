@@ -37,6 +37,7 @@ import { serializeMdxContent } from '../../lib/editor/prosemirror-mdx-serializer
 import {
   documentFromMarkdown,
   insertWysiwygLink,
+  isExternalDocumentUpdate,
   replaceWysiwygDocument,
 } from '../../lib/editor/wysiwyg-document';
 import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
@@ -257,7 +258,7 @@ function useEditorView(
       dispatchTransaction(transaction) {
         const newState = view.state.apply(transaction);
         view.updateState(newState);
-        if (transaction.docChanged) {
+        if (transaction.docChanged && !isExternalDocumentUpdate(transaction)) {
           onChangeRef.current(serializeMdxContent(newState.doc));
         }
         onStateUpdate(newState);
