@@ -66,4 +66,44 @@ describe('wysiwyg image preview', () => {
     expect(serializeMdxContent(view.state.doc)).toContain('![Alt](pixel.png "Sunset")');
     expect(serializeMdxContent(view.state.doc)).not.toContain('data:image');
   });
+
+  it('keeps a picture unloaded when another file is open', async () => {
+    let finish: ((value: string) => void) | undefined;
+    window.mdxpad = {
+      ...window.mdxpad,
+      inlinePreviewImages: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    };
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '/docs/note.md' as unknown as DocumentId,
+        filePath: '/docs/note.md',
+        mtime: 1,
+      },
+      '![Alt](pixel.png)'
+    );
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const view = new EditorView(container, {
+      state: EditorState.create({
+        doc: documentFromMarkdown('![Alt](pixel.png)\n'),
+        schema: mdxSchema,
+      }),
+      nodeViews: {
+        image: (node) => new WysiwygImageView(node),
+      },
+    });
+    views.push(view);
+    const image = view.dom.querySelector('img');
+    expect(image).toBeTruthy();
+    expect(finish).toBeTypeOf('function');
+
+    useDocumentStore.setState({ filePath: '/other/note.md' });
+    finish?.('![image](data:image/png;base64,aaaa)');
+    await Promise.resolve();
+
+    expect(image?.getAttribute('src')).toBe('');
+  });
 });

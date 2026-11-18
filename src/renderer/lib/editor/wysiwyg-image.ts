@@ -86,15 +86,22 @@ export class WysiwygImageView implements NodeView {
     const markdown = imageMarkdownForPreview(attrs.src);
     void inline(markdown, filePath)
       .then((next) => {
-        if (request === this.request) {
-          paintImage(this.dom, attrs, embeddedImageSrc(markdown, next) ?? attrs.src);
-        }
+        this.paintLoaded(request, filePath, embeddedImageSrc(markdown, next) ?? attrs.src);
       })
       .catch(() => {
-        if (request === this.request) {
-          paintImage(this.dom, attrs, attrs.src);
-        }
+        this.paintLoaded(request, filePath, attrs.src);
       });
+  }
+
+  destroy(): void {
+    this.request += 1;
+  }
+
+  private paintLoaded(request: number, filePath: string, src: string): void {
+    if (request !== this.request || useDocumentStore.getState().filePath !== filePath) {
+      return;
+    }
+    paintImage(this.dom, imageAttrs(this.node), src);
   }
 
   private needsLocalFile(src: string): boolean {
