@@ -6,6 +6,7 @@ import { mdxSchema } from './prosemirror-mdx-schema';
 import { insertWysiwygLink } from './wysiwyg-document';
 import { insertMarkdownBlock } from './wysiwyg-insert';
 import { focusSourceLineInView } from './wysiwyg-source-line';
+import { toggleCommentInView } from './wysiwyg-comment-toggle';
 import { findFromPrompt, replaceFromPrompt } from './wysiwyg-find';
 
 export const VISUAL_EDIT_COMMANDS = [
@@ -22,6 +23,7 @@ export const VISUAL_EDIT_COMMANDS = [
   'goToLine',
   'find',
   'findReplace',
+  'toggleComment',
 ] as const;
 
 export type VisualEditCommand = (typeof VISUAL_EDIT_COMMANDS)[number];
@@ -64,6 +66,7 @@ function headingLevel(command: VisualEditCommand): number | null {
     case 'goToLine':
     case 'find':
     case 'findReplace':
+    case 'toggleComment':
       return null;
     default: {
       const unreachable: never = command;
@@ -121,6 +124,8 @@ export function applyVisualEdit(view: EditorView, command: VisualEditCommand): b
       return findFromPrompt(view);
     case 'findReplace':
       return replaceFromPrompt(view);
+    case 'toggleComment':
+      return toggleCommentInView(view);
     case 'heading1':
     case 'heading2':
     case 'heading3':
