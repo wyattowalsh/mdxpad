@@ -11,6 +11,7 @@
  */
 
 import type { Command, CommandId, CommandContext, CommandResult } from '@shared/types/commands';
+import { liveDocumentContent } from './live-document';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useTemplateBrowserModalStore } from '../stores/template-browser-store';
 import { useTemplateStore } from '../stores/template-store';
@@ -92,7 +93,7 @@ const saveAsTemplateCommand: Command = {
       return { ok: false, error: 'Authoring feature is disabled' };
     }
     // Check if there's content to save
-    if (!ctx.document.content.trim()) {
+    if (!liveDocumentContent(ctx).trim()) {
       ctx.notify({
         type: 'warning',
         message: 'Cannot save empty document as template',
@@ -102,7 +103,7 @@ const saveAsTemplateCommand: Command = {
     useTemplateBrowserModalStore.getState().openSaveTemplateDialog();
     return { ok: true };
   },
-  enabled: (ctx) => isFeatureEnabled('authoring') && ctx.document.content.trim().length > 0,
+  enabled: (ctx) => isFeatureEnabled('authoring') && liveDocumentContent(ctx).trim().length > 0,
 };
 
 /**

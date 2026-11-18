@@ -7,6 +7,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CommandContext } from '@shared/types/commands';
+import type { DocumentId } from '@shared/types/document';
+import { useDocumentStore } from '@renderer/stores/document-store';
 
 // =============================================================================
 // MOCKS
@@ -159,6 +161,24 @@ describe('saveAsTemplateCommand', () => {
     const result = saveAsTemplateCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
+    expect(mockOpenSaveTemplateDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the editor text when the command snapshot is empty', () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      ''
+    );
+    useDocumentStore.getState().setContent('# Live');
+    const ctx = createMockContext({
+      document: { fileId: 'file-1', filePath: '/notes/readme.md', content: '', isDirty: true },
+    });
+
+    expect(saveAsTemplateCommand.execute(ctx)).toEqual({ ok: true });
     expect(mockOpenSaveTemplateDialog).toHaveBeenCalledTimes(1);
   });
 

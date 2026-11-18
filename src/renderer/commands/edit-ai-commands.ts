@@ -3,6 +3,7 @@
  */
 
 import type { Command, CommandContext, CommandId, CommandResult } from '@shared/types/commands';
+import { liveDocumentContent } from './live-document';
 import {
   MAX_REVISION_CHARS,
   openDocumentEditPath,
@@ -14,7 +15,7 @@ import { useMultiFileAiStore } from '@renderer/stores/multi-file-ai-store';
 import { useUtilityPanelStore } from '@renderer/stores/utility-panel-store';
 
 async function proposeRevision(ctx: CommandContext): Promise<CommandResult> {
-  const content = ctx.document.content;
+  const content = liveDocumentContent(ctx);
   if (content.trim().length === 0) {
     ctx.notify({ type: 'warning', message: 'The document is empty' });
     return { ok: false, error: 'The document is empty' };
