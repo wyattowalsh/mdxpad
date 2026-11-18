@@ -37,6 +37,7 @@ import { registerWysiwygComment, wysiwygCommentAnchor } from '../../lib/editor/w
 import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
+import { insertHardBreak } from '../../lib/editor/wysiwyg-break';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
@@ -110,6 +111,7 @@ function createMdxKeymap() {
     'Mod-i': toggleMark(mdxSchema.marks.italic),
     'Mod-`': toggleMark(mdxSchema.marks.code),
     'Mod-shift-s': toggleMark(mdxSchema.marks.strikethrough),
+    'Shift-Enter': insertHardBreak,
     ...visualListKeymap(),
   });
 }
