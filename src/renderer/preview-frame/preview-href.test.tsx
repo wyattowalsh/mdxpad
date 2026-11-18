@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { A } from './components/typography';
+import { A, Img } from './components/typography';
 import { isBlockedPreviewHref } from './preview-href';
 
 describe('isBlockedPreviewHref', () => {
@@ -34,5 +34,20 @@ describe('preview anchor', () => {
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     link?.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
+  });
+});
+
+describe('preview image', () => {
+  it('keeps a picture beside the document and drops a file image', () => {
+    const local = render(<Img src="./pixel.png" alt="Pixel" />);
+    expect(local.getByRole('img').getAttribute('src')).toBe('./pixel.png');
+    local.unmount();
+
+    const disk = render(<Img src="file:///etc/passwd" alt="Secret" />);
+    expect(disk.getByRole('img').getAttribute('src')).toBeNull();
+    disk.unmount();
+
+    const hidden = render(<Img src={'file\n:///etc/passwd'} alt="Hidden" />);
+    expect(hidden.getByRole('img').getAttribute('src')).toBeNull();
   });
 });

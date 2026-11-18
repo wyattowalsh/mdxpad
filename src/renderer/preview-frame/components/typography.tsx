@@ -261,10 +261,12 @@ export function Img({ alt, className = '', src, ...props }: ImageProps): React.R
 
   // If alt is explicitly empty string, treat as decorative
   const isDecorative = alt === '';
+  const safeSrc =
+    typeof src === 'string' && src.length > 0 && !isBlockedPreviewHref(src) ? src : undefined;
 
   return (
     <img
-      src={src}
+      {...(safeSrc ? { src: safeSrc } : {})}
       alt={alt ?? ''}
       className={`mdx-img ${className}`.trim()}
       {...(isDecorative && { role: 'presentation', 'aria-hidden': true })}
