@@ -93,6 +93,28 @@ describe('atomicWrite', () => {
       expect(existsSync(`${targetPath}.bak`)).toBe(false);
     });
 
+    it('flushes the finished file before the directory', async () => {
+      const targetPath = join(tempDir, 'output.txt');
+      const opened: string[] = [];
+      const open = fs.open.bind(fs);
+      const spy = vi.spyOn(fs, 'open').mockImplementation(async (file, flags) => {
+        opened.push(String(file));
+        return open(file, flags);
+      });
+
+      try {
+        await atomicWrite(targetPath, 'hello');
+      } finally {
+        spy.mockRestore();
+      }
+
+      const finished = opened.lastIndexOf(targetPath);
+      const directory = opened.lastIndexOf(tempDir);
+      expect(finished).toBeGreaterThan(-1);
+      expect(directory).toBeGreaterThan(finished);
+      expect(readFileSync(targetPath, 'utf-8')).toBe('hello');
+    });
+
     it('flushes the directory after the rename', async () => {
       const targetPath = join(tempDir, 'output.txt');
       const opened: string[] = [];

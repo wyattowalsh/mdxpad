@@ -78,6 +78,7 @@ export async function atomicWrite(
     await invokeDurabilityPhaseHook(durabilityContract, 'after-write-temp', context);
     await invokeDurabilityPhaseHook(durabilityContract, 'before-commit', context);
     await fs.rename(tempPath, targetPath);
+    await syncFile(targetPath);
     await syncDirectory(path.dirname(targetPath));
     await invokeDurabilityPhaseHook(durabilityContract, 'after-commit', context);
   } catch (err) {
