@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -217,5 +217,22 @@ describe('AISessionStorageService', () => {
 
     const reloaded = new AISessionStorageService(tempDir);
     await expect(reloaded.listSessions()).rejects.toThrow(/checksum/i);
+  });
+
+  it('does not load a session store that is a link', async () => {
+    const outside = path.join(tempDir, 'outside.json');
+    const storagePath = path.join(tempDir, 'ai-session-storage.json');
+    await writeFile(outside, '{"secret":true}\n', 'utf-8');
+    await symlink(outside, storagePath);
+    const service = new AISessionStorageService(tempDir);
+
+    await expect(service.listSessions()).resolves.toEqual([]);
+    expect(await readFile(outside, 'utf-8')).toBe('{"secret":true}\n');
+
+    await service.createSession(createSession());
+
+    expect(await readFile(outside, 'utf-8')).toBe('{"secret":true}\n');
+    expect((await lstat(storagePath)).isSymbolicLink()).toBe(false);
+    await expect(service.getSession(SESSION_ID)).resolves.toEqual(createSession());
   });
 });

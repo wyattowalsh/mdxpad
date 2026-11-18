@@ -572,6 +572,10 @@ export class AISessionStorageService implements IAISessionStorageService {
   private async loadState(): Promise<SessionStoragePayload> {
     await ensureDirectory(path.dirname(this.storagePath));
     try {
+      const info = await fs.lstat(this.storagePath);
+      if (info.isSymbolicLink() || !info.isFile()) {
+        return createEmptyPayload();
+      }
       const raw = await fs.readFile(this.storagePath, 'utf-8');
       const parsed = SessionStorageSnapshotSchema.parse(JSON.parse(raw) as unknown);
       const expectedChecksum = computePayloadChecksum(parsed.payload);
