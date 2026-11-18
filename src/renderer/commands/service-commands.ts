@@ -2,6 +2,7 @@ import type { Command, CommandId, CommandResult, CommandContext } from '@shared/
 import type { DocumentId } from '@shared/types/document';
 import type { FileHandle, FileId } from '@shared/types/file';
 import { fileIsMissing } from '@renderer/components/tabs/external-tab-change';
+import { saveInactiveDocuments } from './file-commands';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
@@ -393,6 +394,18 @@ async function saveBeforeGitCommit(
   return null;
 }
 
+async function saveOpenFilesBeforeCommit(
+  ctx: CommandContext,
+  filePath: string
+): Promise<CommandResult | null> {
+  const othersSaved = await saveInactiveDocuments(ctx.api);
+  if (!othersSaved) {
+    ctx.notify({ type: 'error', message: 'Could not save another open file before commit' });
+    return { ok: false, error: 'Could not save another open file' };
+  }
+  return saveBeforeGitCommit(ctx, filePath);
+}
+
 const gitCommitCommand: Command = {
   id: 'git.commit' as CommandId,
   name: 'Git Commit',
@@ -412,7 +425,7 @@ const gitCommitCommand: Command = {
       ctx.notify({ type: 'info', message: 'Commit cancelled' });
       return { ok: false, error: 'Commit cancelled' };
     }
-    const saved = await saveBeforeGitCommit(ctx, filePath);
+    const saved = await saveOpenFilesBeforeCommit(ctx, filePath);
     if (saved) {
       return saved;
     }

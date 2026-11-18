@@ -31,6 +31,7 @@ const documentStoreState = {
   openDocument: mockOpenDocument,
   markSaved: mockMarkSaved,
   externalChangeDetected: false,
+  fileMissing: false,
   filePath: null as string | null,
   content: '',
 };

@@ -280,7 +280,7 @@ async function saveOtherOpenFiles(ctx: CommandContext): Promise<CommandResult | 
   return null;
 }
 
-async function saveInactiveDocuments(api: CommandContext['api']): Promise<boolean> {
+export async function saveInactiveDocuments(api: CommandContext['api']): Promise<boolean> {
   const activeId = useTabStore.getState().activeTabId;
   const pending = useTabStore.getState().tabs.filter((tab) => {
     return tab.id !== activeId && tab.isDirty && tab.filePath !== null;
@@ -372,7 +372,7 @@ const saveFileCommand: Command = {
       return { ok: false, error: message };
     }
   },
-  enabled: (ctx) => ctx.document.isDirty || useDocumentStore.getState().fileMissing === true,
+  enabled: (ctx) => ctx.document.isDirty || useDocumentStore.getState().fileMissing,
 };
 
 /**
