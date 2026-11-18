@@ -181,6 +181,13 @@ describe('built-in export documents', () => {
     expect(docx).toContain('put');
   });
 
+  it('keeps literal stars that are not emphasis', () => {
+    const pdf = buildPdfDocument('a * b * c\n\n**bold** and _foo_bar_');
+    expect(pdf.content).toContain('(a * b * c) Tj');
+    expect(pdf.content).toContain('bold and foo_bar');
+    expect(pdf.content).not.toContain('**');
+  });
+
   it('keeps an escaped asterisk in a table cell', () => {
     const pdf = buildPdfDocument('| A \\*B\\* |\n| --- |\n| 1 |');
     expect(pdf.content).toContain('A *B*');

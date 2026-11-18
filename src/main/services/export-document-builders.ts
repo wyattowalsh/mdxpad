@@ -22,6 +22,7 @@ import { HARD_BREAK, reopenInlineMarks } from './export-formats/markdown-marks';
 import { readSourceLine } from './export-formats/markdown-paragraph';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './export-formats/markdown-escape';
+import { renderEmphasis } from './export-formats/markdown-emphasis';
 import { MARKDOWN_LINK_INSIDE, linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
@@ -211,30 +212,29 @@ function revealPlainCode(value: string, spans: readonly string[]): string {
   );
 }
 
+function plainLinks(value: string): string {
+  return decodeHtmlEntities(value)
+    .replace(
+      new RegExp(`!\\[([^\\]]*)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
+      (_match, alt: string, src: string) => {
+        const label = alt.trim().length > 0 ? alt : 'image';
+        return `${label} (${linkDestination(src)})`;
+      }
+    )
+    .replace(
+      new RegExp(`\\[([^\\]]+)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
+      (_match, label: string, href: string) => `${label} (${linkDestination(href)})`
+    );
+}
+
 function plainInline(text: string): string {
   const escaped = protectEscapes(text);
   const coded = shieldPlainCode(escaped.text);
-  const formatted = decodeHtmlEntities(
-    coded.text
-      .replace(
-        new RegExp(`!\\[([^\\]]*)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
-        (_match, alt: string, src: string) => {
-          const label = alt.trim().length > 0 ? alt : 'image';
-          return `${label} (${linkDestination(src)})`;
-        }
-      )
-      .replace(
-        new RegExp(`\\[([^\\]]+)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
-        (_match, label: string, href: string) => {
-          return `${label} (${linkDestination(href)})`;
-        }
-      )
-      .replace(/~~(.+?)~~/g, '$1')
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/(?<![\w])_(.+?)_(?![\w])/g, '$1')
-      .replace(/\*(.+?)\*/g, '$1')
+  const stripped = renderEmphasis(coded.text, plainLinks, (_size, inner) => inner).replace(
+    /~~([\s\S]+?)~~/g,
+    '$1'
   );
-  return restoreEscapes(revealPlainCode(formatted, coded.spans), escaped.chars, (char) => char);
+  return restoreEscapes(revealPlainCode(stripped, coded.spans), escaped.chars, (char) => char);
 }
 
 function stripQuoteMarkers(line: string): string {
