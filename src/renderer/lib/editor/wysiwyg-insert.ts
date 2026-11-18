@@ -1,3 +1,4 @@
+import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
 import { parseMdxContent } from './prosemirror-mdx-parser';
@@ -23,10 +24,17 @@ export function insertMarkdownBlock(view: EditorView, markdown: string): boolean
   }
   const { selection } = view.state;
   const from = selection.$from;
+  const insertAt = selection.empty && from.parent.isTextblock ? from.after(from.depth) : null;
   const transaction =
-    selection.empty && from.parent.isTextblock
-      ? view.state.tr.insert(from.after(from.depth), block)
-      : view.state.tr.replaceSelectionWith(block);
+    insertAt === null
+      ? view.state.tr.replaceSelectionWith(block)
+      : view.state.tr.insert(insertAt, block);
+  if (block.isTextblock) {
+    const inside = insertAt === null ? transaction.selection.from : insertAt + 1;
+    const position = Math.min(Math.max(inside, 0), transaction.doc.content.size);
+    transaction.setSelection(TextSelection.near(transaction.doc.resolve(position)));
+  }
   view.dispatch(transaction.scrollIntoView());
+  view.focus();
   return true;
 }

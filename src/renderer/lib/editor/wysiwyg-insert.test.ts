@@ -34,6 +34,21 @@ describe('insertMarkdownBlock', () => {
     expect(saved.indexOf('---')).toBeLessThan(saved.indexOf('Goodbye'));
   });
 
+  it('places the caret inside an inserted code block', () => {
+    const doc = parseMdxContent('Hello\n');
+    if (!doc) {
+      throw new Error('markdown did not parse');
+    }
+    const host = document.createElement('div');
+    const view = new EditorView(host, {
+      state: EditorState.create({ doc, schema: mdxSchema }),
+    });
+    views.push(view);
+    expect(insertMarkdownBlock(view, '```\n\n```')).toBe(true);
+    expect(view.state.selection.$from.parent.type.name).toBe('code_block');
+    expect(serializeMdxContent(view.state.doc)).toContain('Hello');
+  });
+
   it('puts a diagram after the paragraph that holds the caret', () => {
     const doc = parseMdxContent('Hello\n\nGoodbye\n');
     if (!doc) {
