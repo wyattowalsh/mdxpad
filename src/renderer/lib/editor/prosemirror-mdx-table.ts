@@ -85,6 +85,9 @@ function alignmentMarker(align: Align): string {
   if (align === 'right') {
     return '---:';
   }
+  if (align === 'left') {
+    return ':---';
+  }
   return '---';
 }
 

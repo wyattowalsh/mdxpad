@@ -236,6 +236,10 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).toContain('| A | B |');
     expect(serialized).toContain('| --- | ---: |');
     expect(serialized).toContain('| 1 | **2** |');
+    const left = roundTrip('| A | B |\n| :--- | ---: |\n| 1 | 2 |\n');
+    expect(left).toContain('| :--- | ---: |');
+    const leftDoc = parseMdxContent(left.endsWith('\n') ? left : `${left}\n`);
+    expect(leftDoc?.firstChild?.firstChild?.firstChild?.attrs.align).toBe('left');
   });
 
   it('keeps a fenced block inside a quote', () => {
