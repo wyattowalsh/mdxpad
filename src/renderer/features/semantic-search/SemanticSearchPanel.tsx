@@ -80,12 +80,18 @@ export function SemanticSearchPanel({ workspacePath, onNavigateToFile }: Semanti
   const { setQuery, search, indexWorkspace, checkIndexStatus, clearResults } =
     useSemanticSearchStore();
 
+  const seenWorkspace = useRef<string | null>(null);
+
   useEffect(() => {
+    if (seenWorkspace.current !== null && seenWorkspace.current !== workspacePath) {
+      clearResults();
+    }
+    seenWorkspace.current = workspacePath;
     if (workspacePath.length === 0) {
       return;
     }
     void checkIndexStatus(workspacePath);
-  }, [checkIndexStatus, workspacePath]);
+  }, [checkIndexStatus, clearResults, workspacePath]);
 
   const inputRef = useRef<HTMLInputElement>(null);
 

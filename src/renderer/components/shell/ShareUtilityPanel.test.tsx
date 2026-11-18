@@ -39,6 +39,36 @@ describe('ShareUtilityPanel', () => {
     });
   });
 
+  it('hides links from the previous file', async () => {
+    const otherLink = {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      token: 'tokentokentoken1',
+      docId: '/tmp/other.md',
+      url: 'https://share.example/other',
+      accessMode: 'read-only' as const,
+      createdAt: 1,
+      expiresAt: null,
+      isActive: true,
+    };
+    const getLinks = vi
+      .fn()
+      .mockResolvedValueOnce({ links: [otherLink] })
+      .mockReturnValueOnce(new Promise(() => undefined));
+    vi.stubGlobal('mdxpad', {
+      share: { getLinks, createLink: vi.fn(), revokeLink: vi.fn(), moveUntitled: vi.fn() },
+    });
+    useDocumentStore.setState({ filePath: '/tmp/other.md' });
+
+    render(<ShareUtilityPanel />);
+    expect(await screen.findByText('https://share.example/other')).toBeTruthy();
+
+    act(() => {
+      useDocumentStore.setState({ filePath: '/tmp/note.mdx' });
+    });
+
+    expect(screen.queryByText('https://share.example/other')).toBeNull();
+  });
+
   it('loads a different list for each untitled tab', async () => {
     const getLinks = vi.fn().mockResolvedValue({ links: [] });
     vi.stubGlobal('mdxpad', {

@@ -32,10 +32,21 @@ export function ShareUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const activeTabId = useTabStore(selectActiveTabId);
   const content = useDocumentStore((state) => state.content);
-  const [links, setLinks] = useState<readonly ShareLink[]>([]);
+  const [linkState, setLinkState] = useState<{
+    readonly docId: string;
+    readonly links: readonly ShareLink[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const docId = shareDocumentId(filePath, activeTabId);
+  const links = linkState?.docId === docId ? linkState.links : [];
   const previousDocId = useRef<string | null>(null);
+
+  function currentDocumentId(): string | null {
+    return shareDocumentId(
+      useDocumentStore.getState().filePath,
+      useTabStore.getState().activeTabId
+    );
+  }
 
   useEffect(() => {
     if (!docId || !window.mdxpad.share) return;
@@ -53,7 +64,7 @@ export function ShareUtilityPanel(): React.JSX.Element {
     setError(null);
     void request
       .then((result) => {
-        if (!cancelled) setLinks(result.links);
+        if (!cancelled) setLinkState({ docId, links: result.links });
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
@@ -74,10 +85,15 @@ export function ShareUtilityPanel(): React.JSX.Element {
       onCreateLink={(accessMode: ShareAccessMode) => {
         if (!window.mdxpad.share || !docId) return;
         setError(null);
+        const createdFor = docId;
         void window.mdxpad.share
           .createLink({ docId, accessMode, expiresInMs: null, content })
           .then((result) => {
-            setLinks((current) => [result.link, ...current]);
+            if (currentDocumentId() !== createdFor) return;
+            setLinkState((current) => {
+              const existing = current?.docId === createdFor ? current.links : [];
+              return { docId: createdFor, links: [result.link, ...existing] };
+            });
           })
           .catch((caught: unknown) => {
             setError(caught instanceof Error ? caught.message : 'Could not create a share link');
@@ -86,10 +102,18 @@ export function ShareUtilityPanel(): React.JSX.Element {
       onRevokeLink={(linkId) => {
         if (!window.mdxpad.share) return;
         setError(null);
+        const revokedFor = docId;
         void window.mdxpad.share
           .revokeLink({ id: linkId })
           .then(() => {
-            setLinks((current) => current.filter((link) => link.id !== linkId));
+            if (currentDocumentId() !== revokedFor) return;
+            setLinkState((current) => {
+              if (current?.docId !== revokedFor) return current;
+              return {
+                docId: revokedFor,
+                links: current.links.filter((link) => link.id !== linkId),
+              };
+            });
           })
           .catch((caught: unknown) => {
             setError(caught instanceof Error ? caught.message : 'Could not revoke this share link');
