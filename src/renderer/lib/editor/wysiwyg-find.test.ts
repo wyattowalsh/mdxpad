@@ -26,6 +26,15 @@ describe('visual find', () => {
     }
   });
 
+  it('finds words that cross a bold boundary', () => {
+    const view = open('Hello **world**\n');
+    views.push(view);
+    expect(findNextInView(view, 'o w')).toBe(true);
+    expect(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to)).toBe(
+      'o w'
+    );
+  });
+
   it('selects each later occurrence and then wraps', () => {
     const view = open('one two one\n');
     views.push(view);

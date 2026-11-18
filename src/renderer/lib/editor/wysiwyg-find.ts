@@ -7,24 +7,43 @@ interface Match {
   readonly to: number;
 }
 
+function blockMatches(parent: ProseMirrorNode, parentPos: number, query: string, found: Match[]): void {
+  let text = '';
+  const positions: number[] = [];
+  parent.forEach((child, offset) => {
+    if (!child.isText || !child.text) {
+      return;
+    }
+    const start = parentPos + 1 + offset;
+    for (let index = 0; index < child.text.length; index += 1) {
+      text += child.text.charAt(index);
+      positions.push(start + index);
+    }
+  });
+  let index = 0;
+  while (index <= text.length - query.length) {
+    const at = text.indexOf(query, index);
+    const from = at === -1 ? undefined : positions[at];
+    const end = at === -1 ? undefined : positions[at + query.length - 1];
+    if (at === -1 || from === undefined || end === undefined) {
+      return;
+    }
+    found.push({ from, to: end + 1 });
+    index = at + query.length;
+  }
+}
+
 function matches(doc: ProseMirrorNode, query: string): Match[] {
   const found: Match[] = [];
   if (query.length === 0) {
     return found;
   }
   doc.descendants((node, pos) => {
-    if (!node.isText || !node.text) {
+    if (!node.isTextblock) {
       return;
     }
-    let index = 0;
-    while (index <= node.text.length - query.length) {
-      const at = node.text.indexOf(query, index);
-      if (at === -1) {
-        return;
-      }
-      found.push({ from: pos + at, to: pos + at + query.length });
-      index = at + query.length;
-    }
+    blockMatches(node, pos, query, found);
+    return false;
   });
   return found;
 }
