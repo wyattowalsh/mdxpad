@@ -7,6 +7,10 @@ import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import type { WorkspaceModel } from '@shared/types/workspace';
 import {
+  noteInactiveExternalChange,
+  resetPendingExternalChanges,
+} from '@renderer/components/tabs/external-tab-change';
+import {
   SERVICE_COMMANDS,
   searchDirectoryForFile,
   summarizeGitDiff,
@@ -210,6 +214,7 @@ describe('git.commit', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
+    resetPendingExternalChanges();
   });
 
   it('stages the open file and commits the entered message', async () => {
@@ -274,6 +279,52 @@ describe('git.commit', () => {
     expect(writeFile).toHaveBeenCalledWith('/notes/other.md', 'other draft');
     expect(add).toHaveBeenCalledWith('/notes', ['readme.md']);
     expect(commit).toHaveBeenCalledWith('/notes', 'Save notes', ['readme.md']);
+  });
+
+  it('does not commit a file that changed on disk in another tab', async () => {
+    vi.stubGlobal(
+      'prompt',
+      vi.fn(() => 'Save notes')
+    );
+    const otherId = useTabStore.getState().addTab({
+      filePath: '/other/b.md',
+      fileName: 'b.md',
+      isDirty: false,
+      content: 'other',
+      savedContent: 'other',
+    });
+    useTabStore.getState().addTab({
+      filePath: '/notes/readme.md',
+      fileName: 'readme.md',
+      isDirty: true,
+      content: 'editor text',
+      savedContent: 'old',
+    });
+    useTabStore.getState().setActiveTab(otherId);
+    useDocumentStore.setState({ filePath: '/other/b.md', content: 'other', isDirty: false });
+    noteInactiveExternalChange('/notes/readme.md', 'disk text', 10);
+    const saveFile = vi.fn().mockResolvedValue({ ok: true, value: undefined });
+    const writeFile = vi.fn().mockResolvedValue({ ok: true });
+    const add = vi.fn().mockResolvedValue({ ok: true, value: { success: true } });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'Hello', isDirty: true },
+      api: { git: { add }, saveFile, writeFile },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.commit');
+    await expect(command?.execute(context)).resolves.toEqual({
+      ok: false,
+      error: 'File changed on disk',
+    });
+    expect(saveFile).not.toHaveBeenCalled();
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'This file changed on disk. Save it before committing.',
+    });
   });
 
   it('writes a deleted open file back before committing it', async () => {

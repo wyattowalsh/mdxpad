@@ -1,7 +1,7 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import type { DocumentId } from '@shared/types/document';
 import type { FileHandle, FileId } from '@shared/types/file';
-import { fileIsMissing } from '@renderer/components/tabs/external-tab-change';
+import { fileIsMissing, hasPendingExternalChange } from '@renderer/components/tabs/external-tab-change';
 import { saveInactiveDocuments } from './file-commands';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -368,7 +368,7 @@ function commitBuffer(
     content: ctx.document.content,
     isDirty: ctx.document.isDirty,
     fileId: ctx.document.fileId,
-    changedOnDisk: false,
+    changedOnDisk: hasPendingExternalChange(filePath),
   };
 }
 
