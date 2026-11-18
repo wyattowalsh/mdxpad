@@ -360,6 +360,18 @@ describe('PdfExporter', () => {
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
     expect(html).toContain('<ul>\n<li>one</li>\n<li>two</li>\n</ul>');
+    const mixed = await exporter.export({
+      content: '- one\n+ two\n* three',
+      outputPath: '/tmp/mixed-bullets.pdf',
+    });
+    expect(mixed.ok).toBe(true);
+    const mixedHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(mixedHtml.match(/<ul>/g)).toHaveLength(3);
+    expect(mixedHtml).toContain('<li>one</li>');
+    expect(mixedHtml).toContain('<li>two</li>');
+    expect(mixedHtml).toContain('<li>three</li>');
     expect(html).toContain('<ol>\n<li>first</li>\n<li>second</li>\n</ol>');
     expect(html).not.toContain('<ul><li>');
   });

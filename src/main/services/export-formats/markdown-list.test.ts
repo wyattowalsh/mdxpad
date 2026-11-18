@@ -15,12 +15,21 @@ describe('parseListItem', () => {
       ordered: false,
       start: 1,
       text: 'parent',
+      delimiter: '-',
     });
     expect(parseListItem('  - child')).toEqual({
       level: 1,
       ordered: false,
       start: 1,
       text: 'child',
+      delimiter: '-',
+    });
+    expect(parseListItem('+ plus')).toEqual({
+      level: 0,
+      ordered: false,
+      start: 1,
+      text: 'plus',
+      delimiter: '+',
     });
     expect(parseListItem('3. third')).toEqual({
       level: 0,

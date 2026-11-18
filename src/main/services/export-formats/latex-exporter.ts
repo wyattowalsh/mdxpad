@@ -28,6 +28,7 @@ import {
   listContentColumn,
   parseListItem,
   shouldOpenListItem,
+  type ListDelimiter,
   type MarkdownListItem,
 } from './markdown-list';
 import {
@@ -279,7 +280,7 @@ function getHeadingCommand(level: number): string {
 interface LatexListFrame {
   readonly ordered: boolean;
   readonly level: number;
-  readonly delimiter: '' | '.' | ')';
+  readonly delimiter: '' | ListDelimiter;
   column: number;
 }
 
@@ -456,7 +457,7 @@ function writeLatexTail(output: string[], listState: ListState, raw: string): vo
 function latexListFrames(stack: readonly LatexListFrame[]): {
   level: number;
   kind: 'ul' | 'ol';
-  delimiter: '' | '.' | ')';
+  delimiter: '' | ListDelimiter;
 }[] {
   return stack.map((frame) => ({
     level: frame.level,

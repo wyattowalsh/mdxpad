@@ -2,12 +2,14 @@ import { joinParagraphHtml } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { splitTaskItem, taskItemHtml } from './markdown-task';
 
+export type ListDelimiter = '.' | ')' | '-' | '+' | '*';
+
 export interface MarkdownListItem {
   readonly level: number;
   readonly ordered: boolean;
   readonly start: number;
   readonly text: string;
-  readonly delimiter?: '.' | ')';
+  readonly delimiter?: ListDelimiter;
 }
 
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])[ \t]+(.*)$/;
@@ -81,7 +83,13 @@ export function parseListItem(line: string): MarkdownListItem | null {
   const marker = match[2] ?? '-';
   const ordered = marker.endsWith('.') || marker.endsWith(')');
   const parsedStart = ordered ? Number.parseInt(marker, 10) : 1;
-  const delimiter = marker.endsWith(')') ? ')' : marker.endsWith('.') ? '.' : undefined;
+  const delimiter = marker.endsWith(')')
+    ? ')'
+    : marker.endsWith('.')
+      ? '.'
+      : marker === '-' || marker === '+' || marker === '*'
+        ? marker
+        : undefined;
   return {
     level: Math.min(5, Math.floor((match[1]?.length ?? 0) / 2)),
     ordered,
@@ -94,7 +102,7 @@ export function parseListItem(line: string): MarkdownListItem | null {
 export interface HtmlListFrame {
   readonly kind: 'ul' | 'ol';
   readonly level: number;
-  readonly delimiter: '' | '.' | ')';
+  readonly delimiter: '' | ListDelimiter;
   column: number;
   loose: boolean;
   /** Index of this list's opening tag in the part buffer. */
@@ -104,7 +112,7 @@ export interface HtmlListFrame {
 /** A new list may break a paragraph only when it is unordered or starts at 1. */
 export function shouldOpenListItem(
   item: MarkdownListItem,
-  stack: readonly { level: number; kind: 'ul' | 'ol'; delimiter: '' | '.' | ')' }[],
+  stack: readonly { level: number; kind: 'ul' | 'ol'; delimiter: '' | ListDelimiter }[],
   separated: boolean,
   paragraphOpen: boolean
 ): boolean {
@@ -130,7 +138,7 @@ function sameHtmlList(frame: HtmlListFrame, item: MarkdownListItem): boolean {
     return false;
   }
   if (frame.kind === 'ul') {
-    return !item.ordered;
+    return !item.ordered && frame.delimiter === (item.delimiter ?? '');
   }
   return item.ordered && frame.delimiter === item.delimiter;
 }
