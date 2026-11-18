@@ -16,7 +16,7 @@ import {
   selectIsActive,
 } from '../../stores/multi-file-ai-store';
 import type { FileEdit } from '../../stores/multi-file-ai-store';
-import { applyOpenDocumentEdit } from '@renderer/lib/apply-open-document-edit';
+import { acceptDocumentEdit } from '@renderer/lib/apply-open-document-edit';
 import { FileEditDiff } from './FileEditDiff';
 import { Button } from '@ui/button';
 
@@ -219,24 +219,41 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
   const rejectEdit = useMultiFileAiStore((s) => s.rejectEdit);
   const rejectAll = useMultiFileAiStore((s) => s.rejectAll);
   const { expandedPaths, toggleExpanded } = useExpandedPaths();
+  const [applyError, setApplyError] = React.useState<string | null>(null);
 
   const handleApply = (path: string): void => {
     const edit = fileEdits.find((item) => item.path === path);
     if (edit?.status !== 'pending') {
       return;
     }
-    if (!applyOpenDocumentEdit(edit.path, edit.modified)) {
-      return;
-    }
-    applyEdit(path);
+    void acceptDocumentEdit(edit.path, edit.modified).then((message) => {
+      if (message) {
+        setApplyError(message);
+        return;
+      }
+      setApplyError(null);
+      applyEdit(path);
+    });
   };
 
   const handleApplyAll = (): void => {
-    for (const edit of fileEdits) {
-      if (edit.status === 'pending' && applyOpenDocumentEdit(edit.path, edit.modified)) {
-        applyEdit(edit.path);
+    const pending = fileEdits.filter((edit) => edit.status === 'pending');
+    void Promise.all(
+      pending.map(async (edit) => ({
+        path: edit.path,
+        message: await acceptDocumentEdit(edit.path, edit.modified),
+      }))
+    ).then((results) => {
+      const blocked = results.flatMap((result) => (result.message ? [getFileName(result.path)] : []));
+      for (const result of results) {
+        if (!result.message) {
+          applyEdit(result.path);
+        }
       }
-    }
+      setApplyError(
+        blocked.length === 0 ? null : `Open ${blocked.join(', ')} before accepting this edit.`
+      );
+    });
   };
 
   if (!isActive || fileEdits.length === 0) {
@@ -257,6 +274,11 @@ export const MultiFileEditPanel: React.FC<MultiFileEditPanelProps> = ({ classNam
         ) : null}
       </div>
       <ProgressBar completed={progress.completed} total={progress.total} />
+      {applyError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {applyError}
+        </p>
+      ) : null}
       <div className="flex flex-col gap-2">
         {fileEdits.map((edit) => (
           <FileEditRow

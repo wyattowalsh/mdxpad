@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import {
+  acceptDocumentEdit,
   applyOpenDocumentEdit,
   openDocumentEditPath,
   unwrapDocumentRevision,
@@ -12,6 +13,7 @@ describe('open document edits', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
+    Reflect.deleteProperty(window, 'mdxpad');
   });
 
   it('unwraps a fenced revision', () => {
@@ -50,5 +52,30 @@ describe('open document edits', () => {
     const other = useTabStore.getState().tabs.find((tab) => tab.filePath === '/notes/other.md');
     expect(other?.content).toBe('revised');
     expect(other?.isDirty).toBe(true);
+  });
+
+  it('writes a closed file when that file can already be saved', async () => {
+    const writeFile = vi.fn().mockResolvedValue({ ok: true, value: undefined });
+    Object.defineProperty(window, 'mdxpad', { configurable: true, value: { writeFile } });
+
+    await expect(acceptDocumentEdit('/notes/closed.md', 'revised')).resolves.toBeNull();
+
+    expect(writeFile).toHaveBeenCalledWith('/notes/closed.md', 'revised');
+  });
+
+  it('asks to open a closed file that cannot be saved', async () => {
+    Object.defineProperty(window, 'mdxpad', {
+      configurable: true,
+      value: {
+        writeFile: vi.fn().mockResolvedValue({
+          ok: false,
+          error: { code: 'PERMISSION_DENIED', path: '/notes/closed.md' },
+        }),
+      },
+    });
+
+    await expect(acceptDocumentEdit('/notes/closed.md', 'revised')).resolves.toBe(
+      'Open closed.md before accepting this edit.'
+    );
   });
 });

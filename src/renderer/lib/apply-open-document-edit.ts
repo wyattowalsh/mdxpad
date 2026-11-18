@@ -2,6 +2,7 @@
  * Apply an AI revision to the open document or to another file that is already open in a tab.
  */
 
+import type { FileError } from '@shared/types/file';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
@@ -34,4 +35,41 @@ export function applyOpenDocumentEdit(path: string, modified: string): boolean {
     isDirty: modified !== tab.savedContent,
   });
   return true;
+}
+
+function fileName(path: string): string {
+  const parts = path.split('/');
+  return parts[parts.length - 1] ?? path;
+}
+
+function openBeforeAccept(path: string): string {
+  return `Open ${fileName(path)} before accepting this edit.`;
+}
+
+function writeFailure(path: string, error: FileError): string {
+  switch (error.code) {
+    case 'PERMISSION_DENIED':
+    case 'NOT_FOUND':
+      return openBeforeAccept(path);
+    case 'CANCELLED':
+      return 'Saving the edit was cancelled.';
+    case 'UNKNOWN':
+      return error.message;
+    default: {
+      const unexpected: never = error;
+      return unexpected;
+    }
+  }
+}
+
+/** Apply an edit in the editor, or write a closed file the user can already save. */
+export async function acceptDocumentEdit(path: string, modified: string): Promise<string | null> {
+  if (applyOpenDocumentEdit(path, modified)) {
+    return null;
+  }
+  if (!('mdxpad' in window) || typeof window.mdxpad.writeFile !== 'function') {
+    return openBeforeAccept(path);
+  }
+  const result = await window.mdxpad.writeFile(path, modified);
+  return result.ok ? null : writeFailure(path, result.error);
 }
