@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useVersionHistoryStore } from '@renderer/stores/version-history-store';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 
 import { HistoryUtilityPanel } from './HistoryUtilityPanel';
 
@@ -10,6 +11,7 @@ describe('HistoryUtilityPanel', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useVersionHistoryStore.getState().reset();
+    registerLiveSourceText(null);
   });
 
   it('shows saved versions for the open file', async () => {
@@ -186,6 +188,26 @@ describe('HistoryUtilityPanel', () => {
 
     await waitFor(() => {
       expect(createSnapshot).toHaveBeenCalledWith('/tmp/note.mdx', 'Editor snapshot', '# Live');
+    });
+  });
+
+  it('snapshots keystrokes that are still only in the editor', async () => {
+    useDocumentStore.setState({ filePath: '/tmp/note.mdx', content: '# Live' });
+    registerLiveSourceText(() => '# Live!');
+    const createSnapshot = vi.fn().mockResolvedValue({
+      ok: true,
+      entry: { id: 'snapshot-1', timestamp: 1, source: 'manual', label: 'Editor snapshot' },
+    });
+    const getHistory = vi.fn().mockResolvedValue({ entries: [] });
+    vi.stubGlobal('mdxpad', {
+      history: { getHistory, getVersion: vi.fn(), createSnapshot },
+    });
+
+    render(<HistoryUtilityPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save a snapshot of the editor' }));
+
+    await waitFor(() => {
+      expect(createSnapshot).toHaveBeenCalledWith('/tmp/note.mdx', 'Editor snapshot', '# Live!');
     });
   });
 });

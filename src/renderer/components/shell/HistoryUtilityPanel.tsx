@@ -10,6 +10,7 @@ import { VersionRestoreDialog } from '@renderer/components/history/VersionRestor
 import { VersionTimeline } from '@renderer/components/history/VersionTimeline';
 import { applyRestoredVersion } from './apply-restored-version';
 import { restoreChangeCounts } from './restore-change-counts';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 
 function documentStillOpen(filePath: string): boolean {
   return useDocumentStore.getState().filePath === filePath;
@@ -106,9 +107,10 @@ export function HistoryUtilityPanel(): React.JSX.Element {
                 return;
               }
               const historyApi = window.mdxpad.history;
+              const snapshot = liveSourceText() ?? content;
               setError(null);
               void historyApi
-                .createSnapshot(filePath, 'Editor snapshot', content)
+                .createSnapshot(filePath, 'Editor snapshot', snapshot)
                 .then(async (result) => {
                   if (!documentStillOpen(filePath)) {
                     return;
@@ -167,10 +169,11 @@ export function HistoryUtilityPanel(): React.JSX.Element {
           onRestore={(createBackup) => {
             if (!filePath || !window.mdxpad.history) return;
             const historyApi = window.mdxpad.history;
+            const snapshot = liveSourceText() ?? content;
             setIsRestoring(true);
             setRestoreError(null);
             void historyApi
-              .restore(selected.id, filePath, createBackup, content)
+              .restore(selected.id, filePath, createBackup, snapshot)
               .then(async (result) => {
                 if (!documentStillOpen(filePath)) {
                   return;
