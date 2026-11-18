@@ -272,7 +272,8 @@ async function saveOtherOpenFiles(ctx: CommandContext): Promise<CommandResult | 
     ctx.notify({ type: 'error', message: 'Failed to save an open file' });
     return { ok: false, error: 'Failed to save an open file' };
   }
-  if (!ctx.document.isDirty && !useDocumentStore.getState().isDirty) {
+  const openDocument = useDocumentStore.getState();
+  if (!ctx.document.isDirty && !openDocument.isDirty && !openDocument.fileMissing) {
     revealNextDirtyTab();
     return { ok: true };
   }
@@ -371,7 +372,7 @@ const saveFileCommand: Command = {
       return { ok: false, error: message };
     }
   },
-  enabled: (ctx) => ctx.document.isDirty,
+  enabled: (ctx) => ctx.document.isDirty || useDocumentStore.getState().fileMissing === true,
 };
 
 /**

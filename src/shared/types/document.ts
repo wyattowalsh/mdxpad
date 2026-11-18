@@ -66,6 +66,8 @@ export interface DocumentState {
   readonly externalContent: string | null;
   /** Mtime from external change */
   readonly externalMtime: number | null;
+  /** The open path was removed on disk. */
+  readonly fileMissing: boolean;
 }
 
 // =============================================================================
@@ -87,4 +89,5 @@ export const INITIAL_DOCUMENT_STATE: DocumentState = {
   externalChangeDetected: false,
   externalContent: null,
   externalMtime: null,
+  fileMissing: false,
 } as const;

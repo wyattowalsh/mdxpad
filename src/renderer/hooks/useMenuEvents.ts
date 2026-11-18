@@ -23,7 +23,10 @@ import {
   hasUnsavedWork,
   reopenClosedTab,
 } from '../components/tabs/document-tabs';
-import { noteInactiveExternalChange } from '../components/tabs/external-tab-change';
+import {
+  noteFileRemoved,
+  noteInactiveExternalChange,
+} from '../components/tabs/external-tab-change';
 import { registerAllCommands } from '../commands';
 import { FILE_COMMAND_IDS } from '../commands/file-commands';
 import type {
@@ -320,7 +323,13 @@ export function useMenuEvents(
     const mdxpad = getMdxpadApi();
 
     const unsubscribe = mdxpad.onFileChange((event) => {
-      if (event.type !== 'change') return;
+      if (event.type === 'unlink') {
+        const openInEditor = useDocumentStore.getState().filePath === event.path;
+        if (noteFileRemoved(event.path, openInEditor) && openInEditor) {
+          useDocumentStore.getState().markFileMissing();
+        }
+        return;
+      }
 
       void (async () => {
         const result = await mdxpad.readFile(event.path);

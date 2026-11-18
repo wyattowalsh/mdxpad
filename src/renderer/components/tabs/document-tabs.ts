@@ -7,7 +7,11 @@ import { documentIdForPath } from '@renderer/lib/document-id';
 import { freshUntitledEpochId, useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore, type Tab } from '@renderer/stores/tab-store';
 import type { AutosaveTriggerRequest } from '@shared/contracts/autosave-ipc';
-import { externalChangeFields } from './external-tab-change';
+import {
+  clearPendingExternalChange,
+  externalChangeFields,
+  fileIsMissing,
+} from './external-tab-change';
 import { recoveryDocumentId } from './tab-recovery-id';
 
 let applyingTab = false;
@@ -114,6 +118,7 @@ function showTab(tab: Tab): void {
       externalChangeDetected: external.externalChangeDetected,
       externalContent: external.externalContent,
       externalMtime: external.externalMtime,
+      fileMissing: fileIsMissing(tab.filePath),
     });
   } finally {
     applyingTab = false;
@@ -229,8 +234,11 @@ export function closeDocumentTab(id: string): void {
   if (!tab) {
     return;
   }
-  if (tab.isDirty && !checkDirtyState()) {
+  if ((tab.isDirty || fileIsMissing(tab.filePath)) && !checkDirtyState()) {
     return;
+  }
+  if (tab.filePath) {
+    clearPendingExternalChange(tab.filePath);
   }
   rememberClosedTab(tab);
   const wasActive = store.activeTabId === id;
@@ -345,19 +353,24 @@ export function reopenClosedTab(): void {
   }
 }
 
-/** True when the active document or another open tab has unsaved edits. */
+function tabNeedsAttention(tab: Tab, activeId: string | null): boolean {
+  return tab.id !== activeId && (tab.isDirty || fileIsMissing(tab.filePath));
+}
+
+/** True when the active document or another open tab still needs the user. */
 export function hasUnsavedWork(): boolean {
-  if (useDocumentStore.getState().isDirty) {
+  const document = useDocumentStore.getState();
+  if (document.isDirty || document.fileMissing) {
     return true;
   }
   const activeId = useTabStore.getState().activeTabId;
-  return useTabStore.getState().tabs.some((tab) => tab.isDirty && tab.id !== activeId);
+  return useTabStore.getState().tabs.some((tab) => tabNeedsAttention(tab, activeId));
 }
 
 /** Show the next tab that still has unsaved edits. */
 export function revealNextDirtyTab(): void {
   const activeId = useTabStore.getState().activeTabId;
-  const next = useTabStore.getState().tabs.find((tab) => tab.isDirty && tab.id !== activeId);
+  const next = useTabStore.getState().tabs.find((tab) => tabNeedsAttention(tab, activeId));
   if (next) {
     activateDocumentTab(next.id);
   }

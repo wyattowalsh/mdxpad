@@ -23,8 +23,20 @@ async function saveConflictCopy(content: string): Promise<void> {
  */
 export function ExternalChangeNotice(): React.JSX.Element | null {
   const detected = useDocumentStore(selectExternalChangeDetected);
+  const fileMissing = useDocumentStore((state) => state.fileMissing);
   const content = useDocumentStore((state) => state.content);
   const acceptExternalChange = useDocumentStore((state) => state.acceptExternalChange);
+
+  if (fileMissing) {
+    return (
+      <div
+        role="alert"
+        className="border-b bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:bg-amber-950 dark:text-amber-50"
+      >
+        This file was deleted. Save writes it back to the same place.
+      </div>
+    );
+  }
 
   if (!detected) {
     return null;

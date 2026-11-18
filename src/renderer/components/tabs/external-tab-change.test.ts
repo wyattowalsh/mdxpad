@@ -6,8 +6,12 @@ import { saveFileCommand } from '@renderer/commands/file-commands';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
-import { activateDocumentTab, subscribeDocumentTabs } from './document-tabs';
-import { noteInactiveExternalChange, resetPendingExternalChanges } from './external-tab-change';
+import { activateDocumentTab, hasUnsavedWork, subscribeDocumentTabs } from './document-tabs';
+import {
+  noteFileRemoved,
+  noteInactiveExternalChange,
+  resetPendingExternalChanges,
+} from './external-tab-change';
 
 describe('external changes in background tabs', () => {
   beforeEach(() => {
@@ -96,6 +100,61 @@ describe('external changes in background tabs', () => {
     expect(useDocumentStore.getState().filePath).toBe('/docs/a.mdx');
     expect(useDocumentStore.getState().content).toBe('edited a');
     expect(useDocumentStore.getState().externalChangeDetected).toBe(true);
+    stop();
+  });
+
+  it('tells the editor when a background file is deleted', () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved a'
+    );
+    useDocumentStore.getState().openDocument(
+      { fileId: 'b' as DocumentId, filePath: '/docs/b.mdx', mtime: 1 },
+      'saved b'
+    );
+
+    expect(noteFileRemoved('/docs/a.mdx', false)).toBe(true);
+    expect(hasUnsavedWork()).toBe(true);
+    const first = useTabStore.getState().tabs.find((tab) => tab.filePath === '/docs/a.mdx');
+    if (first) {
+      activateDocumentTab(first.id);
+    }
+
+    expect(useDocumentStore.getState().content).toBe('saved a');
+    expect(useDocumentStore.getState().fileMissing).toBe(true);
+    expect(useDocumentStore.getState().externalChangeDetected).toBe(false);
+    stop();
+  });
+
+  it('writes a deleted file back when the editor is saved', async () => {
+    const stop = subscribeDocumentTabs();
+    useDocumentStore.getState().openDocument(
+      { fileId: 'a' as DocumentId, filePath: '/docs/a.mdx', mtime: 1 },
+      'saved a'
+    );
+    noteFileRemoved('/docs/a.mdx', true);
+    useDocumentStore.getState().markFileMissing();
+
+    const saveFile = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { id: 'a', path: '/docs/a.mdx', mtime: 2 },
+    });
+    const result = await saveFileCommand.execute({
+      editor: null,
+      document: {
+        fileId: 'a',
+        filePath: '/docs/a.mdx',
+        content: 'saved a',
+        isDirty: false,
+      },
+      api: { writeFile: vi.fn(), saveFile },
+      notify: () => undefined,
+    } as unknown as CommandContext);
+
+    expect(result.ok).toBe(true);
+    expect(saveFile).toHaveBeenCalled();
+    expect(useDocumentStore.getState().fileMissing).toBe(false);
     stop();
   });
 });

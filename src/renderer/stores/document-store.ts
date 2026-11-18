@@ -66,6 +66,8 @@ export interface DocumentStoreActions {
   dismissExternalChange: () => void;
   /** Accept external change and update content */
   acceptExternalChange: () => void;
+  /** The open file was deleted on disk. */
+  markFileMissing: () => void;
 }
 
 // =============================================================================
@@ -116,6 +118,7 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
+        draft.fileMissing = false;
       });
     },
 
@@ -131,6 +134,7 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
+        draft.fileMissing = false;
       }),
 
     setContent: (content) =>
@@ -157,6 +161,7 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
+        draft.fileMissing = false;
       });
       if (filePath) {
         clearPendingExternalChange(filePath);
@@ -176,6 +181,7 @@ export const useDocumentStore = create<DocumentStore>()(
         draft.externalChangeDetected = false;
         draft.externalContent = null;
         draft.externalMtime = null;
+        draft.fileMissing = false;
       });
     },
 
@@ -228,6 +234,14 @@ export const useDocumentStore = create<DocumentStore>()(
         clearPendingExternalChange(filePath);
       }
     },
+
+    markFileMissing: () =>
+      set((draft) => {
+        if (draft.filePath === null) {
+          return;
+        }
+        draft.fileMissing = true;
+      }),
   }))
 );
 

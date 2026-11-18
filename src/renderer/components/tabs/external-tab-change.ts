@@ -5,6 +5,7 @@
 import { useTabStore } from '@renderer/stores/tab-store';
 
 interface PendingExternalChange {
+  readonly kind: 'change' | 'unlink';
   readonly content: string;
   readonly mtime: number;
 }
@@ -29,7 +30,7 @@ export function externalChangeFields(filePath: string | null): {
   readonly externalMtime: number | null;
 } {
   const change = filePath === null ? undefined : pending.get(filePath);
-  if (!change) {
+  if (change?.kind !== 'change') {
     return { externalChangeDetected: false, externalContent: null, externalMtime: null };
   }
   return {
@@ -66,6 +67,20 @@ export function noteInactiveExternalChange(
     store.updateTab(tab.id, { content, savedContent: content, isDirty: false });
     return true;
   }
-  pending.set(filePath, { content, mtime });
+  pending.set(filePath, { kind: 'change', content, mtime });
+  return true;
+}
+
+export function fileIsMissing(filePath: string | null): boolean {
+  return filePath !== null && pending.get(filePath)?.kind === 'unlink';
+}
+
+/** Remember that an open file was deleted. `openInEditor` covers a document with no tab yet. */
+export function noteFileRemoved(filePath: string, openInEditor: boolean): boolean {
+  const hasTab = useTabStore.getState().tabs.some((tab) => tab.filePath === filePath);
+  if (!hasTab && !openInEditor) {
+    return false;
+  }
+  pending.set(filePath, { kind: 'unlink', content: '', mtime: Date.now() });
   return true;
 }

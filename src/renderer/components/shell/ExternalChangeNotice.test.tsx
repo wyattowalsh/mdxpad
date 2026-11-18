@@ -10,6 +10,13 @@ describe('ExternalChangeNotice', () => {
     useDocumentStore.getState().reset();
   });
 
+  it('says when the open file was deleted', () => {
+    useDocumentStore.setState({ filePath: '/docs/a.mdx', content: 'saved a', fileMissing: true });
+    render(<ExternalChangeNotice />);
+
+    expect(screen.getByRole('alert').textContent).toContain('This file was deleted');
+  });
+
   it('offers the disk version when the open file changed', () => {
     useDocumentStore.getState().setContent('local edits');
     useDocumentStore.getState().handleExternalChange('disk version', 10);

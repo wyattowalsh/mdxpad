@@ -45,6 +45,7 @@ function showFirstRecoveredDocument(doc: RecoveredTabDocument): void {
     externalChangeDetected: false,
     externalContent: null,
     externalMtime: null,
+    fileMissing: false,
   }));
 }
 
