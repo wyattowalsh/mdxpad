@@ -194,6 +194,7 @@ export type FileListDirectoryRequest = z.infer<typeof FileListDirectoryRequestSc
 export const FileListEntrySchema = z.object({
   name: z.string().min(1),
   path: FilePathSchema,
+  kind: z.enum(['file', 'directory']).optional(),
 });
 export type FileListEntry = z.infer<typeof FileListEntrySchema>;
 

@@ -151,7 +151,12 @@ export function App(): React.ReactElement {
     const known = new Set(base.map((entry) => entry.path));
     const extra = folderFiles
       .filter((file) => !known.has(file.path))
-      .map((file) => ({ id: file.path, path: file.path, name: file.name }));
+      .map((file) => ({
+        id: file.path,
+        path: file.path,
+        name: file.name,
+        ...(file.kind !== undefined ? { kind: file.kind } : {}),
+      }));
     return [...base, ...extra];
   }, [folderFiles, state.fileName, state.filePath]);
   useFilterDebounce({
@@ -240,6 +245,15 @@ export function App(): React.ReactElement {
                     {openedFolder.error}
                   </p>
                 ) : null}
+                {openedFolder.canGoUp ? (
+                  <button
+                    type="button"
+                    className="mb-1 block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted/60"
+                    onClick={openedFolder.goUp}
+                  >
+                    Up
+                  </button>
+                ) : null}
                 <ul className="space-y-1" data-testid="file-explorer-list">
                   {visibleExplorerEntries.map((entry) => {
                     const match = matchResults.get(entry.id);
@@ -251,15 +265,20 @@ export function App(): React.ReactElement {
                         className="block truncate text-foreground"
                       />
                     );
+                    const openEntry = (): void => {
+                      if (entry.kind === 'directory') {
+                        openedFolder.openDirectory(entry.path);
+                        return;
+                      }
+                      void openFileFromPath(entry.path);
+                    };
                     return (
                       <li key={entry.id} className="rounded px-2 py-1 text-xs hover:bg-muted/60">
-                        {isOpenableDocument(entry.path) ? (
+                        {entry.kind === 'directory' || isOpenableDocument(entry.path) ? (
                           <button
                             type="button"
                             className="block w-full text-left"
-                            onClick={() => {
-                              void openFileFromPath(entry.path);
-                            }}
+                            onClick={openEntry}
                           >
                             {name}
                           </button>

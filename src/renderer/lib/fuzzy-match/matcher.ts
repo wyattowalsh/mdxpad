@@ -22,6 +22,8 @@ export interface FileEntry {
   readonly path: string;
   /** Display name (filename or folder name) */
   readonly name: string;
+  /** Folder rows can be opened in the explorer. */
+  readonly kind?: 'file' | 'directory';
 }
 
 /**
