@@ -7,6 +7,7 @@
 
 import { randomUUID, randomBytes } from 'node:crypto';
 import type { ShareLink, ShareAccessMode } from '@shared/contracts/share-schemas';
+import { readShareStore, writeShareStore } from './share-link-store';
 
 // ============================================================================
 // Types
@@ -31,6 +32,7 @@ export interface ShareLinkServiceOptions {
   readonly baseUrl?: string;
   readonly tokenLength?: number;
   readonly maxLinksPerDoc?: number;
+  readonly storagePath?: string;
 }
 
 // ============================================================================
@@ -55,11 +57,53 @@ export class ShareLinkService {
   private readonly baseUrl: string;
   private readonly tokenLength: number;
   private readonly maxLinksPerDoc: number;
+  private readonly storagePath: string | null;
+  private loaded = false;
+  private saveTail: Promise<void> = Promise.resolve();
 
   constructor(options: ShareLinkServiceOptions = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.tokenLength = options.tokenLength ?? DEFAULT_TOKEN_LENGTH;
     this.maxLinksPerDoc = options.maxLinksPerDoc ?? DEFAULT_MAX_LINKS_PER_DOC;
+    this.storagePath = options.storagePath ?? null;
+  }
+
+  private ensureLoaded(): void {
+    if (this.loaded || this.storagePath === null) {
+      this.loaded = true;
+      return;
+    }
+    this.loaded = true;
+    const stored = readShareStore(this.storagePath);
+    for (const link of stored.links) {
+      this.links.set(link.id, link);
+      const content = stored.contents[link.id];
+      if (content !== undefined) {
+        this.contents.set(link.id, content);
+      }
+    }
+  }
+
+  whenSaved(): Promise<void> {
+    return this.saveTail;
+  }
+
+  private scheduleSave(): void {
+    if (this.storagePath === null) {
+      return;
+    }
+    const contents: Record<string, string> = {};
+    for (const [id, content] of this.contents) {
+      contents[id] = content;
+    }
+    const snapshot = {
+      links: Array.from(this.links.values()),
+      contents,
+    };
+    const target = this.storagePath;
+    this.saveTail = this.saveTail
+      .then(() => writeShareStore(target, snapshot))
+      .catch(() => undefined);
   }
 
   /**
@@ -69,6 +113,7 @@ export class ShareLinkService {
    * @throws Error if max links per document exceeded
    */
   createLink(options: CreateShareLinkOptions): ShareLink {
+    this.ensureLoaded();
     const docLinks = this.getLinksByDocId(options.docId);
     if (docLinks.length >= this.maxLinksPerDoc) {
       throw new Error(
@@ -96,6 +141,7 @@ export class ShareLinkService {
     if (options.content !== undefined) {
       this.contents.set(id, options.content);
     }
+    this.scheduleSave();
     console.log(`[ShareLinkService] Created share link ${id} for doc ${options.docId}`);
 
     return link;
@@ -107,6 +153,7 @@ export class ShareLinkService {
    * @returns true if the link was found and revoked
    */
   revokeLink(id: string): boolean {
+    this.ensureLoaded();
     const link = this.links.get(id);
     if (!link) {
       return false;
@@ -117,6 +164,7 @@ export class ShareLinkService {
       isActive: false,
     };
     this.links.set(id, revokedLink);
+    this.scheduleSave();
 
     console.log(`[ShareLinkService] Revoked share link ${id}`);
     return true;
@@ -128,6 +176,7 @@ export class ShareLinkService {
    * @returns The share link or null
    */
   getLink(id: string): ShareLink | null {
+    this.ensureLoaded();
     return this.links.get(id) ?? null;
   }
 
@@ -138,6 +187,7 @@ export class ShareLinkService {
    * @returns The valid share link or null
    */
   validateToken(token: string): ShareLink | null {
+    this.ensureLoaded();
     for (const link of this.links.values()) {
       if (link.token === token) {
         if (!link.isActive) {
@@ -148,6 +198,7 @@ export class ShareLinkService {
           // Auto-deactivate expired links
           const expiredLink: ShareLink = { ...link, isActive: false };
           this.links.set(link.id, expiredLink);
+          this.scheduleSave();
           return null;
         }
 
@@ -187,6 +238,7 @@ export class ShareLinkService {
    * @returns Array of share links
    */
   getLinks(docId?: string): readonly ShareLink[] {
+    this.ensureLoaded();
     if (docId !== undefined) {
       return this.getLinksByDocId(docId);
     }
@@ -199,6 +251,7 @@ export class ShareLinkService {
    * A saved file cannot be the source, so one file's links stay on that file.
    */
   moveUntitledDocument(fromDocId: string, toDocId: string): readonly ShareLink[] {
+    this.ensureLoaded();
     if (!fromDocId.startsWith('untitled:') || fromDocId.length <= 'untitled:'.length) {
       throw new Error('Share links can only move from an untitled document');
     }
@@ -215,6 +268,7 @@ export class ShareLinkService {
     for (const link of moving) {
       this.links.set(link.id, { ...link, docId: toDocId });
     }
+    this.scheduleSave();
     return this.getLinksByDocId(toDocId);
   }
 
@@ -223,6 +277,7 @@ export class ShareLinkService {
    * @returns Number of links removed
    */
   cleanup(): number {
+    this.ensureLoaded();
     const now = Date.now();
     let removed = 0;
 
@@ -234,6 +289,7 @@ export class ShareLinkService {
     }
 
     if (removed > 0) {
+      this.scheduleSave();
       console.log(`[ShareLinkService] Cleaned up ${removed} expired/inactive links`);
     }
 
@@ -244,6 +300,7 @@ export class ShareLinkService {
    * Get total number of active links.
    */
   getActiveLinkCount(): number {
+    this.ensureLoaded();
     let count = 0;
     for (const link of this.links.values()) {
       if (link.isActive) {

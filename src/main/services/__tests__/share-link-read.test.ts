@@ -1,8 +1,62 @@
-import { describe, expect, it } from 'vitest';
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { ShareLinkService } from '../share-link-service';
 
 describe('ShareLinkService.readByToken', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('remembers a share link after a new service reads the same file', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-store-'));
+    tempDirs.push(root);
+    const storagePath = path.join(root, 'share-links.json');
+    const first = new ShareLinkService({ storagePath });
+    const link = first.createLink({
+      docId: 'doc-1',
+      accessMode: 'read-only',
+      expiresInMs: null,
+      content: '# Shared',
+    });
+    await first.whenSaved();
+
+    const second = new ShareLinkService({ storagePath });
+    expect(second.readByToken(link.token)).toEqual({
+      docId: 'doc-1',
+      accessMode: 'read-only',
+      content: '# Shared',
+    });
+  });
+
+  it('does not read or write a share list through a link', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-link-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-secret-'));
+    tempDirs.push(root, outside);
+    const secret = path.join(outside, 'links.json');
+    const storagePath = path.join(root, 'share-links.json');
+    await writeFile(secret, '{"secret":true}\n');
+    await symlink(secret, storagePath);
+    const service = new ShareLinkService({ storagePath });
+
+    expect(service.getLinks()).toEqual([]);
+    service.createLink({
+      docId: 'doc-1',
+      accessMode: 'read-only',
+      expiresInMs: null,
+      content: '# Local',
+    });
+    await service.whenSaved();
+
+    expect(await readFile(secret, 'utf-8')).toBe('{"secret":true}\n');
+    expect((await lstat(storagePath)).isSymbolicLink()).toBe(false);
+    expect(new ShareLinkService({ storagePath }).getLinks()).toHaveLength(1);
+  });
+
   it('returns stored content for an active token', () => {
     const service = new ShareLinkService();
     const link = service.createLink({

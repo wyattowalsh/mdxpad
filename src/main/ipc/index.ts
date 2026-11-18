@@ -6,7 +6,8 @@
  * @see Constitution §3.3 - invoke/handle pattern
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import path from 'node:path';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared/lib/ipc';
 import { AutosaveChannels } from '@shared/contracts/autosave-ipc';
 import { getInvokeChannels } from '@shared/ai/ipc-channels';
@@ -57,7 +58,9 @@ const recoveryService = new RecoveryService(settingsService, autosaveService);
 const aiServices = createAIServices();
 const workspaceService = new WorkspaceService();
 const pluginLoader = new PluginLoader();
-const shareLinkService = new ShareLinkService();
+const shareLinkService = new ShareLinkService({
+  storagePath: path.join(app.getPath('userData'), 'share-links.json'),
+});
 const versionHistoryService = new VersionHistoryService(hasWriteCapability);
 const notificationService = new NotificationService();
 
