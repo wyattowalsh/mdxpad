@@ -38,6 +38,7 @@ import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-c
 import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
 import { insertHardBreak } from '../../lib/editor/wysiwyg-break';
+import { markdownForSlice } from '../../lib/editor/wysiwyg-copy';
 import { pastePlainText } from '../../lib/editor/wysiwyg-paste';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
@@ -172,6 +173,9 @@ function useEditorView(
         list_item: (node, view, getPos) => new TaskListItemView(node, view, getPos),
         footnote_ref: (node, view) => new FootnoteJumpView(node, view, 'footnote_label'),
         footnote_label: (node, view) => new FootnoteJumpView(node, view, 'footnote_ref'),
+      },
+      clipboardTextSerializer(slice) {
+        return markdownForSlice(state.schema, slice);
       },
       handlePaste(editorView, event) {
         const data = event.clipboardData;
