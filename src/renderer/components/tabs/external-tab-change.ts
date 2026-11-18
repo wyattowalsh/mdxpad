@@ -22,6 +22,11 @@ export function hasPendingExternalChange(filePath: string): boolean {
 
 export function clearPendingExternalChange(filePath: string): void {
   pending.delete(filePath);
+  const store = useTabStore.getState();
+  const tab = store.tabs.find((item) => item.filePath === filePath);
+  if (tab?.fileMissing === true) {
+    store.updateTab(tab.id, { fileMissing: false });
+  }
 }
 
 export function externalChangeFields(filePath: string | null): {
@@ -86,5 +91,9 @@ export function noteFileRemoved(filePath: string, openInEditor: boolean): boolea
     return false;
   }
   pending.set(filePath, { kind: 'unlink', content: '', mtime: Date.now() });
+  const tab = useTabStore.getState().tabs.find((item) => item.filePath === filePath);
+  if (tab && tab.fileMissing !== true) {
+    useTabStore.getState().updateTab(tab.id, { fileMissing: true });
+  }
   return true;
 }

@@ -17,6 +17,7 @@ export interface TabItemProps {
   readonly id: string;
   readonly fileName: string;
   readonly isDirty: boolean;
+  readonly fileMissing?: boolean;
   readonly isActive: boolean;
   readonly onClick: () => void;
   readonly onClose: () => void;
@@ -29,6 +30,7 @@ function TabItemComponent({
   id,
   fileName,
   isDirty,
+  fileMissing = false,
   isActive,
   onClick,
   onClose,
@@ -91,7 +93,16 @@ function TabItemComponent({
       onContextMenu={onContextMenu}
     >
       <span className="truncate max-w-[120px] select-none">{fileName}</span>
-      {isDirty && (
+      {fileMissing && (
+        <span
+          className="text-[10px] text-destructive whitespace-nowrap"
+          aria-label="File deleted"
+          data-testid="missing-indicator"
+        >
+          Deleted
+        </span>
+      )}
+      {isDirty && !fileMissing && (
         <span
           className="w-2 h-2 rounded-full bg-foreground/60 flex-shrink-0"
           aria-label="Unsaved changes"

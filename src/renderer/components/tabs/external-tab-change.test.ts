@@ -117,6 +117,9 @@ describe('external changes in background tabs', () => {
 
     expect(noteFileRemoved('/docs/a.mdx', false)).toBe(true);
     expect(hasUnsavedWork()).toBe(true);
+    expect(
+      useTabStore.getState().tabs.find((tab) => tab.filePath === '/docs/a.mdx')?.fileMissing
+    ).toBe(true);
     const first = useTabStore.getState().tabs.find((tab) => tab.filePath === '/docs/a.mdx');
     if (first) {
       activateDocumentTab(first.id);

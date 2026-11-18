@@ -20,6 +20,7 @@ export interface Tab {
   readonly filePath: string | null;
   readonly fileName: string;
   readonly isDirty: boolean;
+  readonly fileMissing?: boolean;
   readonly content: string;
   readonly savedContent: string;
 }
@@ -125,6 +126,9 @@ export const useTabStore = create<TabStore>()(
             (tab as { fileName: string }).fileName = updates.fileName;
           if (updates.isDirty !== undefined)
             (tab as { isDirty: boolean }).isDirty = updates.isDirty;
+          if (updates.fileMissing !== undefined) {
+            (tab as { fileMissing: boolean }).fileMissing = updates.fileMissing;
+          }
           if (updates.content !== undefined) (tab as { content: string }).content = updates.content;
           if (updates.savedContent !== undefined) {
             (tab as { savedContent: string }).savedContent = updates.savedContent;

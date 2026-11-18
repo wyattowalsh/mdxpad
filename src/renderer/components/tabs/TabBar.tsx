@@ -136,6 +136,7 @@ function TabBarComponent() {
                 id={tab.id}
                 fileName={tab.fileName}
                 isDirty={tab.isDirty}
+                fileMissing={tab.fileMissing === true}
                 isActive={tab.id === activeTabId}
                 onClick={() => activateDocumentTab(tab.id)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}

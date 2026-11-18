@@ -73,6 +73,13 @@ describe('TabBar', () => {
     expect(useTabStore.getState().tabs).toHaveLength(1);
   });
 
+  it('shows when a tab file was deleted', () => {
+    const id = addTab('gone.mdx');
+    useTabStore.getState().updateTab(id, { fileMissing: true });
+    render(<TabBar />);
+    expect(screen.getByTestId('missing-indicator').textContent).toBe('Deleted');
+  });
+
   it('should show dirty indicator for dirty tabs', () => {
     const id = addTab('dirty.mdx');
     useTabStore.getState().updateTab(id, { isDirty: true });
