@@ -460,6 +460,19 @@ describe('LatexExporter', () => {
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
     expect(written).toContain('\\sout{gone}');
+  });
+
+  it('strikes a code span and leaves tildes inside code', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See ~~`code`~~ and `~~not~~`.',
+      outputPath: '/tmp/strike-code.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\sout{\\texttt{code}}');
+    expect(written).toContain('\\texttt{');
+    expect(written).toContain('\\textasciitilde{}');
+    expect(written).not.toContain('\\sout{\\texttt{\\textasciitilde{}');
     expect(written).toContain('\\usepackage[normalem]{ulem}');
   });
 

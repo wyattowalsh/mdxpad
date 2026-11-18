@@ -140,13 +140,14 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
       continue;
     }
     if (part.text.length > 0) {
-      segments.push(...closeStrike(parseEmphasisText(part.text, {})));
+      segments.push(...parseEmphasisText(part.text, {}));
     }
   }
-  if (segments.length === 0) {
-    segments.push({ text });
+  const struck = closeStrike(segments);
+  if (struck.length === 0) {
+    return [{ text }];
   }
-  return segments;
+  return struck;
 }
 
 function withFlags(segments: InlineSegment[], marks: EmphasisFlags): InlineSegment[] {
@@ -212,7 +213,7 @@ function closeStrike(segments: InlineSegment[]): InlineSegment[] {
   const result: InlineSegment[] = [];
   let open = false;
   for (const segment of segments) {
-    if (segment.link || segment.image || !segment.text.includes('~~')) {
+    if (segment.code || segment.link || segment.image || !segment.text.includes('~~')) {
       result.push(open ? { ...segment, strike: true } : segment);
       continue;
     }

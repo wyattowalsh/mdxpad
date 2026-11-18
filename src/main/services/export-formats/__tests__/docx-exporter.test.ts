@@ -118,6 +118,8 @@ describe('DocxExporter', () => {
       { text: 'use snake_case_name here' },
     ]);
     expect(parseInlineFormatting('~~gone~~')).toEqual([{ text: 'gone', strike: true }]);
+    expect(parseInlineFormatting('~~`code`~~')).toEqual([{ text: 'code', code: true, strike: true }]);
+    expect(parseInlineFormatting('`~~not~~`')).toEqual([{ text: '~~not~~', code: true }]);
     expect(parseInlineFormatting('***both***')).toEqual([
       { text: 'both', bold: true, italic: true },
     ]);

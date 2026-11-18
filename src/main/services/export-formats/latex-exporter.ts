@@ -14,7 +14,7 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
 import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
-import { findCodeSpan, protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
+import { findCodeSpan, protectEscapes, restoreEscapes } from './markdown-escape';
 import { renderEmphasis } from './markdown-emphasis';
 import { decodeHtmlEntities } from './markdown-entity';
 import {
@@ -180,10 +180,53 @@ function restoreLatexAutolinks(
   );
 }
 
+function nextRawStrike(raw: string, from: number): number {
+  let index = from;
+  while (index < raw.length) {
+    const code = findCodeSpan(raw, index);
+    if (code?.start === index) {
+      index = code.end;
+      continue;
+    }
+    if (raw.startsWith('~~', index)) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function nextProtectedBoundary(raw: string, from: number): number {
+  for (let index = from; index < raw.length; index += 1) {
+    const code = findCodeSpan(raw, index);
+    if (code?.start === index || raw.startsWith('~~', index)) {
+      return index;
+    }
+  }
+  return raw.length;
+}
+
 function formatProtected(raw: string): string {
   let result = '';
-  for (const part of splitCodeSpans(raw)) {
-    result += part.code ? wrapLatex('texttt', part.text) : formatInlineMarks(part.text);
+  let index = 0;
+  while (index < raw.length) {
+    const code = findCodeSpan(raw, index);
+    if (code?.start === index) {
+      result += wrapLatex('texttt', code.text);
+      index = code.end;
+      continue;
+    }
+    if (raw.startsWith('~~', index)) {
+      const end = nextRawStrike(raw, index + 2);
+      if (end !== -1) {
+        result += `\\sout{${formatProtected(raw.slice(index + 2, end))}}`;
+        index = end + 2;
+        continue;
+      }
+    }
+    const next = nextProtectedBoundary(raw, index + 1);
+    result += formatInlineMarks(raw.slice(index, next));
+    index = next;
   }
   return result;
 }
