@@ -176,12 +176,17 @@ export class VectorStore {
    * Loads the store from disk if the file exists.
    */
   async loadFromDisk(): Promise<boolean> {
+    let handle: fs.promises.FileHandle | undefined;
     try {
-      const info = await fs.promises.lstat(this.storagePath);
-      if (info.isSymbolicLink() || !info.isFile()) {
+      handle = await fs.promises.open(
+        this.storagePath,
+        fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW
+      );
+      const info = await handle.stat();
+      if (!info.isFile()) {
         return false;
       }
-      const raw = await fs.promises.readFile(this.storagePath, 'utf-8');
+      const raw = await handle.readFile({ encoding: 'utf8' });
       const data = JSON.parse(raw) as SerializedStore;
 
       if (data.version !== 1) return false;
@@ -194,6 +199,8 @@ export class VectorStore {
       return true;
     } catch {
       return false;
+    } finally {
+      await handle?.close();
     }
   }
 
