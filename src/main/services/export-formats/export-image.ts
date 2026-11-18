@@ -17,6 +17,14 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   '.bmp': 'image/bmp',
 };
 
+const DOCUMENT_MIME_BY_EXTENSION: Record<string, string> = {
+  ...MIME_BY_EXTENSION,
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+};
+
+export type ImageInlineMode = 'data-url' | 'absolute' | 'document';
+
 export type ImageKind = 'png' | 'jpg' | 'gif' | 'bmp';
 
 function imageKind(extension: string): ImageKind | null {
@@ -70,22 +78,33 @@ function withTitle(destination: string, source: string): string {
   return `${source}${titled?.[2] ?? ''}`;
 }
 
+function dataUrlMime(extension: string, mode: ImageInlineMode): string | null {
+  if (mode === 'absolute') {
+    return null;
+  }
+  const table = mode === 'document' ? DOCUMENT_MIME_BY_EXTENSION : MIME_BY_EXTENSION;
+  return table[extension] ?? null;
+}
+
 async function replacementFor(
   directory: string,
   destination: string,
-  mode: 'data-url' | 'absolute'
+  mode: ImageInlineMode
 ): Promise<string | null> {
   const resolved = localPath(directory, destination);
-  const kind = resolved ? imageKind(path.extname(resolved).toLowerCase()) : null;
-  if (!resolved || !kind) {
+  if (!resolved) {
     return null;
   }
+  const extension = path.extname(resolved).toLowerCase();
   if (mode === 'absolute') {
+    if (!imageKind(extension)) {
+      return null;
+    }
     const data = await readInside(directory, destination);
     return data ? withTitle(destination, resolved.split(path.sep).join('/')) : null;
   }
-  const data = await readInside(directory, destination);
-  const mime = MIME_BY_EXTENSION[path.extname(resolved).toLowerCase()];
+  const mime = dataUrlMime(extension, mode);
+  const data = mime ? await readInside(directory, destination) : null;
   if (!data || !mime) {
     return null;
   }
@@ -135,7 +154,7 @@ function replaceOutsideFences(content: string, replacements: ReadonlyMap<string,
 export async function inlineLocalImages(
   content: string,
   sourcePath: string | null | undefined,
-  mode: 'data-url' | 'absolute'
+  mode: ImageInlineMode
 ): Promise<string> {
   if (!sourcePath) {
     return content;

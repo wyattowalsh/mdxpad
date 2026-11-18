@@ -474,7 +474,7 @@ export class EpubExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const content = await inlineLocalImages(options.content, options.sourcePath, 'document');
       const split = splitIntoChapters(content);
 
       const epubContent = split.chapters.map((chapter) => ({

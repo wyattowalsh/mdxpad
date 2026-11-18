@@ -510,7 +510,7 @@ export class PdfExporter implements Exporter {
 
     try {
       const title = options.title ?? 'MDXPad Export';
-      const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const content = await inlineLocalImages(options.content, options.sourcePath, 'document');
       const html = contentToHtml(content, title);
 
       win = new BrowserWindow({

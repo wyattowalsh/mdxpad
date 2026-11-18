@@ -40,6 +40,26 @@ describe('inlineLocalImages', () => {
     expect(markdownToPdfHtml(inlined)).toContain('<img src="data:image/png;base64,');
   });
 
+  it('embeds a WebP and an SVG in a document and leaves them for Word', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-web-'));
+    const source = path.join(root, 'note.md');
+    await writeFile(path.join(root, 'photo.webp'), Buffer.from('RIFFwebp'));
+    await writeFile(path.join(root, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+    const content = '![Photo](photo.webp)\n\n![Icon](icon.svg)\n';
+
+    const document = await inlineLocalImages(content, source, 'document');
+    const word = await inlineLocalImages(content, source, 'data-url');
+
+    expect(document).toContain('![Photo](data:image/webp;base64,');
+    expect(document).toContain('![Icon](data:image/svg+xml;base64,');
+    expect(markdownToPdfHtml(document)).toContain('src="data:image/webp;base64,');
+    expect(markdownToPdfHtml(document)).toContain('src="data:image/svg+xml;base64,');
+    expect(word).toContain('![Photo](photo.webp)');
+    expect(word).toContain('![Icon](icon.svg)');
+    expect(word).not.toContain('data:image/webp');
+    expect(word).not.toContain('data:image/svg');
+  });
+
   it('stores that image inside a Word document', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-image-docx-'));
     const source = path.join(root, 'note.md');
