@@ -1,6 +1,7 @@
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import type { DocumentId } from '@shared/types/document';
 import type { FileHandle, FileId } from '@shared/types/file';
+import { fileIsMissing } from '@renderer/components/tabs/external-tab-change';
 import { readExcludesForDirectory } from '@renderer/components/workspace/workspace-folders';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
@@ -162,6 +163,41 @@ function withOpenDocuments(
   }, withActive);
 }
 
+function unsavedEditorFiles(directory: string): readonly string[] {
+  const root = directory.endsWith('/') ? directory.slice(0, -1) : directory;
+  const inside = (filePath: string | null): filePath is string =>
+    filePath !== null && (filePath === root || filePath.startsWith(`${root}/`));
+  const names = new Set<string>();
+  const add = (filePath: string): void => {
+    names.add(filePath.slice(filePath.lastIndexOf('/') + 1));
+  };
+  const state = useDocumentStore.getState();
+  if (inside(state.filePath) && (state.isDirty || state.fileMissing)) {
+    add(state.filePath);
+  }
+  for (const tab of useTabStore.getState().tabs) {
+    if (!inside(tab.filePath) || tab.filePath === state.filePath) {
+      continue;
+    }
+    if (tab.isDirty || fileIsMissing(tab.filePath)) {
+      add(tab.filePath);
+    }
+  }
+  return [...names];
+}
+
+function gitStatusMessage(
+  directory: string,
+  status: Parameters<typeof summarizeGitStatus>[0]
+): string {
+  const unsaved = unsavedEditorFiles(directory);
+  const disk = summarizeGitStatus(status);
+  if (unsaved.length === 0) {
+    return disk;
+  }
+  return `${disk}. Unsaved in the editor: ${unsaved.join(', ')}`;
+}
+
 function requireWorkspaceDir(ctx: CommandContext): string | null {
   const dir = workspaceDir(ctx.document.filePath);
   if (!dir) {
@@ -187,7 +223,7 @@ const gitStatusCommand: Command = {
       ctx.notify({ type: 'error', message: result.error.message });
       return { ok: false, error: result.error.message };
     }
-    ctx.notify({ type: 'info', message: summarizeGitStatus(result.value) });
+    ctx.notify({ type: 'info', message: gitStatusMessage(dir, result.value) });
     return { ok: true };
   },
 };

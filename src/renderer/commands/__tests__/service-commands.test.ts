@@ -42,6 +42,53 @@ describe('summarizeGitStatus', () => {
   });
 });
 
+describe('git status', () => {
+  beforeEach(() => {
+    useDocumentStore.getState().reset();
+    useTabStore.getState().reset();
+  });
+
+  it('mentions unsaved editor files when the disk is clean', async () => {
+    useDocumentStore.setState({
+      filePath: '/notes/readme.md',
+      content: 'draft',
+      isDirty: true,
+    });
+    useTabStore.getState().addTab({
+      filePath: '/notes/other.md',
+      fileName: 'other.md',
+      isDirty: true,
+      content: 'other',
+      savedContent: '',
+    });
+    const status = vi.fn().mockResolvedValue({
+      ok: true,
+      value: {
+        current: 'main',
+        staged: [],
+        modified: [],
+        notAdded: [],
+        created: [],
+        deleted: [],
+        conflicted: [],
+      },
+    });
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'draft', isDirty: true },
+      api: { git: { status } },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.status');
+    await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(notify).toHaveBeenCalledWith({
+      type: 'info',
+      message: 'Git status: clean on main. Unsaved in the editor: readme.md, other.md',
+    });
+  });
+});
+
 describe('git log and diff', () => {
   it('summarizes the latest commits and an empty diff', () => {
     expect(
