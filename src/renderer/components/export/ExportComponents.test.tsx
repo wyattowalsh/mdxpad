@@ -10,6 +10,7 @@ import type {
   LlmsGenerationResponse,
 } from '@shared/contracts/export-schemas';
 import type { ExportCliOutput, ExportJob, ExportPreset } from '@shared/types/export-model';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useExportStore } from '@renderer/stores/export-store';
 import { useTabStore } from '@renderer/stores/tab-store';
@@ -110,6 +111,7 @@ describe('export components', () => {
   });
 
   afterEach(() => {
+    registerLiveSourceText(null);
     cleanup();
     act(() => {
       useExportStore.getState().reset();
@@ -279,6 +281,7 @@ describe('export components', () => {
   it('sends an unsaved tab when that file is not the active document', async () => {
     const queuedJob = createJob({ status: 'queued' });
     useDocumentStore.setState({ filePath: '/tmp/other.mdx', content: '# Other' });
+    registerLiveSourceText(() => '# Live leak');
     useTabStore.getState().addTab({
       filePath: '/tmp/source.mdx',
       fileName: 'source.mdx',
@@ -302,6 +305,74 @@ describe('export components', () => {
     await waitFor(() => {
       expect(mockExportApi.cliInvoke).toHaveBeenCalledWith(
         expect.objectContaining({ content: '# Tab draft' })
+      );
+    });
+  });
+
+  it('exports keystrokes that are still only in the editor', async () => {
+    const preset = createPreset();
+    mockExportApi.presetCrud.mockResolvedValueOnce({ ok: true, presets: [preset] });
+    exportFile.mockResolvedValueOnce({
+      ok: true,
+      value: { path: '/tmp/custom.pdf', format: 'pdf', warnings: [] },
+    });
+    useDocumentStore.setState({ filePath: '/tmp/source.mdx', content: '# Note' });
+    registerLiveSourceText(() => '# Note!');
+
+    render(<ExportPresetActions content="# Note" sourcePath="/tmp/source.mdx" />);
+    await waitFor(() => {
+      expect(mockExportApi.presetCrud).toHaveBeenCalledWith({ action: 'list' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Export document' }));
+
+    await waitFor(() => {
+      expect(exportFile).toHaveBeenCalledWith('# Note!', {
+        sourcePath: '/tmp/source.mdx',
+        format: 'pdf',
+      });
+    });
+  });
+
+  it('sends editor keystrokes with the export job', async () => {
+    const queuedJob = createJob({ status: 'queued' });
+    useDocumentStore.setState({ filePath: '/tmp/source.mdx', content: '# Live draft' });
+    registerLiveSourceText(() => '# Live draft!');
+    mockExportApi.cliInvoke.mockResolvedValueOnce({
+      ok: true,
+      output: createCliOutput({
+        job: createJob({ ...queuedJob, status: 'completed', completedAt: TEST_DATE }),
+      }),
+    });
+    act(() => {
+      useExportStore.setState({ jobs: [queuedJob] });
+    });
+
+    render(<ExportCliInvocation />);
+    fireEvent.click(screen.getByRole('button', { name: 'Run export CLI' }));
+
+    await waitFor(() => {
+      expect(mockExportApi.cliInvoke).toHaveBeenCalledWith(
+        expect.objectContaining({ content: '# Live draft!' })
+      );
+    });
+  });
+
+  it('sends editor keystrokes to llms generation', async () => {
+    useDocumentStore.setState({ filePath: '/tmp/source.mdx', content: '# hello' });
+    registerLiveSourceText(() => '# hello!');
+    mockExportApi.llmsGenerate.mockResolvedValueOnce({
+      ok: true,
+      target: 'llms.txt',
+      path: '/tmp/llms.txt',
+      bytesWritten: 128,
+    });
+
+    render(<LlmsGenerationAction content="# hello" sourcePath="/tmp/source.mdx" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Generate llms file' }));
+
+    await waitFor(() => {
+      expect(mockExportApi.llmsGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ content: '# hello!' })
       );
     });
   });

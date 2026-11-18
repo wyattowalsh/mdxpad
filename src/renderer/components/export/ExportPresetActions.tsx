@@ -10,6 +10,8 @@ import { announceFinishedExport } from '@renderer/stores/announce-export';
 import type { FileExportError } from '@shared/contracts/file-schemas';
 import type { ExportJob, ExportPreset } from '@shared/types/export-model';
 
+import { textOfMatchingDocument } from './open-editor-text';
+
 function createFallbackUuid(): string {
   return '00000000-0000-4000-8000-000000000000';
 }
@@ -113,10 +115,11 @@ function ExportPresetActionsComponent({
 
     const key = documentKey;
     const preset = selectedPreset;
+    const exported = textOfMatchingDocument(sourcePath, content);
     setExportError(null);
     setIsExporting(true);
     void window.mdxpad
-      .exportFile(content, {
+      .exportFile(exported, {
         sourcePath,
         format: preset.format,
         ...(Object.keys(preset.options).length > 0 ? { metadata: { ...preset.options } } : {}),

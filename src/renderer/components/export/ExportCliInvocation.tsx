@@ -11,13 +11,15 @@ import {
 } from '@renderer/stores/export-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
+import { textOfMatchingDocument } from './open-editor-text';
+
 function textForExportJob(sourcePath: string | null | undefined): string | undefined {
   const document = useDocumentStore.getState();
   if (!sourcePath) {
-    return document.filePath === null ? document.content : undefined;
+    return document.filePath === null ? textOfMatchingDocument(null, document.content) : undefined;
   }
   if (document.filePath === sourcePath) {
-    return document.content;
+    return textOfMatchingDocument(sourcePath, document.content);
   }
   return useTabStore.getState().tabs.find((tab) => tab.filePath === sourcePath)?.content;
 }

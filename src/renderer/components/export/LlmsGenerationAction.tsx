@@ -5,6 +5,8 @@ import { Input } from '@ui/input';
 import { selectLlmsResult, useExportStore } from '@renderer/stores/export-store';
 import type { LlmsTarget } from '@shared/contracts/export-schemas';
 
+import { textOfMatchingDocument } from './open-editor-text';
+
 export interface LlmsGenerationActionProps {
   readonly content: string;
   readonly sourcePath?: string | null;
@@ -44,7 +46,7 @@ function LlmsGenerationActionComponent({
       action: 'generate',
       target,
       sourcePath,
-      content,
+      content: textOfMatchingDocument(sourcePath, content),
       outputPath: outputPath.trim(),
       overwrite,
     });
