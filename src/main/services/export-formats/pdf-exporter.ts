@@ -1,5 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 
+import { PdfExportPresetOptionsSchema } from '@shared/types/root';
+import { buildPdfDocument } from '../export-document-builders';
+
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
@@ -498,6 +501,24 @@ function buildPrintOptions(options: ExportOptions): Electron.PrintToPDFOptions {
   return printOptions;
 }
 
+const TEXT_PDF_WARNING = 'PDF print was unavailable, so a text PDF was written.';
+
+async function writeTextPdf(options: ExportOptions): Promise<ExportResult> {
+  const pageSize = options.metadata?.pageSize;
+  const parsed = PdfExportPresetOptionsSchema.safeParse({
+    ...(pageSize === 'A4' || pageSize === 'Letter' ? { pageSize } : {}),
+    ...(options.title ? { title: options.title } : {}),
+    ...(options.author ? { author: options.author } : {}),
+  });
+  const built = buildPdfDocument(options.content, parsed.success ? parsed.data : {});
+  await writeFile(options.outputPath, built.content);
+  return {
+    ok: true,
+    outputPath: options.outputPath,
+    warnings: [...built.warnings, TEXT_PDF_WARNING],
+  };
+}
+
 export class PdfExporter implements Exporter {
   readonly format = 'pdf';
   readonly label = 'PDF';
@@ -526,12 +547,16 @@ export class PdfExporter implements Exporter {
       await writeFile(options.outputPath, pdfBuffer);
 
       return { ok: true, outputPath: options.outputPath, warnings };
-    } catch (error) {
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : 'PDF export failed',
-        warnings,
-      };
+    } catch {
+      try {
+        return await writeTextPdf(options);
+      } catch (fallbackError: unknown) {
+        return {
+          ok: false,
+          error: fallbackError instanceof Error ? fallbackError.message : 'PDF export failed',
+          warnings,
+        };
+      }
     } finally {
       if (win && !win.isDestroyed()) {
         win.destroy();

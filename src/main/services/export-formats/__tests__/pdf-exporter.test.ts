@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { writeFile } from 'node:fs/promises';
 
 import { PdfExporter } from '../pdf-exporter';
 import type { ExportOptions } from '../types';
@@ -68,6 +69,24 @@ describe('PdfExporter', () => {
     expect(html).not.toContain('<pre style="white-space: pre-wrap;">');
     expect(mockLoadURL).toHaveBeenCalledOnce();
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
+  });
+
+  it('writes a text PDF when print is unavailable', async () => {
+    mockPrintToPDF.mockRejectedValueOnce(new Error('print failed'));
+    const result = await exporter.export({
+      content: '# Hello',
+      outputPath: '/tmp/fallback.pdf',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain('PDF print was unavailable, so a text PDF was written.');
+    const written = vi.mocked(writeFile).mock.calls[0]?.[1];
+    expect(typeof written).toBe('string');
+    if (typeof written !== 'string') {
+      return;
+    }
+    expect(written.startsWith('%PDF')).toBe(true);
+    expect(written).toContain('HELLO');
   });
 
   it('drops a closing hash run from a heading', async () => {
@@ -903,7 +922,7 @@ describe('PdfExporter', () => {
     expect(mockDestroy).toHaveBeenCalledOnce();
   });
 
-  it('destroys window even on error', async () => {
+  it('destroys the window when print fails and a text PDF is written', async () => {
     mockPrintToPDF.mockRejectedValueOnce(new Error('print failed'));
 
     const options: ExportOptions = {
@@ -913,8 +932,8 @@ describe('PdfExporter', () => {
 
     const result = await exporter.export(options);
 
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain('print failed');
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toContain('PDF print was unavailable, so a text PDF was written.');
     expect(mockDestroy).toHaveBeenCalledOnce();
   });
 
