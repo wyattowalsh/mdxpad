@@ -61,6 +61,32 @@ describe('visual runnable code', () => {
     });
   });
 
+  it('drops a result after the visual editor closes', async () => {
+    let finish: ((value: Awaited<ReturnType<typeof executeSandboxed>>) => void) | undefined;
+    vi.mocked(executeSandboxed).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const view = open('```js run\nconsole.log(1)\n```\n');
+    const root = view.dom;
+    root.querySelector('button')?.click();
+    expect(executeSandboxed).toHaveBeenCalledOnce();
+    const host = root.parentElement;
+    view.destroy();
+    finish?.({
+      success: true,
+      logs: ['1'],
+      returnValue: null,
+      error: null,
+      durationMs: 1,
+    });
+    await Promise.resolve();
+    expect(root.querySelector('.wysiwyg-code-output')).toBeNull();
+    host?.remove();
+  });
+
   it('does not add a Run button to an ordinary code block', () => {
     const view = open('```\nhello\n```\n');
     views.push(view);

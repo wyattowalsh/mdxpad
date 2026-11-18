@@ -28,6 +28,11 @@ function blockText(node: ProseMirrorNode): string {
   return text.endsWith('\n') ? text.slice(0, -1) : text;
 }
 
+function visualEditorClosed(view: EditorView): boolean {
+  const editor = view as unknown as { readonly isDestroyed?: boolean };
+  return editor.isDestroyed === true;
+}
+
 function resultText(result: ExecutionResult): string {
   const lines = [...result.logs];
   if (result.error) {
@@ -46,6 +51,7 @@ export class RunnableCodeBlockView implements NodeView {
   private output: HTMLPreElement | null = null;
   private node: ProseMirrorNode;
   private running = false;
+  private request = 0;
 
   constructor(
     node: ProseMirrorNode,
@@ -110,17 +116,29 @@ export class RunnableCodeBlockView implements NodeView {
     return live ?? this.node;
   }
 
+  destroy(): void {
+    this.request += 1;
+  }
+
   private async run(): Promise<void> {
-    if (!this.button || this.running) {
+    if (!this.button || this.running || visualEditorClosed(this.view)) {
       return;
     }
+    const request = ++this.request;
+    const code = blockText(this.currentNode());
     this.running = true;
     this.button.textContent = 'Running...';
     this.button.disabled = true;
-    const result = await executeSandboxed(blockText(this.currentNode()));
+    const result = await executeSandboxed(code);
+    if (request !== this.request || visualEditorClosed(this.view)) {
+      return;
+    }
     this.running = false;
     this.button.textContent = 'Run';
     this.button.disabled = false;
+    if (blockText(this.currentNode()) !== code) {
+      return;
+    }
     this.show(result);
   }
 
