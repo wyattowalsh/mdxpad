@@ -102,6 +102,21 @@ describe('PdfExporter', () => {
       String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
     );
     expect(parenHtml.match(/<ol\b/g)).toHaveLength(1);
+    expect(parenHtml).toContain('<ol class="paren" style="counter-reset: mdx-paren 0">');
+    expect(parenHtml).toContain('ol.paren > li::before');
+    const markers = await exporter.export({
+      content: '+ plus\n\n* star\n\n0) zero',
+      outputPath: '/tmp/list-markers.pdf',
+    });
+    expect(markers.ok).toBe(true);
+    const markerHtml = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(markerHtml).toContain('<ul class="plus">');
+    expect(markerHtml).toContain('<ul class="star">');
+    expect(markerHtml).toContain(
+      '<ol class="paren" start="0" style="counter-reset: mdx-paren -1">'
+    );
     expect(parenHtml).toContain('<li><p>one</p></li>');
     expect(parenHtml).toContain('<li><p>two</p></li>');
     expect(parenHtml).toContain('<p>After</p>');
@@ -405,10 +420,11 @@ describe('PdfExporter', () => {
     const mixedHtml = decodeURIComponent(
       String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
     );
-    expect(mixedHtml.match(/<ul>/g)).toHaveLength(3);
-    expect(mixedHtml).toContain('<li>one</li>');
-    expect(mixedHtml).toContain('<li>two</li>');
-    expect(mixedHtml).toContain('<li>three</li>');
+    expect(mixedHtml).toContain('<ul>\n<li>one</li>');
+    expect(mixedHtml).toContain('<ul class="plus">\n<li>two</li>');
+    expect(mixedHtml).toContain('<ul class="star">\n<li>three</li>');
+    expect(mixedHtml).toContain('ul.plus > li::before');
+    expect(mixedHtml).toContain('ul.star > li::before');
     expect(html).toContain('<ol>\n<li>first</li>\n<li>second</li>\n</ol>');
     expect(html).not.toContain('<ul><li>');
   });

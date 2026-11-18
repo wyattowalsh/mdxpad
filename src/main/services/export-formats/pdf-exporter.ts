@@ -17,6 +17,7 @@ import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './mark
 import {
   closeHtmlLists,
   continuesList,
+  LIST_MARKER_CSS,
   isListContinuation,
   listContentColumn,
   parseListItem,
@@ -354,10 +355,7 @@ function appendPdfFlow(build: PdfBuild, raw: string): void {
     return;
   }
   const item = parseListItem(raw);
-  if (
-    item &&
-    shouldOpenListItem(item, build.lists, build.listBreak, build.paragraph.length > 0)
-  ) {
+  if (item && shouldOpenListItem(item, build.lists, build.listBreak, build.paragraph.length > 0)) {
     flushPdfParagraph(build);
     startPdfListItem(build, raw, item);
     return;
@@ -425,6 +423,7 @@ function contentToHtml(content: string, title: string): string {
     pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; }
     code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
     ${CODE_HIGHLIGHT_CSS}
+    ${LIST_MARKER_CSS}
     h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
     blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding-left: 1rem; }
     table { border-collapse: collapse; margin: 1rem 0; }

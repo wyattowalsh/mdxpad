@@ -143,14 +143,33 @@ function sameHtmlList(frame: HtmlListFrame, item: MarkdownListItem): boolean {
   return item.ordered && frame.delimiter === item.delimiter;
 }
 
-function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1): string {
-  if (close) {
-    return kind === 'ol' ? '</ol>' : '</ul>';
+export const LIST_MARKER_CSS = `
+ol.paren, ul.plus, ul.star { list-style: none; padding-left: 1.5rem; }
+ol.paren > li { counter-increment: mdx-paren; }
+ol.paren > li::before { content: counter(mdx-paren) ") "; }
+ul.plus > li::before { content: "+ "; }
+ul.star > li::before { content: "* "; }
+`;
+
+function listOpenTag(kind: HtmlListFrame['kind'], start: number, delimiter: string): string {
+  if (kind === 'ol' && delimiter === ')') {
+    const startAttr = start !== 1 ? ` start="${start}"` : '';
+    return `<ol class="paren"${startAttr} style="counter-reset: mdx-paren ${start - 1}">`;
   }
   if (kind === 'ol' && start !== 1) {
     return `<ol start="${start}">`;
   }
+  if (delimiter === '+' || delimiter === '*') {
+    return `<ul class="${delimiter === '+' ? 'plus' : 'star'}">`;
+  }
   return kind === 'ol' ? '<ol>' : '<ul>';
+}
+
+function listTag(kind: HtmlListFrame['kind'], close: boolean, start = 1, delimiter = ''): string {
+  if (close) {
+    return kind === 'ol' ? '</ol>' : '</ul>';
+  }
+  return listOpenTag(kind, start, delimiter);
 }
 
 /** A non-blank line indented to an open list item. */
@@ -160,7 +179,7 @@ export function continuesList(stack: readonly HtmlListFrame[], line: string): bo
 }
 
 function isListOpenTag(part: string): boolean {
-  return part === '<ul>' || part === '<ol>' || part.startsWith('<ol ');
+  return part.startsWith('<ul') || part.startsWith('<ol');
 }
 
 function isBlockItemHtml(html: string): boolean {
@@ -252,7 +271,7 @@ export function pushHtmlListItem(
     top.column = column;
   }
   if (!top || top.level < item.level) {
-    parts.push(listTag(kind, false, item.start));
+    parts.push(listTag(kind, false, item.start, item.delimiter ?? ''));
     stack.push({
       kind,
       level: item.level,

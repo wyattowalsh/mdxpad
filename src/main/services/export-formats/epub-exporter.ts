@@ -17,6 +17,7 @@ import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './mark
 import {
   closeHtmlLists,
   continuesList,
+  LIST_MARKER_CSS,
   isListContinuation,
   listContentColumn,
   parseListItem,
@@ -398,10 +399,7 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
     return;
   }
   const item = parseListItem(raw);
-  if (
-    item &&
-    shouldOpenListItem(item, state.lists, state.listBreak, state.paragraph.length > 0)
-  ) {
+  if (item && shouldOpenListItem(item, state.lists, state.listBreak, state.paragraph.length > 0)) {
     flushEpubParagraph(htmlLines, state);
     startEpubListItem(htmlLines, state, raw, item);
     return;
@@ -461,7 +459,7 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   if (state.fence) {
     htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
   }
-  return `<style>${CODE_HIGHLIGHT_CSS}</style>\n${htmlLines.join('\n')}`;
+  return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}</style>\n${htmlLines.join('\n')}`;
 }
 
 export class EpubExporter implements Exporter {
