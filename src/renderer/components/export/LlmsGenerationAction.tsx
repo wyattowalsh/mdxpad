@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
@@ -22,6 +22,12 @@ function LlmsGenerationActionComponent({
   const [target, setTarget] = useState<LlmsTarget>('llms.txt');
   const [outputPath, setOutputPath] = useState<string>('llms.txt');
   const [overwrite, setOverwrite] = useState<boolean>(false);
+  const documentKey = sourcePath ?? '';
+  const startedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    startedFor.current = null;
+  }, [documentKey]);
 
   const handleTargetChange = useCallback((nextTarget: LlmsTarget) => {
     setTarget(nextTarget);
@@ -33,6 +39,7 @@ function LlmsGenerationActionComponent({
       return;
     }
 
+    startedFor.current = documentKey;
     void generateLlms({
       action: 'generate',
       target,
@@ -41,7 +48,10 @@ function LlmsGenerationActionComponent({
       outputPath: outputPath.trim(),
       overwrite,
     });
-  }, [content, generateLlms, outputPath, overwrite, sourcePath, target]);
+  }, [content, documentKey, generateLlms, outputPath, overwrite, sourcePath, target]);
+
+  const showForDocument = startedFor.current === documentKey;
+  const busy = showForDocument && isGeneratingLlms;
 
   return (
     <section className="space-y-3" data-testid="llms-generation-action">
@@ -92,17 +102,17 @@ function LlmsGenerationActionComponent({
       <Button
         type="button"
         onClick={handleGenerate}
-        disabled={isGeneratingLlms || outputPath.trim() === '' || content.trim() === ''}
+        disabled={busy || outputPath.trim() === '' || content.trim() === ''}
       >
         Generate llms file
       </Button>
 
-      {llmsResult && (
+      {showForDocument && llmsResult && (
         <p className="text-xs text-muted-foreground">
           Generated {llmsResult.target} at {llmsResult.path} ({llmsResult.bytesWritten} bytes)
         </p>
       )}
-      {llmsError && <p className="text-sm text-destructive">{llmsError}</p>}
+      {showForDocument && llmsError && <p className="text-sm text-destructive">{llmsError}</p>}
     </section>
   );
 }

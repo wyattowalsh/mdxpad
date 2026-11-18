@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@ui/button';
 import {
@@ -74,10 +74,18 @@ function ExportPresetActionsComponent({
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');
   const [exportError, setExportError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const documentKey = sourcePath ?? '';
+  const documentKeyRef = useRef(documentKey);
+  documentKeyRef.current = documentKey;
 
   useEffect(() => {
     void loadPresets();
   }, [loadPresets]);
+
+  useEffect(() => {
+    setIsExporting(false);
+    setExportError(null);
+  }, [documentKey]);
 
   useEffect(() => {
     if (presets.length === 0) {
@@ -103,31 +111,36 @@ function ExportPresetActionsComponent({
       return;
     }
 
+    const key = documentKey;
+    const preset = selectedPreset;
     setExportError(null);
     setIsExporting(true);
     void window.mdxpad
-      .exportFile(content, { sourcePath, format: selectedPreset.format })
+      .exportFile(content, { sourcePath, format: preset.format })
       .then((result) => {
+        if (documentKeyRef.current !== key) {
+          return;
+        }
         if (!result.ok) {
           setExportError(exportErrorMessage(result.error));
           return;
         }
-        const job = completedJob(
-          selectedPreset,
-          sourcePath,
-          result.value.path,
-          result.value.warnings
-        );
+        const job = completedJob(preset, sourcePath, result.value.path, result.value.warnings);
         announceFinishedExport(job);
         return runJobLifecycle({ action: 'create', job });
       })
       .catch((error: unknown) => {
+        if (documentKeyRef.current !== key) {
+          return;
+        }
         setExportError(error instanceof Error ? error.message : 'Export failed');
       })
       .finally(() => {
-        setIsExporting(false);
+        if (documentKeyRef.current === key) {
+          setIsExporting(false);
+        }
       });
-  }, [content, isExporting, runJobLifecycle, selectedPreset, sourcePath]);
+  }, [content, documentKey, isExporting, runJobLifecycle, selectedPreset, sourcePath]);
 
   return (
     <section className="space-y-3" data-testid="export-preset-actions">
