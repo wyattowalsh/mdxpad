@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { parseMdxContent } from './prosemirror-mdx-parser';
 import { mdxSchema } from './prosemirror-mdx-schema';
-import { appendTrailingParagraph } from './wysiwyg-trailing';
+import { appendTrailingParagraph, prependLeadingParagraph } from './wysiwyg-trailing';
 
 function open(source: string): EditorView {
   const doc = parseMdxContent(source);
@@ -44,6 +44,21 @@ describe('trailing visual blocks', () => {
     expect(view.state.selection.$from.parent.type.name).toBe('paragraph');
     expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
     expect(view.state.doc.firstChild?.type.name).toBe('code_block');
+  });
+
+  it('adds a paragraph before a leading code block', () => {
+    const view = open('```\ncode\n```\n');
+    views.push(view);
+    let start = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'code') {
+        start = pos;
+      }
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start)));
+    expect(prependLeadingParagraph(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.firstChild?.type.name).toBe('paragraph');
+    expect(view.state.doc.child(1).type.name).toBe('code_block');
   });
 
   it('leaves the cursor inside a code block that is not at the end', () => {

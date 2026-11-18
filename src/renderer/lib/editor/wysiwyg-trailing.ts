@@ -3,15 +3,18 @@ import { NodeSelection, TextSelection, type Command } from 'prosemirror-state';
 
 const TRAPPED = new Set(['code_block', 'jsx_block', 'table', 'horizontal_rule']);
 
-function atEndOfTable($from: ResolvedPos): boolean {
-  let cellDepth = 0;
+function tableCellDepth($from: ResolvedPos): number {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const name = $from.node(depth).type.name;
     if (name === 'table_cell' || name === 'table_header') {
-      cellDepth = depth;
-      break;
+      return depth;
     }
   }
+  return 0;
+}
+
+function atEndOfTable($from: ResolvedPos): boolean {
+  const cellDepth = tableCellDepth($from);
   if (cellDepth < 2) {
     return false;
   }
@@ -20,6 +23,16 @@ function atEndOfTable($from: ResolvedPos): boolean {
   const lastRow = $from.index(cellDepth - 2) === table.childCount - 1;
   const lastCell = $from.index(cellDepth - 1) === row.childCount - 1;
   return lastRow && lastCell && $from.parentOffset === $from.parent.content.size;
+}
+
+function atStartOfTable($from: ResolvedPos): boolean {
+  const cellDepth = tableCellDepth($from);
+  if (cellDepth < 2) {
+    return false;
+  }
+  const firstRow = $from.index(cellDepth - 2) === 0;
+  const firstCell = $from.index(cellDepth - 1) === 0;
+  return firstRow && firstCell && $from.parentOffset === 0;
 }
 
 /** The caret is at the end of a final block that has no paragraph after it. */
@@ -42,6 +55,46 @@ export function trappedAtDocumentEnd(state: Parameters<Command>[0]): boolean {
   return false;
 }
 
+/** The caret is at the start of a leading block that has no paragraph before it. */
+export function trappedAtDocumentStart(state: Parameters<Command>[0]): boolean {
+  const { selection } = state;
+  if (selection instanceof NodeSelection) {
+    return selection.node === state.doc.firstChild && TRAPPED.has(selection.node.type.name);
+  }
+  const { $from, empty } = selection;
+  if (!empty || $from.depth < 1 || $from.node(1) !== state.doc.firstChild) {
+    return false;
+  }
+  const name = $from.node(1).type.name;
+  if (name === 'code_block' || name === 'jsx_block') {
+    return $from.parentOffset === 0;
+  }
+  if (name === 'table') {
+    return atStartOfTable($from);
+  }
+  return false;
+}
+
+/** Add a paragraph before the leading code block, table, or rule. */
+export function prependLeadingParagraph(
+  state: Parameters<Command>[0],
+  dispatch: Parameters<Command>[1]
+): boolean {
+  if (!trappedAtDocumentStart(state)) {
+    return false;
+  }
+  const paragraph = state.schema.nodes.paragraph?.create();
+  if (!paragraph) {
+    return false;
+  }
+  if (!dispatch) {
+    return true;
+  }
+  const tr = state.tr.insert(0, paragraph);
+  dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(1))).scrollIntoView());
+  return true;
+}
+
 /** Add a paragraph after the final code block, table, or rule. */
 export function appendTrailingParagraph(state: Parameters<Command>[0], dispatch: Parameters<Command>[1]): boolean {
   if (!trappedAtDocumentEnd(state)) {
@@ -61,19 +114,24 @@ export function appendTrailingParagraph(state: Parameters<Command>[0], dispatch:
   return true;
 }
 
-function leaveTrappedBlock(direction: 'down' | 'right'): Command {
+function leaveTrappedBlock(
+  direction: 'down' | 'right' | 'up' | 'left',
+  insert: (state: Parameters<Command>[0], dispatch: Parameters<Command>[1]) => boolean
+): Command {
   return (state, dispatch, view) => {
     if (view && !view.endOfTextblock(direction)) {
       return false;
     }
-    return appendTrailingParagraph(state, dispatch);
+    return insert(state, dispatch);
   };
 }
 
-/** Arrow keys that continue the document after a trailing block. */
+/** Arrow keys that continue the document around a leading or trailing block. */
 export function trailingBlockKeymap(): Record<string, Command> {
   return {
-    ArrowDown: leaveTrappedBlock('down'),
-    ArrowRight: leaveTrappedBlock('right'),
+    ArrowDown: leaveTrappedBlock('down', appendTrailingParagraph),
+    ArrowRight: leaveTrappedBlock('right', appendTrailingParagraph),
+    ArrowUp: leaveTrappedBlock('up', prependLeadingParagraph),
+    ArrowLeft: leaveTrappedBlock('left', prependLeadingParagraph),
   };
 }
