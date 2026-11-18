@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -73,6 +73,52 @@ describe('PublishUtilityPanel', () => {
         generateIndex: true,
       });
     });
+  });
+
+  it('hides a publish result after another file is opened', async () => {
+    useDocumentStore.setState({
+      filePath: '/docs/a.mdx',
+      fileName: 'a.mdx',
+      content: 'A',
+    });
+    let finishPublish: (value: { success: boolean; filesGenerated: number; errors: string[] }) => void =
+      () => undefined;
+    const publish = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishPublish = resolve;
+        })
+    );
+    vi.stubGlobal('mdxpad', {
+      share: {
+        onPublishProgress: () => () => undefined,
+        chooseDirectory: vi.fn().mockResolvedValue({ canceled: false, path: '/tmp/site' }),
+        openDirectory: vi.fn(),
+        publish,
+      },
+    });
+
+    render(<PublishUtilityPanel />);
+    fireEvent.click(screen.getByText('Browse'));
+    await screen.findByText('/tmp/site');
+    fireEvent.click(screen.getByText('Publish 1 file'));
+    act(() => {
+      useDocumentStore.setState({
+        filePath: '/docs/b.mdx',
+        fileName: 'b.mdx',
+        content: 'B',
+      });
+    });
+    await act(async () => {
+      finishPublish({ success: true, filesGenerated: 1, errors: [] });
+    });
+
+    expect(screen.queryByText('Generated 1 file(s)')).toBeNull();
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: [{ path: '/docs/a.mdx', title: 'a.mdx', content: 'A' }],
+      })
+    );
   });
 
   it('shows why publishing failed', async () => {

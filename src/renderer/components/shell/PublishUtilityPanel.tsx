@@ -1,15 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PublishProgress } from '@shared/contracts/share-schemas';
+import { editorDocumentKey } from '@renderer/lib/editor-document-key';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import {
   PublishWebPanel,
   type PublishRequestOptions,
 } from '@renderer/components/publish/PublishWebPanel';
 
+function currentDocumentKey(): string {
+  return editorDocumentKey(
+    useDocumentStore.getState().filePath,
+    useTabStore.getState().activeTabId
+  );
+}
+
 export function PublishUtilityPanel(): React.JSX.Element {
   const filePath = useDocumentStore((state) => state.filePath);
   const fileName = useDocumentStore((state) => state.fileName);
   const content = useDocumentStore((state) => state.content);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const documentKey = editorDocumentKey(filePath, activeTabId);
+  const publishingFor = useRef<string | null>(null);
+  const seenDocument = useRef<string | null>(null);
   const [outputDir, setOutputDir] = useState('');
   const [progress, setProgress] = useState<PublishProgress | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -20,8 +33,23 @@ export function PublishUtilityPanel(): React.JSX.Element {
   } | null>(null);
 
   useEffect(() => {
+    if (seenDocument.current === null || seenDocument.current === documentKey) {
+      seenDocument.current = documentKey;
+      return;
+    }
+    seenDocument.current = documentKey;
+    setLastResult(null);
+    setProgress(null);
+    setIsPublishing(false);
+  }, [documentKey]);
+
+  useEffect(() => {
     if (!window.mdxpad.share) return undefined;
-    return window.mdxpad.share.onPublishProgress(setProgress);
+    return window.mdxpad.share.onPublishProgress((update) => {
+      if (publishingFor.current === currentDocumentKey()) {
+        setProgress(update);
+      }
+    });
   }, []);
 
   const pageName = fileName.trim().length > 0 ? fileName : 'Untitled';
@@ -70,6 +98,8 @@ export function PublishUtilityPanel(): React.JSX.Element {
           });
           return;
         }
+        const publishedFor = documentKey;
+        publishingFor.current = publishedFor;
         setIsPublishing(true);
         setLastResult(null);
         void window.mdxpad.share
@@ -81,6 +111,9 @@ export function PublishUtilityPanel(): React.JSX.Element {
             generateIndex: options.generateIndex,
           })
           .then((result) => {
+            if (currentDocumentKey() !== publishedFor) {
+              return;
+            }
             setLastResult({
               success: result.success,
               filesGenerated: result.filesGenerated,
@@ -89,6 +122,9 @@ export function PublishUtilityPanel(): React.JSX.Element {
             });
           })
           .catch((caught: unknown) => {
+            if (currentDocumentKey() !== publishedFor) {
+              return;
+            }
             setLastResult({
               success: false,
               filesGenerated: 0,
@@ -96,7 +132,9 @@ export function PublishUtilityPanel(): React.JSX.Element {
             });
           })
           .finally(() => {
-            setIsPublishing(false);
+            if (currentDocumentKey() === publishedFor) {
+              setIsPublishing(false);
+            }
           });
       }}
     />
