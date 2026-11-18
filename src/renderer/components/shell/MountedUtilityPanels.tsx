@@ -31,6 +31,7 @@ import {
 } from '@renderer/components/ui/dialog';
 import { directoryOfOpenedFile } from '@renderer/hooks/useOpenedFolderFiles';
 import { openFileFromPath } from '@renderer/lib/open-file-from-path';
+import { insertIntoWysiwyg } from '@renderer/lib/editor/wysiwyg-insert';
 import { HistoryUtilityPanel } from './HistoryUtilityPanel';
 import { PublishUtilityPanel } from './PublishUtilityPanel';
 import { ShareUtilityPanel } from './ShareUtilityPanel';
@@ -144,6 +145,9 @@ export function MountedUtilityPanels({
         isOpen
         onClose={() => useUtilityPanelStore.getState().setActiveUtilityPanel(null)}
         onInsert={(fence) => {
+          if (insertIntoWysiwyg(fence)) {
+            return;
+          }
           const view = editorRef.current;
           const current = view ? view.state.doc.toString() : useDocumentStore.getState().content;
           const selection = view

@@ -27,6 +27,7 @@ import { WysiwygToolbar, createDefaultActions } from './WysiwygToolbar';
 import type { ToolbarAction } from './WysiwygToolbar';
 import { cn } from '@shared/lib/utils';
 import { insertSpeechIntoView } from '../../lib/editor/wysiwyg-speech';
+import { insertMarkdownBlock, registerWysiwygInsert } from '../../lib/editor/wysiwyg-insert';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -314,6 +315,13 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
     }, []);
 
     const viewRef = useEditorView(containerRef, content, documentKey, onChangeRef, onStateUpdate);
+    React.useEffect(() => {
+      registerWysiwygInsert((markdown) => {
+        const view = viewRef.current;
+        return view ? insertMarkdownBlock(view, markdown) : false;
+      });
+      return () => registerWysiwygInsert(null);
+    }, [viewRef]);
     React.useImperativeHandle(
       ref,
       () => ({
