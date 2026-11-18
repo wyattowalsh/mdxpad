@@ -5,6 +5,7 @@
 import type { FileError } from '@shared/types/file';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
+import { liveSourceText } from '@renderer/components/tabs/live-source-text';
 
 export const UNTITLED_EDIT_PATH = 'untitled';
 export const MAX_REVISION_CHARS = 6000;
@@ -27,7 +28,7 @@ function openTab(path: string) {
 function currentText(path: string): string | null {
   const state = useDocumentStore.getState();
   if (path === openDocumentEditPath(state.filePath)) {
-    return state.content;
+    return liveSourceText() ?? state.content;
   }
   return openTab(path)?.content ?? null;
 }
@@ -35,7 +36,8 @@ function currentText(path: string): string | null {
 export function applyOpenDocumentEdit(path: string, modified: string, original?: string): boolean {
   const state = useDocumentStore.getState();
   if (path === openDocumentEditPath(state.filePath)) {
-    if (original !== undefined && state.content !== original) {
+    const current = liveSourceText() ?? state.content;
+    if (original !== undefined && current !== original) {
       return false;
     }
     state.setContent(modified);

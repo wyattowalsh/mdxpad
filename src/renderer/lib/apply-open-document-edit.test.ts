@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
+import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import {
   acceptDocumentEdit,
   applyOpenDocumentEdit,
@@ -13,6 +14,7 @@ describe('open document edits', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
     useTabStore.getState().reset();
+    registerLiveSourceText(null);
     Reflect.deleteProperty(window, 'mdxpad');
   });
 
@@ -62,6 +64,15 @@ describe('open document edits', () => {
     );
 
     expect(useDocumentStore.getState().content).toBe('newer');
+  });
+
+  it('does not replace keystrokes that are still only in the editor', () => {
+    useDocumentStore.setState({ content: 'Hello', filePath: null });
+    registerLiveSourceText(() => 'Hello!');
+
+    expect(applyOpenDocumentEdit(openDocumentEditPath(null), 'revised', 'Hello')).toBe(false);
+
+    expect(useDocumentStore.getState().content).toBe('Hello');
   });
 
   it('writes a closed file when that file can already be saved', async () => {
