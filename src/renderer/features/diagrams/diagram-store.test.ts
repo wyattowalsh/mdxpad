@@ -3,12 +3,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { useDiagramStore, extractMermaidCode } from './diagram-store';
 
 describe('useDiagramStore', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     useDiagramStore.getState().reset();
+    useDocumentStore.getState().reset();
   });
 
   it('should initialize with idle status', () => {
@@ -93,12 +95,14 @@ describe('useDiagramStore', () => {
         }),
       },
     });
+    useDocumentStore.setState({ filePath: '/notes/login.md' });
     useDiagramStore.getState().setDescription('login flow');
     await useDiagramStore.getState().generate();
 
     const state = useDiagramStore.getState();
     expect(state.status).toBe('success');
     expect(state.mermaidCode).toBe('flowchart TD\n  A-->B');
+    expect(state.documentKey).toBe('/notes/login.md');
   });
 });
 

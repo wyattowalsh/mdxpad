@@ -9,6 +9,9 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { editorDocumentKey } from '@renderer/lib/editor-document-key';
+import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 
 // =============================================================================
 // STATE
@@ -19,6 +22,7 @@ export type DiagramStatus = 'idle' | 'generating' | 'success' | 'error';
 export interface DiagramState {
   description: string;
   mermaidCode: string;
+  documentKey: string | null;
   status: DiagramStatus;
   error: string | null;
   history: { description: string; mermaidCode: string; timestamp: string }[];
@@ -41,6 +45,7 @@ export type DiagramStore = DiagramState & DiagramActions;
 const INITIAL_STATE: DiagramState = {
   description: '',
   mermaidCode: '',
+  documentKey: null,
   status: 'idle',
   error: null,
   history: [],
@@ -63,9 +68,14 @@ export const useDiagramStore = create<DiagramStore>()(
     generate: async () => {
       const description = get().description.trim();
       if (!description) return;
+      const documentKey = editorDocumentKey(
+        useDocumentStore.getState().filePath,
+        useTabStore.getState().activeTabId
+      );
 
       if (typeof window === 'undefined' || !('mdxpad' in window)) {
         set((draft) => {
+          draft.documentKey = documentKey;
           draft.status = 'error';
           draft.error = 'Diagram generation is not available';
         });
@@ -73,6 +83,7 @@ export const useDiagramStore = create<DiagramStore>()(
       }
 
       set((draft) => {
+        draft.documentKey = documentKey;
         draft.status = 'generating';
         draft.error = null;
         draft.mermaidCode = '';
@@ -118,6 +129,7 @@ export const useDiagramStore = create<DiagramStore>()(
     clearGenerated: () => {
       set((draft) => {
         draft.mermaidCode = '';
+        draft.documentKey = null;
         draft.status = 'idle';
       });
     },

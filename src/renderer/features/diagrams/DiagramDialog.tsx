@@ -8,6 +8,9 @@
  */
 
 import React, { useCallback, useRef } from 'react';
+import { editorDocumentKey } from '@renderer/lib/editor-document-key';
+import { selectFilePath, useDocumentStore } from '@renderer/stores/document-store';
+import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import {
   useDiagramStore,
   selectDescription,
@@ -51,9 +54,15 @@ function MermaidPreview({ code }: { code: string }) {
 export function DiagramDialog({ isOpen, onClose, onInsert }: DiagramDialogProps) {
   const description = useDiagramStore(selectDescription);
   const mermaidCode = useDiagramStore(selectMermaidCode);
+  const diagramDocumentKey = useDiagramStore((state) => state.documentKey);
   const status = useDiagramStore(selectDiagramStatus);
   const error = useDiagramStore(selectDiagramError);
   const isGenerating = useDiagramStore(selectIsGenerating);
+  const filePath = useDocumentStore(selectFilePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const showResult =
+    diagramDocumentKey !== null &&
+    diagramDocumentKey === editorDocumentKey(filePath, activeTabId);
   const { setDescription, generate, clearGenerated } = useDiagramStore();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,17 +148,17 @@ export function DiagramDialog({ isOpen, onClose, onInsert }: DiagramDialogProps)
           </button>
 
           {/* Error */}
-          {error && (
+          {showResult && error && (
             <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950 dark:text-red-400">
               {error}
             </div>
           )}
 
           {/* Preview */}
-          {status === 'success' && <MermaidPreview code={mermaidCode} />}
+          {showResult && status === 'success' && <MermaidPreview code={mermaidCode} />}
 
           {/* Insert Button */}
-          {mermaidCode && (
+          {showResult && mermaidCode && (
             <button
               type="button"
               onClick={handleInsert}
