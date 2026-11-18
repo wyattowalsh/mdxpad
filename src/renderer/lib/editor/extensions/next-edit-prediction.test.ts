@@ -92,6 +92,79 @@ describe('nextEditPrediction', () => {
       vi.useRealTimers();
     }
   });
+
+  it('does not request a prediction after the editor closes', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const provider: PredictionProvider = () => {
+      calls += 1;
+      return Promise.resolve(' ghost');
+    };
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: 'Hello',
+        extensions: [nextEditPrediction(provider)],
+      }),
+      parent,
+    });
+    const rejections: unknown[] = [];
+    const onRejection = (event: PromiseRejectionEvent): void => {
+      rejections.push(event.reason);
+      event.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+
+    try {
+      view.dispatch({ changes: { from: 5, insert: '!' } });
+      view.destroy();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(calls).toBe(0);
+      expect(rejections).toEqual([]);
+    } finally {
+      window.removeEventListener('unhandledrejection', onRejection);
+      parent.remove();
+      vi.useRealTimers();
+    }
+  });
+
+  it('drops a prediction that finishes after the editor closes', async () => {
+    vi.useFakeTimers();
+    let finish: ((value: string) => void) | undefined;
+    const provider: PredictionProvider = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: 'Hello',
+        extensions: [nextEditPrediction(provider)],
+      }),
+      parent,
+    });
+    const rejections: unknown[] = [];
+    const onRejection = (event: PromiseRejectionEvent): void => {
+      rejections.push(event.reason);
+      event.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+
+    try {
+      view.dispatch({ changes: { from: 5, insert: '!' } });
+      await vi.advanceTimersByTimeAsync(500);
+      view.destroy();
+      finish?.(' ghost');
+      await Promise.resolve();
+      expect(rejections).toEqual([]);
+    } finally {
+      window.removeEventListener('unhandledrejection', onRejection);
+      parent.remove();
+      vi.useRealTimers();
+    }
+  });
 });
 
 afterEach(() => {

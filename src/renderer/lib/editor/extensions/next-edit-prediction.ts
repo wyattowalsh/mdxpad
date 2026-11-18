@@ -9,7 +9,14 @@
  */
 
 import { type Extension, StateField, StateEffect, type EditorState } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView, WidgetType, keymap } from '@codemirror/view';
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+  keymap,
+} from '@codemirror/view';
 
 // =============================================================================
 // CONFIGURATION
@@ -195,6 +202,37 @@ function getCurrentPrediction(state: EditorState): string | null {
  * });
  * ```
  */
+function editorClosed(view: EditorView): boolean {
+  const editor = view as unknown as { readonly destroyed?: boolean };
+  return editor.destroyed === true;
+}
+
+function showPrediction(
+  view: EditorView,
+  provider: PredictionProvider,
+  signal: AbortSignal
+): void {
+  if (editorClosed(view)) {
+    return;
+  }
+  const text = view.state.doc.toString();
+  const pos = view.state.selection.main.head;
+  void provider(text, pos, signal).then(
+    (prediction) => {
+      if (editorClosed(view) || signal.aborted || !prediction) {
+        return;
+      }
+      if (view.state.selection.main.head !== pos) {
+        return;
+      }
+      view.dispatch({
+        effects: [setPrediction.of(prediction)],
+      });
+    },
+    () => undefined
+  );
+}
+
 export function nextEditPrediction(provider: PredictionProvider): Extension {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let abortController: AbortController | null = null;
@@ -222,30 +260,32 @@ export function nextEditPrediction(provider: PredictionProvider): Extension {
     debounceTimer = setTimeout(() => {
       const controller = new AbortController();
       abortController = controller;
-      const { state } = update.view;
-      const text = state.doc.toString();
-      const pos = state.selection.main.head;
-      const signal = controller.signal;
-
-      void provider(text, pos, signal).then(
-        (prediction) => {
-          if (prediction && !signal.aborted && update.view.state.selection.main.head === pos) {
-            update.view.dispatch({
-              effects: [setPrediction.of(prediction)],
-            });
-          }
-        },
-        () => {
-          // Request was aborted or failed, ignore
-        }
-      );
+      showPrediction(update.view, provider, controller.signal);
     }, DEBOUNCE_MS);
   });
+
+  const cancelPending = (): void => {
+    if (debounceTimer !== null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    abortController?.abort();
+    abortController = null;
+  };
+
+  const lifecycle = ViewPlugin.fromClass(
+    class {
+      destroy(): void {
+        cancelPending();
+      }
+    }
+  );
 
   return [
     predictionField,
     predictionTheme,
     createPredictionKeymap(() => currentPrediction),
     updateListener,
+    lifecycle,
   ];
 }
