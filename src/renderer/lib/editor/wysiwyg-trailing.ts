@@ -1,7 +1,15 @@
 import type { ResolvedPos } from 'prosemirror-model';
 import { NodeSelection, TextSelection, type Command } from 'prosemirror-state';
 
-const TRAPPED = new Set(['code_block', 'jsx_block', 'table', 'horizontal_rule', 'blockquote']);
+const TRAPPED = new Set([
+  'code_block',
+  'jsx_block',
+  'table',
+  'horizontal_rule',
+  'blockquote',
+  'bullet_list',
+  'ordered_list',
+]);
 
 function tableCellDepth($from: ResolvedPos): number {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
@@ -38,6 +46,24 @@ function atQuoteEdge($from: ResolvedPos, edge: 'start' | 'end'): boolean {
   return $from.index(1) === 0 && $from.parentOffset === 0;
 }
 
+function atListEdge($from: ResolvedPos, edge: 'start' | 'end'): boolean {
+  const name = $from.node(1).type.name;
+  if ((name !== 'bullet_list' && name !== 'ordered_list') || $from.depth < 2) {
+    return false;
+  }
+  const list = $from.node(1);
+  const item = $from.node(2);
+  if (item.type.name !== 'list_item') {
+    return false;
+  }
+  if (edge === 'end') {
+    const lastItem = $from.index(1) === list.childCount - 1;
+    const lastBlock = $from.index(2) === item.childCount - 1;
+    return lastItem && lastBlock && $from.parentOffset === $from.parent.content.size;
+  }
+  return $from.index(1) === 0 && $from.index(2) === 0 && $from.parentOffset === 0;
+}
+
 function atStartOfTable($from: ResolvedPos): boolean {
   const cellDepth = tableCellDepth($from);
   if (cellDepth < 2) {
@@ -68,6 +94,9 @@ export function trappedAtDocumentEnd(state: Parameters<Command>[0]): boolean {
   if (name === 'blockquote') {
     return atQuoteEdge($from, 'end');
   }
+  if (name === 'bullet_list' || name === 'ordered_list') {
+    return atListEdge($from, 'end');
+  }
   return false;
 }
 
@@ -91,10 +120,13 @@ export function trappedAtDocumentStart(state: Parameters<Command>[0]): boolean {
   if (name === 'blockquote') {
     return atQuoteEdge($from, 'start');
   }
+  if (name === 'bullet_list' || name === 'ordered_list') {
+    return atListEdge($from, 'start');
+  }
   return false;
 }
 
-/** Add a paragraph before the leading code block, quote, table, or rule. */
+/** Add a paragraph before the leading code block, quote, list, table, or rule. */
 export function prependLeadingParagraph(
   state: Parameters<Command>[0],
   dispatch: Parameters<Command>[1]
@@ -114,7 +146,7 @@ export function prependLeadingParagraph(
   return true;
 }
 
-/** Add a paragraph after the final code block, quote, table, or rule. */
+/** Add a paragraph after the final code block, quote, list, table, or rule. */
 export function appendTrailingParagraph(
   state: Parameters<Command>[0],
   dispatch: Parameters<Command>[1]

@@ -83,6 +83,36 @@ describe('trailing visual blocks', () => {
     expect(leading.state.doc.child(1).type.name).toBe('blockquote');
   });
 
+  it('adds a paragraph after a final list and before a leading list', () => {
+    const view = open('- Hello\n');
+    views.push(view);
+    caretAtEnd(view, 'Hello');
+    expect(appendTrailingParagraph(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.firstChild?.type.name).toBe('bullet_list');
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+
+    const leading = open('1. Hello\n');
+    views.push(leading);
+    let start = 0;
+    leading.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Hello') {
+        start = pos;
+      }
+    });
+    leading.dispatch(leading.state.tr.setSelection(TextSelection.create(leading.state.doc, start)));
+    expect(prependLeadingParagraph(leading.state, leading.dispatch)).toBe(true);
+    expect(leading.state.doc.firstChild?.type.name).toBe('paragraph');
+    expect(leading.state.doc.child(1).type.name).toBe('ordered_list');
+  });
+
+  it('leaves the middle of a list inside the list', () => {
+    const view = open('- One\n- Two\n');
+    views.push(view);
+    caretAtEnd(view, 'One');
+    expect(appendTrailingParagraph(view.state, view.dispatch)).toBe(false);
+    expect(view.state.doc.childCount).toBe(1);
+  });
+
   it('leaves a quote alone when a paragraph already follows it', () => {
     const view = open('> Quoted\n\nAfter\n');
     views.push(view);
