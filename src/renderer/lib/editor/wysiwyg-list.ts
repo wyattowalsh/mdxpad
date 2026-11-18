@@ -3,6 +3,7 @@ import type { Command } from 'prosemirror-state';
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
 import type { EditorView } from 'prosemirror-view';
 
+import { indentCodeBlock, outdentCodeBlock } from './wysiwyg-code-indent';
 import { mdxSchema } from './prosemirror-mdx-schema';
 
 export type VisualListKind = 'bullet' | 'ordered';
@@ -49,7 +50,9 @@ export function toggleVisualList(view: EditorView, kind: VisualListKind): boolea
       return false;
     }
     view.dispatch(
-      view.state.tr.setNodeMarkup(current.pos, type, listAttrs(kind, node.attrs.tight)).scrollIntoView()
+      view.state.tr
+        .setNodeMarkup(current.pos, type, listAttrs(kind, node.attrs.tight))
+        .scrollIntoView()
     );
     view.focus();
     return true;
@@ -116,7 +119,7 @@ const joinListItemBackward: Command = (state, dispatch, view) => {
     return liftListItem(mdxSchema.nodes.list_item)(state, dispatch, view);
   }
   return joinAt(state, dispatch, $from.before($from.depth - 1));
-}
+};
 
 const joinListItemForward: Command = (state, dispatch) => {
   const { $from, empty } = state.selection;
@@ -139,8 +142,12 @@ const joinListItemForward: Command = (state, dispatch) => {
 export function visualListKeymap(): Record<string, Command> {
   return {
     Enter: enterListItem,
-    Tab: sinkListItem(mdxSchema.nodes.list_item),
-    'Shift-Tab': liftListItem(mdxSchema.nodes.list_item),
+    Tab: (state, dispatch, view) =>
+      indentCodeBlock(state, dispatch) ||
+      sinkListItem(mdxSchema.nodes.list_item)(state, dispatch, view),
+    'Shift-Tab': (state, dispatch, view) =>
+      outdentCodeBlock(state, dispatch) ||
+      liftListItem(mdxSchema.nodes.list_item)(state, dispatch, view),
     Backspace: joinListItemBackward,
     Delete: joinListItemForward,
   };
