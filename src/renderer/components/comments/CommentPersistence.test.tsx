@@ -1,11 +1,11 @@
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useCommentsStore } from '@renderer/stores/comments-store';
 import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 
-import { CommentPersistence } from './CommentWorkspace';
+import { CommentPersistence, CommentWorkspace } from './CommentWorkspace';
 import { readCommentThreads } from './comment-storage';
 
 function untitledTab(fileName: string): string {
@@ -24,6 +24,28 @@ describe('CommentPersistence', () => {
     useCommentsStore.getState().reset();
     useTabStore.getState().reset();
     useDocumentStore.getState().reset();
+  });
+
+  it('does not show another file’s comments before they are loaded', () => {
+    useCommentsStore.setState({
+      loadedFor: '/tmp/a.md',
+      activeThreadId: 'thread-1',
+      threads: [
+        {
+          id: 'thread-1',
+          anchorFrom: 0,
+          anchorTo: 4,
+          resolved: false,
+          createdAt: 1,
+          messages: [{ id: 'message-1', author: 'You', content: 'Secret note', timestamp: 1 }],
+        },
+      ],
+    });
+    useDocumentStore.setState({ filePath: '/tmp/b.md' });
+
+    render(<CommentWorkspace editorRef={{ current: null }} />);
+
+    expect(screen.queryByText('Secret note')).toBeNull();
   });
 
   it('does not show one untitled tab comments on another', () => {

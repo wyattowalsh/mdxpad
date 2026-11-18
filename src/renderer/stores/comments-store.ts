@@ -38,6 +38,8 @@ export interface CommentThread {
 export interface CommentsState {
   readonly threads: readonly CommentThread[];
   readonly activeThreadId: string | null;
+  /** Document key the current threads were loaded for. */
+  readonly loadedFor: string | null;
 }
 
 /** Comments store actions */
@@ -67,6 +69,7 @@ export type CommentsStore = CommentsState & CommentsActions;
 const INITIAL_COMMENTS_STATE: CommentsState = {
   threads: [],
   activeThreadId: null,
+  loadedFor: null,
 };
 
 // ============================================================================
@@ -216,6 +219,7 @@ export const useCommentsStore = create<CommentsStore>()(
       set((draft) => {
         (draft.threads as CommentThread[]).length = 0;
         draft.activeThreadId = null;
+        draft.loadedFor = null;
       }),
   }))
 );

@@ -54,15 +54,22 @@ export function CommentPersistence(): null {
     const previous = previousKey.current;
     previousKey.current = storageKey;
     if (!storageKey) {
-      useCommentsStore.getState().reset();
-      return;
+      useCommentsStore.setState({ threads: [], activeThreadId: null, loadedFor: null });
+      return undefined;
     }
     const threads = threadsForDocument(storageKey, previous, activeTabId);
-    useCommentsStore.setState({ threads: [...threads], activeThreadId: null });
+    useCommentsStore.setState({
+      threads: [...threads],
+      activeThreadId: null,
+      loadedFor: storageKey,
+    });
     if (activeTabId !== null && previous === `untitled:${activeTabId}`) {
       writeCommentThreads(storageKey, threads);
     }
     return useCommentsStore.subscribe((state) => {
+      if (state.loadedFor !== storageKey) {
+        return;
+      }
       writeCommentThreads(storageKey, state.threads);
     });
   }, [activeTabId, storageKey]);
@@ -75,7 +82,12 @@ export function CommentWorkspace({
 }: {
   readonly editorRef: RefObject<EditorView | null>;
 }): React.JSX.Element {
-  const threads = useCommentsStore((state) => state.threads);
+  const filePath = useDocumentStore((state) => state.filePath);
+  const activeTabId = useTabStore(selectActiveTabId);
+  const storageKey = commentStorageKey(filePath, activeTabId);
+  const loadedFor = useCommentsStore((state) => state.loadedFor);
+  const storedThreads = useCommentsStore((state) => state.threads);
+  const threads = loadedFor === storageKey ? storedThreads : [];
   const content = useDocumentStore((state) => state.content);
   const activeThreadId = useCommentsStore((state) => state.activeThreadId);
   const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? null;
