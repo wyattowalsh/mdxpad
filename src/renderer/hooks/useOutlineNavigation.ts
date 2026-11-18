@@ -11,6 +11,7 @@ import { useCallback, useRef } from 'react';
 import { EditorView } from '@codemirror/view';
 import type { OutlineItem } from '@shared/types/outline';
 import { highlightLineTemporary, HIGHLIGHT_DURATION_MS } from '@renderer/lib/editor/line-highlight';
+import { focusWysiwygOutline } from '@renderer/lib/editor/wysiwyg-outline';
 
 // =============================================================================
 // Types
@@ -133,9 +134,12 @@ export function useOutlineNavigation(
    */
   const navigateToItem = useCallback(
     (item: OutlineItem): void => {
+      if (!editorRef.current && focusWysiwygOutline(item)) {
+        return;
+      }
       navigateToPosition(item.line, item.column);
     },
-    [navigateToPosition]
+    [editorRef, navigateToPosition]
   );
 
   return { navigateToItem, navigateToPosition };
