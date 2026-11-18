@@ -67,7 +67,11 @@ export interface HistoryApi {
    * @param label - Optional label for the snapshot
    * @returns Snapshot creation result
    */
-  readonly createSnapshot: (filePath: string, label?: string) => Promise<CreateSnapshotResponse>;
+  readonly createSnapshot: (
+    filePath: string,
+    label?: string,
+    content?: string
+  ) => Promise<CreateSnapshotResponse>;
 }
 
 // ============================================================================
@@ -137,11 +141,12 @@ export const historyApi: HistoryApi = {
     return responseParsed.data;
   },
 
-  createSnapshot: async (filePath, label) => {
-    const request: Record<string, string> = { filePath };
-    if (label !== undefined) {
-      request.label = label;
-    }
+  createSnapshot: async (filePath, label, content) => {
+    const request = {
+      filePath,
+      ...(label !== undefined ? { label } : {}),
+      ...(content !== undefined ? { content } : {}),
+    };
     const parsed = CreateSnapshotRequestSchema.safeParse(request);
     if (!parsed.success) {
       throw new Error(`Invalid create snapshot request: ${parsed.error.message}`);

@@ -111,6 +111,8 @@ export const CreateSnapshotRequestSchema = z.object({
   filePath: z.string().min(1),
   /** Optional label for the snapshot */
   label: z.string().optional(),
+  /** Editor text to store. When omitted, the file on disk is read. */
+  content: z.string().optional(),
 });
 
 /** Inferred CreateSnapshotRequest type */

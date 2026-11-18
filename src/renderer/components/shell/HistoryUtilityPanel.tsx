@@ -85,6 +85,32 @@ export function HistoryUtilityPanel(): React.JSX.Element {
               {error}
             </p>
           ) : null}
+          <button
+            type="button"
+            className="text-sm underline"
+            onClick={() => {
+              if (!window.mdxpad.history) {
+                return;
+              }
+              const historyApi = window.mdxpad.history;
+              setError(null);
+              void historyApi
+                .createSnapshot(filePath, 'Editor snapshot', content)
+                .then(async (result) => {
+                  if (!result.ok) {
+                    setError(result.error ?? 'Could not save a snapshot');
+                    return;
+                  }
+                  const history = await historyApi.getHistory(filePath);
+                  loadHistory(history.entries, filePath);
+                })
+                .catch((caught: unknown) => {
+                  setError(caught instanceof Error ? caught.message : 'Could not save a snapshot');
+                });
+            }}
+          >
+            Save a snapshot of the editor
+          </button>
           <VersionTimeline
             entries={entries}
             selectedEntryId={selectedEntryId}

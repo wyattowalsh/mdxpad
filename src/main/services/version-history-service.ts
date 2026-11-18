@@ -211,11 +211,15 @@ export class VersionHistoryService {
    * @param label - Optional label for the snapshot
    * @returns Snapshot creation result
    */
-  async createSnapshot(filePath: string, label?: string): Promise<CreateSnapshotResponse> {
+  async createSnapshot(
+    filePath: string,
+    label?: string,
+    content?: string
+  ): Promise<CreateSnapshotResponse> {
     try {
       const openedPath = await assertOpenedDocumentWrite(filePath, this.canWrite);
-      const content = await readOpenedDocument(openedPath);
-      const entry = await this.createSnapshotInternal(openedPath, content, 'manual', label);
+      const snapshotContent = content ?? (await readOpenedDocument(openedPath));
+      const entry = await this.createSnapshotInternal(openedPath, snapshotContent, 'manual', label);
 
       return { ok: true, entry };
     } catch (error) {

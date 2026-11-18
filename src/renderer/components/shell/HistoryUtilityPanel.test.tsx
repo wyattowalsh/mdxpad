@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@renderer/stores/document-store';
@@ -55,6 +55,25 @@ describe('HistoryUtilityPanel', () => {
       expect(screen.getByRole('alert').textContent).toBe(
         'Open this file before reading its history'
       );
+    });
+  });
+
+  it('saves a snapshot of the editor text', async () => {
+    useDocumentStore.setState({ filePath: '/tmp/note.mdx', content: '# Live' });
+    const createSnapshot = vi.fn().mockResolvedValue({
+      ok: true,
+      entry: { id: 'snapshot-1', timestamp: 1, source: 'manual', label: 'Editor snapshot' },
+    });
+    const getHistory = vi.fn().mockResolvedValue({ entries: [] });
+    vi.stubGlobal('mdxpad', {
+      history: { getHistory, getVersion: vi.fn(), createSnapshot },
+    });
+
+    render(<HistoryUtilityPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save a snapshot of the editor' }));
+
+    await waitFor(() => {
+      expect(createSnapshot).toHaveBeenCalledWith('/tmp/note.mdx', 'Editor snapshot', '# Live');
     });
   });
 });

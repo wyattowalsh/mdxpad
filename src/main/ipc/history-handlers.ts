@@ -51,7 +51,7 @@ function createHistoryHandlers(service: VersionHistoryService) {
     createSnapshot: createValidatedHandler(
       CreateSnapshotRequestSchema,
       async (args): Promise<CreateSnapshotResponse> =>
-        service.createSnapshot(args.filePath, args.label)
+        service.createSnapshot(args.filePath, args.label, args.content)
     ),
   };
 }

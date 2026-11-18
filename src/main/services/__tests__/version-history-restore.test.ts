@@ -49,4 +49,25 @@ describe('VersionHistoryService.restoreVersion', () => {
     const version = await service.getVersion(backup.id, note);
     expect(version.content).toBe('unsaved editor');
   });
+
+  it('stores the editor text instead of the copy on disk', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-history-editor-'));
+    tempDirs.push(root);
+    userDataDir = root;
+    const note = path.join(root, 'note.md');
+    await writeFile(note, 'disk version');
+    const service = new VersionHistoryService(() => true);
+
+    const created = await service.createSnapshot(note, 'Editor snapshot', 'editor text');
+    const snapshotId = created.entry?.id;
+
+    expect(created.ok).toBe(true);
+    expect(snapshotId).toBeTruthy();
+    if (!snapshotId) {
+      return;
+    }
+    expect(await readFile(note, 'utf-8')).toBe('disk version');
+    const version = await service.getVersion(snapshotId, note);
+    expect(version.content).toBe('editor text');
+  });
 });
