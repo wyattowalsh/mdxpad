@@ -3,13 +3,10 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, TextSelection, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 
+import { isCurrencySpan } from '@shared/lib/currency-span';
+
 const MATH_PATTERN =
   /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$(?![\s$])([^$\n]+?)(?<![\s$])\$/g;
-
-function isPrice(value: string): boolean {
-  const trimmed = value.trim();
-  return trimmed.length > 0 && /\d/.test(trimmed) && /^[\d\s.,:;]+$/.test(trimmed);
-}
 
 function placeCaretInFormula(
   view: EditorView,
@@ -97,7 +94,7 @@ function decorateRun(state: EditorState, run: TextRun, decorations: Decoration[]
     if (start === undefined || end === undefined || tex.trim().length === 0) {
       continue;
     }
-    if (match[4] !== undefined && isPrice(tex)) {
+    if (match[4] !== undefined && isCurrencySpan(tex)) {
       continue;
     }
     const from = start;

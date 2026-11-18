@@ -23,6 +23,11 @@ describe('WYSIWYG math decorations', () => {
     expect(decorations.find()).toHaveLength(2);
   });
 
+  it('renders a formula written in words and leaves a price phrase as text', () => {
+    expect(mathDecorations(stateFor('Compare $n and m$')).find()).toHaveLength(2);
+    expect(mathDecorations(stateFor('Pay $100 dollars$ today')).find()).toHaveLength(0);
+  });
+
   it('renders TeX delimiters', () => {
     const decorations = mathDecorations(stateFor('The area is \\(x^2\\).'));
     expect(decorations.find()).toHaveLength(2);
