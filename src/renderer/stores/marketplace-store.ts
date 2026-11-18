@@ -130,9 +130,12 @@ let marketplaceApi: MarketplaceApi = defaultMarketplaceApi;
 
 type MpSetter = (fn: (draft: Draft<MarketplaceState>) => void) => void;
 
+let fetchTemplatesRequestId = 0;
+
 function createFetchActions(set: MpSetter) {
   return {
     fetchTemplates: async (): Promise<void> => {
+      const requestId = ++fetchTemplatesRequestId;
       set((draft) => {
         draft.status = 'loading';
         draft.error = null;
@@ -140,6 +143,9 @@ function createFetchActions(set: MpSetter) {
 
       try {
         const result = await marketplaceApi.list();
+        if (requestId !== fetchTemplatesRequestId) {
+          return;
+        }
         if (result.success) {
           set((draft) => {
             draft.templates = result.data;
@@ -152,6 +158,9 @@ function createFetchActions(set: MpSetter) {
           });
         }
       } catch (err) {
+        if (requestId !== fetchTemplatesRequestId) {
+          return;
+        }
         set((draft) => {
           draft.error = err instanceof Error ? err.message : 'Failed to fetch templates';
           draft.status = 'error';
@@ -203,6 +212,7 @@ function createFilterActions(set: MpSetter) {
     },
 
     reset: (): void => {
+      fetchTemplatesRequestId += 1;
       set(() => ({ ...INITIAL_STATE }));
     },
   };

@@ -91,6 +91,33 @@ describe('useMarketplaceStore', () => {
       expect(state.error).toBeNull();
     });
 
+    it('keeps the newer catalog when an older fetch finishes late', async () => {
+      let finishOld: (value: { success: true; data: MarketplaceTemplate[] }) => void = () =>
+        undefined;
+      const newer = [{ ...SAMPLE_TEMPLATES[0], id: 'new', name: 'Newer' }];
+      const list = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishOld = resolve;
+            })
+        )
+        .mockResolvedValueOnce({ success: true, data: newer });
+      useMarketplaceStore.getState().setApi(createMockApi({ list }));
+
+      const first = useMarketplaceStore.getState().fetchTemplates();
+      const second = useMarketplaceStore.getState().fetchTemplates();
+      await second;
+      finishOld({ success: true, data: SAMPLE_TEMPLATES });
+      await first;
+
+      expect(useMarketplaceStore.getState().templates.map((template) => template.id)).toEqual([
+        'new',
+      ]);
+      expect(useMarketplaceStore.getState().status).toBe('idle');
+    });
+
     it('should set error on failure', async () => {
       const api = createMockApi({
         list: vi.fn().mockResolvedValue({
