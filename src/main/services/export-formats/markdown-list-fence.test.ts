@@ -17,6 +17,8 @@ describe('list fences', () => {
     expect(readListFenceLine(state, '  ```', 2)).toBe('closed');
     expect(state.lines).toEqual(['const x = 1']);
     expect(listFenceOnMarker('- ```js', 2)?.indent).toBe(2);
+    expect(listFenceOnMarker('1) ```js', 3)?.indent).toBe(3);
+    expect(listFenceOnMarker('10) ```python', 4)?.language).toBe('python');
     expect(openListFence('```js', 2)).toBeNull();
     expect(readOpenListQuote('  > quoted', 2)).toBe('quoted');
     expect(readListQuoteLine('  line', 2)).toBe('line');

@@ -300,6 +300,19 @@ describe('PdfExporter', () => {
     expect(html.indexOf('</blockquote><p>after</p></li>')).toBeLessThan(html.indexOf('</ul>'));
   });
 
+  it('keeps a fence written on a parenthesis marker', async () => {
+    await exporter.export({
+      content: '1) ```js\n   const x = 1\n   ```\n',
+      outputPath: '/tmp/paren-marker-fence.pdf',
+    });
+    const html = decodeURIComponent(
+      String(mockLoadURL.mock.calls.at(-1)?.[0]).replace('data:text/html;charset=utf-8,', '')
+    );
+    expect(html).toContain('<li><pre><code class="language-js">');
+    expect(html).toContain('const');
+    expect(html.indexOf('</code></pre></li>')).toBeLessThan(html.indexOf('</ol>'));
+  });
+
   it('keeps a fenced block inside a parenthesis list item', async () => {
     await exporter.export({
       content: '10) item\n\n    ```js\n    const x = 1\n    ```\n\n    after\n',

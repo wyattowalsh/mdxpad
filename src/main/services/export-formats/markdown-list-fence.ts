@@ -73,8 +73,7 @@ export function openListFence(line: string, contentColumn: number): OpenListFenc
 
 /** A list marker whose text is itself the opening fence. */
 export function listFenceOnMarker(raw: string, contentColumn: number): OpenListFence | null {
-  const match = /^( *)([-*+]|\d+\.)[ \t]+(.*)$/.exec(raw.replaceAll('\t', '    '));
-  const opened = openListFence(match?.[3] ?? '', 0);
+  const opened = openListFence(parseListItem(raw)?.text ?? '', 0);
   if (!opened) {
     return null;
   }

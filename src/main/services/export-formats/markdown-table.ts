@@ -1,4 +1,5 @@
 import { isThematicBreak } from './markdown-break';
+import { parseListItem } from './markdown-list';
 import { advanceFence, openingFence } from './markdown-fence';
 
 export type TableAlign = 'left' | 'center' | 'right';
@@ -224,7 +225,7 @@ function isTableBodyRow(line: string): boolean {
   if (/^#{1,6}(?:\s|$)/.test(trimmed) || trimmed.startsWith('>')) {
     return false;
   }
-  return !/^([-*+]|\d+\.)\s/.test(trimmed);
+  return parseListItem(trimmed) === null;
 }
 
 function ensureOuterPipes(line: string): string {

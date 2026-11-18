@@ -73,6 +73,9 @@ describe('parseMarkdownTable', () => {
     expect(closeOpenTableRows(fenced)).toBe(fenced);
     expect(closeOpenTableRows('Title\n---\n')).toBe('Title\n---\n');
     expect(closeOpenTableRows('See a | b here\n\nMore\n')).toBe('See a | b here\n\nMore\n');
+    expect(closeOpenTableRows('1) a | b\n--- | ---\n2) c | d\n')).toBe(
+      '1) a | b\n--- | ---\n2) c | d\n'
+    );
     expect(closeOpenTableRows('  A | B\n  --- | ---\n  1 | 2\n')).toBe(
       '  | A | B |\n  | --- | --- |\n  | 1 | 2 |\n'
     );
