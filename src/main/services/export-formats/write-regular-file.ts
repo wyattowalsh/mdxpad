@@ -21,7 +21,11 @@ async function replaceOutputLink(filePath: string): Promise<void> {
   }
 }
 
-export async function writeRegularFile(filePath: string, content: string | Buffer): Promise<void> {
+export async function prepareRegularOutput(filePath: string): Promise<void> {
   await replaceOutputLink(filePath);
+}
+
+export async function writeRegularFile(filePath: string, content: string | Buffer): Promise<void> {
+  await prepareRegularOutput(filePath);
   await writeFile(filePath, content);
 }

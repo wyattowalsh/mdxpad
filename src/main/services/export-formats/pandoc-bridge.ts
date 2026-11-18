@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 
 import { inlineLocalImages } from './export-image';
+import { prepareRegularOutput } from './write-regular-file';
 import type { Exporter, ExportOptions, ExportResult } from './types';
 import { detectPandoc } from './pandoc-detector';
 
@@ -124,6 +125,7 @@ export class PandocBridge implements Exporter {
         };
       }
 
+      await prepareRegularOutput(options.outputPath);
       const args = buildPandocArgs(this, options);
       const content = options.sourcePath
         ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
