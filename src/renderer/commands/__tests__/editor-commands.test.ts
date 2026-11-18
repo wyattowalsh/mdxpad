@@ -7,7 +7,9 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CommandContext, CommandId } from '@shared/types/commands';
+import type { DocumentId } from '@shared/types/document';
 import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
+import { useDocumentStore } from '../../stores/document-store';
 import { registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
 import { registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
 
@@ -287,6 +289,7 @@ describe('AI write command execution', () => {
     resetMockAISessionStoreState();
     registerWysiwygWrite(null);
     useFeatureFlagsStore.getState().setFlag('ai', true);
+    useDocumentStore.getState().reset();
   });
 
   it('should block AI write commands when AI feature flag is off', async () => {
@@ -435,6 +438,31 @@ describe('AI write command execution', () => {
       message: 'AI write action failed: Provider unavailable',
     });
     expect(editor.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('does not apply an AI write after another file is opened', async () => {
+    const editor = createMockEditor({ content: 'Hello world', from: 0, to: 5 });
+    const ctx = createMockContext({ editor: editor as unknown as CommandContext['editor'] });
+    const cmd = EDITOR_COMMANDS.find((command) => command.id === 'edit.ai-adjust-tone');
+    mockAISessionStoreState.startStream.mockImplementation(async () => {
+      useDocumentStore.getState().openDocument(
+        { fileId: 'file-2' as DocumentId, filePath: '/docs/other.md', mtime: 1 },
+        'other'
+      );
+      emitAISessionStoreState({
+        isStreaming: false,
+        stream: { status: 'completed', text: 'Hi', error: null },
+      });
+    });
+
+    const result = await cmd?.execute(ctx);
+
+    expect(result).toEqual({ ok: false, error: 'Document changed during AI write' });
+    expect(editor.dispatch).not.toHaveBeenCalled();
+    expect(ctx.notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'The document changed before the AI write was applied',
+    });
   });
 
   it('should apply an AI rewrite to the visual selection', async () => {

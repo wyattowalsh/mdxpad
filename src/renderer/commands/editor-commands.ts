@@ -18,8 +18,11 @@ import {
   executeCommand as executeCMCommand,
   type EditorCommandName,
 } from '../hooks/useCodeMirror/commands';
+import { editorDocumentKey } from '../lib/editor-document-key';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useAISessionStore } from '../stores/ai-session-store';
+import { useDocumentStore } from '../stores/document-store';
+import { useTabStore } from '../stores/tab-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
 import { hasWysiwygEdit, isVisualEditCommand, runWysiwygEdit } from '../lib/editor/wysiwyg-command';
 import {
@@ -275,6 +278,50 @@ function applyWriteActionText(
   return { ok: true };
 }
 
+function currentWriteDocument(): string {
+  return editorDocumentKey(useDocumentStore.getState().filePath, useTabStore.getState().activeTabId);
+}
+
+function writeLeftDocument(ctx: CommandContext, startedFor: string): CommandResult | null {
+  if (currentWriteDocument() === startedFor) {
+    return null;
+  }
+  return notifyWriteActionError(
+    ctx,
+    'The document changed before the AI write was applied',
+    'Document changed during AI write',
+    'warning'
+  );
+}
+
+async function finishAIWriteAction(
+  ctx: CommandContext,
+  selection: WriteActionSelection,
+  startedFor: string
+): Promise<CommandResult> {
+  const result = await waitForWriteActionCompletion();
+  const left = writeLeftDocument(ctx, startedFor);
+  if (left) {
+    return left;
+  }
+  if (result.kind === 'canceled') {
+    return notifyWriteActionError(
+      ctx,
+      'AI write action canceled',
+      'AI write action canceled',
+      'info'
+    );
+  }
+  if (result.text.trim().length === 0) {
+    return notifyWriteActionError(
+      ctx,
+      'AI write action failed: Empty AI response',
+      'Empty AI response'
+    );
+  }
+  return applyWriteActionText(ctx, selection, result.text);
+}
+
 async function executeAIWriteAction(
   ctx: CommandContext,
   instruction: string
@@ -294,31 +341,17 @@ async function executeAIWriteAction(
     );
   }
 
+  const startedFor = currentWriteDocument();
   try {
     await useAISessionStore.getState().startStream({
       prompt: buildWriteActionPrompt(instruction, selection),
     });
-    const result = await waitForWriteActionCompletion();
-    if (result.kind === 'canceled') {
-      return notifyWriteActionError(
-        ctx,
-        'AI write action canceled',
-        'AI write action canceled',
-        'info'
-      );
-    }
-
-    const nextText = result.text;
-    if (nextText.trim().length === 0) {
-      return notifyWriteActionError(
-        ctx,
-        'AI write action failed: Empty AI response',
-        'Empty AI response'
-      );
-    }
-
-    return applyWriteActionText(ctx, selection, nextText);
+    return await finishAIWriteAction(ctx, selection, startedFor);
   } catch (error) {
+    const left = writeLeftDocument(ctx, startedFor);
+    if (left) {
+      return left;
+    }
     const message = error instanceof Error ? error.message : String(error);
     return notifyWriteActionError(ctx, `AI write action failed: ${message}`, message);
   }
