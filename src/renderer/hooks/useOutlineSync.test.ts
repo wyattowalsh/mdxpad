@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useOutlineSync } from './useOutlineSync';
 import { usePreviewStore } from '@renderer/stores/preview-store';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { useOutlineStore } from '@renderer/stores/outline-store';
 import type { OutlineAST } from '@shared/types/outline';
 import type { CompileSuccess } from '@shared/types/preview';
@@ -22,7 +23,9 @@ import { INITIAL_OUTLINE_STATE } from '@shared/types/outline';
 /**
  * Create a mock OutlineAST with heading nodes.
  */
-function createOutlineAST(headings: { depth: 1 | 2 | 3 | 4 | 5 | 6; text: string; line: number }[]): OutlineAST {
+function createOutlineAST(
+  headings: { depth: 1 | 2 | 3 | 4 | 5 | 6; text: string; line: number }[]
+): OutlineAST {
   return {
     headings: headings.map((h) => ({
       depth: h.depth,
@@ -66,6 +69,7 @@ beforeEach(() => {
 
   // Reset outline store
   useOutlineStore.getState().reset();
+  useDocumentStore.getState().reset();
 });
 
 // =============================================================================
@@ -161,6 +165,18 @@ describe('useOutlineSync', () => {
       rerender();
 
       expect(getHeadingsItems()).toEqual([]);
+    });
+
+    it('keeps document headings when preview compilation fails', () => {
+      useDocumentStore.setState({ content: '```md\n# Hidden\n```\n\n# Kept\n' });
+      const ast = createOutlineAST([{ depth: 1, text: 'Old', line: 1 }]);
+      setPreviewSuccess(ast);
+
+      const { rerender } = renderHook(() => useOutlineSync());
+      usePreviewStore.getState().setError([{ message: 'Compile failed' }]);
+      rerender();
+
+      expect(getHeadingsItems().map((item) => item.label)).toEqual(['Kept']);
     });
   });
 

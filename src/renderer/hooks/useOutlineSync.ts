@@ -9,15 +9,14 @@
  */
 
 import { useEffect } from 'react';
-import { usePreviewStore, selectOutlineAST, selectIsCompiling } from '@renderer/stores/preview-store';
+import { parseFallbackOutline } from '@renderer/lib/mdx/fallback-outline-parser';
+import {
+  usePreviewStore,
+  selectOutlineAST,
+  selectIsCompiling,
+} from '@renderer/stores/preview-store';
+import { useDocumentStore } from '@renderer/stores/document-store';
 import { useOutlineStore } from '@renderer/stores/outline-store';
-import type { OutlineAST } from '@shared/types/outline';
-
-const EMPTY_OUTLINE_AST: OutlineAST = {
-  headings: [],
-  components: [],
-  frontmatter: null,
-};
 
 /**
  * Hook that synchronizes the outline store with AST from preview store.
@@ -54,10 +53,11 @@ export function useOutlineSync(): void {
       updateFromAST(outlineAST);
       return;
     }
-    updateFromAST(EMPTY_OUTLINE_AST);
     if (isCompiling) {
       setIsParsing(true);
+      return;
     }
+    updateFromAST(parseFallbackOutline(useDocumentStore.getState().content));
   }, [outlineAST, isCompiling, setIsParsing, updateFromAST]);
 }
 
