@@ -1,0 +1,56 @@
+import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { parseMdxContent } from './prosemirror-mdx-parser';
+import { mdxSchema } from './prosemirror-mdx-schema';
+import { appendTrailingParagraph } from './wysiwyg-trailing';
+
+function open(source: string): EditorView {
+  const doc = parseMdxContent(source);
+  if (!doc) {
+    throw new Error('markdown did not parse');
+  }
+  const host = document.createElement('div');
+  return new EditorView(host, {
+    state: EditorState.create({ doc, schema: mdxSchema }),
+  });
+}
+
+function caretAtEnd(view: EditorView, target: string): void {
+  let end = 0;
+  view.state.doc.descendants((node, pos) => {
+    if (node.isText && node.text === target) {
+      end = pos + node.text.length;
+    }
+  });
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));
+}
+
+describe('trailing visual blocks', () => {
+  const views: EditorView[] = [];
+
+  afterEach(() => {
+    for (const view of views.splice(0)) {
+      view.destroy();
+    }
+  });
+
+  it('adds a paragraph after a final code block', () => {
+    const view = open('```\ncode\n```\n');
+    views.push(view);
+    caretAtEnd(view, 'code');
+    expect(appendTrailingParagraph(view.state, view.dispatch)).toBe(true);
+    expect(view.state.selection.$from.parent.type.name).toBe('paragraph');
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+    expect(view.state.doc.firstChild?.type.name).toBe('code_block');
+  });
+
+  it('leaves the cursor inside a code block that is not at the end', () => {
+    const view = open('```\ncode\n```\n\nAfter\n');
+    views.push(view);
+    caretAtEnd(view, 'code');
+    expect(appendTrailingParagraph(view.state, view.dispatch)).toBe(false);
+    expect(view.state.doc.childCount).toBe(2);
+  });
+});

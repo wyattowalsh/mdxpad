@@ -43,6 +43,7 @@ import { pastePlainText } from '../../lib/editor/wysiwyg-paste';
 import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-list';
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
+import { trailingBlockKeymap } from '../../lib/editor/wysiwyg-trailing';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -114,6 +115,7 @@ function createMdxKeymap() {
     'Mod-`': toggleMark(mdxSchema.marks.code),
     'Mod-shift-s': toggleMark(mdxSchema.marks.strikethrough),
     'Shift-Enter': insertHardBreak,
+    ...trailingBlockKeymap(),
     ...visualListKeymap(),
   });
 }
