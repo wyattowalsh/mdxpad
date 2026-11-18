@@ -587,6 +587,7 @@ describe('EditorPane mode switch', () => {
       lineHeight: 1.6,
       wordWrapEnabled: false,
       distractionFreeEnabled: false,
+      focusModeEnabled: false,
     });
     localStorage.removeItem('mdxpad:editor-mode');
     cleanup();
@@ -631,6 +632,24 @@ describe('EditorPane mode switch', () => {
     await waitFor(() => {
       const editor = container.querySelector('.ProseMirror');
       expect((editor as HTMLElement).style.whiteSpace).toBe('pre-wrap');
+    });
+  });
+
+  it('dims the other paragraph when focus mode is on', async () => {
+    useDocumentStore.getState().setContent('Hello\n\nWorld');
+    useEditorModeStore.getState().setMode('wysiwyg');
+    useEditorPreferencesStore.setState({ focusModeEnabled: true });
+    const { container } = render(<EditorPane />);
+    await waitFor(() => {
+      const blocks = container.querySelectorAll('.ProseMirror > p');
+      expect(blocks.length).toBeGreaterThan(1);
+      expect(blocks[1]?.classList.contains('wysiwyg-focus-dimmed')).toBe(true);
+    });
+    act(() => {
+      useEditorPreferencesStore.setState({ focusModeEnabled: false });
+    });
+    await waitFor(() => {
+      expect(container.querySelector('.wysiwyg-focus-dimmed')).toBeNull();
     });
   });
 

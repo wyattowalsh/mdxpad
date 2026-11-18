@@ -23,6 +23,7 @@ import {
   selectFontSize,
   selectLineHeight,
   selectDistractionFreeEnabled,
+  selectFocusModeEnabled,
   selectSpellcheckEnabled,
   selectWordWrapEnabled,
   useEditorPreferencesStore,
@@ -45,7 +46,11 @@ import {
 } from '../../lib/editor/wysiwyg-source-line';
 import { registerWysiwygComment, wysiwygCommentAnchor } from '../../lib/editor/wysiwyg-comment';
 import { applyVisualEdit, registerWysiwygEdit } from '../../lib/editor/wysiwyg-command';
-import { applyVisualWrite, readVisualWrite, registerWysiwygWrite } from '../../lib/editor/wysiwyg-write';
+import {
+  applyVisualWrite,
+  readVisualWrite,
+  registerWysiwygWrite,
+} from '../../lib/editor/wysiwyg-write';
 import { toggleBlockquote, toggleHeading } from '../../lib/editor/wysiwyg-block';
 import { insertHardBreak } from '../../lib/editor/wysiwyg-break';
 import { wysiwygInputRules } from '../../lib/editor/wysiwyg-input-rules';
@@ -56,6 +61,7 @@ import { toggleVisualList, visualListKeymap } from '../../lib/editor/wysiwyg-lis
 import { wysiwygSlashPlugin } from '../../lib/editor/wysiwyg-slash';
 import { wysiwygTableKeymap } from '../../lib/editor/wysiwyg-table-nav';
 import { trailingBlockKeymap } from '../../lib/editor/wysiwyg-trailing';
+import { refreshFocusMode, wysiwygFocusPlugin } from '../../lib/editor/wysiwyg-focus';
 import { wysiwygMathPlugin } from '../../lib/editor/wysiwyg-math';
 import { WysiwygImageView } from '../../lib/editor/wysiwyg-image';
 import { FootnoteJumpView } from '../../lib/editor/prosemirror-footnote-ref';
@@ -158,7 +164,8 @@ function useEditorView(
   content: string,
   documentKey: string | undefined,
   onChangeRef: React.RefObject<(content: string) => void>,
-  onStateUpdate: (state: EditorState) => void
+  onStateUpdate: (state: EditorState) => void,
+  focusMode: React.RefObject<boolean>
 ) {
   const viewRef = React.useRef<EditorView | null>(null);
 
@@ -171,6 +178,7 @@ function useEditorView(
       doc,
       plugins: [
         history(),
+        wysiwygFocusPlugin(focusMode),
         wysiwygInputRules(),
         keymap({ Backspace: undoInputRule }),
         wysiwygSlashPlugin(),
@@ -391,7 +399,24 @@ export const WysiwygEditor = React.forwardRef<WysiwygEditorHandle, WysiwygEditor
       setActiveBlocks(computeActiveBlocks(state));
     }, []);
 
-    const viewRef = useEditorView(containerRef, content, documentKey, onChangeRef, onStateUpdate);
+    const focusModeEnabled = useEditorPreferencesStore(selectFocusModeEnabled);
+    const focusModeRef = React.useRef(focusModeEnabled);
+    focusModeRef.current = focusModeEnabled;
+    const viewRef = useEditorView(
+      containerRef,
+      content,
+      documentKey,
+      onChangeRef,
+      onStateUpdate,
+      focusModeRef
+    );
+    React.useEffect(() => {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      view.dispatch(refreshFocusMode(view));
+    }, [focusModeEnabled, viewRef]);
     const spellcheckEnabled = useEditorPreferencesStore(selectSpellcheckEnabled);
     const fontFamily = useEditorPreferencesStore(selectFontFamily);
     const fontSize = useEditorPreferencesStore(selectFontSize);
