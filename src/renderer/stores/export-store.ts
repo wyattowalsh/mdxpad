@@ -19,6 +19,8 @@ import type {
 import { recordLocalTelemetryEvent } from '../lib/telemetry/local-telemetry';
 import { announceFinishedExport } from './announce-export';
 
+let cliInvokeRequestId = 0;
+
 type CliRunStatus = 'idle' | 'running' | 'success' | 'error';
 type LlmsGenerationSuccess = Extract<LlmsGenerationResponse, { ok: true }>;
 
@@ -244,6 +246,7 @@ export const useExportStore = create<ExportStore>()(
     },
 
     invokeCli: async (request) => {
+      const requestId = ++cliInvokeRequestId;
       set((draft) => {
         draft.isRunningCli = true;
         draft.cliRunStatus = 'running';
@@ -256,39 +259,51 @@ export const useExportStore = create<ExportStore>()(
 
       try {
         const response = await getExportApi().cliInvoke(request);
+        const current = requestId === cliInvokeRequestId;
         set((draft) => {
+          if (response.ok) {
+            upsertJob(draft, response.output.job);
+          } else if (response.output) {
+            upsertJob(draft, response.output.job);
+          }
+          if (!current) {
+            return;
+          }
           draft.isRunningCli = false;
-
           if (response.ok) {
             draft.cliRunStatus = 'success';
             draft.cliOutput = response.output;
             draft.activeCliJobId = response.output.job.id;
-            upsertJob(draft, response.output.job);
             return;
           }
-
           draft.cliRunStatus = 'error';
           draft.cliError = response.error;
           draft.cliOutput = response.output ?? null;
           if (response.output) {
             draft.activeCliJobId = response.output.job.id;
-            upsertJob(draft, response.output.job);
           }
         });
         if (response.ok) {
           announceFinishedExport(response.output.job);
-          recordLocalTelemetryEvent('export', 'invoke-cli', 'succeeded', {
-            details: { exitCode: response.output.exitCode },
-          });
+          if (current) {
+            recordLocalTelemetryEvent('export', 'invoke-cli', 'succeeded', {
+              details: { exitCode: response.output.exitCode },
+            });
+          }
         } else {
           if (response.output) {
             announceFinishedExport(response.output.job);
           }
-          recordLocalTelemetryEvent('export', 'invoke-cli', 'failed', {
-            details: { code: response.code },
-          });
+          if (current) {
+            recordLocalTelemetryEvent('export', 'invoke-cli', 'failed', {
+              details: { code: response.code },
+            });
+          }
         }
       } catch (error) {
+        if (requestId !== cliInvokeRequestId) {
+          return;
+        }
         set((draft) => {
           draft.isRunningCli = false;
           draft.cliRunStatus = 'error';
@@ -356,10 +371,12 @@ export const useExportStore = create<ExportStore>()(
         }
       }),
 
-    reset: () =>
+    reset: () => {
+      cliInvokeRequestId += 1;
       set((draft) => {
         Object.assign(draft, createInitialState());
-      }),
+      });
+    },
   }))
 );
 

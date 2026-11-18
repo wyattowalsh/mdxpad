@@ -171,6 +171,62 @@ describe('useExportStore', () => {
     expect(state.jobs).toEqual([completedJob]);
   });
 
+  it('keeps the newer export running when an older one finishes', async () => {
+    const olderJob = createJob({ id: TEST_ID, status: 'queued' });
+    const newerJob = createJob({
+      id: TEST_ID_TWO,
+      status: 'queued',
+      targetPath: '/tmp/newer.pdf',
+    });
+    const olderDone = createJob({ id: TEST_ID, status: 'completed', completedAt: TEST_DATE });
+    const newerDone = createJob({
+      id: TEST_ID_TWO,
+      status: 'completed',
+      completedAt: TEST_DATE,
+      targetPath: '/tmp/newer.pdf',
+    });
+    let finishOld: (value: ExportCliInvokeResponse) => void = () => undefined;
+    let finishNew: (value: ExportCliInvokeResponse) => void = () => undefined;
+    mockExportApi.cliInvoke
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishNew = resolve;
+          })
+      );
+
+    const first = useExportStore.getState().invokeCli({
+      job: olderJob,
+      command: 'mdxpad-export',
+      args: [],
+    });
+    const second = useExportStore.getState().invokeCli({
+      job: newerJob,
+      command: 'mdxpad-export',
+      args: [],
+    });
+    finishOld({ ok: true, output: createCliOutput({ job: olderDone }) });
+    await first;
+
+    expect(useExportStore.getState().isRunningCli).toBe(true);
+    expect(useExportStore.getState().activeCliJobId).toBe(TEST_ID_TWO);
+    expect(useExportStore.getState().jobs.map((job) => job.id)).toContain(TEST_ID);
+
+    finishNew({ ok: true, output: createCliOutput({ job: newerDone }) });
+    await second;
+
+    const state = useExportStore.getState();
+    expect(state.isRunningCli).toBe(false);
+    expect(state.cliOutput?.job.id).toBe(TEST_ID_TWO);
+    expect(state.jobs.map((job) => job.id).sort()).toEqual([TEST_ID, TEST_ID_TWO].sort());
+  });
+
   it('tracks CLI errors and preserves output when available', async () => {
     const runningJob = createJob({ status: 'running' });
     const failedJob = createJob({
