@@ -7,7 +7,7 @@
  * @module main/services/plugin/plugin-registry
  */
 
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import type { PluginManifest, PluginRecord, PluginState } from '@shared/contracts/plugin-schemas';
@@ -26,18 +26,23 @@ export class PluginRegistry {
   }
 
   private async read(): Promise<RegistryData> {
+    let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
     try {
-      const info = await fs.lstat(this.registryPath);
-      if (info.isSymbolicLink() || !info.isFile()) {
+      handle = await fs.open(this.registryPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+      const info = await handle.stat();
+      if (!info.isFile()) {
         return { ...EMPTY_REGISTRY, plugins: [] };
       }
-      const content = await fs.readFile(this.registryPath, 'utf-8');
+      const content = await handle.readFile({ encoding: 'utf8' });
       return JSON.parse(content) as RegistryData;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
         return { ...EMPTY_REGISTRY, plugins: [] };
       }
       throw error;
+    } finally {
+      await handle?.close();
     }
   }
 
