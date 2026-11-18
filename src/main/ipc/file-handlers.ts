@@ -60,6 +60,7 @@ import { saveAsDefaultPath } from './save-as-name';
 import { registerDroppedFileHandler } from './dropped-file';
 import { openableDocumentPath } from './open-document-path';
 import { trustedDirectoryError } from './trusted-directory';
+import { writableDocumentPath } from './writable-document-path';
 
 /** File dialog filters for MDX and Markdown files */
 const MDX_FILTERS = [{ name: 'MDX/Markdown', extensions: ['mdx', 'md'] }];
@@ -235,7 +236,7 @@ const handleFileSave = createValidatedHandler(
       return { ok: false, error: permissionDenied(handle.path) };
     }
 
-    const result = await writeFile(handle.path, content);
+    const result = await writeFile(await writableDocumentPath(handle.path), content);
     if (!result.ok) {
       return result;
     }
@@ -274,7 +275,7 @@ const handleFileSaveAs = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' } };
     }
 
-    const saveFilePath = result.filePath;
+    const saveFilePath = await writableDocumentPath(result.filePath);
     const writeResult = await writeFile(saveFilePath, content);
 
     if (!writeResult.ok) {
@@ -348,7 +349,7 @@ const handleFileWrite = createValidatedHandler(
       return { ok: false, error: permissionDenied(args.path) };
     }
 
-    const result = await writeFile(args.path, args.content);
+    const result = await writeFile(await writableDocumentPath(args.path), args.content);
     if (result.ok) {
       grantWriteCapability(args.path);
     }
@@ -416,10 +417,12 @@ const handleFileExport = createValidatedHandler(
       return { ok: false, error: { code: 'CANCELLED' }, support };
     }
 
+    const exportPath = await writableDocumentPath(saveDialogResult.filePath);
+
     if (binaryExporter) {
       const exported = await binaryExporter.export({
         content: args.content,
-        outputPath: saveDialogResult.filePath,
+        outputPath: exportPath,
         title: 'MDXPad Export',
         sourcePath: args.sourcePath ?? null,
       });
@@ -433,21 +436,18 @@ const handleFileExport = createValidatedHandler(
           support,
         };
       }
-      grantWriteCapability(saveDialogResult.filePath);
+      grantWriteCapability(exportPath);
       return {
         ok: true,
         value: {
-          path: saveDialogResult.filePath,
+          path: exportPath,
           format: selectedFormat,
           warnings: [...exported.warnings],
         },
       };
     }
 
-    const writeResult = await writeFile(
-      saveDialogResult.filePath,
-      serialized?.ok ? serialized.content : ''
-    );
+    const writeResult = await writeFile(exportPath, serialized?.ok ? serialized.content : '');
     if (!writeResult.ok) {
       return {
         ok: false,
@@ -459,11 +459,11 @@ const handleFileExport = createValidatedHandler(
       };
     }
 
-    grantWriteCapability(saveDialogResult.filePath);
+    grantWriteCapability(exportPath);
     return {
       ok: true,
       value: {
-        path: saveDialogResult.filePath,
+        path: exportPath,
         format: selectedFormat,
         warnings: serialized?.ok ? [...serialized.warnings] : [],
       },
