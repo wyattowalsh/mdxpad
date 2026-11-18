@@ -165,6 +165,16 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
   const saveInProgressRef = useRef<boolean>(false);
   const pendingQueueRef = useRef<boolean>(false);
   const settingsRef = useRef<AutosaveSettings>(DEFAULT_AUTOSAVE_SETTINGS);
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+  const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const pendingDelayRef = useRef<number | null>(null);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  const storeEnabledRef = useRef(storeEnabled);
+  storeEnabledRef.current = storeEnabled;
+  const optDebounceRef = useRef(optDebounceMs);
+  optDebounceRef.current = optDebounceMs;
   const isReadOnlyRef = useRef<boolean>(false);
   const documentIdRef = useRef<string | null>(null);
   const documentSnapshotRef = useRef({ content, filePath, fileName });
@@ -179,6 +189,34 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
     });
   }, [activeTabId, fileId]);
 
+  const restartPendingSave = (settings: AutosaveSettings): void => {
+    if (debounceTimeoutRef.current === null) {
+      return;
+    }
+    const debounceMs = optDebounceRef.current ?? settings.intervalMs;
+    const keepTimer =
+      settings.enabled &&
+      enabledRef.current &&
+      storeEnabledRef.current &&
+      isDirtyRef.current &&
+      pendingDelayRef.current === debounceMs;
+    if (keepTimer) {
+      return;
+    }
+    clearTimeout(debounceTimeoutRef.current);
+    debounceTimeoutRef.current = null;
+    pendingDelayRef.current = null;
+    if (!settings.enabled || !enabledRef.current || !storeEnabledRef.current || !isDirtyRef.current) {
+      return;
+    }
+    pendingDelayRef.current = debounceMs;
+    debounceTimeoutRef.current = setTimeout(() => {
+      debounceTimeoutRef.current = null;
+      pendingDelayRef.current = null;
+      void performSaveRef.current();
+    }, debounceMs);
+  };
+
   // Load settings on mount
   useEffect(() => {
     let mounted = true;
@@ -188,6 +226,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
         const settings = await getAutosaveSettings();
         if (mounted) {
           settingsRef.current = settings;
+          restartPendingSave(settings);
         }
       } catch (error) {
         console.error('[useAutosave] Failed to load settings:', error);
@@ -329,6 +368,7 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
     },
     [startSave, completeSave, failSave, setPaused]
   );
+  performSaveRef.current = performSave;
 
   /**
    * Public method to trigger immediate save.
@@ -393,9 +433,10 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const debounceMs = optDebounceMs ?? settingsRef.current.intervalMs ?? DEFAULT_DEBOUNCE_MS;
 
-    // Start debounce timer
+    pendingDelayRef.current = debounceMs;
     debounceTimeoutRef.current = setTimeout(() => {
       debounceTimeoutRef.current = null;
+      pendingDelayRef.current = null;
       void performSave();
     }, debounceMs);
   }, [
@@ -424,8 +465,10 @@ export function useAutosave(options?: UseAutosaveOptions): UseAutosaveResult {
         }
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         const debounceMs = optDebounceMs ?? newSettings.intervalMs ?? DEFAULT_DEBOUNCE_MS;
+        pendingDelayRef.current = debounceMs;
         debounceTimeoutRef.current = setTimeout(() => {
           debounceTimeoutRef.current = null;
+          pendingDelayRef.current = null;
           void performSave();
         }, debounceMs);
       }

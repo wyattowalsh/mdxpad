@@ -239,6 +239,34 @@ describe('useAutosave', () => {
       expect(mockAutosaveActions.startSave).not.toHaveBeenCalled();
     });
 
+    it('uses the saved interval once settings load', async () => {
+      let resolveSettings: ((settings: AutosaveSettings) => void) | undefined;
+      const settingsApi = (
+        window as unknown as { mdxpad: { settings: { get: ReturnType<typeof vi.fn> } } }
+      ).mdxpad.settings;
+      settingsApi.get.mockImplementation(
+        () =>
+          new Promise<AutosaveSettings>((resolve) => {
+            resolveSettings = resolve;
+          })
+      );
+      setDirtyDocument();
+      renderHook(() => useAutosave());
+
+      await act(async () => {
+        resolveSettings?.({ ...DEFAULT_AUTOSAVE_SETTINGS, intervalMs: 5000 });
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(4999);
+      });
+      expect(mockAutosaveActions.startSave).not.toHaveBeenCalled();
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(mockAutosaveActions.startSave).toHaveBeenCalled();
+    });
+
     it('should debounce with default 30000ms interval from settings', async () => {
       // Note: The default debounce comes from settings (30s), not DEFAULT_DEBOUNCE_MS (2s)
       // The settings default is 30000ms per DEFAULT_AUTOSAVE_SETTINGS
