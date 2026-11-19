@@ -57,6 +57,34 @@ function withoutUnsafeRefresh(
   return next;
 }
 
+const SMIL_TAGS = new Set(['animate', 'animatetransform', 'animatemotion', 'set']);
+const SMIL_VALUE_ATTRIBUTES = new Set(['to', 'from', 'by', 'values']);
+
+/** Drop an animation value that would load a local file. */
+export function confineSmilValues(
+  type: unknown,
+  props: Record<string, unknown>,
+  blocked: (value: string) => boolean
+): Record<string, unknown> {
+  if (typeof type !== 'string' || !SMIL_TAGS.has(type.toLowerCase())) {
+    return props;
+  }
+  let changed = false;
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (
+      SMIL_VALUE_ATTRIBUTES.has(key.toLowerCase()) &&
+      typeof value === 'string' &&
+      blocked(value)
+    ) {
+      changed = true;
+      continue;
+    }
+    next[key] = value;
+  }
+  return changed ? next : props;
+}
+
 /** Drop a raw tag address that would retarget or load a local file. */
 export function confineNavigationTag(
   type: unknown,

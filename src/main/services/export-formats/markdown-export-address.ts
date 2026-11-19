@@ -21,6 +21,7 @@ const URL_ATTRIBUTES = new Set([
   'background',
   'srcset',
   'imagesrcset',
+  'longdesc',
   'xlink:href',
 ]);
 
@@ -125,6 +126,29 @@ function srcsetAllowed(value: string): boolean {
     const url = part.trim().split(/\s+/)[0] ?? '';
     return url.length === 0 || safeImageAddress(url) !== null;
   });
+}
+
+function pingAttribute(attr: string, raw: string): string {
+  const kept = attributeValue(raw)
+    .split(/\s+/)
+    .filter((url) => {
+      const scheme = addressScheme(url);
+      return scheme === 'http' || scheme === 'https';
+    });
+  if (kept.length === 0) {
+    return '';
+  }
+  if (kept.join(' ') === attributeValue(raw)) {
+    return ` ${attr}=${raw}`;
+  }
+  return ` ${attr}="${kept.join(' ')}"`;
+}
+
+const SMIL_TAGS = new Set(['animate', 'animatetransform', 'animatemotion', 'set']);
+const SMIL_VALUE_ATTRIBUTES = new Set(['to', 'from', 'by', 'values']);
+
+function smilValueAllowed(value: string): boolean {
+  return !cssValueLoadsLocalFile(value) && safeImageAddress(value) !== null;
 }
 
 function attributeAllowed(name: string, value: string): boolean {
@@ -262,7 +286,13 @@ export function sanitizeExportedTag(tag: string): string {
         return styleAttribute(attr, raw);
       }
       const value = attributeValue(raw);
+      if (name === 'ping') {
+        return pingAttribute(attr, raw);
+      }
       if (paintAttribute(name) && cssValueLoadsLocalFile(value)) {
+        return '';
+      }
+      if (SMIL_TAGS.has(element) && SMIL_VALUE_ATTRIBUTES.has(name) && !smilValueAllowed(value)) {
         return '';
       }
       if (resourceHrefTag(element) && (name === 'href' || name === 'xlink:href')) {

@@ -164,6 +164,39 @@ describe('isBlockedPreviewHref', () => {
     const note = confinePreviewElement('a', { href: '../notes/a.md' }) as { href?: string };
     expect(note.href).toBe('../notes/a.md');
 
+    const animated = confinePreviewElement('animate', {
+      attributeName: 'href',
+      to: 'file:///etc/passwd',
+    }) as { to?: string };
+    expect(animated.to).toBeUndefined();
+    const parentPaint = confinePreviewElement('animate', {
+      attributeName: 'filter',
+      to: 'url(../secret.svg)',
+    }) as { to?: string };
+    expect(parentPaint.to).toBeUndefined();
+    const width = confinePreviewElement('animate', { attributeName: 'width', to: '100' }) as {
+      to?: string;
+    };
+    expect(width.to).toBe('100');
+    const localPaint = confinePreviewElement('set', {
+      attributeName: 'fill',
+      to: 'url(#local)',
+    }) as { to?: string };
+    expect(localPaint.to).toBe('url(#local)');
+    const ping = confinePreviewElement('a', {
+      ping: 'file:///etc/passwd https://example.com/t',
+      href: 'https://example.com',
+    }) as { ping?: string; href?: string };
+    expect(ping.ping).toBe('https://example.com/t');
+    expect(ping.href).toBe('https://example.com');
+    const relativePing = confinePreviewElement('a', { ping: '../secret' }) as { ping?: string };
+    expect(relativePing.ping).toBeUndefined();
+    const description = confinePreviewElement('img', {
+      alt: 'x',
+      longDesc: 'file:///etc/passwd',
+    }) as { longDesc?: string };
+    expect(description.longDesc).toBeUndefined();
+
     const sources = confinePreviewElement('img', {
       alt: 'pic',
       imageSrcSet: 'file:///etc/passwd 1x, https://example.com/a.png 2x',

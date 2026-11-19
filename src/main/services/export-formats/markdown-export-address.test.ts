@@ -127,6 +127,37 @@ describe('sanitizeExportedHtml', () => {
     );
   });
 
+  it('drops a local file from an animation value and a ping', () => {
+    expect(sanitizeExportedHtml('<animate attributeName="href" to="file:///etc/passwd">')).toBe(
+      '<animate attributeName="href">'
+    );
+    expect(sanitizeExportedHtml('<set attributeName="href" to="../secret.svg">')).toBe(
+      '<set attributeName="href">'
+    );
+    expect(sanitizeExportedHtml('<animate attributeName="filter" to="url(../secret.svg)">')).toBe(
+      '<animate attributeName="filter">'
+    );
+    expect(sanitizeExportedHtml('<animate attributeName="width" to="100">')).toContain('to="100"');
+    expect(sanitizeExportedHtml('<animate attributeName="fill" to="url(#local)">')).toContain(
+      'url(#local)'
+    );
+    expect(sanitizeExportedHtml('<set attributeName="href" to="./ok.svg">')).toContain('./ok.svg');
+    const ping = sanitizeExportedHtml(
+      '<a ping="file:///etc/passwd https://example.com/t" href="https://example.com">x</a>'
+    );
+    expect(ping).not.toContain('file:');
+    expect(ping).toContain('https://example.com/t');
+    expect(sanitizeExportedHtml('<a ping="../secret" href="https://example.com">x</a>')).not.toContain(
+      'ping='
+    );
+    expect(sanitizeExportedHtml('<img longdesc="file:///etc/passwd" alt="x">')).toBe(
+      '<img alt="x">'
+    );
+    expect(sanitizeExportedHtml('<img longdesc="../notes/a.md" alt="x">')).toContain(
+      'longdesc="../notes/a.md"'
+    );
+  });
+
   it('drops a local file from an image source set', () => {
     expect(
       sanitizeExportedHtml(

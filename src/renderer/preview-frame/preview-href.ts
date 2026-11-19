@@ -5,7 +5,7 @@ import {
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
-import { confineNavigationTag } from './preview-navigation-address';
+import { confineNavigationTag, confineSmilValues } from './preview-navigation-address';
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -132,7 +132,7 @@ function paintLoadsLocalFile(value: string): boolean {
   return cssValueHasBlockedAddress(visible, blockedCssAddress);
 }
 
-const LINK_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'cite']);
+const LINK_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'cite', 'longdesc']);
 const RESOURCE_ATTRIBUTES = new Set([
   'src',
   'poster',
@@ -251,6 +251,9 @@ function nextAttribute(name: string, value: string): { readonly value: unknown }
     const kept = filterSrcSet(value, (url) => isBlockedPreviewResource(url));
     return kept === value ? undefined : { value: kept };
   }
+  if (name === 'ping') {
+    return pingValue(value);
+  }
   const climbsNavigation =
     (name === 'action' || name === 'formaction') && previewAddressClimbsOut(value);
   if (LINK_ATTRIBUTES.has(name) && (isBlockedPreviewHref(value) || climbsNavigation)) {
@@ -265,9 +268,22 @@ function nextAttribute(name: string, value: string): { readonly value: unknown }
   return undefined;
 }
 
+function pingValue(value: string): { readonly value: string | undefined } | undefined {
+  const kept = value.split(/\s+/).filter((url) => {
+    const scheme = addressScheme(url);
+    return scheme === 'http' || scheme === 'https';
+  });
+  const next = kept.join(' ');
+  if (next === value) {
+    return undefined;
+  }
+  return { value: next.length > 0 ? next : undefined };
+}
+
 const REACT_ATTRIBUTE_NAMES: Readonly<Record<string, string>> = {
   srcset: 'srcSet',
   imagesrcset: 'imageSrcSet',
+  longdesc: 'longDesc',
   formaction: 'formAction',
   xlinkhref: 'xlinkHref',
   'xlink:href': 'xlinkHref',
@@ -361,10 +377,10 @@ export function confinePreviewElement(type: unknown, props: unknown): unknown {
   if (confined === null || typeof confined !== 'object') {
     return confined;
   }
-  const record = confineNavigationTag(
+  const record = confineSmilValues(
     type,
-    confined as Record<string, unknown>,
-    isBlockedPreviewResource
+    confineNavigationTag(type, confined as Record<string, unknown>, isBlockedPreviewResource),
+    (value) => paintLoadsLocalFile(value) || isBlockedPreviewResource(value)
   );
   const withoutResourceHref = loadsResourceHref(type) ? omitBlockedResourceHref(record) : record;
   if (type !== 'style') {
