@@ -7,7 +7,7 @@
 
 import MiniSearch from 'minisearch';
 import { watch, type FSWatcher } from 'chokidar';
-import { lstat, readdir } from 'node:fs/promises';
+import { lstat, readdir, stat } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import type {
@@ -124,30 +124,41 @@ function matchesExtensions(filePath: string, extensions: string[]): boolean {
   return extensions.includes(extname(filePath).toLowerCase());
 }
 
+async function canScanDirectory(dir: string, isRoot: boolean): Promise<boolean> {
+  const info = await lstat(dir);
+  if (!info.isSymbolicLink()) {
+    return info.isDirectory();
+  }
+  if (!isRoot) {
+    return false;
+  }
+  const followed = await stat(dir);
+  return followed.isDirectory();
+}
+
 async function collectFiles(
   dir: string,
   extensions: string[],
   excludePatterns: readonly string[] = []
 ): Promise<string[]> {
   const results: string[] = [];
-  const queue = [dir];
+  const queue: { dir: string; root: boolean }[] = [{ dir, root: true }];
 
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current) break;
     try {
-      const info = await lstat(current);
-      if (info.isSymbolicLink() || !info.isDirectory()) {
+      if (!(await canScanDirectory(current.dir, current.root))) {
         continue;
       }
-      const entries = await readdir(current, { withFileTypes: true });
+      const entries = await readdir(current.dir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-        const fullPath = join(current, entry.name);
+        const fullPath = join(current.dir, entry.name);
         if (pathMatchesExclude(dir, fullPath, excludePatterns)) continue;
         if (entry.isSymbolicLink()) continue;
         if (entry.isDirectory()) {
-          queue.push(fullPath);
+          queue.push({ dir: fullPath, root: false });
         } else if (entry.isFile() && matchesExtensions(entry.name, extensions)) {
           results.push(fullPath);
         }

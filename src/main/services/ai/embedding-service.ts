@@ -18,7 +18,7 @@ import type { IAIService } from './ai-types';
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { pathMatchesExclude } from '@main/services/search/path-excludes';
 import { resolveWorkspaceFilePath } from './agent-path';
-import { readRealDirectory } from './directory-entries';
+import { readChosenDirectory, readRealDirectory } from './directory-entries';
 import { VectorStore, type VectorEntry } from './vector-store';
 
 // =============================================================================
@@ -85,8 +85,8 @@ export async function findIndexableFiles(
 ): Promise<string[]> {
   const results: string[] = [];
 
-  async function walk(dir: string): Promise<void> {
-    const entries = await readRealDirectory(dir);
+  async function walk(dir: string, chosenRoot: boolean): Promise<void> {
+    const entries = chosenRoot ? await readChosenDirectory(dir) : await readRealDirectory(dir);
     if (!entries) {
       return;
     }
@@ -105,7 +105,7 @@ export async function findIndexableFiles(
         if (entry.name.startsWith('.') || entry.name === 'node_modules') {
           continue;
         }
-        await walk(fullPath);
+        await walk(fullPath, false);
         continue;
       }
 
@@ -126,7 +126,7 @@ export async function findIndexableFiles(
     }
   }
 
-  await walk(dirPath);
+  await walk(dirPath, true);
   return results;
 }
 

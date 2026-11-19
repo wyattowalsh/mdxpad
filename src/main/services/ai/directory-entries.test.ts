@@ -11,7 +11,9 @@ describe('directory entries', () => {
   const directories: string[] = [];
 
   afterEach(async () => {
-    await Promise.all(directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+    await Promise.all(
+      directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))
+    );
   });
 
   async function tempDir(): Promise<string> {
@@ -31,6 +33,20 @@ describe('directory entries', () => {
 
     expect(matches).toEqual([]);
     await expect(collectMatchingFiles(root, 'note')).resolves.toEqual([path.join(root, 'note.md')]);
+  });
+
+  it('searches a chosen folder that is a link and skips a link inside it', async () => {
+    const holder = await tempDir();
+    const outside = await tempDir();
+    const target = await tempDir();
+    await writeFile(path.join(target, 'note.md'), 'hello');
+    await writeFile(path.join(outside, 'secret.md'), 'hidden');
+    await symlink(outside, path.join(target, 'linked'));
+    const root = path.join(holder, 'project');
+    await symlink(target, root);
+
+    await expect(collectMatchingFiles(root, 'note')).resolves.toEqual([path.join(root, 'note.md')]);
+    await expect(collectMatchingFiles(root, 'secret')).resolves.toEqual([]);
   });
 
   it('does not read a file that is a symlink', async () => {

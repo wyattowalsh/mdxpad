@@ -9,14 +9,40 @@ import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 
 import { resolveWorkspaceFilePath, WorkspacePathError } from './agent-path';
 
-export async function readRealDirectory(dir: string): Promise<fs.Dirent[] | null> {
-  let info: fs.Stats;
+async function directoryInfo(dir: string): Promise<fs.Stats | null> {
   try {
-    info = await fs.promises.lstat(dir);
+    return await fs.promises.lstat(dir);
   } catch {
     return null;
   }
-  if (info.isSymbolicLink() || !info.isDirectory()) {
+}
+
+export async function readRealDirectory(dir: string): Promise<fs.Dirent[] | null> {
+  const info = await directoryInfo(dir);
+  if (info === null || info.isSymbolicLink() || !info.isDirectory()) {
+    return null;
+  }
+  return fs.promises.readdir(dir, { withFileTypes: true });
+}
+
+/** Read a folder the user chose, including when that folder itself is a link. */
+export async function readChosenDirectory(dir: string): Promise<fs.Dirent[] | null> {
+  const info = await directoryInfo(dir);
+  if (info === null) {
+    return null;
+  }
+  if (info.isSymbolicLink()) {
+    try {
+      const followed = await fs.promises.stat(dir);
+      if (!followed.isDirectory()) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return fs.promises.readdir(dir, { withFileTypes: true });
+  }
+  if (!info.isDirectory()) {
     return null;
   }
   return fs.promises.readdir(dir, { withFileTypes: true });
@@ -25,8 +51,8 @@ export async function readRealDirectory(dir: string): Promise<fs.Dirent[] | null
 export async function collectMatchingFiles(root: string, query: string): Promise<string[]> {
   const results: string[] = [];
 
-  async function walk(dir: string): Promise<void> {
-    const entries = await readRealDirectory(dir);
+  async function walk(dir: string, chosenRoot: boolean): Promise<void> {
+    const entries = chosenRoot ? await readChosenDirectory(dir) : await readRealDirectory(dir);
     if (!entries) {
       return;
     }
@@ -37,7 +63,7 @@ export async function collectMatchingFiles(root: string, query: string): Promise
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-          await walk(full);
+          await walk(full, false);
         }
         continue;
       }
@@ -47,7 +73,7 @@ export async function collectMatchingFiles(root: string, query: string): Promise
     }
   }
 
-  await walk(root);
+  await walk(root, true);
   return results;
 }
 
@@ -63,9 +89,7 @@ export async function readWorkspaceFile(workspacePath: string, filePath: string)
 
 function sameWorkspaceFile(root: string, requested: string, openPath: string): boolean {
   try {
-    return (
-      resolveWorkspaceFilePath(root, requested) === resolveWorkspaceFilePath(root, openPath)
-    );
+    return resolveWorkspaceFilePath(root, requested) === resolveWorkspaceFilePath(root, openPath);
   } catch {
     return false;
   }

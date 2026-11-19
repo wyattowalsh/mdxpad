@@ -109,6 +109,58 @@ describe('search-service', () => {
       expect(result.indexedFiles).toBe(1);
     });
 
+    it('indexes a workspace folder that is a link and skips a link inside it', async () => {
+      vi.mocked(lstat).mockImplementation(async (target) => {
+        const root = String(target) === '/workspace';
+        return {
+          isSymbolicLink: () => root,
+          isDirectory: () => !root,
+          isFile: () => false,
+        } as never;
+      });
+      vi.mocked(stat).mockImplementation(async (target) => {
+        const note = String(target).endsWith('note.md');
+        return {
+          isDirectory: () => !note,
+          isFile: () => note,
+          isSymbolicLink: () => false,
+          size: 20,
+        } as never;
+      });
+      vi.mocked(readdir).mockImplementation(async (target) => {
+        if (String(target) === '/workspace') {
+          return [
+            {
+              name: 'note.md',
+              isDirectory: () => false,
+              isFile: () => true,
+              isSymbolicLink: () => false,
+            },
+            {
+              name: 'linked',
+              isDirectory: () => false,
+              isFile: () => false,
+              isSymbolicLink: () => true,
+            },
+          ] as never;
+        }
+        return [
+          {
+            name: 'secret.md',
+            isDirectory: () => false,
+            isFile: () => true,
+            isSymbolicLink: () => false,
+          },
+        ] as never;
+      });
+      vi.mocked(readFile).mockResolvedValue('visible');
+
+      const result = await indexWorkspace('/workspace');
+
+      expect(result.indexedFiles).toBe(1);
+      expect(readFile).toHaveBeenCalledTimes(1);
+    });
+
     it('does not index a directory replaced by a symlink', async () => {
       vi.mocked(lstat).mockImplementation(async (target) => {
         const symlink = String(target).endsWith('/linked');
