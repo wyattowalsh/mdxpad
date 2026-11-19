@@ -69,6 +69,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('draws dots, a script ell, and an angle', () => {
+    expect(runText(mathComponents('\\dots'))).toBe('…');
+    expect(runText(mathComponents('\\ell'))).toBe('ℓ');
+    expect(runText(mathComponents('\\hbar'))).toBe('ℏ');
+    expect(runText(mathComponents('\\angle'))).toBe('∠');
+    expect(runText(mathComponents('\\propto'))).toBe('∝');
+  });
+
   it('draws an arrow', () => {
     expect(runText(mathComponents('\\Rightarrow'))).toBe('⇒');
     expect(runText(mathComponents('\\mapsto'))).toBe('↦');
