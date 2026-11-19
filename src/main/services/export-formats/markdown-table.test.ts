@@ -18,6 +18,25 @@ describe('parseMarkdownTable', () => {
     });
   });
 
+  it('keeps a pipe inside emphasis and a link', () => {
+    const strong = parseMarkdownTable(['| f | g |', '| --- | --- |', '| **a|b** | c |']);
+    expect(strong?.rows).toEqual([['**a|b**', 'c']]);
+    const emphasis = parseMarkdownTable(['| f | g |', '| --- | --- |', '| _a|b_ | c |']);
+    expect(emphasis?.rows).toEqual([['_a|b_', 'c']]);
+    const link = parseMarkdownTable([
+      '| f | g |',
+      '| --- | --- |',
+      '| [a|b](https://example.com) | c |',
+    ]);
+    expect(link?.rows).toEqual([['[a|b](https://example.com)', 'c']]);
+    const addressed = parseMarkdownTable([
+      '| f | g |',
+      '| --- | --- |',
+      '| [see](https://example.com/a|b) | c |',
+    ]);
+    expect(addressed?.rows).toEqual([['[see](https://example.com/a|b)', 'c']]);
+  });
+
   it('keeps a pipe inside a formula', () => {
     const table = parseMarkdownTable(['| formula |', '| --- |', '| \\(a|b\\) |']);
     expect(table?.rows).toEqual([['\\(a|b\\)']]);

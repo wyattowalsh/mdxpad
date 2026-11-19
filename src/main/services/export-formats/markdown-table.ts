@@ -72,6 +72,93 @@ function skipMath(value: string, index: number): number {
   return index;
 }
 
+function matchingCloser(value: string, open: number, left: string, right: string): number {
+  let depth = 0;
+  for (let index = open; index < value.length; index += 1) {
+    const char = value[index] ?? '';
+    if (char === '\\') {
+      index += 1;
+      continue;
+    }
+    if (char === left) {
+      depth += 1;
+    } else if (char === right) {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+}
+
+function skipCloser(value: string, index: number, marker: string): number {
+  const end = value.indexOf(marker, index + marker.length);
+  return end === -1 ? index : end + marker.length;
+}
+
+function skipEmphasis(value: string, index: number): number {
+  if (value.startsWith('~~', index)) return skipCloser(value, index, '~~');
+  if (value.startsWith('**', index)) return skipCloser(value, index, '**');
+  if (value.startsWith('__', index)) return skipCloser(value, index, '__');
+  if (value[index] === '*' && value[index + 1] !== '*') return skipCloser(value, index, '*');
+  if (value[index] === '_' && value[index + 1] !== '_') return skipCloser(value, index, '_');
+  return index;
+}
+
+function skipLink(value: string, index: number): number {
+  const image = value[index] === '!' && value[index + 1] === '[';
+  const labelStart = image ? index + 1 : value[index] === '[' ? index : -1;
+  if (labelStart === -1) {
+    return index;
+  }
+  const labelEnd = matchingCloser(value, labelStart, '[', ']');
+  if (labelEnd === -1) {
+    return index;
+  }
+  const next = value[labelEnd + 1];
+  if (next !== '(' && next !== '[') {
+    return index;
+  }
+  const end = matchingCloser(value, labelEnd + 1, next, next === '(' ? ')' : ']');
+  return end === -1 ? index : end + 1;
+}
+
+function skipAutolink(value: string, index: number): number {
+  if (value[index] !== '<') {
+    return index;
+  }
+  const end = value.indexOf('>', index + 1);
+  if (end === -1) {
+    return index;
+  }
+  const body = value.slice(index + 1, end);
+  const url = !body.includes(' ') && (/^https?:\/\//i.test(body) || body.includes('@'));
+  return url ? end + 1 : index;
+}
+
+function skipProtected(value: string, index: number): number {
+  const mathEnd = skipMath(value, index);
+  if (mathEnd > index) {
+    return mathEnd;
+  }
+  if (value[index] === '`') {
+    const codeEnd = readCodeSpan(value, index);
+    if (codeEnd > index) {
+      return codeEnd;
+    }
+  }
+  const emphasisEnd = skipEmphasis(value, index);
+  if (emphasisEnd > index) {
+    return emphasisEnd;
+  }
+  const linkEnd = skipLink(value, index);
+  if (linkEnd > index) {
+    return linkEnd;
+  }
+  return skipAutolink(value, index);
+}
+
 function splitCells(line: string): string[] {
   const trimmed = line.trim();
   let inner = trimmed;
@@ -86,24 +173,16 @@ function splitCells(line: string): string[] {
   for (let index = 0; index < inner.length; index += 1) {
     const char = inner[index] ?? '';
     const next = inner[index + 1] ?? '';
-    const mathEnd = skipMath(inner, index);
-    if (mathEnd > index) {
-      current += inner.slice(index, mathEnd);
-      index = mathEnd - 1;
+    const protectedEnd = skipProtected(inner, index);
+    if (protectedEnd > index) {
+      current += inner.slice(index, protectedEnd);
+      index = protectedEnd - 1;
       continue;
     }
     if (char === '\\' && ESCAPABLE.test(next)) {
       current += next === '|' ? next : `${char}${next}`;
       index += 1;
       continue;
-    }
-    if (char === '`') {
-      const end = readCodeSpan(inner, index);
-      if (end > index) {
-        current += inner.slice(index, end);
-        index = end - 1;
-        continue;
-      }
     }
     if (char === '|') {
       cells.push(current.trim());
