@@ -566,6 +566,34 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('data:image/svg');
   });
 
+  it('leaves out a remote drawing that points at a file', async () => {
+    const epubGen = await import('epub-gen-memory');
+    const icon = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    const secret = '<svg xmlns="http://www.w3.org/2000/svg"><image href="file:///etc/passwd"/></svg>';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const body = url.includes('secret') ? secret : icon;
+        return new Response(body, { status: 200, headers: { 'content-type': 'image/svg+xml' } });
+      })
+    );
+    try {
+      const result = await exporter.export({
+        content: '![Icon](https://cdn.example/icon.svg)\n\n![Secret](https://cdn.example/secret.svg)',
+        outputPath: '/tmp/remote-svg.epub',
+      });
+      const html =
+        ((epubGen.default as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as { content: string }[])[0]
+          ?.content ?? '';
+      expect(result.ok).toBe(true);
+      expect(html).toContain('.svg');
+      expect(html).toContain('Secret');
+      expect(html).not.toContain('passwd');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('handles empty content gracefully', async () => {
     const result = await exporter.export({
       content: '',

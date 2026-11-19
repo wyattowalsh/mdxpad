@@ -77,7 +77,13 @@ async function remoteImage(src: string): Promise<{ readonly bytes: Buffer; reado
       return null;
     }
     const bytes = Buffer.from(await response.arrayBuffer());
-    return bytes.byteLength > 0 && bytes.byteLength <= MAX_IMAGE_BYTES ? { bytes, extension } : null;
+    if (bytes.byteLength === 0 || bytes.byteLength > MAX_IMAGE_BYTES) {
+      return null;
+    }
+    if (extension === 'svg' && safeImageAddress(`data:image/svg+xml;base64,${bytes.toString('base64')}`) === null) {
+      return null;
+    }
+    return { bytes, extension };
   } catch {
     return null;
   }
