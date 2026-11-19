@@ -33,6 +33,9 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See <https://example.com> and <ada@example.com>.')).toBe(
       'See [https://example.com](https://example.com) and [ada@example.com](mailto:ada@example.com).'
     );
+    expect(prepareMarkdownSource('See <https://example.com/a$b> and $x^2$.')).toBe(
+      'See [https://example.com/a$b](https://example.com/a$b) and $x^2$.'
+    );
     expect(
       prepareMarkdownSource('[docs](<https://en.wikipedia.org/wiki/Markdown_(markup_language)>)')
     ).toBe('[docs](<https://en.wikipedia.org/wiki/Markdown_(markup_language)>)');

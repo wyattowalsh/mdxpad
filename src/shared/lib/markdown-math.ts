@@ -319,6 +319,16 @@ function shiftMath(text: string, offset: number): string {
   );
 }
 
+function angleAutolinkEnd(value: string, index: number): number {
+  if (value[index] !== '<') {
+    return -1;
+  }
+  const match =
+    /^<(https?:\/\/[^>\s]+)>/i.exec(value.slice(index)) ??
+    /^<(?:mailto:)?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>/i.exec(value.slice(index));
+  return match ? index + match[0].length : -1;
+}
+
 function shieldMath(value: string): { text: string; math: string[] } {
   const math: string[] = [];
   let text = '';
@@ -328,6 +338,12 @@ function shieldMath(value: string): { text: string; math: string[] } {
     if (code) {
       text += code.text;
       index = code.next;
+      continue;
+    }
+    const angle = angleAutolinkEnd(value, index);
+    if (angle !== -1) {
+      text += value.slice(index, angle);
+      index = angle;
       continue;
     }
     const link = markdownLinkAt(value, index);
