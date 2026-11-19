@@ -227,6 +227,18 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\sqrt{8}'))).toBe('8');
   });
 
+  it('skips a space before a fraction or a root', () => {
+    const spaced = mathComponents('\\frac {1}{2}');
+    expect(spaced).toHaveLength(1);
+    expect(spaced[0]).toBeInstanceOf(MathFraction);
+    expect(runText(spaced)).toBe('12');
+    expect(runText(mathComponents('\\sqrt {x}'))).toBe('x');
+    const indexed = mathComponents('\\sqrt [3]{8}');
+    expect(indexed).toHaveLength(1);
+    expect(indexed[0]).toBeInstanceOf(MathRadical);
+    expect(runText(indexed)).toBe('38');
+  });
+
   it('builds a superscript and a fraction', () => {
     const power = mathComponents('x^2');
     expect(power[0]).toBeInstanceOf(MathSuperScript);

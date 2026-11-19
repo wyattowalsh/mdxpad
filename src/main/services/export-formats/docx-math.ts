@@ -209,7 +209,12 @@ function readCommand(cursor: Cursor): MathComponent[] {
   return commandComponents(cursor, name);
 }
 
+function skipArgumentSpace(cursor: Cursor): void {
+  while (cursor.source[cursor.index] === ' ' || cursor.source[cursor.index] === '\n') cursor.index += 1;
+}
+
 function readOptionalBracket(cursor: Cursor): MathComponent[] | null {
+  skipArgumentSpace(cursor);
   if (cursor.source[cursor.index] !== '[') {
     return null;
   }
@@ -247,23 +252,17 @@ function readAccent(cursor: Cursor, mark: string): MathComponent[] {
 }
 
 function readMod(cursor: Cursor, parenthesized: boolean): MathComponent[] {
-  if (!parenthesized) {
-    return [new MathRun('mod')];
-  }
-  return [
-    new MathRoundBrackets({
-      children: [new MathRun('mod '), ...readGroup(cursor)],
-    }),
-  ];
+  const word = new MathRun(parenthesized ? 'mod ' : 'mod');
+  if (!parenthesized) return [word];
+  return [new MathRoundBrackets({ children: [word, ...readGroup(cursor)] })];
 }
 
 function readBraceSpan(cursor: Cursor, upper: boolean): MathComponent[] {
   const body = readGroup(cursor);
   const brace = [new MathRun(upper ? '\u23DE' : '\u23DF')];
-  if (upper) {
-    return [new MathLimitUpper({ children: body, limit: brace })];
-  }
-  return [new MathLimitLower({ children: body, limit: brace })];
+  return upper
+    ? [new MathLimitUpper({ children: body, limit: brace })]
+    : [new MathLimitLower({ children: body, limit: brace })];
 }
 
 function readStretchArrow(cursor: Cursor, arrow: string): MathComponent[] {
@@ -314,6 +313,7 @@ function readRadical(cursor: Cursor): MathComponent[] {
 }
 
 function readGroup(cursor: Cursor): MathComponent[] {
+  skipArgumentSpace(cursor);
   if (cursor.index >= cursor.source.length) {
     return [];
   }
