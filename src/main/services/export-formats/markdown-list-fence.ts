@@ -196,7 +196,8 @@ export function breakListParagraph(
 export type ListMarkerBlock =
   | { readonly kind: 'rule' }
   | { readonly kind: 'math'; readonly lines: readonly string[] }
-  | { readonly kind: 'quote'; readonly text: string };
+  | { readonly kind: 'quote'; readonly text: string }
+  | { readonly kind: 'table'; readonly row: string };
 
 /** A block that begins on the list marker, such as `1. ***` or `- $$`. */
 export function listMarkerBlock(text: string): ListMarkerBlock | null {
@@ -209,6 +210,9 @@ export function listMarkerBlock(text: string): ListMarkerBlock | null {
   }
   if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length > 4) {
     return { kind: 'math', lines: [trimmed.slice(2, -2).trim()] };
+  }
+  if (isTableRow(trimmed)) {
+    return { kind: 'table', row: trimmed };
   }
   const quoted = quoteBody(text);
   return quoted === null ? null : { kind: 'quote', text: quoted };
@@ -231,6 +235,10 @@ function openMarkerBlock(state: HtmlListItemState, text: string): string | null 
   }
   if (block.kind === 'math') {
     state.itemMath = [];
+    return '';
+  }
+  if (block.kind === 'table') {
+    state.itemTable = [block.row];
     return '';
   }
   state.itemQuote = [quoteMarkerLine(block.text)];

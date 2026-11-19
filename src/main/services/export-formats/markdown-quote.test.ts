@@ -153,6 +153,13 @@ describe('quoteBody', () => {
     const math = markdownToPdfHtml('- $$\n a+b\n $$\n');
     expect(math).toContain('a+b');
     expect(math).not.toContain('$$');
+    const table = markdownToPdfHtml('- | a | b |\n  | --- | --- |\n  | 1 | 2 |\n');
+    expect(table).toContain('<th>a</th>');
+    expect(table).toContain('<td>1</td>');
+    const heading = markdownToPdfHtml('> - # Title\n> still\n');
+    expect(heading).toContain('<h1 id="title">Title</h1>');
+    expect(heading).toContain('<p>still</p>');
+    expect(heading).not.toContain('# Title');
     expect(quoteToLatex(['1. > Blockquote', 'continued here.'], (line) => line)).toContain(
       'Blockquote continued here.'
     );

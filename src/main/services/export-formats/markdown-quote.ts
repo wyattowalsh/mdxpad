@@ -1,4 +1,4 @@
-import { allocateHeadingSlug, headingSlug, headingTag } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, headingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { isThematicBreak } from './markdown-break';
 import { setextLevel } from './markdown-setext';
 import {
@@ -307,7 +307,9 @@ type QuoteItemPiece =
   | { readonly kind: 'code'; readonly lines: string[] }
   | { readonly kind: 'rule' }
   | { readonly kind: 'math'; readonly lines: string[] }
-  | { readonly kind: 'quote'; readonly lines: string[] };
+  | { readonly kind: 'quote'; readonly lines: string[] }
+  | { readonly kind: 'table'; readonly lines: string[] }
+  | { readonly kind: 'heading'; readonly depth: number; readonly text: string };
 
 function collectMarkerFence(
   body: readonly SourceLine[],
@@ -364,11 +366,32 @@ function collectMarkerQuote(
   return { lines, next: cursor };
 }
 
+function collectMarkerTable(
+  body: readonly SourceLine[],
+  first: string
+): { lines: string[]; next: number } {
+  const lines = [first];
+  let cursor = 1;
+  while (cursor < body.length && isTableRow(body[cursor]?.text ?? '')) {
+    lines.push((body[cursor]?.text ?? '').trim());
+    cursor += 1;
+  }
+  return { lines, next: cursor };
+}
+
 function takeMarkerPiece(
   body: readonly SourceLine[],
   column: number
 ): { piece: QuoteItemPiece; next: number } | null {
   const first = body[0]?.text ?? '';
+  const heading = parseAtxHeading(first);
+  if (heading) {
+    return { piece: { kind: 'heading', depth: heading.depth, text: heading.text }, next: 1 };
+  }
+  if (isTableRow(first)) {
+    const table = collectMarkerTable(body, first.trim());
+    return { piece: { kind: 'table', lines: table.lines }, next: table.next };
+  }
   if (openingFence(first) !== null) {
     const block = collectMarkerFence(body, column);
     return { piece: { kind: 'code', lines: block.lines }, next: block.next };
@@ -503,6 +526,13 @@ function renderQuotedPieceHtml(
   if (piece.kind === 'quote') {
     return quoteToHtml(piece.lines, renderLine);
   }
+  if (piece.kind === 'table') {
+    const table = parseMarkdownTable(piece.lines);
+    return table ? markdownTableToHtml(table, renderLine) : piece.lines.join('');
+  }
+  if (piece.kind === 'heading') {
+    return headingTag(piece.depth, renderLine(piece.text), headingSlug(piece.text));
+  }
   return joinParagraphHtml(piece.lines, renderLine);
 }
 
@@ -511,8 +541,17 @@ function renderQuotedItemHtml(
   column: number,
   renderLine: (line: string) => string
 ): string {
+  let sawBlock = false;
   return quoteItemPieces(body, column)
-    .map((piece) => renderQuotedPieceHtml(piece, renderLine))
+    .map((piece) => {
+      if (piece.kind === 'prose' && sawBlock) {
+        return `<p>${joinParagraphHtml(piece.lines, renderLine)}</p>`;
+      }
+      if (piece.kind !== 'prose') {
+        sawBlock = true;
+      }
+      return renderQuotedPieceHtml(piece, renderLine);
+    })
     .join('\n');
 }
 
@@ -559,6 +598,14 @@ function renderQuotedPieceLatex(
   }
   if (piece.kind === 'quote') {
     return quoteToLatex(piece.lines, renderLine);
+  }
+  if (piece.kind === 'table') {
+    const table = parseMarkdownTable(piece.lines);
+    return table ? markdownTableToLatex(table, renderLine) : piece.lines.join('\n');
+  }
+  if (piece.kind === 'heading') {
+    const command = piece.depth === 1 ? 'section' : 'subsection';
+    return `\\${command}{${renderLine(piece.text)}}`;
   }
   return formatQuoteItem(piece.lines, renderLine);
 }

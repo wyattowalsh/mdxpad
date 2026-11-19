@@ -1043,6 +1043,10 @@ function openLatexMarkerBlock(raw: string, output: string[], listState: ListStat
     listState.itemMath = [];
     return;
   }
+  if (block.kind === 'table') {
+    listState.itemTable = [block.row];
+    return;
+  }
   listState.itemQuote = [quoteMarkerLine(block.text)];
 }
 

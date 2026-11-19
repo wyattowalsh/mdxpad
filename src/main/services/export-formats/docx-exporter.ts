@@ -682,6 +682,37 @@ function readDocxMarkerQuote(lines: readonly string[], index: number, first: str
   return { quote, next: cursor };
 }
 
+function appendDocxMarkerTable(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  index: number,
+  row: string
+): number {
+  const rows = [row];
+  let cursor = index;
+  while (cursor < lines.length && isTableRow(lines[cursor] ?? '')) {
+    rows.push((lines[cursor] ?? '').trim());
+    cursor += 1;
+  }
+  flushDocxTable(blocks, rows);
+  return cursor;
+}
+
+function appendDocxMarkerHeading(
+  blocks: (Paragraph | Table)[],
+  item: MarkdownListItem,
+  depth: number,
+  index: number
+): number | null {
+  const heading = parseAtxHeading(item.text);
+  if (!heading) {
+    return null;
+  }
+  blocks.push(listParagraph({ ...item, text: '' }, depth));
+  blocks.push(bookmarkedHeading(heading.depth, heading.text, new Map()));
+  return index + 1;
+}
+
 function appendDocxMarkerQuoteItem(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
@@ -693,7 +724,7 @@ function appendDocxMarkerQuoteItem(
   const fence = openingFence(item.text);
   const block = fence === null ? listMarkerBlock(item.text) : null;
   if (fence === null && block === null) {
-    return null;
+    return appendDocxMarkerHeading(blocks, item, depth, index);
   }
   blocks.push(listParagraph({ ...item, text: '' }, depth));
   if (fence !== null) {
@@ -721,7 +752,10 @@ function appendDocxMarkerQuoteItem(
     pushDisplayMath(blocks, formula);
     return cursor;
   }
-  const read = readDocxMarkerQuote(lines, index + 1, block?.text ?? '');
+  if (block?.kind === 'table') {
+    return appendDocxMarkerTable(blocks, lines, index + 1, block.row);
+  }
+  const read = readDocxMarkerQuote(lines, index + 1, block?.kind === 'quote' ? block.text : '');
   appendDocxQuoteParagraph(blocks, read.quote, depth + 1);
   return read.next;
 }
@@ -1303,6 +1337,10 @@ function takeDocxMarkerBlock(
   }
   if (block.kind === 'math') {
     parse.itemMath = [];
+    return true;
+  }
+  if (block.kind === 'table') {
+    parse.itemTable = [block.row];
     return true;
   }
   parse.itemQuote = [quoteMarkerLine(block.text)];
