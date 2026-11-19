@@ -63,6 +63,7 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
 import {
+  continuesQuote,
   isLazyQuoteLine,
   quoteBody,
   quoteFenceOpen,
@@ -1314,7 +1315,7 @@ function takeDocxQuote(
     quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (quoteLines.length > 0 && isLazyQuoteLine(line)) {
+  if (continuesQuote(quoteLines, line)) {
     quoteLines.push(line);
     return true;
   }
@@ -1748,7 +1749,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     flushPendingParagraph(parse);
   }
   const heldByQuote =
-    parse.displayLines === null && quoteHoldsDelimiter(parse.quoteLines.length > 0, line);
+    parse.displayLines === null && quoteHoldsDelimiter(parse.quoteLines, line);
   const nextDisplay = heldByQuote
     ? false
     : takeDisplayLine(parse.blocks, line, parse.displayLines);
@@ -1759,7 +1760,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     return;
   }
   if (
-    !(parse.quoteLines.length > 0 && isLazyQuoteLine(line)) &&
+    !continuesQuote(parse.quoteLines, line) &&
     takeDocxTable(parse.blocks, trimmed, parse.tableLines)
   ) {
     flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts, parse.numbering);

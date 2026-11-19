@@ -101,6 +101,21 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('renders a heading inside a quote', () => {
+    const html = markdownToPdfHtml('> # Title\n\nafter\n');
+    expect(html).toContain('<h1 id="title">Title</h1>');
+    expect(html).toContain('<p>after</p>');
+    expect(html).not.toContain('# Title');
+    const followed = markdownToPdfHtml('> # Title\nbody\n');
+    expect(followed).toContain('<h1 id="title">Title</h1>');
+    expect(followed).toContain('<p>body</p>');
+    expect(followed).not.toContain('# Title body');
+    const kept = markdownToPdfHtml('> # Title\n> body\n');
+    const quote = kept.slice(kept.indexOf('<blockquote>'), kept.indexOf('</blockquote>'));
+    expect(quote).toContain('<h1 id="title">Title</h1>');
+    expect(quote).toContain('body');
+  });
+
   it('keeps a wrapped code fence and table inside the quote', () => {
     const code = markdownToPdfHtml('> ```\ncode\n```\n\nafter\n');
     expect(code).toContain('<pre><code>code</code></pre>');

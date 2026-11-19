@@ -21,7 +21,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
-  isLazyQuoteLine,
+  continuesQuote,
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
@@ -123,7 +123,7 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   }
   const trimmed = line.trim();
   if (trimmed === '$$') {
-    if (!build.displayMath && quoteHoldsDelimiter(build.quoteLines.length > 0, line)) {
+    if (!build.displayMath && quoteHoldsDelimiter(build.quoteLines, line)) {
       return false;
     }
     flushPdfParagraph(build);
@@ -166,7 +166,7 @@ function consumePdfTable(build: PdfBuild, line: string): boolean {
   }
   const trimmed = line.trim();
   if (isTableRow(trimmed)) {
-    if (build.quoteLines.length > 0 && build.tableLines.length === 0 && isLazyQuoteLine(line)) {
+    if (build.tableLines.length === 0 && continuesQuote(build.quoteLines, line)) {
       return false;
     }
     flushPdfParagraph(build);
@@ -200,7 +200,7 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
     build.quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (build.quoteLines.length > 0 && isLazyQuoteLine(line)) {
+  if (continuesQuote(build.quoteLines, line)) {
     build.quoteLines.push(line);
     return true;
   }

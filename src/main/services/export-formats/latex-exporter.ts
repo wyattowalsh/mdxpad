@@ -30,7 +30,7 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
 import {
-  isLazyQuoteLine,
+  continuesQuote,
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
@@ -1050,7 +1050,7 @@ function takeLatexQuote(
     quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (quoteLines.length > 0 && isLazyQuoteLine(line)) {
+  if (continuesQuote(quoteLines, line)) {
     quoteLines.push(line);
     return true;
   }
@@ -1328,7 +1328,7 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
     return false;
   }
   if (line.trim() === '$$') {
-    if (!build.inDisplayMath && quoteHoldsDelimiter(build.quoteLines.length > 0, line)) {
+    if (!build.inDisplayMath && quoteHoldsDelimiter(build.quoteLines, line)) {
       return false;
     }
     flushLatexProse(build.output, build.prose);
@@ -1386,7 +1386,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     return;
   }
   if (
-    !(build.quoteLines.length > 0 && isLazyQuoteLine(line)) &&
+    !continuesQuote(build.quoteLines, line) &&
     takeLatexTable(build.output, line.trim(), build.tableLines)
   ) {
     flushLatexProse(build.output, build.prose);

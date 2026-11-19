@@ -24,7 +24,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
-  isLazyQuoteLine,
+  continuesQuote,
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
@@ -175,7 +175,7 @@ function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineStat
     state.quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (state.quoteLines.length > 0 && isLazyQuoteLine(line)) {
+  if (continuesQuote(state.quoteLines, line)) {
     state.quoteLines.push(line);
     return true;
   }
@@ -206,7 +206,7 @@ function consumeEpubTable(htmlLines: string[], line: string, state: EpubLineStat
   }
   const trimmed = line.trim();
   if (isTableRow(trimmed)) {
-    if (state.quoteLines.length > 0 && state.tableLines.length === 0 && isLazyQuoteLine(line)) {
+    if (state.tableLines.length === 0 && continuesQuote(state.quoteLines, line)) {
       return false;
     }
     flushEpubParagraph(htmlLines, state);
@@ -229,7 +229,7 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
   }
   const trimmed = line.trim();
   if (trimmed === '$$') {
-    if (!state.displayMath && quoteHoldsDelimiter(state.quoteLines.length > 0, line)) {
+    if (!state.displayMath && quoteHoldsDelimiter(state.quoteLines, line)) {
       return false;
     }
     flushEpubParagraph(htmlLines, state);

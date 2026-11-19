@@ -68,9 +68,39 @@ export function isLazyQuoteLine(line: string): boolean {
   return readHtmlBlock([line], 0) === null;
 }
 
+function lastQuoteContent(lines: readonly string[]): string | null {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index] ?? '';
+    if (line.trim().length > 0) {
+      return line;
+    }
+  }
+  return null;
+}
+
+/** A heading has already closed, so the next plain line is not part of the quote. */
+export function quoteRejectsLazy(lines: readonly string[]): boolean {
+  const last = lastQuoteContent(lines);
+  if (!last) {
+    return false;
+  }
+  if (parseAtxHeading(last) !== null) {
+    return true;
+  }
+  if (setextLevel(last) === null) {
+    return false;
+  }
+  return lines.some((line) => line !== last && line.trim().length > 0);
+}
+
+/** A wrapped sentence stays in the quote. A line after a heading does not. */
+export function continuesQuote(lines: readonly string[], line: string): boolean {
+  return lines.length > 0 && isLazyQuoteLine(line) && !quoteRejectsLazy(lines);
+}
+
 /** A `$$` line that still belongs to the open quote, rather than starting display math. */
-export function quoteHoldsDelimiter(quoteOpen: boolean, line: string): boolean {
-  return quoteOpen && line.trim() === '$$' && isLazyQuoteLine(line);
+export function quoteHoldsDelimiter(lines: readonly string[], line: string): boolean {
+  return continuesQuote(lines, line) && line.trim() === '$$';
 }
 
 /** The fence marker still open inside a quote, such as a closer on the next line. */
@@ -690,9 +720,24 @@ function quoteListLatex(lines: readonly string[], renderLine: (line: string) => 
   return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`;
 }
 
+type QuoteHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
 type QuoteParagraphPiece =
-  | { readonly kind: 'heading'; readonly level: 1 | 2; readonly text: string }
+  | { readonly kind: 'heading'; readonly level: QuoteHeadingLevel; readonly text: string }
   | { readonly kind: 'paragraph'; readonly lines: string[] };
+
+const QUOTE_HEADING_COMMANDS = [
+  'section',
+  'subsection',
+  'subsubsection',
+  'paragraph',
+  'subparagraph',
+  'subparagraph',
+] as const;
+
+function quoteHeadingCommand(level: number): string {
+  return QUOTE_HEADING_COMMANDS[level - 1] ?? 'subparagraph';
+}
 
 export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPiece[] {
   const pieces: QuoteParagraphPiece[] = [];
@@ -705,6 +750,12 @@ export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPi
     paragraph = [];
   };
   for (const line of lines) {
+    const atx = parseAtxHeading(line);
+    if (atx) {
+      flush();
+      pieces.push({ kind: 'heading', level: atx.depth, text: atx.text });
+      continue;
+    }
     const level = paragraph.length > 0 ? quotedSetextLevel(line) : null;
     if (level === null) {
       paragraph.push(line);
@@ -755,7 +806,7 @@ function quoteParagraphLatex(
       if (piece.kind === 'paragraph') {
         return joinQuoteLatex(piece.lines, renderLine);
       }
-      const command = piece.level === 1 ? 'section' : 'subsection';
+      const command = quoteHeadingCommand(piece.level);
       const label = `\\label{${quoteHeadingSlug(piece.text, slugs)}}`;
       return `\\${command}{${renderLine(piece.text)}}${label}`;
     })
