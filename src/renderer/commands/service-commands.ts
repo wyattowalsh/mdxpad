@@ -12,7 +12,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
-import { GIT_BRANCH_COMMANDS } from './git-branch-commands';
+import { GIT_BRANCH_COMMANDS, requireGitRepository } from './git-branch-commands';
 import { IMPORT_COMMANDS } from './import-commands';
 import {
   documentStillMatches,
@@ -240,25 +240,15 @@ function notifyFolderResult(
   ctx.notify({ type: 'info', message });
 }
 
-function requireWorkspaceDir(ctx: CommandContext): string | null {
-  const dir = workspaceDir(ctx.document.filePath);
-  if (!dir) {
-    ctx.notify({ type: 'warning', message: 'Open a file inside a folder to use git' });
-    return null;
-  }
-  return dir;
-}
-
 const gitStatusCommand: Command = {
   id: 'git.status' as CommandId,
   name: 'Git Status',
   description: 'Show git status for the current file directory',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = workspaceDir(ctx.document.filePath);
+    const dir = await requireGitRepository(ctx);
     if (!dir || !ctx.api.git) {
-      ctx.notify({ type: 'warning', message: 'Open a file inside a folder to check git status' });
-      return { ok: false, error: 'No workspace directory' };
+      return { ok: false, error: 'No git repository' };
     }
     const result = await ctx.api.git.status(dir);
     if (!result.ok) {
@@ -311,12 +301,9 @@ const gitLogCommand: Command = {
   description: 'Show the latest commits for the current file directory',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = requireWorkspaceDir(ctx);
+    const dir = await requireGitRepository(ctx);
     if (!dir || !ctx.api.git) {
-      if (dir) {
-        ctx.notify({ type: 'warning', message: 'Git is not available' });
-      }
-      return { ok: false, error: dir ? 'Git is not available' : 'No workspace directory' };
+      return { ok: false, error: 'No git repository' };
     }
     const result = await ctx.api.git.log(dir, 5);
     if (!result.ok) {
@@ -334,12 +321,9 @@ const gitDiffCommand: Command = {
   description: 'Show how many files differ in the current file directory',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = requireWorkspaceDir(ctx);
+    const dir = await requireGitRepository(ctx);
     if (!dir || !ctx.api.git) {
-      if (dir) {
-        ctx.notify({ type: 'warning', message: 'Git is not available' });
-      }
-      return { ok: false, error: dir ? 'Git is not available' : 'No workspace directory' };
+      return { ok: false, error: 'No git repository' };
     }
     const result = await ctx.api.git.diff(dir);
     if (!result.ok) {
@@ -457,12 +441,9 @@ const gitCommitCommand: Command = {
   description: 'Commit the open file in its folder',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = requireWorkspaceDir(ctx);
+    const dir = await requireGitRepository(ctx);
     const filePath = ctx.document.filePath;
     if (!dir || !filePath || !ctx.api.git) {
-      if (dir && filePath) {
-        ctx.notify({ type: 'warning', message: 'Git is not available' });
-      }
       return { ok: false, error: 'Nothing to commit' };
     }
     const message = window.prompt('Commit message');

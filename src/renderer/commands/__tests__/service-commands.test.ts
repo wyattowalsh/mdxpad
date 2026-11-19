@@ -52,6 +52,32 @@ describe('git status', () => {
     useTabStore.getState().reset();
   });
 
+  it('warns when the folder is not a git repository', async () => {
+    const status = vi.fn();
+    const notify = vi.fn();
+    const context = {
+      document: { filePath: '/notes/readme.md', content: 'draft', isDirty: false },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: false } }),
+          status,
+        },
+      },
+      notify,
+    } as unknown as CommandContext;
+
+    const command = SERVICE_COMMANDS.find((item) => item.id === 'git.status');
+    await expect(command?.execute(context)).resolves.toEqual({
+      ok: false,
+      error: 'No git repository',
+    });
+    expect(status).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({
+      type: 'warning',
+      message: 'This folder is not a git repository',
+    });
+  });
+
   it('mentions unsaved editor files when the disk is clean', async () => {
     useDocumentStore.setState({
       filePath: '/notes/readme.md',
@@ -80,7 +106,9 @@ describe('git status', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: 'draft', isDirty: true },
-      api: { git: { status } },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), status },
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -122,7 +150,9 @@ describe('git status', () => {
         fileId: 'file-1',
       },
       editor: { state: { doc: { toString: () => 'saved!' } }, isDestroyed: false },
-      api: { git: { status } },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), status },
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -157,11 +187,16 @@ describe('git status', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: 'draft', isDirty: false },
-      api: { git: { status } },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), status },
+      },
       notify,
     } as unknown as CommandContext;
     const command = SERVICE_COMMANDS.find((item) => item.id === 'git.status');
     const pending = command?.execute(context);
+    await vi.waitFor(() => {
+      expect(status).toHaveBeenCalled();
+    });
     useDocumentStore.setState({ filePath: '/other/b.md', content: 'other' });
     finishStatus({
       ok: true,
@@ -203,7 +238,9 @@ describe('git diff', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: 'draft', isDirty: true },
-      api: { git: { diff } },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), diff },
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -241,7 +278,9 @@ describe('git log and diff', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: '' },
-      api: { git: { log } },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), log },
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -272,7 +311,13 @@ describe('git.commit', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: '# Notes' },
-      api: { git: { add, commit } },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -303,7 +348,13 @@ describe('git.commit', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: '# Notes' },
-      api: { git: { add, commit } },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -351,7 +402,14 @@ describe('git.commit', () => {
     });
     const context = {
       document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
-      api: { git: { add, commit }, saveFile },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+        saveFile,
+      },
       notify: vi.fn(),
     } as unknown as CommandContext;
 
@@ -392,7 +450,14 @@ describe('git.commit', () => {
         fileId: 'file-1',
       },
       editor: { state: { doc: { toString: () => 'Hello!' } }, isDestroyed: false },
-      api: { git: { add, commit }, saveFile },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+        saveFile,
+      },
       notify: vi.fn(),
     } as unknown as CommandContext;
 
@@ -435,7 +500,14 @@ describe('git.commit', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: '# Notes', isDirty: false },
-      api: { git: { add, commit }, writeFile },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+        writeFile,
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -474,7 +546,11 @@ describe('git.commit', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: 'Hello', isDirty: true },
-      api: { git: { add }, saveFile, writeFile },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), add },
+        saveFile,
+        writeFile,
+      },
       notify,
     } as unknown as CommandContext;
 
@@ -519,7 +595,14 @@ describe('git.commit', () => {
         isDirty: false,
         fileId: 'file-1',
       },
-      api: { git: { add, commit }, saveFile },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+        saveFile,
+      },
       notify: vi.fn(),
     } as unknown as CommandContext;
 
@@ -555,7 +638,14 @@ describe('git.commit', () => {
     });
     const context = {
       document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
-      api: { git: { add, commit }, saveFile },
+      api: {
+        git: {
+          isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }),
+          add,
+          commit,
+        },
+        saveFile,
+      },
       notify: vi.fn(),
     } as unknown as CommandContext;
 
@@ -584,7 +674,10 @@ describe('git.commit', () => {
         isDirty: true,
         fileId: 'file-1',
       },
-      api: { git: { add }, saveFile },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), add },
+        saveFile,
+      },
       notify: vi.fn(),
     } as unknown as CommandContext;
 
@@ -613,7 +706,10 @@ describe('git.commit', () => {
     const notify = vi.fn();
     const context = {
       document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
-      api: { git: { add }, saveFile },
+      api: {
+        git: { isRepo: vi.fn().mockResolvedValue({ ok: true, value: { isRepo: true } }), add },
+        saveFile,
+      },
       notify,
     } as unknown as CommandContext;
 

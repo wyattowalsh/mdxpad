@@ -11,7 +11,7 @@ function folderForGit(filePath: string | null): string | null {
   return filePath.slice(0, filePath.lastIndexOf('/'));
 }
 
-async function readyRepository(ctx: CommandContext): Promise<string | null> {
+export async function requireGitRepository(ctx: CommandContext): Promise<string | null> {
   const dir = folderForGit(ctx.document.filePath);
   const git = ctx.api.git;
   if (!dir) {
@@ -50,7 +50,7 @@ const gitBranchesCommand: Command = {
   description: 'List branches for the current file directory',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = await readyRepository(ctx);
+    const dir = await requireGitRepository(ctx);
     if (!dir || !ctx.api.git) {
       return { ok: false, error: 'No git repository' };
     }
@@ -70,7 +70,7 @@ const gitCheckoutCommand: Command = {
   description: 'Check out a branch in the current file directory',
   category: 'file',
   execute: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dir = await readyRepository(ctx);
+    const dir = await requireGitRepository(ctx);
     if (!dir || !ctx.api.git) {
       return { ok: false, error: 'No git repository' };
     }
