@@ -69,6 +69,26 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('$x^2$');
   });
 
+  it('keeps code inside a list indented', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- alpha\n\n      code line\n\n  ```\n  fence\n  ```\n',
+      outputPath: '/tmp/list-code.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); paras=xml.split("<w:p>");\nfor p in paras[1:]:\n t="".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p)).strip();\n ind=re.search(r\'w:left="(\\d+)"\', p);\n print((ind.group(1) if ind else "-") + " " + t)',
+      ],
+      { input: buffer }
+    );
+    const lines = extracted.stdout.toString().trim().split('\n');
+    expect(lines).toContain('720 code line');
+    expect(lines).toContain('720 fence');
+  });
+
   it('keeps a paragraph after a quote inside a list', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

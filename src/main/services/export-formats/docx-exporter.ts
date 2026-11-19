@@ -598,7 +598,7 @@ function highlightedRuns(html: string): TextRun[] {
   return runs;
 }
 
-function createCodeBlockParagraph(codeLines: string[], language = ''): Paragraph {
+function createCodeBlockParagraph(codeLines: string[], language = '', left?: number): Paragraph {
   const source = codeLines.join('\n');
   const highlighted = highlightCodeHtml(language, source);
   const runs =
@@ -608,7 +608,13 @@ function createCodeBlockParagraph(codeLines: string[], language = ''): Paragraph
   return new Paragraph({
     children: runs,
     spacing: { before: 120, after: 120 },
+    ...(left === undefined ? {} : { indent: { left } }),
   });
+}
+
+function listContentIndent(parse: DocxParse): number {
+  const level = parse.listStack[parse.listStack.length - 1]?.level ?? parse.openListItem?.level ?? 0;
+  return 720 * (level + 1);
 }
 
 function runsWithBreaks(
@@ -1140,7 +1146,7 @@ function closeDocxItemCode(parse: DocxParse): void {
   while (parse.itemCode[parse.itemCode.length - 1] === '') {
     parse.itemCode.pop();
   }
-  parse.blocks.push(createCodeBlockParagraph(parse.itemCode, ''));
+  parse.blocks.push(createCodeBlockParagraph(parse.itemCode, '', listContentIndent(parse)));
   parse.itemCode = null;
   parse.listSealed = true;
   parse.listParagraphBreak = true;
@@ -1787,7 +1793,13 @@ function finishDocxBodyLine(
 function takeDocxItemFence(parse: DocxParse, line: string): boolean {
   if (parse.itemFence) {
     if (readListFenceLine(parse.itemFence, line, parse.listColumn ?? 2) === 'closed') {
-      parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
+      parse.blocks.push(
+        createCodeBlockParagraph(
+          parse.itemFence.lines,
+          parse.itemFence.language,
+          listContentIndent(parse)
+        )
+      );
       parse.itemFence = null;
       parse.listSealed = true;
     }
@@ -1948,7 +1960,13 @@ function parseContentToParagraphs(content: string): {
     parse.blocks.push(createCodeBlockParagraph(codeLines, language.current));
   }
   if (parse.itemFence) {
-    parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
+    parse.blocks.push(
+      createCodeBlockParagraph(
+        parse.itemFence.lines,
+        parse.itemFence.language,
+        listContentIndent(parse)
+      )
+    );
   }
   if (parse.itemQuote) {
     appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts, parse.numbering);
