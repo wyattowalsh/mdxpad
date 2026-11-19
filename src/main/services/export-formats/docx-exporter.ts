@@ -723,7 +723,8 @@ function appendDocxQuoteCodeLines(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
   start: number,
-  column: number
+  column: number,
+  depth: number
 ): number {
   const first = lines[start] ?? '';
   const block = [first];
@@ -759,7 +760,7 @@ function appendDocxQuoteCodeLines(
     const cut = spaces < fenceIndent ? spaces : fenceIndent;
     return expanded.slice(cut);
   });
-  appendDocxQuoteCode(blocks, shifted);
+  appendDocxQuoteCode(blocks, shifted, depth + 1);
   return cursor;
 }
 
@@ -869,7 +870,7 @@ function appendDocxMarkerQuoteItem(
   if (fence !== null) {
     const read = readDocxMarkerFence(lines, index, fence, column);
     read.sample[0] = item.text;
-    appendDocxQuoteCode(blocks, read.sample);
+    appendDocxQuoteCode(blocks, read.sample, depth + 1);
     return read.next;
   }
   if (block?.kind === 'rule') {
@@ -914,7 +915,7 @@ function takeDocxQuotedContinuation(
     openIndentedFence(line, column) !== null || (line.trim().length > 0 && indent >= column + 4);
   if (code) {
     blocks.push(listParagraph(current, depth, reference));
-    return { current: null, index: appendDocxQuoteCodeLines(blocks, lines, index, column) - 1 };
+    return { current: null, index: appendDocxQuoteCodeLines(blocks, lines, index, column, depth) - 1 };
   }
   const underline = quotedUnderlineLevel(line);
   if (underline !== null && current.text.length > 0) {
@@ -1061,16 +1062,21 @@ function appendDocxQuoteParagraph(
   }
 }
 
-function appendDocxQuoteCode(blocks: (Paragraph | Table)[], lines: readonly string[]): void {
+function appendDocxQuoteCode(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  depth: number
+): void {
   const marker = openingFence(lines[0] ?? '');
+  const left = 720 * depth;
   if (marker === null) {
     const body = lines.map((line) => line.replace(/^(?: {4}|\t)/, ''));
-    blocks.push(createCodeBlockParagraph(body, ''));
+    blocks.push(createCodeBlockParagraph(body, '', left));
     return;
   }
   const last = lines[lines.length - 1] ?? '';
   const end = closesFence(last, marker) ? -1 : undefined;
-  blocks.push(createCodeBlockParagraph(lines.slice(1, end), fenceLanguage(lines[0] ?? '')));
+  blocks.push(createCodeBlockParagraph(lines.slice(1, end), fenceLanguage(lines[0] ?? ''), left));
 }
 
 function appendDocxQuoteLines(
@@ -1090,7 +1096,7 @@ function appendDocxQuoteLines(
       continue;
     }
     if (chunk.kind === 'code') {
-      appendDocxQuoteCode(blocks, chunk.lines);
+      appendDocxQuoteCode(blocks, chunk.lines, depth);
       continue;
     }
     if (chunk.kind === 'list') {
