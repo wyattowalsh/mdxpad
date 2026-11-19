@@ -9,6 +9,19 @@ import {
 } from './markdown-table';
 
 describe('parseMarkdownTable', () => {
+  it('keeps a price and a link in separate columns', () => {
+    const table = parseMarkdownTable([
+      '| $5 | [link](https://example.com/$10) |',
+      '| --- | --- |',
+      '| a | b |',
+    ]);
+    expect(table?.headers).toEqual(['$5', '[link](https://example.com/$10)']);
+    expect(table?.rows).toEqual([['a', 'b']]);
+    const html = table ? markdownTableToHtml(table, renderMarkdownInline) : '';
+    expect(html).toContain('href="https://example.com/$10"');
+    expect(html).toContain('>$5<');
+  });
+
   it('reads a header, a separator, and body rows', () => {
     const table = parseMarkdownTable(['| Name | Value |', '| --- | ---: |', '| A | 1 |']);
     expect(table).toEqual({

@@ -61,18 +61,11 @@ function skipMath(value: string, index: number): number {
   if (value[index] !== '$' || value[index - 1] === '\\') {
     return index;
   }
-  let cursor = index + 1;
-  while (cursor < value.length) {
-    if (value[cursor] === '\\') {
-      cursor += 2;
-      continue;
-    }
-    if (value[cursor] === '$') {
-      return cursor + 1;
-    }
-    cursor += 1;
+  const end = mathCloserIndex(value, index + 1, '$');
+  if (end === -1 || containsColumnPipe(value.slice(index, end + 1))) {
+    return index;
   }
-  return index;
+  return end + 1;
 }
 
 function matchingCloser(
