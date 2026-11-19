@@ -108,7 +108,7 @@ export function safeImageAddress(destination: string): string | null {
     }
     return svgDataLoadsLocalFile(destination) ? null : destination;
   }
-  if (scheme !== null || rootedPath(destination) || climbsOut(destination)) {
+  if (scheme !== null || rootedPath(destination) || addressClimbsOut(destination)) {
     return null;
   }
   return destination;
@@ -119,7 +119,7 @@ function rootedPath(destination: string): boolean {
   return decoded.startsWith('/') || decoded.startsWith('\\');
 }
 
-function climbsOut(destination: string): boolean {
+export function addressClimbsOut(destination: string): boolean {
   return decodedAddress(destination)
     .replaceAll('\\', '/')
     .split('/')
@@ -181,7 +181,7 @@ function attributeAllowed(name: string, value: string): boolean {
     return srcsetAllowed(value);
   }
   if (name === 'action' || name === 'formaction') {
-    return safeLinkAddress(value) !== null && !climbsOut(value);
+    return safeLinkAddress(value) !== null && !addressClimbsOut(value);
   }
   const image = name === 'src' || name === 'poster' || name === 'background';
   return (image ? safeImageAddress(value) : safeLinkAddress(value)) !== null;

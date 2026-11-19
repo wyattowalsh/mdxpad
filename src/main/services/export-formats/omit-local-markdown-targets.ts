@@ -13,7 +13,12 @@ import { resolveWorkspaceFilePath } from '../ai/agent-path';
 import { decodeHtmlEntities } from './markdown-entity';
 import { advanceFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
-import { htmlTagEnd, safeImageAddress, safeLinkAddress } from './markdown-export-address';
+import {
+  addressClimbsOut,
+  htmlTagEnd,
+  safeImageAddress,
+  safeLinkAddress,
+} from './markdown-export-address';
 
 const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 const LINK = /(?<!!)\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
@@ -29,6 +34,9 @@ function pictureAllowed(address: string, root: string | null): boolean {
   }
   if (hasScheme(address) || root === null) {
     return safe !== null;
+  }
+  if (addressClimbsOut(address)) {
+    return false;
   }
   try {
     resolveWorkspaceFilePath(root, address);

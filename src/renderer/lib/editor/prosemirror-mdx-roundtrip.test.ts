@@ -177,6 +177,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('`   `\n')).toBe('` `');
   });
 
+  it('keeps tildes inside code from ending the strikethrough', () => {
+    const source = '~~remove `a~~b` now~~\n';
+    const once = roundTrip(source);
+    expect(once).toContain('~~remove `a~~b` now~~');
+    expect(once).not.toContain('now\\~\\~');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
   it('keeps strikethrough around bold', () => {
     const serialized = roundTrip('~~strike **bold**~~\n');
     expect(serialized).toContain('~~strike **bold**~~');

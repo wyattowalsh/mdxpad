@@ -1,5 +1,7 @@
 import type MarkdownIt from 'markdown-it';
 
+import { copyCodeSpan } from './prosemirror-tex-protect';
+
 interface StrikeToken {
   content: string;
 }
@@ -28,6 +30,31 @@ interface MarkdownTokenizer {
   };
 }
 
+function strikeEnd(src: string, from: number, max: number): number {
+  let index = from;
+  while (index < max) {
+    if (src.charCodeAt(index) === 0x5c) {
+      index += 2;
+      continue;
+    }
+    if (src.charCodeAt(index) === 0x60) {
+      const span = copyCodeSpan(src, index);
+      if (span) {
+        if (span.next > max) {
+          return -1;
+        }
+        index = span.next;
+        continue;
+      }
+    }
+    if (index + 1 < max && src.charCodeAt(index) === 0x7e && src.charCodeAt(index + 1) === 0x7e) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
 function strikethroughRule(state: StrikeState, silent: boolean): boolean {
   const start = state.pos;
   if (start + 1 >= state.posMax) {
@@ -36,7 +63,7 @@ function strikethroughRule(state: StrikeState, silent: boolean): boolean {
   if (state.src.charCodeAt(start) !== 0x7e || state.src.charCodeAt(start + 1) !== 0x7e) {
     return false;
   }
-  const end = state.src.indexOf('~~', start + 2);
+  const end = strikeEnd(state.src, start + 2, state.posMax);
   const inner = end === -1 ? '' : state.src.slice(start + 2, end);
   if (end < 0 || end >= state.posMax || end <= start + 2 || inner.includes('\n\n')) {
     return false;

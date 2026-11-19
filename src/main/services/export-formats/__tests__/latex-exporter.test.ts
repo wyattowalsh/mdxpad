@@ -1012,6 +1012,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\begin{gather}');
   });
 
+  it('keeps a percent inside a display formula that looks like a price', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$50% off$$\n\nNext paragraph.\n',
+      outputPath: '/tmp/display-percent-words.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('$$50\\% off$$');
+    expect(written).toContain('Next paragraph.');
+    expect(written).not.toContain('50%');
+  });
+
   it('keeps a backslash as a LaTeX command', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

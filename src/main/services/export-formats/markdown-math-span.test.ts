@@ -14,6 +14,13 @@ describe('mathSpanEnd', () => {
     ]);
   });
 
+  it('keeps a percent inside display math', () => {
+    expect(splitDocxPieces('$$50% off$$')).toEqual([{ kind: 'math', tex: '50% off' }]);
+    expect(splitDocxPieces('Price is $5 and $10')).toEqual([
+      { kind: 'text', text: 'Price is $5 and $10' },
+    ]);
+  });
+
   it('does not treat a price and an ampersand as a formula', () => {
     expect(splitDocxPieces('Price is $5 & $6$')).toEqual([
       { kind: 'text', text: 'Price is $5 & $6$' },

@@ -153,12 +153,28 @@ function latexFilename(src: string): string {
   return value.includes('_') ? `\\detokenize{${value}}` : value;
 }
 
+function decodedGraphicsPath(src: string): string {
+  let current = src;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const next = decodeURIComponent(current);
+      if (next === current) {
+        return current;
+      }
+      current = next;
+    } catch {
+      return current;
+    }
+  }
+  return current;
+}
+
 function containedGraphicsPath(src: string): string | null {
-  const normalized = src.replaceAll('\\', '/');
-  if (/^[a-z][a-z0-9+.-]*:/i.test(normalized)) {
+  const decoded = decodedGraphicsPath(src).replaceAll('\\', '/');
+  if (/^[a-z][a-z0-9+.-]*:/i.test(decoded)) {
     return null;
   }
-  if (normalized.split('/').some((part) => part === '..')) {
+  if (decoded.split('/').some((part) => part === '..')) {
     return null;
   }
   if (texPicturePathUnsafe(src)) {

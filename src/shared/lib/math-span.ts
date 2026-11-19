@@ -62,10 +62,10 @@ export function mathSpanEnd(raw: string, start: number, delimiter: '$' | '$$'): 
     return -1;
   }
   const interior = raw.slice(start + delimiter.length, cursor);
-  if (interior.length === 0 || isCurrencySpan(interior)) {
+  if (interior.length === 0) {
     return -1;
   }
-  if (delimiter === '$' && hasAlignmentTab(interior)) {
+  if (delimiter === '$' && (isCurrencySpan(interior) || hasAlignmentTab(interior))) {
     return -1;
   }
   return cursor + delimiter.length;

@@ -105,6 +105,30 @@ describe('pictures that leave the source folder through a symlink', () => {
     expect(importedKept).toContain('pixel.png');
   });
 
+  it('drops a picture whose parent directory is percent-encoded', async () => {
+    const { root, source } = await sourceWithSymlink();
+    const encoded = '![Secret](%2e%2e/secret.png)\n\n![Again](%252e%252e/secret.png)\n';
+    const kept = omitLocalMarkdownTargets(encoded, source);
+    expect(kept).not.toContain('%2e%2e');
+    expect(kept).not.toContain('%252e');
+    expect(kept).toContain('Secret');
+    expect(kept).toContain('Again');
+    const html = omitLocalMarkdownTargets('<img src="%2e%2e/secret.png" alt="Secret">', source);
+    expect(html).not.toContain('%2e%2e');
+    expect(html).toContain('Secret');
+    const outputPath = path.join(root, 'encoded.tex');
+    const result = await new LatexExporter().export({
+      content: encoded,
+      outputPath,
+      sourcePath: source,
+    });
+    expect(result.ok).toBe(true);
+    const { writeFile: recorded } = await import('node:fs/promises');
+    const written = (recorded as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('includegraphics');
+    expect(written).not.toContain('../');
+  });
+
   it('does not hand a symlink to LaTeX', async () => {
     const { root, source } = await sourceWithSymlink();
     const outputPath = path.join(root, 'out.tex');
