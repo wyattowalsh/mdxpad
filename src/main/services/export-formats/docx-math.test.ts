@@ -72,6 +72,15 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('puts a brace over or under a Word expression', () => {
+    const over = mathComponents('\\overbrace{ab}');
+    expect(over[0]).toBeInstanceOf(MathLimitUpper);
+    expect(runText(over)).toBe('ab\u23DE');
+    const under = mathComponents('\\underbrace{ab}');
+    expect(under[0]).toBeInstanceOf(MathLimitLower);
+    expect(runText(under)).toBe('ab\u23DF');
+  });
+
   it('puts a label on a stretched arrow', () => {
     const over = mathComponents('\\xrightarrow{n}');
     expect(over).toHaveLength(1);

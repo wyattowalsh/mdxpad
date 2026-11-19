@@ -148,6 +148,12 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (grouped !== null) {
     return grouped;
   }
+  if (name === 'overbrace') {
+    return readBraceSpan(cursor, true);
+  }
+  if (name === 'underbrace') {
+    return readBraceSpan(cursor, false);
+  }
   if (name === 'overset' || name === 'stackrel') {
     return readStack(cursor, true);
   }
@@ -240,6 +246,15 @@ function readMod(cursor: Cursor, parenthesized: boolean): MathComponent[] {
       children: [new MathRun('mod '), ...readGroup(cursor)],
     }),
   ];
+}
+
+function readBraceSpan(cursor: Cursor, upper: boolean): MathComponent[] {
+  const body = readGroup(cursor);
+  const brace = [new MathRun(upper ? '\u23DE' : '\u23DF')];
+  if (upper) {
+    return [new MathLimitUpper({ children: body, limit: brace })];
+  }
+  return [new MathLimitLower({ children: body, limit: brace })];
 }
 
 function readStretchArrow(cursor: Cursor, arrow: string): MathComponent[] {
