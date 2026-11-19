@@ -4,6 +4,7 @@ import { fenceIndentedCode } from '@shared/lib/indented-code';
 import { normalizeTexMath } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
+import { disarmFileReadsInMath } from './latex-file-command';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 import { prepareRegularOutput } from './write-regular-file';
@@ -135,9 +136,10 @@ export class PandocBridge implements Exporter {
       const rooted = options.sourcePath
         ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
         : options.content;
-      const content = sanitizeMarkdownHtmlBlocks(
+      const prepared = sanitizeMarkdownHtmlBlocks(
         omitLocalMarkdownTargets(normalizeTexMath(fenceIndentedCode(rooted)), options.sourcePath)
       );
+      const content = pandocWritesTex(this.targetFormat) ? disarmFileReadsInMath(prepared) : prepared;
       const { stderr } = await runPandoc(detection.path, args, content, this.timeoutMs);
 
       if (stderr.trim().length > 0) {
@@ -170,6 +172,11 @@ const BLOCKED_PANDOC_ARGS = new Set([
   '--extract-media',
   '--log',
 ]);
+
+function pandocWritesTex(format: string): boolean {
+  const base = format.split('+')[0] ?? format;
+  return base === 'latex' || base === 'beamer' || base === 'context';
+}
 
 function pandocFormat(value: unknown, fallback: string): string {
   return typeof value === 'string' && PANDOC_FORMAT.test(value) ? value : fallback;

@@ -396,7 +396,7 @@ function replaceTexMath(prose: string): string {
   return result;
 }
 
-function mapFencedProse(content: string, transform: (prose: string) => string): string {
+export function mapFencedProse(content: string, transform: (prose: string) => string): string {
   const output: string[] = [];
   const prose: string[] = [];
   let fence: string | null = null;

@@ -2,6 +2,7 @@ import { writeRegularFile } from './write-regular-file';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
+import { disarmLatexFileRead } from './latex-file-command';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
@@ -72,13 +73,6 @@ function latexSuperscripts(text: string): string {
     const digits = run.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (char) => SUPERSCRIPT_DIGIT[char] ?? '');
     return `\\textsuperscript{${digits}}`;
   });
-}
-
-const LATEX_FILE_READ =
-  /\\(?:includegraphics|InputIfFileExists|verbatiminput|lstinputlisting|openin|openout|include|input|write|read)\b/g;
-
-function disarmLatexFileRead(value: string): string {
-  return value.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
 }
 
 function escapeLatex(text: string): string {
