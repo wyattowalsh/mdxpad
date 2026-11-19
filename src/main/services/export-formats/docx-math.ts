@@ -10,7 +10,7 @@ import {
 } from 'docx';
 
 import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
-import { equationTag, liftPrescripts, pushScript, scriptBase, takeInfix } from './docx-math-script';
+import { appendGroup, equationTag, liftPrescripts, pushScript, scriptBase, takeInfix } from './docx-math-script';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -375,7 +375,7 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
     }
     if (char === '{') {
       flush();
-      components.push(...readGroup(cursor));
+      appendGroup(cursor, components, readGroup(cursor), () => readGroup(cursor));
       continue;
     }
     if ((cursor.literal ?? 0) === 0 && (char === '^' || char === '_' || char === "'")) {

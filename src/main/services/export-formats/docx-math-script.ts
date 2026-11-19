@@ -347,6 +347,39 @@ export function liftPrescripts(components: readonly MathComponent[]): MathCompon
   return lifted;
 }
 
+function groupedScriptMark(
+  cursor: { source: string; index: number; literal?: number },
+  group: readonly MathComponent[],
+): '^' | '_' | "'" | null {
+  if (group.length < 2 || (cursor.literal ?? 0) > 0) {
+    return null;
+  }
+  let index = cursor.index;
+  while (cursor.source[index] === ' ' || cursor.source[index] === '\n') {
+    index += 1;
+  }
+  const char = cursor.source[index];
+  if (char !== '^' && char !== '_' && char !== "'") {
+    return null;
+  }
+  cursor.index = index;
+  return char;
+}
+
+export function appendGroup(
+  cursor: { source: string; index: number; literal?: number },
+  components: MathComponent[],
+  group: readonly MathComponent[],
+  readGroup: () => readonly MathComponent[],
+): void {
+  const mark = groupedScriptMark(cursor, group);
+  if (mark === null) {
+    components.push(...group);
+    return;
+  }
+  pushScript(cursor, components, group, mark, readGroup);
+}
+
 export function pushScript(
   cursor: { source: string; index: number },
   components: MathComponent[],

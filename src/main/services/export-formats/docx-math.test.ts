@@ -359,6 +359,13 @@ describe('mathComponents', () => {
     expect(upperFirst[0]).toBeInstanceOf(MathSubSuperScript);
     expect(runText(upperFirst)).toBe('xi2');
     expect(mathComponents('{x_i}^2')[0]).toBeInstanceOf(MathSubSuperScript);
+    const grouped = mathComponents('{\\frac{1}{2}+1}^2');
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]).toBeInstanceOf(MathSuperScript);
+    expect(runText(grouped)).toBe('12+12');
+    const cubed = mathComponents('{a^2+b}^3');
+    expect(cubed).toHaveLength(1);
+    expect(runText(cubed)).toBe('a2+b3');
   });
 
   it('builds an infix fraction and a binomial', () => {
