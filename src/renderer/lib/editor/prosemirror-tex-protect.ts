@@ -149,7 +149,7 @@ export function shieldMathMarkup(value: string): string {
     }
     const link = readLinkSpan(value, index);
     if (link) {
-      result += link.text;
+      result += withLinkLabel(link.text, shieldLabelFormula);
       index = link.next;
       continue;
     }
@@ -203,7 +203,10 @@ export function copyCodeSpan(value: string, index: number): { text: string; next
   return { text: value.slice(index, closer + ticks), next: closer + ticks };
 }
 
-export function readDestination(value: string, open: number): { text: string; next: number } | null {
+export function readDestination(
+  value: string,
+  open: number
+): { text: string; next: number } | null {
   if (value[open - 1] !== ']' || value[open] !== '(') {
     return null;
   }
@@ -253,11 +256,45 @@ function readBracketGroup(value: string, open: number, right: string): number {
   return -1;
 }
 
-/** A whole link, so `\[` inside its label stays an escaped bracket. */
-export function readLinkSpan(
-  value: string,
-  index: number
-): { text: string; next: number } | null {
+function mapInlineTex(value: string, mapSpan: (span: string) => string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      result += code.text;
+      index = code.next;
+      continue;
+    }
+    if (value.startsWith('\\(', index)) {
+      const end = unescapedDelimiterIndex(value, index + 2, '\\)');
+      if (end !== -1) {
+        result += mapSpan(value.slice(index, end + 2));
+        index = end + 2;
+        continue;
+      }
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
+function shieldLabelFormula(label: string): string {
+  return mapInlineTex(label, (span) => protectTexDelimiters(shieldMathMarkup(span)));
+}
+
+function withLinkLabel(link: string, map: (label: string) => string): string {
+  const open = link.startsWith('![') ? 1 : 0;
+  const labelEnd = readBracketGroup(link, open, ']');
+  if (labelEnd === -1) {
+    return link;
+  }
+  return link.slice(0, open + 1) + map(link.slice(open + 1, labelEnd)) + link.slice(labelEnd);
+}
+
+/** A whole link. Formulas in the label stay formulas; the address stays literal. */
+export function readLinkSpan(value: string, index: number): { text: string; next: number } | null {
   const start = value[index] === '!' && value[index + 1] === '[' ? index + 1 : index;
   if (value[start] !== '[') {
     return null;

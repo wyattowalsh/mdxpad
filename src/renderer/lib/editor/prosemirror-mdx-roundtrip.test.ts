@@ -86,7 +86,9 @@ describe('WYSIWYG markdown round trip', () => {
     const emphasis = roundTrip('| f | g |\n| --- | --- |\n| _a|b_ | c |\n');
     expect(emphasis).toContain('*a|b*');
     expect(emphasis).toContain('| c |');
-    const addressed = roundTrip('| f | g |\n| --- | --- |\n| [see](https://example.com/a|b) | c |\n');
+    const addressed = roundTrip(
+      '| f | g |\n| --- | --- |\n| [see](https://example.com/a|b) | c |\n'
+    );
     expect(addressed).toContain('https://example.com/a|b');
     expect(addressed).not.toContain('%EE%80%9D');
     expect(addressed).toContain('| c |');
@@ -245,9 +247,10 @@ describe('WYSIWYG markdown round trip', () => {
 
   it('keeps a formula in an image description', () => {
     const serialized = roundTrip('![alt \\(x^2\\)](a.png)\n');
-    expect(serialized).toContain('x^2');
+    expect(serialized).toContain('\\(x^2\\)');
     expect(serialized).not.toContain('\uE013');
     expect(serialized).not.toContain('\uE014');
+    expect(roundTrip('[\\(2\\)](https://example.com)\n')).toContain('\\(2\\)');
     const price = roundTrip('Price \\(\\$5\\).\n');
     expect(price).toContain('\\$5');
     expect(price).not.toContain('\uE019');

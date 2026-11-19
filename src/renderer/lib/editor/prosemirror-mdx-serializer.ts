@@ -323,7 +323,22 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
  * to avoid collisions with backticks in the content.
  */
 function markdownAlt(alt: string): string {
-  return alt.replace(/[\\[\]]/g, (char) => `\\${char}`);
+  let result = '';
+  for (let index = 0; index < alt.length; index += 1) {
+    const char = alt[index] ?? '';
+    const next = alt[index + 1] ?? '';
+    if (char === '\\' && (next === '(' || next === ')')) {
+      result += `${char}${next}`;
+      index += 1;
+      continue;
+    }
+    if (char === '\\' || char === '[' || char === ']') {
+      result += `\\${char}`;
+      continue;
+    }
+    result += char;
+  }
+  return result;
 }
 
 function localHref(href: string): string {
