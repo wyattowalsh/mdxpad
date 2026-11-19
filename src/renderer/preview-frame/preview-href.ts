@@ -1,4 +1,7 @@
-import { replaceCssImageFunctionAddresses } from '@shared/lib/css-image-function';
+import {
+  cssValueHasBlockedAddress,
+  replaceCssImageFunctionAddresses,
+} from '@shared/lib/css-image-function';
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
@@ -103,6 +106,28 @@ export function safePreviewSrcSet(value: string | undefined): string | undefined
     return undefined;
   }
   return filterSrcSet(value, (url) => isBlockedPreviewResource(url));
+}
+
+const PAINT_ATTRIBUTES = new Set([
+  'fill',
+  'stroke',
+  'filter',
+  'clippath',
+  'mask',
+  'cursor',
+  'marker',
+  'markerstart',
+  'markermid',
+  'markerend',
+]);
+
+function paintAttribute(name: string): boolean {
+  return PAINT_ATTRIBUTES.has(name.replaceAll('-', ''));
+}
+
+function paintLoadsLocalFile(value: string): boolean {
+  const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(value)));
+  return cssValueHasBlockedAddress(visible, blockedCssAddress);
 }
 
 const LINK_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'cite']);
@@ -230,6 +255,9 @@ function nextAttribute(name: string, value: string): { readonly value: unknown }
     return { value: undefined };
   }
   if (RESOURCE_ATTRIBUTES.has(name) && isBlockedPreviewResource(value)) {
+    return { value: undefined };
+  }
+  if (paintAttribute(name) && paintLoadsLocalFile(value)) {
     return { value: undefined };
   }
   return undefined;

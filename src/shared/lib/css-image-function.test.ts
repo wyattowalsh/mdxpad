@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { replaceCssImageFunctionAddresses } from './css-image-function';
+import { cssValueHasBlockedAddress, replaceCssImageFunctionAddresses } from './css-image-function';
 
 function blocksFile(address: string): boolean {
   return address.includes('file:');
@@ -20,6 +20,14 @@ describe('replaceCssImageFunctionAddresses', () => {
       blocksFile
     );
     expect(remote).toContain('https://example.com/a.png');
+  });
+
+  it('finds a blocked address inside a paint value', () => {
+    const blocked = (address: string): boolean => address.includes('file:') || address.includes('..');
+    expect(cssValueHasBlockedAddress('url(../secret.svg#a)', blocked)).toBe(true);
+    expect(cssValueHasBlockedAddress('url(#local)', blocked)).toBe(false);
+    expect(cssValueHasBlockedAddress('red', blocked)).toBe(false);
+    expect(cssValueHasBlockedAddress('image-set("file:///etc/passwd" 1x)', blocked)).toBe(true);
   });
 
   it('drops a file from image() and leaves ordinary text alone', () => {

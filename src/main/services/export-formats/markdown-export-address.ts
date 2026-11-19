@@ -3,7 +3,10 @@
  * A picture or link must not point at a local file.
  */
 
-import { replaceCssImageFunctionAddresses } from '@shared/lib/css-image-function';
+import {
+  cssValueHasBlockedAddress,
+  replaceCssImageFunctionAddresses,
+} from '@shared/lib/css-image-function';
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
@@ -195,6 +198,28 @@ function styleAttribute(attr: string, raw: string): string {
   return ` ${attr}=${quote}${cleaned}${quote}`;
 }
 
+const PAINT_ATTRIBUTES = new Set([
+  'fill',
+  'stroke',
+  'filter',
+  'clippath',
+  'mask',
+  'cursor',
+  'marker',
+  'markerstart',
+  'markermid',
+  'markerend',
+]);
+
+function paintAttribute(name: string): boolean {
+  return PAINT_ATTRIBUTES.has(name.replaceAll('-', ''));
+}
+
+function cssValueLoadsLocalFile(value: string): boolean {
+  const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(value)));
+  return cssValueHasBlockedAddress(visible, blockedCssAddress);
+}
+
 const RESOURCE_HREF_TAGS = new Set([
   'image',
   'use',
@@ -236,6 +261,9 @@ export function sanitizeExportedTag(tag: string): string {
         return styleAttribute(attr, raw);
       }
       const value = attributeValue(raw);
+      if (paintAttribute(name) && cssValueLoadsLocalFile(value)) {
+        return '';
+      }
       if (resourceHrefTag(element) && (name === 'href' || name === 'xlink:href')) {
         return safeImageAddress(value) === null ? '' : full;
       }

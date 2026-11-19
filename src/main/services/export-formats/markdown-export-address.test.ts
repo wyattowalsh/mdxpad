@@ -101,6 +101,32 @@ describe('sanitizeExportedHtml', () => {
     );
   });
 
+  it('drops a local file from an svg paint attribute', () => {
+    expect(sanitizeExportedHtml('<svg><rect filter="url(../secret.svg#a)" /></svg>')).toBe(
+      '<svg><rect /></svg>'
+    );
+    expect(sanitizeExportedHtml('<svg><rect filter="url(file:///etc/passwd)" /></svg>')).not.toContain(
+      'file:'
+    );
+    expect(sanitizeExportedHtml('<svg><rect fill="url(#local)" /></svg>')).toContain('url(#local)');
+    expect(sanitizeExportedHtml('<svg><rect fill="red" /></svg>')).toContain('fill="red"');
+    expect(sanitizeExportedHtml('<svg><rect clip-path="url(../secret.svg)" /></svg>')).not.toContain(
+      'secret'
+    );
+    expect(
+      sanitizeExportedHtml('<svg><rect marker-start="url(../secret.svg#m)" /></svg>')
+    ).not.toContain('secret');
+    expect(sanitizeExportedHtml('<svg><rect filter="\\75rl(file:///etc/passwd)" /></svg>')).not.toContain(
+      'file:'
+    );
+    expect(sanitizeExportedHtml('<svg><rect fill="url(https://example.com/a.svg#g)" /></svg>')).toContain(
+      'https://example.com/a.svg'
+    );
+    expect(sanitizeExportedHtml('<svg><rect filter=url(../secret.svg#a) /></svg>')).not.toContain(
+      'secret'
+    );
+  });
+
   it('drops a parent path from an svg image and keeps a document link', () => {
     expect(sanitizeExportedTag('<image href="../secret.png">')).toBe('<image>');
     expect(sanitizeExportedTag('<feImage href="../secret.png">')).toBe('<feImage>');

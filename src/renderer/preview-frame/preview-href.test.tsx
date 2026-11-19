@@ -104,6 +104,25 @@ describe('isBlockedPreviewHref', () => {
     const filter = confinePreviewElement('feImage', { href: '../secret.png' }) as { href?: string };
     expect(filter.href).toBeUndefined();
   });
+
+  it('drops a local file from an svg paint attribute', () => {
+    const painted = confinePreviewElement('rect', {
+      filter: 'url(../secret.svg#a)',
+      fill: 'url(#local)',
+      clipPath: 'url(file:///etc/passwd)',
+      markerStart: 'url(../secret.svg#m)',
+      stroke: 'red',
+    }) as { filter?: string; fill: string; clipPath?: string; markerStart?: string; stroke: string };
+    expect(painted.filter).toBeUndefined();
+    expect(painted.clipPath).toBeUndefined();
+    expect(painted.markerStart).toBeUndefined();
+    expect(painted.fill).toBe('url(#local)');
+    expect(painted.stroke).toBe('red');
+    const escaped = confinePreviewElement('rect', {
+      filter: '\\75rl(file:///etc/passwd)',
+    }) as { filter?: string };
+    expect(escaped.filter).toBeUndefined();
+  });
 });
 
 describe('preview anchor', () => {

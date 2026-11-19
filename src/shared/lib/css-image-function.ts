@@ -83,6 +83,27 @@ function rewriteArguments(body: string, blocked: (address: string) => boolean): 
   );
 }
 
+/** True when a paint or style value loads an address the caller rejects. */
+export function cssValueHasBlockedAddress(
+  css: string,
+  blocked: (address: string) => boolean
+): boolean {
+  for (const match of css.matchAll(/url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi)) {
+    const address = (match[2] ?? match[3] ?? '').trim();
+    if (address.length > 0 && blocked(address)) {
+      return true;
+    }
+  }
+  let found = false;
+  replaceCssImageFunctionAddresses(css, (address) => {
+    if (address.length > 0 && blocked(address)) {
+      found = true;
+    }
+    return found;
+  });
+  return found;
+}
+
 /** Replace a local file inside image() or image-set() with none. */
 export function replaceCssImageFunctionAddresses(
   css: string,
