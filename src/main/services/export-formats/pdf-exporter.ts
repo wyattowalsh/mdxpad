@@ -123,7 +123,7 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   if (takeListItemMath(build, line, renderMarkdownInline, build.lists.length > 0)) {
     return true;
   }
-  const prefix = displayMathPrefix(line);
+  const prefix = quoteBody(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && !build.displayMath) {
     build.paragraph.push({ text: prefix, hardBreak: false });
     flushPdfParagraph(build);

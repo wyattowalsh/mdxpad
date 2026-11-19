@@ -1060,6 +1060,10 @@ function appendDocxQuoteParagraph(
   slugs?: Map<string, number>
 ): void {
   for (const piece of quoteParagraphPieces(lines)) {
+    if (piece.kind === 'math') {
+      pushDisplayMath(blocks, piece.lines);
+      continue;
+    }
     if (piece.kind === 'heading') {
       blocks.push(
         slugs
@@ -1393,7 +1397,7 @@ function takeDisplayLine(
   displayLines: string[] | null
 ): string[] | null | false {
   const trimmed = line.trim();
-  const prefix = displayMathPrefix(line);
+  const prefix = quoteBody(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && displayLines === null) {
     paragraphs.push(new Paragraph({ children: createParagraphChildren(prefix) }));
     return [];

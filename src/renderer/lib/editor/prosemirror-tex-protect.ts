@@ -166,11 +166,23 @@ function dedentMathSpan(span: string, width: number): string {
     .join('\n');
 }
 
-function shieldMathPiece(value: string, shieldLines: boolean): string {
+function lineStartsWithQuote(value: string, index: number): boolean {
+  const start = value.lastIndexOf('\n', index - 1) + 1;
+  return /^ {0,3}(?:>[ \t]?)+/.test(value.slice(start, index));
+}
+
+function shieldMathBreaks(value: string, keepQuoteMarkers: boolean): string {
+  if (!keepQuoteMarkers) {
+    return value.replaceAll('\n', `\n${MATH_LINE}`);
+  }
+  return value.replaceAll(/\n(?:>[ \t]?)*/g, (match) => `${match}${MATH_LINE}`);
+}
+
+function shieldMathPiece(value: string, shieldLines: boolean, keepQuoteMarkers: boolean): string {
   const wrapped = mathWrap(value);
   let shielded = shieldMathBody(wrapped.body);
   if (shieldLines && shielded.includes('\n')) {
-    shielded = shielded.replaceAll('\n', `\n${MATH_LINE}`);
+    shielded = shieldMathBreaks(shielded, keepQuoteMarkers);
   }
   return `${wrapped.open}${shielded}${wrapped.close}`;
 }
@@ -197,7 +209,11 @@ export function shieldMathMarkup(value: string): string {
     const end = mathEnd === -1 ? texEnd : mathEnd;
     if (end !== -1) {
       const span = dedentMathSpan(value.slice(index, end), continuationWidth(value, index));
-      result += shieldMathPiece(span, !openedInsideQuote(value, index));
+      result += shieldMathPiece(
+        span,
+        !openedInsideQuote(value, index),
+        lineStartsWithQuote(value, index)
+      );
       index = end;
       continue;
     }

@@ -1372,7 +1372,7 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (takeOpenedDisplay(build, line)) {
     return true;
   }
-  const prefix = displayMathPrefix(line);
+  const prefix = quoteBody(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && !build.inDisplayMath) {
     build.prose.push(readSourceLine(prefix));
     openDisplayMath(build);

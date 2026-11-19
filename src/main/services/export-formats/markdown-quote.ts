@@ -1,4 +1,5 @@
 import { allocateHeadingSlug, headingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
+import { displayMathPrefix } from '@shared/lib/math-span';
 import { isThematicBreak } from './markdown-break';
 import { setextLevel } from './markdown-setext';
 import {
@@ -12,6 +13,7 @@ import { readHtmlBlock } from './markdown-html';
 import { renderFencedCode } from './markdown-code';
 import { renderDisplayMathBlock } from './markdown-inline-html';
 import { latexVerbatimLines } from './latex-verbatim';
+import { disarmLatexFileRead } from './latex-file-command';
 import { renderedSegments } from './markdown-marks';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
@@ -837,7 +839,8 @@ type QuoteHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 type QuoteParagraphPiece =
   | { readonly kind: 'heading'; readonly level: QuoteHeadingLevel; readonly text: string }
-  | { readonly kind: 'paragraph'; readonly lines: string[] };
+  | { readonly kind: 'paragraph'; readonly lines: string[] }
+  | { readonly kind: 'math'; readonly lines: string[] };
 
 const QUOTE_HEADING_COMMANDS = [
   'section',
@@ -852,38 +855,73 @@ function quoteHeadingCommand(level: number): string {
   return QUOTE_HEADING_COMMANDS[level - 1] ?? 'subparagraph';
 }
 
+function closeQuoteMath(pieces: QuoteParagraphPiece[], math: string[]): void {
+  pieces.push({ kind: 'math', lines: math });
+}
+
+function readQuoteParagraphLine(
+  pieces: QuoteParagraphPiece[],
+  paragraph: string[],
+  math: string[] | null,
+  line: string
+): { paragraph: string[]; math: string[] | null } {
+  if (math) {
+    const closing = displayMathPrefix(line);
+    if (line.trim() === '$$') {
+      closeQuoteMath(pieces, math);
+      return { paragraph, math: null };
+    }
+    if (closing !== null) {
+      closeQuoteMath(pieces, [...math, closing]);
+      return { paragraph, math: null };
+    }
+    return { paragraph, math: [...math, line] };
+  }
+  const opening = displayMathPrefix(line);
+  if (opening !== null) {
+    const next = opening.length > 0 ? [...paragraph, opening] : paragraph;
+    if (next.length > 0) {
+      pieces.push({ kind: 'paragraph', lines: next });
+    }
+    return { paragraph: [], math: [] };
+  }
+  const atx = parseAtxHeading(line);
+  if (atx) {
+    if (paragraph.length > 0) {
+      pieces.push({ kind: 'paragraph', lines: paragraph });
+    }
+    pieces.push({ kind: 'heading', level: atx.depth, text: atx.text });
+    return { paragraph: [], math: null };
+  }
+  const level = paragraph.length > 0 ? quotedSetextLevel(line) : null;
+  if (level === null) {
+    return { paragraph: [...paragraph, line], math: null };
+  }
+  const text = paragraph
+    .map((item) => readSourceLine(item).text)
+    .filter((item) => item.length > 0)
+    .join(' ');
+  if (text.length > 0) {
+    pieces.push({ kind: 'heading', level, text });
+  }
+  return { paragraph: [], math: null };
+}
+
 export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPiece[] {
   const pieces: QuoteParagraphPiece[] = [];
   let paragraph: string[] = [];
-  const flush = (): void => {
-    if (paragraph.length === 0) {
-      return;
-    }
-    pieces.push({ kind: 'paragraph', lines: paragraph });
-    paragraph = [];
-  };
+  let math: string[] | null = null;
   for (const line of lines) {
-    const atx = parseAtxHeading(line);
-    if (atx) {
-      flush();
-      pieces.push({ kind: 'heading', level: atx.depth, text: atx.text });
-      continue;
-    }
-    const level = paragraph.length > 0 ? quotedSetextLevel(line) : null;
-    if (level === null) {
-      paragraph.push(line);
-      continue;
-    }
-    const text = paragraph
-      .map((item) => readSourceLine(item).text)
-      .filter((item) => item.length > 0)
-      .join(' ');
-    paragraph = [];
-    if (text.length > 0) {
-      pieces.push({ kind: 'heading', level, text });
-    }
+    const next = readQuoteParagraphLine(pieces, paragraph, math, line);
+    paragraph = next.paragraph;
+    math = next.math;
   }
-  flush();
+  if (math) {
+    closeQuoteMath(pieces, math);
+  }
+  if (paragraph.length > 0) {
+    pieces.push({ kind: 'paragraph', lines: paragraph });
+  }
   return pieces;
 }
 
@@ -900,6 +938,9 @@ function quoteParagraphHtml(
     .map((piece) => {
       if (piece.kind === 'heading') {
         return headingTag(piece.level, renderLine(piece.text), quoteHeadingSlug(piece.text, slugs));
+      }
+      if (piece.kind === 'math') {
+        return renderDisplayMathBlock(piece.lines);
       }
       return `<p>${joinParagraphHtml(
         piece.lines.map((line) => readSourceLine(line)),
@@ -918,6 +959,9 @@ function quoteParagraphLatex(
     .map((piece) => {
       if (piece.kind === 'paragraph') {
         return joinQuoteLatex(piece.lines, renderLine);
+      }
+      if (piece.kind === 'math') {
+        return ['$$', disarmLatexFileRead(piece.lines.join('\n')), '$$'].join('\n');
       }
       const command = quoteHeadingCommand(piece.level);
       const label = `\\label{${quoteHeadingSlug(piece.text, slugs)}}`;

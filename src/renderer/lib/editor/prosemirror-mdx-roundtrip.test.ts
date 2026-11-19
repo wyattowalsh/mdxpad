@@ -177,6 +177,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(again).toContain('after');
   });
 
+  it('keeps a quoted formula that opens at the end of a line', () => {
+    const source = '> Text $$\n> x^2\n> $$\n>\n> more\n';
+    const saved = roundTrip(source);
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    expect(saved).not.toContain('> >');
+    expect(again.replace(/\n$/, '')).toBe(saved.replace(/\n$/, ''));
+    expect(again).toContain('x^2');
+    expect(again).toContain('more');
+  });
+
   it('keeps display math inside a blockquote', () => {
     const source = '> $$\n> a+b\n> $$\n';
     const doc = parseMdxContent(source);
