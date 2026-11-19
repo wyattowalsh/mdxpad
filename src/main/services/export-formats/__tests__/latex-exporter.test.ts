@@ -970,6 +970,13 @@ describe('LatexExporter', () => {
     expect(written).toContain('E = mc^2');
     expect(written).toContain('\\$5 and \\$10');
     expect(written).not.toContain('\\$x');
+    await exporter.export({
+      content: 'Price is $5 & $6$.\n',
+      outputPath: '/tmp/price-amp.tex',
+    });
+    const price = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(price).toContain('\\$5 \\& \\$6\\$');
+    expect(price).not.toContain('$5 & $');
   });
 
   it('keeps a backslash as a LaTeX command', async () => {

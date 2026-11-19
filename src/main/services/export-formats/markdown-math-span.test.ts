@@ -14,6 +14,16 @@ describe('mathSpanEnd', () => {
     ]);
   });
 
+  it('does not treat a price and an ampersand as a formula', () => {
+    expect(splitDocxPieces('Price is $5 & $6$')).toEqual([
+      { kind: 'text', text: 'Price is $5 & $6$' },
+    ]);
+    expect(splitDocxPieces('Keep $a \\& b$')).toEqual([
+      { kind: 'text', text: 'Keep ' },
+      { kind: 'math', tex: 'a \\& b' },
+    ]);
+  });
+
   it('opens a formula after a literal backslash', () => {
     expect(splitDocxPieces('The value is \\\\$x^2$.')).toEqual([
       { kind: 'text', text: 'The value is \\\\' },

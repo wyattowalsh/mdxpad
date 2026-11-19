@@ -43,6 +43,19 @@ export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'
   return unescapedDelimiterIndex(raw, from, delimiter);
 }
 
+function hasAlignmentTab(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === '\\') {
+      index += 1;
+      continue;
+    }
+    if (value[index] === '&') {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function mathSpanEnd(raw: string, start: number, delimiter: '$' | '$$'): number {
   const cursor = mathCloserIndex(raw, start + delimiter.length, delimiter);
   if (cursor === -1) {
@@ -50,6 +63,9 @@ export function mathSpanEnd(raw: string, start: number, delimiter: '$' | '$$'): 
   }
   const interior = raw.slice(start + delimiter.length, cursor);
   if (interior.length === 0 || isCurrencySpan(interior)) {
+    return -1;
+  }
+  if (delimiter === '$' && hasAlignmentTab(interior)) {
     return -1;
   }
   return cursor + delimiter.length;
