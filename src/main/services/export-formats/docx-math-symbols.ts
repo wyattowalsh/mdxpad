@@ -152,6 +152,7 @@ export const TEXT_COMMANDS = new Set([
   'mathfrak',
   'mathscr',
   'substack',
+  'url',
 ]);
 
 export const ACCENTS: Record<string, string> = {

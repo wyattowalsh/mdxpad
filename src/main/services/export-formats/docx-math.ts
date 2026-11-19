@@ -161,7 +161,7 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
     return readBraceSpan(cursor, name === 'overbrace');
   }
   if (name === 'boxed') return [new MathSquareBrackets({ children: readGroup(cursor) })];
-  if (name === 'textcolor' || name === 'colorbox' || name === 'fcolorbox') {
+  if (name === 'textcolor' || name === 'colorbox' || name === 'fcolorbox' || name === 'href') {
     readGroup(cursor);
     return readGroup(cursor);
   }

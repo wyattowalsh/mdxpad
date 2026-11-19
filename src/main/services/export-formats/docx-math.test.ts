@@ -83,6 +83,11 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\xcancel{y}'))).toBe('y\u0336');
   });
 
+  it('keeps the label of a Word link', () => {
+    expect(runText(mathComponents('\\href{https://example.com}{docs}'))).toBe('docs');
+    expect(runText(mathComponents('\\url{https://example.com}'))).toBe('https://example.com');
+  });
+
   it('keeps the words of a colored Word expression', () => {
     expect(runText(mathComponents('\\textcolor{red}{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\colorbox{blue}{sky}'))).toBe('sky');
