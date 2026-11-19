@@ -31,6 +31,7 @@ import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
 import {
   continuesQuote,
+  takeQuoteContinuation,
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
@@ -1050,8 +1051,7 @@ function takeLatexQuote(
     quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (continuesQuote(quoteLines, line)) {
-    quoteLines.push(line);
+  if (takeQuoteContinuation(quoteLines, line)) {
     return true;
   }
   if (quoteLines.length > 0) {

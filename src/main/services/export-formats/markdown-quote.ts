@@ -98,6 +98,27 @@ export function continuesQuote(lines: readonly string[], line: string): boolean 
   return lines.length > 0 && isLazyQuoteLine(line) && !quoteRejectsLazy(lines);
 }
 
+/** A line of equals signs that underlines the open quote paragraph. */
+export function quoteSetextLine(lines: readonly string[], line: string): boolean {
+  if (setextLevel(line) !== 1 || quoteRejectsLazy(lines) || quoteFenceOpen(lines)) {
+    return false;
+  }
+  const last = lastQuoteContent(lines);
+  if (!last || openingFence(last) !== null || isTableRow(last) || parseListItem(last) !== null) {
+    return false;
+  }
+  return true;
+}
+
+/** Keep a wrapped line, including a setext underline, inside the open quote. */
+export function takeQuoteContinuation(lines: string[], line: string): boolean {
+  if (!quoteSetextLine(lines, line) && !continuesQuote(lines, line)) {
+    return false;
+  }
+  lines.push(setextLevel(line) === null ? line : quoteMarkerLine(line));
+  return true;
+}
+
 /** A `$$` line that still belongs to the open quote, rather than starting display math. */
 export function quoteHoldsDelimiter(lines: readonly string[], line: string): boolean {
   return continuesQuote(lines, line) && line.trim() === '$$';

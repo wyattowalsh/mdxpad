@@ -25,6 +25,7 @@ import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
   continuesQuote,
+  takeQuoteContinuation,
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
@@ -175,8 +176,7 @@ function consumeEpubQuote(htmlLines: string[], line: string, state: EpubLineStat
     state.quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (continuesQuote(state.quoteLines, line)) {
-    state.quoteLines.push(line);
+  if (takeQuoteContinuation(state.quoteLines, line)) {
     return true;
   }
   if (state.quoteLines.length > 0) {

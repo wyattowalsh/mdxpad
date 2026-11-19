@@ -64,6 +64,7 @@ import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
 import {
   continuesQuote,
+  takeQuoteContinuation,
   isLazyQuoteLine,
   quoteBody,
   quoteFenceOpen,
@@ -1315,8 +1316,7 @@ function takeDocxQuote(
     quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (continuesQuote(quoteLines, line)) {
-    quoteLines.push(line);
+  if (takeQuoteContinuation(quoteLines, line)) {
     return true;
   }
   if (quoteLines.length > 0) {

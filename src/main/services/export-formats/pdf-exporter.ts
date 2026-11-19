@@ -22,6 +22,7 @@ import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
   continuesQuote,
+  takeQuoteContinuation,
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
@@ -200,8 +201,7 @@ function consumePdfQuote(build: PdfBuild, line: string): boolean {
     build.quoteLines.push(quoteMarkerLine(body));
     return true;
   }
-  if (continuesQuote(build.quoteLines, line)) {
-    build.quoteLines.push(line);
+  if (takeQuoteContinuation(build.quoteLines, line)) {
     return true;
   }
   if (build.quoteLines.length > 0) {

@@ -101,6 +101,17 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('underlines a quoted paragraph when the marks are on the next line', () => {
+    const equals = markdownToPdfHtml('> Title\n=====\n\nafter\n');
+    expect(equals).toContain('<h1 id="title">Title</h1>');
+    expect(equals).toContain('<p>after</p>');
+    expect(equals).not.toContain('=====');
+    const rule = markdownToPdfHtml('> Title\n---\n\nafter\n');
+    expect(rule).toContain('<p>Title</p>');
+    expect(rule).toContain('<hr />');
+    expect(rule).not.toContain('<h2');
+  });
+
   it('renders a heading inside a quote', () => {
     const html = markdownToPdfHtml('> # Title\n\nafter\n');
     expect(html).toContain('<h1 id="title">Title</h1>');
