@@ -13,7 +13,12 @@ import {
   readMarkdownTarget,
   type MarkdownTarget,
 } from './markdown-link';
-import { safeImageAddress, safeLinkAddress, sanitizeExportedTag } from './markdown-export-address';
+import {
+  safeImageAddress,
+  safeLinkAddress,
+  sanitizeExportedTag,
+  skippedDroppedElement,
+} from './markdown-export-address';
 
 function escapeHtml(value: string): string {
   return value
@@ -142,6 +147,11 @@ function protectInlineHtml(raw: string): { text: string; tags: string[] } {
     }
     const end = char === '<' ? inlineHtmlEnd(raw, index) : -1;
     if (end !== -1) {
+      const skipped = skippedDroppedElement(raw, index, end);
+      if (skipped !== -1) {
+        index = skipped;
+        continue;
+      }
       tags.push(sanitizeExportedTag(raw.slice(index, end)));
       text += `${HTML_MARK}${tags.length - 1}${HTML_MARK}`;
       index = end;

@@ -352,6 +352,17 @@ function htmlTagEnd(html: string, index: number): number {
   return -1;
 }
 
+/** The index after a script, frame, or other dropped element, including its body. */
+export function skippedDroppedElement(html: string, start: number, openEnd: number): number {
+  const tag = html.slice(start, openEnd);
+  const name = tagName(tag);
+  if (!DROPPED_TAGS.has(name) || /^<\s*\//.test(tag)) {
+    return -1;
+  }
+  const close = new RegExp(`</${name}\\s*>`, 'i').exec(html.slice(openEnd));
+  return close ? openEnd + close.index + close[0].length : openEnd;
+}
+
 /** Remove local-file addresses from an HTML fragment, including the tags that load them. */
 export function sanitizeExportedHtml(html: string): string {
   let result = '';

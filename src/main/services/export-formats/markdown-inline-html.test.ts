@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdownInline } from './markdown-inline-html';
 
 describe('renderMarkdownInline', () => {
+  it('omits a script inside an svg', () => {
+    const html = renderMarkdownInline('<svg><script src="file:///etc/passwd">alert(1)</script>keep</svg>');
+    expect(html).not.toContain('alert');
+    expect(html).not.toContain('file:');
+    expect(html).not.toContain('<script');
+    expect(html).toContain('keep');
+  });
+
+
   it('renders an escaped dollar inside a formula', () => {
     const html = renderMarkdownInline('$\\$5$ and $a\\$b$');
     expect(html).not.toContain('katex-error');
@@ -183,9 +192,7 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('<a href=file:///etc/passwd>Disk</a>')).toBe('<a>Disk</a>');
     expect(renderMarkdownInline('[secret](/etc/passwd)')).toBe('secret');
     expect(renderMarkdownInline('<iframe src="file:///etc/passwd"></iframe>')).toBe('');
-    expect(renderMarkdownInline('<script>location="file:///etc/passwd"</script>')).toBe(
-      'location=&quot;file:///etc/passwd&quot;'
-    );
+    expect(renderMarkdownInline('<script>location="file:///etc/passwd"</script>')).toBe('');
   });
 
   it('keeps an inline HTML tag and escapes one inside code', () => {
