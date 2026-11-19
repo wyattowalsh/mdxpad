@@ -699,6 +699,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\sout{gone}');
   });
 
+  it('keeps bold around a code span', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '**a `code` b** and **a `b**c` d** and **a ~~b~~ c**\n',
+      outputPath: '/tmp/bold-code.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\textbf{a \\texttt{code} b}');
+    expect(written).toContain('\\textbf{a \\texttt{b**c} d}');
+    expect(written).toContain('\\textbf{a \\sout{b} c}');
+  });
+
   it('strikes a code span and leaves tildes inside code', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

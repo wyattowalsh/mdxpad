@@ -26,7 +26,7 @@ import {
   readCodeSpan,
   restoreEscapes,
 } from './markdown-escape';
-import { renderEmphasis } from './markdown-emphasis';
+import { collectEmphasis, renderEmphasis } from './markdown-emphasis';
 import { decodeHtmlEntities } from './markdown-entity';
 import { safeLinkAddress } from './markdown-export-address';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
@@ -234,17 +234,24 @@ function nextRawStrike(raw: string, from: number): number {
   return -1;
 }
 
+function insideEmphasis(raw: string, point: number): boolean {
+  return collectEmphasis(raw).some((match) => match.start < point && match.end > point);
+}
+
 function nextProtectedBoundary(raw: string, from: number): number {
   for (let index = from; index < raw.length; index += 1) {
     const code = findCodeSpan(raw, index);
-    if (code?.start !== index && !raw.startsWith('~~', index)) {
+    const atCode = code?.start === index;
+    if (!atCode && !raw.startsWith('~~', index)) {
       continue;
     }
-    const covered = coveredTargetEnd(raw, index);
-    if (covered !== null) {
-      return covered;
+    if (insideEmphasis(raw, index)) {
+      if (code !== null && code.start === index) {
+        index = code.end - 1;
+      }
+      continue;
     }
-    return index;
+    return coveredTargetEnd(raw, index) ?? index;
   }
   return raw.length;
 }
