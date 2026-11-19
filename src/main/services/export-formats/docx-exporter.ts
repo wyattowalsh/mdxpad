@@ -36,6 +36,8 @@ import { highlightCodeHtml } from './markdown-code';
 import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
+import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
+
 import { mathComponents, splitDocxPieces } from './docx-math';
 import {
   docxNumberingConfig,
@@ -166,16 +168,36 @@ interface EmphasisFlags {
   readonly italic?: boolean;
 }
 
+function nextPlainChunk(text: string, from: number): number {
+  for (let index = from; index < text.length; index += 1) {
+    const delimiter = mathDelimiterAt(text, index);
+    if (delimiter !== null && mathSpanEnd(text, index, delimiter) !== -1) {
+      return index;
+    }
+  }
+  return text.length;
+}
+
 function parseCodeAndPlain(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
-  for (const part of splitCodeSpans(text)) {
-    if (part.code) {
-      segments.push({ text: part.text, code: true });
+  let index = 0;
+  while (index < text.length) {
+    const delimiter = mathDelimiterAt(text, index);
+    const mathEnd = delimiter === null ? -1 : mathSpanEnd(text, index, delimiter);
+    if (delimiter !== null && mathEnd !== -1) {
+      segments.push(...parsePlainMarks(text.slice(index, mathEnd)));
+      index = mathEnd;
       continue;
     }
-    if (part.text.length > 0) {
-      segments.push(...parsePlainMarks(part.text));
+    const next = nextPlainChunk(text, index + 1);
+    for (const part of splitCodeSpans(text.slice(index, next))) {
+      if (part.code) {
+        segments.push({ text: part.text, code: true });
+      } else if (part.text.length > 0) {
+        segments.push(...parsePlainMarks(part.text));
+      }
     }
+    index = next;
   }
   return segments;
 }
