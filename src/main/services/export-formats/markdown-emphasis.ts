@@ -27,7 +27,7 @@ function flanking(
   value: string,
   index: number,
   length: number,
-  char: '*' | '_'
+  char: '*' | '_' | '~'
 ): {
   canOpen: boolean;
   canClose: boolean;
@@ -177,6 +177,17 @@ export function collectEmphasis(value: string): EmphasisMatch[] {
 }
 
 /** Whether `_` or `*` at `index` can open emphasis under the CommonMark flanking rule. */
+export function canOpenStrikethrough(value: string, index: number): boolean {
+  if (value[index] !== '~') {
+    return false;
+  }
+  let length = 0;
+  while (value[index + length] === '~') {
+    length += 1;
+  }
+  return length >= 2 && flanking(value, index, length, '~').canOpen;
+}
+
 export function canOpenEmphasis(value: string, index: number): boolean {
   const char = value[index];
   if (char !== '*' && char !== '_') {
