@@ -57,6 +57,10 @@ describe('isBlockedPreviewHref', () => {
     expect(form.formAction).toBeUndefined();
     const filter = confinePreviewElement('filter', { href: '../secret.svg' }) as { href?: string };
     expect(filter.href).toBeUndefined();
+    const mask = confinePreviewElement('mask', { href: '../secret.svg' }) as { href?: string };
+    expect(mask.href).toBeUndefined();
+    const clip = confinePreviewElement('clipPath', { href: '../secret.svg' }) as { href?: string };
+    expect(clip.href).toBeUndefined();
     const upperSet = confinePreviewProps({
       style: { backgroundImage: 'IMAGE-SET("file:///etc/passwd" 1x)', color: 'red' },
     }) as { style: Record<string, string> };

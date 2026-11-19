@@ -297,7 +297,15 @@ function loadsResourceHref(type: unknown): boolean {
     name === 'feimage' ||
     name === 'cursor' ||
     name === 'filter' ||
-    name === 'pattern'
+    name === 'pattern' ||
+    name === 'mask' ||
+    name === 'clippath' ||
+    name === 'marker' ||
+    name === 'textpath' ||
+    name === 'mpath' ||
+    name === 'lineargradient' ||
+    name === 'radialgradient' ||
+    name === 'meshgradient'
   );
 }
 

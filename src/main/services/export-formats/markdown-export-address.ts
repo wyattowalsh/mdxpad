@@ -127,6 +127,9 @@ function attributeAllowed(name: string, value: string): boolean {
   if (name === 'srcset') {
     return srcsetAllowed(value);
   }
+  if (name === 'action' || name === 'formaction') {
+    return safeLinkAddress(value) !== null && !climbsOut(value);
+  }
   const image = name === 'src' || name === 'poster' || name === 'background';
   return (image ? safeImageAddress(value) : safeLinkAddress(value)) !== null;
 }
@@ -192,15 +195,25 @@ function styleAttribute(attr: string, raw: string): string {
   return ` ${attr}=${quote}${cleaned}${quote}`;
 }
 
+const RESOURCE_HREF_TAGS = new Set([
+  'image',
+  'use',
+  'feimage',
+  'cursor',
+  'filter',
+  'pattern',
+  'mask',
+  'clippath',
+  'marker',
+  'textpath',
+  'mpath',
+  'lineargradient',
+  'radialgradient',
+  'meshgradient',
+]);
+
 function resourceHrefTag(name: string): boolean {
-  return (
-    name === 'image' ||
-    name === 'use' ||
-    name === 'feimage' ||
-    name === 'cursor' ||
-    name === 'filter' ||
-    name === 'pattern'
-  );
+  return RESOURCE_HREF_TAGS.has(name);
 }
 
 /** Drop an address that would read a local file. A loading tag is removed. */

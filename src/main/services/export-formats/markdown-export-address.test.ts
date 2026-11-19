@@ -89,6 +89,14 @@ describe('sanitizeExportedHtml', () => {
     const imported = sanitizeExportedHtml('<style>@\\69 mport "file:///etc/passwd.css";</style>');
     expect(imported).not.toContain('file:');
     expect(sanitizeExportedTag('<filter href="../secret.svg">')).toBe('<filter>');
+    expect(sanitizeExportedTag('<mask href="../secret.svg">')).toBe('<mask>');
+    expect(sanitizeExportedTag('<clipPath href="../secret.svg">')).toBe('<clipPath>');
+    expect(sanitizeExportedHtml('<button formaction="../secret.md">Go</button>')).toBe(
+      '<button>Go</button>'
+    );
+    expect(sanitizeExportedHtml('<a href="../notes/a.md">Notes</a>')).toContain(
+      'href="../notes/a.md"'
+    );
   });
 
   it('drops a parent path from an svg image and keeps a document link', () => {
