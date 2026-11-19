@@ -729,6 +729,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps a formula inside strikethrough', () => {
+    const inline = roundTrip('~~strike \\(x\\)~~\n');
+    expect(inline).toBe('~~strike \\(x\\)~~');
+    expect(roundTrip(`${inline}\n`)).toBe(inline);
+    const display = roundTrip('~~strike \\[y\\]~~\n');
+    expect(display).toBe('~~strike \\[y\\]~~');
+    expect(roundTrip(`${display}\n`)).toBe(display);
+  });
+
   it('keeps a formula closer after struck text', () => {
     const source = 'See \\(x ~~y\\)~~ z\\).\n';
     const once = roundTrip(source);

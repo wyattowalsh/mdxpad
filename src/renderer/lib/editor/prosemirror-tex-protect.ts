@@ -456,11 +456,6 @@ function matchedTex(value: string): Set<number> {
       index = link.next;
       continue;
     }
-    const strike = strikeEnd(value, index);
-    if (strike !== -1) {
-      index = strike;
-      continue;
-    }
     const destination = readDestination(value, index);
     if (destination) {
       index = destination.next;
