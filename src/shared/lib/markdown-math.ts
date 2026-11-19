@@ -1,6 +1,7 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
 import { isCurrencySpan } from './currency-span';
+import { fenceIndentedCode } from './indented-code';
 import {
   escapeLooseTags,
   escapeTemplatePlaceholders,
@@ -210,8 +211,7 @@ function takeTexSpan(value: string, index: number): string | null {
   return value.slice(index, end + close.length);
 }
 
-const LINK_INSIDE =
-  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))*';
+const LINK_INSIDE = '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))*';
 
 function balancedLabelEnd(value: string, openIndex: number): number | null {
   let depth = 0;
@@ -387,5 +387,5 @@ export function normalizeTexMath(content: string): string {
 
 /** Make Markdown safe to compile as MDX and to export without leaking hidden notes. */
 export function prepareMarkdownSource(content: string): string {
-  return mapFencedProse(content, prepareProse);
+  return mapFencedProse(fenceIndentedCode(content), prepareProse);
 }

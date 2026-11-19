@@ -24,6 +24,7 @@ import { SettingsPanel } from './components/settings-panel';
 import { TabBar } from './components/tabs';
 import { subscribeDocumentTabs } from './components/tabs/document-tabs';
 import { documentWindowTitle } from './lib/document-window-title';
+import { useStartupRecovery } from './hooks/use-startup-recovery';
 import { useTextStats } from './hooks/useTextStats';
 import { Breadcrumb } from './components/breadcrumb';
 import {
@@ -105,6 +106,7 @@ function buildExplorerEntries(filePath: string | null, fileName: string): readon
 // eslint-disable-next-line max-lines-per-function
 export function App(): React.ReactElement {
   useAccessibility();
+  useStartupRecovery();
   const state = useAppState();
   const dialogs = useAppDialogs(state);
   const sidebarVisible = useUILayoutStore(selectSidebarVisible);

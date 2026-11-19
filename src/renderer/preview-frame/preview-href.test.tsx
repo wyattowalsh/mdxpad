@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { Video } from './components/preview-media';
 import { A, Img } from './components/typography';
 import { isBlockedPreviewHref } from './preview-href';
 
@@ -66,5 +67,18 @@ describe('preview image', () => {
 
     const rooted = render(<Img src="/etc/passwd.png" alt="Rooted" />);
     expect(rooted.getByRole('img').getAttribute('src')).toBeNull();
+  });
+});
+
+describe('preview video', () => {
+  it('drops a file source and keeps a remote source', () => {
+    const remote = render(<Video src="https://example.com/clip.mp4" />);
+    expect(remote.container.querySelector('video')?.getAttribute('src')).toBe(
+      'https://example.com/clip.mp4'
+    );
+    remote.unmount();
+
+    const local = render(<Video src="file:///etc/passwd" />);
+    expect(local.container.querySelector('video')?.getAttribute('src')).toBeNull();
   });
 });

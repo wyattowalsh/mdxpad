@@ -6,6 +6,7 @@
  * @module preview-frame/components
  */
 
+import { previewMediaComponents } from './preview-media';
 import { typographyComponents } from './typography';
 import { Callout } from './Callout';
 import { CodeBlock } from './CodeBlock';
@@ -18,6 +19,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 export const BuiltInComponents = {
   // Typography (MDX overrides for standard elements)
   ...typographyComponents,
+  ...previewMediaComponents,
 
   // Custom components
   Callout,

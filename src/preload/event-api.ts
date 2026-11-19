@@ -23,6 +23,16 @@ import {
 // Event Data Schemas
 // ============================================================================
 
+const RecoveryRestoreEntrySchema = z.object({
+  displayName: z.string().min(1),
+  content: z.string(),
+  savedAt: z.number(),
+});
+
+export type RecoveryRestoreEntry = z.infer<typeof RecoveryRestoreEntrySchema>;
+
+const RECOVERY_RESTORE_EVENT = 'mdxpad:recovery:restore';
+
 /** Zod schema for MenuFileOpenEvent */
 const MenuFileOpenEventSchema = z.object({
   handle: FileHandleSchema,
@@ -52,6 +62,7 @@ const menuReopenTabListeners = new Set<() => void>();
 const menuNextTabListeners = new Set<() => void>();
 const menuPreviousTabListeners = new Set<() => void>();
 const menuSwitchTabListeners = new Set<(index: number) => void>();
+const recoveryRestoreListeners = new Set<(entries: RecoveryRestoreEntry[]) => void>();
 
 /** Autosave settings change event listeners registry */
 const autosaveSettingsChangeListeners = new Set<(settings: AutosaveSettings) => void>();
@@ -150,6 +161,17 @@ ipcRenderer.on(IPC_EVENTS.menuPreviousTab, () => {
 });
 
 const menuSwitchTabIndexSchema = z.number().int().min(1).max(9);
+
+ipcRenderer.on(RECOVERY_RESTORE_EVENT, (_event, data: unknown) => {
+  const parsed = z.array(RecoveryRestoreEntrySchema).safeParse(data);
+  if (!parsed.success) {
+    console.warn('[Preload] Invalid recovery restore event:', parsed.error.message);
+    return;
+  }
+  for (const listener of recoveryRestoreListeners) {
+    listener(parsed.data);
+  }
+});
 
 ipcRenderer.on(IPC_EVENTS.menuSwitchTab, (_event, data: unknown) => {
   const parsed = menuSwitchTabIndexSchema.safeParse(data);
@@ -298,6 +320,14 @@ export const eventSubscriptions = {
     menuSwitchTabListeners.add(callback);
     return () => {
       menuSwitchTabListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to autosave files recovered before the window opened. */
+  onRecoveryRestore: (callback: (entries: RecoveryRestoreEntry[]) => void) => {
+    recoveryRestoreListeners.add(callback);
+    return () => {
+      recoveryRestoreListeners.delete(callback);
     };
   },
 

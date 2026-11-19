@@ -80,6 +80,7 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('[area \\(x^2\\)](https://example.com)')).toBe(
       '[area $x^2$](https://example.com)'
     );
+    expect(prepareMarkdownSource('    $x^2$\n')).toBe('```\n$x^2$\n```\n');
     expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
       'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
     );

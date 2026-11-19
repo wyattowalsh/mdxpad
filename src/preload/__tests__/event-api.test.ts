@@ -256,6 +256,23 @@ describe('eventSubscriptions', () => {
   // onAutosaveSettingsChange
   // --------------------------------------------------------------------------
 
+  describe('onRecoveryRestore', () => {
+    it('opens recovered autosave entries and ignores an invalid payload', () => {
+      const callback = vi.fn();
+      eventSubscriptions.onRecoveryRestore(callback);
+
+      emitIpcEvent('mdxpad:recovery:restore', [
+        { displayName: 'Recovered: note', content: '# Hi', savedAt: 10 },
+      ]);
+      emitIpcEvent('mdxpad:recovery:restore', { content: 'nope' });
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith([
+        { displayName: 'Recovered: note', content: '# Hi', savedAt: 10 },
+      ]);
+    });
+  });
+
   describe('onAutosaveSettingsChange', () => {
     it('should register and call callback with validated settings', () => {
       const callback = vi.fn();

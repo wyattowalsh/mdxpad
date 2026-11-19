@@ -105,6 +105,7 @@ const api: MdxpadAPI = {
   onMenuNewFile: eventSubscriptions.onMenuNewFile,
   onMenuOpenFileDialog: eventSubscriptions.onMenuOpenFileDialog,
   onMenuOpenFile: eventSubscriptions.onMenuOpenFile,
+  onRecoveryRestore: eventSubscriptions.onRecoveryRestore,
   onDroppedFile,
   onMenuSaveFile: eventSubscriptions.onMenuSaveFile,
   onMenuSaveFileAs: eventSubscriptions.onMenuSaveFileAs,

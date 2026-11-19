@@ -4,6 +4,7 @@
  */
 
 import type { AgentApi } from './agent-api';
+import type { RecoveryRestoreEntry } from './event-api';
 import type { MarketplaceApi } from './marketplace-api';
 import type { HistoryApi } from './history-api';
 import type { NotificationApi } from './notification-api';
@@ -267,6 +268,11 @@ export interface MdxpadAPI {
    * @returns Unsubscribe function
    */
   onMenuOpenFile(callback: (event: MenuFileOpenEvent) => void): () => void;
+
+  /**
+   * Subscribe to autosave files the main process recovered before the window opened.
+   */
+  onRecoveryRestore(callback: (entries: RecoveryRestoreEntry[]) => void): () => void;
 
   /**
    * Subscribe to a file dropped on the window.
