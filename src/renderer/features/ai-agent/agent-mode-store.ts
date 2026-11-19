@@ -35,6 +35,7 @@ export interface AgentSendContext {
   readonly workspacePath?: string;
   readonly currentFilePath?: string;
   readonly openFileContent?: string;
+  readonly openFiles?: readonly { readonly path: string; readonly content: string }[];
 }
 
 export interface AgentModeActions {
@@ -137,6 +138,14 @@ export const useAgentModeStore = create<AgentModeStore>()(
           ...(context?.currentFilePath ? { currentFilePath: context.currentFilePath } : {}),
           ...(context?.openFileContent !== undefined
             ? { openFileContent: context.openFileContent }
+            : {}),
+          ...(context?.openFiles && context.openFiles.length > 0
+            ? {
+                openFiles: context.openFiles.map((file) => ({
+                  path: file.path,
+                  content: file.content,
+                })),
+              }
             : {}),
         });
         if (requestId !== agentSendRequestId) {

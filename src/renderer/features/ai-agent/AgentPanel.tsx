@@ -16,7 +16,7 @@ import {
   selectError,
 } from './agent-mode-store';
 import { getToolDefinition } from './agent-tools';
-import { openEditorText } from './open-editor-text';
+import { openEditorFiles, openEditorText } from './open-editor-text';
 import type { AgentMessage, AgentToolCall } from '@shared/contracts/agent-schemas';
 
 // =============================================================================
@@ -172,10 +172,12 @@ export function AgentPanel({
 
     setInput('');
     const typed = openEditorText(currentFilePath);
+    const files = openEditorFiles();
     await sendMessage(trimmed, {
       ...(workspacePath ? { workspacePath } : {}),
       ...(currentFilePath ? { currentFilePath } : {}),
       ...(typed !== undefined ? { openFileContent: typed } : {}),
+      ...(files.length > 0 ? { openFiles: files } : {}),
     });
     inputRef.current?.focus();
   }, [currentFilePath, input, isDisabled, sendMessage, workspacePath]);

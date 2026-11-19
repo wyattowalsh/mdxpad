@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { DocumentId } from '@shared/types/document';
 import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
+import { useTabStore } from '@renderer/stores/tab-store';
 
-import { openEditorText } from './open-editor-text';
+import { openEditorFiles, openEditorText } from './open-editor-text';
 
 function openNote(content: string): void {
   useDocumentStore.getState().openDocument(
@@ -20,6 +21,7 @@ function openNote(content: string): void {
 describe('openEditorText', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset();
+    useTabStore.getState().reset();
     registerLiveSourceText(null);
   });
 
@@ -42,5 +44,44 @@ describe('openEditorText', () => {
 
     expect(openEditorText('/notes/b.md')).toBeUndefined();
     expect(openEditorText(undefined)).toBeUndefined();
+  });
+
+  it('includes unsaved text from another open tab', () => {
+    openNote('stored');
+    registerLiveSourceText(() => 'typed!');
+    useTabStore.setState({
+      tabs: [
+        {
+          id: 'a',
+          filePath: '/notes/a.md',
+          fileName: 'a.md',
+          isDirty: true,
+          content: 'stored',
+          savedContent: 'stored',
+        },
+        {
+          id: 'b',
+          filePath: '/notes/b.md',
+          fileName: 'b.md',
+          isDirty: true,
+          content: 'other draft',
+          savedContent: 'saved',
+        },
+        {
+          id: 'new',
+          filePath: null,
+          fileName: 'Untitled',
+          isDirty: true,
+          content: 'untitled',
+          savedContent: '',
+        },
+      ],
+      activeTabId: 'a',
+    });
+
+    expect(openEditorFiles()).toEqual([
+      { path: '/notes/a.md', content: 'typed!' },
+      { path: '/notes/b.md', content: 'other draft' },
+    ]);
   });
 });

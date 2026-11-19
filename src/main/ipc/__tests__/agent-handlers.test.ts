@@ -124,11 +124,44 @@ describe('registerAgentHandlers', () => {
       openFileContent: 'typed!',
     });
     const canonical = await realpath(file);
-    expect(sendMessage).toHaveBeenLastCalledWith(
+    expect(sendMessage).toHaveBeenLastCalledWith('edit', path.dirname(canonical), canonical, [
+      { path: canonical, content: 'typed!' },
+    ]);
+  });
+
+  it('passes editor text for another opened file and drops one that was not opened', async () => {
+    const window = createWindow();
+    const service = new AgentService({} as never);
+    const sendMessage = vi.spyOn(service, 'sendMessage').mockResolvedValue(undefined);
+    service.setWindow(window);
+    registerAgentHandlers(service, window);
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-agent-tabs-'));
+    tempDirs.push(root);
+    const current = path.join(root, 'current.md');
+    const other = path.join(root, 'other.md');
+    const outside = path.join(root, '..', 'outside.md');
+    await writeFile(current, 'disk');
+    await writeFile(other, 'disk other');
+    grantReadCapability(current);
+    grantReadCapability(other);
+    const send = handlers[AgentChannels.SEND_MESSAGE];
+
+    await send?.(createEvent(window), {
+      message: 'edit',
+      currentFilePath: current,
+      openFiles: [
+        { path: other, content: 'other draft' },
+        { path: outside, content: 'hidden' },
+      ],
+    });
+
+    const canonicalCurrent = await realpath(current);
+    const canonicalOther = await realpath(other);
+    expect(sendMessage).toHaveBeenCalledWith(
       'edit',
-      path.dirname(canonical),
-      canonical,
-      'typed!'
+      path.dirname(canonicalCurrent),
+      canonicalCurrent,
+      [{ path: canonicalOther, content: 'other draft' }]
     );
   });
 

@@ -49,10 +49,16 @@ describe('directory entries', () => {
     const note = path.join(root, 'note.md');
     await writeFile(note, 'disk');
     await writeFile(path.join(root, 'other.md'), 'other');
-    const openFile = { path: note, content: 'typed!' };
+    const other = path.join(root, 'other.md');
+    const openFiles = [
+      { path: note, content: 'typed!' },
+      { path: other, content: 'other draft' },
+    ];
 
-    await expect(readAgentFile(root, 'note.md', openFile)).resolves.toBe('typed!');
-    await expect(readAgentFile(root, note, openFile)).resolves.toBe('typed!');
-    await expect(readAgentFile(root, 'other.md', openFile)).resolves.toBe('other');
+    await expect(readAgentFile(root, 'note.md', openFiles)).resolves.toBe('typed!');
+    await expect(readAgentFile(root, note, openFiles)).resolves.toBe('typed!');
+    await expect(readAgentFile(root, 'other.md', openFiles)).resolves.toBe('other draft');
+    await writeFile(path.join(root, 'disk.md'), 'saved');
+    await expect(readAgentFile(root, 'disk.md', openFiles)).resolves.toBe('saved');
   });
 });

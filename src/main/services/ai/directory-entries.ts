@@ -71,14 +71,21 @@ function sameWorkspaceFile(root: string, requested: string, openPath: string): b
   }
 }
 
-/** The open editor's text when the request names that file. Other paths stay on disk. */
+export interface OpenEditorFile {
+  readonly path: string;
+  readonly content: string;
+}
+
+/** Editor text for an open file. Every other path stays on disk. */
 export async function readAgentFile(
   workspacePath: string,
   filePath: string,
-  openFile?: { readonly path: string; readonly content: string }
+  openFiles?: readonly OpenEditorFile[]
 ): Promise<string> {
-  if (openFile && sameWorkspaceFile(workspacePath, filePath, openFile.path)) {
-    return openFile.content;
+  for (const openFile of openFiles ?? []) {
+    if (sameWorkspaceFile(workspacePath, filePath, openFile.path)) {
+      return openFile.content;
+    }
   }
   return readWorkspaceFile(workspacePath, filePath);
 }

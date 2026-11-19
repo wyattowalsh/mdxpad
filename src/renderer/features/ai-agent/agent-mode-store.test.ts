@@ -210,6 +210,21 @@ describe('useAgentModeStore', () => {
     vi.unstubAllGlobals();
   });
 
+  it('sends the other open files with the message', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ success: true });
+    vi.stubGlobal('window', { mdxpad: { agent: { sendMessage } } });
+
+    await useAgentModeStore.getState().sendMessage('hello', {
+      openFiles: [{ path: '/notes/b.md', content: 'other draft' }],
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      message: 'hello',
+      openFiles: [{ path: '/notes/b.md', content: 'other draft' }],
+    });
+    vi.unstubAllGlobals();
+  });
+
   it('keeps a write pending when approval is not accepted', async () => {
     const approveToolCall = vi.fn().mockResolvedValue({
       success: false,

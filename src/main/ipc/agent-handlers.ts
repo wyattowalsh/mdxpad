@@ -9,7 +9,9 @@
 
 import { ipcMain, type BrowserWindow } from 'electron';
 
+import { resolveWorkspaceFilePath } from '@main/services/ai/agent-path';
 import type { AgentService } from '@main/services/ai/agent-service';
+import type { OpenEditorFile } from '@main/services/ai/directory-entries';
 import {
   AgentChannels,
   AgentResponseSchema,
@@ -18,19 +20,57 @@ import {
   type AgentResponse,
 } from '@shared/contracts/agent-schemas';
 import { createValidatedHandler } from '@shared/contracts/file-schemas';
-import { trustedAgentFile } from './document-capability';
+import {
+  hasReadCapability,
+  normalizeCapabilityPath,
+  trustedAgentFile,
+} from './document-capability';
 import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
+
+const OPEN_FILE_LIMIT = 30;
+
+function trustedEditorFiles(
+  root: string | undefined,
+  currentPath: string | undefined,
+  currentContent: string | undefined,
+  reported: readonly OpenEditorFile[] | undefined
+): OpenEditorFile[] | undefined {
+  if (root === undefined) {
+    return undefined;
+  }
+  const files: OpenEditorFile[] = [];
+  if (currentPath !== undefined && currentContent !== undefined) {
+    files.push({ path: currentPath, content: currentContent });
+  }
+  for (const file of reported ?? []) {
+    if (files.length >= OPEN_FILE_LIMIT || !hasReadCapability(file.path)) {
+      continue;
+    }
+    const normalized = normalizeCapabilityPath(file.path);
+    if (normalized === null || files.some((item) => item.path === normalized)) {
+      continue;
+    }
+    try {
+      files.push({ path: resolveWorkspaceFilePath(root, normalized), content: file.content });
+    } catch {
+      continue;
+    }
+  }
+  return files.length > 0 ? files : undefined;
+}
 
 function startAgentTurn(
   service: AgentService,
   message: string,
   currentFilePath: string | undefined,
-  openFileContent: string | undefined
+  openFileContent: string | undefined,
+  openFiles: readonly OpenEditorFile[] | undefined
 ): void {
   const trusted = trustedAgentFile(currentFilePath);
-  if (trusted && openFileContent !== undefined) {
+  const buffers = trustedEditorFiles(trusted?.root, trusted?.filePath, openFileContent, openFiles);
+  if (buffers) {
     void service
-      .sendMessage(message, trusted.root, trusted.filePath, openFileContent)
+      .sendMessage(message, trusted?.root, trusted?.filePath, buffers)
       .catch(() => undefined);
     return;
   }
@@ -39,7 +79,13 @@ function startAgentTurn(
 
 function createSendHandler(service: AgentService) {
   return createValidatedHandler(AgentSendMessageRequestSchema, (args): Promise<AgentResponse> => {
-    startAgentTurn(service, args.message, args.currentFilePath, args.openFileContent);
+    startAgentTurn(
+      service,
+      args.message,
+      args.currentFilePath,
+      args.openFileContent,
+      args.openFiles
+    );
     return Promise.resolve(AgentResponseSchema.parse({ success: true }));
   });
 }

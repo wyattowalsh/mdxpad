@@ -69,11 +69,17 @@ export type AgentPlanStep = z.infer<typeof AgentPlanStepSchema>;
 /**
  * Request to send a message to the agent.
  */
+const AgentOpenFileSchema = z.object({
+  path: z.string().min(1).max(4096),
+  content: z.string().max(8_000_000),
+});
+
 export const AgentSendMessageRequestSchema = z.object({
   message: z.string().min(1).max(10000),
   workspacePath: z.string().optional(),
   currentFilePath: z.string().optional(),
   openFileContent: z.string().max(8_000_000).optional(),
+  openFiles: z.array(AgentOpenFileSchema).max(30).optional(),
 });
 export type AgentSendMessageRequest = z.infer<typeof AgentSendMessageRequestSchema>;
 
