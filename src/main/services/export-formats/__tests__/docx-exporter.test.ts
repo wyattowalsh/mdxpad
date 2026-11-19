@@ -216,6 +216,16 @@ describe('DocxExporter', () => {
       { text: 'a ', bold: true, link: 'https://example.com' },
       { text: 'b', bold: true, code: true, link: 'https://example.com' },
     ]);
+    expect(parseInlineFormatting('**a `code` b**')).toEqual([
+      { text: 'a ', bold: true },
+      { text: 'code', bold: true, code: true },
+      { text: ' b', bold: true },
+    ]);
+    expect(parseInlineFormatting('**a `b**c` d**')).toEqual([
+      { text: 'a ', bold: true },
+      { text: 'b**c', bold: true, code: true },
+      { text: ' d', bold: true },
+    ]);
     expect(parseInlineFormatting('`[docs](https://example.com)`')).toEqual([
       { text: '[docs](https://example.com)', code: true },
     ]);

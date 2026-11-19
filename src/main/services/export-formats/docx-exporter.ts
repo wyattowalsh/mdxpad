@@ -152,7 +152,7 @@ interface EmphasisFlags {
   readonly italic?: boolean;
 }
 
-export function parseInlineFormatting(text: string): InlineSegment[] {
+function parseCodeAndPlain(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   for (const part of splitCodeSpans(text)) {
     if (part.code) {
@@ -160,10 +160,14 @@ export function parseInlineFormatting(text: string): InlineSegment[] {
       continue;
     }
     if (part.text.length > 0) {
-      segments.push(...parseEmphasisText(part.text, {}));
+      segments.push(...parsePlainMarks(part.text));
     }
   }
-  const struck = closeStrike(segments);
+  return segments;
+}
+
+export function parseInlineFormatting(text: string): InlineSegment[] {
+  const struck = closeStrike(parseEmphasisText(text, {}));
   if (struck.length === 0) {
     return [{ text }];
   }
@@ -207,13 +211,13 @@ function parseEmphasisText(text: string, marks: EmphasisFlags): InlineSegment[] 
   const matches = collectEmphasis(text);
   const outer = outerEmphasisMatches(matches, 0, text.length);
   if (outer.length === 0) {
-    return withFlags(parsePlainMarks(text), marks);
+    return withFlags(parseCodeAndPlain(text), marks);
   }
   const segments: InlineSegment[] = [];
   let cursor = 0;
   for (const match of outer) {
     if (match.start > cursor) {
-      segments.push(...withFlags(parsePlainMarks(text.slice(cursor, match.start)), marks));
+      segments.push(...withFlags(parseCodeAndPlain(text.slice(cursor, match.start)), marks));
     }
     segments.push(
       ...parseEmphasisText(text.slice(match.start + match.size, match.end - match.size), {
@@ -224,7 +228,7 @@ function parseEmphasisText(text: string, marks: EmphasisFlags): InlineSegment[] 
     cursor = match.end;
   }
   if (cursor < text.length) {
-    segments.push(...withFlags(parsePlainMarks(text.slice(cursor)), marks));
+    segments.push(...withFlags(parseCodeAndPlain(text.slice(cursor)), marks));
   }
   return segments;
 }
