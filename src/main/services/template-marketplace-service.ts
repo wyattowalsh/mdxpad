@@ -8,6 +8,7 @@
  */
 
 import { ipcMain, type BrowserWindow } from 'electron';
+import { constants as fsConstants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import {
@@ -132,11 +133,20 @@ async function bundledCatalog(
 }
 
 async function readLocalCatalog(resourcesPath: string): Promise<MarketplaceTemplateData[] | null> {
+  const catalogPath = path.join(resourcesPath, LOCAL_CATALOG_FILENAME);
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    const content = await fs.readFile(path.join(resourcesPath, LOCAL_CATALOG_FILENAME), 'utf-8');
+    handle = await fs.open(catalogPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      return null;
+    }
+    const content = await handle.readFile({ encoding: 'utf8' });
     return sanitizeMarketplaceCatalog(JSON.parse(content) as unknown);
   } catch {
     return null;
+  } finally {
+    await handle?.close();
   }
 }
 
