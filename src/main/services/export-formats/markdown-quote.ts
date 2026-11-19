@@ -47,6 +47,11 @@ function quotedSetextLevel(line: string): 1 | 2 | null {
   return setextLevel(line.slice(QUOTED_SETEXT.length));
 }
 
+/** A setext underline, including one marked while a quote was collected. */
+export function quotedUnderlineLevel(line: string): 1 | 2 | null {
+  return quotedSetextLevel(line) ?? setextLevel(line);
+}
+
 /** A following line that stays inside an open quote, such as a wrapped sentence. */
 export function isLazyQuoteLine(line: string): boolean {
   if (
@@ -412,6 +417,21 @@ function takeMarkerPiece(
   return null;
 }
 
+function takeQuotedUnderline(prose: readonly SourceLine[], line: string): QuoteItemPiece | null {
+  if (prose.length === 0) {
+    return null;
+  }
+  const level = quotedUnderlineLevel(line);
+  if (level === null) {
+    return null;
+  }
+  const text = prose
+    .map((item) => item.text)
+    .filter((item) => item.length > 0)
+    .join(' ');
+  return text.length > 0 ? { kind: 'heading', depth: level, text } : null;
+}
+
 function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItemPiece[] {
   const pieces: QuoteItemPiece[] = [];
   let prose: SourceLine[] = [];
@@ -438,6 +458,13 @@ function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItem
       openIndentedFence(line, column) !== null ||
       (line.trim().length > 0 && indent >= column + 4);
     if (!code) {
+      const heading = takeQuotedUnderline(prose, line);
+      if (heading) {
+        prose = [];
+        pieces.push(heading);
+        index += 1;
+        continue;
+      }
       const source = body[index] ?? { text: line, hardBreak: false };
       prose.push({ text: source.text.trim(), hardBreak: source.hardBreak });
       index += 1;

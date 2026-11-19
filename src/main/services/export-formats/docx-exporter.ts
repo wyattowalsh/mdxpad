@@ -52,6 +52,7 @@ import {
   quoteChunks,
   quoteMarkerLine,
   quoteParagraphPieces,
+  quotedUnderlineLevel,
 } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
@@ -763,6 +764,30 @@ function appendDocxMarkerQuoteItem(
   return read.next;
 }
 
+function takeDocxQuotedContinuation(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  index: number,
+  current: MarkdownListItem,
+  column: number,
+  depth: number
+): { current: MarkdownListItem | null; index: number } | null {
+  const line = lines[index] ?? '';
+  const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  const code =
+    openIndentedFence(line, column) !== null || (line.trim().length > 0 && indent >= column + 4);
+  if (code) {
+    blocks.push(listParagraph(current, depth));
+    return { current: null, index: appendDocxQuoteCodeLines(blocks, lines, index, column) - 1 };
+  }
+  const underline = quotedUnderlineLevel(line);
+  if (underline !== null && current.text.length > 0) {
+    blocks.push(bookmarkedHeading(underline, current.text, new Map()));
+    return { current: null, index };
+  }
+  return null;
+}
+
 function appendDocxQuoteList(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
@@ -795,14 +820,10 @@ function appendDocxQuoteList(
     if (!current) {
       continue;
     }
-    const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
-    const code =
-      openIndentedFence(line, column) !== null ||
-      (line.trim().length > 0 && indent >= column + 4);
-    if (code) {
-      blocks.push(listParagraph(current, depth));
-      current = null;
-      index = appendDocxQuoteCodeLines(blocks, lines, index, column) - 1;
+    const continued = takeDocxQuotedContinuation(blocks, lines, index, current, column, depth);
+    if (continued) {
+      current = continued.current;
+      index = continued.index;
       continue;
     }
     current = continueDocxQuoteItem(current, line, hard);
