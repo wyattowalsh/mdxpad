@@ -1634,7 +1634,13 @@ function continueDocxListItem(
   }
   if (parse.listSealed) {
     parse.openListItem = openListItem;
-    parse.blocks.push(new Paragraph({ children: createParagraphChildren(source.text) }));
+    const level = parse.listStack[parse.listStack.length - 1]?.level ?? openListItem.level;
+    parse.blocks.push(
+      new Paragraph({
+        indent: { left: 720 * (level + 1) },
+        children: createParagraphChildren(source.text),
+      })
+    );
     return true;
   }
   const text = parse.listHardBreak
