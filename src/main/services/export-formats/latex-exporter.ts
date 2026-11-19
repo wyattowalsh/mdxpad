@@ -161,11 +161,23 @@ function containedGraphicsPath(src: string): string | null {
   return src;
 }
 
+function latexUrl(value: string): string {
+  let result = '';
+  for (const char of value) {
+    if (char === '\\' || char === '{' || char === '}' || char === ' ') {
+      result += `%${char.charCodeAt(0).toString(16).toUpperCase()}`;
+      continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
 function latexImage(src: string, alt: string, title: string | null): string {
   const caption = title ? ` \\textit{${escapeLatex(title)}}` : '';
   if (/^https?:\/\//i.test(src)) {
     const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
-    return `\\href{${escapeLatex(src)}}{${label}}${caption}`;
+    return `\\href{${latexUrl(src)}}{${label}}${caption}`;
   }
   const local = containedGraphicsPath(src);
   if (local === null) {
@@ -180,7 +192,7 @@ function restoreLatexAutolinks(
   links: ReturnType<typeof protectAutolinks>['links']
 ): string {
   return replaceAutolinks(value, links, (link, nested) =>
-    nested ? escapeLatex(link.text) : `\\href{${escapeLatex(link.href)}}{${escapeLatex(link.text)}}`
+    nested ? escapeLatex(link.text) : `\\href{${latexUrl(link.href)}}{${escapeLatex(link.text)}}`
   );
 }
 
@@ -309,7 +321,7 @@ function latexHref(label: string, rawHref: string): string {
   if (safe === null || safe.startsWith('/') || safe.startsWith('\\')) {
     return formatProtected(label);
   }
-  return `\\href{${escapeLatex(safe)}}{${formatProtected(label)}}`;
+  return `\\href{${latexUrl(safe)}}{${formatProtected(label)}}`;
 }
 
 function formatInline(source: string): string {

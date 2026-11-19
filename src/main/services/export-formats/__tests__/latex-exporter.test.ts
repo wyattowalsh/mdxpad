@@ -833,7 +833,7 @@ describe('LatexExporter', () => {
       outputPath: '/tmp/paren.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
-    expect(written).toContain('\\href{https://en.wikipedia.org/wiki/Markdown\\_(markup)}{wiki}');
+    expect(written).toContain('\\href{https://en.wikipedia.org/wiki/Markdown_(markup)}{wiki}');
   });
 
   it('keeps a link title out of the address', async () => {
