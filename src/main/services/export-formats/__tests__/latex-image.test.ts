@@ -39,6 +39,8 @@ describe('LaTeX local images', () => {
     const photo = path.join(root, 'my photo.png').split(path.sep).join('/');
     expect(written).toContain(`\\includegraphics{${photo}}`);
     expect(written).not.toContain('%20');
-    expect(written).toContain(`../${outsideName}/secret.png`);
+    expect(written).toContain('Out');
+    expect(written).not.toContain('secret.png');
+    expect(written).not.toContain('\\includegraphics{../');
   });
 });

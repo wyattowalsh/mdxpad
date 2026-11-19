@@ -143,13 +143,29 @@ function latexFilename(src: string): string {
   return value.replaceAll('\\', '/').replaceAll('%', '\\%').replaceAll('}', '');
 }
 
+function containedGraphicsPath(src: string): string | null {
+  const normalized = src.replaceAll('\\', '/');
+  if (/^[a-z][a-z0-9+.-]*:/i.test(normalized)) {
+    return null;
+  }
+  if (normalized.split('/').some((part) => part === '..')) {
+    return null;
+  }
+  return src;
+}
+
 function latexImage(src: string, alt: string, title: string | null): string {
   const caption = title ? ` \\textit{${escapeLatex(title)}}` : '';
   if (/^https?:\/\//i.test(src)) {
     const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
     return `\\href{${escapeLatex(src)}}{${label}}${caption}`;
   }
-  return `\\includegraphics{${latexFilename(src)}}${caption}`;
+  const local = containedGraphicsPath(src);
+  if (local === null) {
+    const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
+    return `${label}${caption}`;
+  }
+  return `\\includegraphics{${latexFilename(local)}}${caption}`;
 }
 
 function restoreLatexAutolinks(
