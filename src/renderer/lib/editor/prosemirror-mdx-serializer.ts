@@ -198,7 +198,7 @@ const nodeSerializers: NodeSerializerMap = {
     carrier.mathBreak = Boolean(carrier.mathCloser);
   },
 
-  text(state, node) {
+  text(state, node, parent, index) {
     const writer = state as MarkdownSerializerState & {
       atBlockStart: boolean;
       out: string;
@@ -226,7 +226,7 @@ const nodeSerializers: NodeSerializerMap = {
     writer.emphasisOpen = emphasisOpen(node.marks);
     writer.strikeLiteral = node.marks.some((mark) => mark.type.name === 'strikethrough');
     try {
-      writeTextPreservingMath(state, text);
+      writeTextPreservingMath(state, protectTrailingSpaces(text, node, parent, index));
     } finally {
       writer.emphasisOpen = '';
       writer.strikeLiteral = false;
@@ -396,6 +396,23 @@ function nextLiteralSpan(value: string, from: number): LiteralSpan | null {
     };
   }
   return best;
+}
+
+function protectTrailingSpaces(
+  value: string,
+  node: ProseMirrorNode,
+  parent: ProseMirrorNode | undefined,
+  index: number
+): string {
+  if (!parent || node.marks.length > 0 || !value.endsWith(' ')) {
+    return value;
+  }
+  const next = index + 1 < parent.childCount ? parent.child(index + 1) : null;
+  const atLineEnd = next === null || (next.type.name === 'hard_break' && next.attrs.hard !== true);
+  if (!atLineEnd) {
+    return value;
+  }
+  return value.replace(/ +$/, (spaces) => '&#32;'.repeat(spaces.length));
 }
 
 function writeTextPreservingMath(state: MarkdownSerializerState, value: string): void {

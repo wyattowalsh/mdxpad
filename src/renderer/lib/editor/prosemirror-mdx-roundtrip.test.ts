@@ -125,6 +125,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(source)).toContain('```\ncode\n```');
   });
 
+  it('keeps a backslash and a space before a line break', () => {
+    const source = 'a\\ \nb\n';
+    const once = roundTrip(source);
+    expect(once).toContain('&#32;');
+    expect(parseMdxContent(once.endsWith('\n') ? once : `${once}\n`)?.textContent).toBe('a\\ b');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
   it('keeps spaces inside strikethrough', () => {
     const once = roundTrip('~~  a  ~~\n');
     expect(once).toContain('~~  a  ~~');
