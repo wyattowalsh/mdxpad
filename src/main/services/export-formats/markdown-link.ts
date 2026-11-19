@@ -1,16 +1,9 @@
-/**
- * The inside of a Markdown link or image target.
- * A quoted title may contain `)`, which must not end the target.
- */
-export const MARKDOWN_LINK_INSIDE =
-  '(?:[^()"\']|"(?:\\\\.|[^"])*"|\'(?:\\\\.|[^\'])*\'|\\([^()]*\\))*';
-
 function unwrapDestination(raw: string): string | null {
   const angled = /^(?:<|&lt;)(.+?)(?:>|&gt;)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/.exec(raw);
   return angled?.[1] ?? null;
 }
 
-function readWrappedTitle(raw: string): { title: string; end: number } | null {
+function readTitle(raw: string): { title: string; end: number } | null {
   const quote = raw[0];
   const closer = quote === '(' ? ')' : quote;
   if (quote !== '"' && quote !== "'" && quote !== '(') {
@@ -25,11 +18,19 @@ function readWrappedTitle(raw: string): { title: string; end: number } | null {
       continue;
     }
     if (char === closer) {
-      return raw.slice(index + 1).trim().length === 0 ? { title, end: index + 1 } : null;
+      return { title, end: index + 1 };
     }
     title += char;
   }
   return null;
+}
+
+function readWrappedTitle(raw: string): { title: string; end: number } | null {
+  const title = readTitle(raw);
+  if (!title || raw.slice(title.end).trim().length > 0) {
+    return null;
+  }
+  return title;
 }
 
 function titleAt(raw: string): { title: string; start: number } | null {
@@ -57,6 +58,82 @@ export interface MarkdownTarget {
   readonly destination: string;
   readonly start: number;
   readonly end: number;
+}
+
+function readBareDestination(raw: string): number {
+  let depth = 0;
+  let index = 0;
+  while (index < raw.length) {
+    const char = raw[index] ?? '';
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === '(') {
+      depth += 1;
+      index += 1;
+      continue;
+    }
+    if (char === ')' && depth === 0) {
+      return index;
+    }
+    if (char === ')') {
+      depth -= 1;
+      index += 1;
+      continue;
+    }
+    if (depth === 0 && (char === ' ' || char === '\n' || char === '\r')) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function angledDestinationEnd(raw: string): number {
+  if (raw.startsWith('<')) {
+    const close = raw.indexOf('>');
+    return close === -1 ? -1 : close + 1;
+  }
+  if (raw.startsWith('&lt;')) {
+    const close = raw.indexOf('&gt;');
+    return close === -1 ? -1 : close + 4;
+  }
+  return -1;
+}
+
+function readLinkInside(raw: string): { text: string; end: number } | null {
+  let cursor = 0;
+  const angled = angledDestinationEnd(raw);
+  if (angled === -1 && (raw.startsWith('<') || raw.startsWith('&lt;'))) {
+    return null;
+  }
+  if (angled > 0) {
+    cursor = angled;
+  } else {
+    const end = readBareDestination(raw);
+    if (end === -1) {
+      return null;
+    }
+    cursor = end;
+  }
+  if (/\s/.test(raw[cursor] ?? '')) {
+    let index = cursor;
+    while (/\s/.test(raw[index] ?? '')) {
+      index += 1;
+    }
+    const title = readTitle(raw.slice(index));
+    if (title) {
+      cursor = index + title.end;
+    }
+  }
+  while (/\s/.test(raw[cursor] ?? '')) {
+    cursor += 1;
+  }
+  if (raw[cursor] !== ')') {
+    return null;
+  }
+  return { text: raw.slice(0, cursor), end: cursor + 1 };
 }
 
 function readBalancedLabel(
@@ -100,16 +177,16 @@ export function readMarkdownTarget(raw: string, start: number): MarkdownTarget |
   if (!label || raw[label.end] !== '(') {
     return null;
   }
-  const destination = new RegExp(`^(${MARKDOWN_LINK_INSIDE})\\)`).exec(raw.slice(label.end + 1));
-  if (!destination) {
+  const inside = readLinkInside(raw.slice(label.end + 1));
+  if (!inside) {
     return null;
   }
   return {
     image,
     label: label.text,
-    destination: destination[1] ?? '',
+    destination: inside.text,
     start,
-    end: label.end + 1 + destination[0].length,
+    end: label.end + 1 + inside.end,
   };
 }
 

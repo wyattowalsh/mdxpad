@@ -24,7 +24,7 @@ import { readSourceLine } from './export-formats/markdown-paragraph';
 import { decodeHtmlEntities } from './export-formats/markdown-entity';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './export-formats/markdown-escape';
 import { renderEmphasis } from './export-formats/markdown-emphasis';
-import { MARKDOWN_LINK_INSIDE, linkDestination } from './export-formats/markdown-link';
+import { findMarkdownTarget, linkDestination } from './export-formats/markdown-link';
 import { splitTaskItem } from './export-formats/markdown-task';
 import { setextLevel } from './export-formats/markdown-setext';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
@@ -221,18 +221,21 @@ function revealPlainCode(value: string, spans: readonly string[]): string {
 }
 
 function plainLinks(value: string): string {
-  return decodeHtmlEntities(value)
-    .replace(
-      new RegExp(`!\\[([^\\]]*)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
-      (_match, alt: string, src: string) => {
-        const label = alt.trim().length > 0 ? alt : 'image';
-        return `${label} (${linkDestination(src)})`;
-      }
-    )
-    .replace(
-      new RegExp(`\\[([^\\]]+)\\]\\((${MARKDOWN_LINK_INSIDE})\\)`, 'g'),
-      (_match, label: string, href: string) => `${label} (${linkDestination(href)})`
-    );
+  const decoded = decodeHtmlEntities(value);
+  let result = '';
+  let index = 0;
+  while (index < decoded.length) {
+    const target = findMarkdownTarget(decoded, index);
+    if (!target) {
+      result += decoded.slice(index);
+      break;
+    }
+    result += decoded.slice(index, target.start);
+    const label = target.image && target.label.trim().length === 0 ? 'image' : target.label;
+    result += `${label} (${linkDestination(target.destination)})`;
+    index = target.end;
+  }
+  return result;
 }
 
 function plainInline(text: string): string {

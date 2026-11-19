@@ -161,6 +161,12 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a quotation mark inside a link address', () => {
+    expect(renderMarkdownInline('[go](https://example.com/a"b)')).toBe(
+      '<a href="https://example.com/a%22b">go</a>'
+    );
+  });
+
   it('keeps a link title out of the address', () => {
     expect(renderMarkdownInline('[docs](https://example.com "Docs")')).toBe(
       '<a href="https://example.com" title="Docs">docs</a>'
