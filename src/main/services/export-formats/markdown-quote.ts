@@ -122,7 +122,19 @@ function listLazyLine(lines: readonly string[], line: string): boolean {
   return last.trim().length > 0 && isLazyQuoteLine(line);
 }
 
+function indentedUnderList(line: string, current: QuoteChunk | null): boolean {
+  if (current?.kind !== 'list' || line.trim().length === 0 || parseListItem(line) !== null) {
+    return false;
+  }
+  const column = listIndent(current.lines);
+  const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  return indent >= column;
+}
+
 function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['kind'] | null {
+  if (indentedUnderList(line, current)) {
+    return 'list';
+  }
   if (quoteBody(line) !== null) {
     return 'nested';
   }

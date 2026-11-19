@@ -168,6 +168,9 @@ describe('quoteBody', () => {
     const setext = markdownToPdfHtml('> - Title\n>   -----\n');
     expect(setext).toContain('<h2 id="title">Title</h2>');
     expect(setext).not.toContain('-----');
+    const continued = markdownToPdfHtml('> 1. > Blockquote\n>    > continued here.\n');
+    expect(continued).toContain('Blockquote continued here.');
+    expect(continued).not.toContain('</ol>\n<blockquote>');
     expect(quoteToLatex(['1. > Blockquote', 'continued here.'], (line) => line)).toContain(
       'Blockquote continued here.'
     );
