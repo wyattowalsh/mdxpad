@@ -33,6 +33,12 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See <https://example.com> and <ada@example.com>.')).toBe(
       'See [https://example.com](https://example.com) and [ada@example.com](mailto:ada@example.com).'
     );
+    expect(
+      prepareMarkdownSource('[docs](<https://en.wikipedia.org/wiki/Markdown_(markup_language)>)')
+    ).toBe('[docs](<https://en.wikipedia.org/wiki/Markdown_(markup_language)>)');
+    expect(prepareMarkdownSource('[docs](<https://example.com>)')).toBe(
+      '[docs](<https://example.com>)'
+    );
     expect(prepareMarkdownSource('Write <mailto:ada@example.com>.')).toBe(
       'Write [mailto:ada@example.com](mailto:ada@example.com).'
     );
@@ -96,9 +102,15 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$a\\$b$');
     expect(prepareMarkdownSource('    $x^2$\n')).toBe('```\n$x^2$\n```\n');
-    expect(normalizeTexMath('- outer\n\n  - inner\n\n    ```\n    \\(x^2\\)\n    ```\n')).toContain('\\(x^2\\)');
-    expect(normalizeTexMath('- outer\n\n  - inner\n\n    ```\n    \\(x^2\\)\n    ```\n')).not.toContain('$x^2$');
-    expect(normalizeTexMath(fenceIndentedCode('- item\n\n      \\(x^2\\)\n'))).toContain('\\(x^2\\)');
+    expect(normalizeTexMath('- outer\n\n  - inner\n\n    ```\n    \\(x^2\\)\n    ```\n')).toContain(
+      '\\(x^2\\)'
+    );
+    expect(
+      normalizeTexMath('- outer\n\n  - inner\n\n    ```\n    \\(x^2\\)\n    ```\n')
+    ).not.toContain('$x^2$');
+    expect(normalizeTexMath(fenceIndentedCode('- item\n\n      \\(x^2\\)\n'))).toContain(
+      '\\(x^2\\)'
+    );
     expect(normalizeTexMath(fenceIndentedCode('>     \\(x^2\\)\n'))).toContain('\\(x^2\\)');
     expect(normalizeTexMath(fenceIndentedCode('> >     \\(x^2\\)\n'))).toContain('\\(x^2\\)');
     expect(normalizeTexMath(fenceIndentedCode('> >     \\(x^2\\)\n'))).not.toContain('$x^2$');

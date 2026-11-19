@@ -4,6 +4,7 @@ import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from './math-span';
 import { renderableMathTex, repairedMathSpan } from './renderable-math';
 import {
+  angleDestinationEnd,
   escapeLooseTags,
   escapeTemplatePlaceholders,
   linkUrlsWithEscapedAngles,
@@ -62,12 +63,19 @@ function mapOutsideCode(prose: string, mapText: (text: string) => string): strin
   return result;
 }
 
+function keptAngle(value: string, match: string, offset: number): boolean {
+  return angleDestinationEnd(value, offset) === offset + match.length;
+}
+
 function rewriteAutolinks(value: string): string {
   return value
-    .replace(/<(https?:\/\/[^>\s]+)>/gi, (_match, url: string) => `[${url}](${url})`)
+    .replace(/<(https?:\/\/[^>\s]+)>/gi, (match, url: string, offset: number) =>
+      keptAngle(value, match, offset) ? match : `[${url}](${url})`
+    )
     .replace(
       /<((?:mailto:)?)([^\s@<>:]+@[^\s@<>]+\.[^\s@<>]+)>/gi,
-      (_match, scheme: string, email: string) => `[${scheme}${email}](mailto:${email})`
+      (match, scheme: string, email: string, offset: number) =>
+        keptAngle(value, match, offset) ? match : `[${scheme}${email}](mailto:${email})`
     );
 }
 

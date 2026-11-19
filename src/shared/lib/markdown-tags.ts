@@ -202,6 +202,22 @@ export function linkUrlsWithEscapedAngles(value: string): string {
   });
 }
 
+/** A link address written as `](<...>)`, which must stay an address. */
+export function angleDestinationEnd(value: string, index: number): number {
+  if (value[index] !== '<' || value[index - 1] !== '(' || value[index - 2] !== ']') {
+    return -1;
+  }
+  const end = value.indexOf('>', index + 1);
+  if (end === -1) {
+    return -1;
+  }
+  const body = value.slice(index + 1, end);
+  if (body.length === 0 || body.includes('\n') || body.includes('<')) {
+    return -1;
+  }
+  return end + 1;
+}
+
 /** Escape `<...>` that is prose, including nested types, and leave real tags in place. */
 export function escapeLooseTags(value: string, prose: string): string {
   let result = '';
@@ -210,6 +226,12 @@ export function escapeLooseTags(value: string, prose: string): string {
     if (value[index] !== '<') {
       result += value[index] ?? '';
       index += 1;
+      continue;
+    }
+    const destination = angleDestinationEnd(value, index);
+    if (destination !== -1) {
+      result += value.slice(index, destination);
+      index = destination;
       continue;
     }
     const tag = readAngleTag(value, index);

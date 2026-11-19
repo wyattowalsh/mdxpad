@@ -364,7 +364,8 @@ describe('LatexExporter', () => {
   it('does not let a constructed command name in a formula read a file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
-      content: '$$\n\\begincsname input\\endcsname{secret}\n\\UseName{input}{secret}\n\\pdfextension image file {secret.png}\n$$',
+      content:
+        '$$\n\\begincsname input\\endcsname{secret}\n\\UseName{input}{secret}\n\\pdfextension image file {secret.png}\n$$',
       outputPath: '/tmp/tex-constructed.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
@@ -405,7 +406,8 @@ describe('LatexExporter', () => {
   it('does not let a pdfTeX object in a formula read a file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
-      content: '$$\n\\pdfobj file {secret}\n\\begin{filecontents}{secret.tex}\n\\end{filecontents}\n$$',
+      content:
+        '$$\n\\pdfobj file {secret}\n\\begin{filecontents}{secret.tex}\n\\end{filecontents}\n$$',
       outputPath: '/tmp/tex-pdfobj.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
@@ -418,7 +420,8 @@ describe('LatexExporter', () => {
   it('does not start filecontents when the name is on the next line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
-      content: '$$\n\\begin\n{filecontents}{secret.tex}\nhello\n\\end {filecontents}\n$$\n\n$$\n\\begin{aligned}\nx\n\\end{aligned}\n$$',
+      content:
+        '$$\n\\begin\n{filecontents}{secret.tex}\nhello\n\\end {filecontents}\n$$\n\n$$\n\\begin{aligned}\nx\n\\end{aligned}\n$$',
       outputPath: '/tmp/tex-filecontents.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
@@ -850,6 +853,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\href{https://en.wikipedia.org/wiki/Markdown_(markup)}{wiki}');
   });
 
+  it('keeps parentheses inside an angle-bracket address', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '[docs](<https://en.wikipedia.org/wiki/Markdown_(markup_language)>)',
+      outputPath: '/tmp/angle-paren.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain(
+      '\\href{https://en.wikipedia.org/wiki/Markdown_(markup_language)}{docs}'
+    );
+    expect(written).not.toContain('[https://en.wikipedia.org');
+  });
+
   it('keeps a link title out of the address', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
@@ -1004,7 +1020,8 @@ describe('LatexExporter', () => {
   it('escapes a raw ampersand, hash, and percent inside display math', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
-      content: '$$a & b$$\n\n$$a # b$$\n\n$$100%$$\n\n$$\n\\begin{aligned}\na & b\n\\end{aligned}\n$$',
+      content:
+        '$$a & b$$\n\n$$a # b$$\n\n$$100%$$\n\n$$\n\\begin{aligned}\na & b\n\\end{aligned}\n$$',
       outputPath: '/tmp/math-specials.tex',
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
