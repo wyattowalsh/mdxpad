@@ -197,6 +197,13 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('draws a big operator and a set difference', () => {
+    expect(runText(mathComponents('\\bigcup_{i} A_i'))).toBe('⋃i Ai');
+    expect(runText(mathComponents('\\oint'))).toBe('∮');
+    expect(runText(mathComponents('A \\setminus B'))).toBe('A ∖ B');
+    expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
+  });
+
   it('keeps the words of a font command and drops a color name', () => {
     expect(runText(mathComponents('\\textbf{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\boldsymbol{x}'))).toBe('x');
