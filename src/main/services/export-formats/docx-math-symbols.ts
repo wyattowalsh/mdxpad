@@ -151,6 +151,23 @@ export const SYMBOLS: Record<string, string> = {
   lceil: '⌈',
   rceil: '⌉',
   mid: '∣',
+  leqslant: '⩽',
+  geqslant: '⩾',
+  nleq: '≰',
+  ngeq: '≱',
+  nleqslant: '≰',
+  ngeqslant: '≱',
+  nless: '≮',
+  ngtr: '≯',
+  nsubseteq: '⊈',
+  nsupseteq: '⊉',
+  nmid: '∤',
+  nparallel: '∦',
+  simeq: '≃',
+  asymp: '≍',
+  models: '⊨',
+  vdash: '⊢',
+  dashv: '⊣',
 };
 
 export const NEGATED: Record<string, string> = {

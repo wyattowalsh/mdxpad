@@ -197,6 +197,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('draws a slanted or negated relation', () => {
+    expect(runText(mathComponents('a \\leqslant b \\nleq c'))).toBe('a ⩽ b ≰ c');
+    expect(runText(mathComponents('a \\nsubseteq b'))).toBe('a ⊈ b');
+    expect(runText(mathComponents('a \\vdash b \\simeq c'))).toBe('a ⊢ b ≃ c');
+  });
+
   it('draws a short inequality and a middle bar', () => {
     expect(runText(mathComponents('a \\le b \\ge c \\ne d'))).toBe('a ≤ b ≥ c ≠ d');
     expect(runText(mathComponents('a \\ll b \\gg c'))).toBe('a ≪ b ≫ c');
