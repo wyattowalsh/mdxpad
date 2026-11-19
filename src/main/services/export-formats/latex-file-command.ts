@@ -7,7 +7,7 @@ import { mapFencedProse } from '@shared/lib/markdown-math';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 const LATEX_FILE_READ =
-  /\\(?:@@input|includegraphics|InputIfFileExists|verbatiminput|lstinputlisting|openin|openout|include|input|csname|write|read)\b/g;
+  /\\(?:@@input|includegraphics|InputIfFileExists|lstinputlisting|verbatiminput|pdffilemoddate|pdffiledump|pdffilesize|pdfximage|newwrite|newread|openout|openin|include|special|csname|input|write|read)\b/g;
 
 export function disarmLatexFileRead(value: string): string {
   return value.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);

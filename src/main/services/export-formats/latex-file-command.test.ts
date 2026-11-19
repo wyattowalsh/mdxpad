@@ -34,4 +34,13 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\relax csname');
     expect(next).toContain('\\frac{1}{2}');
   });
+
+  it('turns a pdf file primitive inside a formula into text', () => {
+    const source = '$$\n\\pdffiledump{secret}\n$$\n\n$\\special{pdf:fopen (secret)}$\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\pdffiledump');
+    expect(next).not.toContain('\\special');
+    expect(next).toContain('\\relax pdffiledump');
+    expect(next).toContain('\\relax special');
+  });
 });
