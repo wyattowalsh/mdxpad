@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { BuiltInComponents } from './components';
-import { confinePreviewProps } from './preview-href';
+import { confinePreviewElement } from './preview-href';
 
 interface MDXComponentProps {
   readonly children?: React.ReactNode;
@@ -90,7 +90,7 @@ function confinedJsx(
   props: unknown,
   key?: React.Key
 ): React.ReactElement {
-  const next = confinePreviewProps(props);
+  const next = confinePreviewElement(type, props);
   if (key === undefined) {
     return jsx(type, next);
   }

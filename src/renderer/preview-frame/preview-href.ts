@@ -98,6 +98,28 @@ const RESOURCE_ATTRIBUTES = new Set([
   'xlinkhref',
 ]);
 
+function sanitizePreviewImport(css: string): string {
+  return css.replace(
+    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    (
+      full,
+      _quote: string,
+      quotedUrl: string | undefined,
+      bare: string | undefined,
+      _plain: string,
+      quoted: string | undefined
+    ) => {
+      const address = (quotedUrl ?? bare ?? quoted ?? '').trim();
+      return address.length > 0 && isBlockedPreviewResource(address) ? '' : full;
+    }
+  );
+}
+
+/** Drop a local file from CSS text, including a style element body. */
+export function sanitizePreviewStyleSheet(css: string): string {
+  return sanitizePreviewStyle(sanitizePreviewImport(css));
+}
+
 function sanitizePreviewStyle(value: string): string {
   return value.replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
@@ -186,4 +208,23 @@ export function confinePreviewProps(props: unknown): unknown {
     }
   }
   return changed ? Object.fromEntries(nextEntries) : props;
+}
+
+function cleanStyleChild(child: unknown): unknown {
+  return typeof child === 'string' ? sanitizePreviewStyleSheet(child) : child;
+}
+
+/** Drop a local file from a plain tag, including the text of a style element. */
+export function confinePreviewElement(type: unknown, props: unknown): unknown {
+  const confined = confinePreviewProps(props);
+  if (type !== 'style' || confined === null || typeof confined !== 'object') {
+    return confined;
+  }
+  const record = confined as Record<string, unknown>;
+  const children = record.children;
+  const cleaned = Array.isArray(children) ? children.map(cleanStyleChild) : cleanStyleChild(children);
+  if (cleaned === children) {
+    return confined;
+  }
+  return { ...record, children: cleaned };
 }

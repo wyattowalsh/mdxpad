@@ -161,4 +161,24 @@ describe('createModuleFromCode', () => {
       expect(style).toContain('color');
     }
   });
+
+  it('drops a local file from a style element', async () => {
+    const source = [
+      '<style>body{background:url(file:///etc/passwd);color:red} @import "file:///etc/passwd.css";</style>',
+      '<style>@import "https://example.com/a.css"; h1{color:blue}</style>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('raw-style-file'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    const sheets = [...container.querySelectorAll('style')].map((sheet) => sheet.textContent ?? '');
+    expect(sheets.join('\n')).not.toContain('file:');
+    expect(sheets[0]).toContain('background:none');
+    expect(sheets[0]).toContain('color:red');
+    expect(sheets[1]).toContain('https://example.com/a.css');
+    expect(sheets[1]).toContain('color:blue');
+  });
 });
