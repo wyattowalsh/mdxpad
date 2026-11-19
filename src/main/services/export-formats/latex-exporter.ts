@@ -1154,7 +1154,35 @@ function closeOpenDisplayMath(build: LatexBuild): void {
   build.output.push('$$');
 }
 
+function openDisplayMath(build: LatexBuild): void {
+  flushLatexProse(build.output, build.prose);
+  flushLatexTable(build.output, build.tableLines);
+  flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
+  resetListState(build.output, build.listState);
+  build.output.push('$$');
+  build.inDisplayMath = true;
+}
+
+function takeOpenedDisplay(build: LatexBuild, line: string): boolean {
+  const trimmed = line.trim();
+  if (build.inDisplayMath || !trimmed.startsWith('$$') || trimmed === '$$') {
+    return false;
+  }
+  if (mathSpanEnd(trimmed, 0, '$$') === trimmed.length) {
+    return false;
+  }
+  openDisplayMath(build);
+  const rest = trimmed.slice(2).trim();
+  if (rest.length > 0) {
+    build.displayLines.push(rest);
+  }
+  return true;
+}
+
 function takeLatexDisplay(build: LatexBuild, line: string): boolean {
+  if (takeOpenedDisplay(build, line)) {
+    return true;
+  }
   if (line.trim() !== '$$' && !build.inDisplayMath) {
     return false;
   }

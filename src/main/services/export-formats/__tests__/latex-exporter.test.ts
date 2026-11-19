@@ -969,6 +969,13 @@ describe('LatexExporter', () => {
     expect(written).toContain('$a + b$');
     expect(written).toContain('E = mc^2');
     expect(written).toContain('\\$5 and \\$10');
+    await exporter.export({
+      content: '$$\n100\\%\n$$\n\n$$100\\%\n$$',
+      outputPath: '/tmp/display-percent.tex',
+    });
+    const display = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(display).toContain('$$\n100\\%\n$$');
+    expect(display).not.toContain('\\$\\$');
     expect(written).not.toContain('\\$x');
     await exporter.export({
       content: 'Price is $5 & $6$.\n',
