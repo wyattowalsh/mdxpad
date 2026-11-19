@@ -4,8 +4,10 @@ import {
   MathLimitLower,
   MathLimitUpper,
   MathPreSubSuperScript,
+  MathIntegral,
   MathRadical,
   MathSubSuperScript,
+  MathSum,
   MathRoundBrackets,
   MathSquareBrackets,
   MathRun,
@@ -291,8 +293,11 @@ describe('mathComponents', () => {
   it('keeps a script on the symbol before a space', () => {
     const sum = mathComponents('\\sum _{i=1}^{n}');
     expect(sum).toHaveLength(1);
-    expect(sum[0]).toBeInstanceOf(MathSubSuperScript);
-    expect(runText(sum)).toBe('∑i=1n');
+    expect(sum[0]).toBeInstanceOf(MathSum);
+    expect(runText(sum)).toBe('i=1n');
+    const integral = mathComponents('\\int_0^1 x');
+    expect(integral[0]).toBeInstanceOf(MathIntegral);
+    expect(runText(integral)).toBe('01 x');
     const power = mathComponents('x ^2');
     expect(power).toHaveLength(1);
     expect(power[0]).toBeInstanceOf(MathSuperScript);
@@ -300,9 +305,10 @@ describe('mathComponents', () => {
   });
 
   it('leaves a style command out of the formula', () => {
-    const limited = runText(mathComponents('\\sum\\limits_{i=1}^{n}'));
-    expect(limited).toBe('∑i=1n');
-    expect(limited).not.toContain('limits');
+    const limited = mathComponents('\\sum\\limits_{i=1}^{n}');
+    expect(limited[0]).toBeInstanceOf(MathSum);
+    expect(runText(limited)).toBe('i=1n');
+    expect(runText(limited)).not.toContain('limits');
     expect(runText(mathComponents('\\displaystyle x'))).toBe(' x');
     expect(runText(mathComponents('\\mathbin{+}'))).toBe('+');
   });
