@@ -100,13 +100,13 @@ function skipCloser(value: string, index: number, marker: string): number {
 
 function skipEmphasis(value: string, index: number): number {
   if (value.startsWith('~~', index)) return skipCloser(value, index, '~~');
-  if (value.startsWith('**', index)) return skipCloser(value, index, '**');
-  if (value[index] === '*' && value[index + 1] !== '*') return skipCloser(value, index, '*');
-  if (value[index] !== '_') return index;
+  const marker = value[index];
+  if (marker !== '*' && marker !== '_') return index;
   let length = 0;
-  while (value[index + length] === '_') length += 1;
+  while (value[index + length] === marker) length += 1;
   if (!canOpenEmphasis(value, index)) return index + length;
-  return skipCloser(value, index, length >= 2 ? '__' : '_');
+  const token = length >= 2 ? `${marker}${marker}` : marker;
+  return skipCloser(value, index, token);
 }
 
 function skipLink(value: string, index: number): number {

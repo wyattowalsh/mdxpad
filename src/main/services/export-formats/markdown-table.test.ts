@@ -36,6 +36,13 @@ describe('parseMarkdownTable', () => {
     expect(emphasis?.rows).toEqual([['_keep|pipe_', 'ok']]);
     const strong = parseMarkdownTable(['| f | g |', '| --- | --- |', '| __keep|pipe__ | ok |']);
     expect(strong?.rows).toEqual([['__keep|pipe__', 'ok']]);
+    const stars = parseMarkdownTable(['| a* | b* |', '| --- | --- |', '| 1 | 2 |']);
+    expect(stars?.headers).toEqual(['a*', 'b*']);
+    expect(stars?.rows).toEqual([['1', '2']]);
+    const doubledStars = parseMarkdownTable(['| a** | b** |', '| --- | --- |', '| 1 | 2 |']);
+    expect(doubledStars?.headers).toEqual(['a**', 'b**']);
+    const inside = parseMarkdownTable(['| *keep|pipe* | ok |', '| --- | --- |', '| 1 | 2 |']);
+    expect(inside?.headers).toEqual(['*keep|pipe*', 'ok']);
   });
 
   it('keeps a pipe inside emphasis and a link', () => {
