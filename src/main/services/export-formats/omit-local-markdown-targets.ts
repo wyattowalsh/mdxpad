@@ -40,8 +40,15 @@ function attributeValue(raw: string): string {
 }
 
 function tagAttribute(tag: string, name: string): string | null {
-  const match = new RegExp(`\\b${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i').exec(tag);
+  const boundary = name.includes(':') ? name : `(?<![\\w:-])${name}`;
+  const match = new RegExp(`${boundary}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i').exec(tag);
   return match?.[1] ? decodeHtmlEntities(attributeValue(match[1])) : null;
+}
+
+function dropAttribute(tag: string, name: string): string {
+  const boundary = name.includes(':') ? name : `(?<![\\w:-])${name}`;
+  const pattern = new RegExp(`\\s+${boundary}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
+  return tag.replace(pattern, '');
 }
 
 function htmlImage(tag: string): { src: string; alt: string } | null {
@@ -53,6 +60,70 @@ function htmlImage(tag: string): { src: string; alt: string } | null {
     return null;
   }
   return { src, alt: tagAttribute(tag, 'alt') ?? '' };
+}
+
+const RESOURCE_TAGS = new Set(['img', 'video', 'audio', 'source', 'track', 'image', 'use']);
+
+function elementName(tag: string): string {
+  return (/^<\s*([A-Za-z][A-Za-z0-9:-]*)/.exec(tag)?.[1] ?? '').toLowerCase();
+}
+
+function keptSrcset(value: string, root: string | null): string {
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => {
+      const url = part.split(/\s+/)[0] ?? '';
+      return url.length === 0 || pictureAllowed(url, root);
+    })
+    .join(', ');
+}
+
+function replaceAttribute(tag: string, name: string, value: string): string {
+  const boundary = name.includes(':') ? name : `(?<![\\w:-])${name}`;
+  const pattern = new RegExp(`(${boundary}\\s*=\\s*)("[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
+  return tag.replace(pattern, (_full, prefix: string, raw: string) => {
+    const quote = raw.startsWith('"') || raw.startsWith("'") ? raw[0] : '';
+    return `${prefix}${quote}${value}${quote}`;
+  });
+}
+
+function resourceAttributes(name: string): readonly string[] {
+  const href = name === 'image' || name === 'use' ? ['href', 'xlink:href'] : [];
+  return ['src', 'poster', 'srcset', 'imagesrcset', ...href];
+}
+
+function rewriteResourceTag(tag: string, root: string | null): string {
+  const name = elementName(tag);
+  if (!RESOURCE_TAGS.has(name)) {
+    return tag;
+  }
+  if (name === 'img') {
+    const image = htmlImage(tag);
+    if (image && !pictureAllowed(image.src, root)) {
+      return image.alt;
+    }
+  }
+  let next = tag;
+  for (const attr of resourceAttributes(name)) {
+    const value = tagAttribute(next, attr);
+    if (value === null) {
+      continue;
+    }
+    if (attr === 'srcset' || attr === 'imagesrcset') {
+      const kept = keptSrcset(value, root);
+      if (kept.length === 0) {
+        next = dropAttribute(next, attr);
+      } else if (kept !== value) {
+        next = replaceAttribute(next, attr, kept);
+      }
+      continue;
+    }
+    if (!pictureAllowed(value, root)) {
+      next = dropAttribute(next, attr);
+    }
+  }
+  return next;
 }
 
 function rewriteHtmlImages(line: string, root: string | null): string {
@@ -69,9 +140,7 @@ function rewriteHtmlImages(line: string, root: string | null): string {
       result += line.slice(index);
       break;
     }
-    const tag = line.slice(index, end);
-    const image = htmlImage(tag);
-    result += image && !pictureAllowed(image.src, root) ? image.alt : tag;
+    result += rewriteResourceTag(line.slice(index, end), root);
     index = end;
   }
   return result;
