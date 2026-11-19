@@ -9,6 +9,8 @@ import { createWindow, loadContent } from './window';
 import { registerIpcHandlers } from './ipc';
 import { initializeApplicationMenu } from './menu';
 import { registerPreviewFrameProtocol } from './preview-frame-protocol';
+import { shareUrlFromArgv } from '@shared/lib/share-url';
+import { deliverShareUrl, flushPendingShareUrl, installShareProtocol, rememberShareUrl } from './share-protocol';
 import { AutoSaveManager, readVerifiedAutosave } from './services/auto-save';
 
 /** Global AutoSaveManager instance for crash recovery and auto-saving */
@@ -115,6 +117,7 @@ function createMainWindow(): void {
   registerIpcHandlers(mainWindow);
   initializeApplicationMenu(mainWindow);
   loadContent(mainWindow);
+  flushPendingShareUrl(mainWindow);
 
   // Send pending recovery entries to renderer after window is ready
   if (pendingRecoveryEntries.length > 0) {
@@ -139,6 +142,7 @@ if (gotTheLock) {
     }
 
     registerPreviewFrameProtocol(fileURLToPath(new URL('../renderer', import.meta.url)));
+    installShareProtocol(getActiveMainWindow);
     createMainWindow();
 
     // Start auto-save manager for this session
@@ -165,8 +169,16 @@ if (gotTheLock) {
   });
 
   // Handle second instance attempt
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    const shareUrl = shareUrlFromArgv(Array.isArray(argv) ? argv : []);
     const targetWindow = getActiveMainWindow();
+    if (shareUrl !== null) {
+      if (targetWindow) {
+        deliverShareUrl(targetWindow, shareUrl);
+      } else {
+        rememberShareUrl(shareUrl);
+      }
+    }
 
     if (!targetWindow) {
       if (!hasCreatedInitialWindow) {

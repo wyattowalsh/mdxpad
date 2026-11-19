@@ -22,6 +22,7 @@ export interface ShareDialogProps {
   readonly onCreateLink: (accessMode: ShareAccessMode) => void;
   readonly onRevokeLink: (linkId: string) => void;
   readonly onCopyLink: (url: string) => void;
+  readonly onOpenLink: (url: string) => void;
   readonly error?: string | null;
 }
 
@@ -109,10 +110,12 @@ interface LinkItemProps {
   readonly link: ShareLink;
   readonly onRevoke: () => void;
   readonly onCopy: () => void;
+  readonly onOpen: () => void;
 }
 
-function LinkItemComponent({ link, onRevoke, onCopy }: LinkItemProps) {
+function LinkItemComponent({ link, onRevoke, onCopy, onOpen }: LinkItemProps) {
   const isExpired = link.expiresAt !== null && Date.now() > link.expiresAt;
+  const canOpen = link.isActive && !isExpired;
 
   return (
     <div
@@ -124,7 +127,14 @@ function LinkItemComponent({ link, onRevoke, onCopy }: LinkItemProps) {
     >
       <div className="flex-1 min-w-0">
         <LinkStatus isActive={link.isActive} isExpired={isExpired} accessMode={link.accessMode} />
-        <p className="text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5">{link.url}</p>
+        <button
+          type="button"
+          className="block w-full text-left text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5 hover:text-foreground disabled:hover:text-muted-foreground"
+          onClick={onOpen}
+          disabled={!canOpen}
+        >
+          {link.url}
+        </button>
       </div>
       <LinkActions isActive={link.isActive} onCopy={onCopy} onRevoke={onRevoke} />
     </div>
@@ -215,9 +225,10 @@ interface LinkListProps {
   readonly links: readonly ShareLink[];
   readonly onRevokeLink: (linkId: string) => void;
   readonly onCopyLink: (url: string) => void;
+  readonly onOpenLink: (url: string) => void;
 }
 
-function LinkListComponent({ links, onRevokeLink, onCopyLink }: LinkListProps) {
+function LinkListComponent({ links, onRevokeLink, onCopyLink, onOpenLink }: LinkListProps) {
   if (links.length === 0) {
     return <p className="text-xs text-muted-foreground text-center py-3">No active share links</p>;
   }
@@ -230,6 +241,7 @@ function LinkListComponent({ links, onRevokeLink, onCopyLink }: LinkListProps) {
           link={link}
           onRevoke={() => onRevokeLink(link.id)}
           onCopy={() => onCopyLink(link.url)}
+          onOpen={() => onOpenLink(link.url)}
         />
       ))}
     </>
@@ -250,6 +262,7 @@ function ShareDialogComponent({
   onCreateLink,
   onRevokeLink,
   onCopyLink,
+  onOpenLink,
   error = null,
 }: ShareDialogProps) {
   const [accessMode, setAccessMode] = useState<ShareAccessMode>('read-only');
@@ -293,7 +306,12 @@ function ShareDialogComponent({
           onCreate={handleCreate}
         />
         <div className="space-y-2 max-h-48 overflow-y-auto">
-          <LinkList links={activeLinks} onRevokeLink={onRevokeLink} onCopyLink={onCopyLink} />
+          <LinkList
+            links={activeLinks}
+            onRevokeLink={onRevokeLink}
+            onCopyLink={onCopyLink}
+            onOpenLink={onOpenLink}
+          />
         </div>
       </div>
     </div>

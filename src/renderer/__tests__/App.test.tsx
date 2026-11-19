@@ -70,6 +70,7 @@ function createMockMdxpadApi() {
     onMenuNextTab: vi.fn(() => () => {}),
     onMenuPreviousTab: vi.fn(() => () => {}),
     onMenuSwitchTab: vi.fn(() => () => {}),
+    onShareOpen: vi.fn(() => () => {}),
     onRecoveryRestore: vi.fn(() => () => {}),
     recoveryCheck: vi.fn().mockResolvedValue({ hasRecoveryData: false, count: 0 }),
     recoveryList: vi.fn().mockResolvedValue({ entries: [] }),

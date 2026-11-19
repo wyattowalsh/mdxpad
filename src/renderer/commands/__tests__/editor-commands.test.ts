@@ -112,6 +112,7 @@ vi.mock('../../stores/command-registry-store', () => ({
 }));
 
 // Import after mocking
+import { CommandIdSchema } from '@shared/types/commands';
 import { EDITOR_COMMANDS, registerEditorCommands } from '../editor-commands';
 
 // =============================================================================
@@ -182,9 +183,9 @@ describe('Editor command IDs', () => {
     'edit.find',
     'edit.find-replace',
     'edit.go-to-line',
-    'edit.heading-1',
-    'edit.heading-2',
-    'edit.heading-3',
+    'edit.heading-one',
+    'edit.heading-two',
+    'edit.heading-three',
     'edit.ai-rewrite',
     'edit.ai-summarize',
     'edit.ai-fix-grammar',
@@ -196,6 +197,12 @@ describe('Editor command IDs', () => {
     const ids = EDITOR_COMMANDS.map((c) => c.id);
     for (const expected of expectedIds) {
       expect(ids).toContain(expected);
+    }
+  });
+
+  it('uses ids the palette can register', () => {
+    for (const command of EDITOR_COMMANDS) {
+      expect(CommandIdSchema.safeParse(command.id).success).toBe(true);
     }
   });
 });
@@ -213,9 +220,9 @@ describe('Editor command shortcuts', () => {
     { id: 'edit.find', key: 'f', modifiers: ['Mod'] },
     { id: 'edit.find-replace', key: 'f', modifiers: ['Mod', 'Shift'] },
     { id: 'edit.go-to-line', key: 'g', modifiers: ['Mod'] },
-    { id: 'edit.heading-1', key: '1', modifiers: ['Mod'] },
-    { id: 'edit.heading-2', key: '2', modifiers: ['Mod'] },
-    { id: 'edit.heading-3', key: '3', modifiers: ['Mod'] },
+    { id: 'edit.heading-one', key: '1', modifiers: ['Mod'] },
+    { id: 'edit.heading-two', key: '2', modifiers: ['Mod'] },
+    { id: 'edit.heading-three', key: '3', modifiers: ['Mod'] },
   ];
 
   for (const { id, key, modifiers } of shortcutTests) {

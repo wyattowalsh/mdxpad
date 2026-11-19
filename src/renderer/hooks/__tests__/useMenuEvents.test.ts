@@ -79,6 +79,7 @@ const mockMdxpadApi = {
   onMenuNextTab: vi.fn(() => createMockUnsub()),
   onMenuPreviousTab: vi.fn(() => createMockUnsub()),
   onMenuSwitchTab: vi.fn(() => createMockUnsub()),
+  onShareOpen: vi.fn(() => createMockUnsub()),
   onEditorDirtyCheck: vi.fn((cb: () => boolean) => {
     menuListeners.dirtyCheck ??= [];
     menuListeners.dirtyCheck.push(cb as unknown as () => void);

@@ -319,6 +319,9 @@ export interface MdxpadAPI {
    */
   onMenuSwitchTab(callback: (index: number) => void): () => void;
 
+  /** Open a share link delivered by the operating system. */
+  onShareOpen(callback: (url: string) => void): () => void;
+
   /**
    * Subscribe to main-process dirty-state queries.
    * Used by close-window flow to determine whether unsaved changes exist.

@@ -502,7 +502,7 @@ const goToLineCommand = createEditorCommand(
 );
 
 const heading1Command = createEditorCommand(
-  'edit.heading-1' as CommandId,
+  'edit.heading-one' as CommandId,
   'Heading 1',
   'Convert line to heading level 1',
   'heading1',
@@ -510,7 +510,7 @@ const heading1Command = createEditorCommand(
 );
 
 const heading2Command = createEditorCommand(
-  'edit.heading-2' as CommandId,
+  'edit.heading-two' as CommandId,
   'Heading 2',
   'Convert line to heading level 2',
   'heading2',
@@ -518,7 +518,7 @@ const heading2Command = createEditorCommand(
 );
 
 const heading3Command = createEditorCommand(
-  'edit.heading-3' as CommandId,
+  'edit.heading-three' as CommandId,
   'Heading 3',
   'Convert line to heading level 3',
   'heading3',

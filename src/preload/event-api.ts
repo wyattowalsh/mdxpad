@@ -11,6 +11,7 @@
 import { ipcRenderer } from 'electron';
 import { z } from 'zod';
 import { IPC_CHANNELS, IPC_EVENTS } from '@shared/lib/ipc';
+import { shareTokenFromUrl } from '@shared/lib/share-url';
 import { AutosaveSettingsSchema } from '@shared/contracts/autosave-schemas';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import {
@@ -62,6 +63,7 @@ const menuReopenTabListeners = new Set<() => void>();
 const menuNextTabListeners = new Set<() => void>();
 const menuPreviousTabListeners = new Set<() => void>();
 const menuSwitchTabListeners = new Set<(index: number) => void>();
+const shareOpenListeners = new Set<(url: string) => void>();
 const recoveryRestoreListeners = new Set<(entries: RecoveryRestoreEntry[]) => void>();
 
 /** Autosave settings change event listeners registry */
@@ -180,6 +182,15 @@ ipcRenderer.on(IPC_EVENTS.menuSwitchTab, (_event, data: unknown) => {
   }
   for (const listener of menuSwitchTabListeners) {
     listener(parsed.data);
+  }
+});
+
+ipcRenderer.on(IPC_EVENTS.shareOpenUrl, (_event, data: unknown) => {
+  if (typeof data !== 'string' || shareTokenFromUrl(data) === null) {
+    return;
+  }
+  for (const listener of shareOpenListeners) {
+    listener(data);
   }
 });
 
@@ -320,6 +331,14 @@ export const eventSubscriptions = {
     menuSwitchTabListeners.add(callback);
     return () => {
       menuSwitchTabListeners.delete(callback);
+    };
+  },
+
+  /** Subscribe to an operating-system open of an mdxpad share link. */
+  onShareOpen: (callback: (url: string) => void) => {
+    shareOpenListeners.add(callback);
+    return () => {
+      shareOpenListeners.delete(callback);
     };
   },
 

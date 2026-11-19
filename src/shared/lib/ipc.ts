@@ -162,6 +162,8 @@ export const IPC_EVENTS = {
   menuPreviousTab: 'mdxpad:menu:prev-tab',
   /** Menu events - select tab 1-9 */
   menuSwitchTab: 'mdxpad:menu:switch-tab',
+  /** Open a copied mdxpad://share link */
+  shareOpenUrl: 'mdxpad:share:open-url',
 } as const;
 
 /**

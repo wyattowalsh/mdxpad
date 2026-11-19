@@ -28,6 +28,7 @@ describe('ShareDialog', () => {
     onCreateLink: vi.fn(),
     onRevokeLink: vi.fn(),
     onCopyLink: vi.fn(),
+    onOpenLink: vi.fn(),
   };
 
   it('renders nothing when not open', () => {
@@ -86,6 +87,21 @@ describe('ShareDialog', () => {
     );
     fireEvent.click(screen.getByText('Copy'));
     expect(onCopyLink).toHaveBeenCalledWith('mdxpad://share/abc123');
+  });
+
+  it('opens a share link when its address is clicked', () => {
+    const onOpenLink = vi.fn();
+    const link = createMockLink();
+    render(
+      <ShareDialog
+        isOpen={true}
+        activeLinks={[link]}
+        {...defaultProps}
+        onOpenLink={onOpenLink}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: link.url }));
+    expect(onOpenLink).toHaveBeenCalledWith(link.url);
   });
 
   it('calls onRevokeLink when revoke is clicked', () => {

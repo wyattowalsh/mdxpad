@@ -16,6 +16,7 @@ import { useCommandPalette, buildCommandContext } from './useCommandPalette';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
+import { openShareLink } from '@renderer/lib/open-share-link';
 import {
   activateDocumentTabAt,
   activateRelativeDocumentTab,
@@ -128,6 +129,9 @@ function getMdxpadApi() {
       /* noop */
     },
     onMenuSwitchTab: () => () => {
+      /* noop */
+    },
+    onShareOpen: () => () => {
       /* noop */
     },
     onEditorDirtyCheck: () => () => {
@@ -278,6 +282,9 @@ export function useMenuEvents(
         window.mdxpad.onMenuNextTab(() => activateRelativeDocumentTab(1)),
         window.mdxpad.onMenuPreviousTab(() => activateRelativeDocumentTab(-1)),
         window.mdxpad.onMenuSwitchTab((index) => activateDocumentTabAt(index - 1)),
+        window.mdxpad.onShareOpen((url) => {
+          void openShareLink(url);
+        }),
       ];
       return true;
     };

@@ -293,8 +293,8 @@ function buildEditMenu(_window: BrowserWindow): MenuItemConstructorOptions {
 function buildTabMenuItems(window: BrowserWindow): MenuItemConstructorOptions[] {
   const tabItems: MenuItemConstructorOptions[] = [];
 
-  // Cmd+1 through Cmd+9: Switch to tab N
-  for (let i = 1; i <= 9; i++) {
+  // Cmd+1 through Cmd+3 apply headings. Cmd+4 through Cmd+9 switch tabs.
+  for (let i = 4; i <= 9; i++) {
     tabItems.push({
       label: `Tab ${i}`,
       accelerator: `CmdOrCtrl+${i}`,

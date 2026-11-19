@@ -171,6 +171,7 @@ function createMockApi(overrides: Partial<MdxpadAPI> = {}): MdxpadAPI {
     onMenuNextTab: vi.fn(() => () => {}),
     onMenuPreviousTab: vi.fn(() => () => {}),
     onMenuSwitchTab: vi.fn(() => () => {}),
+    onShareOpen: vi.fn(() => () => {}),
     onRecoveryRestore: vi.fn(() => () => {}),
     platform: { os: 'darwin', arch: 'arm64' },
     // Autosave API (Spec 011)

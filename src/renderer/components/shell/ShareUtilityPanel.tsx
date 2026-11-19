@@ -4,6 +4,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { selectActiveTabId, useTabStore } from '@renderer/stores/tab-store';
 import { ShareDialog } from '@renderer/components/share/ShareDialog';
 import { liveSourceText } from '@renderer/components/tabs/live-source-text';
+import { openShareLink } from '@renderer/lib/open-share-link';
 import { useUtilityPanelStore } from '@renderer/stores/utility-panel-store';
 
 function shareDocumentId(filePath: string | null, activeTabId: string | null): string | null {
@@ -124,6 +125,15 @@ export function ShareUtilityPanel(): React.JSX.Element {
       }}
       onCopyLink={(url) => {
         void navigator.clipboard.writeText(url);
+      }}
+      onOpenLink={(url) => {
+        void openShareLink(url).then((opened) => {
+          if (!opened) {
+            setError('Could not open that share link');
+            return;
+          }
+          useUtilityPanelStore.getState().setActiveUtilityPanel(null);
+        });
       }}
     />
   );
