@@ -1,6 +1,6 @@
-import { decodeHTMLStrict } from 'entities';
-
+import { replaceCssImageFunctionAddresses } from '@shared/lib/css-image-function';
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
+import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -14,10 +14,10 @@ function withoutHiddenBreaks(value: string): string {
 }
 
 function decodedHref(value: string): string {
-  let current = withoutHiddenBreaks(decodeHTMLStrict(value));
+  let current = withoutHiddenBreaks(decodeAddressEntities(value));
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const next = withoutHiddenBreaks(decodeURIComponent(current));
+      const next = withoutHiddenBreaks(decodeAddressEntities(decodeURIComponent(current)));
       if (next === current) {
         return current;
       }
@@ -116,12 +116,12 @@ const RESOURCE_ATTRIBUTES = new Set([
 ]);
 
 function blockedCssAddress(address: string): boolean {
-  const decoded = decodeCssEscapes(address.trim());
+  const decoded = decodeCssEscapes(decodeAddressEntities(address.trim()));
   return decoded.length > 0 && isBlockedPreviewResource(decoded);
 }
 
 function sanitizePreviewImport(css: string): string {
-  return stripCssComments(css).replace(
+  return decodeAddressEntities(stripCssComments(css)).replace(
     /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
@@ -143,13 +143,15 @@ export function sanitizePreviewStyleSheet(css: string): string {
 }
 
 function sanitizePreviewStyle(value: string): string {
-  return stripCssComments(value).replace(
+  const visible = decodeAddressEntities(stripCssComments(value));
+  const urls = visible.replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
       const address = (quoted ?? bare ?? '').trim();
       return blockedCssAddress(address) ? 'none' : full;
     }
   );
+  return replaceCssImageFunctionAddresses(urls, blockedCssAddress);
 }
 
 function cssPropertyName(property: string): string {

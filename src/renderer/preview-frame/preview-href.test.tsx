@@ -16,6 +16,8 @@ describe('isBlockedPreviewHref', () => {
     expect(isBlockedPreviewHref('https://example.com')).toBe(false);
     expect(isBlockedPreviewHref('./note.md')).toBe(false);
     expect(isBlockedPreviewHref('file&#58;///etc/passwd')).toBe(true);
+    expect(isBlockedPreviewHref('&#106avascript:alert(1)')).toBe(true);
+    expect(isBlockedPreviewHref('file&#58///etc/passwd')).toBe(true);
     expect(isBlockedPreviewHref('/etc/passwd')).toBe(true);
     expect(isBlockedPreviewHref('/notes/a.md')).toBe(false);
     expect(isBlockedPreviewHref('data:text/html,hi')).toBe(true);
@@ -39,6 +41,18 @@ describe('isBlockedPreviewHref', () => {
     expect(JSON.stringify(styled.style)).not.toContain('file:');
     expect(styled.style.background).toBe('none');
     expect(styled.style.color).toBe('red');
+
+    const numeric = confinePreviewProps({
+      style: 'background:url(&#102ile:///etc/passwd);color:red',
+    }) as { style: Record<string, string> };
+    expect(JSON.stringify(numeric.style)).not.toContain('file:');
+    expect(numeric.style.background).toBe('none');
+
+    const set = confinePreviewElement('style', {
+      children: 'body{background:image-set("file:///etc/passwd" 1x);color:red}',
+    }) as { children: string };
+    expect(set.children).not.toContain('file:');
+    expect(set.children).toContain('color:red');
 
     const frame = confinePreviewElement('iframe', {
       srcdoc: '<img src="file:///etc/passwd">',

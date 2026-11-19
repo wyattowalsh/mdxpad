@@ -3,8 +3,9 @@
  * A picture or link must not point at a local file.
  */
 
+import { replaceCssImageFunctionAddresses } from '@shared/lib/css-image-function';
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
-import { decodeHtmlEntities } from './markdown-entity';
+import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
 const URL_ATTRIBUTES = new Set([
   'href',
@@ -43,10 +44,10 @@ function withoutHiddenBreaks(value: string): string {
 }
 
 function decodedAddress(value: string): string {
-  let current = withoutHiddenBreaks(decodeHtmlEntities(value));
+  let current = withoutHiddenBreaks(decodeAddressEntities(value));
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const next = withoutHiddenBreaks(decodeURIComponent(current));
+      const next = withoutHiddenBreaks(decodeAddressEntities(decodeURIComponent(current)));
       if (next === current) {
         return current;
       }
@@ -131,21 +132,28 @@ function attributeAllowed(name: string, value: string): boolean {
 }
 
 function cssAddress(address: string): string {
-  return decodeCssEscapes(address.trim());
+  return decodeCssEscapes(decodeAddressEntities(address.trim()));
+}
+
+function blockedCssAddress(address: string): boolean {
+  const decoded = cssAddress(address);
+  return decoded.length > 0 && safeImageAddress(decoded) === null;
 }
 
 function sanitizeStyleValue(value: string): string {
-  return stripCssComments(value).replace(
+  const visible = decodeAddressEntities(stripCssComments(value));
+  const urls = visible.replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
       const address = cssAddress(quoted ?? bare ?? '');
       return safeImageAddress(address) === null ? 'none' : full;
     }
   );
+  return replaceCssImageFunctionAddresses(urls, blockedCssAddress);
 }
 
 function sanitizeStyleSheet(css: string): string {
-  const visible = stripCssComments(css);
+  const visible = decodeAddressEntities(stripCssComments(css));
   const withoutImport = visible.replace(
     /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (

@@ -49,6 +49,28 @@ describe('sanitizeExportedHtml', () => {
     expect(imported).not.toContain('@import');
   });
 
+  it('drops a file hidden by a numeric reference without a semicolon', () => {
+    const link = sanitizeExportedHtml('<a href="&#106avascript:alert(1)">Run</a>');
+    expect(link).toBe('<a>Run</a>');
+    const picture = sanitizeExportedHtml('<img src="&#102ile:///etc/passwd.png">');
+    expect(picture).toBe('<img>');
+    const styled = sanitizeExportedHtml(
+      '<div style="background:url(&#102ile:///etc/passwd);color:red"></div>'
+    );
+    expect(styled).not.toContain('file:');
+    expect(styled).not.toContain('&#102');
+    expect(styled).toContain('color:red');
+    const set = sanitizeExportedHtml(
+      '<style>body{background:image-set("file:///etc/passwd" 1x);color:red}</style>'
+    );
+    expect(set).not.toContain('file:');
+    expect(set).toContain('color:red');
+    const remote = sanitizeExportedHtml(
+      '<style>body{background:image-set("https://example.com/a.png" 1x)}</style>'
+    );
+    expect(remote).toContain('https://example.com/a.png');
+  });
+
   it('drops a parent path from an svg image and keeps a document link', () => {
     expect(sanitizeExportedTag('<image href="../secret.png">')).toBe('<image>');
     expect(sanitizeExportedTag('<feImage href="../secret.png">')).toBe('<feImage>');
