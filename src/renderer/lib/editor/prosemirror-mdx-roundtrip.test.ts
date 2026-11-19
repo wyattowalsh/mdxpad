@@ -116,6 +116,19 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(bulleted.endsWith('\n') ? bulleted : `${bulleted}\n`)).toBe(bulleted);
   });
 
+  it('keeps a wrapped heading inside a list', () => {
+    const source = '- item\n  Title\n  =====\n';
+    const saved = roundTrip(source);
+    expect(saved).toContain('item');
+    expect(saved).toContain('Title');
+    expect(saved).toContain('  =====');
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    const doc = parseMdxContent(again.endsWith('\n') ? again : `${again}\n`);
+    expect(doc?.textContent).toContain('item');
+    expect(doc?.textContent).toContain('Title');
+    expect(again).toContain('=====');
+  });
+
   it('keeps a wrapped fence inside a quote', () => {
     const source = '> ```\ncode\n```\n\nafter\n';
     const saved = roundTrip(source);

@@ -99,6 +99,17 @@ function paragraphWithoutPrefix(paragraph: ProseMirrorNode, skip: number): Prose
   return paragraph.copy(Fragment.fromArray(children));
 }
 
+function headingContainsBreak(node: ProseMirrorNode): boolean {
+  let broken = false;
+  node.forEach((child) => {
+    const name: string = child.type.name;
+    if (name === 'hard_break') {
+      broken = true;
+    }
+  });
+  return broken;
+}
+
 const nodeSerializers: NodeSerializerMap = {
   paragraph(state, node, parent) {
     const prefix =
@@ -114,6 +125,14 @@ const nodeSerializers: NodeSerializerMap = {
 
   heading(state, node) {
     const level = node.attrs.level as number;
+    const broken = headingContainsBreak(node);
+    if (broken && (level === 1 || level === 2)) {
+      state.renderInline(node);
+      state.ensureNewLine();
+      state.write(level === 1 ? '=====' : '-----');
+      state.closeBlock(node);
+      return;
+    }
     state.write('#'.repeat(level) + ' ');
     state.renderInline(node);
     state.closeBlock(node);
