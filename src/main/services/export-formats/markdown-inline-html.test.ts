@@ -38,13 +38,14 @@ describe('renderMarkdownInline', () => {
   });
 
   it('omits a script inside an svg', () => {
-    const html = renderMarkdownInline('<svg><script src="file:///etc/passwd">alert(1)</script>keep</svg>');
+    const html = renderMarkdownInline(
+      '<svg><script src="file:///etc/passwd">alert(1)</script>keep</svg>'
+    );
     expect(html).not.toContain('alert');
     expect(html).not.toContain('file:');
     expect(html).not.toContain('<script');
     expect(html).toContain('keep');
   });
-
 
   it('renders a raw ampersand, hash, and percent inside display math', () => {
     const ampersand = renderDisplayMathBlock(['a & b']);
@@ -87,9 +88,7 @@ describe('renderMarkdownInline', () => {
     );
     expect(
       renderMarkdownInline('[outer [inner](https://inner.example)](https://outer.example)')
-    ).toBe(
-      '[outer <a href="https://inner.example">inner</a>](https://outer.example)'
-    );
+    ).toBe('[outer <a href="https://inner.example">inner</a>](https://outer.example)');
   });
 
   it('keeps an email link as one anchor', () => {
@@ -203,6 +202,15 @@ describe('renderMarkdownInline', () => {
     );
     expect(renderMarkdownInline('[docs](<https://example.com>)')).toBe(
       '<a href="https://example.com">docs</a>'
+    );
+    expect(renderMarkdownInline('[docs]( <https://example.com> )')).toBe(
+      '<a href="https://example.com">docs</a>'
+    );
+    expect(renderMarkdownInline('[docs]( https://example.com )')).toBe(
+      '<a href="https://example.com">docs</a>'
+    );
+    expect(renderMarkdownInline('[docs](<https://example.com/a\\>b>)')).toBe(
+      '<a href="https://example.com/a%3Eb">docs</a>'
     );
     expect(renderMarkdownInline('![A photo](photo.jpg "A photo")')).toBe(
       '<img src="photo.jpg" alt="A photo" title="A photo" />'

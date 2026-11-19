@@ -202,9 +202,17 @@ export function linkUrlsWithEscapedAngles(value: string): string {
   });
 }
 
+function linkOpenBefore(value: string, index: number): boolean {
+  let cursor = index - 1;
+  while (cursor >= 0 && /[ \t\n\r]/.test(value[cursor] ?? '')) {
+    cursor -= 1;
+  }
+  return value[cursor] === '(' && value[cursor - 1] === ']';
+}
+
 /** A link address written as `](<...>)`, which must stay an address. */
 export function angleDestinationEnd(value: string, index: number): number {
-  if (value[index] !== '<' || value[index - 1] !== '(' || value[index - 2] !== ']') {
+  if (value[index] !== '<' || !linkOpenBefore(value, index)) {
     return -1;
   }
   const end = value.indexOf('>', index + 1);

@@ -866,6 +866,17 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('[https://en.wikipedia.org');
   });
 
+  it('keeps a spaced angle-bracket address', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '[docs]( <https://example.com> )',
+      outputPath: '/tmp/spaced-angle.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\href{https://example.com}{docs}');
+    expect(written).not.toContain('[https://example.com]');
+  });
+
   it('keeps a link title out of the address', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

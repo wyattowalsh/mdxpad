@@ -92,10 +92,26 @@ function readBareDestination(raw: string): number {
   return -1;
 }
 
+function rawAngleEnd(raw: string): number {
+  for (let index = 1; index < raw.length; index += 1) {
+    const char = raw[index] ?? '';
+    if (char === '\\') {
+      index += 1;
+      continue;
+    }
+    if (char === '\n' || char === '\r' || char === '<') {
+      return -1;
+    }
+    if (char === '>') {
+      return index + 1;
+    }
+  }
+  return -1;
+}
+
 function angledDestinationEnd(raw: string): number {
   if (raw.startsWith('<')) {
-    const close = raw.indexOf('>');
-    return close === -1 ? -1 : close + 1;
+    return rawAngleEnd(raw);
   }
   if (raw.startsWith('&lt;')) {
     const close = raw.indexOf('&gt;');
@@ -104,20 +120,30 @@ function angledDestinationEnd(raw: string): number {
   return -1;
 }
 
+function skipLinkSpace(raw: string, index: number): number {
+  let cursor = index;
+  while (/[ \t\n\r]/.test(raw[cursor] ?? '')) {
+    cursor += 1;
+  }
+  return cursor;
+}
+
 function readLinkInside(raw: string): { text: string; end: number } | null {
-  let cursor = 0;
-  const angled = angledDestinationEnd(raw);
-  if (angled === -1 && (raw.startsWith('<') || raw.startsWith('&lt;'))) {
+  const start = skipLinkSpace(raw, 0);
+  const head = raw.slice(start);
+  const angled = angledDestinationEnd(head);
+  if (angled === -1 && (head.startsWith('<') || head.startsWith('&lt;'))) {
     return null;
   }
+  let cursor = start;
   if (angled > 0) {
-    cursor = angled;
+    cursor = start + angled;
   } else {
-    const end = readBareDestination(raw);
+    const end = readBareDestination(head);
     if (end === -1) {
       return null;
     }
-    cursor = end;
+    cursor = start + end;
   }
   if (/\s/.test(raw[cursor] ?? '')) {
     let index = cursor;
@@ -273,7 +299,7 @@ export function linkDestination(raw: string): string {
   const decoded = raw.trim().replaceAll('&quot;', '"').replaceAll('&#39;', "'");
   const angled = unwrapDestination(decoded);
   if (angled !== null) {
-    return encodeDestination(angled);
+    return encodeDestination(unescapeDestination(angled));
   }
   return encodeDestination(unescapeDestination(stripTitle(decoded) ?? decoded));
 }
