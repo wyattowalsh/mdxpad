@@ -215,6 +215,11 @@ describe('isBlockedPreviewHref', () => {
       imageSrcSet: 'file:///etc/passwd 1x, https://example.com/a.png 2x',
     }) as { imageSrcSet?: string };
     expect(sources.imageSrcSet).toBe('https://example.com/a.png 2x');
+    const hidden = confinePreviewElement('img', {
+      alt: 'pic',
+      srcSet: 'java\fscript:alert(1) 1x, https://example.com/a.png 2x',
+    }) as { srcSet?: string };
+    expect(hidden.srcSet).toBe('https://example.com/a.png 2x');
   });
 });
 

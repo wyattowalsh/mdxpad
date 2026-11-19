@@ -225,6 +225,11 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('<a href="file&#58;///etc/passwd">Disk</a>')).toBe('<a>Disk</a>');
     expect(renderMarkdownInline('<a href=file:///etc/passwd>Disk</a>')).toBe('<a>Disk</a>');
     expect(renderMarkdownInline('<a href="java\fscript:alert(1)">Run</a>')).toBe('<a>Run</a>');
+    expect(
+      renderMarkdownInline(
+        '<img src="https://example.com/a.png" srcset="java\fscript:alert(1) 1x" alt="x">'
+      )
+    ).toBe('<img src="https://example.com/a.png" alt="x">');
     expect(renderMarkdownInline('<svg><use href="..\f/secret.svg"></use></svg>')).not.toContain(
       'secret'
     );

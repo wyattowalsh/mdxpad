@@ -100,7 +100,7 @@ function filterSrcSet(value: string, blocked: (url: string) => boolean): string 
     .split(',')
     .map((part) => part.trim())
     .filter((part) => {
-      const url = part.split(/\s+/)[0] ?? '';
+      const url = withoutHiddenBreaks(part).split(/\s+/)[0] ?? '';
       return url.length > 0 && !blocked(url);
     });
   return kept.length > 0 ? kept.join(', ') : undefined;

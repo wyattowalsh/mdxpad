@@ -148,7 +148,7 @@ function attributeValue(raw: string): string {
 
 function srcsetAllowed(value: string): boolean {
   return value.split(',').every((part) => {
-    const url = part.trim().split(/\s+/)[0] ?? '';
+    const url = withoutHiddenBreaks(part).split(/\s+/)[0] ?? '';
     return url.length === 0 || safeImageAddress(url) !== null;
   });
 }
