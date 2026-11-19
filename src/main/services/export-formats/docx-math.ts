@@ -97,6 +97,7 @@ function readCommandName(cursor: Cursor): string {
 }
 
 function readNegation(cursor: Cursor): MathComponent[] {
+  skipArgumentSpace(cursor);
   if (cursor.source[cursor.index] === '\\') {
     cursor.index += 1;
     const name = readCommandName(cursor);
