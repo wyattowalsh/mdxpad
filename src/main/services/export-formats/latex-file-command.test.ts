@@ -53,6 +53,17 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\relax ShellEscape');
     expect(next).toContain('\\frac{1}{2}');
   });
+
+  it('turns a shell stream and an openout stream inside a formula into text', () => {
+    const source = '$$\n\\immediate\\write18{cat secret}\n$$\n\n$\\openout5=secret.tex$ and $\\frac{1}{2}$ and $\\inputfoo$.\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\write');
+    expect(next).not.toContain('\\openout');
+    expect(next).toContain('\\relax write18');
+    expect(next).toContain('\\relax openout5');
+    expect(next).toContain('\\frac{1}{2}');
+    expect(next).toContain('\\inputfoo');
+  });
 });
 
 describe('disarmLatexFileRead caret escapes', () => {

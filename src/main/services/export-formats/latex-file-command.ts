@@ -34,7 +34,10 @@ const LATEX_FILE_COMMANDS = [
   'read',
 ];
 
-const LATEX_FILE_READ = new RegExp(`\\\\(?:${LATEX_FILE_COMMANDS.join('|')})\\b`, 'g');
+const LATEX_FILE_READ = new RegExp(
+  `\\\\(?:${LATEX_FILE_COMMANDS.join('|')})(?![A-Za-z@])`,
+  'g'
+);
 
 function breakTexCaretEscape(value: string): string {
   return value.replaceAll('^^', '^{}');

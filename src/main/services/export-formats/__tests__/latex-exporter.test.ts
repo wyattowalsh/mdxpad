@@ -335,6 +335,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('$a^2$');
   });
 
+  it('does not let a shell stream in a formula run a command', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\write18{cat secret}\n$$\n\n$\\frac{1}{2}$',
+      outputPath: '/tmp/tex-write.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\write');
+    expect(written).toContain('\\relax write18');
+    expect(written).toContain('\\frac{1}{2}');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
