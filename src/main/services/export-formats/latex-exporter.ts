@@ -14,6 +14,7 @@ import { expandLinkReferences } from './markdown-reference';
 import { plainFootnoteMarkers } from './markdown-footnote';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { latexVerbatimLines } from './latex-verbatim';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
 import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
 import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
@@ -380,27 +381,7 @@ function listDepthForIndent(stack: readonly LatexListFrame[], line: string): num
 }
 
 function latexVerbatim(lines: readonly string[]): string[] {
-  let name = 'verbatim';
-  const body = lines.join('\n');
-  let salt = 0;
-  while (body.includes(`\\end{${name}}`)) {
-    salt += 1;
-    name = `mdxpadverb${salt}`;
-  }
-  if (name === 'verbatim') {
-    return ['\\begin{verbatim}', ...lines, '\\end{verbatim}'];
-  }
-  return [
-    '\\begingroup',
-    '\\catcode`|=0 \\catcode`[=1 \\catcode`]=2',
-    '\\catcode`\\{=12 \\catcode`\\}=12 \\catcode`\\\\=12',
-    `|gdef|@x${name}#1\\end{${name}}[#1|end[${name}]]`,
-    '\\endgroup',
-    `\\def\\${name}{\\@verbatim\\frenchspacing\\@vobeyspaces\\@x${name}}`,
-    `\\begin{${name}}`,
-    ...lines,
-    `\\end{${name}}`,
-  ];
+  return latexVerbatimLines(lines);
 }
 
 function processCodeBlockLine(
@@ -1181,7 +1162,7 @@ function contentToLatex(content: string): string {
   };
 
   for (const line of plainFootnoteMarkers(
-    expandLinkReferences(prepareMarkdownSource(content))
+    expandLinkReferences(prepareMarkdownSource(content, { preserveHtml: true }))
   ).split('\n')) {
     appendLatexSourceLine(build, line);
   }

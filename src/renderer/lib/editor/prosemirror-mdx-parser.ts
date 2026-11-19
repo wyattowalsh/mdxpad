@@ -206,11 +206,11 @@ function unescapeMarkdown(value: string): string {
 }
 
 function imageAlt(token: MarkdownToken): string {
-  if (token.content.length > 0) {
-    return unescapeMarkdown(token.content);
-  }
-  const text = token.children?.find((child) => child.type === 'text');
-  return text?.content ?? '';
+  const raw =
+    token.content.length > 0
+      ? token.content
+      : (token.children?.find((child) => child.type === 'text')?.content ?? '');
+  return restoreTexDelimiters(restoreMathMarkup(unescapeMarkdown(raw)));
 }
 
 const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;

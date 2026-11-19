@@ -305,7 +305,69 @@ function restoreMath(value: string, math: readonly string[]): string {
   );
 }
 
-function prepareProse(prose: string): string {
+const KEPT_HTML = new Set([
+  'article',
+  'aside',
+  'blockquote',
+  'div',
+  'dl',
+  'figure',
+  'footer',
+  'form',
+  'header',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'script',
+  'section',
+  'style',
+  'table',
+  'textarea',
+  'ul',
+]);
+
+function htmlBlockEnd(lines: readonly string[], start: number): number {
+  const name = /^ {0,3}<([A-Za-z][A-Za-z0-9-]*)(?=[\s>/]|$)/.exec(lines[start] ?? '')?.[1];
+  const tag = name?.toLowerCase() ?? '';
+  if (!KEPT_HTML.has(tag)) {
+    return start;
+  }
+  if (new RegExp(`</${tag}\\s*>`, 'i').test(lines[start] ?? '')) {
+    return start + 1;
+  }
+  const close = new RegExp(`^ {0,3}</${tag}\\s*>`, 'i');
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (close.test(lines[index] ?? '')) {
+      return index + 1;
+    }
+  }
+  return lines.length;
+}
+
+function mapOutsideHtml(value: string, mapText: (text: string) => string): string {
+  const lines = value.split('\n');
+  const parts: string[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const blockEnd = htmlBlockEnd(lines, index);
+    if (blockEnd > index) {
+      parts.push(lines.slice(index, blockEnd).join('\n'));
+      index = blockEnd;
+      continue;
+    }
+    const prose: string[] = [];
+    while (index < lines.length && htmlBlockEnd(lines, index) === index) {
+      prose.push(lines[index] ?? '');
+      index += 1;
+    }
+    parts.push(mapText(prose.join('\n')));
+  }
+  return parts.join('\n');
+}
+
+function preparePlainProse(prose: string): string {
   const shielded = shieldMath(prose);
   const cleaned = mapOutsideCode(shielded.text, (text) =>
     escapeMdxSyntax(
@@ -316,6 +378,10 @@ function prepareProse(prose: string): string {
     linkUrlsWithEscapedAngles(escapeLooseTags(text, cleaned))
   );
   return replaceTexMath(restoreMath(escaped, shielded.math));
+}
+
+function prepareProse(prose: string): string {
+  return mapOutsideHtml(prose, preparePlainProse);
 }
 
 function replaceTexMath(prose: string): string {
@@ -347,7 +413,7 @@ function replaceTexMath(prose: string): string {
     if (prose.startsWith('\\(', index)) {
       const end = prose.indexOf('\\)', index + 2);
       if (end !== -1 && end > index + 2) {
-        result += `$${prose.slice(index + 2, end)}$`;
+        result += `$${prose.slice(index + 2, end).replace(/(?<!\\)\$/g, '\\$')}$`;
         index = end + 2;
         continue;
       }
@@ -390,6 +456,10 @@ export function normalizeTexMath(content: string): string {
 }
 
 /** Make Markdown safe to compile as MDX and to export without leaking hidden notes. */
-export function prepareMarkdownSource(content: string): string {
-  return mapFencedProse(fenceIndentedCode(content), prepareProse);
+export function prepareMarkdownSource(
+  content: string,
+  options?: { readonly preserveHtml?: boolean }
+): string {
+  const transform = options?.preserveHtml === true ? prepareProse : preparePlainProse;
+  return mapFencedProse(fenceIndentedCode(content), transform);
 }

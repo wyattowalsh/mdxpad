@@ -81,6 +81,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\*');
   });
 
+  it('keeps a formula in an image description', () => {
+    const serialized = roundTrip('![alt \\(x^2\\)](a.png)\n');
+    expect(serialized).toContain('x^2');
+    expect(serialized).not.toContain('\uE013');
+    expect(serialized).not.toContain('\uE014');
+    const price = roundTrip('Price \\(\\$5\\).\n');
+    expect(price).toContain('\\$5');
+    expect(price).not.toContain('\uE019');
+  });
+
   it('keeps image alt text', () => {
     expect(roundTrip('![diagram](./a.png "title")\n')).toContain('![diagram](./a.png "title")');
   });

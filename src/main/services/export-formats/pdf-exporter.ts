@@ -393,7 +393,9 @@ export function markdownToPdfHtml(content: string): string {
     quoteLines: [],
     slugCounts: new Map<string, number>(),
   };
-  const lines = expandLinkReferences(prepareMarkdownSource(content)).split('\n');
+  const lines = expandLinkReferences(prepareMarkdownSource(content, { preserveHtml: true })).split(
+    '\n'
+  );
   for (let index = 0; index < lines.length; index += 1) {
     const htmlEnd = consumePdfHtml(build, lines, index);
     if (htmlEnd !== null) {

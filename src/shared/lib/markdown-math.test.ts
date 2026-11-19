@@ -81,6 +81,14 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('[area \\(x^2\\)](https://example.com)')).toBe(
       '[area $x^2$](https://example.com)'
     );
+    expect(
+      prepareMarkdownSource('<div>\n\\(x^2\\)\na < b\n</div>\n', { preserveHtml: true })
+    ).toContain('\\(x^2\\)');
+    expect(
+      prepareMarkdownSource('<div>\n\\(x^2\\)\na < b\n</div>\n', { preserveHtml: true })
+    ).toContain('a < b');
+    expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');
+    expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$a\\$b$');
     expect(prepareMarkdownSource('    $x^2$\n')).toBe('```\n$x^2$\n```\n');
     expect(normalizeTexMath(fenceIndentedCode('- item\n\n      \\(x^2\\)\n'))).toContain('\\(x^2\\)');
     expect(normalizeTexMath(fenceIndentedCode('>     \\(x^2\\)\n'))).toContain('\\(x^2\\)');

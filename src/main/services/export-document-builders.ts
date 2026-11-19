@@ -704,7 +704,9 @@ function takeBuilderFenceLine(
 
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
-  const lines = plainFootnoteMarkers(expandLinkReferences(prepareMarkdownSource(markdown)))
+  const lines = plainFootnoteMarkers(
+    expandLinkReferences(prepareMarkdownSource(markdown, { preserveHtml: true }))
+  )
     .replaceAll('\r\n', '\n')
     .split('\n');
   let fence: string | null = null;

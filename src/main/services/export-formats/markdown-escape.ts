@@ -113,6 +113,23 @@ function protectLink(
   };
 }
 
+function dollarMathEnd(raw: string, index: number): number {
+  const marker = raw.startsWith('$$', index) ? '$$' : '$';
+  let cursor = index + marker.length;
+  while (cursor < raw.length) {
+    if (raw.charAt(cursor) === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (raw.startsWith(marker, cursor)) {
+      const end = cursor + marker.length;
+      return raw.slice(index, end).includes('\\') ? end : index;
+    }
+    cursor += 1;
+  }
+  return index;
+}
+
 /** Keep a backslash escape literal outside code spans. */
 export function protectEscapes(raw: string): ProtectedEscapes {
   const chars: string[] = [];
@@ -125,6 +142,14 @@ export function protectEscapes(raw: string): ProtectedEscapes {
       text += span ? raw.slice(index, span.end) : current;
       index = span ? span.end : index + 1;
       continue;
+    }
+    if (current === '$') {
+      const mathEnd = dollarMathEnd(raw, index);
+      if (mathEnd > index) {
+        text += raw.slice(index, mathEnd);
+        index = mathEnd;
+        continue;
+      }
     }
     const link = protectLink(raw, index, chars.length);
     if (link) {

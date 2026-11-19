@@ -18,6 +18,11 @@ describe('parseMarkdownTable', () => {
     });
   });
 
+  it('keeps a pipe inside a formula', () => {
+    const table = parseMarkdownTable(['| formula |', '| --- |', '| \\(a|b\\) |']);
+    expect(table?.rows).toEqual([['\\(a|b\\)']]);
+  });
+
   it('keeps a pipe inside inline code', () => {
     const table = parseMarkdownTable(['| Code | Note |', '| --- | --- |', '| `a|b` | ok |']);
     expect(table).toEqual({

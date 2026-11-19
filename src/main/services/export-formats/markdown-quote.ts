@@ -4,6 +4,7 @@ import { setextLevel } from './markdown-setext';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { renderFencedCode } from './markdown-code';
+import { latexVerbatimLines } from './latex-verbatim';
 import { renderedSegments } from './markdown-marks';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
 import {
@@ -97,15 +98,22 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
   if (parseListItem(line) !== null) {
     return 'list';
   }
+  if (current?.kind === 'list') {
+    const column = listIndent(current.lines);
+    const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+    if (openingFence(line) === null && line.trim().length > 0 && indent >= column + 4) {
+      return 'code';
+    }
+    if (isListContinuation(line, column)) {
+      return 'list';
+    }
+  }
   if (
     (current === null || current.kind === 'code') &&
     openingFence(line) === null &&
     /^ {4}\S/.test(line.replaceAll('\t', '    '))
   ) {
     return 'code';
-  }
-  if (current?.kind === 'list' && isListContinuation(line, listIndent(current.lines))) {
-    return 'list';
   }
   if (isTableRow(line)) {
     return 'table';
@@ -231,12 +239,12 @@ function quoteCodeHtml(lines: readonly string[]): string {
 
 function quoteCodeLatex(lines: readonly string[]): string {
   if (openingFence(lines[0] ?? '') === null) {
-    return `\\begin{verbatim}\n${dedentIndentedCode(lines).join('\n')}\n\\end{verbatim}`;
+    return latexVerbatimLines(dedentIndentedCode(lines)).join('\n');
   }
   const code = quoteCodeParts(lines);
   const safe = code.language.replaceAll(/[\\%&#_{}]/g, (char) => `\\${char}`);
   const label = safe.length > 0 ? `{\\footnotesize\\ttfamily ${safe}}\n` : '';
-  return `${label}\\begin{verbatim}\n${code.body.join('\n')}\n\\end{verbatim}`;
+  return `${label}${latexVerbatimLines(code.body).join('\n')}`;
 }
 
 function quoteTableHtml(lines: readonly string[], renderLine: (line: string) => string): string {

@@ -7,6 +7,7 @@ export const TEX_DISPLAY_CLOSE = '\uE016';
 
 const MATH_STAR = '\uE017';
 const MATH_UNDER = '\uE018';
+const MATH_DOLLAR = '\uE019';
 
 function takeDollarMath(value: string, index: number): number {
   if (index > 0 && value[index - 1] === '\\') {
@@ -41,7 +42,10 @@ function takeTexMath(value: string, index: number): number {
 }
 
 function shieldMathPiece(value: string): string {
-  return value.replaceAll('*', MATH_STAR).replaceAll('_', MATH_UNDER);
+  return value
+    .replaceAll('\\$', MATH_DOLLAR)
+    .replaceAll('*', MATH_STAR)
+    .replaceAll('_', MATH_UNDER);
 }
 
 /** Keep emphasis markers inside formulas from being parsed as Markdown. */
@@ -70,7 +74,10 @@ export function shieldMathMarkup(value: string): string {
 }
 
 export function restoreMathMarkup(value: string): string {
-  return value.replaceAll(MATH_STAR, '*').replaceAll(MATH_UNDER, '_');
+  return value
+    .replaceAll(MATH_STAR, '*')
+    .replaceAll(MATH_UNDER, '_')
+    .replaceAll(MATH_DOLLAR, '\\$');
 }
 
 const TEX_PAIR: Record<string, string> = {

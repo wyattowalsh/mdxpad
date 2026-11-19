@@ -74,6 +74,21 @@ describe('quoteBody', () => {
     expect(latex).not.toContain('```');
   });
 
+  it('keeps a quoted sample that contains the verbatim closer', () => {
+    const latex = quoteToLatex(['```', '\\end{verbatim}', 'still', '```'], (line) => line);
+    const start = latex.indexOf('\\begin{mdxpadverb1}');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(latex.lastIndexOf('\\end{mdxpadverb1}')).toBeGreaterThan(start);
+    expect(latex.slice(start, latex.lastIndexOf('\\end{mdxpadverb1}'))).toContain('still');
+  });
+
+  it('keeps indented code after a quoted list item', () => {
+    const html = quoteToHtml(['- item', '', '      const x = 1'], (line) => line);
+    expect(html).toContain('<pre>');
+    expect(html).toContain('const x = 1');
+    expect(html).not.toContain('item const');
+  });
+
   it('turns a quoted setext underline into a heading', () => {
     expect(quoteToHtml(['Title', quoteMarkerLine('===')], (line) => line)).toBe(
       '<blockquote>\n<h1 id="title">Title</h1>\n</blockquote>'

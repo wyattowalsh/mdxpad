@@ -42,6 +42,34 @@ function readCodeSpan(value: string, index: number): number {
   return index;
 }
 
+function skipMath(value: string, index: number): number {
+  const opener = value.slice(index, index + 2);
+  if (opener === '\\(' || opener === '\\[') {
+    const closer = opener === '\\(' ? '\\)' : '\\]';
+    const end = value.indexOf(closer, index + 2);
+    return end === -1 ? index : end + 2;
+  }
+  if (value.startsWith('$$', index)) {
+    const end = value.indexOf('$$', index + 2);
+    return end === -1 ? index : end + 2;
+  }
+  if (value[index] !== '$' || value[index - 1] === '\\') {
+    return index;
+  }
+  let cursor = index + 1;
+  while (cursor < value.length) {
+    if (value[cursor] === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (value[cursor] === '$') {
+      return cursor + 1;
+    }
+    cursor += 1;
+  }
+  return index;
+}
+
 function splitCells(line: string): string[] {
   const trimmed = line.trim();
   let inner = trimmed;
@@ -56,6 +84,12 @@ function splitCells(line: string): string[] {
   for (let index = 0; index < inner.length; index += 1) {
     const char = inner[index] ?? '';
     const next = inner[index + 1] ?? '';
+    const mathEnd = skipMath(inner, index);
+    if (mathEnd > index) {
+      current += inner.slice(index, mathEnd);
+      index = mathEnd - 1;
+      continue;
+    }
     if (char === '\\' && ESCAPABLE.test(next)) {
       current += next === '|' ? next : `${char}${next}`;
       index += 1;

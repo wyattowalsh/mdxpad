@@ -79,7 +79,8 @@ function emitIndentedFence(output: string[], lines: readonly string[], indent = 
 }
 
 function quotedCode(line: string): { prefix: string; body: string } | null {
-  let rest = line;
+  const lead = /^( {0,3})/.exec(line)?.[1] ?? '';
+  let rest = line.slice(lead.length);
   let depth = 0;
   while (rest.startsWith('>')) {
     const after = rest.slice(1);
@@ -94,7 +95,7 @@ function quotedCode(line: string): { prefix: string; body: string } | null {
   if (spaces < 4 || expanded.trim().length === 0) {
     return null;
   }
-  return { prefix: '> '.repeat(depth), body: expanded.slice(4) };
+  return { prefix: `${lead}${'> '.repeat(depth)}`, body: expanded.slice(4) };
 }
 
 function listCodeBody(line: string, column: number): string | null {
@@ -129,7 +130,29 @@ function closeCode(state: FenceState): void {
 
 function blankBefore(state: FenceState): boolean {
   const last = state.output[state.output.length - 1] ?? '';
-  return state.output.length === 0 || last.trim() === '';
+  return (
+    state.output.length === 0 || last.trim() === '' || /^(?: {0,3}>[ \t]?)+$/.test(last)
+  );
+}
+
+function footnoteParagraph(state: FenceState, line: string): boolean {
+  if (leadingSpaces(line) >= 8) {
+    return false;
+  }
+  for (let index = state.output.length - 1; index >= 0; index -= 1) {
+    const previous = state.output[index] ?? '';
+    if (previous.trim().length === 0) {
+      continue;
+    }
+    if (/^\[\^[^\]]+\]:/.test(previous)) {
+      return true;
+    }
+    if (leadingSpaces(previous) >= 4) {
+      continue;
+    }
+    return false;
+  }
+  return false;
 }
 
 function openCode(
@@ -182,7 +205,7 @@ function startCode(state: FenceState, line: string): boolean {
   }
   const top = indentedCodeText(line);
   const insideList = state.column !== null && leadingSpaces(line) >= state.column;
-  if (top !== null && blankBefore(state) && !insideList) {
+  if (top !== null && blankBefore(state) && !insideList && !footnoteParagraph(state, line)) {
     state.column = null;
     openCode(state, top, '', 'top');
     return true;

@@ -1424,7 +1424,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const language = { current: '' };
 
   for (const line of plainFootnoteMarkers(
-    expandLinkReferences(prepareMarkdownSource(content))
+    expandLinkReferences(prepareMarkdownSource(content, { preserveHtml: true }))
   ).split('\n')) {
     fence = readDocxLine(parse, line, fence, codeLines, language);
   }

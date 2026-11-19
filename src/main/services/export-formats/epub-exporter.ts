@@ -59,7 +59,9 @@ function splitIntoChapters(content: string): {
   chapters: EpubChapter[];
   slugs: Map<string, number>;
 } {
-  return splitExpandedChapters(expandLinkReferences(prepareMarkdownSource(content)));
+  return splitExpandedChapters(
+    expandLinkReferences(prepareMarkdownSource(content, { preserveHtml: true }))
+  );
 }
 
 function splitExpandedChapters(content: string): {
