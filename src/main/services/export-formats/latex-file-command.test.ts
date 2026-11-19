@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { disarmFileReadsInMath } from './latex-file-command';
+import { disarmFileReadsInMath, omitTexPictureSyntax } from './latex-file-command';
 
 describe('disarmFileReadsInMath', () => {
   it('turns a file command inside a formula into text and keeps a fenced sample', () => {
@@ -52,5 +52,26 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\relax directlua');
     expect(next).toContain('\\relax ShellEscape');
     expect(next).toContain('\\frac{1}{2}');
+  });
+});
+
+describe('omitTexPictureSyntax', () => {
+  it('leaves the alt text when a picture path can become a TeX command', () => {
+    const source = [
+      '![Secret](^^5cinput{secret.png)',
+      '',
+      '![Pixel](pixel.png "a^b")',
+      '',
+      '```',
+      '![Secret](^^5cinput{secret.png)',
+      '```',
+      '',
+    ].join('\n');
+    const next = omitTexPictureSyntax(source);
+    const prose = next.slice(0, next.indexOf('```'));
+    expect(prose).not.toContain('^^');
+    expect(prose).toContain('Secret');
+    expect(prose).toContain('![Pixel](pixel.png "a^b")');
+    expect(next).toContain('```\n![Secret](^^5cinput{secret.png)\n```');
   });
 });

@@ -2,7 +2,7 @@ import { writeRegularFile } from './write-regular-file';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
-import { disarmLatexFileRead } from './latex-file-command';
+import { disarmLatexFileRead, omitTexPictureSyntax, texPicturePathUnsafe } from './latex-file-command';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
@@ -152,6 +152,9 @@ function containedGraphicsPath(src: string): string | null {
     return null;
   }
   if (normalized.split('/').some((part) => part === '..')) {
+    return null;
+  }
+  if (texPicturePathUnsafe(src)) {
     return null;
   }
   return src;
@@ -1332,10 +1335,12 @@ export class LatexExporter implements Exporter {
     const warnings: string[] = [];
 
     try {
-      const content = sanitizeMarkdownHtmlBlocks(
-        omitLocalMarkdownTargets(
-          await inlineLocalImages(options.content, options.sourcePath, 'absolute'),
-          options.sourcePath
+      const content = omitTexPictureSyntax(
+        sanitizeMarkdownHtmlBlocks(
+          omitLocalMarkdownTargets(
+            await inlineLocalImages(options.content, options.sourcePath, 'absolute'),
+            options.sourcePath
+          )
         )
       );
       const latex = buildLatexDocument(content, options);

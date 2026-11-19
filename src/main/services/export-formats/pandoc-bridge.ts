@@ -4,7 +4,7 @@ import { fenceIndentedCode } from '@shared/lib/indented-code';
 import { normalizeTexMath } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
-import { disarmFileReadsInMath } from './latex-file-command';
+import { disarmFileReadsInMath, omitTexPictureSyntax } from './latex-file-command';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 import { prepareRegularOutput } from './write-regular-file';
@@ -139,7 +139,9 @@ export class PandocBridge implements Exporter {
       const prepared = sanitizeMarkdownHtmlBlocks(
         omitLocalMarkdownTargets(normalizeTexMath(fenceIndentedCode(rooted)), options.sourcePath)
       );
-      const content = pandocWritesTex(this.targetFormat) ? disarmFileReadsInMath(prepared) : prepared;
+      const content = pandocWritesTex(this.targetFormat)
+        ? disarmFileReadsInMath(omitTexPictureSyntax(prepared))
+        : prepared;
       const { stderr } = await runPandoc(detection.path, args, content, this.timeoutMs);
 
       if (stderr.trim().length > 0) {

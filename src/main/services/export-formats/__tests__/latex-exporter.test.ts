@@ -310,6 +310,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('Disk');
   });
 
+  it('does not compile a picture path that TeX would read as a command', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![Secret](^^5cinput{secret.png)\n\n![Pixel](pixel.png)',
+      outputPath: '/tmp/tex-picture.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('^^');
+    expect(written).not.toContain('\\input');
+    expect(written).toContain('Secret');
+    expect(written).toContain('\\includegraphics{pixel.png}');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

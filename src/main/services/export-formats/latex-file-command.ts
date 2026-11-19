@@ -6,6 +6,8 @@
 import { mapFencedProse } from '@shared/lib/markdown-math';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
+import { linkDestination } from './markdown-link';
+
 const LATEX_FILE_COMMANDS = [
   '@@input',
   'includegraphics',
@@ -80,4 +82,37 @@ function disarmMathPiece(value: string): string {
 /** Turn file-reading commands inside formulas into text, outside code fences. */
 export function disarmFileReadsInMath(content: string): string {
   return mapFencedProse(content, disarmMathPiece);
+}
+
+const TEX_PICTURE = '^\\{}#$&~';
+const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
+
+function texPictureChar(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0;
+  return code <= 31 || code === 127 || TEX_PICTURE.includes(char);
+}
+
+/** A picture path TeX would tokenize as a command, such as `^^5cinput`. */
+export function texPicturePathUnsafe(address: string): boolean {
+  let decoded = address;
+  try {
+    decoded = decodeURI(address);
+  } catch {
+    decoded = address;
+  }
+  for (const char of decoded) {
+    if (texPictureChar(char)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Leave the alt text when a picture path can read a file during TeX compilation. */
+export function omitTexPictureSyntax(content: string): string {
+  return mapFencedProse(content, (prose) =>
+    prose.replace(MARKDOWN_IMAGE, (full, alt: string, destination: string) =>
+      texPicturePathUnsafe(linkDestination(destination)) ? alt : full
+    )
+  );
 }
