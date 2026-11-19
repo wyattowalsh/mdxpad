@@ -207,6 +207,14 @@ export const TEXT_COMMANDS = new Set([
   'url',
   'ensuremath',
   'smash',
+  'boldsymbol',
+  'mathnormal',
+  'textbf',
+  'textit',
+  'textrm',
+  'textsf',
+  'texttt',
+  'textup',
 ]);
 
 export const ACCENTS: Record<string, string> = {

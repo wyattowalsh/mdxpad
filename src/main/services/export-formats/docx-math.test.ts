@@ -197,6 +197,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('keeps the words of a font command and drops a color name', () => {
+    expect(runText(mathComponents('\\textbf{hello}'))).toBe('hello');
+    expect(runText(mathComponents('\\boldsymbol{x}'))).toBe('x');
+    expect(runText(mathComponents('\\color{red}x'))).toBe('x');
+  });
+
   it('draws a slanted or negated relation', () => {
     expect(runText(mathComponents('a \\leqslant b \\nleq c'))).toBe('a ⩽ b ≰ c');
     expect(runText(mathComponents('a \\nsubseteq b'))).toBe('a ⊈ b');

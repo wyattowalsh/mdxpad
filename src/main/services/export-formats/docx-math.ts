@@ -125,6 +125,10 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
   if (STYLE_COMMANDS.has(name)) {
     return [];
   }
+  if (name === 'color') {
+    readGroup(cursor);
+    return [];
+  }
   if (TEXT_COMMANDS.has(name)) {
     cursor.literal = (cursor.literal ?? 0) + 1;
     const parts = readGroup(cursor);
