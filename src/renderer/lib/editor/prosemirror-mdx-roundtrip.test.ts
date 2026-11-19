@@ -42,6 +42,10 @@ describe('WYSIWYG markdown round trip', () => {
     expect(escaped).toContain('$a\\|b$');
     expect(roundTrip('| a\\|b | c |\n| --- | --- |\n| 1 | 2 |\n')).toContain('a\\|b');
     expect(roundTrip('| f | g |\n| --- | --- |\n| `a|b` | c |\n')).toContain('`a|b`');
+    const html = roundTrip('| f | g |\n| --- | --- |\n| <em>a|b</em> | c |\n');
+    expect(html).toContain('<em>a|b</em>');
+    expect(html).toContain('| c |');
+    expect(html).not.toContain('\\|');
     const linked = roundTrip('| f | g |\n| --- | --- |\n| [a|b](https://example.com) | c |\n');
     expect(linked).toContain('[a|b](https://example.com)');
     expect(linked).toContain('| c |');

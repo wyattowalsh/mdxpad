@@ -1,7 +1,7 @@
 import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 import { canOpenEmphasis, canOpenStrikethrough } from './markdown-emphasis';
-import { skipHtmlElement } from './markdown-table-html';
+import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { isThematicBreak } from './markdown-break';
 import { parseListItem } from './markdown-list';
 import { advanceFence, openingFence } from './markdown-fence';

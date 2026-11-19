@@ -1,6 +1,5 @@
 /**
- * Skip an HTML tag while a table cell is split, so a pipe in the tag
- * stays inside the cell.
+ * Skip an HTML element so a pipe inside it stays in one table cell.
  */
 
 const VOID_TAGS = new Set([

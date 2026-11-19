@@ -1,3 +1,4 @@
+import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 import { MATH_PIPE, copyCodeSpan, readDestination } from './prosemirror-tex-protect';
@@ -133,6 +134,10 @@ function protectedSpan(value: string, index: number): TextSpan | null {
   const autolink = readAutolink(value, index);
   if (autolink) {
     return autolink;
+  }
+  const htmlEnd = skipHtmlElement(value, index);
+  if (htmlEnd > index) {
+    return { text: value.slice(index, htmlEnd), next: htmlEnd };
   }
   return readEmphasis(value, index);
 }
