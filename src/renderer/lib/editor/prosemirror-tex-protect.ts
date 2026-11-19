@@ -29,13 +29,19 @@ function takeTexMath(value: string, index: number): number {
   return end + close.length;
 }
 
-function shieldMathPiece(value: string): string {
+function openedInsideQuote(value: string, index: number): boolean {
+  const start = value.lastIndexOf('\n', index - 1) + 1;
+  const prefix = value.slice(start, index);
+  return prefix.includes('>') && /^(?:>[ \t]*)+$/.test(prefix);
+}
+
+function shieldMathPiece(value: string, shieldLines: boolean): string {
   const shielded = value
     .replaceAll('\\\\', MATH_BACKSLASH)
     .replaceAll('\\$', MATH_DOLLAR)
     .replaceAll('*', MATH_STAR)
     .replaceAll('_', MATH_UNDER);
-  if (!shielded.startsWith('$$') || !shielded.includes('\n')) {
+  if (!shieldLines || !shielded.includes('\n')) {
     return shielded;
   }
   return shielded.replaceAll('\n', `\n${MATH_LINE}`);
@@ -56,7 +62,7 @@ export function shieldMathMarkup(value: string): string {
     const texEnd = mathEnd === -1 ? takeTexMath(value, index) : -1;
     const end = mathEnd === -1 ? texEnd : mathEnd;
     if (end !== -1) {
-      result += shieldMathPiece(value.slice(index, end));
+      result += shieldMathPiece(value.slice(index, end), !openedInsideQuote(value, index));
       index = end;
       continue;
     }

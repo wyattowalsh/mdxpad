@@ -33,6 +33,24 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('$$\n```\nnot code\n```\n$$\n')).toContain('not code');
   });
 
+  it('keeps display math inside a blockquote', () => {
+    const source = '> $$\n> a+b\n> $$\n';
+    const doc = parseMdxContent(source);
+    expect(doc?.textContent).toBe('$$a+b$$');
+    expect(roundTrip(source)).toContain('a+b');
+  });
+
+  it('keeps a quote marker inside a TeX display formula', () => {
+    const serialized = roundTrip('\\[\n> quote\n\\]\n');
+    expect(serialized).toContain('\\[');
+    expect(serialized).toContain('> quote');
+    expect(serialized).toContain('\\]');
+    expect(serialized).not.toContain('\n> \\]');
+    const doc = parseMdxContent('\\[\n> quote\n\\]\n');
+    expect(doc?.childCount).toBe(1);
+    expect(doc?.textContent).toContain('> quote');
+  });
+
   it('keeps a quote marker inside display math', () => {
     const serialized = roundTrip('$$\n> quote inside math\n$$\n');
     expect(serialized).toContain('> quote inside math');
