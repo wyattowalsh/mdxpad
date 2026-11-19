@@ -79,10 +79,28 @@ function disarmFileContents(value: string): string {
   );
 }
 
+function escapedTexChar(value: string, index: number): boolean {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === '\\'; cursor -= 1) {
+    count += 1;
+  }
+  return count % 2 === 1;
+}
+
 function skipTexSpace(value: string, index: number): number {
   let cursor = index;
-  while (value[cursor] === ' ' || value[cursor] === '\t' || value[cursor] === '\n') {
-    cursor += 1;
+  while (cursor < value.length) {
+    const char = value[cursor] ?? '';
+    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+      cursor += 1;
+      continue;
+    }
+    if (char === '%' && !escapedTexChar(value, cursor)) {
+      const lineEnd = value.indexOf('\n', cursor);
+      cursor = lineEnd === -1 ? value.length : lineEnd + 1;
+      continue;
+    }
+    break;
   }
   return cursor;
 }

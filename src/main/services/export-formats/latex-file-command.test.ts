@@ -20,6 +20,16 @@ describe('disarmFileReadsInMath', () => {
     expect(optional).toContain('\\relax href');
     const web = disarmFileReadsInMath('See $\\href[pdfnewwindow]{https://example.com}{docs}$.\n');
     expect(web).toContain('\\href[pdfnewwindow]{https://example.com}{docs}');
+    const commented = disarmFileReadsInMath(
+      '$$\n\\href%\n{file:///etc/passwd}{click}\n\\url%\n{file:///etc/passwd}\n\\href[page=1]%\n{file:///etc/passwd}{click}\n$$\n'
+    );
+    expect(commented).not.toContain('\\href');
+    expect(commented).not.toContain('\\url');
+    expect(commented).toContain('\\relax href');
+    expect(commented).toContain('\\relax url');
+    const commentedWeb = disarmFileReadsInMath('$$\n\\href%\n{https://example.com}{docs}\n$$\n');
+    expect(commentedWeb).toContain('\\href');
+    expect(commentedWeb).not.toContain('\\relax href');
   });
 
   it('turns a file command inside a formula into text and keeps a fenced sample', () => {

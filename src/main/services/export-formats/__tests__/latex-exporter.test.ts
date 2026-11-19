@@ -472,6 +472,17 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('a$b and $x');
   });
 
+  it('does not link a local file hidden behind a TeX comment', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<div>\n\n$$\n\\href%\n{file:///etc/passwd}{click}\n$$\n\n</div>\n',
+      outputPath: '/tmp/comment-href.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).not.toContain('\\href');
+    expect(written).toContain('\\relax href');
+  });
+
   it('does not point a picture or link at a local file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
