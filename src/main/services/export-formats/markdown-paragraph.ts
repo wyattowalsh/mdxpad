@@ -41,7 +41,7 @@ export function readSourceLine(line: string): SourceLine {
   return sourceLine(line.trim(), false, leading, spaces);
 }
 
-function unclosedCode(text: string): boolean {
+function codeSpanCovers(text: string, position: number): boolean {
   let index = 0;
   while (index < text.length) {
     if (text[index] === '\\') {
@@ -58,33 +58,40 @@ function unclosedCode(text: string): boolean {
     }
     const closer = text.indexOf('`'.repeat(ticks), index + ticks);
     if (closer === -1) {
+      index += ticks;
+      continue;
+    }
+    const end = closer + ticks;
+    if (index < position && end > position) {
       return true;
     }
-    index = closer + ticks;
+    index = end;
   }
   return false;
 }
 
+function rawLine(line: SourceLine): string {
+  return `${line.leading ?? ''}${line.text}${line.codeSuffix ?? ''}`;
+}
+
 /** Soft-wrapped lines stay one phrase. A hard break starts the next phrase. */
 export function paragraphSegments(lines: readonly SourceLine[]): string[] {
+  const raw = lines.map((line) => rawLine(line)).join('\n');
   const segments: string[][] = [];
   let current: string[] = [];
-  let carried = '';
+  let offset = 0;
   for (const line of lines) {
-    const insideCode = carried.length > 0 && unclosedCode(carried);
-    const base = `${insideCode ? (line.leading ?? '') : ''}${line.text}`;
-    const probeBase = carried.length === 0 ? base : `${carried}\n${base}`;
-    const suffixInCode = (line.codeSuffix?.length ?? 0) > 0 && unclosedCode(probeBase);
-    const body = suffixInCode ? `${base}${line.codeSuffix ?? ''}` : base;
-    const probe = carried.length === 0 ? body : `${carried}\n${body}`;
-    current.push(body);
-    if (line.hardBreak && !unclosedCode(probe)) {
+    const end = offset + rawLine(line).length;
+    const covered = line.hardBreak && codeSpanCovers(raw, end);
+    const continued = offset > 0 && codeSpanCovers(raw, offset - 1);
+    const suffix = covered ? (line.codeSuffix ?? '') : '';
+    const leading = continued ? (line.leading ?? '') : '';
+    current.push(`${leading}${line.text}${suffix}`);
+    offset = end + 1;
+    if (line.hardBreak && !covered) {
       segments.push(current);
       current = [];
-      carried = '';
-      continue;
     }
-    carried = probe;
   }
   if (current.length > 0) {
     segments.push(current);

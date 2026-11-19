@@ -48,5 +48,8 @@ describe('readSourceLine', () => {
     expect(
       joinParagraphHtml([readSourceLine('see `a'), readSourceLine('  b` end')], code)
     ).toBe('see <code>a   b</code> end');
+    expect(
+      joinParagraphHtml([readSourceLine('See `oops  '), readSourceLine('next')], (text) => text)
+    ).toBe('See `oops<br />next');
   });
 });
