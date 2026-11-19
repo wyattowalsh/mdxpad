@@ -109,6 +109,15 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('<strong>');
   });
 
+  it('renders a display formula that contains a link', () => {
+    const html = markdownToPdfHtml('See \\[x and [a](https://example.com) y\\].');
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('>a</a>');
+    expect(html).not.toContain('$$');
+    expect(html).not.toContain('[a](https://example.com)');
+  });
+
   it('renders a formula that contains a link', () => {
     const html = markdownToPdfHtml('See \\(x and [a \\)](https://example.com) y\\).');
     expect(html).toContain('class="katex"');

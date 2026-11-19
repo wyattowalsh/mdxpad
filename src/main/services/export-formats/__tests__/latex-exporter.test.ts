@@ -330,6 +330,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\includegraphics{pixel.png}');
   });
 
+  it('keeps a display formula that contains a link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See \\[x and [a](https://example.com) y\\].',
+      outputPath: '/tmp/display-link.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('$x and $');
+    expect(written).toContain('\\href{https://example.com}{a}');
+    expect(written).toContain('$ y$');
+    expect(written).not.toContain('$$');
+  });
+
   it('keeps a formula after a dollar sign in an angle address', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -3,7 +3,7 @@ import katex from 'katex';
 import { normalizedHeadingFragment } from '@shared/lib/markdown-heading';
 import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
 
-import { linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
+import { linkedDisplaySpan, linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
@@ -270,6 +270,10 @@ function renderLinkedParts(parts: readonly LinkedDollarPart[]): string {
 function findMathSpan(raw: string, from: number): PlainSpan | null {
   for (let index = from; index < raw.length; index += 1) {
     const delimiter = mathDelimiterAt(raw, index);
+    const display = delimiter === '$$' ? linkedDisplaySpan(raw, index) : null;
+    if (display) {
+      return { start: index, end: display.end, html: renderLinkedParts(display.parts) };
+    }
     const end = delimiter === null ? -1 : mathSpanEnd(raw, index, delimiter);
     if (delimiter !== null && end !== -1) {
       const interior = raw.slice(index + delimiter.length, end - delimiter.length);

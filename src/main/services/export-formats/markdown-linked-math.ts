@@ -80,3 +80,45 @@ export function linkedDollarSpan(raw: string, index: number): LinkedDollarSpan |
   }
   return null;
 }
+
+function finishDisplaySpan(
+  raw: string,
+  mathStart: number,
+  cursor: number,
+  parts: LinkedDollarPart[]
+): LinkedDollarSpan {
+  pushMath(parts, raw.slice(mathStart, cursor));
+  return { end: cursor + 2, parts };
+}
+
+/** The `$$...$$` span at `index` when a link sits inside it, otherwise null. */
+export function linkedDisplaySpan(raw: string, index: number): LinkedDollarSpan | null {
+  if (mathDelimiterAt(raw, index) !== '$$') {
+    return null;
+  }
+  const parts: LinkedDollarPart[] = [];
+  let cursor = index + 2;
+  let sawLink = false;
+  let mathStart = index + 2;
+  while (cursor < raw.length) {
+    const code = readCodeSpan(raw, cursor);
+    if (code) {
+      cursor = code.end;
+      continue;
+    }
+    const link = readMarkdownTarget(raw, cursor);
+    if (link?.start === cursor) {
+      pushMath(parts, raw.slice(mathStart, cursor));
+      parts.push({ kind: 'link', text: raw.slice(link.start, link.end) });
+      sawLink = true;
+      cursor = link.end;
+      mathStart = cursor;
+      continue;
+    }
+    if (raw.startsWith('$$', cursor) && !escapedDollar(raw, cursor)) {
+      return sawLink ? finishDisplaySpan(raw, mathStart, cursor, parts) : null;
+    }
+    cursor += raw[cursor] === '\\' ? 2 : 1;
+  }
+  return null;
+}

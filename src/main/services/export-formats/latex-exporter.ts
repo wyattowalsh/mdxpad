@@ -5,7 +5,7 @@ import {
   normalizedHeadingFragment,
   parseAtxHeading,
 } from '@shared/lib/markdown-heading';
-import { linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
+import { linkedDisplaySpan, linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import {
   disarmLatexFileRead,
@@ -177,6 +177,14 @@ function appendProtected(raw: string, slots: string[]): string {
     if (autolink > 0) {
       text += raw.slice(index, index + autolink);
       index += autolink;
+      continue;
+    }
+    const display = linkedDisplaySpan(raw, index);
+    if (display) {
+      for (const part of display.parts) {
+        text += latexLinkedPart(part, slots);
+      }
+      index = display.end;
       continue;
     }
     const delimiter = mathDelimiterAt(raw, index);

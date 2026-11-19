@@ -38,7 +38,7 @@ import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
-import { linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
+import { linkedDisplaySpan, linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import {
@@ -219,6 +219,12 @@ function parseCodeAndPlain(text: string): InlineSegment[] {
     if (target?.start === index) {
       segments.push(...parsePlainMarks(text.slice(index, target.end)));
       index = target.end;
+      continue;
+    }
+    const display = linkedDisplaySpan(text, index);
+    if (display) {
+      segments.push(...linkedDollarSegments(display.parts));
+      index = display.end;
       continue;
     }
     const delimiter = mathDelimiterAt(text, index);
