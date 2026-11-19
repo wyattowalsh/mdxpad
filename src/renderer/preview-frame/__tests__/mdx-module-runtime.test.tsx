@@ -194,6 +194,27 @@ describe('createModuleFromCode', () => {
     expect(document.querySelector('a')?.getAttribute('href')).toBe('../notes/a.md');
   });
 
+  it('does not render a script or a frame', async () => {
+    const source = [
+      '<script src="file:///etc/passwd">alert(1)</script>',
+      '<iframe src="../secret.html"></iframe>',
+      '<p>Visible</p>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('raw-script'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.querySelector('script')).toBeNull();
+    expect(container.querySelector('iframe')).toBeNull();
+    expect(container.innerHTML).not.toContain('file:');
+    expect(container.innerHTML).not.toContain('secret');
+    expect(container.innerHTML).not.toContain('alert');
+    expect(container.textContent).toContain('Visible');
+  });
+
   it('drops a local file from a style element', async () => {
     const source = [
       '<style>body{background:url(file:///etc/passwd);color:red} @import "file:///etc/passwd.css";</style>',

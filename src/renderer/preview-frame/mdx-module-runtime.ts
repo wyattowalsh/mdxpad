@@ -84,12 +84,30 @@ function createModuleFromCodeWithFunction(code: string): MDXModule {
   return moduleFactory(previewJsxRuntime, BuiltInComponents) as MDXModule;
 }
 
+const DROPPED_PREVIEW_TAGS = new Set([
+  'script',
+  'iframe',
+  'object',
+  'embed',
+  'frame',
+  'frameset',
+]);
+
+function droppedPreviewTag(type: React.ElementType): boolean {
+  return typeof type === 'string' && DROPPED_PREVIEW_TAGS.has(type.toLowerCase());
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
   props: unknown,
   key?: React.Key
 ): React.ReactElement {
+  if (droppedPreviewTag(type)) {
+    return key === undefined
+      ? jsx(jsxRuntime.Fragment, {})
+      : jsx(jsxRuntime.Fragment, {}, key);
+  }
   const next = confinePreviewElement(type, props);
   if (key === undefined) {
     return jsx(type, next);
