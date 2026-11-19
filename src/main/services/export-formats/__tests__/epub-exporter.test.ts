@@ -499,6 +499,35 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('$a + b$');
   });
 
+  it('embeds a local picture and keeps a book when a picture cannot be fetched', async () => {
+    const epubGen = await import('epub-gen-memory');
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const local = await exporter.export({
+      content: `![Pixel](data:image/png;base64,${png})`,
+      outputPath: '/tmp/local-picture.epub',
+    });
+    const missing = await exporter.export({
+      content: '![Missing](https://127.0.0.1:1/missing.png)\n\n![Room](pixel.png)',
+      outputPath: '/tmp/missing-picture.epub',
+    });
+    const calls = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls;
+    const localHtml = (calls.at(-2)?.[1] as { content: string }[])[0]?.content ?? '';
+    const missingHtml = (calls.at(-1)?.[1] as { content: string }[])[0]?.content ?? '';
+
+    expect(local.ok).toBe(true);
+    expect(localHtml).toContain('file://');
+    expect(localHtml).not.toContain('data:image');
+    expect(missing.ok).toBe(true);
+    if (missing.ok) {
+      expect(missing.warnings.length).toBeGreaterThan(0);
+    }
+    expect(missingHtml).toContain('Missing');
+    expect(missingHtml).toContain('Room');
+    expect(missingHtml).not.toContain('127.0.0.1');
+    expect(missingHtml).not.toContain('pixel.png');
+  });
+
   it('handles empty content gracefully', async () => {
     const result = await exporter.export({
       content: '',

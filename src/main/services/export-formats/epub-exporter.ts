@@ -3,6 +3,7 @@ import { writeRegularFile } from './write-regular-file';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
+import { embedEpubImages } from './epub-images';
 import { inlineLocalImages } from './export-image';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import {
@@ -519,25 +520,33 @@ export class EpubExporter implements Exporter {
       const content = await inlineLocalImages(options.content, options.sourcePath, 'document');
       const split = splitIntoChapters(content);
 
-      const epubContent = split.chapters.map((chapter) => ({
-        title: chapter.title,
-        content: chapterToHtml(chapter, split.slugs),
-      }));
+      const epubContent = await Promise.all(
+        split.chapters.map(async (chapter) => {
+          const images = await embedEpubImages(chapterToHtml(chapter, split.slugs));
+          warnings.push(...images.warnings);
+          return { title: chapter.title, content: images.html, cleanup: images.cleanup };
+        })
+      );
 
       const epubGen = await import('epub-gen-memory');
       const epubCreate = epubGen.default;
 
       const lang = epubLanguage(options.metadata);
       const cover = epubCover(options.metadata);
-      const epubBuffer = await epubCreate(
-        {
-          title,
-          author,
-          ...(lang ? { lang } : {}),
-          ...(cover ? { cover } : {}),
-        },
-        epubContent
-      );
+      let epubBuffer: Buffer | ArrayBuffer | Uint8Array;
+      try {
+        epubBuffer = await epubCreate(
+          {
+            title,
+            author,
+            ...(lang ? { lang } : {}),
+            ...(cover ? { cover } : {}),
+          },
+          epubContent.map((chapter) => ({ title: chapter.title, content: chapter.content }))
+        );
+      } finally {
+        await Promise.all(epubContent.map(async (chapter) => chapter.cleanup()));
+      }
 
       const buffer = epubBuffer instanceof Buffer ? epubBuffer : Buffer.from(epubBuffer);
       await writeRegularFile(options.outputPath, buffer);
