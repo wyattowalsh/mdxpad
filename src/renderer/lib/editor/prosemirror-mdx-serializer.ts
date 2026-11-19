@@ -172,14 +172,7 @@ const nodeSerializers: NodeSerializerMap = {
     const alt = (node.attrs.alt as string) || '';
     const src = node.attrs.src as string;
     const title = node.attrs.title as string | null;
-    const struck = node.marks.some((mark) => mark.type.name === 'strikethrough');
-    if (struck) {
-      state.write('~~');
-    }
     state.write(`![${markdownAlt(alt)}](${markdownTarget(src, title)})`);
-    if (struck) {
-      state.write('~~');
-    }
   },
 
   footnote_ref: writeFootnoteRef,
@@ -194,6 +187,8 @@ const nodeSerializers: NodeSerializerMap = {
       !startsFootnoteDefinition(next);
     const indent = footnote ? '    ' : '';
     state.write(node.attrs.hard === false ? `\n${indent}` : `\\\n${indent}`);
+    const carrier = state as MarkdownSerializerState & { mathCloser?: string | null; mathBreak?: boolean };
+    carrier.mathBreak = Boolean(carrier.mathCloser);
   },
 
   text(state, node) {
@@ -201,20 +196,32 @@ const nodeSerializers: NodeSerializerMap = {
       atBlockStart: boolean;
       out: string;
       emphasisOpen: string;
+      strikeLiteral: boolean;
+      mathCloser: string | null;
+      mathBreak: boolean;
     };
     if (!writer.atBlockStart && writer.out.endsWith('\n')) {
       writer.atBlockStart = true;
     }
+    if (writer.mathCloser && !writer.mathBreak) {
+      writer.mathCloser = null;
+    }
+    writer.mathBreak = false;
     const text = node.text ?? '';
+    if (text === '\u200b' && node.marks.some((mark) => mark.type.name === 'link')) {
+      return;
+    }
     if (/^\\[[\]()]$/.test(text)) {
       state.text(text, false);
       return;
     }
     writer.emphasisOpen = emphasisOpen(node.marks);
+    writer.strikeLiteral = node.marks.some((mark) => mark.type.name === 'strikethrough');
     try {
       writeTextPreservingMath(state, text);
     } finally {
       writer.emphasisOpen = '';
+      writer.strikeLiteral = false;
     }
   },
 
@@ -293,7 +300,6 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
   strikethrough: {
     open: '~~',
     close: '~~',
-    escape: false,
     mixable: true,
     expelEnclosingWhitespace: true,
   },
@@ -343,20 +349,73 @@ function markdownTarget(href: string, title: string | null): string {
   return title ? `${destination} ${markdownTitle(title)}` : destination;
 }
 
-function writeTextPreservingMath(state: MarkdownSerializerState, value: string): void {
-  const pattern = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\[\^[^\]]+\]/g;
-  let cursor = 0;
-  for (const match of value.matchAll(pattern)) {
-    const index = match.index;
-    if (index > cursor) {
-      state.text(value.slice(cursor, index));
+interface LiteralSpan {
+  readonly index: number;
+  readonly opener: string;
+  readonly closer: string;
+  readonly stayOpen: boolean;
+}
+
+function nextLiteralSpan(value: string, from: number): LiteralSpan | null {
+  const options = [
+    { token: '$$', closer: '$$', stayOpen: true },
+    { token: '\\[', closer: '\\]', stayOpen: true },
+    { token: '\\(', closer: '\\)', stayOpen: true },
+    { token: '{/*', closer: '*/', stayOpen: true },
+    { token: '$', closer: '$', stayOpen: false },
+    { token: '[^', closer: ']', stayOpen: false },
+  ];
+  let best: LiteralSpan | null = null;
+  for (const option of options) {
+    const index = value.indexOf(option.token, from);
+    if (index === -1 || (option.token === '$' && value.startsWith('$$', index))) {
+      continue;
     }
-    state.text(match[0], false);
-    cursor = index + match[0].length;
+    if (!best || index < best.index) {
+      best = { index, opener: option.token, closer: option.closer, stayOpen: option.stayOpen };
+    }
   }
-  if (cursor < value.length) {
-    state.text(value.slice(cursor));
+  return best;
+}
+
+function writeTextPreservingMath(state: MarkdownSerializerState, value: string): void {
+  const writer = state as MarkdownSerializerState & { mathCloser?: string | null };
+  let cursor = 0;
+  let closer = writer.mathCloser ?? null;
+  while (cursor < value.length) {
+    if (closer) {
+      const end = value.indexOf(closer, cursor);
+      if (end === -1) {
+        state.text(value.slice(cursor), false);
+        writer.mathCloser = closer;
+        return;
+      }
+      const closeEnd = end + closer.length;
+      state.text(value.slice(cursor, closeEnd), false);
+      cursor = closeEnd;
+      closer = null;
+      continue;
+    }
+    const open = nextLiteralSpan(value, cursor);
+    if (!open) {
+      state.text(value.slice(cursor));
+      writer.mathCloser = null;
+      return;
+    }
+    if (open.index > cursor) {
+      state.text(value.slice(cursor, open.index));
+    }
+    const closeAt = value.indexOf(open.closer, open.index + open.opener.length);
+    if (closeAt === -1) {
+      state.text(value.slice(open.index), !open.stayOpen);
+      writer.mathCloser = open.stayOpen ? open.closer : null;
+      return;
+    }
+    const closeEnd = closeAt + open.closer.length;
+    state.text(value.slice(open.index, closeEnd), false);
+    cursor = closeEnd;
   }
+  writer.mathCloser = closer;
 }
 
 function backticksFor(node: ProseMirrorNode, side: number): string {
@@ -416,8 +475,16 @@ function openSerializerState(
 class MdxMarkdownSerializer extends MarkdownSerializer {
   override serialize(content: ProseMirrorNode, options?: { tightLists?: boolean }): string {
     const state = openSerializerState(this, options);
-    const writer = state as WritableSerializerState & { emphasisOpen: string };
+    const writer = state as WritableSerializerState & {
+      emphasisOpen: string;
+      strikeLiteral: boolean;
+      mathCloser: string | null;
+      mathBreak: boolean;
+    };
     writer.emphasisOpen = '';
+    writer.strikeLiteral = false;
+    writer.mathCloser = null;
+    writer.mathBreak = false;
     const escape = state.esc.bind(state);
     state.esc = (value: string, startOfLine = false) =>
       relaxPunctuationEscapes(
@@ -425,7 +492,8 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
           value,
           restoreTildeRuns(escape(value, startOfLine)),
           startOfLine,
-          writer.emphasisOpen
+          writer.emphasisOpen,
+          writer.strikeLiteral
         )
       );
     state.renderContent(content);

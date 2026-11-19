@@ -242,6 +242,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
   const editorProps = {
     value: content,
     documentKey,
+    debounceMs: 0,
     onChange: handleChange,
     onSelectionChange: handleSelectionChange,
     theme,

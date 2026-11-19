@@ -140,8 +140,13 @@ export function restoreLiteralDelimiters(
   original: string,
   escaped: string,
   startOfLine: boolean,
-  emphasis = ''
+  emphasis = '',
+  strikeLiteral = false
 ): string {
+  if (strikeLiteral) {
+    const restored = escaped.replaceAll('\\*', '*').replaceAll('\\_', '_');
+    return startOfLine ? protectBlockMarkers(restored) : restored;
+  }
   if (collectEmphasis(original).length > 0) {
     return escaped;
   }

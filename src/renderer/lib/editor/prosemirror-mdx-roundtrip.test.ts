@@ -24,6 +24,27 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(source)).not.toContain('\\\\\n');
   });
 
+  it('keeps a command inside display math', () => {
+    const serialized = roundTrip('$$\n\\frac{1}{2}\n$$\n');
+    expect(serialized).toContain('\\frac{1}{2}');
+    expect(serialized).not.toContain('\\\\frac');
+  });
+
+  it('keeps strikethrough around bold', () => {
+    const serialized = roundTrip('~~strike **bold**~~\n');
+    expect(serialized).toContain('~~strike **bold**~~');
+  });
+
+  it('keeps an empty link label', () => {
+    expect(roundTrip('[](https://example.com)\n')).toContain('[](https://example.com)');
+  });
+
+  it('keeps an MDX comment', () => {
+    const serialized = roundTrip('{/* comment */}\n');
+    expect(serialized).toContain('{/* comment */}');
+    expect(serialized).not.toContain('\\*');
+  });
+
   it('keeps a quoted title and parentheses in an address', () => {
     const titled = roundTrip('[text](https://example.com \'say "hi"\')\n');
     const titledDoc = parseMdxContent(titled);

@@ -167,6 +167,16 @@ describe('useOutlineSync', () => {
       expect(getHeadingsItems()).toEqual([]);
     });
 
+    it('uses the open text while a compile is still running', () => {
+      useDocumentStore.setState({ content: '# Fresh\n' });
+      usePreviewStore.getState().startCompiling();
+
+      renderHook(() => useOutlineSync());
+
+      expect(getHeadingsItems().map((item) => item.label)).toEqual(['Fresh']);
+      expect(useOutlineStore.getState().isParsing).toBe(true);
+    });
+
     it('uses the open document when the compiled outline is for another file', () => {
       usePreviewStore
         .getState()

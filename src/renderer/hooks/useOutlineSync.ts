@@ -43,29 +43,27 @@ export function useOutlineSync(): void {
   const previewKey = usePreviewStore((state) => state.lastSuccessfulDocumentKey);
   const isCompiling = usePreviewStore(selectIsCompiling);
   const filePath = useDocumentStore((state) => state.filePath);
+  const content = useDocumentStore((state) => state.content);
   const activeTabId = useTabStore(selectActiveTabId);
   const documentKey = filePath ?? `untitled:${activeTabId ?? 'new'}`;
   const { updateFromAST, setIsParsing } = useOutlineStore();
   const sameDocument = previewKey === null || previewKey === documentKey;
   const outlineForDocument = sameDocument ? outlineAST : null;
 
-  // Track compilation state
   useEffect(() => {
     setIsParsing(isCompiling);
   }, [isCompiling, setIsParsing]);
 
-  // Update outline when AST changes
   useEffect(() => {
-    if (outlineForDocument) {
+    if (outlineForDocument && !isCompiling) {
       updateFromAST(outlineForDocument);
       return;
     }
+    updateFromAST(parseFallbackOutline(content));
     if (isCompiling && sameDocument) {
       setIsParsing(true);
-      return;
     }
-    updateFromAST(parseFallbackOutline(useDocumentStore.getState().content));
-  }, [isCompiling, outlineForDocument, sameDocument, setIsParsing, updateFromAST]);
+  }, [content, isCompiling, outlineForDocument, sameDocument, setIsParsing, updateFromAST]);
 }
 
 export default useOutlineSync;

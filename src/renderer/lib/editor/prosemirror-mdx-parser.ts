@@ -342,6 +342,10 @@ export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TO
  * @param content - Raw MDX/Markdown string
  * @returns ProseMirror Node representing the document
  */
+function keepEmptyLinkLabels(value: string): string {
+  return value.replace(/(?<!!)\[\](?=\()/g, '[\u200b]');
+}
+
 export function parseMdxContent(content: string): ProseMirrorNode | null {
   const { frontmatter, body } = splitLeadingFrontmatter(content);
   const definitions = extractLinkDefinitions(body);
@@ -352,7 +356,9 @@ export function parseMdxContent(content: string): ProseMirrorNode | null {
   const restored = liftFootnoteLabels(
     liftFootnoteRefs(
       linkBareAddresses(
-        liftTaskItems(restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(processedText))))
+        liftTaskItems(
+          restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(keepEmptyLinkLabels(processedText))))
+        )
       )
     )
   );
