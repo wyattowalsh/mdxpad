@@ -10,7 +10,7 @@ import {
 } from 'docx';
 
 import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
-import { equationTag, pushScript, scriptBase, takeInfix } from './docx-math-script';
+import { equationTag, liftPrescripts, pushScript, scriptBase, takeInfix } from './docx-math-script';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -391,7 +391,7 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
     cursor.index += 1;
   }
   flush();
-  return components;
+  return liftPrescripts(components);
 }
 
 export function mathComponents(tex: string): MathComponent[] {

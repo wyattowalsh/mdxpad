@@ -3,6 +3,7 @@ import {
   MathFraction,
   MathLimitLower,
   MathLimitUpper,
+  MathPreSubSuperScript,
   MathRadical,
   MathSubSuperScript,
   MathRoundBrackets,
@@ -203,6 +204,21 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\oint'))).toBe('∮');
     expect(runText(mathComponents('A \\setminus B'))).toBe('A ∖ B');
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
+  });
+
+  it('puts a script before the following symbol', () => {
+    const both = mathComponents('{}_1^2x');
+    expect(both).toHaveLength(1);
+    expect(both[0]).toBeInstanceOf(MathPreSubSuperScript);
+    expect(runText(both)).toBe('x12');
+    const spaced = mathComponents('{}_1^2 x');
+    expect(spaced).toHaveLength(1);
+    expect(spaced[0]).toBeInstanceOf(MathPreSubSuperScript);
+    expect(runText(spaced)).toBe('x12');
+    const lower = mathComponents('{}_1x');
+    expect(lower).toHaveLength(1);
+    expect(lower[0]).toBeInstanceOf(MathPreSubSuperScript);
+    expect(runText(lower)).toBe('x1');
   });
 
   it('draws a colon, a bottom, and a real part', () => {

@@ -3,6 +3,7 @@ import {
   MathFraction,
   MathLimitLower,
   MathLimitUpper,
+  MathPreSubSuperScript,
   MathRadical,
   MathRoundBrackets,
   MathRun,
@@ -178,6 +179,99 @@ export function equationTag(
     cursor.index += 1;
   }
   return [new MathRoundBrackets({ children: readGroup() })];
+}
+
+function mathRunString(component: MathComponent): string | null {
+  if (!(component instanceof MathRun)) {
+    return null;
+  }
+  const outer = nestedRoot(component);
+  const inner = outer?.[0];
+  if (typeof inner !== 'object' || inner === null) {
+    return null;
+  }
+  const text = nestedRoot(inner)?.[0];
+  return typeof text === 'string' ? text : null;
+}
+
+function emptyBase(parts: readonly MathComponent[]): boolean {
+  if (parts.length === 0) {
+    return true;
+  }
+  const only = parts.length === 1 ? parts[0] : undefined;
+  return only !== undefined && mathRunString(only) === '';
+}
+
+function scriptList(node: unknown): MathComponent[] | null {
+  if (typeof node !== 'object' || node === null) {
+    return null;
+  }
+  return collectMath(node);
+}
+
+function prescriptParts(component: MathComponent): { sub: MathComponent[]; sup: MathComponent[] } | null {
+  if (component instanceof MathSubSuperScript) {
+    const root = nestedRoot(component);
+    const base = scriptList(root?.[1]);
+    const sub = scriptList(root?.[2]);
+    const sup = scriptList(root?.[3]);
+    if (base === null || sub === null || sup === null || !emptyBase(base)) {
+      return null;
+    }
+    return { sub, sup };
+  }
+  const paired = pairedScripts(component);
+  if (paired === null || !emptyBase(paired.base)) {
+    return null;
+  }
+  return { sub: paired.sub ?? [], sup: paired.sup ?? [] };
+}
+
+function prescriptBase(
+  components: readonly MathComponent[],
+  index: number,
+): { base: MathComponent; skip: number } | null {
+  let cursor = index;
+  while (cursor < components.length) {
+    const item = components[cursor];
+    if (item === undefined) {
+      return null;
+    }
+    const text = mathRunString(item);
+    if (text !== null && text.trim().length === 0) {
+      cursor += 1;
+      continue;
+    }
+    if (text !== null && text !== text.trimStart()) {
+      return { base: new MathRun(text.trimStart()), skip: cursor - index + 1 };
+    }
+    return { base: item, skip: cursor - index + 1 };
+  }
+  return null;
+}
+
+export function liftPrescripts(components: readonly MathComponent[]): MathComponent[] {
+  const lifted: MathComponent[] = [];
+  for (let index = 0; index < components.length; index += 1) {
+    const current = components[index];
+    const scripts = current === undefined ? null : prescriptParts(current);
+    const base = scripts === null ? null : prescriptBase(components, index + 1);
+    if (current !== undefined && scripts !== null && base !== null) {
+      lifted.push(
+        new MathPreSubSuperScript({
+          children: [base.base],
+          subScript: scripts.sub,
+          superScript: scripts.sup,
+        }),
+      );
+      index += base.skip;
+      continue;
+    }
+    if (current !== undefined) {
+      lifted.push(current);
+    }
+  }
+  return lifted;
 }
 
 export function pushScript(
