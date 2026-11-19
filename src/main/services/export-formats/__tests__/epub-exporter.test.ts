@@ -545,6 +545,27 @@ describe('EpubExporter', () => {
     expect(missingHtml).not.toContain('pixel.png');
   });
 
+  it('embeds a safe drawing and leaves out one that points at a file', async () => {
+    const epubGen = await import('epub-gen-memory');
+    const icon = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>').toString('base64');
+    const secret = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="file:///etc/passwd"/></svg>'
+    ).toString('base64');
+    const result = await exporter.export({
+      content: `![Icon](data:image/svg+xml;base64,${icon})\n\n![Secret](data:image/svg+xml;base64,${secret})`,
+      outputPath: '/tmp/svg-picture.epub',
+    });
+    const html =
+      ((epubGen.default as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as { content: string }[])[0]
+        ?.content ?? '';
+
+    expect(result.ok).toBe(true);
+    expect(html).toContain('.svg');
+    expect(html).toContain('Secret');
+    expect(html).not.toContain('file:///etc/passwd');
+    expect(html).not.toContain('data:image/svg');
+  });
+
   it('handles empty content gracefully', async () => {
     const result = await exporter.export({
       content: '',

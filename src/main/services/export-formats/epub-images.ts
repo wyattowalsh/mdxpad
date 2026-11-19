@@ -16,13 +16,14 @@ import { safeImageAddress } from './markdown-export-address';
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const IMAGE_TAG = /<img\b[^>]*?\/?>/gi;
-const RASTER_MIME: Record<string, string> = {
+const IMAGE_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
   'image/gif': 'gif',
   'image/webp': 'webp',
   'image/bmp': 'bmp',
+  'image/svg+xml': 'svg',
 };
 
 export interface EpubImageResult {
@@ -53,7 +54,7 @@ function dataImage(src: string): { readonly bytes: Buffer; readonly extension: s
   const match = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i.exec(src);
   const mime = match?.[1]?.toLowerCase();
   const payload = match?.[2];
-  const extension = mime ? RASTER_MIME[mime] : undefined;
+  const extension = mime ? IMAGE_MIME[mime] : undefined;
   if (!extension || !payload) {
     return null;
   }
@@ -71,7 +72,7 @@ async function remoteImage(src: string): Promise<{ readonly bytes: Buffer; reado
       return null;
     }
     const mime = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? '';
-    const extension = RASTER_MIME[mime];
+    const extension = IMAGE_MIME[mime];
     if (!extension) {
       return null;
     }
