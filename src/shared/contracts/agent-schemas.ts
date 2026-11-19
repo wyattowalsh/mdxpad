@@ -73,6 +73,7 @@ export const AgentSendMessageRequestSchema = z.object({
   message: z.string().min(1).max(10000),
   workspacePath: z.string().optional(),
   currentFilePath: z.string().optional(),
+  openFileContent: z.string().max(8_000_000).optional(),
 });
 export type AgentSendMessageRequest = z.infer<typeof AgentSendMessageRequestSchema>;
 

@@ -193,6 +193,23 @@ describe('useAgentModeStore', () => {
     vi.unstubAllGlobals();
   });
 
+  it('sends the open editor text with the message', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ success: true });
+    vi.stubGlobal('window', { mdxpad: { agent: { sendMessage } } });
+
+    await useAgentModeStore.getState().sendMessage('hello', {
+      currentFilePath: '/notes/a.md',
+      openFileContent: 'typed!',
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      message: 'hello',
+      currentFilePath: '/notes/a.md',
+      openFileContent: 'typed!',
+    });
+    vi.unstubAllGlobals();
+  });
+
   it('keeps a write pending when approval is not accepted', async () => {
     const approveToolCall = vi.fn().mockResolvedValue({
       success: false,

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { WorkspacePathError } from './agent-path';
-import { collectMatchingFiles, readWorkspaceFile } from './directory-entries';
+import { collectMatchingFiles, readAgentFile, readWorkspaceFile } from './directory-entries';
 
 describe('directory entries', () => {
   const directories: string[] = [];
@@ -42,5 +42,17 @@ describe('directory entries', () => {
     await symlink(secret, path.join(root, 'docs', 'note.md'));
 
     await expect(readWorkspaceFile(root, 'docs/note.md')).rejects.toThrow(WorkspacePathError);
+  });
+
+  it('returns the open editor text for that file and disk text for another', async () => {
+    const root = await tempDir();
+    const note = path.join(root, 'note.md');
+    await writeFile(note, 'disk');
+    await writeFile(path.join(root, 'other.md'), 'other');
+    const openFile = { path: note, content: 'typed!' };
+
+    await expect(readAgentFile(root, 'note.md', openFile)).resolves.toBe('typed!');
+    await expect(readAgentFile(root, note, openFile)).resolves.toBe('typed!');
+    await expect(readAgentFile(root, 'other.md', openFile)).resolves.toBe('other');
   });
 });

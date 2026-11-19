@@ -60,3 +60,25 @@ export async function readWorkspaceFile(workspacePath: string, filePath: string)
   }
   return result.value;
 }
+
+function sameWorkspaceFile(root: string, requested: string, openPath: string): boolean {
+  try {
+    return (
+      resolveWorkspaceFilePath(root, requested) === resolveWorkspaceFilePath(root, openPath)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The open editor's text when the request names that file. Other paths stay on disk. */
+export async function readAgentFile(
+  workspacePath: string,
+  filePath: string,
+  openFile?: { readonly path: string; readonly content: string }
+): Promise<string> {
+  if (openFile && sameWorkspaceFile(workspacePath, filePath, openFile.path)) {
+    return openFile.content;
+  }
+  return readWorkspaceFile(workspacePath, filePath);
+}

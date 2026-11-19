@@ -21,7 +21,7 @@ import type {
   AgentStatus,
 } from '@shared/contracts/agent-schemas';
 import { resolveWorkspaceFilePath, WorkspacePathError } from './agent-path';
-import { collectMatchingFiles, readRealDirectory, readWorkspaceFile } from './directory-entries';
+import { collectMatchingFiles, readAgentFile, readRealDirectory } from './directory-entries';
 import { createWriteFileTool, executeApprovedWrite, WriteApprovalGate } from './agent-write';
 
 export { resolveWorkspaceFilePath, WorkspacePathError };
@@ -41,7 +41,10 @@ interface ConversationState {
 // TOOL DEFINITIONS
 // =============================================================================
 
-function createReadFileTool(workspacePath: string | undefined) {
+function createReadFileTool(
+  workspacePath: string | undefined,
+  openFile?: { readonly path: string; readonly content: string }
+) {
   return tool({
     description: 'Read the contents of a file at the given path',
     inputSchema: jsonSchema<{ filePath: string }>({
@@ -55,7 +58,7 @@ function createReadFileTool(workspacePath: string | undefined) {
       if (!workspacePath) {
         throw new WorkspacePathError('Workspace path is required');
       }
-      return readWorkspaceFile(workspacePath, filePath);
+      return readAgentFile(workspacePath, filePath, openFile);
     },
   });
 }
@@ -101,11 +104,12 @@ function createListDirectoryTool(workspacePath: string | undefined) {
 
 function createAgentTools(
   workspacePath: string | undefined,
+  openFile: { readonly path: string; readonly content: string } | undefined,
   gate: WriteApprovalGate,
   notify: (event: AgentStreamEvent) => void
 ) {
   return {
-    readFile: createReadFileTool(workspacePath),
+    readFile: createReadFileTool(workspacePath, openFile),
     writeFile: createWriteFileTool(workspacePath, gate, notify),
     searchFiles: createSearchFilesTool(workspacePath),
     listDirectory: createListDirectoryTool(workspacePath),
@@ -153,7 +157,8 @@ export class AgentService {
   async sendMessage(
     message: string,
     workspacePath?: string,
-    currentFilePath?: string
+    currentFilePath?: string,
+    openFileContent?: string
   ): Promise<void> {
     const state = this.getOrCreateConversation();
     this.addUserMessage(state, message);
@@ -164,10 +169,15 @@ export class AgentService {
     state.abortController = abortController;
 
     try {
+      const openFile =
+        currentFilePath !== undefined && openFileContent !== undefined
+          ? { path: currentFilePath, content: openFileContent }
+          : undefined;
       const fullText = await this.runStreamResponse(
         state,
         workspacePath,
         currentFilePath,
+        openFile,
         abortController
       );
       this.addAssistantMessage(state, fullText);
@@ -232,12 +242,13 @@ export class AgentService {
     state: ConversationState,
     workspacePath: string | undefined,
     currentFilePath: string | undefined,
+    openFile: { readonly path: string; readonly content: string } | undefined,
     abortController: AbortController
   ): Promise<string> {
     const model = this.aiService.getActiveModel();
     if (!model) throw new Error('No active AI model configured');
 
-    const tools = createAgentTools(workspacePath, this.writeGate, (event) => {
+    const tools = createAgentTools(workspacePath, openFile, this.writeGate, (event) => {
       this.emitEvent(event);
     });
     const systemPrompt = buildSystemPrompt(workspacePath, currentFilePath);

@@ -34,6 +34,7 @@ export interface AgentModeState {
 export interface AgentSendContext {
   readonly workspacePath?: string;
   readonly currentFilePath?: string;
+  readonly openFileContent?: string;
 }
 
 export interface AgentModeActions {
@@ -134,6 +135,9 @@ export const useAgentModeStore = create<AgentModeStore>()(
           message,
           ...(context?.workspacePath ? { workspacePath: context.workspacePath } : {}),
           ...(context?.currentFilePath ? { currentFilePath: context.currentFilePath } : {}),
+          ...(context?.openFileContent !== undefined
+            ? { openFileContent: context.openFileContent }
+            : {}),
         });
         if (requestId !== agentSendRequestId) {
           return;

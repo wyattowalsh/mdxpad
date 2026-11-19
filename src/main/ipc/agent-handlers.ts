@@ -21,10 +21,25 @@ import { createValidatedHandler } from '@shared/contracts/file-schemas';
 import { trustedAgentFile } from './document-capability';
 import { registerAuthorizedIpcHandler } from './ipc-sender-authorization';
 
+function startAgentTurn(
+  service: AgentService,
+  message: string,
+  currentFilePath: string | undefined,
+  openFileContent: string | undefined
+): void {
+  const trusted = trustedAgentFile(currentFilePath);
+  if (trusted && openFileContent !== undefined) {
+    void service
+      .sendMessage(message, trusted.root, trusted.filePath, openFileContent)
+      .catch(() => undefined);
+    return;
+  }
+  void service.sendMessage(message, trusted?.root, trusted?.filePath).catch(() => undefined);
+}
+
 function createSendHandler(service: AgentService) {
   return createValidatedHandler(AgentSendMessageRequestSchema, (args): Promise<AgentResponse> => {
-    const trusted = trustedAgentFile(args.currentFilePath);
-    void service.sendMessage(args.message, trusted?.root, trusted?.filePath).catch(() => undefined);
+    startAgentTurn(service, args.message, args.currentFilePath, args.openFileContent);
     return Promise.resolve(AgentResponseSchema.parse({ success: true }));
   });
 }

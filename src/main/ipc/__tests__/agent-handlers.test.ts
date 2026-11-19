@@ -98,6 +98,40 @@ describe('registerAgentHandlers', () => {
     expect(sendMessage).toHaveBeenLastCalledWith('edit', path.dirname(canonical), canonical);
   });
 
+  it('passes editor text only after the open file is granted', async () => {
+    const window = createWindow();
+    const service = new AgentService({} as never);
+    const sendMessage = vi.spyOn(service, 'sendMessage').mockResolvedValue(undefined);
+    service.setWindow(window);
+    registerAgentHandlers(service, window);
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-agent-buffer-'));
+    tempDirs.push(root);
+    const file = path.join(root, 'note.md');
+    await writeFile(file, 'disk');
+    const send = handlers[AgentChannels.SEND_MESSAGE];
+
+    await send?.(createEvent(window), {
+      message: 'edit',
+      currentFilePath: file,
+      openFileContent: 'typed!',
+    });
+    expect(sendMessage).toHaveBeenCalledWith('edit', undefined, undefined);
+
+    grantReadCapability(file);
+    await send?.(createEvent(window), {
+      message: 'edit',
+      currentFilePath: file,
+      openFileContent: 'typed!',
+    });
+    const canonical = await realpath(file);
+    expect(sendMessage).toHaveBeenLastCalledWith(
+      'edit',
+      path.dirname(canonical),
+      canonical,
+      'typed!'
+    );
+  });
+
   it('does not write when the approval id is unknown', async () => {
     const window = createWindow();
     const service = new AgentService({} as never);
