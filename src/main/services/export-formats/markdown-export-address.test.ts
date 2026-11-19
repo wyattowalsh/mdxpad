@@ -71,6 +71,26 @@ describe('sanitizeExportedHtml', () => {
     expect(remote).toContain('https://example.com/a.png');
   });
 
+  it('drops a file written after a slash and an escaped css function', () => {
+    expect(sanitizeExportedHtml('<img /src="file:///etc/passwd" alt="x">')).toBe(
+      '<img alt="x">'
+    );
+    expect(sanitizeExportedHtml('<a/href="javascript:alert(1)">Run</a>')).toBe('<a>Run</a>');
+    const styled = sanitizeExportedHtml(
+      '<div style="background:IMAGE-SET(\'file:///etc/passwd\' 1x);color:red">x</div>'
+    );
+    expect(styled).not.toContain('file:');
+    expect(styled).toContain('color:red');
+    const escaped = sanitizeExportedHtml(
+      '<div style="background:\\75rl(file:///etc/passwd);color:red">x</div>'
+    );
+    expect(escaped).not.toContain('file:');
+    expect(escaped).toContain('color:red');
+    const imported = sanitizeExportedHtml('<style>@\\69 mport "file:///etc/passwd.css";</style>');
+    expect(imported).not.toContain('file:');
+    expect(sanitizeExportedTag('<filter href="../secret.svg">')).toBe('<filter>');
+  });
+
   it('drops a parent path from an svg image and keeps a document link', () => {
     expect(sanitizeExportedTag('<image href="../secret.png">')).toBe('<image>');
     expect(sanitizeExportedTag('<feImage href="../secret.png">')).toBe('<feImage>');

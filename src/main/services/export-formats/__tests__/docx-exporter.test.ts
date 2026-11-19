@@ -27,6 +27,27 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('does not link a picture that climbs out of its folder', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![secret](../secret.png)',
+      outputPath: '/tmp/parent-picture.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('secret');
+    expect(xml).not.toContain('../secret.png');
+    expect(xml).not.toContain('secret.png');
+  });
+
   it('keeps a formula after a literal backslash', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

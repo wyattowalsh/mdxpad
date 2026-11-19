@@ -9,7 +9,8 @@
 
 import * as React from 'react';
 
-import { isBlockedPreviewHref } from '../preview-href';
+import { isBlockedPreviewHref, previewAddressClimbsOut } from '../preview-href';
+import { A } from './typography';
 
 /**
  * Props for the Card component
@@ -77,11 +78,17 @@ export function Card({
     </>
   );
 
-  if (href && !isBlockedPreviewHref(href)) {
+  const pathPart = href?.split('#')[0]?.split('?')[0] ?? '';
+  const documentLink = /\.(md|mdx|markdown|txt)$/i.test(pathPart);
+  const destination =
+    href && !isBlockedPreviewHref(href) && !(previewAddressClimbsOut(href) && !documentLink)
+      ? href
+      : undefined;
+  if (destination) {
     return (
-      <a href={href} className={cardClasses}>
+      <A href={destination} className={cardClasses}>
         {content}
-      </a>
+      </A>
     );
   }
 

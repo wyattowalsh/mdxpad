@@ -2,14 +2,18 @@
  * image() and image-set() load a quoted address without a url() wrapper.
  */
 
+function hasPrefix(css: string, index: number, prefix: string): boolean {
+  return css.slice(index, index + prefix.length).toLowerCase() === prefix;
+}
+
 function isImageFunction(css: string, index: number): boolean {
-  if (index > 0 && /[\w-]/.test(css.charAt(index - 1))) {
+  if (index > 0 && /[\w-]/i.test(css.charAt(index - 1))) {
     return false;
   }
   return (
-    css.startsWith('-webkit-image-set(', index) ||
-    css.startsWith('image-set(', index) ||
-    css.startsWith('image(', index)
+    hasPrefix(css, index, '-webkit-image-set(') ||
+    hasPrefix(css, index, 'image-set(') ||
+    hasPrefix(css, index, 'image(')
   );
 }
 

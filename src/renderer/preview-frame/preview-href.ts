@@ -121,7 +121,7 @@ function blockedCssAddress(address: string): boolean {
 }
 
 function sanitizePreviewImport(css: string): string {
-  return decodeAddressEntities(stripCssComments(css)).replace(
+  return decodeCssEscapes(decodeAddressEntities(stripCssComments(css))).replace(
     /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
@@ -143,7 +143,7 @@ export function sanitizePreviewStyleSheet(css: string): string {
 }
 
 function sanitizePreviewStyle(value: string): string {
-  const visible = decodeAddressEntities(stripCssComments(value));
+  const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(value)));
   const urls = visible.replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
@@ -224,7 +224,9 @@ function nextAttribute(name: string, value: string): { readonly value: unknown }
     const kept = filterSrcSet(value, (url) => isBlockedPreviewResource(url));
     return kept === value ? undefined : { value: kept };
   }
-  if (LINK_ATTRIBUTES.has(name) && isBlockedPreviewHref(value)) {
+  const climbsNavigation =
+    (name === 'action' || name === 'formaction') && previewAddressClimbsOut(value);
+  if (LINK_ATTRIBUTES.has(name) && (isBlockedPreviewHref(value) || climbsNavigation)) {
     return { value: undefined };
   }
   if (RESOURCE_ATTRIBUTES.has(name) && isBlockedPreviewResource(value)) {
@@ -289,7 +291,14 @@ function loadsResourceHref(type: unknown): boolean {
     return false;
   }
   const name = type.toLowerCase();
-  return name === 'image' || name === 'use' || name === 'feimage' || name === 'cursor';
+  return (
+    name === 'image' ||
+    name === 'use' ||
+    name === 'feimage' ||
+    name === 'cursor' ||
+    name === 'filter' ||
+    name === 'pattern'
+  );
 }
 
 function omitBlockedResourceHref(props: Record<string, unknown>): Record<string, unknown> {

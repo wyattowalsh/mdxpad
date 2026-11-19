@@ -141,7 +141,7 @@ function blockedCssAddress(address: string): boolean {
 }
 
 function sanitizeStyleValue(value: string): string {
-  const visible = decodeAddressEntities(stripCssComments(value));
+  const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(value)));
   const urls = visible.replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
@@ -153,7 +153,7 @@ function sanitizeStyleValue(value: string): string {
 }
 
 function sanitizeStyleSheet(css: string): string {
-  const visible = decodeAddressEntities(stripCssComments(css));
+  const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(css)));
   const withoutImport = visible.replace(
     /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
@@ -193,7 +193,14 @@ function styleAttribute(attr: string, raw: string): string {
 }
 
 function resourceHrefTag(name: string): boolean {
-  return name === 'image' || name === 'use' || name === 'feimage' || name === 'cursor';
+  return (
+    name === 'image' ||
+    name === 'use' ||
+    name === 'feimage' ||
+    name === 'cursor' ||
+    name === 'filter' ||
+    name === 'pattern'
+  );
 }
 
 /** Drop an address that would read a local file. A loading tag is removed. */
@@ -203,7 +210,7 @@ export function sanitizeExportedTag(tag: string): string {
     return '';
   }
   return tag.replace(
-    /\s([^\s=/>]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/g,
+    /[\s/]+([^\s=/>]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/g,
     (full, attr: string, raw: string) => {
       const name = attr.toLowerCase();
       if (name === 'style') {

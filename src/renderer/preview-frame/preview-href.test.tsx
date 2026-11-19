@@ -53,6 +53,15 @@ describe('isBlockedPreviewHref', () => {
     }) as { className?: string; dangerouslySetInnerHTML?: unknown };
     expect(injected.className).toBe('note');
     expect(injected.dangerouslySetInnerHTML).toBeUndefined();
+    const form = confinePreviewProps({ formAction: '../secret.md' }) as { formAction?: string };
+    expect(form.formAction).toBeUndefined();
+    const filter = confinePreviewElement('filter', { href: '../secret.svg' }) as { href?: string };
+    expect(filter.href).toBeUndefined();
+    const upperSet = confinePreviewProps({
+      style: { backgroundImage: 'IMAGE-SET("file:///etc/passwd" 1x)', color: 'red' },
+    }) as { style: Record<string, string> };
+    expect(JSON.stringify(upperSet.style)).not.toContain('file:');
+    expect(upperSet.style.color).toBe('red');
     expect(props.href).toBe('/notes/a.md');
     expect(props.src).toBeUndefined();
   });

@@ -56,7 +56,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { safeLinkAddress } from './markdown-export-address';
+import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
 import { findMarkdownTarget, linkDestination, linkTitle } from './markdown-link';
 import {
@@ -412,6 +412,9 @@ function createTextRuns(
       }
       if (picture) {
         return picture;
+      }
+      if (safeImageAddress(decodeHtmlEntities(segment.image)) === null) {
+        return styledRun(segment, segment.text || 'image');
       }
       return docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink'));
     }
