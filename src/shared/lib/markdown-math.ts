@@ -234,8 +234,15 @@ function takeDollarSpan(value: string, index: number): string | null {
 function texCloserIndex(value: string, from: number, close: string): number {
   let index = from;
   while (index < value.length) {
-    if (copyCodeSpan(value, index) || markdownLinkAt(value, index)) {
-      return -1;
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      index = code.next;
+      continue;
+    }
+    const link = markdownLinkAt(value, index);
+    if (link) {
+      index = link.end;
+      continue;
     }
     if (value.startsWith('\\\\', index)) {
       index += 2;

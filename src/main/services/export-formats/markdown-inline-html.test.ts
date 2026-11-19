@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
+import { markdownToPdfHtml } from './pdf-exporter';
 
 describe('renderMarkdownInline', () => {
   it('drops a file hidden by a tab inside a css url', () => {
@@ -98,6 +99,12 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('Write <ada@example.com> today')).toBe(
       'Write <a href="mailto:ada@example.com">ada@example.com</a> today'
     );
+  });
+
+  it('renders a formula that contains inline code', () => {
+    const html = markdownToPdfHtml('See \\(x `y`\\).');
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('x `y`');
   });
 
   it('does not let a later dollar close a price or a code span', () => {

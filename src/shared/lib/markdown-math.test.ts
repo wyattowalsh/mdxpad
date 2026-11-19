@@ -107,6 +107,7 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See \\(x\\) and [a \\)](https://example.com).')).toBe(
       'See $x$ and [a \\)](https://example.com).'
     );
+    expect(prepareMarkdownSource('See \\(x `y`\\).')).toBe('See $x `y`$.');
     expect(prepareMarkdownSource('| \\(x | [a \\)](https://example.com) | y |')).toBe(
       '| \\(x | [a \\)](https://example.com) | y |'
     );

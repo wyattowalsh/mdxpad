@@ -53,12 +53,14 @@ function texSpanEnd(value: string, from: number, close: string): number {
     if (value[cursor] === '`') {
       const codeEnd = readCodeSpan(value, cursor);
       if (codeEnd > cursor) {
-        return -1;
+        cursor = codeEnd;
+        continue;
       }
     }
     const linkEnd = skipLink(value, cursor);
     if (linkEnd > cursor) {
-      return -1;
+      cursor = linkEnd;
+      continue;
     }
     if (value.startsWith('\\\\', cursor)) {
       cursor += 2;

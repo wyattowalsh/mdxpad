@@ -39,15 +39,17 @@ export function unescapedDelimiterIndex(raw: string, from: number, delimiter: st
   return -1;
 }
 
-function fenceBlocksMath(raw: string, index: number): boolean {
+function codeSpanEnd(raw: string, index: number): number {
   if (raw[index] !== '`') {
-    return false;
+    return -1;
   }
   let ticks = 0;
   while (raw[index + ticks] === '`') {
     ticks += 1;
   }
-  return raw.includes('`'.repeat(ticks), index + ticks);
+  const marker = '`'.repeat(ticks);
+  const closer = raw.indexOf(marker, index + ticks);
+  return closer === -1 ? -1 : closer + ticks;
 }
 
 function linkBlocksMath(raw: string, index: number): boolean {
@@ -80,8 +82,18 @@ function linkBlocksMath(raw: string, index: number): boolean {
 export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'): number {
   let index = from;
   while (index < raw.length) {
-    if (delimiter === '$' && (fenceBlocksMath(raw, index) || linkBlocksMath(raw, index))) {
-      return -1;
+    if (delimiter === '$') {
+      const codeEnd = codeSpanEnd(raw, index);
+      if (codeEnd !== -1) {
+        if (raw.slice(index, codeEnd).includes('$')) {
+          return -1;
+        }
+        index = codeEnd;
+        continue;
+      }
+      if (linkBlocksMath(raw, index)) {
+        return -1;
+      }
     }
     if (raw.startsWith(delimiter, index) && !escapedDelimiter(raw, index)) {
       return index;
