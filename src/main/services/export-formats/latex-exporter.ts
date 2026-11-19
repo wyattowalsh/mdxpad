@@ -14,7 +14,7 @@ import {
 } from './latex-file-command';
 import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
-import { unescapedDelimiterIndex } from '@shared/lib/math-span';
+import { displayMathPrefix, unescapedDelimiterIndex } from '@shared/lib/math-span';
 import { renderableMathTex } from '@shared/lib/renderable-math';
 
 import { inlineLocalImages } from './export-image';
@@ -1370,6 +1370,19 @@ function takeOpenedDisplay(build: LatexBuild, line: string): boolean {
 
 function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (takeOpenedDisplay(build, line)) {
+    return true;
+  }
+  const prefix = displayMathPrefix(line);
+  if (prefix !== null && !build.inDisplayMath) {
+    build.prose.push(readSourceLine(prefix));
+    openDisplayMath(build);
+    return true;
+  }
+  if (prefix !== null && build.inDisplayMath) {
+    build.displayLines.push(prefix);
+    flushDisplayMath(build);
+    build.output.push('$$');
+    build.inDisplayMath = false;
     return true;
   }
   if (line.trim() !== '$$' && !build.inDisplayMath) {

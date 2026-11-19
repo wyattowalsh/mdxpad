@@ -37,7 +37,7 @@ import { highlightCodeHtml } from './markdown-code';
 import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
-import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
+import { displayMathPrefix, mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 import { linkedDisplaySpan, linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 
@@ -1380,6 +1380,16 @@ function takeDisplayLine(
   displayLines: string[] | null
 ): string[] | null | false {
   const trimmed = line.trim();
+  const prefix = displayMathPrefix(line);
+  if (prefix !== null && displayLines === null) {
+    paragraphs.push(new Paragraph({ children: createParagraphChildren(prefix) }));
+    return [];
+  }
+  if (prefix !== null && displayLines) {
+    displayLines.push(prefix);
+    pushDisplayMath(paragraphs, displayLines);
+    return null;
+  }
   if (trimmed !== '$$' && displayLines === null) {
     return false;
   }
@@ -1764,7 +1774,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
   parse.openListItem = null;
   const trimmed = line.trim();
   const structural =
-    trimmed === '$$' ||
+    trimmed === '$$' || displayMathPrefix(line) !== null ||
     parse.displayLines !== null ||
     isTableRow(trimmed) ||
     quoteBody(trimmed) !== null;

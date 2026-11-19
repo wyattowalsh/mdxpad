@@ -6,6 +6,7 @@ import { buildPdfDocument } from '../export-document-builders';
 import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+import { displayMathPrefix } from '@shared/lib/math-span';
 
 import { inlineLocalImages } from './export-image';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
@@ -120,6 +121,21 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
     return false;
   }
   if (takeListItemMath(build, line, renderMarkdownInline, build.lists.length > 0)) {
+    return true;
+  }
+  const prefix = displayMathPrefix(line);
+  if (prefix !== null && !build.displayMath) {
+    build.paragraph.push({ text: prefix, hardBreak: false });
+    flushPdfParagraph(build);
+    flushPdfTable(build);
+    flushPdfQuote(build);
+    closePdfList(build);
+    build.displayMath = [];
+    return true;
+  }
+  if (prefix !== null && build.displayMath) {
+    build.displayMath.push(prefix);
+    finishDisplayMath(build);
     return true;
   }
   const trimmed = line.trim();

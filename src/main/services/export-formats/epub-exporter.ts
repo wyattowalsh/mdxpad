@@ -3,6 +3,7 @@ import { writeRegularFile } from './write-regular-file';
 import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+import { displayMathPrefix } from '@shared/lib/math-span';
 
 import { embedEpubImages } from './epub-images';
 import { inlineLocalImages } from './export-image';
@@ -225,6 +226,22 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
     return false;
   }
   if (takeListItemMath(state, line, renderMarkdownInline, state.lists.length > 0)) {
+    return true;
+  }
+  const prefix = displayMathPrefix(line);
+  if (prefix !== null && !state.displayMath) {
+    state.paragraph.push({ text: prefix, hardBreak: false });
+    flushEpubParagraph(htmlLines, state);
+    flushEpubTable(htmlLines, state);
+    flushEpubQuote(htmlLines, state);
+    closeEpubList(htmlLines, state);
+    state.displayMath = [];
+    return true;
+  }
+  if (prefix !== null && state.displayMath) {
+    state.displayMath.push(prefix);
+    htmlLines.push(renderDisplayMathBlock(state.displayMath));
+    state.displayMath = null;
     return true;
   }
   const trimmed = line.trim();

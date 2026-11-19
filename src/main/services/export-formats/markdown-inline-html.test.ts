@@ -190,6 +190,17 @@ describe('renderMarkdownInline', () => {
     expect(table).toContain('<p>after</p>');
   });
 
+  it('keeps the paragraph after a formula that opens at the end of a line', () => {
+    const html = markdownToPdfHtml('Text $$\nx^2\n$$\nmore\n');
+    expect(html).toContain('<p>Text</p>');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('<p>more</p>');
+    expect(html).not.toContain('<mi>m</mi>');
+    const spaced = markdownToPdfHtml('Text $$\nx^2\n$$\n\nmore\n');
+    expect(spaced).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(spaced).toContain('<p>more</p>');
+  });
+
   it('keeps a wrapped display formula inside the quote', () => {
     const html = markdownToPdfHtml('> $$\nx^2\n$$\n\nafter\n');
     expect(html).toContain('x^2');

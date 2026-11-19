@@ -304,6 +304,19 @@ export function mathSpanEnd(raw: string, start: number, delimiter: '$' | '$$'): 
   return cursor + delimiter.length;
 }
 
+/** Text before a `$$` that ends the line, as in `Text $$`. */
+export function displayMathPrefix(line: string): string | null {
+  const match = /^(.*\S)[ \t]+\$\$[ \t]*$/.exec(line);
+  if (!match) {
+    return null;
+  }
+  const trimmed = line.trim();
+  if (trimmed.startsWith('$$') && mathSpanEnd(trimmed, 0, '$$') === trimmed.length) {
+    return null;
+  }
+  return match[1] ?? '';
+}
+
 export function nextMathDelimiter(
   raw: string,
   from: number
