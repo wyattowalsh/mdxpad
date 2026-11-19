@@ -10,6 +10,7 @@
  * @module shared/lib/atomic-write
  */
 
+import { constants as fsConstants } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
@@ -73,10 +74,12 @@ export async function atomicWrite(
   await invokeDurabilityPhaseHook(durabilityContract, 'before-write-temp', context);
 
   try {
+    await replaceLink(tempPath);
     await fs.writeFile(tempPath, content, 'utf-8');
     await syncFile(tempPath);
     await invokeDurabilityPhaseHook(durabilityContract, 'after-write-temp', context);
     await invokeDurabilityPhaseHook(durabilityContract, 'before-commit', context);
+    await replaceLink(targetPath);
     await fs.rename(tempPath, targetPath);
     await syncFile(targetPath);
     await syncDirectory(path.dirname(targetPath));
@@ -92,15 +95,34 @@ export async function atomicWrite(
   }
 }
 
+async function replaceLink(filePath: string): Promise<void> {
+  try {
+    const info = await fs.lstat(filePath);
+    if (info.isSymbolicLink()) {
+      await fs.unlink(filePath);
+    }
+  } catch (error) {
+    if (errorCode(error) !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
 async function syncFile(filePath: string): Promise<void> {
   if (typeof fs.open !== 'function') {
     return;
   }
-  const handle = await fs.open(filePath, 'r');
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     await handle.sync();
+  } catch (error) {
+    if (errorCode(error) === 'ELOOP') {
+      return;
+    }
+    throw error;
   } finally {
-    await handle.close();
+    await handle?.close();
   }
 }
 

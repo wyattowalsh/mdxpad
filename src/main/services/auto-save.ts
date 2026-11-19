@@ -10,6 +10,7 @@
  */
 
 import { app } from 'electron';
+import { constants as fsConstants } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
@@ -90,11 +91,17 @@ async function syncFile(filePath: string): Promise<void> {
   if (typeof fs.open !== 'function') {
     return;
   }
-  const handle = await fs.open(filePath, 'r');
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     await handle.sync();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ELOOP') {
+      return;
+    }
+    throw error;
   } finally {
-    await handle.close();
+    await handle?.close();
   }
 }
 

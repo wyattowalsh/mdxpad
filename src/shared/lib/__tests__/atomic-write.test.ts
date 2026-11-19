@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, lstatSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { atomicWrite, type AtomicWritePhase } from '../atomic-write';
 
 describe('atomicWrite', () => {
@@ -34,6 +34,42 @@ describe('atomicWrite', () => {
 
       const content = readFileSync(targetPath, 'utf-8');
       expect(content).toBe('hello world');
+    });
+
+    it('does not write through a temporary link', async () => {
+      const outside = mkdtempSync(join(tmpdir(), 'atomic-write-secret-'));
+      const secret = join(outside, 'secret.txt');
+      const targetPath = join(tempDir, 'output.txt');
+      writeFileSync(secret, 'secret');
+      symlinkSync(secret, `${targetPath}.tmp`);
+
+      try {
+        await atomicWrite(targetPath, 'hello');
+        expect(readFileSync(secret, 'utf-8')).toBe('secret');
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+
+      expect(lstatSync(targetPath).isSymbolicLink()).toBe(false);
+      expect(readFileSync(targetPath, 'utf-8')).toBe('hello');
+    });
+
+    it('replaces a target that is a link', async () => {
+      const outside = mkdtempSync(join(tmpdir(), 'atomic-write-target-'));
+      const secret = join(outside, 'secret.txt');
+      const targetPath = join(tempDir, 'output.txt');
+      writeFileSync(secret, 'secret');
+      symlinkSync(secret, targetPath);
+
+      try {
+        await atomicWrite(targetPath, 'hello');
+        expect(readFileSync(secret, 'utf-8')).toBe('secret');
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+
+      expect(lstatSync(targetPath).isSymbolicLink()).toBe(false);
+      expect(readFileSync(targetPath, 'utf-8')).toBe('hello');
     });
 
     it('should overwrite existing file', async () => {
