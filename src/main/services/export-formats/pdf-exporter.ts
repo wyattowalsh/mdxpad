@@ -3,6 +3,7 @@ import { writeRegularFile } from './write-regular-file';
 import { PdfExportPresetOptionsSchema } from '@shared/types/root';
 import { buildPdfDocument } from '../export-document-builders';
 
+import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
@@ -543,7 +544,7 @@ function textPdfPreset(options: ExportOptions) {
 
 async function writeTextPdf(options: ExportOptions): Promise<ExportResult> {
   const parsed = textPdfPreset(options);
-  const built = buildPdfDocument(options.content, parsed);
+  const built = buildPdfDocument(stripLeadingFrontmatter(options.content), parsed);
   await writeRegularFile(options.outputPath, built.content);
   return {
     ok: true,
@@ -580,7 +581,11 @@ export class PdfExporter implements Exporter {
 
     try {
       const title = options.title ?? 'MDXPad Export';
-      const inlined = await inlineLocalImages(options.content, options.sourcePath, 'document');
+      const inlined = await inlineLocalImages(
+        stripLeadingFrontmatter(options.content),
+        options.sourcePath,
+        'document'
+      );
       const content = omitLocalMarkdownTargets(inlined, options.sourcePath);
       const html = contentToHtml(content, title, options.metadata);
 

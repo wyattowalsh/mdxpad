@@ -1,6 +1,7 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
 import { isCurrencySpan } from './currency-span';
+import { stripLeadingFrontmatter } from './frontmatter';
 import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
 import { mathDelimiterAt, mathSpanEnd } from './math-span';
 import { renderableMathTex, repairedMathSpan } from './renderable-math';
@@ -562,5 +563,5 @@ export function prepareMarkdownSource(
   options?: { readonly preserveHtml?: boolean }
 ): string {
   const transform = options?.preserveHtml === true ? prepareProse : preparePlainProse;
-  return mapFencedProse(fenceIndentedCode(content), transform);
+  return mapFencedProse(fenceIndentedCode(stripLeadingFrontmatter(content)), transform);
 }

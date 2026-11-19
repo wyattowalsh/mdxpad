@@ -29,6 +29,7 @@ import {
   normalizedHeadingFragment,
   parseAtxHeading,
 } from '@shared/lib/markdown-heading';
+import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 
@@ -1995,7 +1996,11 @@ export class DocxExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const inlined = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const inlined = await inlineLocalImages(
+        stripLeadingFrontmatter(options.content),
+        options.sourcePath,
+        'data-url'
+      );
       const content = omitLocalMarkdownTargets(inlined, options.sourcePath);
       const paragraphs = docxParagraphs(content, options.metadata);
 

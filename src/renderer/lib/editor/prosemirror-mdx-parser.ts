@@ -36,6 +36,10 @@ import {
 } from './prosemirror-tex-protect';
 import { Fragment, type Node as ProseMirrorNode, type Attrs } from 'prosemirror-model';
 
+import { splitLeadingFrontmatter } from '@shared/lib/frontmatter';
+
+export { splitLeadingFrontmatter };
+
 /**
  * Minimal markdown-it Token interface matching what prosemirror-markdown expects.
  */
@@ -225,7 +229,6 @@ function imageAlt(token: MarkdownToken): string {
   return restoreTexDelimiters(restoreMathMarkup(unescapeMarkdown(raw)));
 }
 
-const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
 const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
 
 function restoreTexDelimiters(value: string): string {
@@ -267,18 +270,6 @@ function restoreFootnoteMarkers(node: ProseMirrorNode): ProseMirrorNode {
   return node.copy(Fragment.fromArray(children));
 }
 const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
-
-export function splitLeadingFrontmatter(content: string): {
-  frontmatter: string;
-  body: string;
-} {
-  const match = LEADING_FRONTMATTER.exec(content);
-  if (match?.index !== 0) {
-    return { frontmatter: '', body: content };
-  }
-  const frontmatter = match[0].endsWith('\n') ? match[0] : `${match[0]}\n`;
-  return { frontmatter, body: content.slice(match[0].length) };
-}
 
 export function extractLinkDefinitions(body: string): string {
   const definitions: string[] = [];

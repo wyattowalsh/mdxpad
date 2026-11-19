@@ -101,6 +101,17 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('leaves YAML metadata out of the exported document', () => {
+    const html = markdownToPdfHtml('---\ntitle: Hello\nauthor: Ada\n---\n\nBody text.\n');
+    expect(html).toContain('Body text.');
+    expect(html).not.toContain('title: Hello');
+    expect(html).not.toContain('author: Ada');
+    expect(html).not.toContain('<h2');
+    const rule = markdownToPdfHtml('---\n\nBody text.\n');
+    expect(rule).toContain('<hr />');
+    expect(rule).toContain('Body text.');
+  });
+
   it('renders emphasis inside a formula that contains a link', () => {
     const html = markdownToPdfHtml('See \\(x **and** [a](https://example.com) y\\).');
     expect(html).toContain('class="katex"');

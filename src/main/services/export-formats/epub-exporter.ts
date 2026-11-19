@@ -1,5 +1,6 @@
 import { writeRegularFile } from './write-regular-file';
 
+import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
@@ -567,7 +568,11 @@ export class EpubExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const inlined = await inlineLocalImages(options.content, options.sourcePath, 'document');
+      const inlined = await inlineLocalImages(
+        stripLeadingFrontmatter(options.content),
+        options.sourcePath,
+        'document'
+      );
       const content = omitLocalMarkdownTargets(inlined, options.sourcePath);
       const split = splitIntoChapters(content);
 

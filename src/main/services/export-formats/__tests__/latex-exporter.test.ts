@@ -24,6 +24,18 @@ describe('LatexExporter', () => {
     expect(exporter.mimeType).toBe('application/x-latex');
   });
 
+  it('leaves YAML metadata out of the document', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '---\ntitle: Hello\nauthor: Ada\n---\n\nBody text.\n',
+      outputPath: '/tmp/frontmatter.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('Body text.');
+    expect(written).not.toContain('title: Hello');
+    expect(written).not.toContain('author: Ada');
+  });
+
   it('keeps a formula after a literal backslash and a rule on a list marker', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

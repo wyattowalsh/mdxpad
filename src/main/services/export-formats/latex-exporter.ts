@@ -12,6 +12,7 @@ import {
   omitTexPictureSyntax,
   texPicturePathUnsafe,
 } from './latex-file-command';
+import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { unescapedDelimiterIndex } from '@shared/lib/math-span';
 import { renderableMathTex } from '@shared/lib/renderable-math';
@@ -1548,7 +1549,11 @@ export class LatexExporter implements Exporter {
       const content = omitTexPictureSyntax(
         sanitizeMarkdownHtmlBlocks(
           omitLocalMarkdownTargets(
-            await inlineLocalImages(options.content, options.sourcePath, 'absolute'),
+            await inlineLocalImages(
+              stripLeadingFrontmatter(options.content),
+              options.sourcePath,
+              'absolute'
+            ),
             options.sourcePath
           )
         )

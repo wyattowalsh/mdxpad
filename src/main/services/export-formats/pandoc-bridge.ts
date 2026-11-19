@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 
+import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { fenceIndentedCode } from '@shared/lib/indented-code';
 import { normalizeTexMath } from '@shared/lib/markdown-math';
 
@@ -133,9 +134,10 @@ export class PandocBridge implements Exporter {
 
       await prepareRegularOutput(options.outputPath);
       const args = buildPandocArgs(this, options);
+      const source = stripLeadingFrontmatter(options.content);
       const rooted = options.sourcePath
-        ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
-        : options.content;
+        ? await inlineLocalImages(source, options.sourcePath, 'resource')
+        : source;
       const prepared = sanitizeMarkdownHtmlBlocks(
         omitLocalMarkdownTargets(normalizeTexMath(fenceIndentedCode(rooted)), options.sourcePath)
       );

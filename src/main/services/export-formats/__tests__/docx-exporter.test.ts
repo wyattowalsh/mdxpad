@@ -452,6 +452,27 @@ describe('DocxExporter', () => {
     );
   });
 
+  it('leaves YAML metadata out of the document', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '---\ntitle: Hello\nauthor: Ada\n---\n\nBody text.\n',
+      outputPath: '/tmp/frontmatter.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); sys.stdout.write(xml)',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Body text.');
+    expect(xml).not.toContain('title: Hello');
+    expect(xml).not.toContain('author: Ada');
+  });
+
   it('exports a simple document successfully', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {
