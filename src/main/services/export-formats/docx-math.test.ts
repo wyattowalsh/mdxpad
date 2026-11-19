@@ -151,6 +151,11 @@ describe('mathComponents', () => {
 
     const fraction = mathComponents('\\frac{a}{b}');
     expect(fraction[0]).toBeInstanceOf(MathFraction);
+    const display = mathComponents('\\dfrac{a}{b}');
+    expect(display).toHaveLength(1);
+    expect(display[0]).toBeInstanceOf(MathFraction);
+    expect(runText(display)).toBe('ab');
+    expect(runText(mathComponents('\\tfrac{1}{2}'))).toBe('12');
 
     const sum = mathComponents('a + b');
     expect(sum[0]).toBeInstanceOf(MathRun);

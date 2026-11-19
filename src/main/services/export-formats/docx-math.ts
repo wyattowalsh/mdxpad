@@ -149,7 +149,7 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (name === 'bmod' || name === 'mod') {
     return readMod(cursor, false);
   }
-  if (name === 'frac') {
+  if (name === 'frac' || name === 'dfrac' || name === 'tfrac' || name === 'cfrac') {
     return [
       new MathFraction({
         numerator: readGroup(cursor),
