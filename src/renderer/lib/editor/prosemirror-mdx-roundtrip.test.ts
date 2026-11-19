@@ -125,6 +125,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(source)).toContain('```\ncode\n```');
   });
 
+  it('keeps spaces at the edge of inline code', () => {
+    const once = roundTrip('`  a  `\n');
+    expect(once).toContain(' a ');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+    const wider = roundTrip('`    code    `\n');
+    expect(roundTrip(wider.endsWith('\n') ? wider : `${wider}\n`)).toBe(wider);
+    expect(roundTrip('`code`\n')).toBe('`code`');
+    expect(roundTrip('` a b `\n')).toBe('`a b`');
+    expect(roundTrip('`   `\n')).toBe('` `');
+  });
+
   it('keeps strikethrough around bold', () => {
     const serialized = roundTrip('~~strike **bold**~~\n');
     expect(serialized).toContain('~~strike **bold**~~');

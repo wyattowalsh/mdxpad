@@ -288,10 +288,12 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
 
   code: {
     open(_state, _mark, parent, index) {
-      return backticksFor(parent.child(index), -1);
+      const node = parent.child(index);
+      return `${backticksFor(node, -1)}${codePadding(node)}`;
     },
     close(_state, _mark, parent, index) {
-      return backticksFor(parent.child(index - 1), 1);
+      const node = parent.child(index - 1);
+      return `${codePadding(node)}${backticksFor(node, 1)}`;
     },
     escape: false,
   },
@@ -443,6 +445,12 @@ function longestBacktickRun(text: string): number {
     return 0;
   }
   return runs.reduce((longest, run) => Math.max(longest, run.length), 0);
+}
+
+function codePadding(node: ProseMirrorNode): string {
+  const text = node.isText ? (node.text ?? '') : '';
+  const edged = text.startsWith(' ') && text.endsWith(' ') && text.trim().length > 0;
+  return edged && !text.includes('`') ? ' ' : '';
 }
 
 function backticksFor(node: ProseMirrorNode, side: number): string {
