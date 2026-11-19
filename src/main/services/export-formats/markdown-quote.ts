@@ -110,12 +110,24 @@ export function quoteSetextLine(lines: readonly string[], line: string): boolean
   return true;
 }
 
+/** Keep a wrapped line inside the current nested quote instead of the outer one. */
+export function storedQuoteLine(lines: readonly string[], line: string): string {
+  const marked = quoteBody(line);
+  const stored = marked === null ? line : quoteMarkerLine(marked);
+  const last = lastQuoteContent(lines);
+  if (!last || stored.trim().length === 0 || quoteBody(last) === null || quoteBody(stored) !== null) {
+    return stored;
+  }
+  return `> ${stored}`;
+}
+
 /** Keep a wrapped line, including a setext underline, inside the open quote. */
 export function takeQuoteContinuation(lines: string[], line: string): boolean {
   if (!quoteSetextLine(lines, line) && !continuesQuote(lines, line)) {
     return false;
   }
-  lines.push(setextLevel(line) === null ? line : quoteMarkerLine(line));
+  const prepared = setextLevel(line) === null ? line : quoteMarkerLine(line);
+  lines.push(storedQuoteLine(lines, prepared));
   return true;
 }
 

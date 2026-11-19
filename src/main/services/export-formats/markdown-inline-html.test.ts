@@ -101,6 +101,21 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a wrapped line inside a nested quote', () => {
+    const innerQuote = (html: string): string => {
+      const start = html.indexOf('<blockquote>', html.indexOf('<blockquote>') + 1);
+      return html.slice(start, html.indexOf('</blockquote>'));
+    };
+    const html = markdownToPdfHtml('> > nested\nstill\n\nafter\n');
+    const inner = innerQuote(html);
+    expect(inner).toContain('nested');
+    expect(inner).toContain('still');
+    expect(html).toContain('<p>after</p>');
+    const marked = innerQuote(markdownToPdfHtml('> > nested\n> still\n'));
+    expect(marked).toContain('nested');
+    expect(marked).toContain('still');
+  });
+
   it('underlines a paragraph inside a list item', () => {
     const html = markdownToPdfHtml('- item\n\n  Title\n  =====\n\n  after\n');
     expect(html).toContain('<h1 id="title">Title</h1>');

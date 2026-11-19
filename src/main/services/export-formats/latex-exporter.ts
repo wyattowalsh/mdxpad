@@ -31,6 +31,7 @@ import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
 import {
   continuesQuote,
+  storedQuoteLine,
   takeQuoteContinuation,
   quoteBody,
   quoteFenceOpen,
@@ -1095,7 +1096,7 @@ function takeLatexQuote(
 ): boolean {
   const body = quoteBody(line);
   if (body !== null) {
-    quoteLines.push(quoteMarkerLine(body));
+    quoteLines.push(storedQuoteLine(quoteLines, line));
     return true;
   }
   if (takeQuoteContinuation(quoteLines, line)) {
