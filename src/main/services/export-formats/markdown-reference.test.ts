@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
+import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+
 import { plainFootnoteMarkers } from './markdown-footnote';
 import { expandLinkReferences } from './markdown-reference';
 
 describe('expandLinkReferences', () => {
+  it('keeps parentheses in an angle reference address', () => {
+    const source = 'See [a][id].\n\n[id]: <https://example.com/a(b)> "Guide"\n';
+    const expanded = expandLinkReferences(prepareMarkdownSource(source, { preserveHtml: true }));
+    expect(expanded).toContain('[a](<https://example.com/a(b)> "Guide")');
+    expect(expanded).not.toContain('[https://example.com/a(b)]');
+  });
+
   it('turns a reference into an inline link and drops the definition', () => {
     const expanded = expandLinkReferences(
       'See [the docs][guide].\n\n[guide]: https://example.com\n'
@@ -84,9 +93,7 @@ describe('expandLinkReferences', () => {
   });
 
   it('turns a footnote into a numbered note', () => {
-    const expanded = plainFootnoteMarkers(
-      expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n')
-    );
+    const expanded = plainFootnoteMarkers(expandLinkReferences('A footnote[^1].\n\n[^1]: Note\n'));
     expect(expanded).toContain('footnote¹.');
     expect(expanded).toContain('1. Note');
     expect(expanded).not.toContain('[^1]');

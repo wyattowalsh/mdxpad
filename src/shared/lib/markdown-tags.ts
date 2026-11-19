@@ -210,20 +210,59 @@ function linkOpenBefore(value: string, index: number): boolean {
   return value[cursor] === '(' && value[cursor - 1] === ']';
 }
 
-/** A link address written as `](<...>)`, which must stay an address. */
+function referenceAngle(value: string, index: number): boolean {
+  let cursor = index - 1;
+  while (cursor >= 0 && (value[cursor] === ' ' || value[cursor] === '\t')) {
+    cursor -= 1;
+  }
+  if (value[cursor] !== ':' || value[cursor - 1] !== ']') {
+    return false;
+  }
+  cursor -= 2;
+  while (cursor >= 0 && value[cursor] !== '[' && value[cursor] !== '\n') {
+    cursor -= 1;
+  }
+  if (value[cursor] !== '[') {
+    return false;
+  }
+  let indent = 0;
+  let probe = cursor - 1;
+  while (probe >= 0 && value[probe] === ' ') {
+    indent += 1;
+    probe -= 1;
+  }
+  return indent <= 3 && (probe < 0 || value[probe] === '\n');
+}
+
+function scanAngleEnd(value: string, index: number): number {
+  let saw = false;
+  for (let cursor = index + 1; cursor < value.length; cursor += 1) {
+    const char = value[cursor] ?? '';
+    if (char === '\\') {
+      saw = true;
+      cursor += 1;
+      continue;
+    }
+    if (char === '\n' || char === '\r' || char === '<') {
+      return -1;
+    }
+    if (char === '>') {
+      return saw ? cursor + 1 : -1;
+    }
+    saw = true;
+  }
+  return -1;
+}
+
+/** A link address written as `](<...>)` or `[id]: <...>`, which must stay an address. */
 export function angleDestinationEnd(value: string, index: number): number {
-  if (value[index] !== '<' || !linkOpenBefore(value, index)) {
+  if (value[index] !== '<') {
     return -1;
   }
-  const end = value.indexOf('>', index + 1);
-  if (end === -1) {
+  if (!linkOpenBefore(value, index) && !referenceAngle(value, index)) {
     return -1;
   }
-  const body = value.slice(index + 1, end);
-  if (body.length === 0 || body.includes('\n') || body.includes('<')) {
-    return -1;
-  }
-  return end + 1;
+  return scanAngleEnd(value, index);
 }
 
 /** Escape `<...>` that is prose, including nested types, and leave real tags in place. */

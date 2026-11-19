@@ -212,6 +212,9 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('[docs](<https://example.com/a\\>b>)')).toBe(
       '<a href="https://example.com/a%3Eb">docs</a>'
     );
+    expect(renderMarkdownInline('[docs](<https://example.com/a\\<b>)')).toBe(
+      '<a href="https://example.com/a%3Cb">docs</a>'
+    );
     expect(renderMarkdownInline('![A photo](photo.jpg "A photo")')).toBe(
       '<img src="photo.jpg" alt="A photo" title="A photo" />'
     );
