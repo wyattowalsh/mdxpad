@@ -11,6 +11,7 @@ import * as React from 'react';
 import {
   isBlockedPreviewHref,
   isBlockedPreviewResource,
+  previewAddressClimbsOut,
   safePreviewSrcSet,
 } from '../preview-href';
 
@@ -166,21 +167,19 @@ export function P({ children, className = '', ...props }: ParagraphProps): React
 }
 
 export function A({ children, href, className = '', ...props }: AnchorProps): React.ReactNode {
-  const blocked = isBlockedPreviewHref(href);
-  const isExternal = isExternalUrl(href);
   const opensDocument = isPreviewDocumentHref(href);
+  const blocked =
+    isBlockedPreviewHref(href) || (previewAddressClimbsOut(href) && !opensDocument);
+  const isExternal = isExternalUrl(href);
 
   return (
     <a
-      {...(blocked ? {} : { href })}
       className={`mdx-a ${className}`.trim()}
-      {...(isExternal &&
-        !opensDocument &&
-        !blocked && {
-          target: '_blank',
-          rel: 'noopener noreferrer',
-        })}
+      {...(isExternal && !opensDocument && !blocked
+        ? { target: '_blank', rel: 'noopener noreferrer' }
+        : {})}
       {...props}
+      {...(blocked ? {} : { href })}
       onClick={(event) => {
         props.onClick?.(event);
         if (blocked) {
@@ -196,6 +195,12 @@ export function A({ children, href, className = '', ...props }: AnchorProps): Re
           return;
         }
         if (!isExternal) {
+          event.preventDefault();
+        }
+      }}
+      onAuxClick={(event) => {
+        props.onAuxClick?.(event);
+        if (!event.defaultPrevented && (blocked || opensDocument || !isExternal)) {
           event.preventDefault();
         }
       }}

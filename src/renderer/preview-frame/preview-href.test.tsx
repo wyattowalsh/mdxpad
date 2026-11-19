@@ -196,8 +196,15 @@ describe('preview navigation elements', () => {
   it('does not let the preview follow a parent file', () => {
     const view = render(<A href="../secret.png">Secret</A>);
     const link = view.getByText('Secret').closest('a');
+    expect(link?.getAttribute('href')).toBeNull();
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     link?.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
+    const aux = new MouseEvent('auxclick', { bubbles: true, cancelable: true });
+    link?.dispatchEvent(aux);
+    expect(aux.defaultPrevented).toBe(true);
+
+    const notes = render(<A href="../notes/a.md">Notes</A>);
+    expect(notes.getByText('Notes').closest('a')?.getAttribute('href')).toBe('../notes/a.md');
   });
 });
