@@ -118,6 +118,36 @@ function safeHrefTarget(target: string): boolean {
   return /^(?:https?:|mailto:)/i.test(trimmed) || trimmed.startsWith('#');
 }
 
+function readBracketGroup(value: string, index: number): number {
+  const start = skipTexSpace(value, index);
+  if (value[start] !== '[') {
+    return index;
+  }
+  let depth = 0;
+  for (let cursor = start; cursor < value.length; cursor += 1) {
+    if (value[cursor] === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (value[cursor] === '[') {
+      depth += 1;
+      continue;
+    }
+    if (value[cursor] !== ']') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return cursor + 1;
+    }
+  }
+  return index;
+}
+
+function hrefTarget(value: string, commandEnd: number): { body: string } | null {
+  return readBraceGroup(value, readBracketGroup(value, commandEnd));
+}
+
 /** Break `\href` and `\url` when the target is a local path. A web address stays a link. */
 function disarmLocalTexLinks(value: string): string {
   let result = '';
@@ -129,7 +159,7 @@ function disarmLocalTexLinks(value: string): string {
       index += 1;
       continue;
     }
-    const target = readBraceGroup(value, index + command[0].length);
+    const target = hrefTarget(value, index + command[0].length);
     if (!target || safeHrefTarget(target.body)) {
       result += command[0];
       index += command[0].length;
