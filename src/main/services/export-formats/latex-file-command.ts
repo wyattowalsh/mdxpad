@@ -20,6 +20,11 @@ const LATEX_FILE_COMMANDS = [
   'pdffiledump',
   'pdffilesize',
   'pdfximage',
+  'pdfmdfivesum',
+  'mdfivesum',
+  'pdfobj',
+  'latelua',
+  'readline',
   'ShellEscape',
   'directlua',
   'luadirect',
@@ -45,8 +50,13 @@ function breakTexCaretEscape(value: string): string {
   return value.replaceAll('^^', '^{}');
 }
 
+function disarmFileContents(value: string): string {
+  return value.replace(/\\(begin|end)\{filecontents\*?\}/g, '\\relax $1{filecontents}');
+}
+
 export function disarmLatexFileRead(value: string): string {
-  return breakTexCaretEscape(value).replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
+  const text = disarmFileContents(breakTexCaretEscape(value));
+  return text.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
 }
 
 function copyCodeSpan(value: string, index: number): { text: string; next: number } | null {

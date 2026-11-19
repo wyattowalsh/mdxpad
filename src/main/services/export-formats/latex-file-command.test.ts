@@ -74,6 +74,32 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\relax IfFileExists');
     expect(next).toContain('\\frac{1}{2}');
   });
+
+  it('turns a pdfTeX file read and a filecontents block inside a formula into text', () => {
+    const source = [
+      '$$',
+      '\\pdfobj file {secret}',
+      '\\mdfivesum file {secret}',
+      '\\begin{filecontents*}{secret.tex}',
+      'hello',
+      '\\end{filecontents*}',
+      '$$',
+      '',
+      '$\\latelua{io.open("secret")}$ and $\\frac{1}{2}$.',
+      '',
+    ].join('\n');
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\pdfobj');
+    expect(next).not.toContain('\\mdfivesum');
+    expect(next).not.toContain('\\latelua');
+    expect(next).not.toContain('\\begin{filecontents');
+    expect(next).not.toContain('\\end{filecontents');
+    expect(next).toContain('\\relax pdfobj');
+    expect(next).toContain('\\relax mdfivesum');
+    expect(next).toContain('\\relax latelua');
+    expect(next).toContain('\\relax begin{filecontents}');
+    expect(next).toContain('\\frac{1}{2}');
+  });
 });
 
 describe('disarmLatexFileRead caret escapes', () => {

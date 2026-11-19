@@ -360,6 +360,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\relax IfFileExists');
   });
 
+  it('does not let a pdfTeX object in a formula read a file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\pdfobj file {secret}\n\\begin{filecontents}{secret.tex}\n\\end{filecontents}\n$$',
+      outputPath: '/tmp/tex-pdfobj.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\pdfobj');
+    expect(written).not.toContain('\\begin{filecontents');
+    expect(written).toContain('\\relax pdfobj');
+    expect(written).toContain('\\relax begin{filecontents}');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
