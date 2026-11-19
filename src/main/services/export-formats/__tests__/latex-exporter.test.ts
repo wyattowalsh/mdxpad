@@ -386,6 +386,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\begin{aligned}');
   });
 
+  it('does not start filecontents when a comment hides the name', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\begin%\n{filecontents}{secret.tex}\nhello\n\\end%\n{filecontents}\n$$',
+      outputPath: '/tmp/tex-filecontents-comment.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\begin%');
+    expect(written).not.toContain('\\end%');
+    expect(written).toContain('\\relax begin{filecontents}');
+    expect(written).toContain('\\relax end{filecontents}');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -51,7 +51,10 @@ function breakTexCaretEscape(value: string): string {
 }
 
 function disarmFileContents(value: string): string {
-  return value.replace(/\\(begin|end)\s*\{filecontents\*?\}/g, '\\relax $1{filecontents}');
+  return value.replace(
+    /\\(begin|end)(?:\s|%[^\n]*(?:\n|$))*\{filecontents\*?\}/g,
+    '\\relax $1{filecontents}'
+  );
 }
 
 export function disarmLatexFileRead(value: string): string {
