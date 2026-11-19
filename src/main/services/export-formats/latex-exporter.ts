@@ -940,12 +940,12 @@ function takeLatexItemMath(build: LatexBuild, line: string): boolean {
   const column = list.column ?? 2;
   if (list.itemMath) {
     if (line.trim() === '$$') {
-      build.output.push('$$', ...list.itemMath, '$$');
+      build.output.push('$$', ...disarmedMathLines(list.itemMath), '$$');
       list.itemMath = null;
       list.sealed = true;
       return true;
     }
-    list.itemMath.push(disarmLatexFileRead(dedentToColumn(line, column)));
+    list.itemMath.push(dedentToColumn(line, column));
     return true;
   }
   if (list.stack.length === 0 || list.column === null || line.trim() !== '$$') {
@@ -1007,6 +1007,7 @@ interface LatexBuild {
   fence: string | null;
   codeLines: string[];
   inDisplayMath: boolean;
+  displayLines: string[];
   tableLines: string[];
   quoteLines: string[];
   listState: ListState;
@@ -1109,6 +1110,26 @@ function takeLatexItemFence(build: LatexBuild, line: string): boolean {
   return true;
 }
 
+function disarmedMathLines(lines: readonly string[]): string[] {
+  if (lines.length === 0) {
+    return [];
+  }
+  return disarmLatexFileRead(lines.join('\n')).split('\n');
+}
+
+function flushDisplayMath(build: LatexBuild): void {
+  build.output.push(...disarmedMathLines(build.displayLines));
+  build.displayLines = [];
+}
+
+function closeOpenDisplayMath(build: LatexBuild): void {
+  if (!build.inDisplayMath) {
+    return;
+  }
+  flushDisplayMath(build);
+  build.output.push('$$');
+}
+
 function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (line.trim() !== '$$' && !build.inDisplayMath) {
     return false;
@@ -1117,6 +1138,9 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
     flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
     flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
+    if (build.inDisplayMath) {
+      flushDisplayMath(build);
+    }
     if (!build.inDisplayMath) {
       resetListState(build.output, build.listState);
     }
@@ -1124,7 +1148,7 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
     build.inDisplayMath = !build.inDisplayMath;
     return true;
   }
-  build.output.push(disarmLatexFileRead(line));
+  build.displayLines.push(line);
   return true;
 }
 
@@ -1206,6 +1230,7 @@ function contentToLatex(content: string): string {
     fence: null,
     codeLines: [],
     inDisplayMath: false,
+    displayLines: [],
     tableLines: [],
     quoteLines: [],
     listState: emptyListState(),
@@ -1218,9 +1243,7 @@ function contentToLatex(content: string): string {
     appendLatexSourceLine(build, line);
   }
 
-  if (build.inDisplayMath) {
-    build.output.push('$$');
-  }
+  closeOpenDisplayMath(build);
   flushLatexProse(build.output, build.prose);
   flushLatexTable(build.output, build.tableLines);
   flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
@@ -1238,7 +1261,7 @@ function contentToLatex(content: string): string {
     build.output.push(...latexVerbatim(build.listState.itemCode));
   }
   if (build.listState.itemMath) {
-    build.output.push('$$', ...build.listState.itemMath, '$$');
+    build.output.push('$$', ...disarmedMathLines(build.listState.itemMath), '$$');
   }
   if (build.listState.itemTable) {
     const table = parseMarkdownTable(build.listState.itemTable);

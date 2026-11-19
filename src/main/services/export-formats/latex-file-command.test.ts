@@ -100,6 +100,17 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\relax begin{filecontents}');
     expect(next).toContain('\\frac{1}{2}');
   });
+
+  it('turns a spaced filecontents block inside a formula into text', () => {
+    const source = '$$\n\\begin {filecontents}{secret.tex}\nhello\n\\end\n{filecontents}\n$$\n\n$$\n\\begin{aligned}\nx\n\\end{aligned}\n$$';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\begin {filecontents}');
+    expect(next).not.toContain('\\end\n{filecontents}');
+    expect(next).toContain('\\relax begin{filecontents}');
+    expect(next).toContain('\\relax end{filecontents}');
+    expect(next).toContain('\\begin{aligned}');
+    expect(next).toContain('\\end{aligned}');
+  });
 });
 
 describe('disarmLatexFileRead caret escapes', () => {
