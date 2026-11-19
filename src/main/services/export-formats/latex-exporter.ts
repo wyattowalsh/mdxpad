@@ -1400,8 +1400,7 @@ function holdQuoteFence(build: LatexBuild, line: string): boolean {
   if (!quoteFenceOpen(build.quoteLines)) {
     return false;
   }
-  const body = quoteBody(line);
-  build.quoteLines.push(body === null ? line : quoteMarkerLine(body));
+  build.quoteLines.push(storedQuoteLine(build.quoteLines, line));
   return true;
 }
 

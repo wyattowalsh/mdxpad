@@ -27,7 +27,6 @@ import {
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
-  quoteMarkerLine,
   quoteToHtml,
 } from './markdown-quote';
 import {
@@ -261,8 +260,7 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     return;
   }
   if (quoteFenceOpen(build.quoteLines)) {
-    const body = quoteBody(line);
-    build.quoteLines.push(body === null ? line : quoteMarkerLine(body));
+    build.quoteLines.push(storedQuoteLine(build.quoteLines, line));
     return;
   }
   const marker = openingFence(line);

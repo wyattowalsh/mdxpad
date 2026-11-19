@@ -136,18 +136,35 @@ export function quoteHoldsDelimiter(lines: readonly string[], line: string): boo
   return continuesQuote(lines, line) && line.trim() === '$$';
 }
 
+function quotedFenceStart(body: string): { marker: string; column: number } | null {
+  const listed = parseListItem(body);
+  const listedFence = listed ? openingFence(listed.text) : null;
+  if (listedFence) {
+    return { marker: listedFence, column: listContentColumn(body) ?? 2 };
+  }
+  const marker = openingFence(body);
+  return marker ? { marker, column: 0 } : null;
+}
+
+function closesQuotedFence(body: string, marker: string, column: number): boolean {
+  return closesFence(body, marker) || closesIndentedFence(body, marker, column);
+}
+
 /** The fence marker still open inside a quote, such as a closer on the next line. */
 export function quoteFenceOpen(lines: readonly string[]): string | null {
   let fence: string | null = null;
+  let column = 0;
   for (const line of lines) {
     const body = quoteBody(line) ?? line;
     if (fence) {
-      if (closesFence(body, fence)) {
+      if (closesQuotedFence(body, fence, column)) {
         fence = null;
       }
       continue;
     }
-    fence = openingFence(body);
+    const opened = quotedFenceStart(body);
+    fence = opened?.marker ?? null;
+    column = opened?.column ?? 0;
   }
   return fence;
 }

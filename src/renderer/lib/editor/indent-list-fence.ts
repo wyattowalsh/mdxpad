@@ -12,6 +12,7 @@ interface OpenListFence {
   readonly marker: string;
   readonly column: number;
   readonly depth: number;
+  readonly prefix: string;
 }
 
 function openingFence(line: string): string | null {
@@ -238,12 +239,11 @@ function indentListFences(content: string): string {
   let listFence: OpenListFence | null = null;
   for (const line of lines) {
     const quoted = splitQuote(line);
-    if (listFence && quoted.depth < listFence.depth) {
-      listFence = null;
-    }
     if (listFence) {
-      const body = fenceBody(quoted.body);
-      output.push(indentBody(quoted.prefix, quoted.body, listFence.column));
+      const restored = quoted.depth < listFence.depth ? `${listFence.prefix}${line}` : line;
+      const kept = splitQuote(restored);
+      const body = fenceBody(kept.body);
+      output.push(indentBody(kept.prefix, kept.body, listFence.column));
       if (closesFence(body, listFence.marker)) {
         listFence = null;
       }
@@ -258,7 +258,12 @@ function indentListFences(content: string): string {
     }
     const opened = listMarkerFence(quoted.body);
     if (opened) {
-      listFence = { marker: opened.marker, column: opened.column, depth: quoted.depth };
+      listFence = {
+        marker: opened.marker,
+        column: opened.column,
+        depth: quoted.depth,
+        prefix: quoted.prefix,
+      };
       output.push(line);
       continue;
     }

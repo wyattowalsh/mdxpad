@@ -30,7 +30,6 @@ import {
   quoteBody,
   quoteFenceOpen,
   quoteHoldsDelimiter,
-  quoteMarkerLine,
   quoteToHtml,
 } from './markdown-quote';
 import {
@@ -312,8 +311,7 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
     return;
   }
   if (quoteFenceOpen(state.quoteLines)) {
-    const body = quoteBody(line);
-    state.quoteLines.push(body === null ? line : quoteMarkerLine(body));
+    state.quoteLines.push(storedQuoteLine(state.quoteLines, line));
     return;
   }
   const marker = openingFence(line);

@@ -101,6 +101,23 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a wrapped list fence inside a quote', () => {
+    const html = markdownToPdfHtml('> - ```\n  code\n  ```\n\n  after\n');
+    expect(html).toContain('<pre><code>');
+    expect(html).toContain('code');
+    expect(html).toContain('<p>after</p>');
+    expect(html).not.toContain('<pre><code> after');
+  });
+
+  it('keeps a wrapped fence inside a nested quote', () => {
+    const html = markdownToPdfHtml('> > ```\ncode\n```\n\nafter\n');
+    const start = html.indexOf('<blockquote>', html.indexOf('<blockquote>') + 1);
+    const inner = html.slice(start, html.indexOf('</blockquote>'));
+    expect(inner).toContain('<pre><code>code</code></pre>');
+    expect(html).toContain('<p>after</p>');
+    expect(html).not.toContain('<p>code</p>');
+  });
+
   it('keeps a wrapped line inside a nested quote', () => {
     const innerQuote = (html: string): string => {
       const start = html.indexOf('<blockquote>', html.indexOf('<blockquote>') + 1);

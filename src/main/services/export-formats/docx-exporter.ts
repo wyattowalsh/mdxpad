@@ -1901,8 +1901,7 @@ function readDocxLine(
   language: { current: string }
 ): string | null {
   if (!fence && quoteFenceOpen(parse.quoteLines)) {
-    const body = quoteBody(line);
-    parse.quoteLines.push(body === null ? line : quoteMarkerLine(body));
+    parse.quoteLines.push(storedQuoteLine(parse.quoteLines, line));
     return fence;
   }
   if (takeDocxItemFence(parse, line)) {
