@@ -65,6 +65,28 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\inputfoo');
   });
 
+  it('turns a changed escape character inside a formula into text', () => {
+    const source = [
+      '$$',
+      '\\catcode`|=0',
+      '|input{secret.tex}',
+      '\\lowercase{\\lccode`|=`\\\\}',
+      '\\scantokens{x}',
+      '$$',
+      '',
+      '$\\frac{1}{2}$.',
+      '',
+    ].join('\n');
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\catcode');
+    expect(next).not.toContain('\\lowercase');
+    expect(next).not.toContain('\\lccode');
+    expect(next).not.toContain('\\scantokens');
+    expect(next).toContain('\\relax catcode');
+    expect(next).toContain('|input{secret.tex}');
+    expect(next).toContain('\\frac{1}{2}');
+  });
+
   it('turns an internal input and a file probe inside a formula into text', () => {
     const source = '$$\n\\makeatletter\n\\@input{secret}\n$$\n\n$\\IfFileExists{secret.tex}{yes}{no}$ and $\\frac{1}{2}$.\n';
     const next = disarmFileReadsInMath(source);

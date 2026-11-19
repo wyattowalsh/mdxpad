@@ -347,6 +347,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\frac{1}{2}');
   });
 
+  it('does not let a changed escape character in a formula read a file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\catcode`|=0\n|input{secret.tex}\n$$\n\n$\\frac{1}{2}$',
+      outputPath: '/tmp/tex-catcode.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\catcode');
+    expect(written).toContain('\\relax catcode');
+    expect(written).toContain('|input{secret.tex}');
+    expect(written).toContain('\\frac{1}{2}');
+  });
+
   it('does not let an internal input in a formula read a file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -1,6 +1,7 @@
 /**
- * A TeX command that reads a file when the exported document is compiled.
- * Math is copied into LaTeX as-is, so these commands are turned into text.
+ * A TeX command that reads a file, or changes how the next line is read,
+ * when the exported document is compiled. Math is copied into LaTeX as-is,
+ * so these commands are turned into text.
  */
 
 import { mapFencedProse } from '@shared/lib/markdown-math';
@@ -36,6 +37,15 @@ const LATEX_FILE_COMMANDS = [
   'include',
   'special',
   'csname',
+  'scantokens',
+  'endlinechar',
+  'newlinechar',
+  'lowercase',
+  'uppercase',
+  'kcatcode',
+  'catcode',
+  'lccode',
+  'uccode',
   'input',
   'write',
   'read',
