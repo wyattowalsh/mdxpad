@@ -97,6 +97,19 @@ describe('EpubExporter', () => {
     expect(contentArg[0]?.content).not.toContain('Keep ### b #');
   });
 
+  it('keeps a heading inside a fence in the same chapter', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content: '# Intro\n\n```\n## not a heading\nconst x = 1\n```\n\nAfter\n',
+      outputPath: '/tmp/fence-heading.epub',
+    });
+    const createFn = epubGen.default as ReturnType<typeof vi.fn>;
+    const contentArg = createFn.mock.calls[0]?.[1] as { title: string; content: string }[];
+    expect(contentArg.map((chapter) => chapter.title)).toEqual(['Intro']);
+    expect(contentArg[0]?.content).toContain('not a heading');
+    expect(contentArg[0]?.content).toContain('After');
+  });
+
   it('creates an introduction chapter for content before first heading', async () => {
     const epubGen = await import('epub-gen-memory');
     const options: ExportOptions = {

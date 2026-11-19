@@ -330,7 +330,7 @@ describe('PandocRawExporter', () => {
         to: '../html',
         from: 'markdown',
         timeoutMs: 1000,
-        extraArgs: ['--toc', '--output', '/tmp/secret'],
+        extraArgs: ['--toc', '--toc-depth', '2', '--tab-stop=4', '--output', '/tmp/secret'],
       },
     });
 
@@ -338,6 +338,9 @@ describe('PandocRawExporter', () => {
     const args = mockExecFile.mock.calls[0]?.[1] as string[];
     const options = mockExecFile.mock.calls[0]?.[2] as { timeout?: number };
     expect(args).toContain('--toc');
+    expect(args).toContain('--toc-depth');
+    expect(args[args.indexOf('--toc-depth') + 1]).toBe('2');
+    expect(args).toContain('--tab-stop=4');
     expect(args).toContain('--to');
     expect(args[args.indexOf('--to') + 1]).toBe('html');
     expect(args).not.toContain('/tmp/secret');

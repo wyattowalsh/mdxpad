@@ -89,8 +89,6 @@ interface SnapshotFile {
  * ```
  */
 export class VersionHistoryService {
-  private historyDirPath: string | null = null;
-
   constructor(private readonly canWrite: (filePath: string) => boolean = () => false) {}
 
   /**
@@ -424,16 +422,9 @@ export class VersionHistoryService {
    * Get the history directory path, creating it if necessary.
    */
   private async getHistoryDir(): Promise<string> {
-    if (this.historyDirPath !== null) {
-      return this.historyDirPath;
-    }
-
     const userData = app.getPath('userData');
     const historyDir = path.join(userData, HISTORY_DIR_NAME);
-
     await ensureRealDirectory(historyDir);
-
-    this.historyDirPath = historyDir;
     return historyDir;
   }
 }

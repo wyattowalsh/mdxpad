@@ -155,7 +155,6 @@ async function atomicWriteWithLock(targetPath: string, content: string): Promise
  */
 export class AutosaveService {
   private readonly settingsService: AutosaveSettingsService;
-  private recoveryDirPath: string | null = null;
   private saveTails = new Map<string, Promise<void>>();
   private diskSpaceCache: { available: boolean; timestamp: number } | null = null;
   private manifestQueue: Promise<unknown> = Promise.resolve();
@@ -271,16 +270,9 @@ export class AutosaveService {
    * ```
    */
   async getRecoveryDir(): Promise<string> {
-    if (this.recoveryDirPath !== null) {
-      return this.recoveryDirPath;
-    }
-
     const userData = app.getPath('userData');
     const recoveryDir = path.join(userData, RECOVERY_DIR_NAME);
-
     await ensureRealDirectory(recoveryDir);
-
-    this.recoveryDirPath = recoveryDir;
     return recoveryDir;
   }
 

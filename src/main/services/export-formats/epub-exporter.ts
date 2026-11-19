@@ -15,7 +15,7 @@ import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
 import { sanitizeExportedHtml } from './markdown-export-address';
 import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
-import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
+import { advanceFence, closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { htmlFootnoteMarkers } from './markdown-footnote';
@@ -72,9 +72,13 @@ function splitExpandedChapters(content: string): {
   let currentTitle = 'Introduction';
   let currentSlug: string | null = null;
   let currentLines: string[] = [];
+  let fence: string | null = null;
 
   for (const line of lines) {
-    const heading = parseAtxHeading(line);
+    const nextFence = advanceFence(line, fence);
+    const fenced = fence !== null || nextFence !== null;
+    const heading = fenced ? null : parseAtxHeading(line);
+    fence = nextFence;
     if (heading && heading.depth <= 2) {
       // Save previous chapter if it has content
       if (currentLines.length > 0 || chapters.length === 0) {

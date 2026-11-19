@@ -367,6 +367,17 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('Title \\#');
   });
 
+  it('keeps a formula inside a code span as code', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Use `$x$` here.',
+      outputPath: '/tmp/code-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\texttt{\\$x\\$}');
+    expect(written).not.toContain('\\texttt{$x$}');
+  });
+
   it('keeps a tilde fence as verbatim', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

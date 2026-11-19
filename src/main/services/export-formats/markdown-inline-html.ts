@@ -228,27 +228,58 @@ function renderTarget(target: MarkdownTarget): string {
   return target.image ? renderImageTarget(target) : renderLinkTarget(target);
 }
 
+interface PlainSpan {
+  readonly start: number;
+  readonly end: number;
+  readonly html: string;
+}
+
+function findMathSpan(raw: string, from: number): PlainSpan | null {
+  for (let index = from; index < raw.length; index += 1) {
+    const delimiter = raw.startsWith('$$', index) ? '$$' : raw[index] === '$' ? '$' : null;
+    const end = delimiter === null ? -1 : takeMath(raw, index, delimiter);
+    if (delimiter === null || end === -1) {
+      continue;
+    }
+    const interior = raw.slice(index + delimiter.length, end - delimiter.length);
+    return { start: index, end, html: renderKatex(interior, delimiter === '$$') };
+  }
+  return null;
+}
+
+function nextPlainSpan(raw: string, cursor: number): PlainSpan | null {
+  const spans: PlainSpan[] = [];
+  const code = findCodeSpan(raw, cursor);
+  const math = findMathSpan(raw, cursor);
+  const target = findMarkdownTarget(raw, cursor);
+  if (code) {
+    spans.push({
+      start: code.start,
+      end: code.end,
+      html: `<code>${escapeHtml(code.text)}</code>`,
+    });
+  }
+  if (math) {
+    spans.push(math);
+  }
+  if (target && target.start < raw.length) {
+    spans.push({ start: target.start, end: target.end, html: renderTarget(target) });
+  }
+  spans.sort((left, right) => left.start - right.start);
+  return spans[0] ?? null;
+}
+
 function renderPlain(raw: string): string {
   let result = '';
   let cursor = 0;
   while (cursor < raw.length) {
-    const target = findMarkdownTarget(raw, cursor);
-    const code = findCodeSpan(raw, cursor);
-    const targetAt = target?.start ?? raw.length;
-    const codeAt = code?.start ?? raw.length;
-    if (code && codeAt <= targetAt) {
-      result += escapeText(raw.slice(cursor, code.start));
-      result += `<code>${escapeHtml(code.text)}</code>`;
-      cursor = code.end;
-      continue;
+    const span = nextPlainSpan(raw, cursor);
+    if (!span) {
+      return result + escapeText(raw.slice(cursor));
     }
-    if (target && target.start < raw.length) {
-      result += escapeText(raw.slice(cursor, target.start));
-      result += renderTarget(target);
-      cursor = target.end;
-      continue;
-    }
-    return result + escapeText(raw.slice(cursor));
+    result += escapeText(raw.slice(cursor, span.start));
+    result += span.html;
+    cursor = span.end;
   }
   return result;
 }
@@ -316,40 +347,9 @@ function renderText(value: string): string {
   );
 }
 
-function appendMath(
-  html: string,
-  raw: string,
-  start: number,
-  end: number,
-  display: boolean
-): string {
-  const interior = raw.slice(start + (display ? 2 : 1), end - (display ? 2 : 1));
-  return html + renderKatex(interior, display);
-}
-
 /** Escape text, then apply emphasis, code, links, and formulas. Prices stay text. */
 export function renderMarkdownInline(value: string): string {
-  let html = '';
-  let index = 0;
-  let textStart = 0;
-  while (index < value.length) {
-    if (value[index] === '`') {
-      const span = readCodeSpan(value, index);
-      index = span ? span.end : index + 1;
-      continue;
-    }
-    const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : null;
-    const end = delimiter === null ? -1 : takeMath(value, index, delimiter);
-    if (delimiter !== null && end !== -1) {
-      html += renderText(value.slice(textStart, index));
-      html = appendMath(html, value, index, end, delimiter === '$$');
-      index = end;
-      textStart = index;
-      continue;
-    }
-    index += 1;
-  }
-  return html + renderText(value.slice(textStart));
+  return renderText(value);
 }
 
 export function renderDisplayMathBlock(lines: readonly string[]): string {

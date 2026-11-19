@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
 
+import { normalizeTexMath } from '@shared/lib/markdown-math';
+
 import { inlineLocalImages } from './export-image';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
@@ -133,7 +135,7 @@ export class PandocBridge implements Exporter {
         ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
         : options.content;
       const content = sanitizeMarkdownHtmlBlocks(
-        omitLocalMarkdownTargets(rooted, options.sourcePath)
+        omitLocalMarkdownTargets(normalizeTexMath(rooted), options.sourcePath)
       );
       const { stderr } = await runPandoc(detection.path, args, content, this.timeoutMs);
 
@@ -151,6 +153,7 @@ export class PandocBridge implements Exporter {
 
 const PANDOC_FORMAT = /^[A-Za-z0-9][A-Za-z0-9_+-]*$/;
 const PANDOC_FLAG = /^--?[A-Za-z][A-Za-z0-9-]*$/;
+const PANDOC_INTEGER = /^-?\d+$/;
 const BLOCKED_PANDOC_ARGS = new Set([
   '-o',
   '--output',
@@ -171,14 +174,50 @@ function pandocFormat(value: unknown, fallback: string): string {
   return typeof value === 'string' && PANDOC_FORMAT.test(value) ? value : fallback;
 }
 
-function pandocExtraArgs(value: unknown): string[] {
+function pandocFlagName(item: string): string {
+  const equals = item.indexOf('=');
+  return equals === -1 ? item : item.slice(0, equals);
+}
+
+function allowedPandocFlag(item: string): boolean {
+  const name = pandocFlagName(item);
+  if (BLOCKED_PANDOC_ARGS.has(name) || BLOCKED_PANDOC_ARGS.has(item)) {
+    return false;
+  }
+  return (
+    PANDOC_FLAG.test(name) && (item === name || PANDOC_INTEGER.test(item.slice(name.length + 1)))
+  );
+}
+
+function stringEntries(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter(
-    (item): item is string =>
-      typeof item === 'string' && PANDOC_FLAG.test(item) && !BLOCKED_PANDOC_ARGS.has(item)
-  );
+  const items: string[] = [];
+  for (const item of value as readonly unknown[]) {
+    if (typeof item === 'string') {
+      items.push(item);
+    }
+  }
+  return items;
+}
+
+function pandocExtraArgs(value: unknown): string[] {
+  const source = stringEntries(value);
+  const args: string[] = [];
+  for (let index = 0; index < source.length; index += 1) {
+    const item = source[index] ?? '';
+    if (!allowedPandocFlag(item)) {
+      continue;
+    }
+    args.push(item);
+    const next = source[index + 1];
+    if (!item.includes('=') && next !== undefined && PANDOC_INTEGER.test(next)) {
+      args.push(next);
+      index += 1;
+    }
+  }
+  return args;
 }
 
 function pandocTimeout(value: unknown): number {

@@ -16,7 +16,7 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
 import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
-import { findCodeSpan, protectEscapes, restoreEscapes } from './markdown-escape';
+import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
 import { renderEmphasis } from './markdown-emphasis';
 import { decodeHtmlEntities } from './markdown-entity';
 import { safeLinkAddress } from './markdown-export-address';
@@ -110,16 +110,15 @@ function protectMath(raw: string): { text: string; slots: string[] } {
   const slots: string[] = [];
   let text = '';
   let index = 0;
-  let inCode = false;
   while (index < raw.length) {
     if (raw[index] === '`') {
-      inCode = !inCode;
-      text += '`';
-      index += 1;
+      const span = readCodeSpan(raw, index);
+      const end = span ? span.end : index + 1;
+      text += raw.slice(index, end);
+      index = end;
       continue;
     }
-    const delimiter =
-      !inCode && raw.startsWith('$$', index) ? '$$' : !inCode && raw[index] === '$' ? '$' : null;
+    const delimiter = raw.startsWith('$$', index) ? '$$' : raw[index] === '$' ? '$' : null;
     const end = delimiter === null ? -1 : takeMath(raw, index, delimiter);
     if (delimiter !== null && end !== -1) {
       slots.push(raw.slice(index, end));
@@ -1148,9 +1147,9 @@ function contentToLatex(content: string): string {
     slugCounts: new Map<string, number>(),
   };
 
-  for (const line of plainFootnoteMarkers(expandLinkReferences(prepareMarkdownSource(content))).split(
-    '\n'
-  )) {
+  for (const line of plainFootnoteMarkers(
+    expandLinkReferences(prepareMarkdownSource(content))
+  ).split('\n')) {
     appendLatexSourceLine(build, line);
   }
 

@@ -6,6 +6,7 @@
  */
 
 import { net, protocol } from 'electron';
+import { lstatSync, realpathSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -24,7 +25,7 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-function resolveRequestPath(requestUrl: string, rendererRoot: string): string | null {
+export function previewFrameAssetPath(requestUrl: string, rendererRoot: string): string | null {
   let pathFromRequest: string;
 
   try {
@@ -41,16 +42,29 @@ function resolveRequestPath(requestUrl: string, rendererRoot: string): string | 
   const normalizedRoot = resolve(rendererRoot);
   const resolvedPath = resolve(normalizedRoot, pathFromRequest);
 
-  if (resolvedPath === normalizedRoot || resolvedPath.startsWith(`${normalizedRoot}${sep}`)) {
-    return resolvedPath;
+  if (resolvedPath !== normalizedRoot && !resolvedPath.startsWith(`${normalizedRoot}${sep}`)) {
+    return null;
   }
+  return fileInsideRoot(resolvedPath, normalizedRoot) ? resolvedPath : null;
+}
 
-  return null;
+function fileInsideRoot(filePath: string, rendererRoot: string): boolean {
+  try {
+    const info = lstatSync(filePath);
+    if (info.isSymbolicLink() || !info.isFile()) {
+      return false;
+    }
+    const realRoot = realpathSync(rendererRoot);
+    const realFile = realpathSync(filePath);
+    return realFile === realRoot || realFile.startsWith(`${realRoot}${sep}`);
+  } catch {
+    return false;
+  }
 }
 
 export function registerPreviewFrameProtocol(rendererRoot: string): void {
   protocol.handle(PREVIEW_FRAME_SCHEME, (request) => {
-    const resolvedPath = resolveRequestPath(request.url, rendererRoot);
+    const resolvedPath = previewFrameAssetPath(request.url, rendererRoot);
     if (resolvedPath === null) {
       return new Response('Not found', { status: 404 });
     }

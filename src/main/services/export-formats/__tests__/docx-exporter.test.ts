@@ -27,6 +27,27 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps a formula inside bold text', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '**See $x^2$ now**',
+      outputPath: '/tmp/bold-math.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('<m:oMath>');
+    expect(xml).toContain('<w:b/>');
+    expect(xml).not.toContain('**');
+  });
+
   it('keeps a hard break inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
@@ -120,7 +141,9 @@ describe('DocxExporter', () => {
       { text: 'use snake_case_name here' },
     ]);
     expect(parseInlineFormatting('~~gone~~')).toEqual([{ text: 'gone', strike: true }]);
-    expect(parseInlineFormatting('~~`code`~~')).toEqual([{ text: 'code', code: true, strike: true }]);
+    expect(parseInlineFormatting('~~`code`~~')).toEqual([
+      { text: 'code', code: true, strike: true },
+    ]);
     expect(parseInlineFormatting('`~~not~~`')).toEqual([{ text: '~~not~~', code: true }]);
     expect(parseInlineFormatting('***both***')).toEqual([
       { text: 'both', bold: true, italic: true },

@@ -14,6 +14,7 @@ describe('splitDocxPieces', () => {
       { kind: 'text', text: 'Compare ' },
       { kind: 'math', tex: 'n and m' },
     ]);
+    expect(splitDocxPieces('`$x$`')).toEqual([{ kind: 'text', text: '`$x$`' }]);
   });
 });
 

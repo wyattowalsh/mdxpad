@@ -9,6 +9,8 @@ import {
 
 import { isCurrencySpan } from '@shared/lib/currency-span';
 
+import { readCodeSpan } from './markdown-escape';
+
 interface Cursor {
   source: string;
   index: number;
@@ -47,19 +49,13 @@ export function splitDocxPieces(value: string): DocxPiece[] {
   const pieces: DocxPiece[] = [];
   let index = 0;
   let textStart = 0;
-  let inCode = false;
   while (index < value.length) {
     if (value[index] === '`') {
-      inCode = !inCode;
-      index += 1;
+      const span = readCodeSpan(value, index);
+      index = span ? span.end : index + 1;
       continue;
     }
-    const delimiter =
-      !inCode && value.startsWith('$$', index)
-        ? '$$'
-        : !inCode && value[index] === '$'
-          ? '$'
-          : null;
+    const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : null;
     const end = delimiter === null ? -1 : takeMath(value, index, delimiter);
     if (delimiter !== null && end !== -1) {
       if (index > textStart) {

@@ -125,6 +125,15 @@ describe('renderMarkdownInline', () => {
     expect(formula).toContain('<math');
     expect(formula).toContain('$5 and $10');
     expect(formula).not.toContain('$x^2$');
+    const bold = renderMarkdownInline('**$x^2$**');
+    expect(bold).toContain('<strong>');
+    expect(bold).toContain('<math');
+    expect(bold).not.toContain('**');
+    const linked = renderMarkdownInline('[$x^2$](https://example.com)');
+    expect(linked).toContain('<a href="https://example.com">');
+    expect(linked).toContain('<math');
+    expect(linked).not.toContain('](https://example.com)');
+    expect(renderMarkdownInline('`$x$`')).toBe('<code>$x$</code>');
     const words = renderMarkdownInline('Compare $n and m$');
     expect(words).toContain('<math');
     expect(words).not.toContain('$n and m$');

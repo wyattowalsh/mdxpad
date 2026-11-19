@@ -28,6 +28,14 @@ describe('WYSIWYG markdown round trip', () => {
     const serialized = roundTrip('$$\n\\frac{1}{2}\n$$\n');
     expect(serialized).toContain('\\frac{1}{2}');
     expect(serialized).not.toContain('\\\\frac');
+    const bracketed = roundTrip('\\[\n\\frac{1}{2}\n\\]\n');
+    expect(bracketed).toContain('\\frac{1}{2}');
+    expect(bracketed).not.toContain('\\\\frac');
+  });
+
+  it('keeps a nested fence long enough to stay one block', () => {
+    const source = '````\n```\ncode\n```\n````\n';
+    expect(roundTrip(source)).toContain('```\ncode\n```');
   });
 
   it('keeps strikethrough around bold', () => {

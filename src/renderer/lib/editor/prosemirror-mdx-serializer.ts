@@ -128,10 +128,11 @@ const nodeSerializers: NodeSerializerMap = {
       state.closeBlock(node);
       return;
     }
-    state.write(`\`\`\`${language}\n`);
+    const marker = '`'.repeat(Math.max(3, longestBacktickRun(text) + 1));
+    state.write(`${marker}${language}\n`);
     state.text(text, false);
     state.write('\n');
-    state.write('```');
+    state.write(marker);
     state.closeBlock(node);
   },
 
@@ -187,7 +188,10 @@ const nodeSerializers: NodeSerializerMap = {
       !startsFootnoteDefinition(next);
     const indent = footnote ? '    ' : '';
     state.write(node.attrs.hard === false ? `\n${indent}` : `\\\n${indent}`);
-    const carrier = state as MarkdownSerializerState & { mathCloser?: string | null; mathBreak?: boolean };
+    const carrier = state as MarkdownSerializerState & {
+      mathCloser?: string | null;
+      mathBreak?: boolean;
+    };
     carrier.mathBreak = Boolean(carrier.mathCloser);
   },
 
@@ -213,6 +217,7 @@ const nodeSerializers: NodeSerializerMap = {
     }
     if (/^\\[[\]()]$/.test(text)) {
       state.text(text, false);
+      writer.mathCloser = text === '\\[' ? '\\]' : text === '\\(' ? '\\)' : null;
       return;
     }
     writer.emphasisOpen = emphasisOpen(node.marks);
@@ -416,6 +421,14 @@ function writeTextPreservingMath(state: MarkdownSerializerState, value: string):
     cursor = closeEnd;
   }
   writer.mathCloser = closer;
+}
+
+function longestBacktickRun(text: string): number {
+  const runs = text.match(/`+/g);
+  if (!runs) {
+    return 0;
+  }
+  return runs.reduce((longest, run) => Math.max(longest, run.length), 0);
 }
 
 function backticksFor(node: ProseMirrorNode, side: number): string {

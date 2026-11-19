@@ -208,12 +208,36 @@ describe('AutosaveService', () => {
       expect(mockMkdir).toHaveBeenCalledWith('/mock/user/data/recovery', { recursive: true });
     });
 
-    it('should cache recovery directory path after first call', async () => {
+    it('does not create a recovery directory that is already real', async () => {
+      mockLstat.mockResolvedValue({
+        isSymbolicLink: () => false,
+        isFile: () => false,
+        isDirectory: () => true,
+      });
+
       await service.getRecoveryDir();
       await service.getRecoveryDir();
 
-      // mkdir should only be called once
-      expect(mockMkdir).toHaveBeenCalledTimes(1);
+      expect(mockMkdir).not.toHaveBeenCalled();
+    });
+
+    it('replaces a recovery directory that becomes a link', async () => {
+      mockLstat.mockResolvedValueOnce({
+        isSymbolicLink: () => false,
+        isFile: () => false,
+        isDirectory: () => true,
+      });
+      await service.getRecoveryDir();
+      mockLstat.mockResolvedValueOnce({
+        isSymbolicLink: () => true,
+        isFile: () => false,
+        isDirectory: () => false,
+      });
+
+      await service.getRecoveryDir();
+
+      expect(mockUnlink).toHaveBeenCalledWith('/mock/user/data/recovery');
+      expect(mockMkdir).toHaveBeenCalledWith('/mock/user/data/recovery', { recursive: true });
     });
   });
 

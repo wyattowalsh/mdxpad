@@ -101,7 +101,6 @@ const MAX_RECOVERY_PATH_LENGTH = 4_096;
 export class RecoveryService {
   private readonly settingsService: AutosaveSettingsService;
   private readonly autosaveService: AutosaveService | null;
-  private recoveryDirPath: string | null = null;
   private cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -638,36 +637,10 @@ export class RecoveryService {
    * @returns Promise resolving to the absolute path of the recovery directory
    */
   private async getRecoveryDirPath(): Promise<string> {
-    if (this.recoveryDirPath !== null) {
-      return this.recoveryDirPath;
-    }
-
     const userData = app.getPath('userData');
     const recoveryDir = path.join(userData, RECOVERY_DIR_NAME);
-
     await ensureRealDirectory(recoveryDir);
-
-    this.recoveryDirPath = recoveryDir;
     return recoveryDir;
-  }
-
-  /**
-   * Gets the full path to the recovery directory (sync, may not exist).
-   *
-   * @returns The recovery directory path
-   */
-  private getRecoveryDir(): string {
-    return path.join(app.getPath('userData'), RECOVERY_DIR_NAME);
-  }
-
-  /**
-   * Gets the full path to a recovery file.
-   *
-   * @param documentId - The document ID
-   * @returns The full path to the recovery file
-   */
-  private getRecoveryFilePath(documentId: DocumentId): string {
-    return path.join(this.getRecoveryDir(), `${documentId}.json`);
   }
 
   /**
@@ -717,7 +690,7 @@ export class RecoveryService {
    */
   private async readRecoveryFile(documentId: DocumentId): Promise<RecoveryFile | null> {
     try {
-      const filePath = this.getRecoveryFilePath(documentId);
+      const filePath = path.join(await this.getRecoveryDirPath(), `${documentId}.json`);
       const fileInfo = await this.regularFileInfo(filePath);
       if (!fileInfo) {
         return null;

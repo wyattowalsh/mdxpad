@@ -239,29 +239,65 @@ function closeStrike(segments: InlineSegment[]): InlineSegment[] {
   return result;
 }
 
+function linkedDocxChildren(
+  raw: string,
+  children: readonly (TextRun | Math)[]
+): (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] {
+  const nodes = [...children];
+  const anchor = headingAnchor(decodeHtmlEntities(raw));
+  if (anchor) {
+    return [new InternalHyperlink({ children: nodes, anchor })];
+  }
+  const target = docxExternalTarget(raw);
+  return target === null ? nodes : [new ExternalHyperlink({ children: nodes, link: target })];
+}
+
+function segmentText(segment: InlineSegment, text: string): InlineSegment {
+  return {
+    text,
+    ...(segment.bold === undefined ? {} : { bold: segment.bold }),
+    ...(segment.italic === undefined ? {} : { italic: segment.italic }),
+    ...(segment.code === undefined ? {} : { code: segment.code }),
+    ...(segment.image === undefined ? {} : { image: segment.image }),
+    ...(segment.title === undefined ? {} : { title: segment.title }),
+    ...(segment.strike === undefined ? {} : { strike: segment.strike }),
+  };
+}
+
+function segmentRuns(
+  segment: InlineSegment
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
+  if (segment.code || segment.image) {
+    return createTextRuns([segment]);
+  }
+  const pieces = splitDocxPieces(segment.text);
+  if (!pieces.some((piece) => piece.kind === 'math')) {
+    return createTextRuns([segment]);
+  }
+  const inner = pieces.flatMap((piece) =>
+    piece.kind === 'math'
+      ? [new Math({ children: mathComponents(piece.tex) })]
+      : createTextRuns([segmentText(segment, piece.text)])
+  );
+  return segment.link ? linkedDocxChildren(segment.link, inner) : inner;
+}
+
 function createParagraphChildren(
   text: string
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
-  const children: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] = [];
-  for (const piece of splitDocxPieces(text)) {
-    if (piece.kind === 'math') {
-      children.push(new Math({ children: mathComponents(piece.tex) }));
-      continue;
+  const escaped = protectEscapes(text);
+  const protectedLinks = protectAutolinks(escaped.text);
+  const segments = parseInlineFormatting(protectedLinks.text).flatMap((segment) => {
+    if (segment.code || segment.link || segment.image) {
+      return [segment];
     }
-    const escaped = protectEscapes(piece.text);
-    const protectedLinks = protectAutolinks(escaped.text);
-    const segments = parseInlineFormatting(protectedLinks.text).flatMap((segment) => {
-      if (segment.code || segment.link || segment.image) {
-        return [segment];
-      }
-      return expandAutolinkText(segment.text, protectedLinks.links).map((part) => ({
-        ...segment,
-        text: restoreEscapes(part.text, escaped.chars, (char) => char),
-        ...(part.href ? { link: part.href } : {}),
-      }));
-    });
-    children.push(...createTextRuns(segments));
-  }
+    return expandAutolinkText(segment.text, protectedLinks.links).map((part) => ({
+      ...segment,
+      text: restoreEscapes(part.text, escaped.chars, (char) => char),
+      ...(part.href ? { link: part.href } : {}),
+    }));
+  });
+  const children = segments.flatMap((segment) => segmentRuns(segment));
   return children.length > 0 ? children : [new TextRun('')];
 }
 
@@ -1387,9 +1423,9 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   const codeLines: string[] = [];
   const language = { current: '' };
 
-  for (const line of plainFootnoteMarkers(expandLinkReferences(prepareMarkdownSource(content))).split(
-    '\n'
-  )) {
+  for (const line of plainFootnoteMarkers(
+    expandLinkReferences(prepareMarkdownSource(content))
+  ).split('\n')) {
     fence = readDocxLine(parse, line, fence, codeLines, language);
   }
 
