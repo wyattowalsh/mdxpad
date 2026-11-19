@@ -69,6 +69,26 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('$x^2$');
   });
 
+  it('keeps a paragraph after a nested list indented', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- alpha\n  - nested\n\n  beta\n\n  gamma\n',
+      outputPath: '/tmp/nested-paragraph.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); paras=xml.split("<w:p>");\nfor p in paras[1:]:\n t="".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p));\n print(("IND" if "w:ind" in p else "NO") + " " + t.strip())',
+      ],
+      { input: buffer }
+    );
+    const lines = extracted.stdout.toString().trim().split('\n');
+    expect(lines).toContain('IND beta');
+    expect(lines).toContain('IND gamma');
+  });
+
   it('keeps a display formula that contains a link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

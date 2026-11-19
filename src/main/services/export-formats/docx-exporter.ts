@@ -1669,7 +1669,13 @@ function appendDocxTail(
   if (parse.tailOpen) {
     parse.blocks.pop();
   }
-  parse.blocks.push(new Paragraph({ children: createParagraphChildren(text) }));
+  const level = parse.listStack[parse.listStack.length - 1]?.level ?? openListItem.level;
+  parse.blocks.push(
+    new Paragraph({
+      indent: { left: 720 * (level + 1) },
+      children: createParagraphChildren(text),
+    })
+  );
   parse.tailText = text;
   parse.tailHard = source.hardBreak;
   parse.tailOpen = true;
