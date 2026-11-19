@@ -100,6 +100,19 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('does not let a later dollar close a price or a code span', () => {
+    const price = renderMarkdownInline('Price $5 and [link](https://example.com/$10).');
+    expect(price).toContain('href="https://example.com/$10"');
+    expect(price).toContain('>link</a>');
+    expect(price).not.toContain('katex');
+    const coded = renderMarkdownInline('Before $ and `code $ inside` then $x$.');
+    expect(coded).toContain('<code>code $ inside</code>');
+    expect(coded).toContain('annotation encoding="application/x-tex">x</annotation>');
+    const labeled = renderMarkdownInline('See $x and [link $](https://example.com).');
+    expect(labeled).toContain('href="https://example.com"');
+    expect(labeled).toContain('>link $</a>');
+  });
+
   it('renders an image instead of a link with a stray exclamation mark', () => {
     expect(renderMarkdownInline('![A photo](photo.jpg)')).toBe(
       '<img src="photo.jpg" alt="A photo" />'

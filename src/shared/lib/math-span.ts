@@ -39,8 +39,56 @@ export function unescapedDelimiterIndex(raw: string, from: number, delimiter: st
   return -1;
 }
 
+function fenceBlocksMath(raw: string, index: number): boolean {
+  if (raw[index] !== '`') {
+    return false;
+  }
+  let ticks = 0;
+  while (raw[index + ticks] === '`') {
+    ticks += 1;
+  }
+  return raw.includes('`'.repeat(ticks), index + ticks);
+}
+
+function linkBlocksMath(raw: string, index: number): boolean {
+  const open = raw[index] === '!' && raw[index + 1] === '[' ? index + 1 : index;
+  if (raw[open] !== '[') {
+    return false;
+  }
+  let depth = 0;
+  for (let cursor = open; cursor < raw.length; cursor += 1) {
+    const char = raw[cursor] ?? '';
+    if (char === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (char === '[') {
+      depth += 1;
+      continue;
+    }
+    if (char !== ']') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return raw[cursor + 1] === '(';
+    }
+  }
+  return false;
+}
+
 export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'): number {
-  return unescapedDelimiterIndex(raw, from, delimiter);
+  let index = from;
+  while (index < raw.length) {
+    if (delimiter === '$' && (fenceBlocksMath(raw, index) || linkBlocksMath(raw, index))) {
+      return -1;
+    }
+    if (raw.startsWith(delimiter, index) && !escapedDelimiter(raw, index)) {
+      return index;
+    }
+    index += raw[index] === '\\' ? 2 : 1;
+  }
+  return -1;
 }
 
 function hasAlignmentTab(value: string): boolean {
