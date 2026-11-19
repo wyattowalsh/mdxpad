@@ -8,6 +8,7 @@ import {
   type MathComponent,
 } from 'docx';
 
+import { ACCENTS, DELIMITER_COMMANDS, NEGATED, SYMBOLS, TEXT_COMMANDS } from './docx-math-symbols';
 import { readCodeSpan } from './markdown-escape';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
@@ -15,82 +16,6 @@ interface Cursor {
   source: string;
   index: number;
 }
-
-const SYMBOLS: Record<string, string> = {
-  alpha: 'α',
-  beta: 'β',
-  gamma: 'γ',
-  cdot: '·',
-  times: '×',
-  pm: '±',
-  leq: '≤',
-  geq: '≥',
-  neq: '≠',
-  infty: '∞',
-  sum: '∑',
-  int: '∫',
-  prod: '∏',
-  partial: '∂',
-  nabla: '∇',
-  ldots: '…',
-  cdots: '⋯',
-  to: '→',
-  rightarrow: '→',
-  leftarrow: '←',
-  approx: '≈',
-  equiv: '≡',
-  quad: '\u2003',
-  qquad: '\u2003\u2003',
-};
-
-const TEXT_COMMANDS = new Set([
-  'text',
-  'mathrm',
-  'mathbf',
-  'mathit',
-  'mathsf',
-  'mathtt',
-  'operatorname',
-  'hbox',
-  'mathbb',
-  'mathcal',
-  'mathfrak',
-  'mathscr',
-]);
-
-const ACCENTS: Record<string, string> = {
-  hat: '\u0302',
-  widehat: '\u0302',
-  bar: '\u0304',
-  overline: '\u0305',
-  vec: '\u20D7',
-  overrightarrow: '\u20D7',
-  dot: '\u0307',
-  ddot: '\u0308',
-  tilde: '\u0303',
-  widetilde: '\u0303',
-};
-
-const DELIMITER_COMMANDS = new Set([
-  'left',
-  'right',
-  'big',
-  'bigl',
-  'bigr',
-  'bigm',
-  'Big',
-  'Bigl',
-  'Bigr',
-  'Bigm',
-  'bigg',
-  'biggl',
-  'biggr',
-  'biggm',
-  'Bigg',
-  'Biggl',
-  'Biggr',
-  'Biggm',
-]);
 
 const LITERAL_ESCAPE: Record<string, string> = {
   '|': '‖',
@@ -147,6 +72,32 @@ function readEscapedSymbol(cursor: Cursor): MathComponent[] {
   return text.length > 0 ? [new MathRun(text)] : [];
 }
 
+function readCommandName(cursor: Cursor): string {
+  let name = '';
+  while (
+    cursor.index < cursor.source.length &&
+    /[A-Za-z]/.test(cursor.source[cursor.index] ?? '')
+  ) {
+    name += cursor.source[cursor.index] ?? '';
+    cursor.index += 1;
+  }
+  return name;
+}
+
+function readNegation(cursor: Cursor): MathComponent[] {
+  if (cursor.source[cursor.index] === '\\') {
+    cursor.index += 1;
+    const name = readCommandName(cursor);
+    return [new MathRun(NEGATED[name] ?? `¬${SYMBOLS[name] ?? name}`)];
+  }
+  const symbol = cursor.source[cursor.index] ?? '';
+  if (symbol.length === 0) {
+    return [new MathRun('¬')];
+  }
+  cursor.index += 1;
+  return [new MathRun(NEGATED[symbol] ?? `¬${symbol}`)];
+}
+
 function skipDelimiter(cursor: Cursor): void {
   if (cursor.source[cursor.index] === '.') {
     cursor.index += 1;
@@ -179,6 +130,9 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (name === 'sqrt') {
     return readRadical(cursor);
   }
+  if (name === 'not') {
+    return readNegation(cursor);
+  }
   const accent = ACCENTS[name];
   if (accent !== undefined) {
     return readAccent(cursor, accent);
@@ -189,14 +143,7 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
 
 function readCommand(cursor: Cursor): MathComponent[] {
   cursor.index += 1;
-  let name = '';
-  while (
-    cursor.index < cursor.source.length &&
-    /[A-Za-z]/.test(cursor.source[cursor.index] ?? '')
-  ) {
-    name += cursor.source[cursor.index] ?? '';
-    cursor.index += 1;
-  }
+  const name = readCommandName(cursor);
   if (name.length === 0) {
     return readEscapedSymbol(cursor);
   }

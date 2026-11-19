@@ -61,6 +61,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('draws a negated relation as one symbol', () => {
+    expect(runText(mathComponents('\\in'))).toBe('∈');
+    expect(runText(mathComponents('\\notin'))).toBe('∉');
+    expect(runText(mathComponents('\\not\\in'))).toBe('∉');
+    expect(runText(mathComponents('\\not='))).toBe('≠');
+    expect(runText(mathComponents('\\forall x \\in A'))).toBe('∀ x ∈ A');
+  });
+
   it('keeps the entries of a matrix', () => {
     expect(runText(mathComponents('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}'))).toBe(
       ' a & b \n c & d '
