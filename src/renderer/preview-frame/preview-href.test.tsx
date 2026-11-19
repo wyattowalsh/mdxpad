@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { Video } from './components/preview-media';
+import { Area, Base, Form, Link } from './components/preview-navigation';
 import { A, Img } from './components/typography';
 import { isBlockedPreviewHref } from './preview-href';
 
@@ -90,5 +91,28 @@ describe('preview video', () => {
 
     const poster = render(<Video poster="file:///etc/passwd.png" />);
     expect(poster.container.querySelector('video')?.getAttribute('poster')).toBeNull();
+  });
+});
+
+describe('preview navigation elements', () => {
+  it('drops a local file from base, area, form, and link addresses', () => {
+    const base = render(<Base href="file:///etc/" />);
+    expect(base.container.querySelector('base')?.getAttribute('href')).toBeNull();
+    base.unmount();
+
+    const area = render(<Area href="file:///etc/passwd" />);
+    expect(area.container.querySelector('area')?.getAttribute('href')).toBeNull();
+    area.unmount();
+
+    const form = render(<Form action="javascript:alert(1)" />);
+    expect(form.container.querySelector('form')?.getAttribute('action')).toBeNull();
+    form.unmount();
+
+    const link = render(<Link href="file:///etc/passwd.css" />);
+    expect(link.container.querySelector('link')?.getAttribute('href')).toBeNull();
+    link.unmount();
+
+    const documentLink = render(<Link href="/notes/a.md" />);
+    expect(documentLink.container.querySelector('link')?.getAttribute('href')).toBe('/notes/a.md');
   });
 });

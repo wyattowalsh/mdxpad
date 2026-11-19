@@ -7,6 +7,7 @@
  */
 
 import { previewMediaComponents } from './preview-media';
+import { previewNavigationComponents } from './preview-navigation';
 import { typographyComponents } from './typography';
 import { Callout } from './Callout';
 import { CodeBlock } from './CodeBlock';
@@ -20,6 +21,7 @@ export const BuiltInComponents = {
   // Typography (MDX overrides for standard elements)
   ...typographyComponents,
   ...previewMediaComponents,
+  ...previewNavigationComponents,
 
   // Custom components
   Callout,
