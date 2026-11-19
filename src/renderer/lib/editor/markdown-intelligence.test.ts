@@ -25,6 +25,17 @@ describe('analyzeMarkdownIntelligence', () => {
     ).toBe(true);
   });
 
+  it('accepts a heading link written with the title capitals or spaces', () => {
+    const result = analyzeMarkdownIntelligence(
+      '# Two\n\n# Hello World\n\n[two](#Two)\n[hello](#Hello World)'
+    );
+
+    expect(result.links.map((link) => link.target)).toEqual(['#Two', '#Hello World']);
+    expect(
+      result.diagnostics.filter((diagnostic) => diagnostic.message.includes('not found'))
+    ).toEqual([]);
+  });
+
   it('reports empty link targets', () => {
     const result = analyzeMarkdownIntelligence('[broken]()');
 

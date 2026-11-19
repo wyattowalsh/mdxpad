@@ -15,6 +15,7 @@ import { linter, type Diagnostic } from '@codemirror/lint';
 import {
   allocateHeadingSlug,
   headingSlug,
+  normalizedHeadingFragment,
   parseAtxHeading,
   stripHeadingMarkup,
 } from '@shared/lib/markdown-heading';
@@ -59,8 +60,7 @@ export interface AnchorCompletion {
 }
 
 function normalizeAnchorTarget(target: string): string {
-  const decoded = decodeURIComponent(target).trim().toLowerCase();
-  return decoded.replace(/^-+|-+$/g, '');
+  return normalizedHeadingFragment(`#${target}`) ?? '';
 }
 
 function toCodeMirrorDiagnostic(diagnostic: MarkdownDiagnostic): Diagnostic {
