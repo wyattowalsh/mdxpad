@@ -74,6 +74,39 @@ function addressScheme(value: string): string | null {
   return /^[a-z][a-z0-9+.-]*$/.test(scheme) ? scheme : null;
 }
 
+let checkingSvgData = false;
+
+function svgPayload(destination: string): string | null {
+  const decoded = decodedAddress(destination).trim();
+  const comma = decoded.indexOf(',');
+  if (comma < 0) {
+    return null;
+  }
+  const header = decoded.slice(0, comma).toLowerCase().replaceAll(/\s+/g, '');
+  if (!header.startsWith('data:image/svg+xml')) {
+    return null;
+  }
+  const body = decoded.slice(comma + 1);
+  return header.includes(';base64') ? Buffer.from(body, 'base64').toString('utf8') : body;
+}
+
+function svgDataLoadsLocalFile(destination: string): boolean {
+  const decoded = decodedAddress(destination).trim().toLowerCase();
+  if (!decoded.startsWith('data:image/svg+xml')) {
+    return false;
+  }
+  const payload = svgPayload(destination);
+  if (payload === null) {
+    return true;
+  }
+  checkingSvgData = true;
+  try {
+    return sanitizeExportedHtml(payload) !== payload;
+  } finally {
+    checkingSvgData = false;
+  }
+}
+
 /** An image address the exported page can request. */
 export function safeImageAddress(destination: string): string | null {
   const scheme = addressScheme(destination);
@@ -81,7 +114,11 @@ export function safeImageAddress(destination: string): string | null {
     return destination;
   }
   if (scheme === 'data' && decodedAddress(destination).toLowerCase().startsWith('data:image/')) {
-    return destination;
+    const svg = decodedAddress(destination).trim().toLowerCase().startsWith('data:image/svg+xml');
+    if (checkingSvgData) {
+      return svg ? null : destination;
+    }
+    return svgDataLoadsLocalFile(destination) ? null : destination;
   }
   if (scheme !== null || rootedPath(destination) || climbsOut(destination)) {
     return null;

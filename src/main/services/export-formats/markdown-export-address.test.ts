@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { markdownToPdfHtml } from './pdf-exporter';
 import { sanitizeExportedHtml, sanitizeExportedTag } from './markdown-export-address';
 
 describe('sanitizeExportedHtml', () => {
@@ -124,6 +125,30 @@ describe('sanitizeExportedHtml', () => {
     );
     expect(sanitizeExportedHtml('<svg><rect filter=url(../secret.svg#a) /></svg>')).not.toContain(
       'secret'
+    );
+  });
+
+  it('drops a file hidden in an svg data image', () => {
+    const icon = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>').toString('base64');
+    const iconUri = `data:image/svg+xml;base64,${icon}`;
+    expect(sanitizeExportedHtml(`<img src="${iconUri}" alt="icon">`)).toContain('svg+xml');
+    expect(markdownToPdfHtml(`![Icon](${iconUri})\n`)).toContain('svg+xml');
+
+    const fileSvg = Buffer.from('<svg><image href="file:///etc/passwd"/></svg>').toString('base64');
+    const fileUri = `data:image/svg+xml;base64,${fileSvg}`;
+    expect(sanitizeExportedHtml(`<img src="${fileUri}" alt="x">`)).toBe('<img alt="x">');
+    const pdf = markdownToPdfHtml(`![Secret](${fileUri})\n`);
+    expect(pdf).not.toContain('passwd');
+    expect(pdf).not.toContain('file:');
+
+    const encoded = `data:image/svg+xml,${encodeURIComponent('<svg><image href="file:///etc/passwd"/></svg>')}`;
+    expect(sanitizeExportedHtml(`<img src="${encoded}" alt="x">`)).not.toContain('passwd');
+    expect(sanitizeExportedHtml('<img src="data:image/png;base64,aaaa" alt="x">')).toContain(
+      'data:image/png;base64,aaaa'
+    );
+    const parent = Buffer.from('<svg><rect filter="url(../secret.svg)"/></svg>').toString('base64');
+    expect(sanitizeExportedHtml(`<img src="data:image/svg+xml;base64,${parent}" alt="x">`)).toBe(
+      '<img alt="x">'
     );
   });
 
