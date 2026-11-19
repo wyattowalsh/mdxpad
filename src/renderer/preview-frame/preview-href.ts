@@ -182,6 +182,37 @@ function styleObject(value: string): Record<string, string> | undefined {
   return Object.keys(style).length > 0 ? style : undefined;
 }
 
+function cssDeclarationName(property: string): string | null {
+  if (property.startsWith('--')) {
+    return /^--[a-z0-9-]+$/i.test(property) ? property : null;
+  }
+  const kebab = property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`).toLowerCase();
+  return /^[a-z-]+$/.test(kebab) ? kebab : null;
+}
+
+function styleRecord(value: Record<string, unknown>): Record<string, unknown> | undefined {
+  const kept: Record<string, unknown> = {};
+  const declarations: string[] = [];
+  for (const [property, raw] of Object.entries(value)) {
+    if (typeof raw !== 'string') {
+      if (typeof raw === 'number') {
+        kept[property] = raw;
+      }
+      continue;
+    }
+    const name = cssDeclarationName(property);
+    if (name !== null) {
+      declarations.push(`${name}: ${raw}`);
+    }
+  }
+  const style = { ...kept, ...styleObject(declarations.join(';')) };
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function isStyleRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function nextAttribute(name: string, value: string): { readonly value: unknown } | undefined {
   if (name === 'style') {
     return { value: styleObject(value) };
@@ -222,6 +253,14 @@ export function confinePreviewProps(props: unknown): unknown {
   let changed = false;
   for (const [key, value] of entries) {
     const name = key.toLowerCase();
+    if (name === 'style' && isStyleRecord(value)) {
+      changed = true;
+      const style = styleRecord(value);
+      if (style !== undefined) {
+        nextEntries.push([key, style]);
+      }
+      continue;
+    }
     const reactName = REACT_ATTRIBUTE_NAMES[name];
     const next = typeof value === 'string' ? nextAttribute(name, value) : undefined;
     if (next === undefined && (reactName === undefined || reactName === key)) {

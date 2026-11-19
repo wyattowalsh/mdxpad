@@ -30,6 +30,23 @@ describe('isBlockedPreviewHref', () => {
       src: '/notes/a.md',
     }) as { style: Record<string, string>; href: string; src?: string };
     expect(props.style).toEqual({ background: 'none', color: 'red', textAlign: 'right' });
+    const objectStyle = confinePreviewProps({
+      style: {
+        backgroundImage: 'url(file:///etc/passwd)',
+        color: 'red',
+        textAlign: 'right',
+        opacity: 0.5,
+      },
+    }) as { style: Record<string, unknown> };
+    expect(objectStyle.style.backgroundImage).toBe('none');
+    expect(objectStyle.style.color).toBe('red');
+    expect(objectStyle.style.textAlign).toBe('right');
+    expect(objectStyle.style.opacity).toBe(0.5);
+    expect(JSON.stringify(objectStyle.style)).not.toContain('file:');
+    const imageSet = confinePreviewProps({
+      style: { backgroundImage: 'image-set("file:///etc/passwd" 1x)' },
+    }) as { style: Record<string, string> };
+    expect(imageSet.style.backgroundImage).not.toContain('file:');
     expect(props.href).toBe('/notes/a.md');
     expect(props.src).toBeUndefined();
   });
