@@ -101,6 +101,13 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps an indented fence inside a quoted list item', () => {
+    const html = markdownToPdfHtml('> - item\n>\n>   ```\ncode\n```\n\nafter\n');
+    expect(html).toContain('<pre><code>code</code></pre>');
+    expect(html).toContain('<p>after</p>');
+    expect(html).not.toContain('<pre><code></code></pre>');
+  });
+
   it('keeps a wrapped list fence inside a quote', () => {
     const html = markdownToPdfHtml('> - ```\n  code\n  ```\n\n  after\n');
     expect(html).toContain('<pre><code>');

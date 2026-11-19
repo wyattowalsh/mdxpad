@@ -129,6 +129,31 @@ describe('WYSIWYG markdown round trip', () => {
     expect(again).toContain('=====');
   });
 
+  it('keeps an indented fence inside a quoted list item', () => {
+    const source = '> - item\n>\n>   ```\ncode\n```\n\nafter\n';
+    const saved = roundTrip(source);
+    expect(saved).toContain('code');
+    expect(saved).toContain('after');
+    expect(saved.indexOf('code')).toBeLessThan(saved.indexOf('after'));
+    const doc = parseMdxContent(source);
+    let code = '';
+    doc?.descendants((node) => {
+      if (node.type.name === 'code_block') {
+        code += node.textContent;
+      }
+    });
+    expect(code).toContain('code');
+    expect(doc?.textContent).toContain('after');
+  });
+
+  it('leaves the paragraph after a quoted list fence outside the quote', () => {
+    const source = '> - ```\n  code\n  ```\n\n  after\n';
+    const saved = roundTrip(source);
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    expect(again).toContain('after');
+    expect(again).not.toContain('> after');
+  });
+
   it('keeps a wrapped list fence inside a quote', () => {
     const source = '> - ```\n  code\n  ```\n\n  after\n';
     const saved = roundTrip(source);

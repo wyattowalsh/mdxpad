@@ -209,6 +209,21 @@ function listIndent(lines: readonly string[]): number {
   return 2;
 }
 
+function indentedListFenceOpen(lines: readonly string[]): string | null {
+  let marker: string | null = null;
+  const column = listIndent(lines);
+  for (const line of lines) {
+    if (marker) {
+      if (closesFence(line, marker) || closesIndentedFence(line, marker, column)) {
+        marker = null;
+      }
+      continue;
+    }
+    marker = openIndentedFence(line, column)?.marker ?? null;
+  }
+  return marker;
+}
+
 function listMarkerFenceOpen(lines: readonly string[]): boolean {
   const marker = openingFence(parseListItem(lines[0] ?? '')?.text ?? '');
   if (marker === null) {
@@ -246,6 +261,9 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
     return 'list';
   }
   if (current?.kind === 'list') {
+    if (closesOpenListFence(current, line)) {
+      return 'list';
+    }
     if (listMarkerFenceOpen(current.lines) || listLazyLine(current.lines, line)) {
       return 'list';
     }
@@ -299,6 +317,18 @@ function continueIndentedCode(
   return false;
 }
 
+function closesOpenListFence(current: QuoteChunk | null, line: string): boolean {
+  if (current?.kind !== 'list') {
+    return false;
+  }
+  const marker = indentedListFenceOpen(current.lines);
+  if (!marker) {
+    return false;
+  }
+  const column = listIndent(current.lines);
+  return closesFence(line, marker) || closesIndentedFence(line, marker, column);
+}
+
 function takeQuoteLine(
   chunks: QuoteChunk[],
   current: QuoteChunk | null,
@@ -309,7 +339,8 @@ function takeQuoteLine(
     quoteBody(line) === null &&
     openingFence(line) !== null &&
     !fenceStaysInList(line, current) &&
-    !listMarkerFenceOpen(listed)
+    !listMarkerFenceOpen(listed) &&
+    !closesOpenListFence(current, line)
   ) {
     takeChunk(chunks, current);
     return { kind: 'code', lines: [line] };

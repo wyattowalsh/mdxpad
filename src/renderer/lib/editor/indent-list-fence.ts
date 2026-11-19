@@ -188,16 +188,57 @@ function separateTaskFences(content: string): string {
   return output.join('\n');
 }
 
+interface QuoteListFence {
+  readonly marker: string;
+  readonly depth: number;
+  readonly prefix: string;
+}
+
+function takeQuoteListFence(
+  line: string,
+  open: QuoteListFence | null
+): { open: QuoteListFence | null; consumed: boolean } {
+  const quoted = splitQuote(line);
+  if (open) {
+    const restored = quoted.depth < open.depth ? `${open.prefix}${line}` : line;
+    const body = fenceBody(splitQuote(restored).body);
+    return { open: closesFence(body, open.marker) ? null : open, consumed: true };
+  }
+  const listed = listMarkerFence(quoted.body);
+  if (!listed || quoted.depth === 0) {
+    return { open: null, consumed: false };
+  }
+  return {
+    open: { marker: listed.marker, depth: quoted.depth, prefix: quoted.prefix },
+    consumed: true,
+  };
+}
+
+function alignQuoteFenceLine(
+  line: string,
+  fence: { depth: number; prefix: string; indent: number }
+): string {
+  const quoted = splitQuote(line);
+  const marked = quoted.depth >= fence.depth ? line : `${fence.prefix}${line}`;
+  const kept = splitQuote(marked);
+  const spaces = leadingSpaces(kept.body);
+  if (spaces >= fence.indent) {
+    return marked;
+  }
+  return `${kept.prefix}${' '.repeat(fence.indent - spaces)}${kept.body}`;
+}
+
 /** Keep a fence that opens in a quote together when later lines omit the marker. */
 function markQuoteFences(content: string): string {
   const lines = content.split('\n');
   const output: string[] = [];
   let outer: string | null = null;
-  let quoteFence: { marker: string; depth: number; prefix: string } | null = null;
+  let listFence: QuoteListFence | null = null;
+  let quoteFence: { marker: string; depth: number; prefix: string; indent: number } | null = null;
   for (const line of lines) {
     const quoted = splitQuote(line);
     if (quoteFence) {
-      const inside = quoted.depth >= quoteFence.depth ? line : `${quoteFence.prefix}${line}`;
+      const inside = alignQuoteFenceLine(line, quoteFence);
       output.push(inside);
       const body = fenceBody(splitQuote(inside).body);
       if (closesFence(body, quoteFence.marker)) {
@@ -212,9 +253,20 @@ function markQuoteFences(content: string): string {
       }
       continue;
     }
+    const listed = takeQuoteListFence(line, listFence);
+    listFence = listed.open;
+    if (listed.consumed) {
+      output.push(line);
+      continue;
+    }
     const marker = openingFence(fenceBody(quoted.body));
     if (marker && quoted.depth > 0 && leadingSpaces(quoted.body) <= 3) {
-      quoteFence = { marker, depth: quoted.depth, prefix: quoted.prefix };
+      quoteFence = {
+        marker,
+        depth: quoted.depth,
+        prefix: quoted.prefix,
+        indent: leadingSpaces(quoted.body),
+      };
       output.push(line);
       continue;
     }
