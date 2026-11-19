@@ -119,6 +119,12 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (name === 'binom' || name === 'dbinom' || name === 'tbinom') {
     return readBinom(cursor);
   }
+  if (name === 'pmod') {
+    return readMod(cursor, true);
+  }
+  if (name === 'bmod' || name === 'mod') {
+    return readMod(cursor, false);
+  }
   if (name === 'frac') {
     return [
       new MathFraction({
@@ -185,6 +191,17 @@ function readAccent(cursor: Cursor, mark: string): MathComponent[] {
     return parts;
   }
   return [...parts, new MathRun(mark)];
+}
+
+function readMod(cursor: Cursor, parenthesized: boolean): MathComponent[] {
+  if (!parenthesized) {
+    return [new MathRun('mod')];
+  }
+  return [
+    new MathRoundBrackets({
+      children: [new MathRun('mod '), ...readGroup(cursor)],
+    }),
+  ];
 }
 
 function readBinom(cursor: Cursor): MathComponent[] {

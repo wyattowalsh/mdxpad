@@ -90,6 +90,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('writes a modulus as the word mod', () => {
+    const parenthesized = mathComponents('\\pmod{n}');
+    expect(parenthesized).toHaveLength(1);
+    expect(parenthesized[0]).toBeInstanceOf(MathRoundBrackets);
+    expect(runText(parenthesized)).toBe('mod n');
+    expect(runText(mathComponents('a \\bmod b'))).toBe('a mod b');
+  });
+
   it('keeps both parts of a binomial', () => {
     const binom = mathComponents('\\binom{n}{k+1}');
     expect(binom).toHaveLength(1);
