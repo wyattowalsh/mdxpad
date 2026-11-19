@@ -113,3 +113,76 @@ export function attachScript(
   }
   return new MathSubScript({ children: base, subScript: script });
 }
+
+const INFIX = new Set(['over', 'choose', 'atop', 'brace', 'brack']);
+
+export function infixName(source: string, index: number): string | null {
+  if (source[index] !== '\\') {
+    return null;
+  }
+  let cursor = index + 1;
+  let name = '';
+  while (cursor < source.length && /[A-Za-z]/.test(source[cursor] ?? '')) {
+    name += source[cursor] ?? '';
+    cursor += 1;
+  }
+  return INFIX.has(name) ? name : null;
+}
+
+export function infixComponent(
+  name: string,
+  numerator: readonly MathComponent[],
+  denominator: readonly MathComponent[],
+): MathComponent {
+  const fraction = new MathFraction({ numerator, denominator });
+  if (name === 'choose') {
+    return new MathRoundBrackets({ children: [fraction] });
+  }
+  if (name === 'brace') {
+    return new MathCurlyBrackets({ children: [fraction] });
+  }
+  if (name === 'brack') {
+    return new MathSquareBrackets({ children: [fraction] });
+  }
+  return fraction;
+}
+
+export function takeInfix(
+  cursor: { source: string; index: number },
+  components: MathComponent[],
+  plain: string,
+  readRest: () => readonly MathComponent[],
+): boolean {
+  const infix = infixName(cursor.source, cursor.index);
+  if (infix === null) {
+    return false;
+  }
+  const trimmed = plain.trimEnd();
+  if (trimmed.length > 0) {
+    components.push(new MathRun(trimmed));
+  }
+  const numerator = components.splice(0, components.length);
+  cursor.index += 1 + infix.length;
+  while (cursor.source[cursor.index] === ' ' || cursor.source[cursor.index] === '\n') {
+    cursor.index += 1;
+  }
+  components.push(infixComponent(infix, numerator, readRest()));
+  return true;
+}
+
+export function pushScript(
+  cursor: { source: string; index: number },
+  components: MathComponent[],
+  base: readonly MathComponent[],
+  char: '^' | '_' | "'",
+  readGroup: () => readonly MathComponent[],
+): void {
+  if (char === "'") {
+    const primes = takePrimes(cursor.source, cursor.index);
+    cursor.index = primes.next;
+    components.push(attachScript(base, '^', [primes.mark]));
+    return;
+  }
+  cursor.index += 1;
+  components.push(attachScript(base, char, readGroup()));
+}

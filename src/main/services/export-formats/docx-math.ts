@@ -10,7 +10,7 @@ import {
 } from 'docx';
 
 import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
-import { attachScript, scriptBase, takePrimes } from './docx-math-script';
+import { pushScript, scriptBase, takeInfix } from './docx-math-script';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -360,6 +360,11 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
       break;
     }
     if (char === '\\') {
+      const readRest = (): MathComponent[] => readSequence(cursor, stop, untilEnd);
+      if ((cursor.literal ?? 0) === 0 && takeInfix(cursor, components, plain, readRest)) {
+        plain = '';
+        break;
+      }
       flush();
       components.push(...readCommand(cursor));
       continue;
@@ -373,14 +378,7 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
       const base = scriptBase(components, plain);
       plain = base.plain;
       flush();
-      if (char === "'") {
-        const primes = takePrimes(cursor.source, cursor.index);
-        cursor.index = primes.next;
-        components.push(attachScript(base.base, '^', [primes.mark]));
-      } else {
-        cursor.index += 1;
-        components.push(attachScript(base.base, char, readGroup(cursor)));
-      }
+      pushScript(cursor, components, base.base, char, () => readGroup(cursor));
       continue;
     }
     plain += untilEnd !== undefined && char === '&' ? '\u2003' : char;

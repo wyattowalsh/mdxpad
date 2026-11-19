@@ -285,6 +285,17 @@ describe('mathComponents', () => {
     expect(mathComponents('{x_i}^2')[0]).toBeInstanceOf(MathSubSuperScript);
   });
 
+  it('builds an infix fraction and a binomial', () => {
+    const over = mathComponents('{a+1 \\over b}');
+    expect(over).toHaveLength(1);
+    expect(over[0]).toBeInstanceOf(MathFraction);
+    expect(runText(over)).toBe('a+1b');
+    const choose = mathComponents('{n \\choose k}');
+    expect(choose[0]).toBeInstanceOf(MathRoundBrackets);
+    expect(runText(choose)).toBe('nk');
+    expect(runText(mathComponents('a \\over b+c'))).toBe('ab+c');
+  });
+
   it('builds a superscript and a fraction', () => {
     const power = mathComponents('x^2');
     expect(power[0]).toBeInstanceOf(MathSuperScript);
