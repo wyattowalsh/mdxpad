@@ -672,6 +672,29 @@ function renderLatexItem(lines: readonly SourceLine[]): string {
   return task ? taskItemLatex(task.checked, formatted) : formatted;
 }
 
+function takeLatexMarkerMath(
+  raw: string,
+  item: MarkdownListItem,
+  output: string[],
+  listState: ListState
+): boolean {
+  const lead = item.text.trim() === '$$' ? '' : displayMathPrefix(item.text);
+  if (lead === null) {
+    return false;
+  }
+  listState.itemLines =
+    lead.length > 0 ? [{ text: lead, hardBreak: readSourceLine(raw).hardBreak }] : [];
+  listState.itemMath = [];
+  listState.paragraphBreak = false;
+  listState.tailLines = null;
+  listState.sealed = false;
+  const formatted = lead.length > 0 ? renderLatexItem(listState.itemLines) : '';
+  const column = listContentColumn(raw) ?? 2;
+  openLatexListItem(output, listState.stack, item, formatted, column);
+  listState.column = column;
+  return true;
+}
+
 function processListItem(
   raw: string,
   output: string[],
@@ -681,6 +704,9 @@ function processListItem(
   const item = parseListItem(raw);
   if (!item) {
     return false;
+  }
+  if (takeLatexMarkerMath(raw, item, output, listState)) {
+    return true;
   }
   const heading = parseAtxHeading(item.text);
   listState.itemLines = heading
@@ -1245,6 +1271,10 @@ function openLatexMarkerBlock(raw: string, output: string[], listState: ListStat
   if (block === null) {
     return;
   }
+  if (block.kind === 'math' && block.lead) {
+    listState.itemMath = [];
+    return;
+  }
   clearLatexItemText(output);
   listState.itemLines = [];
   if (block.kind === 'rule') {
@@ -1372,7 +1402,8 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (takeOpenedDisplay(build, line)) {
     return true;
   }
-  const prefix = quoteBody(line) === null ? displayMathPrefix(line) : null;
+  const prefix =
+    quoteBody(line) === null && parseListItem(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && !build.inDisplayMath) {
     build.prose.push(readSourceLine(prefix));
     openDisplayMath(build);

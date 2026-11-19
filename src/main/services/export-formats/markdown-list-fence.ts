@@ -15,6 +15,7 @@ import {
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { renderDisplayMathBlock } from './markdown-inline-html';
+import { displayMathPrefix } from '@shared/lib/math-span';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 
 export interface OpenListFence {
@@ -195,7 +196,7 @@ export function breakListParagraph(
 
 export type ListMarkerBlock =
   | { readonly kind: 'rule' }
-  | { readonly kind: 'math'; readonly lines: readonly string[] }
+  | { readonly kind: 'math'; readonly lines: readonly string[]; readonly lead?: string }
   | { readonly kind: 'quote'; readonly text: string }
   | { readonly kind: 'table'; readonly row: string };
 
@@ -206,7 +207,11 @@ export function listMarkerBlock(text: string): ListMarkerBlock | null {
   }
   const trimmed = text.trim();
   if (trimmed === '$$') {
-    return { kind: 'math', lines: [] };
+    return { kind: 'math', lines: [], lead: '' };
+  }
+  const lead = displayMathPrefix(trimmed);
+  if (lead !== null) {
+    return { kind: 'math', lines: [], lead };
   }
   if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length > 4) {
     return { kind: 'math', lines: [trimmed.slice(2, -2).trim()] };
@@ -234,6 +239,9 @@ function openMarkerBlock(state: HtmlListItemState, text: string): string | null 
     return state.itemHtml;
   }
   if (block.kind === 'math') {
+    if (block.lead) {
+      state.listLines = [{ text: block.lead, hardBreak: false }];
+    }
     state.itemMath = [];
     return '';
   }
@@ -543,9 +551,13 @@ function closeItemMath(state: HtmlListItemState, render: (text: string) => strin
   if (!state.itemMath) {
     return;
   }
+  if (state.listLines.length > 0) {
+    const prose = renderListItemHtml(state.listLines, render);
+    state.itemHtml += state.itemHtml.length > 0 ? `<p>${prose}</p>` : prose;
+    state.listLines = [];
+  }
   state.itemHtml += renderDisplayMathBlock(state.itemMath);
   state.itemMath = null;
-  state.listLines = [];
   writeListItem(state, render);
 }
 

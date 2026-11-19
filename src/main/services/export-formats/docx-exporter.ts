@@ -1397,7 +1397,8 @@ function takeDisplayLine(
   displayLines: string[] | null
 ): string[] | null | false {
   const trimmed = line.trim();
-  const prefix = quoteBody(line) === null ? displayMathPrefix(line) : null;
+  const prefix =
+    quoteBody(line) === null && parseListItem(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && displayLines === null) {
     paragraphs.push(new Paragraph({ children: createParagraphChildren(prefix) }));
     return [];
@@ -1614,7 +1615,7 @@ function takeDocxMarkerBlock(
   hardBreak: boolean,
   block: ListMarkerBlock
 ): boolean {
-  const shown = { ...item, text: '' };
+  const shown = { ...item, text: block.kind === 'math' ? (block.lead ?? '') : '' };
   parse.openListItem = shown;
   parse.listColumn = column;
   parse.listBreak = false;

@@ -228,7 +228,8 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
   if (takeListItemMath(state, line, renderMarkdownInline, state.lists.length > 0)) {
     return true;
   }
-  const prefix = quoteBody(line) === null ? displayMathPrefix(line) : null;
+  const prefix =
+    quoteBody(line) === null && parseListItem(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && !state.displayMath) {
     state.paragraph.push({ text: prefix, hardBreak: false });
     flushEpubParagraph(htmlLines, state);
