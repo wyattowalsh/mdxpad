@@ -40,6 +40,7 @@ import {
 import {
   dedentToColumn,
   listFenceOnMarker,
+  listMarkerBlock,
   listIndentedCode,
   listThematicBreak,
   openListFence,
@@ -804,7 +805,7 @@ function processMarkdownLine(
   }
   if (openMarker && processListItem(raw, output, listState, counts)) {
     listState.column = listContentColumn(raw);
-    openLatexMarkerFence(raw, output, listState);
+    openLatexMarkerBlock(raw, output, listState);
     return;
   }
   if (takeLatexListContinuation(raw, output, listState)) {
@@ -1006,6 +1007,43 @@ interface LatexBuild {
   quoteLines: string[];
   listState: ListState;
   slugCounts: Map<string, number>;
+}
+
+function clearLatexItemText(output: string[]): void {
+  const last = output[output.length - 1];
+  if (!last?.includes('\\item ')) {
+    return;
+  }
+  const at = last.lastIndexOf('\\item ');
+  output[output.length - 1] = last.slice(0, at + '\\item '.length).trimEnd();
+}
+
+function openLatexMarkerBlock(raw: string, output: string[], listState: ListState): void {
+  openLatexMarkerFence(raw, output, listState);
+  if (listState.itemFence) {
+    return;
+  }
+  const block = listMarkerBlock(parseListItem(raw)?.text ?? '');
+  if (block === null) {
+    return;
+  }
+  clearLatexItemText(output);
+  listState.itemLines = [];
+  if (block.kind === 'rule') {
+    output.push('\\noindent\\rule{\\textwidth}{0.4pt}');
+    listState.sealed = true;
+    return;
+  }
+  if (block.kind === 'math' && block.lines.length > 0) {
+    output.push('$$', ...block.lines, '$$');
+    listState.sealed = true;
+    return;
+  }
+  if (block.kind === 'math') {
+    listState.itemMath = [];
+    return;
+  }
+  listState.itemQuote = [quoteMarkerLine(block.text)];
 }
 
 function openLatexMarkerFence(raw: string, output: string[], listState: ListState): void {

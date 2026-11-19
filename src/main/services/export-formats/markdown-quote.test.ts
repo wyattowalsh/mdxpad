@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fenceIndentedCode } from './markdown-fence';
+import { markdownToPdfHtml } from './pdf-exporter';
 import {
   isLazyQuoteLine,
   quoteBody,
@@ -137,6 +138,24 @@ describe('quoteBody', () => {
     expect(isLazyQuoteLine('---')).toBe(false);
     expect(isLazyQuoteLine('===')).toBe(true);
     expect(isLazyQuoteLine('***')).toBe(false);
+  });
+
+  it('keeps a block that starts on a list marker', () => {
+    const quoted = markdownToPdfHtml('> 1. > Blockquote\ncontinued here.\n');
+    expect(quoted).toContain('<blockquote>\n<p>Blockquote continued here.</p>\n</blockquote>');
+    expect(quoted).not.toContain('&gt;');
+    const fence = markdownToPdfHtml('> - ```\n> const x = 1\n> ```\n');
+    expect(fence).toContain('<pre><code>const x = 1</code></pre>');
+    expect(fence).not.toContain('```');
+    const rule = markdownToPdfHtml('1. ***\n still the item\n');
+    expect(rule).toContain('<hr /><p>still the item</p>');
+    expect(rule).not.toContain('***');
+    const math = markdownToPdfHtml('- $$\n a+b\n $$\n');
+    expect(math).toContain('a+b');
+    expect(math).not.toContain('$$');
+    expect(quoteToLatex(['1. > Blockquote', 'continued here.'], (line) => line)).toContain(
+      'Blockquote continued here.'
+    );
   });
 
   it('wraps quote lines in a blockquote', () => {

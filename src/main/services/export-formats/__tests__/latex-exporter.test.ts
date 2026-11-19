@@ -24,6 +24,21 @@ describe('LatexExporter', () => {
     expect(exporter.mimeType).toBe('application/x-latex');
   });
 
+  it('keeps a formula after a literal backslash and a rule on a list marker', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'The value is \\\\$x^2$.\n\n1. ***\n still the item\n',
+      outputPath: '/tmp/marker.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('$x^2$');
+    expect(written).toContain('\\textbackslash{}');
+    expect(written).not.toContain('\\$x');
+    expect(written).toContain('\\rule{\\textwidth}{0.4pt}');
+    expect(written).toContain('still the item');
+    expect(written).not.toContain('***');
+  });
+
   it('exports a basic document with preamble and body', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {

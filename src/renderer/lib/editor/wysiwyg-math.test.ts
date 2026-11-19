@@ -28,6 +28,11 @@ describe('WYSIWYG math decorations', () => {
     expect(mathDecorations(stateFor('Pay $100 dollars$ today')).find()).toHaveLength(0);
   });
 
+  it('renders a formula that follows a literal backslash', () => {
+    expect(mathDecorations(stateFor('The value is \\\\$x^2$.')).find()).toHaveLength(2);
+    expect(mathDecorations(stateFor('The value is \\$x^2$.')).find()).toHaveLength(0);
+  });
+
   it('keeps an escaped dollar inside one formula', () => {
     expect(mathDecorations(stateFor('Price $a\\$b$ today')).find()).toHaveLength(2);
     expect(mathDecorations(stateFor('Prices are $5 and $10')).find()).toHaveLength(0);

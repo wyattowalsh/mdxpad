@@ -13,4 +13,12 @@ describe('mathSpanEnd', () => {
       { kind: 'text', text: '.' },
     ]);
   });
+
+  it('opens a formula after a literal backslash', () => {
+    expect(splitDocxPieces('The value is \\\\$x^2$.')).toEqual([
+      { kind: 'text', text: 'The value is \\\\' },
+      { kind: 'math', tex: 'x^2' },
+      { kind: 'text', text: '.' },
+    ]);
+  });
 });

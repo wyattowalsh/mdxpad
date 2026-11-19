@@ -10,6 +10,7 @@ import {
 } from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { renderFencedCode } from './markdown-code';
+import { renderDisplayMathBlock } from './markdown-inline-html';
 import { latexVerbatimLines } from './latex-verbatim';
 import { renderedSegments } from './markdown-marks';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -101,6 +102,20 @@ function listIndent(lines: readonly string[]): number {
   return 2;
 }
 
+function listMarkerFenceOpen(lines: readonly string[]): boolean {
+  const marker = openingFence(parseListItem(lines[0] ?? '')?.text ?? '');
+  if (marker === null) {
+    return false;
+  }
+  const column = listIndent(lines);
+  return lines.slice(1).every((line) => !closesFence(line, marker) && !closesIndentedFence(line, marker, column));
+}
+
+function listLazyLine(lines: readonly string[], line: string): boolean {
+  const last = lines[lines.length - 1] ?? '';
+  return last.trim().length > 0 && isLazyQuoteLine(line);
+}
+
 function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['kind'] | null {
   if (quoteBody(line) !== null) {
     return 'nested';
@@ -112,6 +127,9 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
     return 'list';
   }
   if (current?.kind === 'list') {
+    if (listMarkerFenceOpen(current.lines) || listLazyLine(current.lines, line)) {
+      return 'list';
+    }
     const column = listIndent(current.lines);
     const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
     if (openIndentedFence(line, column) !== null) {
@@ -167,7 +185,13 @@ function takeQuoteLine(
   current: QuoteChunk | null,
   line: string
 ): QuoteChunk | null {
-  if (quoteBody(line) === null && openingFence(line) && !fenceStaysInList(line, current)) {
+  const listed = current?.kind === 'list' ? current.lines : [];
+  if (
+    quoteBody(line) === null &&
+    openingFence(line) !== null &&
+    !fenceStaysInList(line, current) &&
+    !listMarkerFenceOpen(listed)
+  ) {
     takeChunk(chunks, current);
     return { kind: 'code', lines: [line] };
   }
@@ -280,7 +304,89 @@ function collectItemCode(
 
 type QuoteItemPiece =
   | { readonly kind: 'prose'; readonly lines: SourceLine[] }
-  | { readonly kind: 'code'; readonly lines: string[] };
+  | { readonly kind: 'code'; readonly lines: string[] }
+  | { readonly kind: 'rule' }
+  | { readonly kind: 'math'; readonly lines: string[] }
+  | { readonly kind: 'quote'; readonly lines: string[] };
+
+function collectMarkerFence(
+  body: readonly SourceLine[],
+  column: number
+): { lines: string[]; next: number } {
+  const marker = openingFence(body[0]?.text ?? '') ?? '';
+  const lines = [body[0]?.text ?? ''];
+  let cursor = 1;
+  while (cursor < body.length) {
+    const next = body[cursor]?.text ?? '';
+    lines.push(next);
+    cursor += 1;
+    if (closesFence(next, marker) || closesIndentedFence(next, marker, column)) {
+      break;
+    }
+  }
+  return { lines, next: cursor };
+}
+
+function collectMarkerMath(body: readonly SourceLine[]): { lines: string[]; next: number } {
+  const lines: string[] = [];
+  let cursor = 1;
+  while (cursor < body.length) {
+    const next = body[cursor]?.text ?? '';
+    cursor += 1;
+    if (next.trim() === '$$') {
+      break;
+    }
+    lines.push(next.trim());
+  }
+  return { lines, next: cursor };
+}
+
+function collectMarkerQuote(
+  body: readonly SourceLine[],
+  first: string
+): { lines: string[]; next: number } {
+  const lines = [first];
+  let cursor = 1;
+  while (cursor < body.length) {
+    const next = body[cursor]?.text ?? '';
+    const nested = quoteBody(next);
+    if (nested !== null) {
+      lines.push(nested);
+      cursor += 1;
+      continue;
+    }
+    if (next.trim().length === 0 || !isLazyQuoteLine(next)) {
+      break;
+    }
+    lines.push(next);
+    cursor += 1;
+  }
+  return { lines, next: cursor };
+}
+
+function takeMarkerPiece(
+  body: readonly SourceLine[],
+  column: number
+): { piece: QuoteItemPiece; next: number } | null {
+  const first = body[0]?.text ?? '';
+  if (openingFence(first) !== null) {
+    const block = collectMarkerFence(body, column);
+    return { piece: { kind: 'code', lines: block.lines }, next: block.next };
+  }
+  if (isThematicBreak(first)) {
+    return { piece: { kind: 'rule' }, next: 1 };
+  }
+  if (first.trim() === '$$') {
+    const math = collectMarkerMath(body);
+    return { piece: { kind: 'math', lines: math.lines }, next: math.next };
+  }
+  const quoted = quoteBody(first);
+  if (quoted !== null) {
+    const block = collectMarkerQuote(body, quoted);
+    return { piece: { kind: 'quote', lines: block.lines }, next: block.next };
+  }
+  return null;
+}
 
 function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItemPiece[] {
   const pieces: QuoteItemPiece[] = [];
@@ -292,8 +398,15 @@ function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItem
     pieces.push({ kind: 'prose', lines: prose });
     prose = [];
   };
-  prose.push(body[0] ?? { text: '', hardBreak: false });
-  let index = 1;
+  const marker = takeMarkerPiece(body, column);
+  let index = 0;
+  if (marker) {
+    pieces.push(marker.piece);
+    index = marker.next;
+  } else if (body.length > 0) {
+    prose.push(body[0] ?? { text: '', hardBreak: false });
+    index = 1;
+  }
   while (index < body.length) {
     const line = body[index]?.text ?? '';
     const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
@@ -374,17 +487,32 @@ function codeSample(lines: readonly string[]): string[] {
   return [...lines.slice(1, closesFence(last, marker) ? -1 : undefined)];
 }
 
+function renderQuotedPieceHtml(
+  piece: QuoteItemPiece,
+  renderLine: (line: string) => string
+): string {
+  if (piece.kind === 'code') {
+    return quoteCodeHtml(codeSample(piece.lines));
+  }
+  if (piece.kind === 'rule') {
+    return '<hr />';
+  }
+  if (piece.kind === 'math') {
+    return renderDisplayMathBlock(piece.lines);
+  }
+  if (piece.kind === 'quote') {
+    return quoteToHtml(piece.lines, renderLine);
+  }
+  return joinParagraphHtml(piece.lines, renderLine);
+}
+
 function renderQuotedItemHtml(
   body: readonly SourceLine[],
   column: number,
   renderLine: (line: string) => string
 ): string {
   return quoteItemPieces(body, column)
-    .map((piece) =>
-      piece.kind === 'code'
-        ? quoteCodeHtml(codeSample(piece.lines))
-        : joinParagraphHtml(piece.lines, renderLine)
-    )
+    .map((piece) => renderQuotedPieceHtml(piece, renderLine))
     .join('\n');
 }
 
@@ -416,17 +544,32 @@ function formatQuoteItem(
   return task ? taskItemLatex(task.checked, formatted) : formatted;
 }
 
+function renderQuotedPieceLatex(
+  piece: QuoteItemPiece,
+  renderLine: (line: string) => string
+): string {
+  if (piece.kind === 'code') {
+    return quoteCodeLatex(codeSample(piece.lines));
+  }
+  if (piece.kind === 'rule') {
+    return '\\noindent\\rule{\\textwidth}{0.4pt}';
+  }
+  if (piece.kind === 'math') {
+    return ['$$', ...piece.lines, '$$'].join('\n');
+  }
+  if (piece.kind === 'quote') {
+    return quoteToLatex(piece.lines, renderLine);
+  }
+  return formatQuoteItem(piece.lines, renderLine);
+}
+
 function renderQuotedItemLatex(
   body: readonly SourceLine[],
   column: number,
   renderLine: (line: string) => string
 ): string {
   return quoteItemPieces(body, column)
-    .map((piece) =>
-      piece.kind === 'code'
-        ? quoteCodeLatex(codeSample(piece.lines))
-        : formatQuoteItem(piece.lines, renderLine)
-    )
+    .map((piece) => renderQuotedPieceLatex(piece, renderLine))
     .join('\n');
 }
 

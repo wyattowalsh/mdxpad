@@ -69,6 +69,8 @@ import {
 import {
   dedentToColumn,
   listFenceOnMarker,
+  listMarkerBlock,
+  type ListMarkerBlock,
   listIndentedCode,
   listThematicBreak,
   openListFence,
@@ -140,6 +142,7 @@ interface InlineSegment {
   image?: string;
   title?: string;
   strike?: boolean;
+  mathTex?: string;
 }
 
 interface EmphasisFlags {
@@ -274,6 +277,10 @@ function segmentText(segment: InlineSegment, text: string): InlineSegment {
 function segmentRuns(
   segment: InlineSegment
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
+  if (segment.mathTex) {
+    const math = new Math({ children: mathComponents(segment.mathTex) });
+    return segment.link ? linkedDocxChildren(segment.link, [math]) : [math];
+  }
   if (segment.code || segment.image) {
     return createTextRuns([segment]);
   }
@@ -289,6 +296,26 @@ function segmentRuns(
   return segment.link ? linkedDocxChildren(segment.link, inner) : inner;
 }
 
+function docxMathSegments(
+  segment: InlineSegment,
+  raw: string,
+  href: string | undefined,
+  chars: readonly string[]
+): InlineSegment[] {
+  const link = href ? { link: href } : {};
+  const pieces = splitDocxPieces(raw);
+  if (!pieces.some((piece) => piece.kind === 'math')) {
+    return [{ ...segment, text: restoreEscapes(raw, chars, (char) => char), ...link }];
+  }
+  return pieces.flatMap((piece) => {
+    if (piece.kind === 'math') {
+      return [{ ...segment, text: '', mathTex: piece.tex, ...link }];
+    }
+    const text = restoreEscapes(piece.text, chars, (char) => char);
+    return text.length > 0 ? [{ ...segment, text, ...link }] : [];
+  });
+}
+
 function createParagraphChildren(
   text: string
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun | Math)[] {
@@ -298,11 +325,9 @@ function createParagraphChildren(
     if (segment.code || segment.link || segment.image) {
       return [segment];
     }
-    return expandAutolinkText(segment.text, protectedLinks.links).map((part) => ({
-      ...segment,
-      text: restoreEscapes(part.text, escaped.chars, (char) => char),
-      ...(part.href ? { link: part.href } : {}),
-    }));
+    return expandAutolinkText(segment.text, protectedLinks.links).flatMap((part) =>
+      docxMathSegments(segment, part.text, part.href, escaped.chars)
+    );
   });
   const children = segments.flatMap((segment) => segmentRuns(segment));
   return children.length > 0 ? children : [new TextRun('')];
@@ -615,6 +640,92 @@ function continueDocxQuoteItem(
   return { level: current.level, ordered: current.ordered, start: current.start, text };
 }
 
+function readDocxMarkerFence(
+  lines: readonly string[],
+  index: number,
+  marker: string,
+  column: number
+): { sample: string[]; next: number } {
+  const sample = [lines[index] ?? ''];
+  let cursor = index + 1;
+  while (cursor < lines.length) {
+    const next = lines[cursor] ?? '';
+    sample.push(next);
+    cursor += 1;
+    if (closesFence(next, marker) || closesIndentedFence(next, marker, column)) {
+      break;
+    }
+  }
+  return { sample, next: cursor };
+}
+
+function readDocxMarkerQuote(lines: readonly string[], index: number, first: string): {
+  quote: string[];
+  next: number;
+} {
+  const quote = [first];
+  let cursor = index;
+  while (cursor < lines.length) {
+    const next = lines[cursor] ?? '';
+    const nested = quoteBody(next);
+    if (nested !== null) {
+      quote.push(nested);
+      cursor += 1;
+      continue;
+    }
+    if (next.trim().length === 0 || !isLazyQuoteLine(next)) {
+      break;
+    }
+    quote.push(next);
+    cursor += 1;
+  }
+  return { quote, next: cursor };
+}
+
+function appendDocxMarkerQuoteItem(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  index: number,
+  item: MarkdownListItem,
+  depth: number
+): number | null {
+  const column = listContentColumn(lines[index] ?? '') ?? 2;
+  const fence = openingFence(item.text);
+  const block = fence === null ? listMarkerBlock(item.text) : null;
+  if (fence === null && block === null) {
+    return null;
+  }
+  blocks.push(listParagraph({ ...item, text: '' }, depth));
+  if (fence !== null) {
+    const read = readDocxMarkerFence(lines, index, fence, column);
+    read.sample[0] = item.text;
+    appendDocxQuoteCode(blocks, read.sample);
+    return read.next;
+  }
+  if (block?.kind === 'rule') {
+    blocks.push(docxRuleParagraph());
+    return index + 1;
+  }
+  if (block?.kind === 'math') {
+    const formula = [...block.lines];
+    let cursor = index + 1;
+    if (formula.length === 0) {
+      while (cursor < lines.length && (lines[cursor] ?? '').trim() !== '$$') {
+        formula.push((lines[cursor] ?? '').trim());
+        cursor += 1;
+      }
+      if ((lines[cursor] ?? '').trim() === '$$') {
+        cursor += 1;
+      }
+    }
+    pushDisplayMath(blocks, formula);
+    return cursor;
+  }
+  const read = readDocxMarkerQuote(lines, index + 1, block?.text ?? '');
+  appendDocxQuoteParagraph(blocks, read.quote, depth + 1);
+  return read.next;
+}
+
 function appendDocxQuoteList(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
@@ -632,6 +743,12 @@ function appendDocxQuoteList(
     if (item) {
       if (current) {
         blocks.push(listParagraph(current, depth));
+      }
+      const consumed = appendDocxMarkerQuoteItem(blocks, lines, index, item, depth);
+      if (consumed !== null) {
+        current = null;
+        index = consumed - 1;
+        continue;
       }
       current = item;
       column = listContentColumn(line) ?? 2;
@@ -1160,6 +1277,38 @@ function takeDocxAtxItem(parse: DocxParse, item: MarkdownListItem, column: numbe
   return true;
 }
 
+function takeDocxMarkerBlock(
+  parse: DocxParse,
+  item: MarkdownListItem,
+  column: number,
+  hardBreak: boolean,
+  block: ListMarkerBlock
+): boolean {
+  const shown = { ...item, text: '' };
+  parse.openListItem = shown;
+  parse.listColumn = column;
+  parse.listBreak = false;
+  rememberDocxListItem(parse, shown, column);
+  parse.listHardBreak = hardBreak;
+  parse.listSealed = block.kind === 'rule' || (block.kind === 'math' && block.lines.length > 0);
+  resetDocxItem(parse, null);
+  parse.blocks.push(listParagraph(shown));
+  if (block.kind === 'rule') {
+    parse.blocks.push(docxRuleParagraph());
+    return true;
+  }
+  if (block.kind === 'math' && block.lines.length > 0) {
+    pushDisplayMath(parse.blocks, block.lines);
+    return true;
+  }
+  if (block.kind === 'math') {
+    parse.itemMath = [];
+    return true;
+  }
+  parse.itemQuote = [quoteMarkerLine(block.text)];
+  return true;
+}
+
 function takeDocxList(
   parse: DocxParse,
   line: string,
@@ -1181,6 +1330,10 @@ function takeDocxList(
       return true;
     }
     const fence = listFenceOnMarker(line, column);
+    const block = fence ? null : listMarkerBlock(item.text);
+    if (block && takeDocxMarkerBlock(parse, item, column, source.hardBreak, block)) {
+      return true;
+    }
     const shown = fence ? { ...item, text: '' } : item;
     parse.openListItem = shown;
     parse.listColumn = column;

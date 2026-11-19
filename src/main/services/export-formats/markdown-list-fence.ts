@@ -107,7 +107,10 @@ function composedItemHtml(state: HtmlListItemState, render: (text: string) => st
     return state.itemHtml;
   }
   const prose = renderListItemHtml(state.listLines, render);
-  return state.loose ? `${state.itemHtml}<p>${prose}</p>` : `${state.itemHtml}${prose}`;
+  if (state.loose || state.itemHtml.length > 0) {
+    return `${state.itemHtml}<p>${prose}</p>`;
+  }
+  return prose;
 }
 
 function writeListItem(state: HtmlListItemState, render: (text: string) => string): boolean {
@@ -150,8 +153,11 @@ export function readOpenListQuote(line: string, contentColumn: number): string |
 
 /** The next quote line, including a lazy continuation, or null when the quote ends. */
 export function readListQuoteLine(line: string, contentColumn: number): string | null {
-  if (line.trim().length === 0 || !isListContinuation(line, contentColumn)) {
+  if (line.trim().length === 0) {
     return null;
+  }
+  if (!isListContinuation(line, contentColumn)) {
+    return isLazyQuoteLine(line) ? readSourceLine(line).text : null;
   }
   const dedented = dedentToColumn(line, contentColumn);
   const body = quoteBody(dedented);
@@ -187,6 +193,50 @@ export function breakListParagraph(
   state.loose = true;
 }
 
+export type ListMarkerBlock =
+  | { readonly kind: 'rule' }
+  | { readonly kind: 'math'; readonly lines: readonly string[] }
+  | { readonly kind: 'quote'; readonly text: string };
+
+/** A block that begins on the list marker, such as `1. ***` or `- $$`. */
+export function listMarkerBlock(text: string): ListMarkerBlock | null {
+  if (isThematicBreak(text)) {
+    return { kind: 'rule' };
+  }
+  const trimmed = text.trim();
+  if (trimmed === '$$') {
+    return { kind: 'math', lines: [] };
+  }
+  if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length > 4) {
+    return { kind: 'math', lines: [trimmed.slice(2, -2).trim()] };
+  }
+  const quoted = quoteBody(text);
+  return quoted === null ? null : { kind: 'quote', text: quoted };
+}
+
+function openMarkerBlock(state: HtmlListItemState, text: string): string | null {
+  const block = listMarkerBlock(text);
+  if (block === null) {
+    return null;
+  }
+  if (block.kind === 'rule') {
+    state.itemHtml = '<hr />';
+    state.loose = true;
+    return '<hr />';
+  }
+  if (block.kind === 'math' && block.lines.length > 0) {
+    state.itemHtml = renderDisplayMathBlock(block.lines);
+    state.loose = true;
+    return state.itemHtml;
+  }
+  if (block.kind === 'math') {
+    state.itemMath = [];
+    return '';
+  }
+  state.itemQuote = [quoteMarkerLine(block.text)];
+  return '';
+}
+
 /** Start a list item, holding a marker-line fence instead of rendering its backticks. */
 export function openListItem(
   state: HtmlListItemState,
@@ -208,6 +258,10 @@ export function openListItem(
       lines: [],
     };
     return '';
+  }
+  const marker = openMarkerBlock(state, itemText);
+  if (marker !== null) {
+    return marker;
   }
   state.listLines = [{ text: itemText, hardBreak }];
   return renderListItemHtml(state.listLines, render);

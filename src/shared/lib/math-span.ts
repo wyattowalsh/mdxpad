@@ -5,14 +5,22 @@
 
 import { isCurrencySpan } from './currency-span';
 
+function escapedDelimiter(raw: string, index: number): boolean {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && raw.charAt(cursor) === '\\'; cursor -= 1) {
+    count += 1;
+  }
+  return count % 2 === 1;
+}
+
 export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
-  if (index > 0 && raw.charAt(index - 1) === '\\') {
+  if (raw.charAt(index) !== '$' || escapedDelimiter(raw, index)) {
     return null;
   }
   if (raw.startsWith('$$', index)) {
     return '$$';
   }
-  return raw.charAt(index) === '$' ? '$' : null;
+  return '$';
 }
 
 /** The next delimiter, skipping a backslash escape such as `\\)` or `\$`. */

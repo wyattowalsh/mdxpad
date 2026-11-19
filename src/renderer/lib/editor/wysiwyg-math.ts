@@ -6,7 +6,7 @@ import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { isCurrencySpan } from '@shared/lib/currency-span';
 
 const MATH_PATTERN =
-  /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$(?![\s$])((?:\\[\s\S]|[^$\n])+?)(?<![\s\\$])\$/g;
+  /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<=(?<!\\)(?:\\\\)*)\$(?![\s$])((?:\\[\s\S]|[^$\n])+?)(?<![\s\\$])\$/g;
 
 function placeCaretInFormula(
   view: EditorView,
