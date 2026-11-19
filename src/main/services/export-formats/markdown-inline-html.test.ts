@@ -81,6 +81,12 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a bracket inside code in the link label', () => {
+    expect(renderMarkdownInline('[a `b](no) c`](https://example.com)')).toBe(
+      '<a href="https://example.com">a <code>b](no) c</code></a>'
+    );
+  });
+
   it('keeps an email link as one anchor', () => {
     expect(renderMarkdownInline('[ada@example.com](mailto:ada@example.com)')).toBe(
       '<a href="mailto:ada@example.com">ada@example.com</a>'

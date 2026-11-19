@@ -208,6 +208,10 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('[**docs**](https://example.com)')).toEqual([
       { text: 'docs', bold: true, link: 'https://example.com' },
     ]);
+    expect(parseInlineFormatting('[a `b](no) c`](https://example.com)')).toEqual([
+      { text: 'a ', link: 'https://example.com' },
+      { text: 'b](no) c', code: true, link: 'https://example.com' },
+    ]);
     expect(parseInlineFormatting('[a `b`](https://example.com)')).toEqual([
       { text: 'a ', link: 'https://example.com' },
       { text: 'b', code: true, link: 'https://example.com' },

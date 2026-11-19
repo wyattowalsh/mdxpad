@@ -1,3 +1,5 @@
+import { codeSpanEnd } from '@shared/lib/emphasis-flank';
+
 function unwrapDestination(raw: string): string | null {
   const angled = /^(?:<|&lt;)(.+?)(?:>|&gt;)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/.exec(raw);
   return angled?.[1] ?? null;
@@ -144,6 +146,19 @@ function readBalancedLabel(
   let text = '';
   for (let index = openIndex; index < raw.length; index += 1) {
     const char = raw[index] ?? '';
+    if (char === '\\' && depth > 0) {
+      text += `${char}${raw[index + 1] ?? ''}`;
+      index += 1;
+      continue;
+    }
+    if (char === '`' && depth > 0) {
+      const end = codeSpanEnd(raw, index);
+      if (end > index) {
+        text += raw.slice(index, end);
+        index = end - 1;
+        continue;
+      }
+    }
     if (char === '[') {
       if (depth > 0) {
         text += char;
