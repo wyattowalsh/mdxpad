@@ -1034,6 +1034,15 @@ describe('DocxExporter', () => {
     const rels = extracted.stdout.toString();
     expect(rels).toContain('https://example.com');
     expect(rels).not.toContain('Docs');
+    const document = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    expect(document.stdout.toString()).toContain('Docs');
   });
 
   it('resolves a reference link', async () => {

@@ -124,15 +124,19 @@ function attachTarget(
   segments: InlineSegment[],
   label: string,
   target: string,
-  kind: 'link' | 'image'
+  kind: 'link' | 'image',
+  title: string | null = null
 ): void {
   const parts = label.length > 0 ? parseInlineFormatting(label) : [{ text: target }];
-  for (const segment of parts) {
+  parts.forEach((segment, index) => {
     const text = segment.text.length > 0 ? segment.text : target;
+    const titled = title && index === parts.length - 1 ? { title } : {};
     segments.push(
-      kind === 'link' ? { ...segment, text, link: target } : { ...segment, text, image: target }
+      kind === 'link'
+        ? { ...segment, text, link: target, ...titled }
+        : { ...segment, text, image: target, ...titled }
     );
-  }
+  });
 }
 
 interface InlineSegment {
@@ -200,7 +204,13 @@ function parsePlainMarks(text: string): InlineSegment[] {
     if (target.image) {
       pushImage(segments, target.label, target.destination);
     } else {
-      attachTarget(segments, target.label, linkDestination(target.destination), 'link');
+      attachTarget(
+        segments,
+        target.label,
+        linkDestination(target.destination),
+        'link',
+        linkTitle(target.destination)
+      );
     }
     cursor = target.end;
   }
@@ -405,7 +415,7 @@ function docxImage(src: string, alt: string, title = ''): ImageRun | null {
 function createTextRuns(
   segments: InlineSegment[]
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
-  return segments.map((segment) => {
+  return segments.flatMap((segment) => {
     if (segment.image) {
       const picture = docxImage(
         decodeHtmlEntities(segment.image),
@@ -414,20 +424,24 @@ function createTextRuns(
       );
       if (segment.link) {
         const child = picture ?? styledRun(segment, segment.text || 'image', 'Hyperlink');
-        return docxHyperlink(segment.link, child);
+        return [docxHyperlink(segment.link, child)];
       }
       if (picture) {
-        return picture;
+        return [picture];
       }
       if (safeImageAddress(decodeHtmlEntities(segment.image)) === null) {
-        return styledRun(segment, segment.text || 'image');
+        return [styledRun(segment, segment.text || 'image')];
       }
-      return docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink'));
+      return [docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink'))];
     }
     if (segment.link) {
-      return docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
+      const link = docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
+      if (!segment.title || segment.image) {
+        return [link];
+      }
+      return [link, new TextRun({ text: ` ${segment.title}`, italics: true })];
     }
-    return styledRun(segment, segment.text);
+    return [styledRun(segment, segment.text)];
   });
 }
 

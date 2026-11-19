@@ -856,6 +856,7 @@ describe('LatexExporter', () => {
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
     expect(written).toContain('\\href{https://example.com}{docs}');
+    expect(written).toContain('\\textit{Docs}');
     expect(written).not.toContain('\\href{https://example.com "Docs"}');
   });
 

@@ -345,17 +345,23 @@ function formatInlineMarks(raw: string): string {
   return applyLatexStrike(emphasized).replaceAll('~', '\\textasciitilde{}');
 }
 
+function latexLinkTitle(rawHref: string): string {
+  const title = linkTitle(decodeHtmlEntities(rawHref));
+  return title ? ` \\textit{${escapeLatex(title)}}` : '';
+}
+
 function latexHref(label: string, rawHref: string): string {
   const destination = linkDestination(decodeHtmlEntities(rawHref));
+  const caption = latexLinkTitle(rawHref);
   const anchor = normalizedHeadingFragment(destination);
   if (anchor) {
-    return `\\hyperref[${anchor}]{${formatProtected(label)}}`;
+    return `\\hyperref[${anchor}]{${formatProtected(label)}}${caption}`;
   }
   const safe = safeLinkAddress(destination);
   if (safe === null || safe.startsWith('/') || safe.startsWith('\\')) {
-    return formatProtected(label);
+    return `${formatProtected(label)}${caption}`;
   }
-  return `\\href{${latexUrl(safe)}}{${formatProtected(label)}}`;
+  return `\\href{${latexUrl(safe)}}{${formatProtected(label)}}${caption}`;
 }
 
 function formatInline(source: string): string {
