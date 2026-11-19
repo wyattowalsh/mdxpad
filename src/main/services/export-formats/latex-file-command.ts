@@ -36,8 +36,12 @@ const LATEX_FILE_COMMANDS = [
 
 const LATEX_FILE_READ = new RegExp(`\\\\(?:${LATEX_FILE_COMMANDS.join('|')})\\b`, 'g');
 
+function breakTexCaretEscape(value: string): string {
+  return value.replaceAll('^^', '^{}');
+}
+
 export function disarmLatexFileRead(value: string): string {
-  return value.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
+  return breakTexCaretEscape(value).replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
 }
 
 function copyCodeSpan(value: string, index: number): { text: string; next: number } | null {

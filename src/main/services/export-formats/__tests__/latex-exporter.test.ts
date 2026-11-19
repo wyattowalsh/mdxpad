@@ -323,6 +323,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\includegraphics{pixel.png}');
   });
 
+  it('does not let a caret escape in a formula read a file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n^^5cinput{secret}\n$$\n\n$a^2$',
+      outputPath: '/tmp/tex-caret.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('^^');
+    expect(written).toContain('^{}5cinput');
+    expect(written).toContain('$a^2$');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

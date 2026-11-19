@@ -55,6 +55,17 @@ describe('disarmFileReadsInMath', () => {
   });
 });
 
+describe('disarmLatexFileRead caret escapes', () => {
+  it('breaks a caret escape that would become a file command and keeps a power', () => {
+    const source = '$$\n^^5cinput{secret}\n$$\n\n$a^2$ and $x^{2}$.\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('^^');
+    expect(next).toContain('^{}5cinput');
+    expect(next).toContain('$a^2$');
+    expect(next).toContain('$x^{2}$');
+  });
+});
+
 describe('omitTexPictureSyntax', () => {
   it('leaves the alt text when a picture path can become a TeX command', () => {
     const source = [
