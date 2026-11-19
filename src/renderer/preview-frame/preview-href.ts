@@ -153,7 +153,7 @@ function blockedCssAddress(address: string): boolean {
 
 function sanitizePreviewImport(css: string): string {
   return decodeCssEscapes(decodeAddressEntities(stripCssComments(css))).replace(
-    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'" \f]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
       _quote: string,
@@ -176,7 +176,7 @@ export function sanitizePreviewStyleSheet(css: string): string {
 function sanitizePreviewStyle(value: string): string {
   const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(value)));
   const urls = visible.replace(
-    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'" \f]+))\s*\)/gi,
+    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
       const address = (quoted ?? bare ?? '').trim();
       return blockedCssAddress(address) ? 'none' : full;

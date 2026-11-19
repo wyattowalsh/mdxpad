@@ -15,6 +15,12 @@ describe('renderMarkdownInline', () => {
     );
     expect(styled).not.toContain('file:');
     expect(styled).toContain('color:blue');
+    const formFeed = renderMarkdownInline(
+      '<div style="background:url(file:\f///etc/passwd);color:red">x</div>'
+    );
+    expect(formFeed).not.toContain('file:');
+    expect(formFeed).not.toContain('passwd');
+    expect(formFeed).toContain('color:red');
   });
 
   it('drops a file from a style element inside an svg', () => {

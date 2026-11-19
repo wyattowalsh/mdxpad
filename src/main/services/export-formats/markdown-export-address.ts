@@ -199,7 +199,7 @@ function blockedCssAddress(address: string): boolean {
 function sanitizeStyleValue(value: string): string {
   const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(value)));
   const urls = visible.replace(
-    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'" \f]+))\s*\)/gi,
+    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
       const address = cssAddress(quoted ?? bare ?? '');
       return safeImageAddress(address) === null ? 'none' : full;
@@ -211,7 +211,7 @@ function sanitizeStyleValue(value: string): string {
 function sanitizeStyleSheet(css: string): string {
   const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(css)));
   const withoutImport = visible.replace(
-    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'" \f]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
       _quote: string,

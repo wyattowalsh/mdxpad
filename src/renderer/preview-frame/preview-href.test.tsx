@@ -254,6 +254,12 @@ describe('preview image', () => {
     expect(JSON.stringify(styled.style)).not.toContain('file:');
     expect(JSON.stringify(styled.style)).not.toContain('passwd');
     expect(styled.style.color).toBe('red');
+    const formFeed = confinePreviewProps({
+      style: 'background:url(file:\f///etc/passwd);color:blue',
+    }) as { style: Record<string, string> };
+    expect(JSON.stringify(formFeed.style)).not.toContain('file:');
+    expect(JSON.stringify(formFeed.style)).not.toContain('passwd');
+    expect(formFeed.style.color).toBe('blue');
   });
 
   it('drops an event handler and keeps the picture address', () => {
