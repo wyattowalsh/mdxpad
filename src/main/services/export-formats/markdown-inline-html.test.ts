@@ -124,6 +124,14 @@ describe('renderMarkdownInline', () => {
     expect(html).toContain('three words');
   });
 
+  it('keeps a formula after a dollar sign glued to a word', () => {
+    const html = markdownToPdfHtml('Path C:$foo and $x^2$.');
+    expect(html).toContain('C:$foo');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    const kept = markdownToPdfHtml('Value ($x^2$) still works.');
+    expect(kept).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+  });
+
   it('keeps a formula after a dollar sign inside parentheses', () => {
     const html = markdownToPdfHtml('See (notes $a) and $x^2$.');
     expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');

@@ -164,6 +164,14 @@ function dollarCrossesParen(raw: string, index: number): boolean {
   return false;
 }
 
+function dollarGluedToWord(raw: string, index: number): boolean {
+  if (raw[index] !== '$' || raw[index + 1] === '$') {
+    return false;
+  }
+  const previous = index === 0 ? '' : (raw[index - 1] ?? '');
+  return /[A-Za-z0-9_:]/.test(previous);
+}
+
 export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
   if (
     raw.charAt(index) !== '$' ||
@@ -171,7 +179,8 @@ export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
     dollarInEmail(raw, index) ||
     dollarInBrackets(raw, index) ||
     dollarInUrl(raw, index) ||
-    dollarCrossesParen(raw, index)
+    dollarCrossesParen(raw, index) ||
+    dollarGluedToWord(raw, index)
   ) {
     return null;
   }
