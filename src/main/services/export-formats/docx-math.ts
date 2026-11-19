@@ -3,7 +3,7 @@ import {
   MathLimitLower,
   MathLimitUpper,
   MathRadical,
-  MathRoundBrackets,
+  MathRoundBrackets, MathSquareBrackets,
   MathRun,
   MathSubSuperScript,
   MathSubScript,
@@ -158,11 +158,11 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (grouped !== null) {
     return grouped;
   }
-  if (name === 'overbrace') {
-    return readBraceSpan(cursor, true);
+  if (name === 'overbrace' || name === 'underbrace') {
+    return readBraceSpan(cursor, name === 'overbrace');
   }
-  if (name === 'underbrace') {
-    return readBraceSpan(cursor, false);
+  if (name === 'boxed') {
+    return [new MathSquareBrackets({ children: readGroup(cursor) })];
   }
   if (name === 'overset' || name === 'stackrel') {
     return readStack(cursor, true);

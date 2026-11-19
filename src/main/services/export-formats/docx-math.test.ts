@@ -6,8 +6,8 @@ import {
   MathRadical,
   MathSubSuperScript,
   MathRoundBrackets,
-  MathRun,
   MathSquareBrackets,
+  MathRun,
   MathSuperScript,
 } from 'docx';
 import { describe, expect, it } from 'vitest';
@@ -81,6 +81,13 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\cancel{ab}'))).toBe('a\u0336b\u0336');
     expect(runText(mathComponents('\\bcancel{x}'))).toBe('x\u0336');
     expect(runText(mathComponents('\\xcancel{y}'))).toBe('y\u0336');
+  });
+
+  it('draws a box around a Word expression', () => {
+    const boxed = mathComponents('\\boxed{x+y}');
+    expect(boxed).toHaveLength(1);
+    expect(boxed[0]).toBeInstanceOf(MathSquareBrackets);
+    expect(runText(boxed)).toBe('x+y');
   });
 
   it('puts a brace over or under a Word expression', () => {
