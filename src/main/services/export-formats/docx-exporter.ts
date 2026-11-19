@@ -30,6 +30,7 @@ import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 
 import { highlightCodeHtml } from './markdown-code';
 import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
+import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
@@ -1761,7 +1762,8 @@ export class DocxExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const content = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const inlined = await inlineLocalImages(options.content, options.sourcePath, 'data-url');
+      const content = omitLocalMarkdownTargets(inlined, options.sourcePath);
       const paragraphs = docxParagraphs(content, options.metadata);
 
       const doc = new Document({

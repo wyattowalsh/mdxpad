@@ -7,6 +7,7 @@ import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/ma
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
+import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
@@ -579,7 +580,8 @@ export class PdfExporter implements Exporter {
 
     try {
       const title = options.title ?? 'MDXPad Export';
-      const content = await inlineLocalImages(options.content, options.sourcePath, 'document');
+      const inlined = await inlineLocalImages(options.content, options.sourcePath, 'document');
+      const content = omitLocalMarkdownTargets(inlined, options.sourcePath);
       const html = contentToHtml(content, title, options.metadata);
 
       win = new BrowserWindow({

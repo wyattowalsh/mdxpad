@@ -5,6 +5,8 @@
 
 import path from 'node:path';
 
+import { resolveWorkspaceFilePath } from '../ai/agent-path';
+
 import { decodeHtmlEntities } from './markdown-entity';
 import { advanceFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
@@ -13,19 +15,24 @@ import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 const LINK = /(?<!!)\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 
-function insideRoot(root: string, address: string): boolean {
-  if (!address.startsWith('/') || address.startsWith('//')) {
-    return false;
-  }
-  const relative = path.relative(root, address);
-  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+function hasScheme(address: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(address.trim());
 }
 
 function pictureAllowed(address: string, root: string | null): boolean {
-  if (safeImageAddress(address) !== null) {
+  const safe = safeImageAddress(address);
+  if (safe !== null && /^(?:https?:|data:)/i.test(safe)) {
     return true;
   }
-  return root !== null && insideRoot(root, address);
+  if (hasScheme(address) || root === null) {
+    return safe !== null;
+  }
+  try {
+    resolveWorkspaceFilePath(root, address);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function rewriteLine(line: string, root: string | null): string {

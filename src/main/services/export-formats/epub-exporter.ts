@@ -5,6 +5,7 @@ import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { embedEpubImages } from './epub-images';
 import { inlineLocalImages } from './export-image';
+import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import {
   isTableRow,
@@ -566,7 +567,8 @@ export class EpubExporter implements Exporter {
     try {
       const title = options.title ?? 'Untitled';
       const author = options.author ?? 'MDXPad';
-      const content = await inlineLocalImages(options.content, options.sourcePath, 'document');
+      const inlined = await inlineLocalImages(options.content, options.sourcePath, 'document');
+      const content = omitLocalMarkdownTargets(inlined, options.sourcePath);
       const split = splitIntoChapters(content);
 
       const epubContent = await Promise.all(
