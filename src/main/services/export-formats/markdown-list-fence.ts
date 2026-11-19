@@ -362,9 +362,16 @@ function continueListParagraph(
   state.loose = true;
   state.listLines = [readSourceLine(raw)];
   if (!returned) {
-    state.itemHtml = composedItemHtml(state, render);
+    const prose = renderListItemHtml(state.listLines, render);
+    const paragraph = `<p>${prose}</p>`;
     state.listLines = [];
-    replaceHtmlListItem(state.parts, state.itemHtml);
+    const combined = `${state.itemHtml}${paragraph}`;
+    if (replaceHtmlListItem(state.parts, combined)) {
+      state.itemHtml = combined;
+      return true;
+    }
+    state.parts.push(paragraph);
+    state.itemHtml += paragraph;
     return true;
   }
   state.itemHtml = '';

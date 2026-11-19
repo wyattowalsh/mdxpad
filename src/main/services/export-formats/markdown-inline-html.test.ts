@@ -109,6 +109,14 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('<strong>');
   });
 
+  it('keeps paragraphs after a nested list', () => {
+    const html = markdownToPdfHtml('- alpha\n  - nested\n\n  beta\n\n  gamma\n');
+    expect(html).toContain('alpha');
+    expect(html).toContain('nested');
+    expect(html).toContain('beta');
+    expect(html).toContain('gamma');
+  });
+
   it('keeps every paragraph of a footnote', () => {
     const html = markdownToPdfHtml('See[^long].\n\n[^long]: one\n\n    two\n\n    three words\n');
     expect(html).toContain('one');
