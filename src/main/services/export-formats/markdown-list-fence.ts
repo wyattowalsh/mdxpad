@@ -357,19 +357,20 @@ function continueListParagraph(
   if (returned) {
     markListLoose(parts, stack);
   }
+  if (state.listLines.length > 0) {
+    state.itemHtml += `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.listLines = [];
+  }
   state.listColumn = frame.column;
   state.listBreak = false;
   state.loose = true;
   state.listLines = [readSourceLine(raw)];
   if (!returned) {
-    const prose = renderListItemHtml(state.listLines, render);
-    const paragraph = `<p>${prose}</p>`;
-    state.listLines = [];
-    const combined = `${state.itemHtml}${paragraph}`;
-    if (replaceHtmlListItem(state.parts, combined)) {
-      state.itemHtml = combined;
+    if (writeListItem(state, render)) {
       return true;
     }
+    const paragraph = `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.listLines = [];
     state.parts.push(paragraph);
     state.itemHtml += paragraph;
     return true;
@@ -446,10 +447,6 @@ export function takeListItemSetext(
   if (
     !listOpen ||
     state.listColumn === null ||
-    state.listBreak ||
-    state.loose ||
-    state.itemHtml.length > 0 ||
-    state.listLines.length === 0 ||
     state.itemFence ||
     state.itemQuote ||
     state.itemTable ||
@@ -459,7 +456,7 @@ export function takeListItemSetext(
     return false;
   }
   const level = setextLevel(dedentToColumn(line, state.listColumn));
-  if (level === null) {
+  if (level === null || state.listLines.length === 0) {
     return false;
   }
   const text = state.listLines

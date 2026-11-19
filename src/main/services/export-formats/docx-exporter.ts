@@ -1171,14 +1171,24 @@ function docxRuleParagraph(): Paragraph {
   });
 }
 
+function takeDocxTailSetext(parse: DocxParse, level: 1 | 2): boolean {
+  if (!parse.tailOpen || !parse.tailText) {
+    return false;
+  }
+  parse.blocks.pop();
+  parse.blocks.push(bookmarkedHeading(level, parse.tailText, parse.slugCounts));
+  parse.tailText = null;
+  parse.tailOpen = false;
+  parse.listSealed = true;
+  parse.listParagraphBreak = true;
+  parse.listBreak = false;
+  return true;
+}
+
 function takeDocxItemSetext(parse: DocxParse, line: string): boolean {
   if (
     parse.openListItem === null ||
     parse.listColumn === null ||
-    parse.listBreak ||
-    parse.listSealed ||
-    parse.listParagraphBreak ||
-    parse.tailOpen ||
     parse.itemFence ||
     parse.itemQuote ||
     parse.itemTable ||
@@ -1188,8 +1198,20 @@ function takeDocxItemSetext(parse: DocxParse, line: string): boolean {
     return false;
   }
   const level = setextLevel(dedentToColumn(line, parse.listColumn));
+  if (level !== null && takeDocxTailSetext(parse, level)) {
+    return true;
+  }
+  if (
+    level === null ||
+    parse.listBreak ||
+    parse.listSealed ||
+    parse.listParagraphBreak ||
+    parse.tailOpen
+  ) {
+    return false;
+  }
   const text = parse.openListItem.text;
-  if (level === null || text.length === 0) {
+  if (text.length === 0) {
     return false;
   }
   parse.blocks.pop();

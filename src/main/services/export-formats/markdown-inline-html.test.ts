@@ -101,6 +101,18 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('underlines a paragraph inside a list item', () => {
+    const html = markdownToPdfHtml('- item\n\n  Title\n  =====\n\n  after\n');
+    expect(html).toContain('<h1 id="title">Title</h1>');
+    expect(html).toContain('item');
+    expect(html).toContain('<p>after</p>');
+    expect(html).not.toContain('=====');
+    const dashes = markdownToPdfHtml('- item\n\n  Title\n  -----\n\n  after\n');
+    expect(dashes).toContain('<h2 id="title">Title</h2>');
+    expect(dashes).toContain('<p>after</p>');
+    expect(dashes).not.toContain('<hr />');
+  });
+
   it('underlines a quoted paragraph when the marks are on the next line', () => {
     const equals = markdownToPdfHtml('> Title\n=====\n\nafter\n');
     expect(equals).toContain('<h1 id="title">Title</h1>');

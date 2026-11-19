@@ -873,6 +873,58 @@ function takeLatexHeading(
   return true;
 }
 
+function takeLatexTailSetext(
+  raw: string,
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>
+): boolean {
+  if (!listState.tailLines || listState.tailLines.length === 0 || listState.column === null) {
+    return false;
+  }
+  const level = setextLevel(dedentToColumn(raw, listState.column));
+  if (level === null) {
+    return false;
+  }
+  const tail = listState.tailLines
+    .map((item) => item.text)
+    .filter((item) => item.length > 0)
+    .join(' ');
+  if (tail.length === 0) {
+    return false;
+  }
+  output.pop();
+  const command = getHeadingCommand(level);
+  output.push(latexLabeledHeading(command, convertInlineFormatting(tail), tail, counts));
+  listState.tailLines = null;
+  listState.sealed = true;
+  listState.paragraphBreak = true;
+  listState.break = false;
+  return true;
+}
+
+function replaceLatexItemHeading(
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>,
+  level: 1 | 2,
+  text: string
+): boolean {
+  const last = output[output.length - 1];
+  if (!last?.includes('\\item ')) {
+    return false;
+  }
+  const at = last.lastIndexOf('\\item ');
+  const command = getHeadingCommand(level);
+  const heading = latexLabeledHeading(command, convertInlineFormatting(text), text, counts);
+  output[output.length - 1] = `${last.slice(0, at)}\\item ${heading}`;
+  listState.itemLines = [];
+  listState.sealed = true;
+  listState.paragraphBreak = true;
+  listState.break = false;
+  return true;
+}
+
 function takeLatexItemSetext(
   raw: string,
   output: string[],
@@ -880,17 +932,24 @@ function takeLatexItemSetext(
   counts: Map<string, number>
 ): boolean {
   if (
-    listState.stack.length === 0 ||
-    listState.column === null ||
-    listState.break ||
-    listState.sealed ||
-    listState.paragraphBreak ||
-    listState.itemLines.length === 0 ||
     listState.itemFence ||
     listState.itemQuote ||
     listState.itemTable ||
     listState.itemMath ||
     listState.itemCode
+  ) {
+    return false;
+  }
+  if (takeLatexTailSetext(raw, output, listState, counts)) {
+    return true;
+  }
+  if (
+    listState.stack.length === 0 ||
+    listState.column === null ||
+    listState.break ||
+    listState.sealed ||
+    listState.paragraphBreak ||
+    listState.itemLines.length === 0
   ) {
     return false;
   }
@@ -905,19 +964,7 @@ function takeLatexItemSetext(
   if (text.length === 0) {
     return false;
   }
-  const last = output[output.length - 1];
-  if (!last?.includes('\\item ')) {
-    return false;
-  }
-  const at = last.lastIndexOf('\\item ');
-  const command = getHeadingCommand(level);
-  output[output.length - 1] =
-    `${last.slice(0, at)}\\item ${latexLabeledHeading(command, convertInlineFormatting(text), text, counts)}`;
-  listState.itemLines = [];
-  listState.sealed = true;
-  listState.paragraphBreak = true;
-  listState.break = false;
-  return true;
+  return replaceLatexItemHeading(output, listState, counts, level, text);
 }
 
 function takeLatexItemRule(raw: string, output: string[], listState: ListState): boolean {
