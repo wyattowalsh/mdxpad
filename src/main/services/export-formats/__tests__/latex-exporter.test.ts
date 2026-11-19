@@ -330,6 +330,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\includegraphics{pixel.png}');
   });
 
+  it('keeps a formula after a dollar sign inside parentheses', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See (notes $a) and $x^2$.',
+      outputPath: '/tmp/paren-dollar.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('(notes \\$a)');
+    expect(written).toContain('$x^2$');
+    expect(written).not.toContain('textasciicircum');
+  });
+
   it('keeps a formula after a dollar sign in an email', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -109,6 +109,16 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('<strong>');
   });
 
+  it('keeps a formula after a dollar sign inside parentheses', () => {
+    const html = markdownToPdfHtml('See (notes $a) and $x^2$.');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('(notes $a)');
+    const wrapped = markdownToPdfHtml('Value ($x^2$) and ($a$ or $b$).');
+    expect(wrapped).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(wrapped).toContain('annotation encoding="application/x-tex">a</annotation>');
+    expect(wrapped).toContain('annotation encoding="application/x-tex">b</annotation>');
+  });
+
   it('keeps a formula after a dollar sign in a reference label', () => {
     const html = markdownToPdfHtml('See [a$b] and $x^2$.\n\n[a$b]: https://example.com/guide\n');
     expect(html).toContain('href="https://example.com/guide"');

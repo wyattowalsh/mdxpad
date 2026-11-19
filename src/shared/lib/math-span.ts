@@ -108,13 +108,70 @@ function escapedDelimiter(raw: string, index: number): boolean {
   return count % 2 === 1;
 }
 
+function parenClose(raw: string, open: number): number {
+  let depth = 0;
+  for (let cursor = open; cursor < raw.length; cursor += 1) {
+    const char = raw[cursor] ?? '';
+    if (char === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (char === '(') {
+      depth += 1;
+      continue;
+    }
+    if (char !== ')') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return cursor;
+    }
+  }
+  return -1;
+}
+
+function dollarCrossesParen(raw: string, index: number): boolean {
+  if (raw[index] !== '$' || raw[index + 1] === '$') {
+    return false;
+  }
+  let depth = 0;
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const char = raw[cursor] ?? '';
+    if (char === '\n') {
+      return false;
+    }
+    if (char === ')') {
+      if (!escapedAt(raw, cursor)) {
+        depth += 1;
+      }
+      continue;
+    }
+    if (char !== '(' || escapedAt(raw, cursor)) {
+      continue;
+    }
+    if (depth > 0) {
+      depth -= 1;
+      continue;
+    }
+    const close = parenClose(raw, cursor);
+    if (close < index) {
+      return false;
+    }
+    const next = unescapedDelimiterIndex(raw, index + 1, '$');
+    return next === -1 || next > close;
+  }
+  return false;
+}
+
 export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
   if (
     raw.charAt(index) !== '$' ||
     escapedDelimiter(raw, index) ||
     dollarInEmail(raw, index) ||
     dollarInBrackets(raw, index) ||
-    dollarInUrl(raw, index)
+    dollarInUrl(raw, index) ||
+    dollarCrossesParen(raw, index)
   ) {
     return null;
   }
