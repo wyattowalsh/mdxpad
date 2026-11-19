@@ -35,15 +35,20 @@ function listColumn(line: string): number | null {
   return match ? match[0].length : null;
 }
 
-function nextListColumn(current: number | null, line: string): number | null {
+function nextListColumns(columns: readonly number[], line: string): number[] {
   const column = listColumn(line);
   if (column !== null) {
-    return column;
+    return [...columns.filter((existing) => existing < column), column];
   }
-  if (line.trim().length === 0 || (current !== null && leadingSpaces(line) >= current)) {
-    return current;
+  if (line.trim().length === 0) {
+    return [...columns];
   }
-  return null;
+  const spaces = leadingSpaces(line);
+  return columns.filter((existing) => spaces >= existing);
+}
+
+function activeColumn(columns: readonly number[]): number | null {
+  return columns.length > 0 ? (columns[columns.length - 1] ?? null) : null;
 }
 
 function indentedCodeText(line: string): string | null {
@@ -114,7 +119,7 @@ interface FenceState {
   inIndented: boolean;
   codeIndent: string;
   codeKind: 'top' | 'list' | 'quote';
-  column: number | null;
+  columns: number[];
 }
 
 function closeCode(state: FenceState): void {
@@ -172,8 +177,9 @@ function activeCode(state: FenceState, line: string): string | null {
     const quoted = quotedCode(line);
     return quoted !== null && quoted.prefix === state.codeIndent ? quoted.body : null;
   }
-  if (state.codeKind === 'list' && state.column !== null) {
-    return listCodeBody(line, state.column);
+  const column = activeColumn(state.columns);
+  if (state.codeKind === 'list' && column !== null) {
+    return listCodeBody(line, column);
   }
   return state.inIndented ? indentedCodeText(line) : null;
 }
@@ -193,7 +199,7 @@ function continueCode(state: FenceState, line: string): boolean {
   }
   closeCode(state);
   state.output.push(line);
-  state.column = nextListColumn(state.column, line);
+  state.columns = nextListColumns(state.columns, line);
   return true;
 }
 
@@ -204,16 +210,17 @@ function startCode(state: FenceState, line: string): boolean {
     return true;
   }
   const top = indentedCodeText(line);
-  const insideList = state.column !== null && leadingSpaces(line) >= state.column;
+  const column = activeColumn(state.columns);
+  const insideList = column !== null && leadingSpaces(line) >= column;
   if (top !== null && blankBefore(state) && !insideList && !footnoteParagraph(state, line)) {
-    state.column = null;
+    state.columns = [];
     openCode(state, top, '', 'top');
     return true;
   }
-  if (state.column !== null && blankBefore(state)) {
-    const listed = listCodeBody(line, state.column);
+  if (column !== null && blankBefore(state)) {
+    const listed = listCodeBody(line, column);
     if (listed !== null) {
-      openCode(state, listed, ' '.repeat(state.column), 'list');
+      openCode(state, listed, ' '.repeat(column), 'list');
       return true;
     }
   }
@@ -232,7 +239,7 @@ function consumeLine(state: FenceState, line: string): void {
     return;
   }
   state.output.push(line);
-  state.column = nextListColumn(state.column, line);
+  state.columns = nextListColumns(state.columns, line);
 }
 
 /** Turn indented code, including code in a list or quote, into a fence. */
@@ -245,7 +252,7 @@ export function fenceIndentedCode(content: string): string {
     inIndented: false,
     codeIndent: '',
     codeKind: 'top',
-    column: null,
+    columns: [],
   };
   for (const line of content.split('\n')) {
     consumeLine(state, line);
