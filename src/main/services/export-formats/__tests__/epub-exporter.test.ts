@@ -437,6 +437,23 @@ describe('EpubExporter', () => {
     expect(html).not.toContain('[^1]');
   });
 
+  it('links a heading in another chapter', async () => {
+    const epubGen = await import('epub-gen-memory');
+    await exporter.export({
+      content:
+        '# One\n\nSee [two](#two) and [details](#details).\n\n### Details\n\nHere.\n\n# Two\n\nThere.\n',
+      outputPath: '/tmp/anchors.epub',
+    });
+    const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      content: string;
+    }[];
+    const html = contentArg.map((chapter) => chapter.content).join('\n');
+    expect(html).toContain('href="chapter-1.xhtml#two"');
+    expect(html).toContain('href="#details"');
+    expect(html).toContain('id="details"');
+    expect(html).toContain('id="two"');
+  });
+
   it('renders a markdown table in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({

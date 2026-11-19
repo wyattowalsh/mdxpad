@@ -440,31 +440,20 @@ function epubChapterFilename(index: number): string {
   return `chapter-${index}.xhtml`;
 }
 
-function linkEpubFootnotes(chapters: { filename: string; content: string }[]): void {
-  const noteFile = new Map<string, string>();
-  const refFile = new Map<string, string>();
+function linkEpubAnchors(chapters: { filename: string; content: string }[]): void {
+  const idFile = new Map<string, string>();
   for (const chapter of chapters) {
-    for (const match of chapter.content.matchAll(/id="fn-(\d+)"/g)) {
-      const num = match[1];
-      if (num) {
-        noteFile.set(num, chapter.filename);
-      }
-    }
-    for (const match of chapter.content.matchAll(/id="fnref-(\d+)"/g)) {
-      const num = match[1];
-      if (num) {
-        refFile.set(num, chapter.filename);
+    for (const match of chapter.content.matchAll(/\sid="([^"]+)"/g)) {
+      const id = match[1];
+      if (id && !idFile.has(id)) {
+        idFile.set(id, chapter.filename);
       }
     }
   }
   for (const chapter of chapters) {
-    chapter.content = chapter.content.replace(/href="#fn-(\d+)"/g, (full, num: string) => {
-      const file = noteFile.get(num);
-      return file && file !== chapter.filename ? `href="${file}#fn-${num}"` : full;
-    });
-    chapter.content = chapter.content.replace(/href="#fnref-(\d+)"/g, (full, num: string) => {
-      const file = refFile.get(num);
-      return file && file !== chapter.filename ? `href="${file}#fnref-${num}"` : full;
+    chapter.content = chapter.content.replace(/href="#([^"]+)"/g, (full, id: string) => {
+      const file = idFile.get(id);
+      return file && file !== chapter.filename ? `href="${file}#${id}"` : full;
     });
   }
 }
@@ -592,7 +581,7 @@ export class EpubExporter implements Exporter {
           };
         })
       );
-      linkEpubFootnotes(epubContent);
+      linkEpubAnchors(epubContent);
 
       let buffer: Buffer;
       try {
