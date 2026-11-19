@@ -20,7 +20,7 @@ import type { PluginManifest, PluginRecord } from '@shared/contracts/plugin-sche
 
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { resolveWorkspaceFilePath } from '../ai/agent-path';
-import { resolveAppDirectory } from '../ensure-real-directory';
+import { ensureRealDirectory, resolveAppDirectory } from '../ensure-real-directory';
 import { loadManifest, derivePluginId } from './plugin-manifest';
 import { PluginRegistry } from './plugin-registry';
 
@@ -125,12 +125,14 @@ function buildSandboxApi(manifest: PluginManifest, pluginRoot: string): PluginSa
 
 export class PluginLoader {
   private readonly pluginDir: string;
+  private readonly ownedRoot: string | undefined;
   private readonly registry: PluginRegistry;
   private readonly loaded = new Map<string, LoadedPlugin>();
 
   constructor(pluginDir?: string, ownedRoot?: string) {
     const resolved = resolveAppDirectory(pluginDir, getDefaultPluginDir, ownedRoot);
     this.pluginDir = resolved.directory;
+    this.ownedRoot = resolved.ownedRoot;
     this.registry = new PluginRegistry(this.pluginDir, resolved.ownedRoot);
   }
 
@@ -143,8 +145,13 @@ export class PluginLoader {
    */
   async discoverPlugins(): Promise<string[]> {
     try {
+      if (this.ownedRoot !== undefined) {
+        await ensureRealDirectory(this.pluginDir, this.ownedRoot);
+      }
       const entries = await fs.readdir(this.pluginDir, { withFileTypes: true });
-      return entries.filter((e) => e.isDirectory()).map((e) => path.join(this.pluginDir, e.name));
+      return entries
+        .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+        .map((entry) => path.join(this.pluginDir, entry.name));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return [];

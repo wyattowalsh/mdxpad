@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-loader.test
  */
 
-import { access, mkdtemp, readFile, rm, symlink, writeFile, mkdir } from 'node:fs/promises';
+import { access, lstat, mkdtemp, readFile, rm, symlink, writeFile, mkdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -71,6 +71,23 @@ describe('PluginLoader', () => {
 
       const plugins = await loader.discoverPlugins();
       expect(plugins).toHaveLength(2);
+    });
+
+    it('does not discover plugins through a linked plugins folder', async () => {
+      const outside = path.join(tempDir, 'outside-plugins');
+      const secret = path.join(outside, 'secret-plugin');
+      await mkdir(secret, { recursive: true });
+      await writeFile(path.join(secret, 'manifest.json'), '{"secret":true}');
+      const holder = path.join(tempDir, 'holder');
+      await mkdir(holder);
+      const linked = path.join(holder, 'plugins');
+      await symlink(outside, linked);
+
+      const linkedLoader = new PluginLoader(linked, holder);
+
+      await expect(linkedLoader.discoverPlugins()).resolves.toEqual([]);
+      expect((await lstat(linked)).isSymbolicLink()).toBe(false);
+      expect(await readFile(path.join(secret, 'manifest.json'), 'utf8')).toBe('{"secret":true}');
     });
 
     it('returns empty array if directory does not exist', async () => {
