@@ -206,6 +206,11 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
   });
 
+  it('draws a vertical bar delimiter', () => {
+    expect(runText(mathComponents('\\left\\lvert x \\right\\rvert'))).toBe('| x |');
+    expect(runText(mathComponents('\\left\\lVert x \\right\\rVert'))).toBe('‖ x ‖');
+  });
+
   it('drops the star on an operator name', () => {
     expect(runText(mathComponents('\\operatorname*{lim}'))).toBe('lim');
     expect(runText(mathComponents('\\mathop*{max}'))).toBe('max');
