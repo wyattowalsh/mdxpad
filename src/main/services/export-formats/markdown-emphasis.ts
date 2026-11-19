@@ -176,6 +176,19 @@ export function collectEmphasis(value: string): EmphasisMatch[] {
   return matchRuns(collectRuns(value));
 }
 
+/** Whether `_` or `*` at `index` can open emphasis under the CommonMark flanking rule. */
+export function canOpenEmphasis(value: string, index: number): boolean {
+  const char = value[index];
+  if (char !== '*' && char !== '_') {
+    return false;
+  }
+  let length = 1;
+  while (value[index + length] === char) {
+    length += 1;
+  }
+  return flanking(value, index, length, char).canOpen;
+}
+
 export function outerEmphasisMatches(
   matches: readonly EmphasisMatch[],
   from: number,

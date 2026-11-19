@@ -18,6 +18,26 @@ describe('parseMarkdownTable', () => {
     });
   });
 
+  it('keeps a separator beside an underscore inside a word', () => {
+    const table = parseMarkdownTable([
+      '| Name | Size |',
+      '| --- | --- |',
+      '| notes_txt | size_kb |',
+    ]);
+    expect(table?.rows).toEqual([['notes_txt', 'size_kb']]);
+    const doubled = parseMarkdownTable([
+      '| file__name | other__col |',
+      '| --- | --- |',
+      '| file__name | other__col |',
+    ]);
+    expect(doubled?.headers).toEqual(['file__name', 'other__col']);
+    expect(doubled?.rows).toEqual([['file__name', 'other__col']]);
+    const emphasis = parseMarkdownTable(['| f | g |', '| --- | --- |', '| _keep|pipe_ | ok |']);
+    expect(emphasis?.rows).toEqual([['_keep|pipe_', 'ok']]);
+    const strong = parseMarkdownTable(['| f | g |', '| --- | --- |', '| __keep|pipe__ | ok |']);
+    expect(strong?.rows).toEqual([['__keep|pipe__', 'ok']]);
+  });
+
   it('keeps a pipe inside emphasis and a link', () => {
     const strong = parseMarkdownTable(['| f | g |', '| --- | --- |', '| **a|b** | c |']);
     expect(strong?.rows).toEqual([['**a|b**', 'c']]);

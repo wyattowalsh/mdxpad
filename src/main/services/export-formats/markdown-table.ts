@@ -1,5 +1,6 @@
 import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
+import { canOpenEmphasis } from './markdown-emphasis';
 import { isThematicBreak } from './markdown-break';
 import { parseListItem } from './markdown-list';
 import { advanceFence, openingFence } from './markdown-fence';
@@ -100,10 +101,12 @@ function skipCloser(value: string, index: number, marker: string): number {
 function skipEmphasis(value: string, index: number): number {
   if (value.startsWith('~~', index)) return skipCloser(value, index, '~~');
   if (value.startsWith('**', index)) return skipCloser(value, index, '**');
-  if (value.startsWith('__', index)) return skipCloser(value, index, '__');
   if (value[index] === '*' && value[index + 1] !== '*') return skipCloser(value, index, '*');
-  if (value[index] === '_' && value[index + 1] !== '_') return skipCloser(value, index, '_');
-  return index;
+  if (value[index] !== '_') return index;
+  let length = 0;
+  while (value[index + length] === '_') length += 1;
+  if (!canOpenEmphasis(value, index)) return index + length;
+  return skipCloser(value, index, length >= 2 ? '__' : '_');
 }
 
 function skipLink(value: string, index: number): number {
