@@ -61,6 +61,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('draws a Greek letter', () => {
+    expect(runText(mathComponents('\\delta'))).toBe('δ');
+    expect(runText(mathComponents('\\pi'))).toBe('π');
+    expect(runText(mathComponents('\\omega'))).toBe('ω');
+    expect(runText(mathComponents('\\Delta'))).toBe('Δ');
+    expect(runText(mathComponents('\\phi'))).toBe('φ');
+  });
+
   it('draws a negated relation as one symbol', () => {
     expect(runText(mathComponents('\\in'))).toBe('∈');
     expect(runText(mathComponents('\\notin'))).toBe('∉');
