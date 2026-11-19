@@ -61,6 +61,13 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('draws an arrow', () => {
+    expect(runText(mathComponents('\\Rightarrow'))).toBe('⇒');
+    expect(runText(mathComponents('\\mapsto'))).toBe('↦');
+    expect(runText(mathComponents('\\iff'))).toBe('⇔');
+    expect(runText(mathComponents('A \\to B'))).toBe('A → B');
+  });
+
   it('draws a Greek letter', () => {
     expect(runText(mathComponents('\\delta'))).toBe('δ');
     expect(runText(mathComponents('\\pi'))).toBe('π');
