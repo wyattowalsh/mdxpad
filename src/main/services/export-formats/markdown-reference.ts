@@ -1,5 +1,8 @@
+import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
+
 import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode, openingFence } from './markdown-fence';
+import { readMarkdownTarget } from './markdown-link';
 import { listContentColumn } from './markdown-list';
 import { quoteBody } from './markdown-quote';
 import { closeOpenTableRows } from './markdown-table';
@@ -221,14 +224,55 @@ function copyCodeSpan(line: string, index: number): { text: string; next: number
   return { text: line.slice(index, closer + ticks), next: closer + ticks };
 }
 
+function texMathSpan(line: string, index: number): { text: string; next: number } | null {
+  const display = line.startsWith('\\[', index);
+  if (!display && !line.startsWith('\\(', index)) {
+    return null;
+  }
+  const close = display ? '\\]' : '\\)';
+  const end = unescapedDelimiterIndex(line, index + 2, close);
+  if (end === -1) {
+    return null;
+  }
+  return { text: line.slice(index, end + close.length), next: end + close.length };
+}
+
+function mathSpanAt(line: string, index: number): { text: string; next: number } | null {
+  const delimiter = mathDelimiterAt(line, index);
+  if (!delimiter) {
+    return texMathSpan(line, index);
+  }
+  const end = mathSpanEnd(line, index, delimiter);
+  if (end === -1) {
+    return null;
+  }
+  return { text: line.slice(index, end), next: end };
+}
+
+function inlineTargetSpan(line: string, index: number): { text: string; next: number } | null {
+  const marker = line[index] === '[' || (line[index] === '!' && line[index + 1] === '[');
+  if (!marker) {
+    return null;
+  }
+  const link = readMarkdownTarget(line, index);
+  if (link?.start !== index) {
+    return null;
+  }
+  return { text: line.slice(index, link.end), next: link.end };
+}
+
+function copyProtectedSpan(line: string, index: number): { text: string; next: number } | null {
+  return copyCodeSpan(line, index) ?? mathSpanAt(line, index) ?? inlineTargetSpan(line, index);
+}
+
 function rewriteLine(line: string, references: ReadonlyMap<string, string>): string {
   let result = '';
   let index = 0;
   while (index < line.length) {
-    const code = copyCodeSpan(line, index);
-    if (code) {
-      result += code.text;
-      index = code.next;
+    const kept = copyProtectedSpan(line, index);
+    if (kept) {
+      result += kept.text;
+      index = kept.next;
       continue;
     }
     const match = REFERENCE.exec(line.slice(index));
@@ -272,10 +316,10 @@ function rewriteImageReferenceLine(line: string, references: ReadonlyMap<string,
   let result = '';
   let index = 0;
   while (index < line.length) {
-    const code = copyCodeSpan(line, index);
-    if (code) {
-      result += code.text;
-      index = code.next;
+    const kept = copyProtectedSpan(line, index);
+    if (kept) {
+      result += kept.text;
+      index = kept.next;
       continue;
     }
     const marker =

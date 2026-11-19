@@ -153,6 +153,27 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[^1]');
   });
 
+  it('keeps a bracket that belongs to an inline address', () => {
+    const expanded = expandLinkReferences(
+      'See [search](https://example.com/?q[id]=1).\n\n[id]: https://example.com/docs\n'
+    );
+    expect(expanded).toContain('[search](https://example.com/?q[id]=1)');
+    expect(expanded).not.toContain('q[id](https://example.com/docs)');
+    const titled = expandLinkReferences(
+      '[text](https://example.com "see [id]")\n\n[id]: https://example.com/docs\n'
+    );
+    expect(titled).toContain('"see [id]"');
+    expect(titled).not.toContain('[id](https://example.com/docs)');
+    const math = expandLinkReferences('See $[id]$.\n\n[id]: https://example.com/docs\n');
+    expect(math).toContain('$[id]$');
+    expect(math).not.toContain('$[id](https://example.com/docs)$');
+    const image = expandLinkReferences(
+      '![shot](https://example.com/?q[id]=1)\n\n[id]: https://example.com/docs\n'
+    );
+    expect(image).toContain('![shot](https://example.com/?q[id]=1)');
+    expect(image).not.toContain('q[id](https://example.com/docs)');
+  });
+
   it('resolves an image reference and leaves a fenced definition alone', () => {
     expect(expandLinkReferences('![A photo][pic]\n\n[pic]: photo.jpg\n')).toContain(
       '![A photo](photo.jpg)'
