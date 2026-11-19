@@ -1,6 +1,6 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
-import { fenceIndentedCode } from './indented-code';
+import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
 import { mathDelimiterAt, mathSpanEnd } from './math-span';
 import {
   escapeLooseTags,
@@ -8,32 +8,11 @@ import {
   linkUrlsWithEscapedAngles,
 } from './markdown-tags';
 
-const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const MDX_EXPRESSION_OPTIONS: AcornOptions = {
   ecmaVersion: 2024,
   sourceType: 'module',
   preserveParens: true,
 };
-
-function fenceLine(line: string): string {
-  return line.replace(/^(?:>[ \t]?)+/, '');
-}
-
-function updateFence(fence: string | null, line: string): string | null {
-  const match = FENCE_LINE.exec(fenceLine(line));
-  if (!match) {
-    return fence;
-  }
-  const marker = match[2] ?? '';
-  const info = (match[3] ?? '').trim();
-  if (fence === null) {
-    return marker;
-  }
-  if (info.length === 0 && marker.startsWith(fence[0] ?? '') && marker.length >= fence.length) {
-    return null;
-  }
-  return fence;
-}
 
 function copyCodeSpan(value: string, index: number): { text: string; next: number } | null {
   if (value[index] !== '`') {
@@ -421,6 +400,7 @@ function mapFencedProse(content: string, transform: (prose: string) => string): 
   const output: string[] = [];
   const prose: string[] = [];
   let fence: string | null = null;
+  let columns: number[] = [];
   const flush = (): void => {
     if (prose.length === 0) {
       return;
@@ -429,13 +409,16 @@ function mapFencedProse(content: string, transform: (prose: string) => string): 
     prose.length = 0;
   };
   for (const line of content.split('\n')) {
-    const next = updateFence(fence, line);
+    const next = nextProseFence(fence, line, columns);
     const boundary = fence !== next;
     if (boundary || next !== null) {
       flush();
       output.push(line);
     } else {
       prose.push(line);
+    }
+    if (fence === null && next === null) {
+      columns = nextProseColumns(columns, line);
     }
     fence = next;
   }

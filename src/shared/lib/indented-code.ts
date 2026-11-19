@@ -3,27 +3,73 @@
  * MDX compiles indented lines as prose, which would render a formula inside them.
  */
 
-const FENCE_LINE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])[ \t]+/;
+const FENCE_MARKER = /^(`{3,}|~{3,})(.*)$/;
 
-function openingFence(line: string): string | null {
-  return FENCE_LINE.exec(line)?.[2] ?? null;
+function quoteStripped(line: string): string {
+  return line.replace(/^(?:>[ \t]?)+/, '');
 }
 
-function closesFence(line: string, open: string): boolean {
-  const match = FENCE_LINE.exec(line);
-  const marker = match?.[2];
-  if (!marker || !marker.startsWith(open.charAt(0)) || marker.length < open.length) {
-    return false;
+function fenceIndentAllowed(spaces: number, columns: readonly number[]): boolean {
+  for (let index = columns.length - 1; index >= 0; index -= 1) {
+    const column = columns[index] ?? 0;
+    if (spaces >= column && spaces <= column + 3) {
+      return true;
+    }
+    if (spaces >= column) {
+      return false;
+    }
   }
-  return (match[3] ?? '').trim().length === 0;
+  return spaces <= 3;
 }
 
-function advanceFence(line: string, open: string | null): string | null {
-  if (open) {
-    return closesFence(line, open) ? null : open;
+function fenceOnLine(
+  line: string,
+  columns: readonly number[]
+): { marker: string; info: string } | null {
+  const expanded = quoteStripped(line).replaceAll('\t', '    ');
+  const spaces = leadingSpaces(expanded);
+  if (!fenceIndentAllowed(spaces, columns)) {
+    return null;
   }
-  return openingFence(line);
+  const match = FENCE_MARKER.exec(expanded.slice(spaces));
+  const marker = match?.[1] ?? '';
+  const info = match?.[2] ?? '';
+  if (marker.length === 0) {
+    return null;
+  }
+  if (marker.startsWith('`') && info.includes('`')) {
+    return null;
+  }
+  if (marker.startsWith('~') && info.includes('~')) {
+    return null;
+  }
+  return { marker, info };
+}
+
+/** The fence marker after this line, including a fence indented under a list item. */
+export function nextProseFence(
+  open: string | null,
+  line: string,
+  columns: readonly number[]
+): string | null {
+  const found = fenceOnLine(line, columns);
+  if (!found) {
+    return open;
+  }
+  if (open === null) {
+    return found.marker;
+  }
+  const sameMark = found.marker.startsWith(open.charAt(0));
+  if (found.info.trim().length === 0 && sameMark && found.marker.length >= open.length) {
+    return null;
+  }
+  return open;
+}
+
+/** List columns after a prose line that is outside a fence. */
+export function nextProseColumns(columns: readonly number[], line: string): number[] {
+  return nextListColumns(columns, line);
 }
 
 function leadingSpaces(line: string): number {
@@ -228,7 +274,7 @@ function startCode(state: FenceState, line: string): boolean {
 }
 
 function consumeLine(state: FenceState, line: string): void {
-  const next = advanceFence(line, state.fence);
+  const next = nextProseFence(state.fence, line, state.columns);
   if (state.fence || next) {
     closeCode(state);
     state.output.push(line);

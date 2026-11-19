@@ -44,5 +44,8 @@ describe('fences', () => {
     expect(fenceIndentedCode('Intro\n\n    ```\n    # Secret\n    $x^2$\n')).toBe(
       'Intro\n\n````\n```\n# Secret\n$x^2$\n````\n'
     );
+    const nestedFence = '- outer\n\n  - inner\n\n    ```\n\n        const x = 1\n    ```\n';
+    expect(fenceIndentedCode(nestedFence)).toBe(nestedFence);
+    expect(fenceIndentedCode('hello\n    ```\n')).toBe('hello\n    ```\n');
   });
 });

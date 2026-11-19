@@ -95,6 +95,8 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$a\\$b$');
     expect(prepareMarkdownSource('    $x^2$\n')).toBe('```\n$x^2$\n```\n');
+    expect(normalizeTexMath('- outer\n\n  - inner\n\n    ```\n    \\(x^2\\)\n    ```\n')).toContain('\\(x^2\\)');
+    expect(normalizeTexMath('- outer\n\n  - inner\n\n    ```\n    \\(x^2\\)\n    ```\n')).not.toContain('$x^2$');
     expect(normalizeTexMath(fenceIndentedCode('- item\n\n      \\(x^2\\)\n'))).toContain('\\(x^2\\)');
     expect(normalizeTexMath(fenceIndentedCode('>     \\(x^2\\)\n'))).toContain('\\(x^2\\)');
     expect(normalizeTexMath(fenceIndentedCode('> >     \\(x^2\\)\n'))).toContain('\\(x^2\\)');
