@@ -93,9 +93,7 @@ describe('quoteBody', () => {
       (line) => line
     );
     const nestedItem = nested.slice(nested.indexOf('<li>'), nested.lastIndexOf('</li>'));
-    expect(nestedItem).toContain('<pre><code>');
-    expect(nestedItem).toContain('**not bold**');
-    expect(nestedItem).toContain('# not a heading');
+    expect(nestedItem).toContain('<pre><code>**not bold**\n# not a heading</code></pre>');
     const fencedItem = fenced.slice(fenced.indexOf('<li>'), fenced.indexOf('</li>'));
     expect(fencedItem).toContain('<pre><code>const x = 1</code></pre>');
   });

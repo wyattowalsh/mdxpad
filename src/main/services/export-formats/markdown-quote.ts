@@ -308,7 +308,11 @@ function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItem
     }
     flush();
     const block = collectItemCode(body, index, column);
-    pieces.push({ kind: 'code', lines: block.lines.map((entry) => shiftIndent(entry, column)) });
+    const fenceIndent = openIndentedFence(block.lines[0] ?? '', column)?.indent ?? column;
+    pieces.push({
+      kind: 'code',
+      lines: block.lines.map((entry) => shiftIndent(entry, fenceIndent)),
+    });
     index = block.next;
   }
   flush();

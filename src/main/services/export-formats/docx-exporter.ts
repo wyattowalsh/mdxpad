@@ -591,13 +591,14 @@ function appendDocxQuoteCodeLines(
       cursor += 1;
     }
   }
+  const fenceIndent = openIndentedFence(first, column)?.indent ?? column;
   const shifted = block.map((line) => {
     const expanded = line.replaceAll('\t', '    ');
     let spaces = 0;
     while (expanded[spaces] === ' ') {
       spaces += 1;
     }
-    const cut = spaces < column ? spaces : column;
+    const cut = spaces < fenceIndent ? spaces : fenceIndent;
     return expanded.slice(cut);
   });
   appendDocxQuoteCode(blocks, shifted);
