@@ -55,6 +55,7 @@ import { codeExecutionExtension } from '../../lib/editor/extensions/code-executi
 import { createSlashCommandCompletionSource } from '../../lib/editor/extensions/slash-commands';
 import { goToDefinitionExtension } from '../../lib/editor/extensions/go-to-definition';
 import { commentDecorationExtension } from '../../lib/editor/comment-decorations';
+import { commentGutterExtension } from '../../components/comments/CommentGutter';
 import { openImportSpecifier } from '@renderer/lib/open-import';
 import { predictNextEdit } from '../../lib/editor/next-edit-provider';
 import { nextEditPrediction } from '../../lib/editor/extensions/next-edit-prediction';
@@ -264,6 +265,7 @@ export function buildExtensions(config: Partial<MDXEditorConfig> = {}): EditorEx
   extensions.push(codeExecutionExtension());
   extensions.push(goToDefinitionExtension(openImportSpecifier));
   extensions.push(commentDecorationExtension());
+  extensions.push(commentGutterExtension());
   extensions.push(nextEditPrediction(predictNextEdit));
 
   // MDX language support
