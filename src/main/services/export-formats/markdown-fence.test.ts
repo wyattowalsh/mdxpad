@@ -47,5 +47,12 @@ describe('fences', () => {
     const nestedFence = '- outer\n\n  - inner\n\n    ```\n\n        const x = 1\n    ```\n';
     expect(fenceIndentedCode(nestedFence)).toBe(nestedFence);
     expect(fenceIndentedCode('hello\n    ```\n')).toBe('hello\n    ```\n');
+    expect(fenceIndentedCode('> - item\n>\n>     const x = 1\n')).toBe(
+      '> - item\n>\n>     const x = 1\n'
+    );
+    expect(fenceIndentedCode('> - item\n>\n>       const x = 1\n')).toBe(
+      '> - item\n>\n>   ```\n>   const x = 1\n>   ```\n'
+    );
+    expect(fenceIndentedCode('>     const x = 1\n')).toBe('> ```\n> const x = 1\n> ```\n');
   });
 });

@@ -99,6 +99,13 @@ describe('quoteBody', () => {
     const kept = quoteToHtml(fenceIndentedCode(separated).split('\n'), (line) => line);
     expect(kept).toContain('<pre><code>const x = 1</code></pre>');
     expect(kept).not.toContain('````');
+    const indented = ['> - item', '>', '>       const x = 1'].join('\n');
+    const inside = quoteToHtml(fenceIndentedCode(indented).split('\n'), (line) => line);
+    expect(inside).toContain('<li>item\n<pre><code>const x = 1</code></pre></li>');
+    const prose = ['> - item', '>', '>     const x = 1'].join('\n');
+    const paragraph = quoteToHtml(fenceIndentedCode(prose).split('\n'), (line) => line);
+    expect(paragraph).not.toContain('<pre>');
+    expect(paragraph).toContain('const x = 1');
     const fencedItem = fenced.slice(fenced.indexOf('<li>'), fenced.indexOf('</li>'));
     expect(fencedItem).toContain('<pre><code>const x = 1</code></pre>');
   });

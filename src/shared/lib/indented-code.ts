@@ -249,7 +249,40 @@ function continueCode(state: FenceState, line: string): boolean {
   return true;
 }
 
+function quotedLineInsideList(state: FenceState, line: string): boolean {
+  const column = activeColumn(state.columns);
+  if (column === null) {
+    return false;
+  }
+  const stripped = quoteStripped(line);
+  return stripped !== line && leadingSpaces(stripped) >= column;
+}
+
+function quoteListCode(state: FenceState, line: string): boolean {
+  const column = activeColumn(state.columns);
+  if (column === null || !blankBefore(state)) {
+    return false;
+  }
+  const stripped = quoteStripped(line);
+  if (stripped === line || leadingSpaces(stripped) < column) {
+    return false;
+  }
+  const listed = listCodeBody(stripped, column);
+  if (listed === null) {
+    return false;
+  }
+  const lead = line.slice(0, line.length - stripped.length);
+  openCode(state, listed, `${lead}${' '.repeat(column)}`, 'quote');
+  return true;
+}
+
 function startCode(state: FenceState, line: string): boolean {
+  if (quoteListCode(state, line)) {
+    return true;
+  }
+  if (quotedLineInsideList(state, line)) {
+    return false;
+  }
   const quoted = quotedCode(line);
   if (quoted !== null && blankBefore(state)) {
     openCode(state, quoted.body, quoted.prefix, 'quote');
