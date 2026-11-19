@@ -26,6 +26,7 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import {
   isLazyQuoteLine,
   quoteBody,
+  quoteFenceOpen,
   quoteHoldsDelimiter,
   quoteMarkerLine,
   quoteToHtml,
@@ -205,6 +206,9 @@ function consumeEpubTable(htmlLines: string[], line: string, state: EpubLineStat
   }
   const trimmed = line.trim();
   if (isTableRow(trimmed)) {
+    if (state.quoteLines.length > 0 && state.tableLines.length === 0 && isLazyQuoteLine(line)) {
+      return false;
+    }
     flushEpubParagraph(htmlLines, state);
     closeEpubList(htmlLines, state);
     state.tableLines.push(trimmed);
@@ -304,6 +308,11 @@ function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState)
     } else {
       state.fence.lines.push(line);
     }
+    return;
+  }
+  if (quoteFenceOpen(state.quoteLines)) {
+    const body = quoteBody(line);
+    state.quoteLines.push(body === null ? line : quoteMarkerLine(body));
     return;
   }
   const marker = openingFence(line);

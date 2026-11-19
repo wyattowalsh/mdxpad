@@ -73,6 +73,22 @@ export function quoteHoldsDelimiter(quoteOpen: boolean, line: string): boolean {
   return quoteOpen && line.trim() === '$$' && isLazyQuoteLine(line);
 }
 
+/** The fence marker still open inside a quote, such as a closer on the next line. */
+export function quoteFenceOpen(lines: readonly string[]): string | null {
+  let fence: string | null = null;
+  for (const line of lines) {
+    const body = quoteBody(line) ?? line;
+    if (fence) {
+      if (closesFence(body, fence)) {
+        fence = null;
+      }
+      continue;
+    }
+    fence = openingFence(body);
+  }
+  return fence;
+}
+
 export function quoteBody(line: string): string | null {
   const match = QUOTE_LINE.exec(line);
   if (!match) {

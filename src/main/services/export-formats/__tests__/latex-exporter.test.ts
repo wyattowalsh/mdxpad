@@ -24,6 +24,22 @@ describe('LatexExporter', () => {
     expect(exporter.mimeType).toBe('application/x-latex');
   });
 
+  it('keeps a wrapped code fence inside the quote', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> ```\ncode\n```\n\nafter\n',
+      outputPath: '/tmp/quote-fence.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const body = written.split('\\begin{document}')[1] ?? '';
+    const quote = body.slice(body.indexOf('\\begin{quote}'), body.indexOf('\\end{quote}'));
+    expect(quote).toContain('\\begin{verbatim}');
+    expect(quote).toContain('code');
+    expect(quote).not.toContain('after');
+    expect(body).toContain('after');
+    expect(body.indexOf('after')).toBeGreaterThan(body.lastIndexOf('\\end{verbatim}'));
+  });
+
   it('keeps a wrapped display formula inside the quote', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -32,6 +32,7 @@ import { latexVerbatimLines } from './latex-verbatim';
 import {
   isLazyQuoteLine,
   quoteBody,
+  quoteFenceOpen,
   quoteHoldsDelimiter,
   quoteMarkerLine,
   quoteToLatex,
@@ -1347,8 +1348,17 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   return true;
 }
 
+function holdQuoteFence(build: LatexBuild, line: string): boolean {
+  if (!quoteFenceOpen(build.quoteLines)) {
+    return false;
+  }
+  const body = quoteBody(line);
+  build.quoteLines.push(body === null ? line : quoteMarkerLine(body));
+  return true;
+}
+
 function appendLatexSourceLine(build: LatexBuild, line: string): void {
-  if (takeLatexItemCode(build, line) || takeLatexItemFence(build, line)) {
+  if (takeLatexItemCode(build, line) || takeLatexItemFence(build, line) || holdQuoteFence(build, line)) {
     return;
   }
   const wasInCodeBlock = build.fence;
@@ -1375,7 +1385,10 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
   if (takeLatexItemTable(build, line)) {
     return;
   }
-  if (takeLatexTable(build.output, line.trim(), build.tableLines)) {
+  if (
+    !(build.quoteLines.length > 0 && isLazyQuoteLine(line)) &&
+    takeLatexTable(build.output, line.trim(), build.tableLines)
+  ) {
     flushLatexProse(build.output, build.prose);
     flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
     resetListState(build.output, build.listState);

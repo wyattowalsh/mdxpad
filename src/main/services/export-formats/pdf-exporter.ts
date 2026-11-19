@@ -23,6 +23,7 @@ import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-p
 import {
   isLazyQuoteLine,
   quoteBody,
+  quoteFenceOpen,
   quoteHoldsDelimiter,
   quoteMarkerLine,
   quoteToHtml,
@@ -165,6 +166,9 @@ function consumePdfTable(build: PdfBuild, line: string): boolean {
   }
   const trimmed = line.trim();
   if (isTableRow(trimmed)) {
+    if (build.quoteLines.length > 0 && build.tableLines.length === 0 && isLazyQuoteLine(line)) {
+      return false;
+    }
     flushPdfParagraph(build);
     closePdfList(build);
     build.tableLines.push(trimmed);
@@ -253,6 +257,11 @@ function appendPdfLine(build: PdfBuild, line: string): void {
     } else {
       build.fence.lines.push(line);
     }
+    return;
+  }
+  if (quoteFenceOpen(build.quoteLines)) {
+    const body = quoteBody(line);
+    build.quoteLines.push(body === null ? line : quoteMarkerLine(body));
     return;
   }
   const marker = openingFence(line);

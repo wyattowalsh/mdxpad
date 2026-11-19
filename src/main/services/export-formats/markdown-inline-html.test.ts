@@ -101,6 +101,18 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a wrapped code fence and table inside the quote', () => {
+    const code = markdownToPdfHtml('> ```\ncode\n```\n\nafter\n');
+    expect(code).toContain('<pre><code>code</code></pre>');
+    expect(code).toContain('<p>after</p>');
+    expect(code).not.toContain('<pre><code> after </code></pre>');
+    const table = markdownToPdfHtml('> | A | B |\n| --- | --- |\n| 1 | 2 |\n\nafter\n');
+    const quote = table.slice(table.indexOf('<blockquote>'), table.indexOf('</blockquote>'));
+    expect(quote).toContain('<table>');
+    expect(quote).toContain('<td>1</td>');
+    expect(table).toContain('<p>after</p>');
+  });
+
   it('keeps a wrapped display formula inside the quote', () => {
     const html = markdownToPdfHtml('> $$\nx^2\n$$\n\nafter\n');
     expect(html).toContain('x^2');

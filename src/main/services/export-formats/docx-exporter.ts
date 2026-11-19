@@ -65,6 +65,7 @@ import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-tabl
 import {
   isLazyQuoteLine,
   quoteBody,
+  quoteFenceOpen,
   quoteHoldsDelimiter,
   quoteChunks,
   quoteMarkerLine,
@@ -1757,7 +1758,10 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
     parse.displayLines = nextDisplay;
     return;
   }
-  if (takeDocxTable(parse.blocks, trimmed, parse.tableLines)) {
+  if (
+    !(parse.quoteLines.length > 0 && isLazyQuoteLine(line)) &&
+    takeDocxTable(parse.blocks, trimmed, parse.tableLines)
+  ) {
     flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts, parse.numbering);
     return;
   }
@@ -1872,6 +1876,11 @@ function readDocxLine(
   codeLines: string[],
   language: { current: string }
 ): string | null {
+  if (!fence && quoteFenceOpen(parse.quoteLines)) {
+    const body = quoteBody(line);
+    parse.quoteLines.push(body === null ? line : quoteMarkerLine(body));
+    return fence;
+  }
   if (takeDocxItemFence(parse, line)) {
     return fence;
   }
