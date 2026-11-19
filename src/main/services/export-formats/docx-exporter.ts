@@ -1124,10 +1124,19 @@ function takeDocxTable(blocks: (Paragraph | Table)[], line: string, tableLines: 
   return false;
 }
 
+function displayMathTex(lines: readonly string[]): string {
+  return lines
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(' ');
+}
+
 function pushDisplayMath(paragraphs: (Paragraph | Table)[], lines: readonly string[]): void {
-  paragraphs.push(
-    new Paragraph({ children: [new Math({ children: mathComponents(lines.join('\n')) })] })
-  );
+  const tex = displayMathTex(lines);
+  if (tex.length === 0) {
+    return;
+  }
+  paragraphs.push(new Paragraph({ children: [new Math({ children: mathComponents(tex) })] }));
 }
 
 function takeDisplayLine(
