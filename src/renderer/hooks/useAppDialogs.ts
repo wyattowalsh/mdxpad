@@ -105,6 +105,21 @@ async function saveRecoveryCopy(conflict: FileConflict | null, state: AppState):
   return true;
 }
 
+async function keepDiskCopy(
+  documentId: ConflictResolution['documentId'],
+  state: AppState
+): Promise<boolean> {
+  const released = await state.recovery.releaseRecovery(documentId);
+  if (released) {
+    return true;
+  }
+  state.handleNotification({
+    type: 'error',
+    message: 'Could not discard the recovery copy',
+  });
+  return false;
+}
+
 export interface AppDialogsState {
   readonly activeConflict: FileConflict | null;
   readonly handleRecoveryDecision: (decision: RecoveryDecision) => Promise<void>;
@@ -207,14 +222,18 @@ export function useAppDialogs(state: AppState): AppDialogsState {
         return;
       }
 
-      if (resolution.choice === 'recovery') {
-        await state.recovery.handleDecision({
-          action: 'accept',
-          selectedIds: [resolution.documentId],
-        });
-      } else {
-        await state.recovery.handleDecision({ action: 'decline' });
+      if (resolution.choice === 'disk') {
+        const kept = await keepDiskCopy(resolution.documentId, state);
+        if (kept && isMountedRef.current) {
+          setActiveConflict(null);
+        }
+        return;
       }
+
+      await state.recovery.handleDecision({
+        action: 'accept',
+        selectedIds: [resolution.documentId],
+      });
 
       if (isMountedRef.current) {
         setActiveConflict(null);

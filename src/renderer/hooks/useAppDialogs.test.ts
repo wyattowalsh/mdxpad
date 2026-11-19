@@ -170,3 +170,87 @@ describe('useAppDialogs conflict save as', () => {
     expect(result.current.activeConflict?.recoveryContent).toBe('recovered text');
   });
 });
+
+describe('useAppDialogs conflict keep disk', () => {
+  const previousMdxpad = window.mdxpad;
+  const otherId = '223e4567-e89b-12d3-a456-426614174001' as DocumentId;
+
+  afterEach(() => {
+    window.mdxpad = previousMdxpad;
+  });
+
+  async function openConflict(state: AppState) {
+    const { result } = renderHook(() => useAppDialogs(state));
+    await act(async () => {
+      await result.current.handleRecoveryDecision({
+        action: 'accept',
+        selectedIds: [documentId],
+      });
+    });
+    return result;
+  }
+
+  it('discards only the conflicted recovery when keeping the disk copy', async () => {
+    window.mdxpad = {
+      ...previousMdxpad,
+      recoveryPreview: async () => ({ ok: true as const, content: 'recovered text', conflict }),
+    } as unknown as typeof window.mdxpad;
+    const releaseRecovery = vi.fn(async () => true);
+    const handleDecision = vi.fn();
+    const state = {
+      documentContent: '',
+      handleNotification: vi.fn(),
+      recovery: {
+        entries: [
+          { documentId, hasConflict: true },
+          { documentId: otherId, hasConflict: false },
+        ],
+        handleDecision,
+        releaseRecovery,
+      },
+    } as unknown as AppState;
+
+    const result = await openConflict(state);
+    await act(async () => {
+      await result.current.handleConflictResolve({ choice: 'disk', documentId });
+    });
+
+    expect(releaseRecovery).toHaveBeenCalledWith(documentId);
+    expect(handleDecision).not.toHaveBeenCalled();
+    expect(result.current.activeConflict).toBeNull();
+  });
+
+  it('leaves the other recoveries in place when the disk copy cannot be released', async () => {
+    window.mdxpad = {
+      ...previousMdxpad,
+      recoveryPreview: async () => ({ ok: true as const, content: 'recovered text', conflict }),
+    } as unknown as typeof window.mdxpad;
+    const releaseRecovery = vi.fn(async () => false);
+    const handleDecision = vi.fn();
+    const handleNotification = vi.fn();
+    const state = {
+      documentContent: '',
+      handleNotification,
+      recovery: {
+        entries: [
+          { documentId, hasConflict: true },
+          { documentId: otherId, hasConflict: false },
+        ],
+        handleDecision,
+        releaseRecovery,
+      },
+    } as unknown as AppState;
+
+    const result = await openConflict(state);
+    await act(async () => {
+      await result.current.handleConflictResolve({ choice: 'disk', documentId });
+    });
+
+    expect(handleDecision).not.toHaveBeenCalled();
+    expect(handleNotification).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Could not discard the recovery copy',
+    });
+    expect(result.current.activeConflict?.documentId).toBe(documentId);
+  });
+});
