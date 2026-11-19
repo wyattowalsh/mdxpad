@@ -866,6 +866,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('[https://en.wikipedia.org');
   });
 
+  it('keeps a numeric formula', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '\\(2\\) and \\(x\\)',
+      outputPath: '/tmp/numeric-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('${2}$');
+    expect(written).toContain('$x$');
+    expect(written).not.toContain('\\$2\\$');
+  });
+
   it('keeps a spaced angle-bracket address', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -51,6 +51,7 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See https://example.com/a\\(b\\) and \\(x\\).')).toBe(
       'See https://example.com/a\\(b\\) and $x$.'
     );
+    expect(prepareMarkdownSource('\\(2\\) and \\(x\\)')).toBe('${2}$ and $x$');
     const mailed = prepareMarkdownSource('Mail ada\\(b\\)@example.com and \\(x\\).');
     expect(mailed).toContain('ada\\(b\\)@example.com');
     expect(mailed).toContain('$x$');

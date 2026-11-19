@@ -1,5 +1,6 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
+import { isCurrencySpan } from './currency-span';
 import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from './math-span';
 import { renderableMathTex, repairedMathSpan } from './renderable-math';
@@ -427,10 +428,13 @@ function texDelimiter(prose: string, index: number): { text: string; next: numbe
     return null;
   }
   const interior = prose.slice(index + 2, end);
-  const body = display
-    ? renderableMathTex(interior)
-    : renderableMathTex(interior.replace(/(?<!\\)\$/g, '\\$'));
+  const body = display ? renderableMathTex(interior) : inlineFormula(interior);
   return { text: display ? `$$${body}$$` : `$${body}$`, next: end + 2 };
+}
+
+function inlineFormula(interior: string): string {
+  const escaped = interior.replace(/(?<!\\)\$/g, '\\$');
+  return renderableMathTex(isCurrencySpan(escaped) ? `{${escaped}}` : escaped);
 }
 
 function replaceTexMath(prose: string): string {
