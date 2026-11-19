@@ -5,6 +5,82 @@
 
 import { isCurrencySpan } from './currency-span';
 
+function escapedAt(raw: string, index: number): boolean {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && raw[cursor] === '\\'; cursor -= 1) {
+    count += 1;
+  }
+  return count % 2 === 1;
+}
+
+function bracketClose(raw: string, open: number): number {
+  let depth = 0;
+  for (let cursor = open; cursor < raw.length; cursor += 1) {
+    const char = raw[cursor] ?? '';
+    if (char === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (char === '[') {
+      depth += 1;
+      continue;
+    }
+    if (char !== ']') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return cursor;
+    }
+  }
+  return -1;
+}
+
+function dollarInBrackets(raw: string, index: number): boolean {
+  if (raw[index] !== '$') {
+    return false;
+  }
+  let depth = 0;
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const char = raw[cursor] ?? '';
+    if (char === '\n') {
+      return false;
+    }
+    if (char === ']') {
+      if (!escapedAt(raw, cursor)) {
+        depth += 1;
+      }
+      continue;
+    }
+    if (char !== '[' || escapedAt(raw, cursor)) {
+      continue;
+    }
+    if (depth > 0) {
+      depth -= 1;
+      continue;
+    }
+    return bracketClose(raw, cursor) > index;
+  }
+  return false;
+}
+
+function dollarInUrl(raw: string, index: number): boolean {
+  if (raw[index] !== '$') {
+    return false;
+  }
+  let start = index;
+  while (start > 0 && !/\s/.test(raw[start - 1] ?? '')) {
+    start -= 1;
+  }
+  const from = raw[start] === '(' ? start + 1 : start;
+  const match = /^https?:\/\/[^\s<]+/i.exec(raw.slice(from));
+  if (!match) {
+    return false;
+  }
+  const end = from + match[0].length;
+  return index >= from && index < end;
+}
+
 function dollarInEmail(raw: string, index: number): boolean {
   if (raw[index] !== '$') {
     return false;
@@ -33,7 +109,13 @@ function escapedDelimiter(raw: string, index: number): boolean {
 }
 
 export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
-  if (raw.charAt(index) !== '$' || escapedDelimiter(raw, index) || dollarInEmail(raw, index)) {
+  if (
+    raw.charAt(index) !== '$' ||
+    escapedDelimiter(raw, index) ||
+    dollarInEmail(raw, index) ||
+    dollarInBrackets(raw, index) ||
+    dollarInUrl(raw, index)
+  ) {
     return null;
   }
   if (raw.startsWith('$$', index)) {
@@ -101,7 +183,11 @@ function linkBlocksMath(raw: string, index: number): boolean {
 export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'): number {
   let index = from;
   while (index < raw.length) {
-    if (delimiter === '$' && raw[index] === '$' && dollarInEmail(raw, index)) {
+    if (
+      delimiter === '$' &&
+      raw[index] === '$' &&
+      (dollarInEmail(raw, index) || dollarInBrackets(raw, index) || dollarInUrl(raw, index))
+    ) {
       index += 1;
       continue;
     }

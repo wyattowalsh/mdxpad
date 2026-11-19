@@ -721,6 +721,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('\\*\\*\\*\n')).toBe('\\*\\*\\*');
   });
 
+  it('keeps a reference label that contains a dollar sign', () => {
+    const source = 'See [a$b] and $x^2$.\n\n[a$b]: https://example.com/guide\n';
+    const once = roundTrip(source);
+    expect(once).toContain('[a$b]');
+    expect(once).not.toContain('\\[');
+    expect(once).toContain('$x^2$');
+    expect(once).toContain('https://example.com/guide');
+    const twice = roundTrip(once.endsWith('\n') ? once : `${once}\n`);
+    expect(twice).toBe(once);
+  });
+
   it('keeps a formula that contains a link', () => {
     const source = 'See \\(x and [a \\)](https://example.com) y\\).\n';
     const once = roundTrip(source);

@@ -56,7 +56,7 @@ function readBareAutolink(raw: string, index: number): FoundAutolink | null {
     return null;
   }
   const previous = index === 0 ? '' : (raw[index - 1] ?? '');
-  if (previous !== '' && !/\s/.test(previous)) {
+  if (previous !== '' && !/[\s(]/.test(previous)) {
     return null;
   }
   const match = /^https?:\/\/[^\s<]+/i.exec(raw.slice(index));

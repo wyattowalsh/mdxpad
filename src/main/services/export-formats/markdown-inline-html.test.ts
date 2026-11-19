@@ -109,6 +109,24 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('<strong>');
   });
 
+  it('keeps a formula after a dollar sign in a reference label', () => {
+    const html = markdownToPdfHtml('See [a$b] and $x^2$.\n\n[a$b]: https://example.com/guide\n');
+    expect(html).toContain('href="https://example.com/guide"');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('>a$b</a>');
+    const labeled = markdownToPdfHtml('[size $n^2$](https://example.com)');
+    expect(labeled).toContain('href="https://example.com"');
+    expect(labeled).toContain('annotation encoding="application/x-tex">n^2</annotation>');
+  });
+
+  it('keeps a formula beside a parenthetical address', () => {
+    const html = markdownToPdfHtml('See (https://example.com/a$b) and $x^2$.');
+    expect(html).toContain('href="https://example.com/a$b"');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('(<a ');
+    expect(html).toContain('</a>)');
+  });
+
   it('keeps a formula after a dollar sign in an email', () => {
     const html = markdownToPdfHtml('Mail ada$b@example.com and $x^2$.');
     expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
