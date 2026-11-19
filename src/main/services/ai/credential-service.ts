@@ -11,6 +11,8 @@
 import { safeStorage } from 'electron';
 import Store from 'electron-store';
 
+import { prepareElectronStore } from '../store-link';
+
 import type { CredentialMetadata } from '../../../shared/ai/types';
 import { CredentialStorageError } from '../../../shared/ai/errors';
 
@@ -122,6 +124,7 @@ export class CredentialService implements ICredentialService {
    * Initializes the persistent store and checks encryption availability.
    */
   constructor() {
+    prepareElectronStore(STORE_NAME);
     this.store = new Store<CredentialStoreSchema>({
       name: STORE_NAME,
       defaults: {

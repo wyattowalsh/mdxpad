@@ -10,6 +10,8 @@
 
 import Store from 'electron-store';
 
+import { prepareElectronStore } from './store-link';
+
 /**
  * Represents a single entry in the recent files list.
  */
@@ -63,6 +65,7 @@ export class RecentFilesService {
    * (app.getPath('userData')) in a file named 'recent-files.json'.
    */
   constructor() {
+    prepareElectronStore('recent-files');
     this.store = new Store<StoreSchema>({
       name: 'recent-files',
       defaults: {

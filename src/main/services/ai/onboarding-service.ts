@@ -14,6 +14,8 @@
  */
 
 import Store from 'electron-store';
+
+import { prepareElectronStore } from '../store-link';
 import type {
   OnboardingAttempt,
   OnboardingMetrics,
@@ -144,6 +146,7 @@ export class OnboardingService implements IOnboardingService {
    * creates an in-memory map for tracking in-progress attempts.
    */
   constructor() {
+    prepareElectronStore(STORE_NAME);
     this.store = new Store<OnboardingStore>({
       name: STORE_NAME,
       defaults: {

@@ -11,6 +11,8 @@
 import Store from 'electron-store';
 import { randomUUID } from 'node:crypto';
 
+import { prepareElectronStore } from '../store-link';
+
 import type {
   UsageRecord,
   UsageStats,
@@ -292,6 +294,7 @@ export class UsageService implements IUsageService {
    * Store is persisted at user's app data directory as 'mdxpad-usage.json'.
    */
   constructor() {
+    prepareElectronStore('mdxpad-usage');
     this.store = new Store<StoreSchema>({
       name: 'mdxpad-usage',
       defaults: {

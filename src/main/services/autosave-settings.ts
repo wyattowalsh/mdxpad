@@ -13,6 +13,8 @@
  */
 
 import Store from 'electron-store';
+
+import { prepareElectronStore } from './store-link';
 import {
   type AutosaveSettings,
   AutosaveSettingsSchema,
@@ -68,6 +70,7 @@ export class AutosaveSettingsService {
    * 30 seconds if dirty.
    */
   constructor() {
+    prepareElectronStore('autosave-settings');
     this.store = new Store<StoreSchema>({
       name: 'autosave-settings',
       defaults: {

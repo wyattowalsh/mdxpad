@@ -11,6 +11,8 @@
 import Store from 'electron-store';
 import { randomUUID } from 'node:crypto';
 
+import { prepareElectronStore } from '../store-link';
+
 import type {
   ProviderConfig,
   ProviderType,
@@ -99,6 +101,7 @@ export class ProviderService implements IProviderService {
 
   constructor(credentialService: ICredentialService) {
     this.credentialService = credentialService;
+    prepareElectronStore(STORE_NAME);
     this.store = new Store<ProviderStoreSchema>({
       name: STORE_NAME,
       defaults: {
