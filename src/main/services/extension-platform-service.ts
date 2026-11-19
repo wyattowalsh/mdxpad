@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app } from 'electron';
 
@@ -39,19 +39,24 @@ async function ensureDirectory(dir: string): Promise<void> {
 }
 
 async function readRegistryFile(filePath: string): Promise<ExtensionRegistry> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    const info = await fs.lstat(filePath);
-    if (info.isSymbolicLink() || !info.isFile()) {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
       return freshRegistry();
     }
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await handle.readFile({ encoding: 'utf8' });
     const parsed = JSON.parse(content) as Partial<ExtensionRegistry>;
     return { extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [] };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
       return freshRegistry();
     }
     throw error;
+  } finally {
+    await handle?.close();
   }
 }
 
