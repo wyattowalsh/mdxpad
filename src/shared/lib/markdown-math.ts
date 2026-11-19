@@ -64,7 +64,17 @@ function mapOutsideCode(prose: string, mapText: (text: string) => string): strin
 }
 
 function keptAngle(value: string, match: string, offset: number): boolean {
-  return angleDestinationEnd(value, offset) === offset + match.length;
+  const end = angleDestinationEnd(value, offset);
+  return end !== -1 && end >= offset + match.length;
+}
+
+function insideReferenceDestination(value: string, index: number): boolean {
+  let start = index;
+  while (start > 0 && value[start - 1] !== '\n') {
+    start -= 1;
+  }
+  const prefix = value.slice(start, index).replace(/^(?: {0,3}> ?)*/, '');
+  return /^ {0,3}\[[^\]]+\]:[ \t]+\S*$/.test(prefix);
 }
 
 function rewriteAutolinks(value: string): string {
@@ -368,7 +378,7 @@ function prepareProse(prose: string): string {
 function texDelimiter(prose: string, index: number): { text: string; next: number } | null {
   const display = prose.startsWith('\\[', index);
   const inline = prose.startsWith('\\(', index);
-  if (!display && !inline) {
+  if ((!display && !inline) || insideReferenceDestination(prose, index)) {
     return null;
   }
   const close = display ? '\\]' : '\\)';

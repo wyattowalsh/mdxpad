@@ -100,8 +100,20 @@ function readDestinationToken(
   index: number
 ): { value: string; end: number } | null {
   if (source[index] === '<') {
-    const end = source.indexOf('>', index + 1);
-    return end === -1 ? null : { value: source.slice(index, end + 1), end: end + 1 };
+    for (let cursor = index + 1; cursor < source.length; cursor += 1) {
+      const char = source[cursor] ?? '';
+      if (char === '\\') {
+        cursor += 1;
+        continue;
+      }
+      if (char === '>') {
+        return { value: source.slice(index, cursor + 1), end: cursor + 1 };
+      }
+      if (char === '\n' || char === '<') {
+        return null;
+      }
+    }
+    return null;
   }
   let value = '';
   let cursor = index;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
+import { renderMarkdownInline } from './markdown-inline-html';
 import { plainFootnoteMarkers } from './markdown-footnote';
 import { expandLinkReferences } from './markdown-reference';
 
@@ -18,6 +19,23 @@ describe('expandLinkReferences', () => {
     const expanded = expandLinkReferences(prepareMarkdownSource(source, { preserveHtml: true }));
     expect(expanded).toContain('[a](https://example.com/a(b))');
     expect(expanded).not.toContain('[https://example.com/a(b)]');
+  });
+
+  it('keeps an escaped greater-than in a reference address', () => {
+    const source = 'See [a][id].\n\n[id]: <https://example.com/a\\>b>\n';
+    const expanded = expandLinkReferences(prepareMarkdownSource(source, { preserveHtml: true }));
+    expect(expanded).toContain('[a](https://example.com/a\\>b)');
+    expect(expanded).not.toContain('[https://example.com');
+    expect(renderMarkdownInline(expanded)).toContain('href="https://example.com/a%3Eb"');
+  });
+
+  it('keeps an escaped parenthesis in a bare reference address', () => {
+    const source = 'See [a][id].\n\n[id]: https://example.com/a\\(b\\)\n';
+    const prepared = prepareMarkdownSource(source, { preserveHtml: true });
+    expect(prepared).not.toContain('$');
+    const expanded = expandLinkReferences(prepared);
+    expect(expanded).toContain('https://example.com/a\\(b\\)');
+    expect(renderMarkdownInline(expanded)).toContain('href="https://example.com/a(b)"');
   });
 
   it('keeps an escaped parenthesis in a reference address', () => {
