@@ -120,6 +120,22 @@ export const SYMBOLS: Record<string, string> = {
   varnothing: '∅',
   sim: '∼',
   cong: '≅',
+  backslash: '\\',
+  vert: '|',
+  Vert: '‖',
+  lbrace: '{',
+  rbrace: '}',
+  lparen: '(',
+  rparen: ')',
+  lbrack: '[',
+  rbrack: ']',
+  langle: '⟨',
+  rangle: '⟩',
+  lfloor: '⌊',
+  rfloor: '⌋',
+  lceil: '⌈',
+  rceil: '⌉',
+  mid: '∣',
 };
 
 export const NEGATED: Record<string, string> = {

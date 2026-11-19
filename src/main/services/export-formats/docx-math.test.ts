@@ -83,6 +83,13 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\xcancel{y}'))).toBe('y\u0336');
   });
 
+  it('draws a named delimiter', () => {
+    expect(runText(mathComponents('\\langle x \\rangle'))).toBe('⟨ x ⟩');
+    expect(runText(mathComponents('\\lfloor y \\rfloor'))).toBe('⌊ y ⌋');
+    expect(runText(mathComponents('\\vert z \\vert'))).toBe('| z |');
+    expect(runText(mathComponents('\\backslash'))).toBe('\\');
+  });
+
   it('hides a phantom and keeps an ensured expression', () => {
     expect(runText(mathComponents('\\phantom{secret}'))).toBe('');
     expect(runText(mathComponents('\\ensuremath{x+1}'))).toBe('x+1');
