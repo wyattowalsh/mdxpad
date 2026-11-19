@@ -5,6 +5,7 @@ import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
+import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -1288,9 +1289,11 @@ export class LatexExporter implements Exporter {
     const warnings: string[] = [];
 
     try {
-      const content = omitLocalMarkdownTargets(
-        await inlineLocalImages(options.content, options.sourcePath, 'absolute'),
-        options.sourcePath
+      const content = sanitizeMarkdownHtmlBlocks(
+        omitLocalMarkdownTargets(
+          await inlineLocalImages(options.content, options.sourcePath, 'absolute'),
+          options.sourcePath
+        )
       );
       const latex = buildLatexDocument(content, options);
       await writeRegularFile(options.outputPath, latex);

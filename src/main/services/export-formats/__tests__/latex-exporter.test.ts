@@ -262,6 +262,12 @@ describe('LatexExporter', () => {
         '[Run](javascript:alert(1))',
         '',
         '![Pixel](pixel.png)',
+        '',
+        '<img src="file:///etc/passwd" alt="Secret">',
+        '',
+        '<a href="javascript:alert(1)">Run</a>',
+        '',
+        '<video poster="/etc/passwd.png"></video>',
       ].join('\n'),
       outputPath: '/tmp/local-file.tex',
     });

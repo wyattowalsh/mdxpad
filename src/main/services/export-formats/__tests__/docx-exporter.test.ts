@@ -820,6 +820,12 @@ describe('DocxExporter', () => {
         '[Disk](file:///etc/passwd)',
         '',
         '[Run](javascript:alert(1))',
+        '',
+        '<img src="file:///etc/passwd" alt="Secret">',
+        '',
+        '<a href="javascript:alert(1)">Run</a>',
+        '',
+        '<video poster="/etc/passwd.png"></video>',
       ].join('\n'),
       outputPath: '/tmp/local-file.docx',
     });
