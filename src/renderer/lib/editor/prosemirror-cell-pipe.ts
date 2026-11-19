@@ -90,8 +90,12 @@ function readEmphasis(value: string, index: number): TextSpan | null {
     marker = '~~';
   } else if (value.startsWith('**', index)) {
     marker = '**';
+  } else if (value.startsWith('__', index)) {
+    marker = '__';
   } else if (value[index] === '*' && value[index + 1] !== '*') {
     marker = '*';
+  } else if (value[index] === '_' && value[index + 1] !== '_') {
+    marker = '_';
   }
   if (marker.length === 0) {
     return null;

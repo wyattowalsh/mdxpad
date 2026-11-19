@@ -15,6 +15,7 @@ import { protectFootnoteBlocks } from './prosemirror-footnote-block';
 import { linkBareAddresses } from './prosemirror-autolink';
 import { liftFootnoteLabels, liftFootnoteRefs } from './prosemirror-footnote-ref';
 import { shieldCellPipes } from './prosemirror-cell-pipe';
+import { restoreMathMarkupNode } from './prosemirror-math-restore';
 import { indentListMarkerFences } from './indent-list-fence';
 import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
@@ -346,35 +347,6 @@ export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TO
  * @param content - Raw MDX/Markdown string
  * @returns ProseMirror Node representing the document
  */
-function restoredMathText(node: ProseMirrorNode): ProseMirrorNode | null {
-  const restored = restoreMathMarkup(node.text ?? '');
-  if (restored.length === 0) {
-    return null;
-  }
-  return restored === node.text ? node : node.type.schema.text(restored, node.marks);
-}
-
-function restoreMathMarkupNode(node: ProseMirrorNode): ProseMirrorNode {
-  if (node.isText) {
-    return restoredMathText(node) ?? node;
-  }
-  if (node.childCount === 0) {
-    return node;
-  }
-  const children: ProseMirrorNode[] = [];
-  node.forEach((child) => {
-    if (child.isText) {
-      const text = restoredMathText(child);
-      if (text) {
-        children.push(text);
-      }
-      return;
-    }
-    children.push(restoreMathMarkupNode(child));
-  });
-  return node.copy(Fragment.from(children));
-}
-
 function keepEmptyLinkLabels(value: string): string {
   return value.replace(/(?<!!)\[\](?=\()/g, '[\u200b]');
 }

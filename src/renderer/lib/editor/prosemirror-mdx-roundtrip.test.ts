@@ -59,6 +59,13 @@ describe('WYSIWYG markdown round trip', () => {
     const strong = roundTrip('| f | g |\n| --- | --- |\n| **a|b** | c |\n');
     expect(strong).toContain('**a|b**');
     expect(strong).toContain('| c |');
+    const emphasis = roundTrip('| f | g |\n| --- | --- |\n| _a|b_ | c |\n');
+    expect(emphasis).toContain('*a|b*');
+    expect(emphasis).toContain('| c |');
+    const addressed = roundTrip('| f | g |\n| --- | --- |\n| [see](https://example.com/a|b) | c |\n');
+    expect(addressed).toContain('https://example.com/a|b');
+    expect(addressed).not.toContain('%EE%80%9D');
+    expect(addressed).toContain('| c |');
   });
 
   it('keeps display math inside a list at a stable indent', () => {

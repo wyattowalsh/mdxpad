@@ -132,6 +132,8 @@ export function restoreMathMarkup(value: string): string {
     .replaceAll(MATH_STAR, '*')
     .replaceAll(MATH_UNDER, '_')
     .replaceAll(MATH_DOLLAR, '\\$')
+    .replaceAll('%EE%80%9D', '|')
+    .replaceAll('%ee%80%9d', '|')
     .replaceAll(MATH_PIPE, '|')
     .replaceAll(MATH_ESCAPE, '\\')
     .replaceAll(MATH_BACKSLASH, '\\\\');
