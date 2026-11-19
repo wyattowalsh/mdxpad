@@ -177,6 +177,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(again).toContain('after');
   });
 
+  it('keeps the indent of a quoted list formula', () => {
+    const source = '> - Text $$\n>   x^2\n>   $$\n>   more\n';
+    const saved = roundTrip(source);
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    expect(saved).toContain('>   x^2');
+    expect(saved).not.toContain('>     x^2');
+    expect(again.replace(/\n$/, '')).toBe(saved.replace(/\n$/, ''));
+  });
+
   it('keeps a quoted formula that opens at the end of a line', () => {
     const source = '> Text $$\n> x^2\n> $$\n>\n> more\n';
     const saved = roundTrip(source);

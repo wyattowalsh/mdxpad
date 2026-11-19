@@ -198,6 +198,14 @@ describe('renderMarkdownInline', () => {
     expect(table).toContain('<p>after</p>');
   });
 
+  it('closes a list formula on the last formula line', () => {
+    const html = markdownToPdfHtml('1. Text $$\n   x^2 $$\n   more\n');
+    expect(html).toContain('<li>');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('more');
+    expect(html).not.toContain('katex-error');
+  });
+
   it('keeps a formula that opens at the end of a list item', () => {
     const html = markdownToPdfHtml('- Text $$\n  x^2\n  $$\n  more\n');
     expect(html).toContain('<li>');

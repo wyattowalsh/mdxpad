@@ -1178,13 +1178,18 @@ function takeLatexItemMath(build: LatexBuild, line: string): boolean {
   }
   const column = list.column ?? 2;
   if (list.itemMath) {
-    if (line.trim() === '$$') {
+    const body = dedentToColumn(line, column);
+    const closing = body.trim() === '$$' ? '' : displayMathPrefix(body);
+    if (closing !== null) {
+      if (closing.length > 0) {
+        list.itemMath.push(closing);
+      }
       build.output.push('$$', ...disarmedMathLines(list.itemMath), '$$');
       list.itemMath = null;
       list.sealed = true;
       return true;
     }
-    list.itemMath.push(dedentToColumn(line, column));
+    list.itemMath.push(body);
     return true;
   }
   if (list.stack.length === 0 || list.column === null || line.trim() !== '$$') {

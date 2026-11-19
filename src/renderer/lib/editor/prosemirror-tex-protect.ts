@@ -171,18 +171,27 @@ function lineStartsWithQuote(value: string, index: number): boolean {
   return /^ {0,3}(?:>[ \t]?)+/.test(value.slice(start, index));
 }
 
-function shieldMathBreaks(value: string, keepQuoteMarkers: boolean): string {
-  if (!keepQuoteMarkers) {
-    return value.replaceAll('\n', `\n${MATH_LINE}`);
-  }
-  return value.replaceAll(/\n(?:>[ \t]?)*/g, (match) => `${match}${MATH_LINE}`);
+function openerListIndent(value: string, index: number): number {
+  const start = value.lastIndexOf('\n', index - 1) + 1;
+  const line = value.slice(start, index);
+  const quoted = /^(?:>[ \t]?)*/.exec(line)?.[0] ?? '';
+  const marker = /^(?:[-+*]|\d{1,9}[.)])[ \t]+/.exec(line.slice(quoted.length));
+  return marker?.[0].length ?? 0;
 }
 
-function shieldMathPiece(value: string, shieldLines: boolean, keepQuoteMarkers: boolean): string {
+function shieldMathBreaks(value: string, indent: number): string {
+  if (indent < 0) {
+    return value.replaceAll('\n', `\n${MATH_LINE}`);
+  }
+  const space = indent > 0 ? `(?: {${indent}})?` : '';
+  return value.replaceAll(new RegExp(`\\n(?:>[ \\t]?)*${space}`, 'g'), (match) => `${match}${MATH_LINE}`);
+}
+
+function shieldMathPiece(value: string, shieldLines: boolean, indent: number): string {
   const wrapped = mathWrap(value);
   let shielded = shieldMathBody(wrapped.body);
   if (shieldLines && shielded.includes('\n')) {
-    shielded = shieldMathBreaks(shielded, keepQuoteMarkers);
+    shielded = shieldMathBreaks(shielded, indent);
   }
   return `${wrapped.open}${shielded}${wrapped.close}`;
 }
@@ -212,7 +221,7 @@ export function shieldMathMarkup(value: string): string {
       result += shieldMathPiece(
         span,
         !openedInsideQuote(value, index),
-        lineStartsWithQuote(value, index)
+        lineStartsWithQuote(value, index) ? openerListIndent(value, index) : -1
       );
       index = end;
       continue;

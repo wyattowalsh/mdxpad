@@ -573,11 +573,16 @@ export function takeListItemMath(
   }
   const column = state.listColumn ?? 2;
   if (state.itemMath) {
-    if (line.trim() === '$$') {
+    const body = dedentToColumn(line, column);
+    const closing = body.trim() === '$$' ? '' : displayMathPrefix(body);
+    if (closing !== null) {
+      if (closing.length > 0) {
+        state.itemMath.push(closing);
+      }
       closeItemMath(state, render);
       return true;
     }
-    state.itemMath.push(dedentToColumn(line, column));
+    state.itemMath.push(body);
     return true;
   }
   if (!listOpen || state.listColumn === null || line.trim() !== '$$') {

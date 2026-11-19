@@ -1298,13 +1298,18 @@ function takeDocxItemMath(parse: DocxParse, line: string): boolean {
   }
   const column = parse.listColumn ?? 2;
   if (parse.itemMath) {
-    if (line.trim() === '$$') {
+    const body = dedentToColumn(line, column);
+    const closing = body.trim() === '$$' ? '' : displayMathPrefix(body);
+    if (closing !== null) {
+      if (closing.length > 0) {
+        parse.itemMath.push(closing);
+      }
       pushDisplayMath(parse.blocks, parse.itemMath);
       parse.itemMath = null;
       parse.listSealed = true;
       return true;
     }
-    parse.itemMath.push(dedentToColumn(line, column));
+    parse.itemMath.push(body);
     return true;
   }
   if (parse.openListItem === null || parse.listColumn === null || line.trim() !== '$$') {
