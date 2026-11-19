@@ -19,7 +19,7 @@ import {
   writeFootnoteLabel,
   writeFootnoteRef,
 } from './prosemirror-footnote-ref';
-import { emphasizeOutside } from './prosemirror-emphasis-order';
+import { emphasizeOutside, restorePreservedWhitespace } from './prosemirror-emphasis-order';
 import {
   emphasisOpen,
   linkLabelOpen,
@@ -214,7 +214,7 @@ const nodeSerializers: NodeSerializerMap = {
       writer.mathCloser = null;
     }
     writer.mathBreak = false;
-    const text = node.text ?? '';
+    const text = restorePreservedWhitespace(node.text ?? '');
     if (text === '\u200b' && node.marks.some((mark) => mark.type.name === 'link')) {
       return;
     }

@@ -105,12 +105,39 @@ function linkOutside(
   return [...marks.filter((mark) => !inside.includes(mark)), ...inside];
 }
 
+const NBSP_MARK = '\uE030';
+const TAB_MARK = '\uE031';
+const LINE_MARK = '\uE032';
+
+function shieldWhitespace(node: ProseMirrorNode): ProseMirrorNode {
+  if (!node.isText || node.marks.some((mark) => mark.type.name === 'code')) {
+    return node;
+  }
+  const text = node.text ?? '';
+  if (!/[\u00A0\t\n]/.test(text)) {
+    return node;
+  }
+  const shielded = text
+    .replaceAll('\u00A0', NBSP_MARK)
+    .replaceAll('\t', TAB_MARK)
+    .replaceAll('\n', LINE_MARK);
+  return replaceText(node, shielded);
+}
+
+export function restorePreservedWhitespace(text: string): string {
+  return text
+    .replaceAll(NBSP_MARK, '&nbsp;')
+    .replaceAll(TAB_MARK, '&#9;')
+    .replaceAll(LINE_MARK, '&#10;');
+}
+
 function presentChild(
   parent: ProseMirrorNode,
   index: number,
   node: ProseMirrorNode
 ): ProseMirrorNode {
-  const ordered = emphasisMarks(parent, index, strikeOutsideCode(node.marks));
+  const source = shieldWhitespace(node);
+  const ordered = emphasisMarks(parent, index, strikeOutsideCode(source.marks));
   const marks = linkOutside(parent, index, ordered);
   const handler: ProxyHandler<ProseMirrorNode> = {
     get(target, prop) {
@@ -123,7 +150,7 @@ function presentChild(
       return readProperty(target, prop);
     },
   };
-  return new Proxy(node, handler);
+  return new Proxy(source, handler);
 }
 
 export function emphasizeOutside(parent: ProseMirrorNode): ProseMirrorNode {

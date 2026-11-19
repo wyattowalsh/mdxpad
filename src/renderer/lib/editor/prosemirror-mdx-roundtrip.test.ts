@@ -514,6 +514,19 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
   });
 
+  it('keeps a non-breaking space, a tab, and a line character', () => {
+    expect(roundTrip('&nbsp;keep\n')).toBe('&nbsp;keep');
+    expect(roundTrip('**&nbsp;keep**\n')).toBe('**&nbsp;keep**');
+    expect(roundTrip('end&nbsp;\n')).toBe('end&nbsp;');
+    expect(roundTrip('a&nbsp;b\n')).toBe('a&nbsp;b');
+    expect(roundTrip('&#9;tab\n')).toBe('&#9;tab');
+    expect(roundTrip('a&#10;b\n')).toBe('a&#10;b');
+    expect(roundTrip('`&nbsp;`\n')).toBe('`&nbsp;`');
+    const saved = roundTrip('&nbsp;keep\n');
+    expect(roundTrip(`${saved}\n`)).toBe(saved);
+    expect(parseMdxContent(`${saved}\n`)?.textContent).toBe('\u00A0keep');
+  });
+
   it('keeps code and emphasis inside one link', () => {
     expect(roundTrip('[a **b** c](url)\n')).toBe('[a **b** c](url)');
     expect(roundTrip('[a *b* c](url)\n')).toBe('[a *b* c](url)');
