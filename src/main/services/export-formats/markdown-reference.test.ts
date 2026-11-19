@@ -29,6 +29,21 @@ describe('expandLinkReferences', () => {
     expect(renderMarkdownInline(expanded)).toContain('href="https://example.com/a%3Eb"');
   });
 
+  it('keeps an escaped parenthesis on the following reference line', () => {
+    const source = 'See [a][id].\n\n[id]:\nhttps://example.com/a\\(b\\)\n';
+    const prepared = prepareMarkdownSource(source, { preserveHtml: true });
+    expect(prepared).not.toContain('$');
+    const expanded = expandLinkReferences(prepared);
+    expect(expanded).toContain('https://example.com/a\\(b\\)');
+    expect(renderMarkdownInline(expanded)).toContain('href="https://example.com/a(b)"');
+    const quoted = '> [id]:\n> https://example.com/a\\(b\\)\n\n[a][id]\n';
+    const quotedPrepared = prepareMarkdownSource(quoted, { preserveHtml: true });
+    expect(quotedPrepared).not.toContain('$');
+    expect(renderMarkdownInline(expandLinkReferences(quotedPrepared))).toContain(
+      'href="https://example.com/a(b)"'
+    );
+  });
+
   it('keeps an escaped parenthesis in a bare reference address', () => {
     const source = 'See [a][id].\n\n[id]: https://example.com/a\\(b\\)\n';
     const prepared = prepareMarkdownSource(source, { preserveHtml: true });

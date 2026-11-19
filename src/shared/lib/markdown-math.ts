@@ -68,13 +68,33 @@ function keptAngle(value: string, match: string, offset: number): boolean {
   return end !== -1 && end >= offset + match.length;
 }
 
+function labelOnlyLine(line: string): boolean {
+  return /^ {0,3}\[[^\]]+\]:[ \t]*$/.test(line.replace(/^(?: {0,3}> ?)*/, ''));
+}
+
+function continuesReferenceDestination(value: string, start: number, index: number): boolean {
+  const current = value.slice(start, index).replace(/^(?: {0,3}> ?)*/, '');
+  if (start === 0 || !/^\S*$/.test(current)) {
+    return false;
+  }
+  const previousEnd = start - 1;
+  let previousStart = previousEnd;
+  while (previousStart > 0 && value[previousStart - 1] !== '\n') {
+    previousStart -= 1;
+  }
+  return labelOnlyLine(value.slice(previousStart, previousEnd));
+}
+
 function insideReferenceDestination(value: string, index: number): boolean {
   let start = index;
   while (start > 0 && value[start - 1] !== '\n') {
     start -= 1;
   }
   const prefix = value.slice(start, index).replace(/^(?: {0,3}> ?)*/, '');
-  return /^ {0,3}\[[^\]]+\]:[ \t]+\S*$/.test(prefix);
+  return (
+    /^ {0,3}\[[^\]]+\]:[ \t]+\S*$/.test(prefix) ||
+    continuesReferenceDestination(value, start, index)
+  );
 }
 
 function rewriteAutolinks(value: string): string {
