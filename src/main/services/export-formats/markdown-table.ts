@@ -1,6 +1,6 @@
 import { codeSpanEnd, containsColumnPipe, markerEndOutsideCode } from '@shared/lib/emphasis-flank';
 import { skipHtmlElement } from '@shared/lib/html-element-span';
-import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
+import { mathCloserIndex } from '@shared/lib/math-span';
 
 import { canOpenEmphasis, canOpenStrikethrough } from './markdown-emphasis';
 import { isThematicBreak } from './markdown-break';
@@ -47,12 +47,37 @@ function readCodeSpan(value: string, index: number): number {
   return index;
 }
 
+function texSpanEnd(value: string, from: number, close: string): number {
+  let cursor = from;
+  while (cursor < value.length) {
+    if (value[cursor] === '`') {
+      const codeEnd = readCodeSpan(value, cursor);
+      if (codeEnd > cursor) {
+        return -1;
+      }
+    }
+    const linkEnd = skipLink(value, cursor);
+    if (linkEnd > cursor) {
+      return -1;
+    }
+    if (value.startsWith('\\\\', cursor)) {
+      cursor += 2;
+      continue;
+    }
+    if (value.startsWith(close, cursor)) {
+      return cursor + close.length;
+    }
+    cursor += 1;
+  }
+  return -1;
+}
+
 function skipMath(value: string, index: number): number {
   const opener = value.slice(index, index + 2);
   if (opener === '\\(' || opener === '\\[') {
     const closer = opener === '\\(' ? '\\)' : '\\]';
-    const end = unescapedDelimiterIndex(value, index + 2, closer);
-    return end === -1 ? index : end + closer.length;
+    const end = texSpanEnd(value, index + 2, closer);
+    return end === -1 ? index : end;
   }
   if (value.startsWith('$$', index)) {
     const end = mathCloserIndex(value, index + 2, '$$');

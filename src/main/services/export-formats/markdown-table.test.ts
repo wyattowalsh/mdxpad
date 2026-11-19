@@ -9,6 +9,15 @@ import {
 } from './markdown-table';
 
 describe('parseMarkdownTable', () => {
+  it('keeps a formula opener from swallowing the next link', () => {
+    const table = parseMarkdownTable([
+      '| \\(x | [a \\)](https://example.com) | y |',
+      '| --- | --- | --- |',
+      '| 1 | 2 | 3 |',
+    ]);
+    expect(table?.headers).toEqual(['\\(x', '[a \\)](https://example.com)', 'y']);
+  });
+
   it('keeps a price and a link in separate columns', () => {
     const table = parseMarkdownTable([
       '| $5 | [link](https://example.com/$10) |',

@@ -2,7 +2,7 @@ import { Parser, type Options as AcornOptions } from 'acorn';
 
 import { isCurrencySpan } from './currency-span';
 import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
-import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from './math-span';
+import { mathDelimiterAt, mathSpanEnd } from './math-span';
 import { renderableMathTex, repairedMathSpan } from './renderable-math';
 import {
   angleDestinationEnd,
@@ -231,14 +231,33 @@ function takeDollarSpan(value: string, index: number): string | null {
   return end === -1 ? null : value.slice(index, end);
 }
 
+function texCloserIndex(value: string, from: number, close: string): number {
+  let index = from;
+  while (index < value.length) {
+    if (copyCodeSpan(value, index) || markdownLinkAt(value, index)) {
+      return -1;
+    }
+    if (value.startsWith('\\\\', index)) {
+      index += 2;
+      continue;
+    }
+    if (value.startsWith(close, index)) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
 function takeTexSpan(value: string, index: number): string | null {
-  const open = value.startsWith('\\[', index) ? '\\[' : value.startsWith('\\(', index) ? '\\(' : '';
-  if (open.length === 0) {
+  const display = value.startsWith('\\[', index);
+  const inline = value.startsWith('\\(', index);
+  if (!display && !inline) {
     return null;
   }
-  const close = open === '\\[' ? '\\]' : '\\)';
-  const end = unescapedDelimiterIndex(value, index + open.length, close);
-  if (end <= index + open.length) {
+  const close = display ? '\\]' : '\\)';
+  const end = texCloserIndex(value, index + 2, close);
+  if (end <= index + 2) {
     return null;
   }
   return value.slice(index, end + close.length);
@@ -423,7 +442,7 @@ function texDelimiter(prose: string, index: number): { text: string; next: numbe
     return null;
   }
   const close = display ? '\\]' : '\\)';
-  const end = unescapedDelimiterIndex(prose, index + 2, close);
+  const end = texCloserIndex(prose, index + 2, close);
   if (end === -1 || end <= index + 2) {
     return null;
   }
