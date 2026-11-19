@@ -345,17 +345,30 @@ export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TO
  * @param content - Raw MDX/Markdown string
  * @returns ProseMirror Node representing the document
  */
+function restoredMathText(node: ProseMirrorNode): ProseMirrorNode | null {
+  const restored = restoreMathMarkup(node.text ?? '');
+  if (restored.length === 0) {
+    return null;
+  }
+  return restored === node.text ? node : node.type.schema.text(restored, node.marks);
+}
+
 function restoreMathMarkupNode(node: ProseMirrorNode): ProseMirrorNode {
   if (node.isText) {
-    const text = node.text ?? '';
-    const restored = restoreMathMarkup(text);
-    return restored === text ? node : node.type.schema.text(restored, node.marks);
+    return restoredMathText(node) ?? node;
   }
   if (node.childCount === 0) {
     return node;
   }
   const children: ProseMirrorNode[] = [];
   node.forEach((child) => {
+    if (child.isText) {
+      const text = restoredMathText(child);
+      if (text) {
+        children.push(text);
+      }
+      return;
+    }
     children.push(restoreMathMarkupNode(child));
   });
   return node.copy(Fragment.from(children));
