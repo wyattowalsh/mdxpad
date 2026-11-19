@@ -70,6 +70,25 @@ function shieldMathBody(value: string): string {
     .replaceAll('_', MATH_UNDER);
 }
 
+function lineIndent(value: string, index: number): string {
+  const start = value.lastIndexOf('\n', index - 1) + 1;
+  let cursor = start;
+  while (value[cursor] === ' ' || value[cursor] === '\t') {
+    cursor += 1;
+  }
+  return value.slice(start, cursor);
+}
+
+function dedentMathSpan(span: string, indent: string): string {
+  if (indent.length === 0 || !span.includes('\n')) {
+    return span;
+  }
+  return span
+    .split('\n')
+    .map((line, index) => (index > 0 && line.startsWith(indent) ? line.slice(indent.length) : line))
+    .join('\n');
+}
+
 function shieldMathPiece(value: string, shieldLines: boolean): string {
   const wrapped = mathWrap(value);
   let shielded = shieldMathBody(wrapped.body);
@@ -94,7 +113,8 @@ export function shieldMathMarkup(value: string): string {
     const texEnd = mathEnd === -1 ? takeTexMath(value, index) : -1;
     const end = mathEnd === -1 ? texEnd : mathEnd;
     if (end !== -1) {
-      result += shieldMathPiece(value.slice(index, end), !openedInsideQuote(value, index));
+      const span = dedentMathSpan(value.slice(index, end), lineIndent(value, index));
+      result += shieldMathPiece(span, !openedInsideQuote(value, index));
       index = end;
       continue;
     }

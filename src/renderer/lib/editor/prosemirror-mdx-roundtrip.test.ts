@@ -33,6 +33,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('$$\n```\nnot code\n```\n$$\n')).toContain('not code');
   });
 
+  it('keeps display math inside a list at a stable indent', () => {
+    const source = '- item\n\n  $$\n  a+b\n  $$\n';
+    const once = roundTrip(source);
+    expect(once).toContain('a+b');
+    expect(once).not.toContain('    a+b');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
   it('keeps display math inside a blockquote', () => {
     const source = '> $$\n> a+b\n> $$\n';
     const doc = parseMdxContent(source);
