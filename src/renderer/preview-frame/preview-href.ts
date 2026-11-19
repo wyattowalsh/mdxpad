@@ -57,17 +57,133 @@ export function isBlockedPreviewHref(href: string | undefined): boolean {
   return scheme !== 'http' && scheme !== 'https' && scheme !== 'mailto';
 }
 
-/** Keep only the candidates in a srcset that the preview can load. */
-export function safePreviewSrcSet(value: string | undefined): string | undefined {
+/** A picture, poster, or stylesheet address the preview must not load. */
+export function isBlockedPreviewResource(value: string | undefined): boolean {
   if (!value) {
-    return undefined;
+    return false;
   }
+  const normalized = decodedHref(value);
+  if (normalized.startsWith('/') || normalized.startsWith('\\')) {
+    return true;
+  }
+  return isBlockedPreviewHref(value);
+}
+
+function filterSrcSet(value: string, blocked: (url: string) => boolean): string | undefined {
   const kept = value
     .split(',')
     .map((part) => part.trim())
     .filter((part) => {
       const url = part.split(/\s+/)[0] ?? '';
-      return url.length > 0 && !isBlockedPreviewHref(url);
+      return url.length > 0 && !blocked(url);
     });
   return kept.length > 0 ? kept.join(', ') : undefined;
+}
+
+/** Keep only the candidates in a srcset that the preview can load. */
+export function safePreviewSrcSet(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return filterSrcSet(value, (url) => isBlockedPreviewHref(url));
+}
+
+const LINK_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'cite']);
+const RESOURCE_ATTRIBUTES = new Set([
+  'src',
+  'poster',
+  'background',
+  'data',
+  'xlink:href',
+  'xlinkhref',
+]);
+
+function sanitizePreviewStyle(value: string): string {
+  return value.replace(
+    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
+    (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
+      const address = (quoted ?? bare ?? '').trim();
+      return address.length > 0 && isBlockedPreviewResource(address) ? 'none' : full;
+    }
+  );
+}
+
+function cssPropertyName(property: string): string {
+  return property.replace(/-([a-z])/gi, (_match, letter: string) => letter.toUpperCase());
+}
+
+/** React rejects a style string, so a safe declaration list becomes an object. */
+function styleObject(value: string): Record<string, string> | undefined {
+  const style: Record<string, string> = {};
+  for (const part of sanitizePreviewStyle(value).split(';')) {
+    const separator = part.indexOf(':');
+    if (separator <= 0) {
+      continue;
+    }
+    const property = part.slice(0, separator).trim();
+    const cssValue = part.slice(separator + 1).trim();
+    if (cssValue.length === 0 || isBlockedPreviewResource(cssValue)) {
+      continue;
+    }
+    if (property.startsWith('--') && /^--[a-z-]+$/i.test(property)) {
+      style[property] = cssValue;
+      continue;
+    }
+    if (/^[a-z-]+$/i.test(property)) {
+      style[cssPropertyName(property)] = cssValue;
+    }
+  }
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function nextAttribute(name: string, value: string): { readonly value: unknown } | undefined {
+  if (name === 'style') {
+    return { value: styleObject(value) };
+  }
+  if (name === 'srcset') {
+    const kept = filterSrcSet(value, (url) => isBlockedPreviewResource(url));
+    return kept === value ? undefined : { value: kept };
+  }
+  if (LINK_ATTRIBUTES.has(name) && isBlockedPreviewHref(value)) {
+    return { value: undefined };
+  }
+  if (RESOURCE_ATTRIBUTES.has(name) && isBlockedPreviewResource(value)) {
+    return { value: undefined };
+  }
+  return undefined;
+}
+
+const REACT_ATTRIBUTE_NAMES: Readonly<Record<string, string>> = {
+  srcset: 'srcSet',
+  formaction: 'formAction',
+  xlinkhref: 'xlinkHref',
+  'xlink:href': 'xlinkHref',
+};
+
+/**
+ * Drop a local file from props on a plain HTML tag.
+ * Compiled raw HTML does not go through the preview components.
+ */
+export function confinePreviewProps(props: unknown): unknown {
+  if (props === null || typeof props !== 'object') {
+    return props;
+  }
+  const entries = Object.entries(props as Record<string, unknown>);
+  const nextEntries: [string, unknown][] = [];
+  let changed = false;
+  for (const [key, value] of entries) {
+    const name = key.toLowerCase();
+    const reactName = REACT_ATTRIBUTE_NAMES[name];
+    const next = typeof value === 'string' ? nextAttribute(name, value) : undefined;
+    if (next === undefined && (reactName === undefined || reactName === key)) {
+      nextEntries.push([key, value]);
+      continue;
+    }
+    changed = true;
+    const output = next === undefined ? value : next.value;
+    if (output !== undefined) {
+      nextEntries.push([reactName ?? key, output]);
+    }
+  }
+  return changed ? Object.fromEntries(nextEntries) : props;
 }

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Video } from './components/preview-media';
 import { Area, Base, Form, Link } from './components/preview-navigation';
 import { A, Img } from './components/typography';
-import { isBlockedPreviewHref } from './preview-href';
+import { confinePreviewProps, isBlockedPreviewHref } from './preview-href';
 
 describe('isBlockedPreviewHref', () => {
   it('blocks file and javascript links', () => {
@@ -19,6 +19,17 @@ describe('isBlockedPreviewHref', () => {
     expect(isBlockedPreviewHref('/etc/passwd')).toBe(true);
     expect(isBlockedPreviewHref('/notes/a.md')).toBe(false);
     expect(isBlockedPreviewHref('data:text/html,hi')).toBe(true);
+  });
+
+  it('drops a local file inside a style and keeps alignment', () => {
+    const props = confinePreviewProps({
+      style: 'background:url(file:///etc/passwd);color:red;text-align:right',
+      href: '/notes/a.md',
+      src: '/notes/a.md',
+    }) as { style: Record<string, string>; href: string; src?: string };
+    expect(props.style).toEqual({ background: 'none', color: 'red', textAlign: 'right' });
+    expect(props.href).toBe('/notes/a.md');
+    expect(props.src).toBeUndefined();
   });
 });
 

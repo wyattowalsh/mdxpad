@@ -11,6 +11,7 @@
 import { Schema } from 'prosemirror-model';
 import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 
+import { isBlockedPreviewHref, isBlockedPreviewResource } from '../../preview-frame/preview-href';
 import { FOOTNOTE_LABEL_NODE, FOOTNOTE_REF_NODE } from './prosemirror-footnote-ref';
 
 import { tableNodes } from './prosemirror-mdx-table';
@@ -163,7 +164,8 @@ const IMAGE_NODE: NodeSpec = {
       alt: string | null;
       title: string | null;
     };
-    return ['img', { src, alt: alt ?? undefined, title: title ?? undefined }];
+    const safeSrc = isBlockedPreviewResource(src) ? undefined : src;
+    return ['img', { src: safeSrc, alt: alt ?? undefined, title: title ?? undefined }];
   },
 };
 
@@ -285,7 +287,7 @@ const LINK_MARK: MarkSpec = {
     return [
       'a',
       {
-        href,
+        ...(isBlockedPreviewHref(href) ? {} : { href }),
         title: title ?? undefined,
         style: 'text-decoration: underline; text-underline-offset: 2px; cursor: pointer;',
       },

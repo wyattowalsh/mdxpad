@@ -134,4 +134,31 @@ describe('createModuleFromCode', () => {
     const headings = [...container.querySelectorAll('h1')];
     expect(headings.map((heading) => heading.id)).toEqual(['intro', 'intro-1']);
   });
+
+  it('drops a local file from raw html that skips the preview components', async () => {
+    const source = [
+      '<a href="file:///etc/passwd">secret</a>',
+      '<img alt="pic" src="file:///etc/passwd" srcset="file:///etc/passwd 1x, https://example.com/a.png 2x">',
+      '<div style="background:url(file:///etc/passwd);color:red"></div>',
+      '<a href="/notes/a.md">doc</a>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('raw-local-file'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.innerHTML).not.toContain('file:');
+    expect(container.querySelector('a[href="/notes/a.md"]')?.textContent).toBe('doc');
+    expect(container.querySelector('img')?.getAttribute('src')).toBeNull();
+    expect(container.querySelector('img')?.getAttribute('srcset')).toBe(
+      'https://example.com/a.png 2x'
+    );
+    const style = container.querySelector('div')?.getAttribute('style') ?? '';
+    expect(style).not.toContain('file:');
+    if (style.length > 0) {
+      expect(style).toContain('color');
+    }
+  });
 });

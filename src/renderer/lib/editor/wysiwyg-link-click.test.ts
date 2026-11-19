@@ -6,6 +6,7 @@ import { openPreviewDocumentLink } from '@renderer/lib/preview-document-link';
 
 import { mdxSchema } from './prosemirror-mdx-schema';
 import { documentFromMarkdown } from './wysiwyg-document';
+import { serializeMdxContent } from './prosemirror-mdx-serializer';
 import { classifyVisualLink, handleVisualLinkClick } from './wysiwyg-link-click';
 
 vi.mock('@renderer/lib/preview-document-link', () => ({
@@ -92,5 +93,29 @@ describe('visual link clicks', () => {
     view.dom.appendChild(fileLink);
     click(view, fileLink, { ctrl: true });
     expect(openPreviewDocumentLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a local file off the link and the image', () => {
+    const doc = mdxSchema.node('doc', null, [
+      mdxSchema.node('paragraph', null, [
+        mdxSchema.text('Disk', [mdxSchema.marks.link.create({ href: 'file:///etc/passwd' })]),
+        mdxSchema.node('image', { src: 'file:///etc/passwd', alt: 'pic' }),
+      ]),
+    ]);
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const view = new EditorView(host, {
+      state: EditorState.create({ doc, schema: mdxSchema }),
+    });
+    views.push(view);
+    expect(view.dom.querySelector('a')?.textContent).toBe('Disk');
+    expect(view.dom.querySelector('a')?.getAttribute('href')).toBeNull();
+    expect(view.dom.querySelector('img')?.getAttribute('src')).toBeNull();
+    expect(serializeMdxContent(view.state.doc)).toContain('file:///etc/passwd');
+
+    const documentLink = open('[Notes](./notes.md) ![pic](./pic.png)');
+    views.push(documentLink);
+    expect(documentLink.dom.querySelector('a')?.getAttribute('href')).toBe('./notes.md');
+    expect(documentLink.dom.querySelector('img')?.getAttribute('src')).toBe('./pic.png');
   });
 });

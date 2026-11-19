@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { BuiltInComponents } from './components';
+import { confinePreviewProps } from './preview-href';
 
 interface MDXComponentProps {
   readonly children?: React.ReactNode;
@@ -51,7 +52,7 @@ export async function createModuleFromCode(
   `;
   const blobUrl = URL.createObjectURL(new Blob([moduleSource], { type: 'text/javascript' }));
   globalScope[runtimeScopeKey] = {
-    jsxRuntime,
+    jsxRuntime: previewJsxRuntime,
     components: BuiltInComponents,
   };
 
@@ -80,5 +81,26 @@ function createModuleFromCodeWithFunction(code: string): MDXModule {
   );
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Function constructor returns typed module
-  return moduleFactory(jsxRuntime, BuiltInComponents) as MDXModule;
+  return moduleFactory(previewJsxRuntime, BuiltInComponents) as MDXModule;
 }
+
+function confinedJsx(
+  jsx: typeof jsxRuntime.jsx,
+  type: React.ElementType,
+  props: unknown,
+  key?: React.Key
+): React.ReactElement {
+  const next = confinePreviewProps(props);
+  if (key === undefined) {
+    return jsx(type, next);
+  }
+  return jsx(type, next, key);
+}
+
+const previewJsxRuntime = {
+  ...jsxRuntime,
+  jsx: (type: React.ElementType, props: unknown, key?: React.Key): React.ReactElement =>
+    confinedJsx(jsxRuntime.jsx, type, props, key),
+  jsxs: (type: React.ElementType, props: unknown, key?: React.Key): React.ReactElement =>
+    confinedJsx(jsxRuntime.jsxs, type, props, key),
+};
