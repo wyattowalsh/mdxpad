@@ -549,9 +549,7 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
         linkLabelOpen(state.out)
       );
     state.renderContent(content);
-    // A strike that continues into code or an image is closed and reopened,
-    // which writes "~~~~" before the next marker. Join that pair back into one strike.
-    return state.out.replaceAll('~~~~`', '`').replaceAll('~~~~![', '![');
+    return state.out;
   }
 }
 

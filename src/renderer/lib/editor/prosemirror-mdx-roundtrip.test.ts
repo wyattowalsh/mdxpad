@@ -514,6 +514,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
   });
 
+  it('keeps tildes inside code', () => {
+    expect(roundTrip('`~~~~~~~~`\n')).toBe('`~~~~~~~~`');
+    const struck = roundTrip('~~hello `x`~~\n');
+    expect(struck).toContain('~~');
+    expect(struck).toContain('`x`');
+    expect(roundTrip(struck.endsWith('\n') ? struck : `${struck}\n`)).toBe(struck);
+    const image = roundTrip('~~hello ![alt](a.png)~~\n');
+    expect(image).toContain('![alt](a.png)');
+    expect(roundTrip(image.endsWith('\n') ? image : `${image}\n`)).toBe(image);
+  });
+
   it('keeps a non-breaking space, a tab, and a line character', () => {
     expect(roundTrip('&nbsp;keep\n')).toBe('&nbsp;keep');
     expect(roundTrip('**&nbsp;keep**\n')).toBe('**&nbsp;keep**');
