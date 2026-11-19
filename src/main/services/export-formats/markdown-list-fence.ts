@@ -362,8 +362,9 @@ function continueListParagraph(
   state.loose = true;
   state.listLines = [readSourceLine(raw)];
   if (!returned) {
-    writeListItem(state, render);
+    state.itemHtml = composedItemHtml(state, render);
     state.listLines = [];
+    replaceHtmlListItem(state.parts, state.itemHtml);
     return true;
   }
   state.itemHtml = '';

@@ -109,6 +109,13 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('<strong>');
   });
 
+  it('keeps every paragraph of a footnote', () => {
+    const html = markdownToPdfHtml('See[^long].\n\n[^long]: one\n\n    two\n\n    three words\n');
+    expect(html).toContain('one');
+    expect(html).toContain('two');
+    expect(html).toContain('three words');
+  });
+
   it('keeps a formula after a dollar sign inside parentheses', () => {
     const html = markdownToPdfHtml('See (notes $a) and $x^2$.');
     expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
