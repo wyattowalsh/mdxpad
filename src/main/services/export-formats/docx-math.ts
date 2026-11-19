@@ -1,6 +1,7 @@
 import {
   MathFraction,
   MathRadical,
+  MathRoundBrackets,
   MathRun,
   MathSubScript,
   MathSuperScript,
@@ -143,6 +144,9 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (TEXT_COMMANDS.has(name)) {
     return readGroup(cursor);
   }
+  if (name === 'binom' || name === 'dbinom' || name === 'tbinom') {
+    return readBinom(cursor);
+  }
   if (name === 'frac') {
     return [
       new MathFraction({
@@ -184,6 +188,19 @@ function readOptionalBracket(cursor: Cursor): MathComponent[] | null {
     cursor.index += 1;
   }
   return parts;
+}
+
+function readBinom(cursor: Cursor): MathComponent[] {
+  return [
+    new MathRoundBrackets({
+      children: [
+        new MathFraction({
+          numerator: readGroup(cursor),
+          denominator: readGroup(cursor),
+        }),
+      ],
+    }),
+  ];
 }
 
 function readRadical(cursor: Cursor): MathComponent[] {

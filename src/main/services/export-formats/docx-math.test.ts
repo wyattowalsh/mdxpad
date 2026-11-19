@@ -1,4 +1,4 @@
-import { MathFraction, MathRadical, MathRun, MathSuperScript } from 'docx';
+import { MathFraction, MathRadical, MathRoundBrackets, MathRun, MathSuperScript } from 'docx';
 import { describe, expect, it } from 'vitest';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
@@ -59,6 +59,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\text{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\sum'))).toBe('∑');
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
+  });
+
+  it('keeps both parts of a binomial', () => {
+    const binom = mathComponents('\\binom{n}{k+1}');
+    expect(binom).toHaveLength(1);
+    expect(binom[0]).toBeInstanceOf(MathRoundBrackets);
+    expect(runText(binom)).toBe('nk+1');
+    expect(runText(mathComponents('\\dbinom{a}{b}'))).toBe('ab');
   });
 
   it('keeps the radicand of a root with an index', () => {
