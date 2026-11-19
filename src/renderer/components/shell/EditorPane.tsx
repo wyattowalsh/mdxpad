@@ -19,7 +19,10 @@ import {
   noteEditorBaseline,
   publishEditorDocument,
 } from '@renderer/components/tabs/publish-editor-document';
-import { registerLiveSourceText } from '@renderer/components/tabs/live-source-text';
+import {
+  readOpenSourceEditor,
+  registerLiveSourceText,
+} from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore, selectContent } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import {
@@ -173,17 +176,7 @@ function EditorPaneComponent(props: EditorPaneProps): React.JSX.Element {
       registerLiveSourceText(null);
       return undefined;
     }
-    registerLiveSourceText(() => {
-      const view = editorRef.current;
-      if (!view) {
-        return null;
-      }
-      const closed = view as unknown as { readonly isDestroyed?: boolean };
-      if (closed.isDestroyed === true) {
-        return null;
-      }
-      return view.state.doc.toString();
-    });
+    registerLiveSourceText(() => readOpenSourceEditor(editorRef.current ?? null));
     return () => {
       registerLiveSourceText(null);
     };

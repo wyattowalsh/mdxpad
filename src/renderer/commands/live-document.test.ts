@@ -54,4 +54,26 @@ describe('liveDocumentContent', () => {
 
     expect(liveDocumentContent(ctx)).toBe('Hello!');
   });
+
+  it('uses the stored document when the source editor has been removed', () => {
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: 'file-1' as DocumentId,
+        filePath: '/notes/readme.md',
+        mtime: 1,
+      },
+      'stored after the editor closed'
+    );
+    const ctx = {
+      document: {
+        filePath: '/notes/readme.md',
+        content: 'stored after the editor closed',
+        isDirty: false,
+        fileId: 'file-1',
+      },
+      editor: { state: { doc: { toString: () => 'stale keystrokes' } }, destroyed: true },
+    } as unknown as CommandContext;
+
+    expect(liveDocumentContent(ctx)).toBe('stored after the editor closed');
+  });
 });

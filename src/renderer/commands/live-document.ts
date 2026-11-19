@@ -1,17 +1,10 @@
 import type { CommandContext } from '@shared/types/commands';
 
+import { readOpenSourceEditor } from '@renderer/components/tabs/live-source-text';
 import { useDocumentStore } from '@renderer/stores/document-store';
 
 function sourceEditorText(ctx: CommandContext): string | null {
-  const view = ctx.editor;
-  if (!view) {
-    return null;
-  }
-  const closed = view as unknown as { readonly isDestroyed?: boolean };
-  if (closed.isDestroyed === true) {
-    return null;
-  }
-  return view.state.doc.toString();
+  return readOpenSourceEditor(ctx.editor);
 }
 
 function sameOpenFile(ctx: CommandContext): boolean {
