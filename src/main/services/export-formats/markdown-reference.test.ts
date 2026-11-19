@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { renderMarkdownInline } from './markdown-inline-html';
+import { markdownToPdfHtml } from './pdf-exporter';
 import { plainFootnoteMarkers } from './markdown-footnote';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
-import { expandLinkReferences } from './markdown-reference';
+import { expandImageReferences, expandLinkReferences } from './markdown-reference';
 
 describe('expandLinkReferences', () => {
   it('keeps parentheses in an angle reference address', () => {
@@ -152,6 +153,27 @@ describe('expandLinkReferences', () => {
     expect(expanded).toContain('footnote¹.');
     expect(expanded).toContain('1. Note');
     expect(expanded).not.toContain('[^1]');
+  });
+
+  it('expands a reference when a formula closer sits inside a link', () => {
+    const source =
+      'See \\(prefix [Docs] and [a \\)](https://example.com) tail\n\n[Docs]: https://docs.example.com/guide\n';
+    const expanded = expandLinkReferences(source);
+    expect(expanded).toContain('[Docs](https://docs.example.com/guide)');
+    expect(expanded).toContain('[a \\)](https://example.com)');
+    const html = markdownToPdfHtml(source);
+    expect(html).toContain('href="https://docs.example.com/guide"');
+    expect(html).toContain('href="https://example.com"');
+    const image = expandImageReferences(
+      'Look \\(prefix ![shot][pic] and [a \\)](https://example.com)\n\n[pic]: ./pixel.png\n'
+    );
+    expect(image).toContain('![shot](./pixel.png)');
+    const inside = expandLinkReferences(
+      'See \\(x [Docs] y\\) then [Guide].\n\n[Docs]: https://docs.example.com/inside\n[Guide]: https://docs.example.com/guide\n'
+    );
+    expect(inside).toContain('\\(x [Docs] y\\)');
+    expect(inside).toContain('[Guide](https://docs.example.com/guide)');
+    expect(inside).not.toContain('[Docs](https://docs.example.com/inside)');
   });
 
   it('keeps a bracket that belongs to an inline address', () => {

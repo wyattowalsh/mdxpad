@@ -1,4 +1,4 @@
-import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
+import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode, openingFence } from './markdown-fence';
@@ -224,13 +224,38 @@ function copyCodeSpan(line: string, index: number): { text: string; next: number
   return { text: line.slice(index, closer + ticks), next: closer + ticks };
 }
 
+function texCloserIndex(line: string, from: number, close: string): number {
+  let index = from;
+  while (index < line.length) {
+    const code = copyCodeSpan(line, index);
+    if (code) {
+      index = code.next;
+      continue;
+    }
+    const link = inlineTargetSpan(line, index);
+    if (link) {
+      index = link.next;
+      continue;
+    }
+    if (line.startsWith('\\\\', index)) {
+      index += 2;
+      continue;
+    }
+    if (line.startsWith(close, index)) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
 function texMathSpan(line: string, index: number): { text: string; next: number } | null {
   const display = line.startsWith('\\[', index);
   if (!display && !line.startsWith('\\(', index)) {
     return null;
   }
   const close = display ? '\\]' : '\\)';
-  const end = unescapedDelimiterIndex(line, index + 2, close);
+  const end = texCloserIndex(line, index + 2, close);
   if (end === -1) {
     return null;
   }
