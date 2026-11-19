@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { fenceIndentedCode } from './markdown-fence';
 import {
   isLazyQuoteLine,
   quoteBody,
@@ -94,6 +95,10 @@ describe('quoteBody', () => {
     );
     const nestedItem = nested.slice(nested.indexOf('<li>'), nested.lastIndexOf('</li>'));
     expect(nestedItem).toContain('<pre><code>**not bold**\n# not a heading</code></pre>');
+    const separated = ['> - inner', '>', '>     ```', '>     const x = 1', '>     ```'].join('\n');
+    const kept = quoteToHtml(fenceIndentedCode(separated).split('\n'), (line) => line);
+    expect(kept).toContain('<pre><code>const x = 1</code></pre>');
+    expect(kept).not.toContain('````');
     const fencedItem = fenced.slice(fenced.indexOf('<li>'), fenced.indexOf('</li>'));
     expect(fencedItem).toContain('<pre><code>const x = 1</code></pre>');
   });

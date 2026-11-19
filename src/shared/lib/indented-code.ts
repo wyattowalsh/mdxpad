@@ -69,7 +69,7 @@ export function nextProseFence(
 
 /** List columns after a prose line that is outside a fence. */
 export function nextProseColumns(columns: readonly number[], line: string): number[] {
-  return nextListColumns(columns, line);
+  return nextListColumns(columns, quoteStripped(line));
 }
 
 function leadingSpaces(line: string): number {
@@ -245,7 +245,7 @@ function continueCode(state: FenceState, line: string): boolean {
   }
   closeCode(state);
   state.output.push(line);
-  state.columns = nextListColumns(state.columns, line);
+  state.columns = nextProseColumns(state.columns, line);
   return true;
 }
 
@@ -285,7 +285,7 @@ function consumeLine(state: FenceState, line: string): void {
     return;
   }
   state.output.push(line);
-  state.columns = nextListColumns(state.columns, line);
+  state.columns = nextProseColumns(state.columns, line);
 }
 
 /** Turn indented code, including code in a list or quote, into a fence. */

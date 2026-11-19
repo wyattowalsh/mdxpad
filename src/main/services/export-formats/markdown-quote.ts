@@ -114,10 +114,10 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
   if (current?.kind === 'list') {
     const column = listIndent(current.lines);
     const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
-    if (openingFence(line) === null && line.trim().length > 0 && indent >= column + 4) {
+    if (openIndentedFence(line, column) !== null) {
       return 'list';
     }
-    if (openingFence(line) !== null && indent >= column) {
+    if (openingFence(line) === null && line.trim().length > 0 && indent >= column + 4) {
       return 'list';
     }
     if (isListContinuation(line, column)) {
