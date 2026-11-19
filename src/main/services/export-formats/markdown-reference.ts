@@ -409,6 +409,85 @@ export function expandImageReferences(content: string): string {
   return rewriteImageReferenceLines(content, references);
 }
 
+function referenceLabelsOnLine(line: string): string[] {
+  const labels: string[] = [];
+  let index = 0;
+  while (index < line.length) {
+    const kept = copyProtectedSpan(line, index);
+    if (kept) {
+      index = kept.next;
+      continue;
+    }
+    const image =
+      line[index] === '!' && line[index + 1] === '[' && !imageMarkerEscaped(line, index);
+    const start = image ? index + 1 : index;
+    const match = line[start] === '[' ? REFERENCE.exec(line.slice(start)) : null;
+    const text = match?.[1];
+    if (!match || !text) {
+      index += 1;
+      continue;
+    }
+    const explicit = match[2];
+    const label = explicit === undefined || explicit.length === 0 ? text : explicit;
+    labels.push(referenceLabel(label));
+    index = start + match[0].length;
+  }
+  return labels;
+}
+
+function labelsStillUsed(lines: readonly string[], consumed: ReadonlySet<number>): Set<string> {
+  const used = new Set<string>();
+  let fence: string | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const next = advanceFence(line, fence);
+    const boundary = fence !== next;
+    fence = next;
+    if (fence || boundary || consumed.has(index)) {
+      continue;
+    }
+    for (const label of referenceLabelsOnLine(line)) {
+      used.add(label);
+    }
+  }
+  return used;
+}
+
+function unreferencedDefinitionLines(lines: readonly string[]): Set<number> {
+  const { consumed } = collectReferences(lines);
+  const used = labelsStillUsed(lines, consumed);
+  const drop = new Set<number>();
+  let fence: string | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const next = advanceFence(line, fence);
+    const boundary = fence !== next;
+    fence = next;
+    if (fence || boundary || drop.has(index) || !consumed.has(index)) {
+      continue;
+    }
+    const definition = splitDefinition(lines, index);
+    const label = definition ? referenceLabel(definition.label) : '';
+    if (!definition || used.has(label)) {
+      continue;
+    }
+    for (let offset = 0; offset < definition.consumed; offset += 1) {
+      drop.add(index + offset);
+    }
+  }
+  return drop;
+}
+
+/** Remove definitions whose pictures were already written inline and nothing else uses. */
+export function dropUnreferencedDefinitions(content: string): string {
+  const lines = content.split('\n');
+  const drop = unreferencedDefinitionLines(lines);
+  if (drop.size === 0) {
+    return content;
+  }
+  return lines.map((line, index) => (drop.has(index) ? '' : line)).join('\n');
+}
+
 /** Turn reference links into inline links and drop their definition lines. */
 export function expandLinkReferences(content: string): string {
   const fenced = fenceIndentedCode(applyFootnotes(content));

@@ -13,6 +13,7 @@ import { resolveWorkspaceFilePath } from '../ai/agent-path';
 import { decodeHtmlEntities } from './markdown-entity';
 import { advanceFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
+import { dropUnreferencedDefinitions, expandImageReferences } from './markdown-reference';
 import {
   addressClimbsOut,
   htmlTagEnd,
@@ -255,14 +256,12 @@ function rewriteLine(line: string, root: string | null): string {
 }
 
 /** Drop local-file targets outside fenced code. */
-export function omitLocalMarkdownTargets(
-  content: string,
-  sourcePath?: string | null
-): string {
+export function omitLocalMarkdownTargets(content: string, sourcePath?: string | null): string {
   const root = sourcePath ? path.dirname(path.resolve(sourcePath)) : null;
   let fence: string | null = null;
   const style = { open: false };
-  return content
+  const prepared = dropUnreferencedDefinitions(expandImageReferences(content));
+  return prepared
     .split('\n')
     .map((line) => {
       const next = advanceFence(line, fence);

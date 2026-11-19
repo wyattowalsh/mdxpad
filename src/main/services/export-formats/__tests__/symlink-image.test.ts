@@ -43,6 +43,14 @@ describe('pictures that leave the source folder through a symlink', () => {
     ].join('\n');
     const kept = omitLocalMarkdownTargets(content, source);
     expect(kept).not.toContain('alias.png');
+    const referenced = omitLocalMarkdownTargets(
+      '![Secret][x]\n\n[x]: alias.png\n\n![Ok][y]\n\n[y]: pixel.png\n',
+      source
+    );
+    expect(referenced).not.toContain('alias.png');
+    expect(referenced).toContain('![Ok](pixel.png)');
+    expect(referenced).toContain('Secret');
+    expect(referenced).not.toContain('[x]:');
     expect(kept).not.toContain('escape/secret.png');
     expect(kept).toContain('![Ok](pixel.png)');
     expect(kept).toContain('https://example.com/a.png');

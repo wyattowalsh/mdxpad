@@ -310,6 +310,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('Disk');
   });
 
+  it('does not include a reference picture from outside the folder', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![Secret][x]\n\n[x]: /etc/passwd\n\n![Ok][y]\n\n[y]: pixel.png\n',
+      outputPath: '/tmp/ref-picture.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('/etc/passwd');
+    expect(written).not.toContain('includegraphics{/etc');
+    expect(written).toContain('\\includegraphics{pixel.png}');
+    expect(written).toContain('Secret');
+  });
+
   it('does not compile a picture path that TeX would read as a command', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
