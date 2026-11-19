@@ -733,6 +733,7 @@ describe('LatexExporter', () => {
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
     expect(written).toContain('\\includegraphics{photo.jpg}');
+    expect(written).toContain('Local');
     expect(written).toContain('\\textit{Sunset}');
   });
 
@@ -744,6 +745,7 @@ describe('LatexExporter', () => {
     });
     const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
     expect(written).toContain('\\includegraphics{photo.jpg}');
+    expect(written).toContain('Local');
     expect(written).toContain('\\href{https://example.com/a.jpg}{Remote}');
     expect(written).not.toContain('![');
   });

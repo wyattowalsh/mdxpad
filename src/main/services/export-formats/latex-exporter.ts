@@ -1,8 +1,16 @@
 import { writeRegularFile } from './write-regular-file';
 
-import { allocateHeadingSlug, normalizedHeadingFragment, parseAtxHeading } from '@shared/lib/markdown-heading';
+import {
+  allocateHeadingSlug,
+  normalizedHeadingFragment,
+  parseAtxHeading,
+} from '@shared/lib/markdown-heading';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
-import { disarmLatexFileRead, omitTexPictureSyntax, texPicturePathUnsafe } from './latex-file-command';
+import {
+  disarmLatexFileRead,
+  omitTexPictureSyntax,
+  texPicturePathUnsafe,
+} from './latex-file-command';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
@@ -206,7 +214,8 @@ function latexImage(src: string, alt: string, title: string | null): string {
     const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
     return `${label}${caption}`;
   }
-  return `\\includegraphics{${latexFilename(local)}}${caption}`;
+  const described = alt.length > 0 && alt !== src ? ` ${formatProtected(alt)}` : '';
+  return `\\includegraphics{${latexFilename(local)}}${described}${caption}`;
 }
 
 function restoreLatexAutolinks(
