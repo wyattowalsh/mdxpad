@@ -24,6 +24,19 @@ describe('LatexExporter', () => {
     expect(exporter.mimeType).toBe('application/x-latex');
   });
 
+  it('closes a display formula before the next paragraph when code shows the delimiter', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$ use `$$` here $$\n\nNext words\n',
+      outputPath: '/tmp/display-code.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const body = written.split('\\begin{document}')[1] ?? '';
+    expect(body).toContain('use `$$` here');
+    expect(body).toContain('Next words');
+    expect(body.indexOf('Next words')).toBeGreaterThan(body.lastIndexOf('$$'));
+  });
+
   it('keeps paragraphs apart inside a list item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

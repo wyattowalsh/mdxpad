@@ -31,6 +31,13 @@ describe('mathSpanEnd', () => {
     ]);
   });
 
+  it('keeps a display formula closed after a coded delimiter', () => {
+    expect(splitDocxPieces('$$ use `$$` here $$\n\nNext words')).toEqual([
+      { kind: 'math', tex: ' use `$$` here ' },
+      { kind: 'text', text: '\n\nNext words' },
+    ]);
+  });
+
   it('opens a formula after a literal backslash', () => {
     expect(splitDocxPieces('The value is \\\\$x^2$.')).toEqual([
       { kind: 'text', text: 'The value is \\\\' },

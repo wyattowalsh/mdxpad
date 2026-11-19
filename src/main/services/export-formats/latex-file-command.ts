@@ -79,9 +79,71 @@ function disarmFileContents(value: string): string {
   );
 }
 
+function skipTexSpace(value: string, index: number): number {
+  let cursor = index;
+  while (value[cursor] === ' ' || value[cursor] === '\t' || value[cursor] === '\n') {
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function readBraceGroup(value: string, index: number): { body: string; end: number } | null {
+  const start = skipTexSpace(value, index);
+  if (value[start] !== '{') {
+    return null;
+  }
+  let depth = 0;
+  for (let cursor = start; cursor < value.length; cursor += 1) {
+    if (value[cursor] === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (value[cursor] === '{') {
+      depth += 1;
+      continue;
+    }
+    if (value[cursor] !== '}') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return { body: value.slice(start + 1, cursor), end: cursor + 1 };
+    }
+  }
+  return null;
+}
+
+function safeHrefTarget(target: string): boolean {
+  const trimmed = target.trim();
+  return /^(?:https?:|mailto:)/i.test(trimmed) || trimmed.startsWith('#');
+}
+
+/** Break `\href` and `\url` when the target is a local path. A web address stays a link. */
+function disarmLocalTexLinks(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const command = /^\\(?:href|url)\*?(?![A-Za-z@])/.exec(value.slice(index));
+    if (!command) {
+      result += value[index] ?? '';
+      index += 1;
+      continue;
+    }
+    const target = readBraceGroup(value, index + command[0].length);
+    if (!target || safeHrefTarget(target.body)) {
+      result += command[0];
+      index += command[0].length;
+      continue;
+    }
+    result += `\\relax ${command[0].slice(1)}`;
+    index += command[0].length;
+  }
+  return result;
+}
+
 export function disarmLatexFileRead(value: string): string {
   const text = disarmFileContents(breakTexCaretEscape(value));
-  return text.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
+  return disarmLocalTexLinks(text.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`));
 }
 
 function copyCodeSpan(value: string, index: number): { text: string; next: number } | null {

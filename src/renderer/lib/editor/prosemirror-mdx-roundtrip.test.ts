@@ -12,6 +12,13 @@ function roundTrip(source: string): string {
 }
 
 describe('WYSIWYG markdown round trip', () => {
+  it('keeps a formula after a price', () => {
+    const saved = roundTrip('Pay $5 then $a*b$.\n');
+    expect(saved).toContain('Pay $5 then $a*b$.');
+    expect(saved).not.toContain('\\');
+    expect(roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`)).not.toContain('\\');
+  });
+
   it('keeps a leading frontmatter block', () => {
     const source = '---\ntitle: Hello\n---\n\n# Body\n';
     expect(roundTrip(source)).toContain('title: Hello');

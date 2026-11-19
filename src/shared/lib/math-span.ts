@@ -257,18 +257,16 @@ export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'
       index += 1;
       continue;
     }
-    if (delimiter === '$') {
-      const codeEnd = codeSpanEnd(raw, index);
-      if (codeEnd !== -1) {
-        if (raw.slice(index, codeEnd).includes('$')) {
-          return -1;
-        }
-        index = codeEnd;
-        continue;
-      }
-      if (linkBlocksMath(raw, index)) {
+    const codeEnd = codeSpanEnd(raw, index);
+    if (codeEnd !== -1) {
+      if (delimiter === '$' && raw.slice(index, codeEnd).includes('$')) {
         return -1;
       }
+      index = codeEnd;
+      continue;
+    }
+    if (delimiter === '$' && linkBlocksMath(raw, index)) {
+      return -1;
     }
     if (raw.startsWith(delimiter, index) && !escapedDelimiter(raw, index)) {
       return index;

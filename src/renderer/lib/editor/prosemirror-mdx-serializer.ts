@@ -10,7 +10,7 @@
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
-import { nextMathDelimiter, unescapedDelimiterIndex } from '@shared/lib/math-span';
+import { mathSpanEnd, nextMathDelimiter, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { taskMarker } from './prosemirror-task-item';
@@ -415,6 +415,35 @@ function closerAt(value: string, from: number, closer: string): number {
   return unescapedDelimiterIndex(value, from, closer);
 }
 
+function dollarOpener(opener: string): '$' | '$$' | null {
+  if (opener === '$' || opener === '$$') {
+    return opener;
+  }
+  return null;
+}
+
+/** Write a complete `$` or `$$` span. A price returns the single `$` so the next formula stays intact. */
+function writeDollarSpan(
+  state: MarkdownSerializerState,
+  value: string,
+  open: LiteralSpan
+): number | null {
+  const opener = dollarOpener(open.opener);
+  if (opener === null) {
+    return null;
+  }
+  const end = mathSpanEnd(value, open.index, opener);
+  if (end !== -1) {
+    state.text(value.slice(open.index, end), false);
+    return end;
+  }
+  if (opener === '$') {
+    state.text(value.slice(open.index, open.index + 1));
+    return open.index + 1;
+  }
+  return null;
+}
+
 function nextLiteralSpan(value: string, from: number): LiteralSpan | null {
   const options = [
     { token: '\\[', closer: '\\]', stayOpen: true },
@@ -496,6 +525,11 @@ function writeTextPreservingMath(state: MarkdownSerializerState, value: string):
     }
     if (open.index > cursor) {
       state.text(value.slice(cursor, open.index));
+    }
+    const dollarEnd = writeDollarSpan(state, value, open);
+    if (dollarEnd !== null) {
+      cursor = dollarEnd;
+      continue;
     }
     const closeAt = closerAt(value, open.index + open.opener.length, open.closer);
     if (closeAt === -1 && open.opener === '$') {

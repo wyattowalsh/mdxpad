@@ -3,6 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { disarmFileReadsInMath, disarmPandocRawTex, omitTexPictureSyntax } from './latex-file-command';
 
 describe('disarmFileReadsInMath', () => {
+  it('turns a local link inside a formula into text and keeps a web link', () => {
+    const source = [
+      'See $\\href{file:///etc/passwd}{click}$ and $\\url{/etc/passwd}$.',
+      'Keep $\\href{https://example.com}{docs}$.',
+      '',
+    ].join('\n');
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\href{file:');
+    expect(next).not.toContain('\\url{/etc/passwd}');
+    expect(next).toContain('\\relax href');
+    expect(next).toContain('\\relax url');
+    expect(next).toContain('\\href{https://example.com}{docs}');
+  });
+
   it('turns a file command inside a formula into text and keeps a fenced sample', () => {
     const source = [
       '$$',
