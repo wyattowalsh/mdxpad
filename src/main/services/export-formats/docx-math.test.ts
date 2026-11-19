@@ -239,6 +239,18 @@ describe('mathComponents', () => {
     expect(runText(indexed)).toBe('38');
   });
 
+  it('keeps a subscript and a superscript on one symbol', () => {
+    const lowerFirst = mathComponents('x_i^2');
+    expect(lowerFirst).toHaveLength(1);
+    expect(lowerFirst[0]).toBeInstanceOf(MathSubSuperScript);
+    expect(runText(lowerFirst)).toBe('xi2');
+    const upperFirst = mathComponents('x^2_i');
+    expect(upperFirst).toHaveLength(1);
+    expect(upperFirst[0]).toBeInstanceOf(MathSubSuperScript);
+    expect(runText(upperFirst)).toBe('xi2');
+    expect(mathComponents('{x_i}^2')[0]).toBeInstanceOf(MathSubSuperScript);
+  });
+
   it('builds a superscript and a fraction', () => {
     const power = mathComponents('x^2');
     expect(power[0]).toBeInstanceOf(MathSuperScript);

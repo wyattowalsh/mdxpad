@@ -6,12 +6,11 @@ import {
   MathRoundBrackets, MathSquareBrackets,
   MathRun,
   MathSubSuperScript,
-  MathSubScript,
-  MathSuperScript,
   type MathComponent,
 } from 'docx';
 
 import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
+import { attachScript } from './docx-math-script';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -381,9 +380,7 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
       flush();
       cursor.index += 1;
       const script = readGroup(cursor);
-      components.push(char === '^'
-        ? new MathSuperScript({ children: base.base, superScript: script })
-        : new MathSubScript({ children: base.base, subScript: script }));
+      components.push(attachScript(base.base, char, script));
       continue;
     }
     plain += char;
