@@ -1,4 +1,4 @@
-import { containsColumnPipe } from '@shared/lib/emphasis-flank';
+import { codeSpanEnd, containsColumnPipe, markerEndOutsideCode } from '@shared/lib/emphasis-flank';
 import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
@@ -75,13 +75,26 @@ function skipMath(value: string, index: number): number {
   return index;
 }
 
-function matchingCloser(value: string, open: number, left: string, right: string): number {
+function matchingCloser(
+  value: string,
+  open: number,
+  left: string,
+  right: string,
+  skipCode: boolean
+): number {
   let depth = 0;
   for (let index = open; index < value.length; index += 1) {
     const char = value[index] ?? '';
     if (char === '\\') {
       index += 1;
       continue;
+    }
+    if (skipCode && char === '`') {
+      const end = codeSpanEnd(value, index);
+      if (end > index) {
+        index = end - 1;
+        continue;
+      }
     }
     if (char === left) {
       depth += 1;
@@ -96,7 +109,7 @@ function matchingCloser(value: string, open: number, left: string, right: string
 }
 
 function skipCloser(value: string, index: number, marker: string): number {
-  const end = value.indexOf(marker, index + marker.length);
+  const end = markerEndOutsideCode(value, index + marker.length, marker);
   if (end === -1 || containsColumnPipe(value.slice(index, end))) {
     return index;
   }
@@ -125,7 +138,7 @@ function skipLink(value: string, index: number): number {
   if (labelStart === -1) {
     return index;
   }
-  const labelEnd = matchingCloser(value, labelStart, '[', ']');
+  const labelEnd = matchingCloser(value, labelStart, '[', ']', true);
   if (labelEnd === -1) {
     return index;
   }
@@ -133,7 +146,7 @@ function skipLink(value: string, index: number): number {
   if (next !== '(' && next !== '[') {
     return index;
   }
-  const end = matchingCloser(value, labelEnd + 1, next, next === '(' ? ')' : ']');
+  const end = matchingCloser(value, labelEnd + 1, next, next === '(' ? ')' : ']', false);
   return end === -1 ? index : end + 1;
 }
 

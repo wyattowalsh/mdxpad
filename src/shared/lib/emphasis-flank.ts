@@ -42,12 +42,53 @@ export function canOpenEmphasis(value: string, index: number): boolean {
   return flanking(value, index, length, char).canOpen;
 }
 
+/** The end of a closed code span, or `index` when the backticks never close. */
+export function codeSpanEnd(value: string, index: number): number {
+  if (value[index] !== '`') {
+    return index;
+  }
+  let length = 0;
+  while (value[index + length] === '`') {
+    length += 1;
+  }
+  const closer = value.indexOf('`'.repeat(length), index + length);
+  return closer === -1 ? index : closer + length;
+}
+
+/** The next `marker` that is not inside a code span. */
+export function markerEndOutsideCode(value: string, from: number, marker: string): number {
+  for (let index = from; index < value.length; index += 1) {
+    if (value[index] === '\\') {
+      index += 1;
+      continue;
+    }
+    if (value[index] === '`') {
+      const end = codeSpanEnd(value, index);
+      if (end > index) {
+        index = end - 1;
+        continue;
+      }
+    }
+    if (value.startsWith(marker, index)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 /** A pipe with space beside it is a table column, even inside emphasis markers. */
 export function containsColumnPipe(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     if (value[index] === '\\') {
       index += 1;
       continue;
+    }
+    if (value[index] === '`') {
+      const end = codeSpanEnd(value, index);
+      if (end > index) {
+        index = end - 1;
+        continue;
+      }
     }
     if (value[index] !== '|') {
       continue;

@@ -1,4 +1,10 @@
-import { canOpenEmphasis, canOpenStrikethrough, containsColumnPipe } from '@shared/lib/emphasis-flank';
+import {
+  canOpenEmphasis,
+  canOpenStrikethrough,
+  codeSpanEnd,
+  containsColumnPipe,
+  markerEndOutsideCode,
+} from '@shared/lib/emphasis-flank';
 import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
@@ -22,6 +28,13 @@ function readInlineLink(value: string, index: number): TextSpan | null {
     if (char === '\\') {
       cursor += 2;
       continue;
+    }
+    if (char === '`') {
+      const end = codeSpanEnd(value, cursor);
+      if (end > cursor) {
+        cursor = end;
+        continue;
+      }
     }
     if (char === '[') {
       depth += 1;
@@ -115,7 +128,7 @@ function readEmphasis(value: string, index: number): TextSpan | null {
   if (!opens) {
     return null;
   }
-  const end = value.indexOf(marker, index + marker.length);
+  const end = markerEndOutsideCode(value, index + marker.length, marker);
   if (end === -1 || containsColumnPipe(value.slice(index, end))) {
     return null;
   }

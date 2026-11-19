@@ -103,6 +103,18 @@ describe('parseMarkdownTable', () => {
     expect(doubled?.rows).toEqual([['``a|b``', 'ok']]);
     const open = parseMarkdownTable(['| A | B | C |', '| --- | --- | --- |', '| `a|b | c |']);
     expect(open?.rows).toEqual([['`a', 'b', 'c']]);
+    const wrapped = parseMarkdownTable([
+      '| A | B |',
+      '| --- | --- |',
+      '| **a `b** | c` d** | e |',
+    ]);
+    expect(wrapped?.rows).toEqual([['**a `b** | c` d**', 'e']]);
+    const linked = parseMarkdownTable([
+      '| A | B |',
+      '| --- | --- |',
+      '| [a `b](url) | c`](https://example.com) | e |',
+    ]);
+    expect(linked?.rows).toEqual([['[a `b](url) | c`](https://example.com)', 'e']]);
   });
 
   it('keeps an escaped pipe inside a cell', () => {

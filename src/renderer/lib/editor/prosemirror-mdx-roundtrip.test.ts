@@ -185,6 +185,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps a pipe inside code when emphasis markers sit in that code', () => {
+    const source = '| **a `b** | c` d** | e |\n| --- | --- |\n';
+    const once = roundTrip(source);
+    expect(once).toContain('| **a `b** | c` d** | e |');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
   it('keeps bold around an inner bold and italic', () => {
     const source = '**a *b **c** d* e**\n';
     const once = roundTrip(source);
