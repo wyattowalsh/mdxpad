@@ -1,7 +1,7 @@
 import katex from 'katex';
 
 import { normalizedHeadingFragment } from '@shared/lib/markdown-heading';
-import { renderableMathTex } from '@shared/lib/renderable-math';
+import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
 
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
@@ -34,7 +34,7 @@ function escapeHtml(value: string): string {
 
 function renderKatex(interior: string, display: boolean): string {
   try {
-    return katex.renderToString(renderableMathTex(interior), {
+    return katex.renderToString(katexMathTex(renderableMathTex(interior)), {
       throwOnError: false,
       displayMode: display,
       output: 'mathml',

@@ -11,6 +11,7 @@ import remarkMath from 'remark-math';
 import type { Plugin } from 'unified';
 
 import { isCurrencySpan } from '@shared/lib/currency-span';
+import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
 
 import type { MdxPluginDefinition, MdxPipelinePlugin } from './plugin-pipeline';
 
@@ -37,6 +38,12 @@ function unwrapCurrencyMath(tree: TreeNode): void {
     ) {
       children.splice(index, 1, { type: 'text', value: `$${child.value}$` });
       continue;
+    }
+    if (
+      (child.type === 'inlineMath' || child.type === 'math') &&
+      typeof child.value === 'string'
+    ) {
+      child.value = katexMathTex(renderableMathTex(child.value));
     }
     unwrapCurrencyMath(child);
   }

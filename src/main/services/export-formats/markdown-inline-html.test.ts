@@ -58,6 +58,11 @@ describe('renderMarkdownInline', () => {
     const aligned = renderDisplayMathBlock(['\\begin{aligned}', 'a & b', '\\end{aligned}']);
     expect(aligned).not.toContain('katex-error');
     expect(aligned).toContain('a &amp; b');
+    const words = renderDisplayMathBlock(['\\text{hello_world}']);
+    expect(words).not.toContain('katex-error');
+    expect(words).toContain('hello_world');
+    const lines = renderDisplayMathBlock(['\\begin{multline}', 'a \\\\ b', '\\end{multline}']);
+    expect(lines).not.toContain('katex-error');
   });
 
   it('renders an escaped dollar inside a formula', () => {

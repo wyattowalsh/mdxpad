@@ -1000,6 +1000,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('a \\& b\n\\end{aligned}');
   });
 
+  it('keeps an underscore inside text and a multline environment', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\\text{hello_world}$$\n\n$$\\begin{multline}\na \\\\ b\n\\end{multline}$$',
+      outputPath: '/tmp/text-underscore.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\text{hello\\_world}');
+    expect(written).toContain('\\begin{multline}');
+    expect(written).not.toContain('\\begin{gather}');
+  });
+
   it('keeps a backslash as a LaTeX command', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

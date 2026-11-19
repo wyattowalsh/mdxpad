@@ -60,6 +60,10 @@ function runText(components: readonly object[]): string {
 }
 
 describe('mathComponents', () => {
+  it('draws a caret written inside text', () => {
+    expect(runText(mathComponents('\\text{a\\textasciicircum{}b}'))).toBe('a^b');
+  });
+
   it('keeps an escaped brace, bar, and hash', () => {
     expect(runText(mathComponents('\\{x\\}'))).toBe('{x}');
     expect(runText(mathComponents('a\\|b'))).toBe('a‖b');

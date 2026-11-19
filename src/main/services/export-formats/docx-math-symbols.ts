@@ -215,6 +215,7 @@ export const SYMBOLS: Record<string, string> = {
   pounds: '£',
   S: '§',
   P: '¶',
+  textasciicircum: '^',
 };
 
 export const NEGATED: Record<string, string> = {
