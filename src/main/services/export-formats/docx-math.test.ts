@@ -178,7 +178,9 @@ describe('mathComponents', () => {
     const round = mathComponents('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}');
     expect(round).toHaveLength(1);
     expect(round[0]).toBeInstanceOf(MathRoundBrackets);
-    expect(runText(round)).toBe(' a & b \n c & d ');
+    expect(runText(round)).toBe(' a \u2003 b \n c \u2003 d ');
+    expect(runText(round)).not.toContain('&');
+    expect(runText(mathComponents('\\begin{pmatrix}a \\& b\\end{pmatrix}'))).toContain('&');
     const square = mathComponents('\\begin{bmatrix}1\\end{bmatrix}');
     expect(square[0]).toBeInstanceOf(MathSquareBrackets);
     expect(runText(square)).toBe('1');

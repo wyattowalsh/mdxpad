@@ -382,7 +382,7 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
       }
       continue;
     }
-    plain += char;
+    plain += untilEnd !== undefined && char === '&' ? '\u2003' : char;
     cursor.index += 1;
   }
   flush();
