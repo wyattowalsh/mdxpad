@@ -140,16 +140,16 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
     readRawGroup(cursor);
     return [];
   }
-  if (name === 'cancel' || name === 'bcancel' || name === 'xcancel') return readCancel(cursor);
+  if (name === 'cancel' || name === 'bcancel' || name === 'xcancel') return readMarked(cursor, '\u0336');
+  if (name === 'underline') return readMarked(cursor, '\u0332');
   return null;
 }
-
-function readCancel(cursor: Cursor): MathComponent[] {
+function readMarked(cursor: Cursor, mark: string): MathComponent[] {
   return readGroup(cursor).map((part) => {
     if (!(part instanceof MathRun)) return part;
-    let struck = '';
-    for (const char of mathRunText(part)) struck += `${char}\u0336`;
-    return new MathRun(struck);
+    let marked = '';
+    for (const char of mathRunText(part)) marked += `${char}${mark}`;
+    return new MathRun(marked);
   });
 }
 

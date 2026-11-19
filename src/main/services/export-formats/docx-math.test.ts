@@ -72,6 +72,11 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('underlines a Word expression and stacks a subscript column', () => {
+    expect(runText(mathComponents('\\underline{ab}'))).toBe('a\u0332b\u0332');
+    expect(runText(mathComponents('\\substack{a\\\\b}'))).toBe('a\nb');
+  });
+
   it('strikes a cancelled Word expression', () => {
     expect(runText(mathComponents('\\cancel{ab}'))).toBe('a\u0336b\u0336');
     expect(runText(mathComponents('\\bcancel{x}'))).toBe('x\u0336');
