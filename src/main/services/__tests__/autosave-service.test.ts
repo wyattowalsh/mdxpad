@@ -223,17 +223,14 @@ describe('AutosaveService', () => {
     });
 
     it('replaces a recovery directory that becomes a link', async () => {
-      mockLstat.mockResolvedValueOnce({
-        isSymbolicLink: () => false,
+      let recoveryIsLink = false;
+      mockLstat.mockImplementation(async (target: string) => ({
+        isSymbolicLink: () => recoveryIsLink && target.endsWith('/recovery'),
         isFile: () => false,
-        isDirectory: () => true,
-      });
+        isDirectory: () => !(recoveryIsLink && target.endsWith('/recovery')),
+      }));
       await service.getRecoveryDir();
-      mockLstat.mockResolvedValueOnce({
-        isSymbolicLink: () => true,
-        isFile: () => false,
-        isDirectory: () => false,
-      });
+      recoveryIsLink = true;
 
       await service.getRecoveryDir();
 
@@ -613,11 +610,11 @@ describe('AutosaveService', () => {
     });
 
     it('replaces a linked recovery directory before reading the manifest', async () => {
-      mockLstat.mockResolvedValueOnce({
-        isSymbolicLink: () => true,
+      mockLstat.mockImplementation(async (target: string) => ({
+        isSymbolicLink: () => target.endsWith('/recovery'),
         isFile: () => false,
-        isDirectory: () => false,
-      });
+        isDirectory: () => !target.endsWith('/recovery'),
+      }));
       mockReadFile.mockResolvedValue(JSON.stringify(EMPTY_RECOVERY_MANIFEST));
 
       await service.readManifest();

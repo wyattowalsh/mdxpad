@@ -639,7 +639,7 @@ export class RecoveryService {
   private async getRecoveryDirPath(): Promise<string> {
     const userData = app.getPath('userData');
     const recoveryDir = path.join(userData, RECOVERY_DIR_NAME);
-    await ensureRealDirectory(recoveryDir);
+    await ensureRealDirectory(recoveryDir, userData);
     return recoveryDir;
   }
 

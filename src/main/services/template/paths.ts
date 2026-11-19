@@ -57,7 +57,8 @@ export function getCustomTemplatesPath(): string {
  * Ensures the custom templates directory exists.
  */
 export async function ensureCustomTemplatesDir(): Promise<void> {
-  await ensureRealDirectory(getCustomTemplatesPath());
+  const templates = getCustomTemplatesPath();
+  await ensureRealDirectory(templates, path.dirname(templates));
 }
 
 /**

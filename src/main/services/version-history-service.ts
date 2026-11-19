@@ -424,7 +424,7 @@ export class VersionHistoryService {
   private async getHistoryDir(): Promise<string> {
     const userData = app.getPath('userData');
     const historyDir = path.join(userData, HISTORY_DIR_NAME);
-    await ensureRealDirectory(historyDir);
+    await ensureRealDirectory(historyDir, userData);
     return historyDir;
   }
 }
