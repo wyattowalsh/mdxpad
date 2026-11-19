@@ -141,12 +141,21 @@ function unescapeDestination(value: string): string {
   return result;
 }
 
+const URL_CHAR = /[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=]/;
+
 function encodeDestination(value: string): string {
-  try {
-    return encodeURI(value);
-  } catch {
-    return value;
+  let result = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index] ?? '';
+    const encoded = value.slice(index + 1, index + 3);
+    if (char === '%' && /^[0-9A-Fa-f]{2}$/.test(encoded)) {
+      result += `%${encoded}`;
+      index += 2;
+      continue;
+    }
+    result += URL_CHAR.test(char) ? char : encodeURIComponent(char);
   }
+  return result;
 }
 
 /** Keep the link or image address and drop an optional Markdown title. */
