@@ -24,7 +24,11 @@ import {
   TextRun,
 } from 'docx';
 
-import { allocateHeadingSlug, normalizedHeadingFragment, parseAtxHeading } from '@shared/lib/markdown-heading';
+import {
+  allocateHeadingSlug,
+  normalizedHeadingFragment,
+  parseAtxHeading,
+} from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 
@@ -33,6 +37,12 @@ import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
+import {
+  docxNumberingConfig,
+  nextOrderedReference,
+  orderedListReference,
+  type OrderedNumberingPlan,
+} from './docx-numbering';
 import { isThematicBreak } from './markdown-break';
 import {
   closesFence,
@@ -432,7 +442,9 @@ function createTextRuns(
       if (safeImageAddress(decodeHtmlEntities(segment.image)) === null) {
         return [styledRun(segment, segment.text || 'image')];
       }
-      return [docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink'))];
+      return [
+        docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink')),
+      ];
     }
     if (segment.link) {
       const link = docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
@@ -682,7 +694,11 @@ function readDocxMarkerFence(
   return { sample, next: cursor };
 }
 
-function readDocxMarkerQuote(lines: readonly string[], index: number, first: string): {
+function readDocxMarkerQuote(
+  lines: readonly string[],
+  index: number,
+  first: string
+): {
   quote: string[];
   next: number;
 } {
@@ -725,13 +741,14 @@ function appendDocxMarkerHeading(
   blocks: (Paragraph | Table)[],
   item: MarkdownListItem,
   depth: number,
-  index: number
+  index: number,
+  reference?: string
 ): number | null {
   const heading = parseAtxHeading(item.text);
   if (!heading) {
     return null;
   }
-  blocks.push(listParagraph({ ...item, text: '' }, depth));
+  blocks.push(listParagraph({ ...item, text: '' }, depth, reference));
   blocks.push(bookmarkedHeading(heading.depth, heading.text, new Map()));
   return index + 1;
 }
@@ -741,15 +758,16 @@ function appendDocxMarkerQuoteItem(
   lines: readonly string[],
   index: number,
   item: MarkdownListItem,
-  depth: number
+  depth: number,
+  reference?: string
 ): number | null {
   const column = listContentColumn(lines[index] ?? '') ?? 2;
   const fence = openingFence(item.text);
   const block = fence === null ? listMarkerBlock(item.text) : null;
   if (fence === null && block === null) {
-    return appendDocxMarkerHeading(blocks, item, depth, index);
+    return appendDocxMarkerHeading(blocks, item, depth, index, reference);
   }
-  blocks.push(listParagraph({ ...item, text: '' }, depth));
+  blocks.push(listParagraph({ ...item, text: '' }, depth, reference));
   if (fence !== null) {
     const read = readDocxMarkerFence(lines, index, fence, column);
     read.sample[0] = item.text;
@@ -789,14 +807,15 @@ function takeDocxQuotedContinuation(
   index: number,
   current: MarkdownListItem,
   column: number,
-  depth: number
+  depth: number,
+  reference?: string
 ): { current: MarkdownListItem | null; index: number } | null {
   const line = lines[index] ?? '';
   const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
   const code =
     openIndentedFence(line, column) !== null || (line.trim().length > 0 && indent >= column + 4);
   if (code) {
-    blocks.push(listParagraph(current, depth));
+    blocks.push(listParagraph(current, depth, reference));
     return { current: null, index: appendDocxQuoteCodeLines(blocks, lines, index, column) - 1 };
   }
   const underline = quotedUnderlineLevel(line);
@@ -807,49 +826,113 @@ function takeDocxQuotedContinuation(
   return null;
 }
 
+interface QuoteListCursor {
+  current: MarkdownListItem | null;
+  open: MarkdownListItem | null;
+  reference: string | undefined;
+  column: number;
+  hard: boolean;
+  index: number;
+}
+
+function openQuotedListItem(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  cursor: QuoteListCursor,
+  item: MarkdownListItem,
+  depth: number,
+  plans: OrderedNumberingPlan[]
+): QuoteListCursor {
+  if (cursor.current) {
+    blocks.push(listParagraph(cursor.current, depth, cursor.reference));
+  }
+  const reference = nextOrderedReference(plans, cursor.open, cursor.reference, item);
+  const consumed = appendDocxMarkerQuoteItem(blocks, lines, cursor.index, item, depth, reference);
+  const line = lines[cursor.index] ?? '';
+  if (consumed !== null) {
+    return { ...cursor, current: null, open: item, reference, index: consumed - 1 };
+  }
+  return {
+    current: item,
+    open: item,
+    reference,
+    column: listContentColumn(line) ?? 2,
+    hard: readSourceLine(line).hardBreak,
+    index: cursor.index,
+  };
+}
+
+function continueQuotedListLine(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  cursor: QuoteListCursor,
+  line: string,
+  index: number,
+  depth: number
+): { cursor: QuoteListCursor; index: number } | null {
+  if (!cursor.current) {
+    return null;
+  }
+  const continued = takeDocxQuotedContinuation(
+    blocks,
+    lines,
+    index,
+    cursor.current,
+    cursor.column,
+    depth,
+    cursor.reference
+  );
+  if (continued) {
+    return {
+      cursor: { ...cursor, current: continued.current, index: continued.index },
+      index: continued.index,
+    };
+  }
+  return {
+    cursor: {
+      ...cursor,
+      current: continueDocxQuoteItem(cursor.current, line, cursor.hard),
+      hard: readSourceLine(line).hardBreak,
+    },
+    index,
+  };
+}
+
 function appendDocxQuoteList(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
-  depth: number
+  depth: number,
+  plans: OrderedNumberingPlan[] = []
 ): void {
-  let current: MarkdownListItem | null = null;
-  let column = 2;
-  let hard = false;
+  let cursor: QuoteListCursor = {
+    current: null,
+    open: null,
+    reference: undefined,
+    column: 2,
+    hard: false,
+    index: 0,
+  };
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
+    cursor = { ...cursor, index };
     if (line.trim().length === 0) {
       continue;
     }
     const item = parseListItem(line);
     if (item) {
-      if (current) {
-        blocks.push(listParagraph(current, depth));
-      }
-      const consumed = appendDocxMarkerQuoteItem(blocks, lines, index, item, depth);
-      if (consumed !== null) {
-        current = null;
-        index = consumed - 1;
-        continue;
-      }
-      current = item;
-      column = listContentColumn(line) ?? 2;
-      hard = readSourceLine(line).hardBreak;
+      cursor = openQuotedListItem(blocks, lines, cursor, item, depth, plans);
+      index = cursor.index;
       continue;
     }
-    if (!current) {
+    const continued = continueQuotedListLine(blocks, lines, cursor, line, index, depth);
+    if (!continued) {
       continue;
     }
-    const continued = takeDocxQuotedContinuation(blocks, lines, index, current, column, depth);
-    if (continued) {
-      current = continued.current;
-      index = continued.index;
-      continue;
-    }
-    current = continueDocxQuoteItem(current, line, hard);
-    hard = readSourceLine(line).hardBreak;
+    cursor = continued.cursor;
+    index = continued.index;
   }
-  if (current) {
-    blocks.push(listParagraph(current, depth));
+  if (cursor.current) {
+    blocks.push(listParagraph(cursor.current, depth, cursor.reference));
   }
 }
 
@@ -896,11 +979,12 @@ function appendDocxQuoteLines(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
   depth: number,
-  slugs?: Map<string, number>
+  slugs?: Map<string, number>,
+  plans?: OrderedNumberingPlan[]
 ): void {
   for (const chunk of quoteChunks(lines)) {
     if (chunk.kind === 'nested') {
-      appendDocxQuoteLines(blocks, chunk.lines, depth + 1, slugs);
+      appendDocxQuoteLines(blocks, chunk.lines, depth + 1, slugs, plans);
       continue;
     }
     if (chunk.kind === 'table') {
@@ -912,7 +996,7 @@ function appendDocxQuoteLines(
       continue;
     }
     if (chunk.kind === 'list') {
-      appendDocxQuoteList(blocks, chunk.lines, depth);
+      appendDocxQuoteList(blocks, chunk.lines, depth, plans);
       continue;
     }
     appendDocxQuoteParagraph(blocks, chunk.lines, depth, slugs);
@@ -922,12 +1006,13 @@ function appendDocxQuoteLines(
 function flushDocxQuote(
   blocks: (Paragraph | Table)[],
   quoteLines: string[],
-  slugs?: Map<string, number>
+  slugs?: Map<string, number>,
+  plans?: OrderedNumberingPlan[]
 ): void {
   if (quoteLines.length === 0) {
     return;
   }
-  appendDocxQuoteLines(blocks, quoteLines.splice(0, quoteLines.length), 1, slugs);
+  appendDocxQuoteLines(blocks, quoteLines.splice(0, quoteLines.length), 1, slugs, plans);
 }
 
 function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
@@ -937,7 +1022,7 @@ function takeDocxItemQuote(parse: DocxParse, line: string): boolean {
   if (parse.itemQuote) {
     const text = readListQuoteLine(line, parse.listColumn ?? 2);
     if (text === null) {
-      appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts);
+      appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts, parse.numbering);
       parse.itemQuote = null;
       parse.listSealed = true;
       return false;
@@ -1115,7 +1200,8 @@ function takeDocxQuote(
   blocks: (Paragraph | Table)[],
   line: string,
   quoteLines: string[],
-  slugs?: Map<string, number>
+  slugs?: Map<string, number>,
+  plans?: OrderedNumberingPlan[]
 ): boolean {
   const body = quoteBody(line);
   if (body !== null) {
@@ -1127,7 +1213,7 @@ function takeDocxQuote(
     return true;
   }
   if (quoteLines.length > 0) {
-    flushDocxQuote(blocks, quoteLines, slugs);
+    flushDocxQuote(blocks, quoteLines, slugs, plans);
   }
   return false;
 }
@@ -1182,6 +1268,7 @@ interface DocxListFrame {
   readonly level: number;
   column: number;
   item: MarkdownListItem;
+  readonly reference?: string;
 }
 
 interface DocxParse {
@@ -1206,6 +1293,7 @@ interface DocxParse {
   tailHard: boolean;
   tailOpen: boolean;
   slugCounts: Map<string, number>;
+  numbering: OrderedNumberingPlan[];
 }
 
 function paragraphFromLines(lines: readonly SourceLine[], quoteDepth = 0): Paragraph {
@@ -1230,23 +1318,12 @@ function flushPendingParagraph(parse: DocxParse): void {
   parse.blocks.push(paragraphFromLines(lines));
 }
 
-function orderedMarker(item: MarkdownListItem): string {
-  const delimiter = item.delimiter === ')' ? ')' : '.';
-  return `${item.start}${delimiter} `;
-}
-
-function listParagraph(item: MarkdownListItem, quoteDepth = 0): Paragraph {
+function listParagraph(item: MarkdownListItem, quoteDepth = 0, reference?: string): Paragraph {
   const children = listItemChildren(item.text);
   const indent = quoteDepth > 0 ? { left: 720 * quoteDepth } : undefined;
-  if (item.ordered && (item.delimiter === ')' || item.start !== 1)) {
-    return new Paragraph({
-      indent: { left: 720 * (item.level + 1) + 720 * quoteDepth, hanging: 360 },
-      children: [new TextRun({ text: orderedMarker(item) }), ...children],
-    });
-  }
   if (item.ordered) {
     return new Paragraph({
-      numbering: { reference: 'default-numbering', level: item.level },
+      numbering: { reference: reference ?? 'default-numbering', level: item.level },
       ...(indent ? { indent } : {}),
       children,
     });
@@ -1285,7 +1362,12 @@ function resetDocxItem(parse: DocxParse, fence: ReturnType<typeof listFenceOnMar
   parse.tailOpen = false;
 }
 
+function activeOrderedReference(parse: DocxParse): string | undefined {
+  return parse.listStack[parse.listStack.length - 1]?.reference;
+}
+
 function rememberDocxListItem(parse: DocxParse, item: MarkdownListItem, column: number): void {
+  const reference = orderedListReference(parse.listStack, parse.numbering, item);
   while (parse.listStack.length > 0) {
     const top = parse.listStack[parse.listStack.length - 1];
     if (!top || top.level < item.level) {
@@ -1293,7 +1375,12 @@ function rememberDocxListItem(parse: DocxParse, item: MarkdownListItem, column: 
     }
     parse.listStack.pop();
   }
-  parse.listStack.push({ level: item.level, column, item });
+  parse.listStack.push({
+    level: item.level,
+    column,
+    item,
+    ...(reference === undefined ? {} : { reference }),
+  });
 }
 
 function plainLazyListLine(line: string): boolean {
@@ -1378,7 +1465,7 @@ function takeDocxMarkerBlock(
   parse.listHardBreak = hardBreak;
   parse.listSealed = block.kind === 'rule' || (block.kind === 'math' && block.lines.length > 0);
   resetDocxItem(parse, null);
-  parse.blocks.push(listParagraph(shown));
+  parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
   if (block.kind === 'rule') {
     parse.blocks.push(docxRuleParagraph());
     return true;
@@ -1432,7 +1519,7 @@ function takeDocxList(
     parse.listHardBreak = source.hardBreak;
     parse.listSealed = fence !== null;
     resetDocxItem(parse, fence);
-    parse.blocks.push(listParagraph(shown));
+    parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
     return true;
   }
   const lazy = !parse.listBreak && plainLazyListLine(line);
@@ -1470,7 +1557,7 @@ function continueDocxListItem(
     top.item = combined;
   }
   parse.blocks.pop();
-  parse.blocks.push(listParagraph(combined));
+  parse.blocks.push(listParagraph(combined, 0, activeOrderedReference(parse)));
   return true;
 }
 
@@ -1547,15 +1634,15 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
   const nextDisplay = takeDisplayLine(parse.blocks, line, parse.displayLines);
   if (nextDisplay !== false) {
     flushDocxTable(parse.blocks, parse.tableLines);
-    flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts);
+    flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts, parse.numbering);
     parse.displayLines = nextDisplay;
     return;
   }
   if (takeDocxTable(parse.blocks, trimmed, parse.tableLines)) {
-    flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts);
+    flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts, parse.numbering);
     return;
   }
-  if (takeDocxQuote(parse.blocks, line, parse.quoteLines, parse.slugCounts)) {
+  if (takeDocxQuote(parse.blocks, line, parse.quoteLines, parse.slugCounts, parse.numbering)) {
     return;
   }
   if (takeDocxSetext(parse, line)) {
@@ -1629,14 +1716,15 @@ function takeDocxFence(
   codeLines: string[],
   tableLines: string[],
   quoteLines: string[],
-  language: { current: string }
+  language: { current: string },
+  plans?: OrderedNumberingPlan[]
 ): string | null | undefined {
   if (fence) {
     if (!closesFence(line, fence)) {
       return undefined;
     }
     flushDocxTable(blocks, tableLines);
-    flushDocxQuote(blocks, quoteLines);
+    flushDocxQuote(blocks, quoteLines, undefined, plans);
     blocks.push(createCodeBlockParagraph(codeLines, language.current));
     codeLines.length = 0;
     language.current = '';
@@ -1647,7 +1735,7 @@ function takeDocxFence(
     return undefined;
   }
   flushDocxTable(blocks, tableLines);
-  flushDocxQuote(blocks, quoteLines);
+  flushDocxQuote(blocks, quoteLines, undefined, plans);
   language.current = fenceLanguage(line);
   return marker;
 }
@@ -1669,7 +1757,8 @@ function readDocxLine(
     codeLines,
     parse.tableLines,
     parse.quoteLines,
-    language
+    language,
+    parse.numbering
   );
   if (nextFence !== undefined) {
     flushPendingParagraph(parse);
@@ -1706,6 +1795,7 @@ function emptyDocxParse(): DocxParse {
     tailHard: false,
     tailOpen: false,
     slugCounts: new Map<string, number>(),
+    numbering: [],
   };
 }
 
@@ -1721,13 +1811,19 @@ function docxTocParagraphs(content: string): Paragraph[] {
 function docxParagraphs(
   content: string,
   metadata: Record<string, unknown> | undefined
-): (Paragraph | Table)[] {
+): { blocks: (Paragraph | Table)[]; numbering: OrderedNumberingPlan[] } {
   const shifted = shiftDocxHeadings(content, docxHeadingBase(metadata));
   const body = parseContentToParagraphs(shifted);
-  return docxWantsToc(metadata) ? [...docxTocParagraphs(shifted), ...body] : body;
+  const blocks = docxWantsToc(metadata)
+    ? [...docxTocParagraphs(shifted), ...body.blocks]
+    : body.blocks;
+  return { blocks, numbering: body.numbering };
 }
 
-function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
+function parseContentToParagraphs(content: string): {
+  blocks: (Paragraph | Table)[];
+  numbering: OrderedNumberingPlan[];
+} {
   const parse = emptyDocxParse();
   let fence: string | null = null;
   const codeLines: string[] = [];
@@ -1743,7 +1839,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
 
   flushPendingParagraph(parse);
   flushDocxTable(parse.blocks, parse.tableLines);
-  flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts);
+  flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts, parse.numbering);
   if (parse.displayLines) {
     pushDisplayMath(parse.blocks, parse.displayLines);
   }
@@ -1754,7 +1850,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
     parse.blocks.push(createCodeBlockParagraph(parse.itemFence.lines, parse.itemFence.language));
   }
   if (parse.itemQuote) {
-    appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts);
+    appendDocxQuoteLines(parse.blocks, parse.itemQuote, 1, parse.slugCounts, parse.numbering);
   }
   if (parse.itemTable) {
     flushDocxTable(parse.blocks, parse.itemTable);
@@ -1765,7 +1861,7 @@ function parseContentToParagraphs(content: string): (Paragraph | Table)[] {
   if (parse.itemCode) {
     closeDocxItemCode(parse);
   }
-  return parse.blocks;
+  return { blocks: parse.blocks, numbering: parse.numbering };
 }
 
 export class DocxExporter implements Exporter {
@@ -1788,21 +1884,8 @@ export class DocxExporter implements Exporter {
         creator: author,
         title,
         description: 'Exported from MDXPad',
-        numbering: {
-          config: [
-            {
-              reference: 'default-numbering',
-              levels: [0, 1, 2, 3, 4, 5].map((level) => ({
-                level,
-                format: 'decimal' as const,
-                text: `%${level + 1}.`,
-                alignment: AlignmentType.START,
-                style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
-              })),
-            },
-          ],
-        },
-        sections: [{ children: paragraphs }],
+        numbering: { config: docxNumberingConfig(paragraphs.numbering) },
+        sections: [{ children: paragraphs.blocks }],
       });
 
       const buffer = await Packer.toBuffer(doc);

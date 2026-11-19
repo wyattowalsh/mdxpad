@@ -114,10 +114,34 @@ describe('DocxExporter', () => {
   it('keeps an ordered list start number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
-      content: '3. third',
+      content: '3. third\n4. fourth',
       outputPath: '/tmp/start.docx',
     });
     const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print("---NUM---"); print(z.read("word/numbering.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const [document = '', numbering = ''] = xml.split('---NUM---');
+    expect(document).toContain('third');
+    expect(document).toContain('fourth');
+    expect(document).not.toContain('4. fourth');
+    expect(document.match(/<w:numPr>/g)).toHaveLength(2);
+    expect(numbering).toContain('w:val="3"');
+  });
+
+  it('numbers every ordered item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '1. first\n2. second',
+      outputPath: '/tmp/ordered.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
     const extracted = spawnSync(
       'python3',
       [
@@ -127,8 +151,10 @@ describe('DocxExporter', () => {
       { input: buffer }
     );
     const xml = extracted.stdout.toString();
-    expect(xml).toContain('3.');
-    expect(xml).toContain('third');
+    expect(xml).toContain('first');
+    expect(xml).toContain('second');
+    expect(xml).not.toContain('2. second');
+    expect(xml.match(/<w:numPr>/g)).toHaveLength(2);
   });
 
   it('keeps a parenthesis on each ordered item', async () => {
@@ -142,17 +168,18 @@ describe('DocxExporter', () => {
       'python3',
       [
         '-c',
-        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print("---NUM---"); print(z.read("word/numbering.xml").decode())',
       ],
       { input: buffer }
     );
     const xml = extracted.stdout.toString();
-    expect(xml).toContain('1)');
-    expect(xml).toContain('2)');
-    expect(xml).toContain('0)');
-    expect(xml).toContain('one');
-    expect(xml).toContain('two');
-    expect(xml).toContain('zero');
+    const [document = '', numbering = ''] = xml.split('---NUM---');
+    expect(document).toContain('one');
+    expect(document).toContain('two');
+    expect(document).toContain('zero');
+    expect(document).not.toContain('1)');
+    expect(document.match(/<w:numPr>/g)).toHaveLength(3);
+    expect(numbering).toContain('%1)');
   });
 
   it('keeps plus and star bullets', async () => {
