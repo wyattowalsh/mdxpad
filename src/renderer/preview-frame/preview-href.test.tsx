@@ -67,6 +67,12 @@ describe('preview image', () => {
 
     const rooted = render(<Img src="/etc/passwd.png" alt="Rooted" />);
     expect(rooted.getByRole('img').getAttribute('src')).toBeNull();
+    rooted.unmount();
+
+    const sources = render(
+      <Img src="./pixel.png" srcSet="file:///etc/passwd 1x, ./pixel.png 2x" alt="Sources" />
+    );
+    expect(sources.getByRole('img').getAttribute('srcset')).toBe('./pixel.png 2x');
   });
 });
 
@@ -80,5 +86,9 @@ describe('preview video', () => {
 
     const local = render(<Video src="file:///etc/passwd" />);
     expect(local.container.querySelector('video')?.getAttribute('src')).toBeNull();
+    local.unmount();
+
+    const poster = render(<Video poster="file:///etc/passwd.png" />);
+    expect(poster.container.querySelector('video')?.getAttribute('poster')).toBeNull();
   });
 });

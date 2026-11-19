@@ -56,3 +56,18 @@ export function isBlockedPreviewHref(href: string | undefined): boolean {
   }
   return scheme !== 'http' && scheme !== 'https' && scheme !== 'mailto';
 }
+
+/** Keep only the candidates in a srcset that the preview can load. */
+export function safePreviewSrcSet(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const kept = value
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => {
+      const url = part.split(/\s+/)[0] ?? '';
+      return url.length > 0 && !isBlockedPreviewHref(url);
+    });
+  return kept.length > 0 ? kept.join(', ') : undefined;
+}

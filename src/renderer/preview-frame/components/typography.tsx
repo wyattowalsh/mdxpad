@@ -8,7 +8,7 @@
 
 import * as React from 'react';
 
-import { isBlockedPreviewHref } from '../preview-href';
+import { isBlockedPreviewHref, safePreviewSrcSet } from '../preview-href';
 
 /* ============================================================================
    Type Definitions
@@ -251,7 +251,7 @@ export function Hr({ className = '', ...props }: HorizontalRuleProps): React.Rea
  * Accessible image component with enforced alt text.
  * If alt is missing, logs a warning and renders with role="presentation".
  */
-export function Img({ alt, className = '', src, ...props }: ImageProps): React.ReactNode {
+export function Img({ alt, className = '', src, srcSet, ...props }: ImageProps): React.ReactNode {
   // Warn in development if alt text is missing
   if (process.env.NODE_ENV === 'development' && !alt && alt !== '') {
     console.warn('Image is missing alt text. Please provide an alt attribute for accessibility.', {
@@ -263,14 +263,16 @@ export function Img({ alt, className = '', src, ...props }: ImageProps): React.R
   const isDecorative = alt === '';
   const safeSrc =
     typeof src === 'string' && src.length > 0 && !isBlockedPreviewHref(src) ? src : undefined;
+  const safeSrcSet = typeof srcSet === 'string' ? safePreviewSrcSet(srcSet) : undefined;
 
   return (
     <img
+      {...props}
       {...(safeSrc ? { src: safeSrc } : {})}
+      {...(safeSrcSet ? { srcSet: safeSrcSet } : {})}
       alt={alt ?? ''}
       className={`mdx-img ${className}`.trim()}
       {...(isDecorative && { role: 'presentation', 'aria-hidden': true })}
-      {...props}
     />
   );
 }

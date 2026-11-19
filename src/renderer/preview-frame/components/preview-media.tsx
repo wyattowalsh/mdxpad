@@ -13,7 +13,7 @@ import type {
   VideoHTMLAttributes,
 } from 'react';
 
-import { isBlockedPreviewHref } from '../preview-href';
+import { isBlockedPreviewHref, safePreviewSrcSet } from '../preview-href';
 
 function safeMediaUrl(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 && !isBlockedPreviewHref(value)
@@ -23,14 +23,17 @@ function safeMediaUrl(value: unknown): string | undefined {
 
 export function Video({
   src,
+  poster,
   className = '',
   ...props
 }: VideoHTMLAttributes<HTMLVideoElement>): JSX.Element {
   const safeSrc = safeMediaUrl(src);
+  const safePoster = safeMediaUrl(poster);
   return (
     <video
       {...props}
       {...(safeSrc ? { src: safeSrc } : {})}
+      {...(safePoster ? { poster: safePoster } : {})}
       className={`mdx-video ${className}`.trim()}
     />
   );
@@ -51,9 +54,20 @@ export function Audio({
   );
 }
 
-export function Source({ src, ...props }: SourceHTMLAttributes<HTMLSourceElement>): JSX.Element {
+export function Source({
+  src,
+  srcSet,
+  ...props
+}: SourceHTMLAttributes<HTMLSourceElement>): JSX.Element {
   const safeSrc = safeMediaUrl(src);
-  return <source {...props} {...(safeSrc ? { src: safeSrc } : {})} />;
+  const safeSrcSet = typeof srcSet === 'string' ? safePreviewSrcSet(srcSet) : undefined;
+  return (
+    <source
+      {...props}
+      {...(safeSrc ? { src: safeSrc } : {})}
+      {...(safeSrcSet ? { srcSet: safeSrcSet } : {})}
+    />
+  );
 }
 
 export function Track({ src, ...props }: TrackHTMLAttributes<HTMLTrackElement>): JSX.Element {
