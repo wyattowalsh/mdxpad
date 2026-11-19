@@ -311,7 +311,6 @@ const markSerializers: Record<string, MarkSerializerSpec> = {
     open: '~~',
     close: '~~',
     mixable: true,
-    expelEnclosingWhitespace: true,
   },
 };
 
