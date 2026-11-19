@@ -332,6 +332,14 @@ function markdownAlt(alt: string): string {
       index += 1;
       continue;
     }
+    if (char === '[' && alt.startsWith('[^', index)) {
+      const end = alt.indexOf(']', index + 2);
+      if (end !== -1) {
+        result += alt.slice(index, end + 1);
+        index = end;
+        continue;
+      }
+    }
     if (char === '\\' || char === '[' || char === ']') {
       result += `\\${char}`;
       continue;

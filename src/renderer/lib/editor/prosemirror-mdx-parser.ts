@@ -11,7 +11,11 @@
 import MarkdownIt from 'markdown-it';
 import { MarkdownParser } from 'prosemirror-markdown';
 import { mdxSchema } from './prosemirror-mdx-schema';
-import { protectFootnoteBlocks } from './prosemirror-footnote-block';
+import {
+  FOOTNOTE_MARK,
+  protectFootnoteBlocks,
+  protectFootnoteMarkers,
+} from './prosemirror-footnote-block';
 import { linkBareAddresses } from './prosemirror-autolink';
 import { liftFootnoteLabels, liftFootnoteRefs } from './prosemirror-footnote-ref';
 import { shieldCellPipes } from './prosemirror-cell-pipe';
@@ -223,10 +227,6 @@ function imageAlt(token: MarkdownToken): string {
 
 const LEADING_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
 const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
-const FOOTNOTE_MARK = '\uE010';
-export function protectFootnoteMarkers(value: string): string {
-  return value.replaceAll('[^', `${FOOTNOTE_MARK}^`);
-}
 
 function restoreTexDelimiters(value: string): string {
   return value

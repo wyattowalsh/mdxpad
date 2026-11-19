@@ -423,6 +423,19 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('    [^b]:');
   });
 
+  it('keeps a footnote marker inside a link label', () => {
+    const source = 'See [the note[^1]](https://example.com).\n\n[^1]: Details\n';
+    const serialized = roundTrip(source);
+    expect(serialized).toContain('[the note[^1]](https://example.com)');
+    expect(serialized).toContain('[^1]: Details');
+    expect(serialized).not.toContain('\\[');
+    const image = roundTrip('![chart[^1]](./plot.png)\n\n[^1]: Details\n');
+    expect(image).toContain('![chart[^1]](./plot.png)');
+    expect(image).not.toContain('!\\[');
+    const after = roundTrip('Read [docs](https://example.com)[^1].\n\n[^1]: Details\n');
+    expect(after).toContain('[docs](https://example.com)[^1]');
+  });
+
   it('keeps a footnote reference and its definition', () => {
     const serialized = roundTrip('A footnote[^1].\n\n[^1]: The note\n');
     expect(serialized).toContain('A footnote[^1].');

@@ -1,5 +1,10 @@
+import { copyCodeSpan } from './prosemirror-tex-protect';
+
 const DEFINITION = /^ {0,3}\[\^[^\]]+\]:/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const FOOTNOTE_OPEN = '[^';
+
+export const FOOTNOTE_MARK = '\uE010';
 
 export const FOOTNOTE_BLOCK_LANGUAGE = 'mdxpad-footnote';
 
@@ -58,6 +63,82 @@ function wrapBlock(block: readonly string[]): string[] {
   const source = block.join('\n');
   const fence = '`'.repeat(Math.max(3, longestBacktickRun(source) + 1));
   return [`${fence}${FOOTNOTE_BLOCK_LANGUAGE}`, ...block, fence];
+}
+
+function replaceFootnoteOpen(value: string): string {
+  return value.replaceAll(FOOTNOTE_OPEN, `${FOOTNOTE_MARK}^`);
+}
+
+function balancedBracketEnd(value: string, open: number): number {
+  if (value[open] !== '[') {
+    return -1;
+  }
+  let depth = 0;
+  let index = open;
+  while (index < value.length) {
+    const code = index === open ? null : copyCodeSpan(value, index);
+    if (code) {
+      index = code.next;
+      continue;
+    }
+    const char = value[index] ?? '';
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === '[') {
+      depth += 1;
+    } else if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function linkLabelClose(value: string, index: number): number {
+  const image = value[index] === '!' && value[index + 1] === '[';
+  const open = image ? index + 1 : index;
+  if (value[open] !== '[') {
+    return -1;
+  }
+  const end = balancedBracketEnd(value, open);
+  if (end === -1) {
+    return -1;
+  }
+  const next = value[end + 1];
+  return next === '(' || next === '[' ? end : -1;
+}
+
+/** Keep `[^id]` from being read as a link, except inside a link label or image alt. */
+export function protectFootnoteMarkers(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      result += replaceFootnoteOpen(code.text);
+      index = code.next;
+      continue;
+    }
+    const labelEnd = linkLabelClose(value, index);
+    if (labelEnd !== -1) {
+      result += value.slice(index, labelEnd + 1);
+      index = labelEnd + 1;
+      continue;
+    }
+    if (value.startsWith(FOOTNOTE_OPEN, index)) {
+      result += `${FOOTNOTE_MARK}^`;
+      index += FOOTNOTE_OPEN.length;
+      continue;
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
 }
 
 /** Keep a footnote that contains a block from being flattened by the paragraph parser. */
