@@ -1,4 +1,4 @@
-import { allocateHeadingSlug } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, normalizedHeadingFragment } from '@shared/lib/markdown-heading';
 import type { MdxPluginDefinition, MdxPipelinePlugin } from './plugin-pipeline';
 
 interface HastNode {
@@ -40,11 +40,30 @@ function assignHeadingIds(node: HastNode, counts: Map<string, number>): void {
   }
 }
 
+function rewriteHeadingLinks(node: HastNode): void {
+  if (node.type === 'element' && node.tagName === 'a') {
+    const properties = node.properties ?? {};
+    const href = properties.href;
+    if (typeof href === 'string') {
+      const slug = normalizedHeadingFragment(href);
+      if (slug) {
+        properties.href = `#${slug}`;
+        node.properties = properties;
+      }
+    }
+  }
+  for (const child of node.children ?? []) {
+    rewriteHeadingLinks(child);
+  }
+}
+
 function slugHeadingTree(tree: unknown): void {
   if (!tree || typeof tree !== 'object') {
     return;
   }
-  assignHeadingIds(tree as HastNode, new Map<string, number>());
+  const root = tree as HastNode;
+  assignHeadingIds(root, new Map<string, number>());
+  rewriteHeadingLinks(root);
 }
 
 export const rehypeHeadingSlugPluginDefinition: MdxPluginDefinition = {

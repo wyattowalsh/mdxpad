@@ -57,6 +57,24 @@ export function headingAnchor(destination: string): string | null {
   return /^[A-Za-z0-9][A-Za-z0-9-]*$/.test(fragment) ? fragment : null;
 }
 
+/** The heading id a `#Two` or `#Hello World` link should open. */
+export function normalizedHeadingFragment(destination: string): string | null {
+  const trimmed = destination.trim();
+  if (!trimmed.startsWith('#')) {
+    return null;
+  }
+  let fragment = trimmed.slice(1);
+  try {
+    fragment = decodeURIComponent(fragment);
+  } catch {
+    return null;
+  }
+  if (fragment.length === 0) {
+    return null;
+  }
+  return headingSlug(fragment);
+}
+
 /** Read an ATX heading and ignore a closing run of hashes. */
 export function parseAtxHeading(line: string): AtxHeading | null {
   const match = ATX_HEADING.exec(line.trim());

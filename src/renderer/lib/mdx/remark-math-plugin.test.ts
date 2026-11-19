@@ -114,6 +114,16 @@ describe('remark math prices', () => {
     }
   });
 
+  it('points a capitalized heading link at the heading id', async () => {
+    const result = await compileMdx(testId('heading-link'), '# Two\n\nSee [two](#Two).\n');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('id: "two"');
+      expect(result.code).toContain('href: "#two"');
+      expect(result.code).not.toContain('"#Two"');
+    }
+  });
+
   it('renders a TeX inline formula', async () => {
     const result = await compileMdx(testId('tex-inline'), 'The area is \\(x^2\\).');
     expect(result.ok).toBe(true);

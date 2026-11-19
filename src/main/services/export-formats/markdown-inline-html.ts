@@ -1,5 +1,7 @@
 import katex from 'katex';
 
+import { normalizedHeadingFragment } from '@shared/lib/markdown-heading';
+
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
@@ -224,7 +226,9 @@ function renderImageTarget(target: MarkdownTarget): string {
 
 function renderLinkTarget(target: MarkdownTarget): string {
   const label = renderRich(target.label);
-  const href = safeLinkAddress(plainDestination(target.destination));
+  const destination = plainDestination(target.destination);
+  const fragment = normalizedHeadingFragment(destination);
+  const href = fragment ? `#${fragment}` : safeLinkAddress(destination);
   if (href === null) {
     return label;
   }

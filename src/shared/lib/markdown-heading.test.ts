@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   allocateHeadingSlug,
   headingAnchor,
+  normalizedHeadingFragment,
   parseAtxHeading,
   stripAtxClosingHashes,
 } from './markdown-heading';
@@ -28,5 +29,10 @@ describe('ATX headings', () => {
     expect(allocateHeadingSlug('[Guide](https://example.com)', counts)).toBe('guide');
     expect(headingAnchor('#intro-1')).toBe('intro-1');
     expect(headingAnchor('https://example.com')).toBeNull();
+    expect(normalizedHeadingFragment('#Two')).toBe('two');
+    expect(normalizedHeadingFragment('#Hello%20World')).toBe('hello-world');
+    expect(normalizedHeadingFragment('#fn-1')).toBe('fn-1');
+    expect(normalizedHeadingFragment('#two-1')).toBe('two-1');
+    expect(normalizedHeadingFragment('https://example.com')).toBeNull();
   });
 });

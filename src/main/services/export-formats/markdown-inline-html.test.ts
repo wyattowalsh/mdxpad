@@ -83,6 +83,12 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('points a capitalized heading link at the heading slug', () => {
+    expect(renderMarkdownInline('[Two](#Two)')).toBe('<a href="#two">Two</a>');
+    expect(renderMarkdownInline('[It](<#Hello World>)')).toBe('<a href="#hello-world">It</a>');
+    expect(renderMarkdownInline('[note](#fn-1)')).toBe('<a href="#fn-1">note</a>');
+  });
+
   it('renders bold italic from three markers', () => {
     expect(renderMarkdownInline('***both***')).toBe('<em><strong>both</strong></em>');
     expect(renderMarkdownInline('___both___')).toBe('<em><strong>both</strong></em>');

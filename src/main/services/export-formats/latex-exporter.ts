@@ -1,6 +1,6 @@
 import { writeRegularFile } from './write-regular-file';
 
-import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, normalizedHeadingFragment, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import { disarmLatexFileRead, omitTexPictureSyntax, texPicturePathUnsafe } from './latex-file-command';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
@@ -300,7 +300,7 @@ function formatInlineMarks(raw: string): string {
 
 function latexHref(label: string, rawHref: string): string {
   const destination = linkDestination(decodeHtmlEntities(rawHref));
-  const anchor = headingAnchor(destination);
+  const anchor = normalizedHeadingFragment(destination);
   if (anchor) {
     return `\\hyperref[${anchor}]{${formatProtected(label)}}`;
   }

@@ -24,7 +24,7 @@ import {
   TextRun,
 } from 'docx';
 
-import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
+import { allocateHeadingSlug, normalizedHeadingFragment, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 
@@ -255,7 +255,7 @@ function linkedDocxChildren(
   children: readonly (TextRun | Math)[]
 ): (TextRun | ExternalHyperlink | InternalHyperlink | Math)[] {
   const nodes = [...children];
-  const anchor = headingAnchor(decodeHtmlEntities(raw));
+  const anchor = normalizedHeadingFragment(decodeHtmlEntities(raw));
   if (anchor) {
     return [new InternalHyperlink({ children: nodes, anchor })];
   }
@@ -367,7 +367,7 @@ function docxHyperlink(
   raw: string,
   child: TextRun | ImageRun
 ): TextRun | ExternalHyperlink | InternalHyperlink | ImageRun {
-  const anchor = headingAnchor(decodeHtmlEntities(raw));
+  const anchor = normalizedHeadingFragment(decodeHtmlEntities(raw));
   if (anchor) {
     return new InternalHyperlink({ children: [child], anchor });
   }
