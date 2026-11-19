@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+
 import { applyFootnotes, htmlFootnoteMarkers, plainFootnoteMarkers } from './markdown-footnote';
 import { markdownToPdfHtml } from './pdf-exporter';
 import { expandLinkReferences } from './markdown-reference';
@@ -71,5 +73,18 @@ describe('applyFootnotes', () => {
   it('leaves a marker without a definition, including one in code', () => {
     expect(applyFootnotes('See [^missing] and `[^1]`.\n')).toContain('[^missing]');
     expect(applyFootnotes('See [^missing] and `[^1]`.\n')).toContain('`[^1]`');
+  });
+
+  it('leaves a marker inside a formula and still lists the note', () => {
+    const prepared = prepareMarkdownSource('Note \\(x[^1] `y`\\).\n\n[^1]: Detail\n');
+    const rendered = applyFootnotes(prepared);
+    expect(rendered).toContain('$x[^1] `y`$');
+    expect(rendered).not.toContain('\uE020');
+    expect(rendered).toContain('Detail');
+    const html = markdownToPdfHtml('Note \\(x[^1] `y`\\).\n\n[^1]: Detail\n');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('katex-error');
+    expect(html).toContain('Detail');
+    expect(html).toContain('id="fn-1"');
   });
 });

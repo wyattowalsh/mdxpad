@@ -1,3 +1,5 @@
+import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
+
 import { advanceFence, openingFence } from './markdown-fence';
 import { isTableRow } from './markdown-table';
 
@@ -74,6 +76,13 @@ function replaceFootnoteLine(
       const next = copyCodeSpan(line, index);
       result += line.slice(index, next);
       index = next;
+      continue;
+    }
+    const delimiter = mathDelimiterAt(line, index);
+    const mathEnd = delimiter === null ? -1 : mathSpanEnd(line, index, delimiter);
+    if (delimiter !== null && mathEnd !== -1) {
+      result += line.slice(index, mathEnd);
+      index = mathEnd;
       continue;
     }
     if (line.startsWith('[^', index) && !escapedAt(line, index)) {
