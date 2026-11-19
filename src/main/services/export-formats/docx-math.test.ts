@@ -271,6 +271,8 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('a \\leqslant b \\nleq c'))).toBe('a ⩽ b ≰ c');
     expect(runText(mathComponents('a \\nsubseteq b'))).toBe('a ⊈ b');
     expect(runText(mathComponents('a \\vdash b \\simeq c'))).toBe('a ⊢ b ≃ c');
+    expect(runText(mathComponents('\\nexists\\degree'))).toBe('∄°');
+    expect(runText(mathComponents('\\not\\leqslant\\not\\parallel\\not\\mid'))).toBe('≰∦∤');
   });
 
   it('draws a short inequality and a middle bar', () => {

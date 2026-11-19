@@ -205,6 +205,16 @@ export const SYMBOLS: Record<string, string> = {
   models: '⊨',
   vdash: '⊢',
   dashv: '⊣',
+  nexists: '∄',
+  degree: '°',
+  celsius: '℃',
+  ohm: 'Ω',
+  angstrom: 'Å',
+  micro: 'µ',
+  copyright: '©',
+  pounds: '£',
+  S: '§',
+  P: '¶',
 };
 
 export const NEGATED: Record<string, string> = {
@@ -225,6 +235,18 @@ export const NEGATED: Record<string, string> = {
   ge: '≱',
   leq: '≰',
   geq: '≱',
+  leqslant: '≰',
+  geqslant: '≱',
+  parallel: '∦',
+  mid: '∤',
+  prec: '⊀',
+  succ: '⊁',
+  preceq: '⋠',
+  succeq: '⋡',
+  rightarrow: '↛',
+  leftarrow: '↚',
+  to: '↛',
+  gets: '↚',
 };
 
 export const TEXT_COMMANDS = new Set([
