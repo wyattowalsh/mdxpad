@@ -81,6 +81,7 @@ export const SYMBOLS: Record<string, string> = {
   sqsupseteq: '⊒',
   dagger: '†',
   ddagger: '‡',
+  cr: '\n',
   partial: '∂',
   nabla: '∇',
   ldots: '…',
@@ -275,6 +276,7 @@ export const STYLE_COMMANDS = new Set([
   'scriptscriptstyle',
   'relax',
   'allowbreak',
+  'hline',
 ]);
 
 export const ATOM_COMMANDS = new Set([

@@ -205,6 +205,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
   });
 
+  it('breaks a matrix row at cr and drops a rule', () => {
+    expect(runText(mathComponents('\\begin{matrix}a\\cr b\\end{matrix}'))).toBe('a\n b');
+    expect(runText(mathComponents('a\\hline b'))).toBe('a b');
+    expect(runText(mathComponents('a\\hline b'))).not.toContain('hline');
+  });
+
   it('puts an equation number in parentheses', () => {
     const tagged = mathComponents('a+b\\tag{1}');
     expect(tagged.at(-1)).toBeInstanceOf(MathRoundBrackets);
