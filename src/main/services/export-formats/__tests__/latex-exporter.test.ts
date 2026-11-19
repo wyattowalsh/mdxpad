@@ -986,6 +986,20 @@ describe('LatexExporter', () => {
     expect(price).not.toContain('$5 & $');
   });
 
+  it('escapes a raw ampersand, hash, and percent inside display math', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$a & b$$\n\n$$a # b$$\n\n$$100%$$\n\n$$\n\\begin{aligned}\na & b\n\\end{aligned}\n$$',
+      outputPath: '/tmp/math-specials.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('$$a \\& b$$');
+    expect(written).toContain('$$a \\# b$$');
+    expect(written).toContain('$$100\\%$$');
+    expect(written).toContain('\\begin{aligned}\na & b\n\\end{aligned}');
+    expect(written).not.toContain('a \\& b\n\\end{aligned}');
+  });
+
   it('keeps a backslash as a LaTeX command', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -109,4 +109,22 @@ describe('normalizeTexMath', () => {
     );
     expect(prepared).toContain('```\n<br>\n<!-- secret -->\n```');
   });
+
+  it('escapes a raw ampersand, hash, and percent inside a formula', () => {
+    expect(prepareMarkdownSource('$$a & b$$')).toContain('$$a \\& b$$');
+    expect(prepareMarkdownSource('$$a # b$$')).toContain('$$a \\# b$$');
+    expect(prepareMarkdownSource('$$100%$$')).toContain('$$100\\%$$');
+    expect(prepareMarkdownSource('$$a \\& b$$')).toContain('$$a \\& b$$');
+    expect(prepareMarkdownSource('$$a \\& b$$')).not.toContain('\\\\&');
+    expect(prepareMarkdownSource('$$\n\\begin{aligned}\na & b\n\\end{aligned}\n$$')).toContain(
+      'a & b'
+    );
+    expect(prepareMarkdownSource('$$\n\\begin{aligned}\na & b\n\\end{aligned}\n$$')).not.toContain(
+      'a \\& b'
+    );
+    expect(prepareMarkdownSource('`$a & b$` and ```\n$$a & b$$\n```')).toContain('`$a & b$`');
+    expect(prepareMarkdownSource('`$a & b$` and ```\n$$a & b$$\n```')).toContain('$$a & b$$');
+    expect(prepareMarkdownSource('Price is $5 & $6$.')).not.toContain('\\&');
+    expect(normalizeTexMath('\\[a & b\\]')).toContain('$$a \\& b$$');
+  });
 });

@@ -2,6 +2,7 @@ import { Parser, type Options as AcornOptions } from 'acorn';
 
 import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from './math-span';
+import { renderableMathTex, repairedMathSpan } from './renderable-math';
 import {
   escapeLooseTags,
   escapeTemplatePlaceholders,
@@ -377,7 +378,7 @@ function replaceTexMath(prose: string): string {
     if (prose.startsWith('\\[', index)) {
       const end = unescapedDelimiterIndex(prose, index + 2, '\\]');
       if (end !== -1 && end > index + 2) {
-        result += `$$${prose.slice(index + 2, end)}$$`;
+        result += `$$${renderableMathTex(prose.slice(index + 2, end))}$$`;
         index = end + 2;
         continue;
       }
@@ -385,10 +386,17 @@ function replaceTexMath(prose: string): string {
     if (prose.startsWith('\\(', index)) {
       const end = unescapedDelimiterIndex(prose, index + 2, '\\)');
       if (end !== -1 && end > index + 2) {
-        result += `$${prose.slice(index + 2, end).replace(/(?<!\\)\$/g, '\\$')}$`;
+        const interior = prose.slice(index + 2, end).replace(/(?<!\\)\$/g, '\\$');
+        result += `$${renderableMathTex(interior)}$`;
         index = end + 2;
         continue;
       }
+    }
+    const repaired = repairedMathSpan(prose, index);
+    if (repaired) {
+      result += repaired.text;
+      index = repaired.end;
+      continue;
     }
     result += prose[index] ?? '';
     index += 1;

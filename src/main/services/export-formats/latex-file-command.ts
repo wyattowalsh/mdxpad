@@ -72,8 +72,9 @@ function breakTexCaretEscape(value: string): string {
 }
 
 function disarmFileContents(value: string): string {
+  const gap = '(?:\\s|\\\\%[^\\n]*(?:\\n|$)|%[^\\n]*(?:\\n|$))*';
   return value.replace(
-    /\\(begin|end)(?:\s|%[^\n]*(?:\n|$))*\{filecontents\*?\}/g,
+    new RegExp(`\\\\(begin|end)${gap}\\{filecontents\\*?\\}`, 'g'),
     '\\relax $1{filecontents}'
   );
 }

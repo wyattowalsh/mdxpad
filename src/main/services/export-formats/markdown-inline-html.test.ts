@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderMarkdownInline } from './markdown-inline-html';
+import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 
 describe('renderMarkdownInline', () => {
   it('drops a file hidden by a tab inside a css url', () => {
@@ -45,6 +45,20 @@ describe('renderMarkdownInline', () => {
     expect(html).toContain('keep');
   });
 
+
+  it('renders a raw ampersand, hash, and percent inside display math', () => {
+    const ampersand = renderDisplayMathBlock(['a & b']);
+    expect(ampersand).not.toContain('katex-error');
+    expect(ampersand).toContain('&amp;');
+    const hashed = renderDisplayMathBlock(['a # b']);
+    expect(hashed).not.toContain('katex-error');
+    const percent = renderDisplayMathBlock(['100%']);
+    expect(percent).not.toContain('katex-error');
+    expect(percent).toContain('%');
+    const aligned = renderDisplayMathBlock(['\\begin{aligned}', 'a & b', '\\end{aligned}']);
+    expect(aligned).not.toContain('katex-error');
+    expect(aligned).toContain('a &amp; b');
+  });
 
   it('renders an escaped dollar inside a formula', () => {
     const html = renderMarkdownInline('$\\$5$ and $a\\$b$');
