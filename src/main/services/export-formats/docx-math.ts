@@ -1,6 +1,8 @@
 import {
   MathFraction,
   MathCurlyBrackets,
+  MathLimitLower,
+  MathLimitUpper,
   MathRadical,
   MathRoundBrackets,
   MathSquareBrackets,
@@ -140,6 +142,12 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (grouped !== null) {
     return grouped;
   }
+  if (name === 'overset' || name === 'stackrel') {
+    return readStack(cursor, true);
+  }
+  if (name === 'underset') {
+    return readStack(cursor, false);
+  }
   if (name === 'binom' || name === 'dbinom' || name === 'tbinom') {
     return readBinom(cursor);
   }
@@ -226,6 +234,15 @@ function readMod(cursor: Cursor, parenthesized: boolean): MathComponent[] {
       children: [new MathRun('mod '), ...readGroup(cursor)],
     }),
   ];
+}
+
+function readStack(cursor: Cursor, upper: boolean): MathComponent[] {
+  const annotation = readGroup(cursor);
+  const base = readGroup(cursor);
+  if (upper) {
+    return [new MathLimitUpper({ children: base, limit: annotation })];
+  }
+  return [new MathLimitLower({ children: base, limit: annotation })];
 }
 
 function readBinom(cursor: Cursor): MathComponent[] {
@@ -316,15 +333,9 @@ function endsEnvironment(cursor: Cursor, name: string): boolean {
 }
 
 function wrapEnvironment(name: string, body: MathComponent[]): MathComponent[] {
-  if (name === 'pmatrix') {
-    return [new MathRoundBrackets({ children: body })];
-  }
-  if (name === 'bmatrix') {
-    return [new MathSquareBrackets({ children: body })];
-  }
-  if (name === 'Bmatrix' || name === 'cases') {
-    return [new MathCurlyBrackets({ children: body })];
-  }
+  if (name === 'pmatrix') return [new MathRoundBrackets({ children: body })];
+  if (name === 'bmatrix') return [new MathSquareBrackets({ children: body })];
+  if (name === 'Bmatrix' || name === 'cases') return [new MathCurlyBrackets({ children: body })];
   if (name === 'vmatrix' || name === 'Vmatrix') {
     const bar = name === 'Vmatrix' ? '‖' : '|';
     return [new MathRun(bar), ...body, new MathRun(bar)];
@@ -370,11 +381,9 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
       flush();
       cursor.index += 1;
       const script = readGroup(cursor);
-      components.push(
-        char === '^'
-          ? new MathSuperScript({ children: base.base, superScript: script })
-          : new MathSubScript({ children: base.base, subScript: script })
-      );
+      components.push(char === '^'
+        ? new MathSuperScript({ children: base.base, superScript: script })
+        : new MathSubScript({ children: base.base, subScript: script }));
       continue;
     }
     plain += char;

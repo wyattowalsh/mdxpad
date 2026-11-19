@@ -1,6 +1,8 @@
 import {
   MathCurlyBrackets,
   MathFraction,
+  MathLimitLower,
+  MathLimitUpper,
   MathRadical,
   MathRoundBrackets,
   MathRun,
@@ -67,6 +69,17 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\text{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\sum'))).toBe('∑');
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
+  });
+
+  it('stacks an annotation on its base', () => {
+    const over = mathComponents('\\overset{a}{b}');
+    expect(over).toHaveLength(1);
+    expect(over[0]).toBeInstanceOf(MathLimitUpper);
+    expect(runText(over)).toBe('ba');
+    const under = mathComponents('\\underset{a}{b}');
+    expect(under[0]).toBeInstanceOf(MathLimitLower);
+    expect(runText(under)).toBe('ba');
+    expect(runText(mathComponents('\\stackrel{a}{b}'))).toBe('ba');
   });
 
   it('draws dots, a script ell, and an angle', () => {
