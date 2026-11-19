@@ -3,6 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdownInline } from './markdown-inline-html';
 
 describe('renderMarkdownInline', () => {
+  it('drops a file hidden by a tab inside a css url', () => {
+    const html = renderMarkdownInline(
+      '<div style="background:url(file:\t///etc/passwd);color:red">x</div>'
+    );
+    expect(html).not.toContain('file:');
+    expect(html).not.toContain('passwd');
+    expect(html).toContain('color:red');
+    const styled = renderMarkdownInline(
+      '<svg><style>body{background:url(file:\n///etc/passwd);color:blue}</style></svg>'
+    );
+    expect(styled).not.toContain('file:');
+    expect(styled).toContain('color:blue');
+  });
+
   it('drops a file from a style element inside an svg', () => {
     const html = renderMarkdownInline(
       '<svg><style>body{background:url(file:///etc/passwd);color:red}</style>keep</svg>'

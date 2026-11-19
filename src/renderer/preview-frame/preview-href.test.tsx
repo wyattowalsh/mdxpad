@@ -247,6 +247,15 @@ describe('preview anchor', () => {
 });
 
 describe('preview image', () => {
+  it('drops a file hidden by a tab inside a css url', () => {
+    const styled = confinePreviewProps({
+      style: 'background:url(file:\t///etc/passwd);color:red',
+    }) as { style: Record<string, string> };
+    expect(JSON.stringify(styled.style)).not.toContain('file:');
+    expect(JSON.stringify(styled.style)).not.toContain('passwd');
+    expect(styled.style.color).toBe('red');
+  });
+
   it('drops an event handler and keeps the picture address', () => {
     const view = render(
       <Img src="https://example.com/a.png" alt="Pixel" onError={() => undefined} />

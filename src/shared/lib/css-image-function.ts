@@ -68,7 +68,7 @@ function nextImageFunction(css: string, from: number): number {
 
 function rewriteArguments(body: string, blocked: (address: string) => boolean): string {
   return body.replace(
-    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4|([^\s,()]+)/gi,
+    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'" \f]+))\s*\)|(['"])([\s\S]*?)\4|([^\s,()]+)/gi,
     (
       token,
       _quote: string,
@@ -89,7 +89,7 @@ export function cssValueHasBlockedAddress(
   css: string,
   blocked: (address: string) => boolean
 ): boolean {
-  for (const match of css.matchAll(/url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi)) {
+  for (const match of css.matchAll(/url\(\s*(?:(['"])([\s\S]*?)\1|([^)'" \f]+))\s*\)/gi)) {
     const address = (match[2] ?? match[3] ?? '').trim();
     if (address.length > 0 && blocked(address)) {
       return true;
