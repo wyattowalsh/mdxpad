@@ -4,6 +4,7 @@ import {
   MathLimitLower,
   MathLimitUpper,
   MathRadical,
+  MathSubSuperScript,
   MathRoundBrackets,
   MathRun,
   MathSquareBrackets,
@@ -69,6 +70,16 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\text{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\sum'))).toBe('∑');
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
+  });
+
+  it('puts a label on a stretched arrow', () => {
+    const over = mathComponents('\\xrightarrow{n}');
+    expect(over).toHaveLength(1);
+    expect(over[0]).toBeInstanceOf(MathLimitUpper);
+    expect(runText(over)).toBe('→n');
+    const both = mathComponents('\\xleftarrow[b]{a}');
+    expect(both[0]).toBeInstanceOf(MathSubSuperScript);
+    expect(runText(both)).toBe('←ba');
   });
 
   it('stacks an annotation on its base', () => {

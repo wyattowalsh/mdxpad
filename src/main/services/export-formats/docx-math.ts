@@ -1,17 +1,17 @@
 import {
   MathFraction,
-  MathCurlyBrackets,
   MathLimitLower,
   MathLimitUpper,
   MathRadical,
   MathRoundBrackets,
-  MathSquareBrackets,
   MathRun,
+  MathSubSuperScript,
   MathSubScript,
   MathSuperScript,
   type MathComponent,
 } from 'docx';
 
+import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -128,7 +128,13 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
     return readGroup(cursor);
   }
   if (name === 'begin') {
-    return readEnvironment(cursor);
+    return readMatrix(cursor, (current, env) => readSequence(current, null, env));
+  }
+  if (name === 'xrightarrow') {
+    return readStretchArrow(cursor, '→');
+  }
+  if (name === 'xleftarrow') {
+    return readStretchArrow(cursor, '←');
   }
   if (name === 'end') {
     readRawGroup(cursor);
@@ -236,6 +242,22 @@ function readMod(cursor: Cursor, parenthesized: boolean): MathComponent[] {
   ];
 }
 
+function readStretchArrow(cursor: Cursor, arrow: string): MathComponent[] {
+  const below = readOptionalBracket(cursor);
+  const above = readGroup(cursor);
+  const base = [new MathRun(arrow)];
+  if (below !== null && above.length > 0) {
+    return [new MathSubSuperScript({ children: base, subScript: below, superScript: above })];
+  }
+  if (below !== null) {
+    return [new MathLimitLower({ children: base, limit: below })];
+  }
+  if (above.length > 0) {
+    return [new MathLimitUpper({ children: base, limit: above })];
+  }
+  return base;
+}
+
 function readStack(cursor: Cursor, upper: boolean): MathComponent[] {
   const annotation = readGroup(cursor);
   const base = readGroup(cursor);
@@ -302,52 +324,6 @@ function scriptBase(
   return { plain, base: previous ? [previous] : [new MathRun('')] };
 }
 
-function readRawGroup(cursor: Cursor): string {
-  if (cursor.source[cursor.index] !== '{') {
-    return '';
-  }
-  cursor.index += 1;
-  let name = '';
-  while (cursor.index < cursor.source.length && cursor.source[cursor.index] !== '}') {
-    name += cursor.source[cursor.index] ?? '';
-    cursor.index += 1;
-  }
-  if (cursor.source[cursor.index] === '}') {
-    cursor.index += 1;
-  }
-  return name.trim();
-}
-
-function endsEnvironment(cursor: Cursor, name: string): boolean {
-  if (!cursor.source.startsWith('\\end', cursor.index)) {
-    return false;
-  }
-  const saved = cursor.index;
-  cursor.index += 4;
-  const endName = readRawGroup(cursor);
-  if (endName === name) {
-    return true;
-  }
-  cursor.index = saved;
-  return false;
-}
-
-function wrapEnvironment(name: string, body: MathComponent[]): MathComponent[] {
-  if (name === 'pmatrix') return [new MathRoundBrackets({ children: body })];
-  if (name === 'bmatrix') return [new MathSquareBrackets({ children: body })];
-  if (name === 'Bmatrix' || name === 'cases') return [new MathCurlyBrackets({ children: body })];
-  if (name === 'vmatrix' || name === 'Vmatrix') {
-    const bar = name === 'Vmatrix' ? '‖' : '|';
-    return [new MathRun(bar), ...body, new MathRun(bar)];
-  }
-  return body;
-}
-
-function readEnvironment(cursor: Cursor): MathComponent[] {
-  const name = readRawGroup(cursor);
-  return wrapEnvironment(name, readSequence(cursor, null, name));
-}
-
 function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): MathComponent[] {
   const components: MathComponent[] = [];
   let plain = '';
@@ -359,7 +335,7 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
   };
   while (cursor.index < cursor.source.length) {
     const char = cursor.source[cursor.index] ?? '';
-    if (untilEnd !== undefined && endsEnvironment(cursor, untilEnd)) {
+    if (untilEnd !== undefined && endsMatrix(cursor, untilEnd)) {
       break;
     }
     if (stop !== null && char === stop) {
