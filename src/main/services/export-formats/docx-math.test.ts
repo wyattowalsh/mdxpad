@@ -205,6 +205,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
   });
 
+  it('draws a colon, a bottom, and a real part', () => {
+    expect(runText(mathComponents('f \\colon X'))).toBe('f : X');
+    expect(runText(mathComponents('\\bot \\top'))).toBe('⊥ ⊤');
+    expect(runText(mathComponents('\\Re \\square'))).toBe('ℜ □');
+  });
+
   it('breaks a matrix row at cr and drops a rule', () => {
     expect(runText(mathComponents('\\begin{matrix}a\\cr b\\end{matrix}'))).toBe('a\n b');
     expect(runText(mathComponents('a\\hline b'))).toBe('a b');
