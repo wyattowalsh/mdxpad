@@ -30,6 +30,8 @@ describe('fences', () => {
       '- item\n\n  ```\n  const x = 1\n  ```\n'
     );
     expect(fenceIndentedCode('>     \\(x^2\\)\n')).toBe('> ```\n> \\(x^2\\)\n> ```\n');
+    expect(fenceIndentedCode('> >     \\(x^2\\)\n')).toBe('> > ```\n> > \\(x^2\\)\n> > ```\n');
+    expect(fenceIndentedCode('>>     \\(x^2\\)\n')).toBe('> > ```\n> > \\(x^2\\)\n> > ```\n');
     expect(fenceIndentedCode('Intro\n\n    ```\n    # Secret\n    $x^2$\n')).toBe(
       'Intro\n\n````\n```\n# Secret\n$x^2$\n````\n'
     );

@@ -78,17 +78,23 @@ function emitIndentedFence(output: string[], lines: readonly string[], indent = 
   output.push(`${indent}${marker}`, ...fenced, `${indent}${marker}`);
 }
 
-function quoteCodeBody(line: string): string | null {
-  const match = /^(>)([ \t].*)$/.exec(line);
-  if (!match) {
+function quotedCode(line: string): { prefix: string; body: string } | null {
+  let rest = line;
+  let depth = 0;
+  while (rest.startsWith('>')) {
+    const after = rest.slice(1);
+    rest = after.startsWith(' ') ? after.slice(1) : after;
+    depth += 1;
+  }
+  if (depth === 0) {
     return null;
   }
-  const rest = (match[2] ?? '').replaceAll('\t', '    ');
-  const spaces = /^ */.exec(rest)?.[0].length ?? 0;
-  if (spaces < 5 || rest.trim().length === 0) {
+  const expanded = rest.replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  if (spaces < 4 || expanded.trim().length === 0) {
     return null;
   }
-  return rest.slice(5);
+  return { prefix: '> '.repeat(depth), body: expanded.slice(4) };
 }
 
 function listCodeBody(line: string, column: number): string | null {
@@ -140,7 +146,8 @@ function openCode(
 
 function activeCode(state: FenceState, line: string): string | null {
   if (state.codeKind === 'quote') {
-    return quoteCodeBody(line);
+    const quoted = quotedCode(line);
+    return quoted !== null && quoted.prefix === state.codeIndent ? quoted.body : null;
   }
   if (state.codeKind === 'list' && state.column !== null) {
     return listCodeBody(line, state.column);
@@ -157,7 +164,7 @@ function continueCode(state: FenceState, line: string): boolean {
     state.codeLines.push(...state.pendingBlanks.splice(0), code);
     return true;
   }
-  if (line.trim().length === 0 || (state.codeKind === 'quote' && /^> ?$/.test(line))) {
+  if (line.trim().length === 0 || (state.codeKind === 'quote' && /^(?:>[ \t]?)+$/.test(line))) {
     state.pendingBlanks.push('');
     return true;
   }
@@ -168,9 +175,9 @@ function continueCode(state: FenceState, line: string): boolean {
 }
 
 function startCode(state: FenceState, line: string): boolean {
-  const quoted = quoteCodeBody(line);
+  const quoted = quotedCode(line);
   if (quoted !== null && blankBefore(state)) {
-    openCode(state, quoted, '> ', 'quote');
+    openCode(state, quoted.body, quoted.prefix, 'quote');
     return true;
   }
   const top = indentedCodeText(line);
