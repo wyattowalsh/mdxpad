@@ -89,11 +89,11 @@ function readWwwAutolink(raw: string, index: number): FoundAutolink | null {
 
 function readEmailAutolink(raw: string, index: number): FoundAutolink | null {
   const previous = index === 0 ? '' : (raw[index - 1] ?? '');
-  if (previous === '/' || /[A-Za-z0-9+._-]/.test(previous)) {
+  if (previous === '/' || /[A-Za-z0-9+._$-]/.test(previous)) {
     return null;
   }
   const match =
-    /^(?:[A-Za-z0-9+._-]|\\[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
+    /^(?:[A-Za-z0-9+._$-]|\\[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
       raw.slice(index)
     );
   const email = match?.[0] ?? '';

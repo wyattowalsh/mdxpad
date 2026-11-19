@@ -109,6 +109,13 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('<strong>');
   });
 
+  it('keeps a formula after a dollar sign in an email', () => {
+    const html = markdownToPdfHtml('Mail ada$b@example.com and $x^2$.');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('ada$b@example.com');
+    expect(html).not.toContain('textasciicircum');
+  });
+
   it('renders a display formula that contains a link', () => {
     const html = markdownToPdfHtml('See \\[x and [a](https://example.com) y\\].');
     expect(html).toContain('class="katex"');

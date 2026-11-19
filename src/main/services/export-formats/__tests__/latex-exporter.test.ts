@@ -330,6 +330,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\includegraphics{pixel.png}');
   });
 
+  it('keeps a formula after a dollar sign in an email', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Mail ada$b@example.com and $x^2$.',
+      outputPath: '/tmp/email-dollar.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\href{mailto:ada$b@example.com}{ada\\$b@example.com}');
+    expect(written).toContain('$x^2$');
+    expect(written).not.toContain('textasciicircum');
+  });
+
   it('keeps a display formula that contains a link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

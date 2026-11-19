@@ -5,6 +5,25 @@
 
 import { isCurrencySpan } from './currency-span';
 
+function dollarInEmail(raw: string, index: number): boolean {
+  if (raw[index] !== '$') {
+    return false;
+  }
+  let start = index;
+  while (start > 0 && /[A-Za-z0-9+._$]/.test(raw[start - 1] ?? '')) {
+    start -= 1;
+  }
+  const match =
+    /^[A-Za-z0-9+._$]+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
+      raw.slice(start)
+    );
+  if (!match) {
+    return false;
+  }
+  const end = start + match[0].length;
+  return index >= start && index < end;
+}
+
 function escapedDelimiter(raw: string, index: number): boolean {
   let count = 0;
   for (let cursor = index - 1; cursor >= 0 && raw.charAt(cursor) === '\\'; cursor -= 1) {
@@ -14,7 +33,7 @@ function escapedDelimiter(raw: string, index: number): boolean {
 }
 
 export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
-  if (raw.charAt(index) !== '$' || escapedDelimiter(raw, index)) {
+  if (raw.charAt(index) !== '$' || escapedDelimiter(raw, index) || dollarInEmail(raw, index)) {
     return null;
   }
   if (raw.startsWith('$$', index)) {
@@ -82,6 +101,10 @@ function linkBlocksMath(raw: string, index: number): boolean {
 export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'): number {
   let index = from;
   while (index < raw.length) {
+    if (delimiter === '$' && raw[index] === '$' && dollarInEmail(raw, index)) {
+      index += 1;
+      continue;
+    }
     if (delimiter === '$') {
       const codeEnd = codeSpanEnd(raw, index);
       if (codeEnd !== -1) {
