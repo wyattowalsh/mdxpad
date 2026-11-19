@@ -686,13 +686,15 @@ function appendDocxQuoteParagraph(
 }
 
 function appendDocxQuoteCode(blocks: (Paragraph | Table)[], lines: readonly string[]): void {
-  if (openingFence(lines[0] ?? '') === null) {
+  const marker = openingFence(lines[0] ?? '');
+  if (marker === null) {
     const body = lines.map((line) => line.replace(/^(?: {4}|\t)/, ''));
     blocks.push(createCodeBlockParagraph(body, ''));
     return;
   }
-  const [open, ...body] = lines;
-  blocks.push(createCodeBlockParagraph(body, fenceLanguage(open ?? '')));
+  const last = lines[lines.length - 1] ?? '';
+  const end = closesFence(last, marker) ? -1 : undefined;
+  blocks.push(createCodeBlockParagraph(lines.slice(1, end), fenceLanguage(lines[0] ?? '')));
 }
 
 function appendDocxQuoteLines(

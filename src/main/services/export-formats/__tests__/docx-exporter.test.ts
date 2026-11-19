@@ -558,6 +558,7 @@ describe('DocxExporter', () => {
     );
     const xml = extracted.stdout.toString();
     expect(xml).toContain('**not bold**');
+    expect(xml).not.toContain('~~~');
     expect(xml).not.toContain('<w:b/>');
     expect(xml).not.toContain('<w:b ');
   });
