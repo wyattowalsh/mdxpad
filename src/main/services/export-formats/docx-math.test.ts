@@ -72,6 +72,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('strikes a cancelled Word expression', () => {
+    expect(runText(mathComponents('\\cancel{ab}'))).toBe('a\u0336b\u0336');
+    expect(runText(mathComponents('\\bcancel{x}'))).toBe('x\u0336');
+    expect(runText(mathComponents('\\xcancel{y}'))).toBe('y\u0336');
+  });
+
   it('puts a brace over or under a Word expression', () => {
     const over = mathComponents('\\overbrace{ab}');
     expect(over[0]).toBeInstanceOf(MathLimitUpper);

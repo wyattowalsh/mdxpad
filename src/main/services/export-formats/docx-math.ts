@@ -140,7 +140,17 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
     readRawGroup(cursor);
     return [];
   }
+  if (name === 'cancel' || name === 'bcancel' || name === 'xcancel') return readCancel(cursor);
   return null;
+}
+
+function readCancel(cursor: Cursor): MathComponent[] {
+  return readGroup(cursor).map((part) => {
+    if (!(part instanceof MathRun)) return part;
+    let struck = '';
+    for (const char of mathRunText(part)) struck += `${char}\u0336`;
+    return new MathRun(struck);
+  });
 }
 
 function commandComponents(cursor: Cursor, name: string): MathComponent[] {
