@@ -19,6 +19,8 @@ import { enableStrikethrough } from './prosemirror-strikethrough';
 import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
   protectTexDelimiters,
+  restoreMathMarkup,
+  shieldMathMarkup,
   TEX_DISPLAY_CLOSE,
   TEX_DISPLAY_OPEN,
   TEX_INLINE_CLOSE,
@@ -342,6 +344,22 @@ export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TO
  * @param content - Raw MDX/Markdown string
  * @returns ProseMirror Node representing the document
  */
+function restoreMathMarkupNode(node: ProseMirrorNode): ProseMirrorNode {
+  if (node.isText) {
+    const text = node.text ?? '';
+    const restored = restoreMathMarkup(text);
+    return restored === text ? node : node.type.schema.text(restored, node.marks);
+  }
+  if (node.childCount === 0) {
+    return node;
+  }
+  const children: ProseMirrorNode[] = [];
+  node.forEach((child) => {
+    children.push(restoreMathMarkupNode(child));
+  });
+  return node.copy(Fragment.from(children));
+}
+
 function keepEmptyLinkLabels(value: string): string {
   return value.replace(/(?<!!)\[\](?=\()/g, '[\u200b]');
 }
@@ -351,13 +369,17 @@ export function parseMdxContent(content: string): ProseMirrorNode | null {
   const definitions = extractLinkDefinitions(body);
   const protectedNotes = protectFootnoteBlocks(body);
   const { processedText } = extractJsxBlocks(
-    protectTexDelimiters(protectFootnoteMarkers(protectedNotes))
+    protectTexDelimiters(shieldMathMarkup(protectFootnoteMarkers(protectedNotes)))
   );
-  const restored = liftFootnoteLabels(
-    liftFootnoteRefs(
-      linkBareAddresses(
-        liftTaskItems(
-          restoreFootnoteMarkers(restoreJsxFences(mdxParser.parse(keepEmptyLinkLabels(processedText))))
+  const restored = restoreMathMarkupNode(
+    liftFootnoteLabels(
+      liftFootnoteRefs(
+        linkBareAddresses(
+          liftTaskItems(
+            restoreFootnoteMarkers(
+              restoreJsxFences(mdxParser.parse(keepEmptyLinkLabels(processedText)))
+            )
+          )
         )
       )
     )

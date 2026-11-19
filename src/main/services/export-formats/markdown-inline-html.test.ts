@@ -134,6 +134,9 @@ describe('renderMarkdownInline', () => {
     expect(linked).toContain('<math');
     expect(linked).not.toContain('](https://example.com)');
     expect(renderMarkdownInline('`$x$`')).toBe('<code>$x$</code>');
+    const starred = renderMarkdownInline('$a*b*c$');
+    expect(starred).toContain('<math');
+    expect(starred).not.toContain('<em>');
     const words = renderMarkdownInline('Compare $n and m$');
     expect(words).toContain('<math');
     expect(words).not.toContain('$n and m$');

@@ -379,17 +379,43 @@ function listDepthForIndent(stack: readonly LatexListFrame[], line: string): num
   return depth;
 }
 
+function latexVerbatim(lines: readonly string[]): string[] {
+  let name = 'verbatim';
+  const body = lines.join('\n');
+  let salt = 0;
+  while (body.includes(`\\end{${name}}`)) {
+    salt += 1;
+    name = `mdxpadverb${salt}`;
+  }
+  if (name === 'verbatim') {
+    return ['\\begin{verbatim}', ...lines, '\\end{verbatim}'];
+  }
+  return [
+    '\\begingroup',
+    '\\catcode`|=0 \\catcode`[=1 \\catcode`]=2',
+    '\\catcode`\\{=12 \\catcode`\\}=12 \\catcode`\\\\=12',
+    `|gdef|@x${name}#1\\end{${name}}[#1|end[${name}]]`,
+    '\\endgroup',
+    `\\def\\${name}{\\@verbatim\\frenchspacing\\@vobeyspaces\\@x${name}}`,
+    `\\begin{${name}}`,
+    ...lines,
+    `\\end{${name}}`,
+  ];
+}
+
 function processCodeBlockLine(
   line: string,
   output: string[],
   fence: string | null,
-  listState: ListState
+  listState: ListState,
+  codeLines: string[]
 ): string | null {
   if (fence) {
     if (!closesFence(line, fence)) {
       return fence;
     }
-    output.push('\\end{verbatim}');
+    output.push(...latexVerbatim(codeLines));
+    codeLines.length = 0;
     return null;
   }
   const marker = openingFence(line);
@@ -401,7 +427,6 @@ function processCodeBlockLine(
   if (language.length > 0) {
     output.push(`{\\footnotesize\\ttfamily ${escapeLatex(language)}}`);
   }
-  output.push('\\begin{verbatim}');
   return marker;
 }
 
@@ -898,7 +923,7 @@ function takeLatexItemCode(build: LatexBuild, line: string): boolean {
     while (list.itemCode[list.itemCode.length - 1] === '') {
       list.itemCode.pop();
     }
-    build.output.push('\\begin{verbatim}', ...list.itemCode, '\\end{verbatim}');
+    build.output.push(...latexVerbatim(list.itemCode));
     list.itemCode = null;
     list.sealed = true;
     list.paragraphBreak = true;
@@ -989,6 +1014,7 @@ interface LatexBuild {
   output: string[];
   prose: SourceLine[];
   fence: string | null;
+  codeLines: string[];
   inDisplayMath: boolean;
   tableLines: string[];
   quoteLines: string[];
@@ -1021,7 +1047,7 @@ function writeLatexItemFence(output: string[], fence: ListFenceState): void {
   if (fence.language.length > 0) {
     output.push(`{\\footnotesize\\ttfamily ${escapeLatex(fence.language)}}`);
   }
-  output.push('\\begin{verbatim}', ...fence.lines, '\\end{verbatim}');
+  output.push(...latexVerbatim(fence.lines));
 }
 
 function takeLatexItemFence(build: LatexBuild, line: string): boolean {
@@ -1075,7 +1101,13 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     return;
   }
   const wasInCodeBlock = build.fence;
-  build.fence = processCodeBlockLine(line, build.output, build.fence, build.listState);
+  build.fence = processCodeBlockLine(
+    line,
+    build.output,
+    build.fence,
+    build.listState,
+    build.codeLines
+  );
   if (wasInCodeBlock !== build.fence) {
     flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
@@ -1083,7 +1115,7 @@ function appendLatexSourceLine(build: LatexBuild, line: string): void {
     return;
   }
   if (build.fence) {
-    build.output.push(line);
+    build.codeLines.push(line);
     return;
   }
   if (takeLatexItemMath(build, line) || takeLatexDisplay(build, line)) {
@@ -1140,6 +1172,7 @@ function contentToLatex(content: string): string {
     output: [],
     prose: [],
     fence: null,
+    codeLines: [],
     inDisplayMath: false,
     tableLines: [],
     quoteLines: [],
@@ -1160,7 +1193,7 @@ function contentToLatex(content: string): string {
   flushLatexTable(build.output, build.tableLines);
   flushLatexQuote(build.output, build.quoteLines, build.slugCounts);
   if (build.fence) {
-    build.output.push('\\end{verbatim}');
+    build.output.push(...latexVerbatim(build.codeLines));
   }
   if (build.listState.itemFence) {
     writeLatexItemFence(build.output, build.listState.itemFence);
@@ -1170,7 +1203,7 @@ function contentToLatex(content: string): string {
     while (build.listState.itemCode[build.listState.itemCode.length - 1] === '') {
       build.listState.itemCode.pop();
     }
-    build.output.push('\\begin{verbatim}', ...build.listState.itemCode, '\\end{verbatim}');
+    build.output.push(...latexVerbatim(build.listState.itemCode));
   }
   if (build.listState.itemMath) {
     build.output.push('$$', ...build.listState.itemMath, '$$');

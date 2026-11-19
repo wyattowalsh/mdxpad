@@ -315,10 +315,9 @@ export class CloudSyncService {
       };
     }
 
-    const record = await readJsonFile<RemoteDocumentRecord | null>(
-      this.getDocumentPath(request.providerId, request.documentId),
-      null
-    );
+    const documentPath = this.getDocumentPath(request.providerId, request.documentId);
+    await this.ensureDirectory(path.dirname(documentPath));
+    const record = await readJsonFile<RemoteDocumentRecord | null>(documentPath, null);
     await this.writeStatus(request.providerId, {
       state: 'idle',
       lastSyncAt: Date.now(),

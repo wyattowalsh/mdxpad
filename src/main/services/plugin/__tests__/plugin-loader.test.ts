@@ -135,6 +135,26 @@ describe('PluginLoader', () => {
       expect(loader.isLoaded('loadable')).toBe(true);
     });
 
+    it('does not install a plugin directory that is a link', async () => {
+      const outside = path.join(tempDir, 'outside-plugin');
+      await mkdir(outside);
+      await writeFile(
+        path.join(outside, 'manifest.json'),
+        JSON.stringify({
+          name: 'Outside',
+          version: '1.0.0',
+          description: 'secret',
+          permissions: [],
+          entryPoint: 'index.js',
+        })
+      );
+      await writeFile(path.join(outside, 'index.js'), 'module.exports = {};');
+      const linked = path.join(tempDir, 'linked-plugin');
+      await symlink(outside, linked);
+
+      await expect(loader.installPlugin(linked)).rejects.toThrow('Plugin directory is a link');
+    });
+
     it('does not load an entry point that is a link', async () => {
       const outside = path.join(tempDir, 'secret.js');
       await writeFile(outside, 'module.exports = { leaked: true };');

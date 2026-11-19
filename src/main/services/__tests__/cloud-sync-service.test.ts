@@ -186,6 +186,36 @@ describe('CloudSyncService', () => {
     expect(again.content).toBe('# Local');
   });
 
+  it('does not pull a document through a linked provider folder', async () => {
+    const service = new CloudSyncService(tempDir, tempDir);
+    await service.connectProvider('mock-cloud');
+    const outside = path.join(tempDir, 'outside-docs');
+    await mkdir(path.join(outside, 'documents'), { recursive: true });
+    const secret = path.join(outside, 'documents', 'doc-1.json');
+    await writeFile(
+      secret,
+      JSON.stringify({
+        documentId: 'doc-1',
+        filePath: '/secret.mdx',
+        content: 'hidden',
+        checksum: 'x',
+        revision: 4,
+        updatedAt: 1,
+      })
+    );
+    await rm(path.join(tempDir, 'mock-cloud'), { recursive: true, force: true });
+    await symlink(outside, path.join(tempDir, 'mock-cloud'));
+
+    const pull = await service.pullDocument({
+      providerId: 'mock-cloud',
+      documentId: 'doc-1',
+    });
+
+    expect(pull.content).toBeNull();
+    expect(await readFile(secret, 'utf8')).toContain('hidden');
+    expect((await lstat(path.join(tempDir, 'mock-cloud'))).isSymbolicLink()).toBe(false);
+  });
+
   it('does not read connections through a linked parent folder', async () => {
     const outside = path.join(tempDir, 'outside');
     const store = path.join(outside, 'cloud-sync');

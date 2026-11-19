@@ -91,6 +91,11 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('%20');
   });
 
+  it('keeps asterisks inside a formula', () => {
+    expect(roundTrip('$a*b*c$\n')).toContain('$a*b*c$');
+    expect(roundTrip('Area \\((a*b)*(c*d)\\).\n')).toContain('\\((a*b)*(c*d)\\)');
+  });
+
   it('keeps a task checkbox', () => {
     const serialized = roundTrip('- [ ] todo\n');
     expect(serialized).toContain('[ ] todo');

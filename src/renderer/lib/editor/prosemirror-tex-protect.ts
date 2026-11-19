@@ -1,7 +1,77 @@
+import { isCurrencySpan } from '@shared/lib/currency-span';
+
 export const TEX_INLINE_OPEN = '\uE013';
 export const TEX_INLINE_CLOSE = '\uE014';
 export const TEX_DISPLAY_OPEN = '\uE015';
 export const TEX_DISPLAY_CLOSE = '\uE016';
+
+const MATH_STAR = '\uE017';
+const MATH_UNDER = '\uE018';
+
+function takeDollarMath(value: string, index: number): number {
+  if (index > 0 && value[index - 1] === '\\') {
+    return -1;
+  }
+  const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : '';
+  if (delimiter.length === 0) {
+    return -1;
+  }
+  const end = value.indexOf(delimiter, index + delimiter.length);
+  if (end === -1) {
+    return -1;
+  }
+  const interior = value.slice(index + delimiter.length, end);
+  if (interior.length === 0 || isCurrencySpan(interior)) {
+    return -1;
+  }
+  return end + delimiter.length;
+}
+
+function takeTexMath(value: string, index: number): number {
+  const open = value.startsWith('\\[', index) ? '\\[' : value.startsWith('\\(', index) ? '\\(' : '';
+  if (open.length === 0) {
+    return -1;
+  }
+  const close = open === '\\[' ? '\\]' : '\\)';
+  const end = value.indexOf(close, index + open.length);
+  if (end === -1) {
+    return -1;
+  }
+  return end + close.length;
+}
+
+function shieldMathPiece(value: string): string {
+  return value.replaceAll('*', MATH_STAR).replaceAll('_', MATH_UNDER);
+}
+
+/** Keep emphasis markers inside formulas from being parsed as Markdown. */
+export function shieldMathMarkup(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      result += code.text;
+      index = code.next;
+      continue;
+    }
+    const mathEnd = takeDollarMath(value, index);
+    const texEnd = mathEnd === -1 ? takeTexMath(value, index) : -1;
+    const end = mathEnd === -1 ? texEnd : mathEnd;
+    if (end !== -1) {
+      result += shieldMathPiece(value.slice(index, end));
+      index = end;
+      continue;
+    }
+    result += value.charAt(index);
+    index += 1;
+  }
+  return result;
+}
+
+export function restoreMathMarkup(value: string): string {
+  return value.replaceAll(MATH_STAR, '*').replaceAll(MATH_UNDER, '_');
+}
 
 const TEX_PAIR: Record<string, string> = {
   '\\[': TEX_DISPLAY_OPEN,

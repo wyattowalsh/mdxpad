@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 
+import { fenceIndentedCode } from '@shared/lib/indented-code';
 import { normalizeTexMath } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
@@ -135,7 +136,7 @@ export class PandocBridge implements Exporter {
         ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
         : options.content;
       const content = sanitizeMarkdownHtmlBlocks(
-        omitLocalMarkdownTargets(normalizeTexMath(rooted), options.sourcePath)
+        omitLocalMarkdownTargets(normalizeTexMath(fenceIndentedCode(rooted)), options.sourcePath)
       );
       const { stderr } = await runPandoc(detection.path, args, content, this.timeoutMs);
 

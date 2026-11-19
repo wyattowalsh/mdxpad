@@ -24,6 +24,9 @@ export async function loadTemplatesFromDir(
   dirPath: string,
   isBuiltIn: boolean
 ): Promise<TemplateMetadata[]> {
+  if (await containsDirectoryLink(dirPath, dirPath)) {
+    return [];
+  }
   try {
     const files = await fs.readdir(dirPath);
     const mdxtFiles = files.filter((f) => f.endsWith('.mdxt'));
@@ -74,6 +77,9 @@ export async function loadCustomTemplates(): Promise<TemplateMetadata[]> {
  * Finds a template file by ID in a specific directory.
  */
 async function findTemplateInDir(dirPath: string, id: string): Promise<string | null> {
+  if (await containsDirectoryLink(dirPath, dirPath)) {
+    return null;
+  }
   try {
     const files = await fs.readdir(dirPath);
     const mdxtFiles = files.filter((f) => f.endsWith('.mdxt'));

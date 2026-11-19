@@ -1,4 +1,4 @@
-import { lstatSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -50,5 +50,21 @@ describe('store links', () => {
 
     expect(() => lstatSync(path.join(root, 'recent-files.json'))).toThrow();
     expect(lstatSync(secret).isFile()).toBe(true);
+  });
+
+  it('replaces a linked userData folder before opening the store', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'mdxpad-store-parent-'));
+    const outside = mkdtempSync(path.join(tmpdir(), 'mdxpad-store-parent-out-'));
+    directories.push(root, outside);
+    const secret = path.join(outside, 'recent-files.json');
+    writeFileSync(secret, '{"secret":true}');
+    const linked = path.join(root, 'userData');
+    symlinkSync(outside, linked);
+    userData.current = linked;
+
+    prepareElectronStore('recent-files');
+
+    expect(lstatSync(linked).isSymbolicLink()).toBe(false);
+    expect(readFileSync(secret, 'utf8')).toContain('secret');
   });
 });

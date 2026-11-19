@@ -430,6 +430,22 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\end{verbatim}');
   });
 
+  it('keeps a verbatim end marker inside the code sample', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '```\n\\end{verbatim}\n# still code\n$notmath$\n```',
+      outputPath: '/tmp/verbatim-end.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    const start = written.indexOf('\\begin{mdxpadverb1}');
+    const end = written.lastIndexOf('\\end{mdxpadverb1}');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(written.indexOf('\\end{verbatim}')).toBeGreaterThan(start);
+    expect(written.indexOf('# still code')).toBeGreaterThan(start);
+    expect(written.indexOf('$notmath$')).toBeGreaterThan(start);
+    expect(written.indexOf('$notmath$')).toBeLessThan(end);
+  });
+
   it('converts inline formatting', async () => {
     const { writeFile } = await import('node:fs/promises');
     const options: ExportOptions = {

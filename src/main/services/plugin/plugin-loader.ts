@@ -38,6 +38,18 @@ interface LoadedPlugin {
   activated: boolean;
 }
 
+async function assertRealPluginDirectory(pluginPath: string): Promise<void> {
+  try {
+    const info = await fs.lstat(pluginPath);
+    if (!info.isSymbolicLink() && info.isDirectory()) {
+      return;
+    }
+  } catch {
+    return;
+  }
+  throw new Error('Plugin directory is a link');
+}
+
 function getDefaultPluginDir(): string {
   return path.join(app.getPath('home'), '.mdxpad', 'plugins');
 }
@@ -147,6 +159,7 @@ export class PluginLoader {
    */
   async installPlugin(pluginPath: string): Promise<PluginRecord> {
     assertInstallablePluginPath(this.pluginDir, pluginPath);
+    await assertRealPluginDirectory(pluginPath);
     const manifest = await loadManifest(pluginPath);
     const id = derivePluginId(pluginPath);
     return this.registry.addPlugin(id, manifest);
@@ -166,6 +179,7 @@ export class PluginLoader {
     }
 
     const pluginPath = path.join(this.pluginDir, pluginId);
+    await assertRealPluginDirectory(pluginPath);
     const entryPath = resolveWorkspaceFilePath(pluginPath, record.manifest.entryPoint);
 
     const read = await readFileWithoutFollowingLinks(entryPath);

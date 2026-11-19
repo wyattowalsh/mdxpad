@@ -59,31 +59,51 @@ function indentedCodeText(line: string): string | null {
   return null;
 }
 
-function closeIndentedCode(output: string[], open: boolean): boolean {
-  if (open) {
-    output.push('```');
+function longestBacktickRun(lines: readonly string[]): number {
+  let longest = 0;
+  for (const line of lines) {
+    for (const run of line.match(/`+/g) ?? []) {
+      longest = Math.max(longest, run.length);
+    }
   }
-  return false;
+  return longest;
+}
+
+function emitIndentedFence(output: string[], lines: readonly string[]): void {
+  if (lines.length === 0) {
+    return;
+  }
+  const marker = '`'.repeat(Math.max(3, longestBacktickRun(lines) + 1));
+  output.push(marker, ...lines, marker);
 }
 
 /** Turn a top-level indented code block into a fence. */
 export function fenceIndentedCode(content: string): string {
   const output: string[] = [];
   const pendingBlanks: string[] = [];
+  const codeLines: string[] = [];
   let fence: string | null = null;
   let inIndented = false;
   let column: number | null = null;
+  const closeCode = (): void => {
+    if (!inIndented) {
+      return;
+    }
+    emitIndentedFence(output, codeLines.splice(0));
+    output.push(...pendingBlanks.splice(0));
+    inIndented = false;
+  };
   for (const line of content.split('\n')) {
     const next = advanceFence(line, fence);
     if (fence || next) {
-      inIndented = closeIndentedCode(output, inIndented);
-      output.push(...pendingBlanks.splice(0), line);
+      closeCode();
+      output.push(line);
       fence = next;
       continue;
     }
     const code = indentedCodeText(line);
     if (inIndented && code !== null) {
-      output.push(...pendingBlanks.splice(0), code);
+      codeLines.push(...pendingBlanks.splice(0), code);
       continue;
     }
     if (inIndented && line.trim().length === 0) {
@@ -91,21 +111,20 @@ export function fenceIndentedCode(content: string): string {
       continue;
     }
     if (inIndented) {
-      inIndented = closeIndentedCode(output, true);
-      output.push(...pendingBlanks.splice(0), line);
+      closeCode();
+      output.push(line);
       continue;
     }
     const previousBlank = output.length === 0 || (output[output.length - 1] ?? '').trim() === '';
     if (code !== null && previousBlank && !(column !== null && leadingSpaces(line) >= column)) {
       column = null;
-      output.push('```', code);
+      codeLines.push(code);
       inIndented = true;
       continue;
     }
     output.push(line);
     column = nextListColumn(column, line);
   }
-  closeIndentedCode(output, inIndented);
-  output.push(...pendingBlanks);
+  closeCode();
   return output.join('\n');
 }

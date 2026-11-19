@@ -7,6 +7,8 @@ import { lstatSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 
+import { ensureRealDirectorySync } from './ensure-real-directory';
+
 export function replaceSymlinkFile(filePath: string): void {
   try {
     if (lstatSync(filePath).isSymbolicLink()) {
@@ -35,5 +37,6 @@ export function prepareElectronStore(name: string): void {
   if (directory === null) {
     return;
   }
+  ensureRealDirectorySync(directory);
   replaceSymlinkFile(path.join(directory, `${name}.json`));
 }

@@ -1,3 +1,5 @@
+import { isCurrencySpan } from '@shared/lib/currency-span';
+
 import { readCodeSpan } from './markdown-escape';
 import { readMarkdownTarget } from './markdown-link';
 
@@ -21,7 +23,12 @@ function whitespace(char: string): boolean {
   return char.length === 0 || /\s/.test(char);
 }
 
-function flanking(value: string, index: number, length: number, char: '*' | '_'): {
+function flanking(
+  value: string,
+  index: number,
+  length: number,
+  char: '*' | '_'
+): {
   canOpen: boolean;
   canClose: boolean;
 } {
@@ -40,6 +47,25 @@ function flanking(value: string, index: number, length: number, char: '*' | '_')
   };
 }
 
+function readInlineMath(value: string, index: number): number {
+  if (index > 0 && value[index - 1] === '\\') {
+    return -1;
+  }
+  const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : '';
+  if (delimiter.length === 0) {
+    return -1;
+  }
+  const end = value.indexOf(delimiter, index + delimiter.length);
+  if (end === -1) {
+    return -1;
+  }
+  const interior = value.slice(index + delimiter.length, end);
+  if (interior.length === 0 || isCurrencySpan(interior)) {
+    return -1;
+  }
+  return end + delimiter.length;
+}
+
 function collectRuns(value: string): DelimiterRun[] {
   const runs: DelimiterRun[] = [];
   let index = 0;
@@ -47,6 +73,11 @@ function collectRuns(value: string): DelimiterRun[] {
     const code = value[index] === '`' ? readCodeSpan(value, index) : null;
     if (code) {
       index = code.end;
+      continue;
+    }
+    const mathEnd = value[index] === '$' ? readInlineMath(value, index) : -1;
+    if (mathEnd !== -1) {
+      index = mathEnd;
       continue;
     }
     if (value[index] === '!' || value[index] === '[') {
@@ -118,7 +149,12 @@ function outermost(matches: readonly EmphasisMatch[], from: number, to: number):
     .filter(
       (match) =>
         !matches.some(
-          (other) => other !== match && other.start <= match.start && other.end >= match.end && other.start >= from && other.end <= to
+          (other) =>
+            other !== match &&
+            other.start <= match.start &&
+            other.end >= match.end &&
+            other.start >= from &&
+            other.end <= to
         )
     )
     .sort((left, right) => left.start - right.start);

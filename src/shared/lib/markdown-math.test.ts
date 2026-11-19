@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { fenceIndentedCode } from './indented-code';
 import { normalizeTexMath, prepareMarkdownSource } from './markdown-math';
 
 describe('normalizeTexMath', () => {
@@ -81,6 +82,8 @@ describe('normalizeTexMath', () => {
       '[area $x^2$](https://example.com)'
     );
     expect(prepareMarkdownSource('    $x^2$\n')).toBe('```\n$x^2$\n```\n');
+    expect(normalizeTexMath(fenceIndentedCode('    \\(x^2\\)\n'))).toContain('\\(x^2\\)');
+    expect(normalizeTexMath(fenceIndentedCode('    \\(x^2\\)\n'))).not.toContain('$x^2$');
     expect(prepareMarkdownSource('List<T> and <Card>Hi</Card> and `List<T>`')).toBe(
       'List&lt;T&gt; and <Card>Hi</Card> and `List<T>`'
     );
