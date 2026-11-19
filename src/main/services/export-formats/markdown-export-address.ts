@@ -10,6 +10,8 @@ import {
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
+import { svgDataPayload } from './svg-data-payload';
+
 const URL_ATTRIBUTES = new Set([
   'href',
   'src',
@@ -76,26 +78,12 @@ function addressScheme(value: string): string | null {
 
 let checkingSvgData = false;
 
-function svgPayload(destination: string): string | null {
-  const decoded = decodedAddress(destination).trim();
-  const comma = decoded.indexOf(',');
-  if (comma < 0) {
-    return null;
-  }
-  const header = decoded.slice(0, comma).toLowerCase().replaceAll(/\s+/g, '');
-  if (!header.startsWith('data:image/svg+xml')) {
-    return null;
-  }
-  const body = decoded.slice(comma + 1);
-  return header.includes(';base64') ? Buffer.from(body, 'base64').toString('utf8') : body;
-}
-
 function svgDataLoadsLocalFile(destination: string): boolean {
-  const decoded = decodedAddress(destination).trim().toLowerCase();
-  if (!decoded.startsWith('data:image/svg+xml')) {
+  const decoded = decodedAddress(destination).trim();
+  if (!decoded.toLowerCase().startsWith('data:image/svg+xml')) {
     return false;
   }
-  const payload = svgPayload(destination);
+  const payload = svgDataPayload(decoded);
   if (payload === null) {
     return true;
   }

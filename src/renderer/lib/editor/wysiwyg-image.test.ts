@@ -141,6 +141,55 @@ describe('wysiwyg image preview', () => {
     expect(serializeMdxContent(view.state.doc)).toContain('/etc/passwd.png');
   });
 
+  it('does not paint an svg data image that points at a file', async () => {
+    const fileSvg = btoa('<svg><image href="file:///etc/passwd"/></svg>');
+    const src = `data:image/svg+xml;base64,${fileSvg}`;
+    const inline = vi.fn(async () => `![image](${src})`);
+    window.mdxpad = { ...window.mdxpad, inlinePreviewImages: inline };
+    useDocumentStore.getState().openDocument(
+      {
+        fileId: '/docs/note.md' as unknown as DocumentId,
+        filePath: '/docs/note.md',
+        mtime: 1,
+      },
+      '![Secret](icon.svg)'
+    );
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const view = new EditorView(container, {
+      state: EditorState.create({
+        doc: documentFromMarkdown('![Secret](icon.svg)\n'),
+        schema: mdxSchema,
+      }),
+      nodeViews: {
+        image: (node) => new WysiwygImageView(node),
+      },
+    });
+    views.push(view);
+    await vi.waitFor(() => {
+      expect(view.dom.querySelector('img')?.getAttribute('src') ?? '').toBe('');
+    });
+    expect(view.dom.querySelector('img')?.getAttribute('alt')).toBe('Secret');
+    expect(serializeMdxContent(view.state.doc)).toContain('icon.svg');
+
+    const icon = btoa('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+    const iconSrc = `data:image/svg+xml;base64,${icon}`;
+    inline.mockResolvedValue(`![image](${iconSrc})`);
+    const iconView = new EditorView(container, {
+      state: EditorState.create({
+        doc: documentFromMarkdown('![Icon](icon.svg)\n'),
+        schema: mdxSchema,
+      }),
+      nodeViews: {
+        image: (node) => new WysiwygImageView(node),
+      },
+    });
+    views.push(iconView);
+    await vi.waitFor(() => {
+      expect(iconView.dom.querySelector('img')?.getAttribute('src')).toBe(iconSrc);
+    });
+  });
+
   it('does not load a protocol-relative picture', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
