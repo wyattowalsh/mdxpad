@@ -185,7 +185,7 @@ function styleAttribute(attr: string, raw: string): string {
 }
 
 function resourceHrefTag(name: string): boolean {
-  return name === 'image' || name === 'use';
+  return name === 'image' || name === 'use' || name === 'feimage' || name === 'cursor';
 }
 
 /** Drop an address that would read a local file. A loading tag is removed. */

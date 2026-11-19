@@ -51,6 +51,7 @@ describe('sanitizeExportedHtml', () => {
 
   it('drops a parent path from an svg image and keeps a document link', () => {
     expect(sanitizeExportedTag('<image href="../secret.png">')).toBe('<image>');
+    expect(sanitizeExportedTag('<feImage href="../secret.png">')).toBe('<feImage>');
     expect(sanitizeExportedTag('<image href="./pixel.png">')).toBe('<image href="./pixel.png">');
     expect(sanitizeExportedHtml('<a href="../notes/a.md">Notes</a>')).toContain(
       'href="../notes/a.md"'

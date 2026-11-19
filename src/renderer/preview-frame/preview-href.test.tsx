@@ -49,6 +49,8 @@ describe('isBlockedPreviewHref', () => {
     expect(parent.href).toBeUndefined();
     const beside = confinePreviewElement('image', { href: './pixel.png' }) as { href?: string };
     expect(beside.href).toBe('./pixel.png');
+    const filter = confinePreviewElement('feImage', { href: '../secret.png' }) as { href?: string };
+    expect(filter.href).toBeUndefined();
   });
 });
 

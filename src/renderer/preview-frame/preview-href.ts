@@ -231,6 +231,14 @@ function cleanStyleChild(child: unknown): unknown {
   return typeof child === 'string' ? sanitizePreviewStyleSheet(child) : child;
 }
 
+function loadsResourceHref(type: unknown): boolean {
+  if (typeof type !== 'string') {
+    return false;
+  }
+  const name = type.toLowerCase();
+  return name === 'image' || name === 'use' || name === 'feimage' || name === 'cursor';
+}
+
 function omitBlockedResourceHref(props: Record<string, unknown>): Record<string, unknown> {
   const entries = Object.entries(props).filter(([key, value]) => {
     const name = key.toLowerCase();
@@ -249,8 +257,7 @@ export function confinePreviewElement(type: unknown, props: unknown): unknown {
     return confined;
   }
   const record = confined as Record<string, unknown>;
-  const withoutResourceHref =
-    type === 'image' || type === 'use' ? omitBlockedResourceHref(record) : record;
+  const withoutResourceHref = loadsResourceHref(type) ? omitBlockedResourceHref(record) : record;
   if (type !== 'style') {
     return withoutResourceHref;
   }
