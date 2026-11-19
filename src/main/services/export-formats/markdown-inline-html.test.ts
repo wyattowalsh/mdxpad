@@ -74,7 +74,7 @@ describe('renderMarkdownInline', () => {
       '<a href="https://example.com">docs</a>'
     );
     expect(renderMarkdownInline('[empty]()')).toBe('<a href="">empty</a>');
-    expect(renderMarkdownInline('[link](</url>)')).toBe('<a href="/url">link</a>');
+    expect(renderMarkdownInline('[link](</url>)')).toBe('link');
   });
 
   it('keeps an escaped asterisk literal', () => {
@@ -158,6 +158,13 @@ describe('renderMarkdownInline', () => {
       '<img alt="Secret">'
     );
     expect(renderMarkdownInline('<a href="file:///etc/passwd">Disk</a>')).toBe('<a>Disk</a>');
+    expect(renderMarkdownInline('<a href="file&#58;///etc/passwd">Disk</a>')).toBe('<a>Disk</a>');
+    expect(renderMarkdownInline('<a href=file:///etc/passwd>Disk</a>')).toBe('<a>Disk</a>');
+    expect(renderMarkdownInline('[secret](/etc/passwd)')).toBe('secret');
+    expect(renderMarkdownInline('<iframe src="file:///etc/passwd"></iframe>')).toBe('');
+    expect(renderMarkdownInline('<script>location="file:///etc/passwd"</script>')).toBe(
+      'location=&quot;file:///etc/passwd&quot;'
+    );
   });
 
   it('keeps an inline HTML tag and escapes one inside code', () => {

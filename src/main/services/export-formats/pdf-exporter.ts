@@ -12,6 +12,7 @@ import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
+import { sanitizeExportedHtml } from './markdown-export-address';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
@@ -207,7 +208,7 @@ function consumePdfHtml(build: PdfBuild, lines: readonly string[], index: number
   flushPdfQuote(build);
   flushPdfParagraph(build);
   closePdfList(build);
-  build.parts.push(block.html);
+  build.parts.push(sanitizeExportedHtml(block.html));
   return block.nextIndex;
 }
 
@@ -548,6 +549,21 @@ async function writeTextPdf(options: ExportOptions): Promise<ExportResult> {
   };
 }
 
+function confinePrintNavigation(contents: { on?: unknown }): void {
+  if (typeof contents.on !== 'function') {
+    return;
+  }
+  const listen = contents.on as (
+    event: string,
+    listener: (event: { preventDefault: () => void }) => void
+  ) => void;
+  const deny = (event: { preventDefault: () => void }): void => {
+    event.preventDefault();
+  };
+  listen('will-navigate', deny);
+  listen('will-redirect', deny);
+}
+
 export class PdfExporter implements Exporter {
   readonly format = 'pdf';
   readonly label = 'PDF';
@@ -568,8 +584,16 @@ export class PdfExporter implements Exporter {
         show: false,
         width: 800,
         height: 600,
-        webPreferences: { offscreen: true, nodeIntegration: false, contextIsolation: true },
+        webPreferences: {
+          offscreen: true,
+          nodeIntegration: false,
+          contextIsolation: true,
+          sandbox: true,
+          webSecurity: true,
+          javascript: false,
+        },
       });
+      confinePrintNavigation(win.webContents);
 
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
       const pdfBuffer = await win.webContents.printToPDF(buildPrintOptions(options));

@@ -13,6 +13,7 @@ import {
 } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
+import { sanitizeExportedHtml } from './markdown-export-address';
 import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
@@ -245,7 +246,7 @@ function consumeEpubHtml(
   flushEpubTable(htmlLines, state);
   flushEpubQuote(htmlLines, state);
   closeEpubList(htmlLines, state);
-  htmlLines.push(block.html);
+  htmlLines.push(sanitizeExportedHtml(block.html));
   return block.nextIndex;
 }
 

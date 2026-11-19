@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 
 import { inlineLocalImages } from './export-image';
+import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 import { prepareRegularOutput } from './write-regular-file';
 import type { Exporter, ExportOptions, ExportResult } from './types';
@@ -131,7 +132,9 @@ export class PandocBridge implements Exporter {
       const rooted = options.sourcePath
         ? await inlineLocalImages(options.content, options.sourcePath, 'resource')
         : options.content;
-      const content = omitLocalMarkdownTargets(rooted, options.sourcePath);
+      const content = sanitizeMarkdownHtmlBlocks(
+        omitLocalMarkdownTargets(rooted, options.sourcePath)
+      );
       const { stderr } = await runPandoc(detection.path, args, content, this.timeoutMs);
 
       if (stderr.trim().length > 0) {

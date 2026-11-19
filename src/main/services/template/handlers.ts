@@ -9,6 +9,7 @@
  * @see Constitution §III.3 - All payloads validated with zod safeParse()
  */
 
+import { constants as fsConstants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import matter from 'gray-matter';
@@ -41,7 +42,7 @@ import {
   type TemplateErrorResponse,
 } from '@shared/contracts/template-schemas';
 
-import { prepareRegularOutput, writeRegularFile } from '../export-formats/write-regular-file';
+import { writeRegularFile } from '../export-formats/write-regular-file';
 import { getCustomTemplatesPath, ensureCustomTemplatesDir, fileExists } from './paths';
 import {
   validationError,
@@ -214,9 +215,28 @@ export async function handleTemplateDelete(
   }
 }
 
+async function readRegularTemplate(source: string): Promise<Buffer> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    handle = await fs.open(source, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      throw new Error('Template file is a link');
+    }
+    return await handle.readFile();
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? error.code : undefined;
+    if (code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
+      throw new Error('Template file is a link');
+    }
+    throw error;
+  } finally {
+    await handle?.close();
+  }
+}
+
 async function copyOntoPath(source: string, destination: string): Promise<void> {
-  await prepareRegularOutput(destination);
-  await fs.copyFile(source, destination);
+  await writeRegularFile(destination, await readRegularTemplate(source));
 }
 
 function storedTemplatePath(id: string): string | null {

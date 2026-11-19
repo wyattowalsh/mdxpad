@@ -73,6 +73,19 @@ describe('PdfExporter', () => {
     expect(mockPrintToPDF).toHaveBeenCalledOnce();
   });
 
+  it('does not print a local file named by an HTML block', async () => {
+    await exporter.export({
+      content: '<iframe src="file:///etc/passwd"></iframe>\n\n<script>\nlocation="file:///etc/passwd"\n</script>',
+      outputPath: '/tmp/local.pdf',
+    });
+    const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
+    const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
+    expect(html).not.toContain('file:');
+    expect(html).not.toContain('/etc/passwd');
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('<iframe');
+  });
+
   it('uses the preset font in the printed document', async () => {
     await exporter.export({
       content: 'Hello',

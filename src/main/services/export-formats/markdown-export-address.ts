@@ -3,6 +3,33 @@
  * A picture or link must not point at a local file.
  */
 
+import { decodeHtmlEntities } from './markdown-entity';
+
+const URL_ATTRIBUTES = new Set([
+  'href',
+  'src',
+  'data',
+  'action',
+  'formaction',
+  'poster',
+  'cite',
+  'background',
+  'srcset',
+  'xlink:href',
+]);
+
+const DROPPED_TAGS = new Set([
+  'script',
+  'iframe',
+  'object',
+  'embed',
+  'base',
+  'link',
+  'frame',
+  'frameset',
+  'meta',
+]);
+
 function withoutHiddenBreaks(value: string): string {
   let result = '';
   for (const char of value) {
@@ -15,7 +42,7 @@ function withoutHiddenBreaks(value: string): string {
 }
 
 function decodedAddress(value: string): string {
-  let current = withoutHiddenBreaks(value);
+  let current = withoutHiddenBreaks(decodeHtmlEntities(value));
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const next = withoutHiddenBreaks(decodeURIComponent(current));
@@ -49,14 +76,22 @@ export function safeImageAddress(destination: string): string | null {
   if (scheme === 'data' && decodedAddress(destination).toLowerCase().startsWith('data:image/')) {
     return destination;
   }
-  if (scheme !== null || destination.startsWith('/') || destination.startsWith('\\')) {
+  if (scheme !== null || rootedPath(destination)) {
     return null;
   }
   return destination;
 }
 
+function rootedPath(destination: string): boolean {
+  const decoded = decodedAddress(destination);
+  return decoded.startsWith('/') || decoded.startsWith('\\');
+}
+
 /** A link address the exported page can open. */
 export function safeLinkAddress(destination: string): string | null {
+  if (rootedPath(destination)) {
+    return null;
+  }
   const scheme = addressScheme(destination);
   if (scheme === null || scheme === 'http' || scheme === 'https' || scheme === 'mailto') {
     return destination;
@@ -64,28 +99,87 @@ export function safeLinkAddress(destination: string): string | null {
   return null;
 }
 
-function quotedAttribute(tag: string, name: string): { value: string; pattern: RegExp } | null {
-  const pattern = new RegExp(`\\s${name}\\s*=\\s*("[^"]*"|'[^']*')`, 'i');
-  const match = pattern.exec(tag);
-  const quoted = match?.[1];
-  if (!match || quoted === undefined) {
-    return null;
-  }
-  return { value: quoted.slice(1, -1), pattern };
+function tagName(tag: string): string {
+  return /^<\s*\/?\s*([A-Za-z][A-Za-z0-9-]*)/.exec(tag)?.[1]?.toLowerCase() ?? '';
 }
 
-/** Drop an image or link address that would read a local file. */
+function attributeValue(raw: string): string {
+  return raw.startsWith('"') || raw.startsWith("'") ? raw.slice(1, -1) : raw;
+}
+
+function srcsetAllowed(value: string): boolean {
+  return value.split(',').every((part) => {
+    const url = part.trim().split(/\s+/)[0] ?? '';
+    return url.length === 0 || safeImageAddress(url) !== null;
+  });
+}
+
+function attributeAllowed(name: string, value: string): boolean {
+  if (name === 'srcset') {
+    return srcsetAllowed(value);
+  }
+  const image = name === 'src' || name === 'poster' || name === 'background';
+  return (image ? safeImageAddress(value) : safeLinkAddress(value)) !== null;
+}
+
+/** Drop an address that would read a local file. A loading tag is removed. */
 export function sanitizeExportedTag(tag: string): string {
-  const image = /^<\s*img\b/i.test(tag);
-  const link = /^<\s*a\b/i.test(tag);
-  if (!image && !link) {
-    return tag;
+  if (DROPPED_TAGS.has(tagName(tag))) {
+    return '';
   }
-  const name = image ? 'src' : 'href';
-  const found = quotedAttribute(tag, name);
-  if (!found) {
-    return tag;
+  return tag.replace(
+    /\s([^\s=/>]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/g,
+    (full, attr: string, raw: string) => {
+      const name = attr.toLowerCase();
+      return URL_ATTRIBUTES.has(name) && !attributeAllowed(name, attributeValue(raw)) ? '' : full;
+    }
+  );
+}
+
+function htmlTagEnd(html: string, index: number): number {
+  let quote: '"' | "'" | null = null;
+  for (let cursor = index + 1; cursor < html.length; cursor += 1) {
+    const char = html[cursor];
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === '>') {
+      return cursor + 1;
+    }
   }
-  const safe = image ? safeImageAddress(found.value) : safeLinkAddress(found.value);
-  return safe === null ? tag.replace(found.pattern, '') : tag;
+  return -1;
+}
+
+/** Remove local-file addresses from an HTML fragment, including the tags that load them. */
+export function sanitizeExportedHtml(html: string): string {
+  let result = '';
+  let index = 0;
+  while (index < html.length) {
+    const start = html.indexOf('<', index);
+    if (start === -1) {
+      return result + html.slice(index);
+    }
+    result += html.slice(index, start);
+    const end = htmlTagEnd(html, start);
+    if (end === -1) {
+      return result + html.slice(start);
+    }
+    const tag = html.slice(start, end);
+    const name = tagName(tag);
+    if (DROPPED_TAGS.has(name) && !/^<\s*\//.test(tag)) {
+      const close = new RegExp(`</${name}\\s*>`, 'i').exec(html.slice(end));
+      index = close ? end + close.index + close[0].length : end;
+      continue;
+    }
+    result += sanitizeExportedTag(tag);
+    index = end;
+  }
+  return result;
 }

@@ -99,6 +99,24 @@ describe('template files written through a link', () => {
     expect(await readFile(path.join(templates, 'note.mdxt'), 'utf8')).toContain('hello');
   });
 
+  it('does not import a template that is a link', async () => {
+    await useTempHome();
+    const sourceDir = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-template-src-'));
+    dirs.push(sourceDir);
+    const secret = await linkedFile(sourceDir, 'note.mdxt');
+    const source = path.join(sourceDir, 'note.mdxt');
+    rememberChosenTemplatePath(source);
+
+    const result = await handleTemplateImport({
+      action: 'import',
+      path: source,
+      replace: true,
+    });
+
+    expect(result).toMatchObject({ success: false });
+    expect(await readFile(secret, 'utf8')).toBe('secret');
+  });
+
   it('imports a template in place of a link', async () => {
     const templates = await useTempHome();
     const secret = await linkedFile(templates, 'note.mdxt');

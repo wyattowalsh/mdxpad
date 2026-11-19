@@ -730,7 +730,8 @@ describe('template handlers', () => {
       });
 
       expect(result).toHaveProperty('success', true);
-      expect(mockCopyFile).toHaveBeenCalled();
+      expect(mockWriteFile).toHaveBeenCalled();
+      expect(mockCopyFile).not.toHaveBeenCalled();
     });
 
     it('does not import a template that was not chosen in the dialog', async () => {
@@ -789,7 +790,8 @@ describe('template handlers', () => {
       });
 
       if ('success' in result && result.success) {
-        expect(mockCopyFile).toHaveBeenCalled();
+        expect(mockWriteFile).toHaveBeenCalled();
+        expect(mockCopyFile).not.toHaveBeenCalled();
       }
     });
   });
@@ -819,7 +821,8 @@ describe('template handlers', () => {
       });
 
       expect(result).toHaveProperty('success', true);
-      expect(mockCopyFile).toHaveBeenCalled();
+      expect(mockWriteFile).toHaveBeenCalled();
+      expect(mockCopyFile).not.toHaveBeenCalled();
     });
 
     it('does not export a template to a path the dialog did not choose', async () => {
@@ -832,7 +835,7 @@ describe('template handlers', () => {
       });
 
       expect(result).toHaveProperty('success', false);
-      expect(mockCopyFile).not.toHaveBeenCalled();
+      expect(mockWriteFile).not.toHaveBeenCalled();
     });
 
     it('should return not found error for non-existent template', async () => {
@@ -852,7 +855,7 @@ describe('template handlers', () => {
 
     it('should handle file system errors', async () => {
       mockReaddir.mockResolvedValue(['test-template.mdxt']);
-      mockCopyFile.mockRejectedValueOnce(new Error('Permission denied'));
+      mockWriteFile.mockRejectedValueOnce(new Error('Permission denied'));
       const exportPath = chooseTemplatePath('template.mdxt', false);
 
       const result = await handleTemplateExport({

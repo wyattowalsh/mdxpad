@@ -1,3 +1,5 @@
+import { sanitizeExportedHtml } from './markdown-export-address';
+
 export interface HtmlBlock {
   readonly html: string;
   readonly nextIndex: number;
@@ -111,4 +113,23 @@ export function readHtmlBlock(lines: readonly string[], index: number): HtmlBloc
     return null;
   }
   return readUntilBlank(lines, index);
+}
+
+/** Sanitize HTML blocks and leave the surrounding Markdown in place. */
+export function sanitizeMarkdownHtmlBlocks(content: string): string {
+  const lines = content.split('\n');
+  const out: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const block = readHtmlBlock(lines, index);
+    if (!block) {
+      out.push(lines[index] ?? '');
+      continue;
+    }
+    const sanitized = sanitizeExportedHtml(block.html);
+    if (sanitized.length > 0) {
+      out.push(sanitized);
+    }
+    index = block.nextIndex;
+  }
+  return out.join('\n');
 }
