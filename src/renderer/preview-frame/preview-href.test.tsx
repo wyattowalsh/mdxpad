@@ -44,6 +44,11 @@ describe('isBlockedPreviewHref', () => {
       srcdoc: '<img src="file:///etc/passwd">',
     }) as { srcdoc?: string };
     expect(frame.srcdoc).toBeUndefined();
+
+    const parent = confinePreviewElement('image', { href: '../secret.png' }) as { href?: string };
+    expect(parent.href).toBeUndefined();
+    const beside = confinePreviewElement('image', { href: './pixel.png' }) as { href?: string };
+    expect(beside.href).toBe('./pixel.png');
   });
 });
 

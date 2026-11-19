@@ -231,17 +231,33 @@ function cleanStyleChild(child: unknown): unknown {
   return typeof child === 'string' ? sanitizePreviewStyleSheet(child) : child;
 }
 
+function omitBlockedResourceHref(props: Record<string, unknown>): Record<string, unknown> {
+  const entries = Object.entries(props).filter(([key, value]) => {
+    const name = key.toLowerCase();
+    if (name !== 'href' && name !== 'xlinkhref') {
+      return true;
+    }
+    return typeof value !== 'string' || !isBlockedPreviewResource(value);
+  });
+  return entries.length === Object.keys(props).length ? props : Object.fromEntries(entries);
+}
+
 /** Drop a local file from a plain tag, including the text of a style element. */
 export function confinePreviewElement(type: unknown, props: unknown): unknown {
   const confined = confinePreviewProps(props);
-  if (type !== 'style' || confined === null || typeof confined !== 'object') {
+  if (confined === null || typeof confined !== 'object') {
     return confined;
   }
   const record = confined as Record<string, unknown>;
-  const children = record.children;
+  const withoutResourceHref =
+    type === 'image' || type === 'use' ? omitBlockedResourceHref(record) : record;
+  if (type !== 'style') {
+    return withoutResourceHref;
+  }
+  const children = withoutResourceHref.children;
   const cleaned = Array.isArray(children) ? children.map(cleanStyleChild) : cleanStyleChild(children);
   if (cleaned === children) {
-    return confined;
+    return withoutResourceHref;
   }
-  return { ...record, children: cleaned };
+  return { ...withoutResourceHref, children: cleaned };
 }

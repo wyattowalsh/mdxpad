@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { sanitizeExportedHtml } from './markdown-export-address';
+import { sanitizeExportedHtml, sanitizeExportedTag } from './markdown-export-address';
 
 describe('sanitizeExportedHtml', () => {
   it('keeps alignment and drops a local file inside a style', () => {
@@ -47,5 +47,13 @@ describe('sanitizeExportedHtml', () => {
     const imported = sanitizeExportedHtml('<style>@import "\\66ile:///etc/passwd.css";</style>');
     expect(imported).not.toContain('file:');
     expect(imported).not.toContain('@import');
+  });
+
+  it('drops a parent path from an svg image and keeps a document link', () => {
+    expect(sanitizeExportedTag('<image href="../secret.png">')).toBe('<image>');
+    expect(sanitizeExportedTag('<image href="./pixel.png">')).toBe('<image href="./pixel.png">');
+    expect(sanitizeExportedHtml('<a href="../notes/a.md">Notes</a>')).toContain(
+      'href="../notes/a.md"'
+    );
   });
 });

@@ -184,9 +184,14 @@ function styleAttribute(attr: string, raw: string): string {
   return ` ${attr}=${quote}${cleaned}${quote}`;
 }
 
+function resourceHrefTag(name: string): boolean {
+  return name === 'image' || name === 'use';
+}
+
 /** Drop an address that would read a local file. A loading tag is removed. */
 export function sanitizeExportedTag(tag: string): string {
-  if (DROPPED_TAGS.has(tagName(tag))) {
+  const element = tagName(tag);
+  if (DROPPED_TAGS.has(element)) {
     return '';
   }
   return tag.replace(
@@ -196,7 +201,11 @@ export function sanitizeExportedTag(tag: string): string {
       if (name === 'style') {
         return styleAttribute(attr, raw);
       }
-      return URL_ATTRIBUTES.has(name) && !attributeAllowed(name, attributeValue(raw)) ? '' : full;
+      const value = attributeValue(raw);
+      if (resourceHrefTag(element) && (name === 'href' || name === 'xlink:href')) {
+        return safeImageAddress(value) === null ? '' : full;
+      }
+      return URL_ATTRIBUTES.has(name) && !attributeAllowed(name, value) ? '' : full;
     }
   );
 }
