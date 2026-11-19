@@ -85,7 +85,7 @@ describe('useRecoveryCheck', () => {
       expect(result.current.hasRecoveryData).toBe(false);
 
       // Wait a bit to ensure no async check started
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(result.current.isChecking).toBe(false);
     });
@@ -108,7 +108,7 @@ describe('useRecoveryCheck', () => {
       expect(result.current.isChecking).toBe(false);
 
       // Wait to ensure no new check started
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(result.current.isChecking).toBe(false);
     });
@@ -117,9 +117,7 @@ describe('useRecoveryCheck', () => {
   describe('handleDecision - accept', () => {
     it('should handle accept decision', async () => {
       const onRestore = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onRestore })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onRestore }));
 
       // Since IPC is stubbed to fail, test the error path
       await act(async () => {
@@ -135,11 +133,76 @@ describe('useRecoveryCheck', () => {
       });
     });
 
+    it('removes the recovery file only after the editor opens it', async () => {
+      const documentId = '123e4567-e89b-12d3-a456-426614174001' as DocumentId;
+      const onRestore = vi.fn();
+      const recoveryRestore = vi.fn().mockResolvedValue({
+        ok: true,
+        restored: [
+          {
+            documentId,
+            filePath: '/notes/a.md',
+            fileName: 'a.md',
+            content: 'hello',
+          },
+        ],
+      });
+      const recoveryDiscard = vi.fn().mockResolvedValue({ discardedCount: 1 });
+      const previous = window.mdxpad;
+      window.mdxpad = { recoveryRestore, recoveryDiscard } as unknown as typeof window.mdxpad;
+
+      try {
+        const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onRestore }));
+        await act(async () => {
+          await result.current.handleDecision({ action: 'accept', selectedIds: [documentId] });
+        });
+      } finally {
+        window.mdxpad = previous;
+      }
+
+      expect(onRestore).toHaveBeenCalled();
+      expect(recoveryDiscard).toHaveBeenCalledWith({ documentIds: [documentId] });
+      const restoreOrder = onRestore.mock.invocationCallOrder[0] ?? 0;
+      const discardOrder = recoveryDiscard.mock.invocationCallOrder[0] ?? 0;
+      expect(restoreOrder).toBeLessThan(discardOrder);
+    });
+
+    it('keeps the recovery file when the editor cannot open it', async () => {
+      const documentId = '123e4567-e89b-12d3-a456-426614174001' as DocumentId;
+      const onRestore = vi.fn(() => {
+        throw new Error('editor closed');
+      });
+      const recoveryRestore = vi.fn().mockResolvedValue({
+        ok: true,
+        restored: [
+          {
+            documentId,
+            filePath: null,
+            fileName: 'Untitled',
+            content: 'hello',
+          },
+        ],
+      });
+      const recoveryDiscard = vi.fn();
+      const previous = window.mdxpad;
+      window.mdxpad = { recoveryRestore, recoveryDiscard } as unknown as typeof window.mdxpad;
+
+      try {
+        const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onRestore }));
+        await act(async () => {
+          await result.current.handleDecision({ action: 'accept', selectedIds: [documentId] });
+        });
+        expect(result.current.error).toBe('editor closed');
+      } finally {
+        window.mdxpad = previous;
+      }
+
+      expect(recoveryDiscard).not.toHaveBeenCalled();
+    });
+
     it('should not call onRestore when restore fails', async () => {
       const onRestore = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onRestore })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onRestore }));
 
       await act(async () => {
         await result.current.handleDecision({
@@ -179,9 +242,7 @@ describe('useRecoveryCheck', () => {
   describe('handleDecision - decline', () => {
     it('should handle decline decision', async () => {
       const onDiscard = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onDiscard })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onDiscard }));
 
       // Manually set entries to test decline
       await act(async () => {
@@ -201,9 +262,7 @@ describe('useRecoveryCheck', () => {
 
     it('should call onDiscard with count', async () => {
       const onDiscard = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onDiscard })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onDiscard }));
 
       await act(async () => {
         await result.current.handleDecision({
@@ -235,9 +294,7 @@ describe('useRecoveryCheck', () => {
   describe('handleDecision - dismiss', () => {
     it('should handle dismiss decision', async () => {
       const onDismiss = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onDismiss })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onDismiss }));
 
       await act(async () => {
         await result.current.handleDecision({
@@ -297,9 +354,7 @@ describe('useRecoveryCheck', () => {
       // This test verifies callback invocation logic
       // Since stub always fails, we test the code path exists
       const onRestore = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onRestore })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onRestore }));
 
       await act(async () => {
         await result.current.handleDecision({
@@ -314,9 +369,7 @@ describe('useRecoveryCheck', () => {
 
     it('should call onDiscard callback', async () => {
       const onDiscard = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onDiscard })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onDiscard }));
 
       await act(async () => {
         await result.current.handleDecision({
@@ -331,9 +384,7 @@ describe('useRecoveryCheck', () => {
 
     it('should call onDismiss callback', async () => {
       const onDismiss = vi.fn();
-      const { result } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false, onDismiss })
-      );
+      const { result } = renderHook(() => useRecoveryCheck({ autoCheck: false, onDismiss }));
 
       await act(async () => {
         await result.current.handleDecision({
@@ -530,9 +581,7 @@ describe('useRecoveryCheck', () => {
     });
 
     it('should handle unmount during decision processing', async () => {
-      const { result, unmount } = renderHook(() =>
-        useRecoveryCheck({ autoCheck: false })
-      );
+      const { result, unmount } = renderHook(() => useRecoveryCheck({ autoCheck: false }));
 
       const promise = act(async () => {
         await result.current.handleDecision({

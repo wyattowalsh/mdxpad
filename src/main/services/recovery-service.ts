@@ -249,7 +249,7 @@ export class RecoveryService {
    * Restores selected documents based on user decision.
    *
    * Handles three action types:
-   * - 'accept': Restores selected documents and deletes their recovery files
+   * - 'accept': Returns selected documents and leaves their recovery files in place
    * - 'decline': Discards ALL recovery data per FR-007
    * - 'dismiss': Preserves data for next startup (no action)
    *
@@ -315,7 +315,6 @@ export class RecoveryService {
           fileName: recoveryFile.fileName,
           content: recoveryFile.content,
         });
-        await this.deleteRecoveryFileAndUpdateManifest(documentId);
       }
       return { ok: true, restored };
     } catch (error) {

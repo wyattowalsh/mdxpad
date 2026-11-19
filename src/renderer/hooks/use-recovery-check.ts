@@ -67,9 +67,7 @@ const listRecovery = (): Promise<RecoveryListResponse> => {
  * Restore selected documents via preload bridge.
  * Falls back to a deterministic error outside Electron.
  */
-const restoreRecovery = (
-  request: RecoveryRestoreRequest
-): Promise<RecoveryRestoreResponse> => {
+const restoreRecovery = (request: RecoveryRestoreRequest): Promise<RecoveryRestoreResponse> => {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (window.mdxpad) {
     return window.mdxpad.recoveryRestore(request);
@@ -81,15 +79,57 @@ const restoreRecovery = (
  * Discard recovery data via preload bridge.
  * Falls back to a deterministic no-op outside Electron.
  */
-const discardRecovery = (
-  request: RecoveryDiscardRequest
-): Promise<RecoveryDiscardResponse> => {
+const discardRecovery = (request: RecoveryDiscardRequest): Promise<RecoveryDiscardResponse> => {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (window.mdxpad) {
     return window.mdxpad.recoveryDiscard(request);
   }
   return Promise.resolve({ discardedCount: request.documentIds.length });
 };
+
+async function acceptRecovery(
+  decision: RecoveryDecision,
+  onRestore: ((documents: readonly RestoredDocument[]) => void) | undefined,
+  apply: {
+    setError: (message: string | null) => void;
+    setRestoredDocuments: (documents: readonly RestoredDocument[]) => void;
+    setIsDialogOpen: (open: boolean) => void;
+    setHasRecoveryData: (value: boolean) => void;
+    setEntries: (entries: readonly RecoveryDialogEntry[]) => void;
+  }
+): Promise<void> {
+  const response = await restoreRecovery({ decision });
+  if (!response.ok) {
+    apply.setError(response.error);
+    return;
+  }
+  const openError = await openThenRelease(response.restored, onRestore);
+  if (openError !== null) {
+    apply.setError(openError);
+    return;
+  }
+  apply.setRestoredDocuments(response.restored);
+  apply.setIsDialogOpen(false);
+  apply.setHasRecoveryData(false);
+  apply.setEntries([]);
+}
+
+async function openThenRelease(
+  restored: readonly RestoredDocument[],
+  onRestore: ((documents: readonly RestoredDocument[]) => void) | undefined
+): Promise<string | null> {
+  try {
+    onRestore?.(restored);
+  } catch (error) {
+    return error instanceof Error ? error.message : 'Could not open the recovered document';
+  }
+  const documentIds = restored.map((document) => document.documentId);
+  if (documentIds.length === 0) {
+    return null;
+  }
+  await discardRecovery({ documentIds });
+  return null;
+}
 
 function withoutRecoveryEntry(
   entries: readonly RecoveryDialogEntry[],
@@ -210,14 +250,9 @@ export interface UseRecoveryCheckOptions {
  * }
  * ```
  */
- 
+
 export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecoveryCheckResult {
-  const {
-    onRestore,
-    onDiscard,
-    onDismiss,
-    autoCheck = true,
-  } = options ?? {};
+  const { onRestore, onDiscard, onDismiss, autoCheck = true } = options ?? {};
 
   // ==========================================================================
   // STATE
@@ -282,7 +317,6 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
     let mounted = true;
     hasCheckedRef.current = true;
 
-     
     const performCheck = async (): Promise<void> => {
       setIsChecking(true);
       setError(null);
@@ -345,80 +379,69 @@ export function useRecoveryCheck(options?: UseRecoveryCheckOptions): UseRecovery
    *
    * @param decision - User's recovery decision
    */
-  const handleDecision = useCallback(async (decision: RecoveryDecision): Promise<void> => {
-    setIsProcessing(true);
-    setError(null);
+  const handleDecision = useCallback(
+    async (decision: RecoveryDecision): Promise<void> => {
+      setIsProcessing(true);
+      setError(null);
 
-    try {
-      switch (decision.action) {
-        case 'accept': {
-          // User wants to restore selected documents
+      try {
+        switch (decision.action) {
+          case 'accept':
+            await acceptRecovery(decision, onRestoreRef.current, {
+              setError,
+              setRestoredDocuments,
+              setIsDialogOpen,
+              setHasRecoveryData,
+              setEntries,
+            });
+            break;
 
-          const restoreRequest: RecoveryRestoreRequest = {
-            decision: decision,
-          };
+          case 'decline': {
+            // User explicitly declined - discard all recovery data
 
-          const response = await restoreRecovery(restoreRequest);
+            // Collect all document IDs from entries
+            const allDocumentIds = entries.map((entry) => entry.documentId);
 
-          if (response.ok) {
-            setRestoredDocuments(response.restored);
+            const discardRequest: RecoveryDiscardRequest = {
+              documentIds: allDocumentIds,
+            };
+
+            const response = await discardRecovery(discardRequest);
+
             setIsDialogOpen(false);
             setHasRecoveryData(false);
             setEntries([]);
 
-            // Invoke callback with restored documents
-            onRestoreRef.current?.(response.restored);
-          } else {
-            console.error('[useRecoveryCheck] Restore failed:', response.error);
-            setError(response.error);
+            // Invoke callback with discard count
+            onDiscardRef.current?.(response.discardedCount);
+            break;
           }
-          break;
+
+          case 'dismiss': {
+            // User dismissed dialog - preserve data for next startup (FR-007)
+            setIsDialogOpen(false);
+            // Keep entries and hasRecoveryData as-is for potential re-open
+
+            // Invoke dismiss callback
+            onDismissRef.current?.();
+            break;
+          }
+
+          default: {
+            // Exhaustive check - should never reach here
+            const _exhaustive: never = decision;
+            console.error('[useRecoveryCheck] Unknown decision action:', _exhaustive);
+          }
         }
-
-        case 'decline': {
-          // User explicitly declined - discard all recovery data
-
-          // Collect all document IDs from entries
-          const allDocumentIds = entries.map((entry) => entry.documentId);
-
-          const discardRequest: RecoveryDiscardRequest = {
-            documentIds: allDocumentIds,
-          };
-
-          const response = await discardRecovery(discardRequest);
-
-          setIsDialogOpen(false);
-          setHasRecoveryData(false);
-          setEntries([]);
-
-          // Invoke callback with discard count
-          onDiscardRef.current?.(response.discardedCount);
-          break;
-        }
-
-        case 'dismiss': {
-          // User dismissed dialog - preserve data for next startup (FR-007)
-          setIsDialogOpen(false);
-          // Keep entries and hasRecoveryData as-is for potential re-open
-
-          // Invoke dismiss callback
-          onDismissRef.current?.();
-          break;
-        }
-
-        default: {
-          // Exhaustive check - should never reach here
-          const _exhaustive: never = decision;
-          console.error('[useRecoveryCheck] Unknown decision action:', _exhaustive);
-        }
+      } catch (err) {
+        console.error('[useRecoveryCheck] Decision processing failed:', err);
+        setError(err instanceof Error ? err.message : 'Recovery operation failed');
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (err) {
-      console.error('[useRecoveryCheck] Decision processing failed:', err);
-      setError(err instanceof Error ? err.message : 'Recovery operation failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [entries]);
+    },
+    [entries]
+  );
 
   const releaseRecovery = useCallback(async (documentId: DocumentId): Promise<boolean> => {
     setIsProcessing(true);

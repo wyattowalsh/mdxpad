@@ -578,7 +578,7 @@ describe('RecoveryService', () => {
       expect(mockFs.unlink).not.toHaveBeenCalled();
     });
 
-    it('should delete recovery file after successful restore', async () => {
+    it('keeps the recovery file until the editor has opened it', async () => {
       await recoveryService.restore({
         decision: {
           action: 'accept',
@@ -586,8 +586,7 @@ describe('RecoveryService', () => {
         },
       });
 
-      // Should have tried to delete the recovery file
-      expect(mockFs.unlink).toHaveBeenCalled();
+      expect(mockFs.unlink).not.toHaveBeenCalled();
     });
   });
 
@@ -1377,7 +1376,7 @@ describe('RecoveryService', () => {
         },
       });
 
-      expect(mockAutosaveService.deleteRecoveryFile).toHaveBeenCalledWith(createDocumentId(docId));
+      expect(mockAutosaveService.deleteRecoveryFile).not.toHaveBeenCalled();
     });
 
     it('should handle deletion independently when AutosaveService not provided', async () => {
@@ -1404,8 +1403,7 @@ describe('RecoveryService', () => {
         },
       });
 
-      // Should have called fs.unlink directly
-      expect(mockFs.unlink).toHaveBeenCalled();
+      expect(mockFs.unlink).not.toHaveBeenCalled();
     });
   });
 
