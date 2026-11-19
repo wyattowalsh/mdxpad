@@ -347,6 +347,21 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\frac{1}{2}');
   });
 
+  it('does not let a constructed command name in a formula read a file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\begincsname input\\endcsname{secret}\n\\UseName{input}{secret}\n\\pdfextension image file {secret.png}\n$$',
+      outputPath: '/tmp/tex-constructed.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\begincsname');
+    expect(written).not.toContain('\\UseName');
+    expect(written).not.toContain('\\pdfextension');
+    expect(written).toContain('\\relax begincsname');
+    expect(written).toContain('\\relax UseName');
+    expect(written).toContain('\\relax pdfextension');
+  });
+
   it('does not let a changed escape character in a formula read a file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -25,6 +25,34 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('```\n\\input{secret.tex}\n```');
   });
 
+  it('turns a name built without csname inside a formula into text', () => {
+    const source = [
+      '$$',
+      '\\begincsname input\\endcsname{secret}',
+      '\\UseName{input}{secret}',
+      '\\pdfextension image file {secret.png}',
+      '\\ExplSyntaxOn',
+      '\\file_input:n {secret}',
+      '\\scantextokens{\\input{secret}}',
+      '\\XeTeXpdffile{secret.pdf}',
+      '$$',
+      '',
+      '$\\frac{1}{2}$.',
+      '',
+    ].join('\n');
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\begincsname');
+    expect(next).not.toContain('\\UseName');
+    expect(next).not.toContain('\\pdfextension');
+    expect(next).not.toContain('\\ExplSyntaxOn');
+    expect(next).not.toContain('\\scantextokens');
+    expect(next).not.toContain('\\XeTeXpdffile');
+    expect(next).not.toContain('\\input');
+    expect(next).toContain('\\relax begincsname');
+    expect(next).toContain('\\relax UseName');
+    expect(next).toContain('\\frac{1}{2}');
+  });
+
   it('turns a constructed file command inside a formula into text', () => {
     const source = '$$\n\\@@input{secret}\n$$\n\n$\\csname input\\endcsname{secret}$ and $\\frac{1}{2}$.\n';
     const next = disarmFileReadsInMath(source);
