@@ -108,6 +108,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('\\(a \\\\) still\\)\n')).toContain('\\(a \\\\) still\\)');
   });
 
+  it('keeps the sample of a fence that opens on a list marker', () => {
+    const quoted = roundTrip('> - ```\n> const x = 1\n> ```\n');
+    expect(quoted).toContain('const x = 1');
+    expect(quoted).toContain('>   const x = 1');
+    expect(roundTrip(quoted)).toBe(quoted);
+    const top = roundTrip('- ```\nconst x = 1\n```\n');
+    expect(top).toContain('const x = 1');
+    expect(top).toContain('  const x = 1');
+    expect(roundTrip(top)).toBe(top);
+  });
+
   it('keeps a task checkbox', () => {
     const serialized = roundTrip('- [ ] todo\n');
     expect(serialized).toContain('[ ] todo');

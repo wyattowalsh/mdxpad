@@ -14,6 +14,7 @@ import { mdxSchema } from './prosemirror-mdx-schema';
 import { protectFootnoteBlocks } from './prosemirror-footnote-block';
 import { linkBareAddresses } from './prosemirror-autolink';
 import { liftFootnoteLabels, liftFootnoteRefs } from './prosemirror-footnote-ref';
+import { indentListMarkerFences } from './indent-list-fence';
 import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
 import { tableCellAttrs } from './prosemirror-mdx-table';
@@ -365,7 +366,8 @@ function keepEmptyLinkLabels(value: string): string {
 }
 
 export function parseMdxContent(content: string): ProseMirrorNode | null {
-  const { frontmatter, body } = splitLeadingFrontmatter(content);
+  const { frontmatter, body: sourceBody } = splitLeadingFrontmatter(content);
+  const body = indentListMarkerFences(sourceBody);
   const definitions = extractLinkDefinitions(body);
   const protectedNotes = protectFootnoteBlocks(body);
   const { processedText } = extractJsxBlocks(
