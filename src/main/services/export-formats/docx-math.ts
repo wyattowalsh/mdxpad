@@ -131,21 +131,19 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
   }
   if (name === 'notag' || name === 'nonumber') return [];
   if (name === 'tag') return equationTag(cursor, () => readGroup(cursor));
-  if (TEXT_COMMANDS.has(name)) {
+  if (TEXT_COMMANDS.has(name) || ATOM_COMMANDS.has(name)) {
+    if (cursor.source[cursor.index] === '*') cursor.index += 1;
+    if (ATOM_COMMANDS.has(name) && !TEXT_COMMANDS.has(name)) return readGroup(cursor);
     cursor.literal = (cursor.literal ?? 0) + 1;
     const parts = readGroup(cursor);
     cursor.literal = (cursor.literal ?? 1) - 1;
     return parts;
   }
-  if (ATOM_COMMANDS.has(name)) return readGroup(cursor);
   if (name === 'begin') {
     return readMatrix(cursor, (current, env) => readSequence(current, null, env));
   }
-  if (name === 'xrightarrow') {
-    return readStretchArrow(cursor, '→');
-  }
-  if (name === 'xleftarrow') {
-    return readStretchArrow(cursor, '←');
+  if (name === 'xrightarrow' || name === 'xleftarrow') {
+    return readStretchArrow(cursor, name === 'xrightarrow' ? '→' : '←');
   }
   if (name === 'end') {
     readRawGroup(cursor);

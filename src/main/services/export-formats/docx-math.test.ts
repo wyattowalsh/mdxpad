@@ -206,6 +206,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
   });
 
+  it('drops the star on an operator name', () => {
+    expect(runText(mathComponents('\\operatorname*{lim}'))).toBe('lim');
+    expect(runText(mathComponents('\\mathop*{max}'))).toBe('max');
+    expect(runText(mathComponents('\\operatorname{sin}'))).toBe('sin');
+  });
+
   it('puts a script before the following symbol', () => {
     const both = mathComponents('{}_1^2x');
     expect(both).toHaveLength(1);
