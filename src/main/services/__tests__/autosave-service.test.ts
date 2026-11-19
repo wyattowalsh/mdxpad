@@ -165,6 +165,7 @@ describe('AutosaveService', () => {
     });
     mockOpen.mockImplementation(async (filePath: string) => ({
       readFile: () => mockReadFile(filePath, 'utf8'),
+      writeFile: (content: string, encoding?: string) => mockWriteFile(filePath, content, encoding),
       sync: () => Promise.resolve(),
       close: () => Promise.resolve(),
     }));

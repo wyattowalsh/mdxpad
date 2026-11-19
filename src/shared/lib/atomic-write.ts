@@ -74,9 +74,7 @@ export async function atomicWrite(
   await invokeDurabilityPhaseHook(durabilityContract, 'before-write-temp', context);
 
   try {
-    await replaceLink(tempPath);
-    await fs.writeFile(tempPath, content, 'utf-8');
-    await syncFile(tempPath);
+    await writeWithoutFollowingLink(tempPath, content);
     await invokeDurabilityPhaseHook(durabilityContract, 'after-write-temp', context);
     await invokeDurabilityPhaseHook(durabilityContract, 'before-commit', context);
     await replaceLink(targetPath);
@@ -92,6 +90,21 @@ export async function atomicWrite(
     await invokeDurabilityPhaseHook(durabilityContract, 'cleanup', context);
     await invokeDurabilityErrorHook(durabilityContract, err, context);
     throw err;
+  }
+}
+
+export async function writeWithoutFollowingLink(filePath: string, content: string): Promise<void> {
+  await replaceLink(filePath);
+  const handle = await fs.open(
+    filePath,
+    fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+    0o600
+  );
+  try {
+    await handle.writeFile(content, 'utf-8');
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
 }
 
@@ -118,7 +131,7 @@ async function syncFile(filePath: string): Promise<void> {
     await handle.sync();
   } catch (error) {
     if (errorCode(error) === 'ELOOP') {
-      return;
+      throw error;
     }
     throw error;
   } finally {

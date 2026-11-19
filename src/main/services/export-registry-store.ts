@@ -11,6 +11,7 @@ import {
   openSync,
   readFileSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -82,6 +83,20 @@ function readLocalText(filePath: string): string | null {
   }
 }
 
+function replaceTempLink(filePath: string): void {
+  try {
+    const info = lstatSync(filePath);
+    if (info.isSymbolicLink()) {
+      unlinkSync(filePath);
+    }
+  } catch (error) {
+    const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : '';
+    if (code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
 function syncDirectory(directory: string): void {
   let handle: number | null = null;
   try {
@@ -147,7 +162,12 @@ export function writeExportState(
   };
   mkdirSync(path.dirname(filePath), { recursive: true });
   const tempPath = `${filePath}.${process.pid}.tmp`;
-  const handle = openSync(tempPath, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC, 0o600);
+  replaceTempLink(tempPath);
+  const handle = openSync(
+    tempPath,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+    0o600
+  );
   try {
     writeFileSync(handle, JSON.stringify(data));
     fsyncSync(handle);

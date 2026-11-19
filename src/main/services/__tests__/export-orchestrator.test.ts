@@ -207,15 +207,16 @@ describe('ExportOrchestratorService persistence', () => {
     const storagePath = path.join(root, 'export-registry.json');
     await writeFile(secret, '{"secret":true}\n');
     await symlink(secret, storagePath);
+    await symlink(secret, `${storagePath}.${process.pid}.tmp`);
 
     const preset = createPreset({ name: 'Team PDF' });
     const job = createJob({ preset });
     const first = new ExportOrchestratorService({ storagePath });
     expect(first.handlePresetCrud({ action: 'create', preset }).ok).toBe(true);
     expect(first.handleJobLifecycle({ action: 'create', job }).ok).toBe(true);
-    expect(first.handlePresetCrud({ action: 'delete', presetId: BUILT_IN_EXPORT_PRESETS[3]!.id }).ok).toBe(
-      true
-    );
+    expect(
+      first.handlePresetCrud({ action: 'delete', presetId: BUILT_IN_EXPORT_PRESETS[3]!.id }).ok
+    ).toBe(true);
 
     expect(await readFile(secret, 'utf-8')).toBe('{"secret":true}\n');
     expect((await lstat(storagePath)).isSymbolicLink()).toBe(false);
@@ -223,9 +224,9 @@ describe('ExportOrchestratorService persistence', () => {
     const second = new ExportOrchestratorService({ storagePath });
     const listed = second.handlePresetCrud({ action: 'list' });
     const jobs = second.handleJobLifecycle({ action: 'list' });
-    expect(listed.ok && 'presets' in listed && listed.presets.some((item) => item.name === 'Team PDF')).toBe(
-      true
-    );
+    expect(
+      listed.ok && 'presets' in listed && listed.presets.some((item) => item.name === 'Team PDF')
+    ).toBe(true);
     expect(
       listed.ok &&
         'presets' in listed &&
@@ -248,8 +249,8 @@ describe('ExportOrchestratorService persistence', () => {
     const listed = service.handlePresetCrud({ action: 'list' });
 
     expect(created).toMatchObject({ ok: false, code: 'INTERNAL_ERROR' });
-    expect(listed.ok && 'presets' in listed && listed.presets.some((item) => item.id === preset.id)).toBe(
-      false
-    );
+    expect(
+      listed.ok && 'presets' in listed && listed.presets.some((item) => item.id === preset.id)
+    ).toBe(false);
   });
 });

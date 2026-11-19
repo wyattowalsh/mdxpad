@@ -11,7 +11,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtempSync, rmSync, existsSync, lstatSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { atomicWrite, type AtomicWritePhase } from '../atomic-write';
 
 describe('atomicWrite', () => {
@@ -243,7 +251,7 @@ describe('atomicWrite', () => {
       const targetPath = join(tempDir, 'durability-error.txt');
       const onError = vi.fn();
 
-      vi.spyOn(fs, 'writeFile').mockRejectedValue(new Error('Disk full'));
+      vi.spyOn(fs, 'open').mockRejectedValue(new Error('Disk full'));
 
       await expect(
         atomicWrite(targetPath, 'content', {
@@ -274,18 +282,9 @@ describe('atomicWrite', () => {
     });
 
     it('should clean up temp file on write error', async () => {
-      // Spy on fs.writeFile to simulate failure after creating temp file
-      const originalWriteFile = fs.writeFile;
-      const originalUnlink = fs.unlink;
-
-      let tempFileCreated = false;
       const unlinkCalls: string[] = [];
 
-      vi.spyOn(fs, 'writeFile').mockImplementation(async (path, ...args) => {
-        tempFileCreated = true;
-        // Simulate write failure
-        throw new Error('Disk full');
-      });
+      vi.spyOn(fs, 'open').mockRejectedValue(new Error('Disk full'));
 
       vi.spyOn(fs, 'unlink').mockImplementation(async (path) => {
         unlinkCalls.push(String(path));
@@ -326,7 +325,7 @@ describe('atomicWrite', () => {
     });
 
     it('should not throw if cleanup fails', async () => {
-      vi.spyOn(fs, 'writeFile').mockRejectedValue(new Error('Write error'));
+      vi.spyOn(fs, 'open').mockRejectedValue(new Error('Write error'));
       vi.spyOn(fs, 'unlink').mockRejectedValue(new Error('Cleanup error'));
 
       const targetPath = join(tempDir, 'no-cleanup.txt');

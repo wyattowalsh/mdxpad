@@ -27,20 +27,24 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('node:fs', () => ({
-  default: {
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return {
+    ...actual,
     promises: {
+      ...actual.promises,
       writeFile: mockWriteFile,
       unlink: mockUnlink,
       lstat: mockLstat,
+      open: async (filePath: string) => ({
+        writeFile: (content: string, encoding?: string) =>
+          mockWriteFile(filePath, content, encoding),
+        sync: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      }),
     },
-  },
-  promises: {
-    writeFile: mockWriteFile,
-    unlink: mockUnlink,
-    lstat: mockLstat,
-  },
-}));
+  };
+});
 
 vi.mock('glob', () => ({
   glob: mockGlob,

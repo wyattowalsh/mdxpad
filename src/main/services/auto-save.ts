@@ -10,10 +10,10 @@
  */
 
 import { app } from 'electron';
-import { constants as fsConstants } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
+import { writeWithoutFollowingLink } from '@shared/lib/atomic-write';
 import { computeChecksum } from '@shared/lib/checksum';
 import type { FileId } from '@shared/types/file';
 import { readFileWithoutFollowingLinks } from './file-service';
@@ -87,37 +87,6 @@ interface DirtyFile {
  * autoSave.stop();
  * ```
  */
-async function syncFile(filePath: string): Promise<void> {
-  if (typeof fs.open !== 'function') {
-    return;
-  }
-  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
-  try {
-    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
-    await handle.sync();
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ELOOP') {
-      return;
-    }
-    throw error;
-  } finally {
-    await handle?.close();
-  }
-}
-
-async function replaceFileLink(filePath: string): Promise<void> {
-  try {
-    const info = await fs.lstat(filePath);
-    if (info.isSymbolicLink()) {
-      await fs.unlink(filePath);
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-  }
-}
-
 async function regularFile(filePath: string): Promise<boolean> {
   try {
     const info = await fs.lstat(filePath);
@@ -143,13 +112,9 @@ export async function readVerifiedAutosave(tempPath: string): Promise<string | n
 
 async function writeVerifiedTemp(tempPath: string, content: string): Promise<void> {
   const checksumPath = `${tempPath}.sha256`;
-  await replaceFileLink(tempPath);
-  await replaceFileLink(checksumPath);
-  await fs.writeFile(tempPath, content, 'utf-8');
-  await syncFile(tempPath);
+  await writeWithoutFollowingLink(tempPath, content);
   try {
-    await fs.writeFile(checksumPath, computeChecksum(content), 'utf-8');
-    await syncFile(checksumPath);
+    await writeWithoutFollowingLink(checksumPath, computeChecksum(content));
   } catch (error) {
     await fs.unlink(tempPath).catch(() => undefined);
     throw error;

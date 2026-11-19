@@ -163,6 +163,8 @@ describe('RecoveryService', () => {
     mockFs.stat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
     mockFs.open.mockImplementation(async (filePath: string) => ({
       readFile: () => mockFs.readFile(filePath),
+      writeFile: (content: string, encoding?: string) =>
+        mockFs.writeFile(filePath, content, encoding),
       sync: () => Promise.resolve(),
       close: () => Promise.resolve(),
     }));
