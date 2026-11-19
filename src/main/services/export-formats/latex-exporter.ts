@@ -12,6 +12,8 @@ import {
   texPicturePathUnsafe,
 } from './latex-file-command';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+import { unescapedDelimiterIndex } from '@shared/lib/math-span';
+import { renderableMathTex } from '@shared/lib/renderable-math';
 
 import { inlineLocalImages } from './export-image';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
@@ -203,8 +205,32 @@ function latexUrl(value: string): string {
   return result;
 }
 
+function latexTitleBody(title: string): string {
+  let result = '';
+  let index = 0;
+  while (index < title.length) {
+    if (title.startsWith('\\(', index)) {
+      const end = unescapedDelimiterIndex(title, index + 2, '\\)');
+      if (end !== -1) {
+        result += `$${renderableMathTex(title.slice(index + 2, end))}$`;
+        index = end + 2;
+        continue;
+      }
+    }
+    const next = title.indexOf('\\(', index);
+    const end = next === -1 ? title.length : next;
+    result += escapeLatex(title.slice(index, end));
+    index = end;
+  }
+  return result;
+}
+
+function latexCaption(title: string | null): string {
+  return title ? ` \\textit{${latexTitleBody(title)}}` : '';
+}
+
 function latexImage(src: string, alt: string, title: string | null): string {
-  const caption = title ? ` \\textit{${escapeLatex(title)}}` : '';
+  const caption = latexCaption(title);
   if (/^https?:\/\//i.test(src)) {
     const label = alt.length > 0 ? formatProtected(alt) : escapeLatex(src);
     return `\\href{${latexUrl(src)}}{${label}}${caption}`;
@@ -355,8 +381,7 @@ function formatInlineMarks(raw: string): string {
 }
 
 function latexLinkTitle(rawHref: string): string {
-  const title = linkTitle(decodeHtmlEntities(rawHref));
-  return title ? ` \\textit{${escapeLatex(title)}}` : '';
+  return latexCaption(linkTitle(decodeHtmlEntities(rawHref)));
 }
 
 function latexHref(label: string, rawHref: string): string {

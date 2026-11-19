@@ -149,7 +149,7 @@ export function shieldMathMarkup(value: string): string {
     }
     const link = readLinkSpan(value, index);
     if (link) {
-      result += withLinkLabel(link.text, shieldLabelFormula);
+      result += shieldLink(link.text);
       index = link.next;
       continue;
     }
@@ -282,6 +282,91 @@ function mapInlineTex(value: string, mapSpan: (span: string) => string): string 
 
 function shieldLabelFormula(label: string): string {
   return mapInlineTex(label, (span) => protectTexDelimiters(shieldMathMarkup(span)));
+}
+
+function isInlineSpace(char: string): boolean {
+  return char === ' ' || char === '\t' || char === '\n' || char === '\r';
+}
+
+function skipDestination(raw: string): number {
+  let index = 0;
+  while (index < raw.length && isInlineSpace(raw[index] ?? '')) {
+    index += 1;
+  }
+  if (raw[index] === '<') {
+    const close = raw.indexOf('>', index + 1);
+    return close === -1 ? raw.length : close + 1;
+  }
+  let depth = 0;
+  while (index < raw.length) {
+    const char = raw[index] ?? '';
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')' && depth > 0) {
+      depth -= 1;
+    } else if (isInlineSpace(char) && depth === 0) {
+      break;
+    }
+    index += 1;
+  }
+  return index;
+}
+
+function shieldTitleInDestination(raw: string): string {
+  let index = skipDestination(raw);
+  while (index < raw.length && isInlineSpace(raw[index] ?? '')) {
+    index += 1;
+  }
+  const opener = raw[index];
+  if (opener !== '"' && opener !== "'" && opener !== '(') {
+    return raw;
+  }
+  const closer = opener === '(' ? ')' : opener;
+  const contentStart = index + 1;
+  let cursor = contentStart;
+  while (cursor < raw.length) {
+    if (raw[cursor] === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (raw[cursor] === closer) {
+      break;
+    }
+    cursor += 1;
+  }
+  if (raw[cursor] !== closer) {
+    return raw;
+  }
+  const title = raw.slice(contentStart, cursor);
+  return raw.slice(0, contentStart) + shieldLabelFormula(title) + raw.slice(cursor);
+}
+
+function shieldDestinationTitle(link: string): string {
+  const start = link.startsWith('![') ? 1 : 0;
+  const labelEnd = readBracketGroup(link, start, ']');
+  if (labelEnd === -1 || link[labelEnd + 1] !== '(') {
+    return link;
+  }
+  const destination = readDestination(link, labelEnd + 1);
+  if (!destination) {
+    return link;
+  }
+  const insideStart = labelEnd + 2;
+  const insideEnd = destination.next - 1;
+  const inside = link.slice(insideStart, insideEnd);
+  const titled = shieldTitleInDestination(inside);
+  if (titled === inside) {
+    return link;
+  }
+  return link.slice(0, insideStart) + titled + link.slice(insideEnd);
+}
+
+function shieldLink(link: string): string {
+  return shieldDestinationTitle(withLinkLabel(link, shieldLabelFormula));
 }
 
 function withLinkLabel(link: string, map: (label: string) => string): string {

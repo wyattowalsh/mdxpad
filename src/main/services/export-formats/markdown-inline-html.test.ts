@@ -107,6 +107,10 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('![*alt*](a.png)')).toBe('<img src="a.png" alt="alt" />');
     expect(renderMarkdownInline('![a *b* c](a.png)')).toBe('<img src="a.png" alt="a b c" />');
     expect(renderMarkdownInline('![`code`](a.png)')).toBe('<img src="a.png" alt="code" />');
+    expect(renderMarkdownInline('![alt $x^2$](a.png)')).toBe('<img src="a.png" alt="alt x^2" />');
+    expect(renderMarkdownInline('[text](https://example.com "see \\(x\\)")')).toBe(
+      '<a href="https://example.com" title="see \\(x\\)">text</a>'
+    );
     expect(renderMarkdownInline('[docs](https://example.com)')).toBe(
       '<a href="https://example.com">docs</a>'
     );

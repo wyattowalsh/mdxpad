@@ -104,6 +104,13 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('[area \\(x^2\\)](https://example.com)')).toBe(
       '[area $x^2$](https://example.com)'
     );
+    expect(prepareMarkdownSource('See[^1]\n\n[^1]: \\(x^2\\)\n')).toContain('$x^2$');
+    expect(prepareMarkdownSource('[^1]: \\(x^2\\) and https://example.com/a\\(b\\)\n')).toContain(
+      '$x^2$'
+    );
+    expect(prepareMarkdownSource('[^1]: \\(x^2\\) and https://example.com/a\\(b\\)\n')).toContain(
+      'a\\(b\\)'
+    );
     expect(
       prepareMarkdownSource('<div>\n\\(x^2\\)\na < b\n</div>\n', { preserveHtml: true })
     ).toContain('\\(x^2\\)');

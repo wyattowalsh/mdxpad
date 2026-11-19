@@ -1,4 +1,5 @@
 import { codeSpanEnd } from '@shared/lib/emphasis-flank';
+import { unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 function unwrapDestination(raw: string): string | null {
   const angled = /^(?:<|&lt;)(.+?)(?:>|&gt;)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/.exec(raw);
@@ -15,6 +16,14 @@ function readTitle(raw: string): { title: string; end: number } | null {
   for (let index = 1; index < raw.length; index += 1) {
     const char = raw[index] ?? '';
     if (char === '\\' && index + 1 < raw.length) {
+      if (raw.startsWith('\\(', index)) {
+        const formulaEnd = unescapedDelimiterIndex(raw, index + 2, '\\)');
+        if (formulaEnd !== -1) {
+          title += raw.slice(index, formulaEnd + 2);
+          index = formulaEnd + 1;
+          continue;
+        }
+      }
       title += raw[index + 1] ?? '';
       index += 1;
       continue;

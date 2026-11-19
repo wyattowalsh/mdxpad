@@ -203,8 +203,16 @@ function titleAttribute(raw: string): string {
   return title ? ` title="${escapeText(title)}"` : '';
 }
 
+function plainKatex(html: string): string {
+  return html.replace(
+    /<span class="katex">[\s\S]*?<annotation encoding="application\/x-tex">([\s\S]*?)<\/annotation>[\s\S]*?<\/span>/g,
+    (_match, tex: string) => decodeHtmlEntities(tex)
+  );
+}
+
 function inlinePlainText(html: string): string {
-  const withImages = html.replace(/<img\b([^>]*)>/g, (_tag, attrs: string) => {
+  const withMath = plainKatex(html);
+  const withImages = withMath.replace(/<img\b([^>]*)>/g, (_tag, attrs: string) => {
     const alt = /\balt="([^"]*)"/.exec(attrs)?.[1] ?? '';
     return decodeHtmlEntities(alt);
   });

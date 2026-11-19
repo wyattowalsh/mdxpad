@@ -165,7 +165,7 @@ const MDX_TOKENS: Record<
     mark: 'link',
     getAttrs: (tok: MarkdownToken) => ({
       href: tok.attrGet('href') ?? '',
-      title: tok.attrGet('title') ?? null,
+      title: restoredTitle(tok.attrGet('title')),
     }),
   },
   image: {
@@ -173,7 +173,7 @@ const MDX_TOKENS: Record<
     getAttrs: (tok: MarkdownToken) => ({
       src: tok.attrGet('src') ?? '',
       alt: imageAlt(tok),
-      title: tok.attrGet('title') ?? null,
+      title: restoredTitle(tok.attrGet('title')),
     }),
   },
 
@@ -207,6 +207,10 @@ function listIsTight(tokens: readonly MarkdownToken[], index: number): boolean {
 
 function unescapeMarkdown(value: string): string {
   return value.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1');
+}
+
+function restoredTitle(value: string | null): string | null {
+  return value === null ? null : restoreTexDelimiters(restoreMathMarkup(value));
 }
 
 function imageAlt(token: MarkdownToken): string {

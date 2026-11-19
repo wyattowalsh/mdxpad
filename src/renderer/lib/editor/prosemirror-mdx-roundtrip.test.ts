@@ -251,6 +251,18 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\uE013');
     expect(serialized).not.toContain('\uE014');
     expect(roundTrip('[\\(2\\)](https://example.com)\n')).toContain('\\(2\\)');
+    const titled = roundTrip('[text](https://example.com "see \\(x\\)")\n');
+    expect(titled).toContain('\\(x\\)');
+    expect(titled).not.toContain('\uE013');
+    const imageTitle = roundTrip('![alt](a.png "see \\(x\\)")\n');
+    expect(imageTitle).toContain('\\(x\\)');
+    expect(imageTitle).not.toContain('\uE013');
+    const reference = roundTrip('[link][id]\n\n[id]: https://example.com "see \\(x\\)"\n');
+    expect(reference).toContain('\\(x\\)');
+    expect(reference).not.toContain('\uE013');
+    const priced = roundTrip('Price $5 and \\(x\\).\n');
+    expect(priced).toContain('\\(x\\)');
+    expect(priced).not.toContain('\\\\(x');
     const price = roundTrip('Price \\(\\$5\\).\n');
     expect(price).toContain('\\$5');
     expect(price).not.toContain('\uE019');

@@ -671,6 +671,27 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('⁴');
   });
 
+  it('renders a formula that is a whole footnote', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See[^1].\n\n[^1]: \\(x^2\\)\n',
+      outputPath: '/tmp/note-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('$x^2$');
+    expect(written).not.toContain('(x');
+  });
+
+  it('renders a formula in a link title', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '[text](https://example.com "see \\(x\\)")\n',
+      outputPath: '/tmp/title-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\textit{see $x$}');
+  });
+
   it('strikes text wrapped onto the next line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

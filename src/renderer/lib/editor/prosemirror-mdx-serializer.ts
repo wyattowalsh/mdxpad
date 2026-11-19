@@ -467,6 +467,11 @@ function writeTextPreservingMath(state: MarkdownSerializerState, value: string):
       state.text(value.slice(cursor, open.index));
     }
     const closeAt = closerAt(value, open.index + open.opener.length, open.closer);
+    if (closeAt === -1 && open.opener === '$') {
+      state.text(value.slice(cursor, open.index + 1));
+      cursor = open.index + 1;
+      continue;
+    }
     if (closeAt === -1) {
       state.text(value.slice(open.index), !open.stayOpen);
       writer.mathCloser = open.stayOpen ? open.closer : null;

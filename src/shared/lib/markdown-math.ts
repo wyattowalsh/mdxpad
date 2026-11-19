@@ -70,7 +70,7 @@ function keptAngle(value: string, match: string, offset: number): boolean {
 }
 
 function labelOnlyLine(line: string): boolean {
-  return /^ {0,3}\[[^\]]+\]:[ \t]*$/.test(line.replace(/^(?: {0,3}> ?)*/, ''));
+  return /^ {0,3}\[(?!\^)[^\]]+\]:[ \t]*$/.test(line.replace(/^(?: {0,3}> ?)*/, ''));
 }
 
 function continuesReferenceDestination(value: string, start: number, index: number): boolean {
@@ -110,7 +110,7 @@ function insideReferenceDestination(value: string, index: number): boolean {
   }
   const prefix = value.slice(start, index).replace(/^(?: {0,3}> ?)*/, '');
   return (
-    /^ {0,3}\[[^\]]+\]:[ \t]+\S*$/.test(prefix) ||
+    /^ {0,3}\[(?!\^)[^\]]+\]:[ \t]+\S*$/.test(prefix) ||
     continuesReferenceDestination(value, start, index)
   );
 }
