@@ -36,6 +36,7 @@ import {
 describe('git-service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGit.checkIsRepo.mockResolvedValue(true);
   });
 
   describe('isGitRepo', () => {
@@ -59,6 +60,13 @@ describe('git-service', () => {
   });
 
   describe('getStatus', () => {
+    it('refuses a folder that is not a repository', async () => {
+      mockGit.checkIsRepo.mockResolvedValue(false);
+
+      await expect(getStatus('/notes')).rejects.toMatchObject({ code: 'NOT_GIT_REPO' });
+      expect(mockGit.status).not.toHaveBeenCalled();
+    });
+
     it('should return mapped status from simple-git', async () => {
       mockGit.status.mockResolvedValue({
         isClean: () => true,

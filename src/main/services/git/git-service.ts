@@ -67,12 +67,27 @@ export async function isGitRepo(path: string): Promise<boolean> {
   }
 }
 
+async function requireRepo(workingDir: string): Promise<void> {
+  if (await isGitRepo(workingDir)) {
+    return;
+  }
+  throw new GitServiceError('This folder is not a git repository', 'NOT_GIT_REPO');
+}
+
+function rethrowRepoError(error: unknown): void {
+  if (error instanceof GitServiceError) {
+    throw error;
+  }
+}
+
 export async function getStatus(workingDir: string): Promise<GitStatusResponse> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     const status = await git.status();
     return mapStatusResult(status);
   } catch (error) {
+    rethrowRepoError(error);
     throw new GitServiceError(
       `Failed to get git status: ${error instanceof Error ? error.message : String(error)}`,
       'UNKNOWN'
@@ -82,9 +97,11 @@ export async function getStatus(workingDir: string): Promise<GitStatusResponse> 
 
 export async function addFiles(workingDir: string, files: string[]): Promise<void> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     await git.add(files);
   } catch (error) {
+    rethrowRepoError(error);
     throw new GitServiceError(
       `Failed to stage files: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -97,6 +114,7 @@ export async function commit(
   files?: readonly string[]
 ): Promise<GitCommitResponse> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     const result =
       files !== undefined && files.length > 0
@@ -107,6 +125,7 @@ export async function commit(
       message,
     };
   } catch (error) {
+    rethrowRepoError(error);
     throw new GitServiceError(
       `Failed to commit: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -115,11 +134,13 @@ export async function commit(
 
 export async function getLog(workingDir: string, maxCount?: number): Promise<GitLogResponse> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     const options = maxCount !== undefined ? { maxCount } : undefined;
     const log = await git.log(options);
     return mapLogResult(log);
   } catch (error) {
+    rethrowRepoError(error);
     throw new GitServiceError(
       `Failed to get log: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -128,6 +149,7 @@ export async function getLog(workingDir: string, maxCount?: number): Promise<Git
 
 export async function getDiff(workingDir: string, staged?: boolean): Promise<GitDiffResponse> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     const args = staged === true ? ['--cached'] : [];
     const diff = await git.diff(args);
@@ -135,6 +157,7 @@ export async function getDiff(workingDir: string, staged?: boolean): Promise<Git
     const filesChanged = numStat.split('\n').filter((line) => line.trim().length > 0).length;
     return { diff, filesChanged };
   } catch (error) {
+    rethrowRepoError(error);
     throw new GitServiceError(
       `Failed to get diff: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -143,6 +166,7 @@ export async function getDiff(workingDir: string, staged?: boolean): Promise<Git
 
 export async function getBranches(workingDir: string): Promise<GitBranchesResponse> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     const branchSummary = await git.branch();
     const branches = Object.values(branchSummary.branches).map((b) => ({
@@ -154,6 +178,7 @@ export async function getBranches(workingDir: string): Promise<GitBranchesRespon
       current: branchSummary.current,
     };
   } catch (error) {
+    rethrowRepoError(error);
     throw new GitServiceError(
       `Failed to get branches: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -162,10 +187,12 @@ export async function getBranches(workingDir: string): Promise<GitBranchesRespon
 
 export async function checkout(workingDir: string, branch: string): Promise<GitCheckoutResponse> {
   try {
+    await requireRepo(workingDir);
     const git = createGitInstance(workingDir);
     await git.checkout(branch);
     return { success: true, branch };
   } catch (error) {
+    rethrowRepoError(error);
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('did not match any')) {
       throw new GitServiceError(`Branch '${branch}' not found`, 'BRANCH_NOT_FOUND');
