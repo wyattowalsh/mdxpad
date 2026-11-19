@@ -347,6 +347,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\frac{1}{2}');
   });
 
+  it('does not let an internal input in a formula read a file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\makeatletter\n\\@input{secret}\n$$\n\n$\\IfFileExists{secret.tex}{yes}{no}$',
+      outputPath: '/tmp/tex-at-input.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\@input');
+    expect(written).not.toContain('\\IfFileExists');
+    expect(written).toContain('\\relax @input');
+    expect(written).toContain('\\relax IfFileExists');
+  });
+
   it('keeps a backtick inside a longer code span', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

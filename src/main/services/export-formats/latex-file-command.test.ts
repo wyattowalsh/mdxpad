@@ -64,6 +64,16 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\frac{1}{2}');
     expect(next).toContain('\\inputfoo');
   });
+
+  it('turns an internal input and a file probe inside a formula into text', () => {
+    const source = '$$\n\\makeatletter\n\\@input{secret}\n$$\n\n$\\IfFileExists{secret.tex}{yes}{no}$ and $\\frac{1}{2}$.\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\@input');
+    expect(next).not.toContain('\\IfFileExists');
+    expect(next).toContain('\\relax @input');
+    expect(next).toContain('\\relax IfFileExists');
+    expect(next).toContain('\\frac{1}{2}');
+  });
 });
 
 describe('disarmLatexFileRead caret escapes', () => {

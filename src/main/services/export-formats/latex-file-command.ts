@@ -10,8 +10,10 @@ import { linkDestination } from './markdown-link';
 
 const LATEX_FILE_COMMANDS = [
   '@@input',
+  '@input',
   'includegraphics',
   'InputIfFileExists',
+  'IfFileExists',
   'lstinputlisting',
   'verbatiminput',
   'pdffilemoddate',
