@@ -101,6 +101,18 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('renders a formula that contains a link', () => {
+    const html = markdownToPdfHtml('See \\(x and [a \\)](https://example.com) y\\).');
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('>a )</a>');
+    expect(html).not.toContain('$x');
+    const price = renderMarkdownInline('Price $5 and [link](https://example.com/$10) more $x$.');
+    expect(price).toContain('href="https://example.com/$10"');
+    expect(price).toContain('annotation encoding="application/x-tex">x</annotation>');
+    expect(price).not.toContain('class="katex">5');
+  });
+
   it('renders a formula that contains inline code', () => {
     const html = markdownToPdfHtml('See \\(x `y`\\).');
     expect(html).toContain('class="katex"');

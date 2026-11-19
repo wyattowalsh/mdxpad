@@ -38,6 +38,8 @@ import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
+import { linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
+
 import { mathComponents, splitDocxPieces } from './docx-math';
 import {
   docxNumberingConfig,
@@ -174,8 +176,25 @@ function nextPlainChunk(text: string, from: number): number {
     if (delimiter !== null && mathSpanEnd(text, index, delimiter) !== -1) {
       return index;
     }
+    if (linkedDollarSpan(text, index)) {
+      return index;
+    }
   }
   return text.length;
+}
+
+function linkedDollarSegments(parts: readonly LinkedDollarPart[]): InlineSegment[] {
+  const segments: InlineSegment[] = [];
+  for (const part of parts) {
+    if (part.kind === 'link') {
+      segments.push(...parsePlainMarks(part.text));
+      continue;
+    }
+    if (part.tex.trim().length > 0) {
+      segments.push(...parsePlainMarks(`$${part.tex}$`));
+    }
+  }
+  return segments;
 }
 
 function parseCodeAndPlain(text: string): InlineSegment[] {
@@ -187,6 +206,12 @@ function parseCodeAndPlain(text: string): InlineSegment[] {
     if (delimiter !== null && mathEnd !== -1) {
       segments.push(...parsePlainMarks(text.slice(index, mathEnd)));
       index = mathEnd;
+      continue;
+    }
+    const linked = linkedDollarSpan(text, index);
+    if (linked) {
+      segments.push(...linkedDollarSegments(linked.parts));
+      index = linked.end;
       continue;
     }
     const next = nextPlainChunk(text, index + 1);

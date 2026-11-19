@@ -5,6 +5,7 @@ import {
   normalizedHeadingFragment,
   parseAtxHeading,
 } from '@shared/lib/markdown-heading';
+import { linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import {
   disarmLatexFileRead,
@@ -114,6 +115,29 @@ function wrapLatex(command: string, content: string): string {
 
 const MATH_MARK = '\uE001';
 
+function latexLinkedPart(part: LinkedDollarPart, slots: string[]): string {
+  if (part.kind === 'link') {
+    return part.text;
+  }
+  if (part.tex.trim().length === 0) {
+    return part.tex;
+  }
+  slots.push(disarmLatexFileRead(`$${part.tex}$`));
+  return `${MATH_MARK}${slots.length - 1}${MATH_MARK}`;
+}
+
+function protectLinkedDollar(raw: string, index: number, slots: string[]): { text: string; end: number } | null {
+  const linked = linkedDollarSpan(raw, index);
+  if (!linked) {
+    return null;
+  }
+  let text = '';
+  for (const part of linked.parts) {
+    text += latexLinkedPart(part, slots);
+  }
+  return { text, end: linked.end };
+}
+
 function protectMath(raw: string): { text: string; slots: string[] } {
   const slots: string[] = [];
   let text = '';
@@ -132,6 +156,12 @@ function protectMath(raw: string): { text: string; slots: string[] } {
       slots.push(disarmLatexFileRead(raw.slice(index, end)));
       text += `${MATH_MARK}${slots.length - 1}${MATH_MARK}`;
       index = end;
+      continue;
+    }
+    const linked = raw[index] === '$' ? protectLinkedDollar(raw, index, slots) : null;
+    if (linked) {
+      text += linked.text;
+      index = linked.end;
       continue;
     }
     text += raw[index] ?? '';

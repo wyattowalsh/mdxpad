@@ -267,6 +267,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\item item continued');
   });
 
+  it('keeps a formula that contains a link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See \\(x and [a \\)](https://example.com) y\\).',
+      outputPath: '/tmp/linked-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('$x and $');
+    expect(written).toContain('\\href{https://example.com}');
+    expect(written).toContain('$ y$');
+    expect(written).not.toContain('$x and [a');
+  });
+
   it('links an image and keeps an email link single', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

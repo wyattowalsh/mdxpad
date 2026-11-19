@@ -3,6 +3,7 @@ import katex from 'katex';
 import { normalizedHeadingFragment } from '@shared/lib/markdown-heading';
 import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
 
+import { linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
@@ -254,15 +255,30 @@ interface PlainSpan {
   readonly html: string;
 }
 
+function renderLinkedParts(parts: readonly LinkedDollarPart[]): string {
+  let html = '';
+  for (const part of parts) {
+    if (part.kind === 'link') {
+      html += renderText(part.text);
+      continue;
+    }
+    html += part.tex.trim().length > 0 ? renderKatex(part.tex, false) : escapeText(part.tex);
+  }
+  return html;
+}
+
 function findMathSpan(raw: string, from: number): PlainSpan | null {
   for (let index = from; index < raw.length; index += 1) {
     const delimiter = mathDelimiterAt(raw, index);
     const end = delimiter === null ? -1 : mathSpanEnd(raw, index, delimiter);
-    if (delimiter === null || end === -1) {
-      continue;
+    if (delimiter !== null && end !== -1) {
+      const interior = raw.slice(index + delimiter.length, end - delimiter.length);
+      return { start: index, end, html: renderKatex(interior, delimiter === '$$') };
     }
-    const interior = raw.slice(index + delimiter.length, end - delimiter.length);
-    return { start: index, end, html: renderKatex(interior, delimiter === '$$') };
+    const linked = linkedDollarSpan(raw, index);
+    if (linked) {
+      return { start: index, end: linked.end, html: renderLinkedParts(linked.parts) };
+    }
   }
   return null;
 }
