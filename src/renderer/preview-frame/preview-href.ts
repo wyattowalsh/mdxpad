@@ -5,7 +5,7 @@ import {
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
-import { confineNavigationTag, confineSmilValues } from './preview-navigation-address';
+import { blockedDataResource, confineNavigationTag, confineSmilValues } from './preview-navigation-address';
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -87,6 +87,10 @@ export function isBlockedPreviewResource(value: string | undefined): boolean {
   }
   if (normalized.startsWith('/') || normalized.startsWith('\\')) {
     return true;
+  }
+  const data = blockedDataResource(normalized);
+  if (data !== null) {
+    return data;
   }
   return isBlockedPreviewHref(value);
 }

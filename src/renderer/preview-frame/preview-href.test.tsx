@@ -247,6 +247,26 @@ describe('preview anchor', () => {
 });
 
 describe('preview image', () => {
+  it('shows a png data image and drops an svg data image that points at a file', () => {
+    const png = render(<Img src="data:image/png;base64,aaaa" alt="Pixel" />);
+    expect(png.getByRole('img').getAttribute('src')).toBe('data:image/png;base64,aaaa');
+    png.unmount();
+
+    const icon = btoa('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+    const safe = render(<Img src={`data:image/svg+xml;base64,${icon}`} alt="Icon" />);
+    expect(safe.getByRole('img').getAttribute('src')).toContain('svg+xml');
+    safe.unmount();
+
+    const fileSvg = btoa('<svg><image href="file:///etc/passwd"/></svg>');
+    const disk = render(<Img src={`data:image/svg+xml;base64,${fileSvg}`} alt="Secret" />);
+    expect(disk.getByRole('img').getAttribute('src')).toBeNull();
+    disk.unmount();
+
+    const page = render(<Img src="data:text/html,hi" alt="Page" />);
+    expect(page.getByRole('img').getAttribute('src')).toBeNull();
+  });
+
+
   it('keeps a picture beside the document and drops a file image', () => {
     const local = render(<Img src="./pixel.png" alt="Pixel" />);
     expect(local.getByRole('img').getAttribute('src')).toBe('./pixel.png');

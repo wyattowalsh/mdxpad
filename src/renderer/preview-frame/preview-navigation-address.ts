@@ -3,6 +3,17 @@
  * need the same address checks those components already apply.
  */
 
+import { safeImageAddress } from '../../main/services/export-formats/markdown-export-address';
+
+/** A data image the preview must not load. Null when the address is not a data URL. */
+export function blockedDataResource(value: string): boolean | null {
+  const separator = value.indexOf(':');
+  if (separator <= 0 || value.slice(0, separator).trim().toLowerCase() !== 'data') {
+    return null;
+  }
+  return safeImageAddress(value) === null;
+}
+
 function withoutHref(
   props: Record<string, unknown>,
   blocked: (value: string) => boolean
