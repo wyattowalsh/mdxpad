@@ -92,6 +92,17 @@ describe('pictures that leave the source folder through a symlink', () => {
     expect(styledKept).toContain('https://example.com/a.png');
     const fencedStyle = '```css\nbody { background: url(alias.png); }\n```\n';
     expect(omitLocalMarkdownTargets(fencedStyle, source)).toContain('alias.png');
+    const imported = [
+      '<style>@import "alias.png";</style>',
+      '<style>body { background: image-set("alias.png" 1x, "https://example.com/a.png" 2x); }</style>',
+      '<style>@import "https://example.com/a.css";</style>',
+      '<div style="background: image-set(\'pixel.png\' 1x)"></div>',
+    ].join('\n');
+    const importedKept = omitLocalMarkdownTargets(imported, source);
+    expect(importedKept).not.toContain('alias.png');
+    expect(importedKept).toContain('https://example.com/a.png');
+    expect(importedKept).toContain('https://example.com/a.css');
+    expect(importedKept).toContain('pixel.png');
   });
 
   it('does not hand a symlink to LaTeX', async () => {

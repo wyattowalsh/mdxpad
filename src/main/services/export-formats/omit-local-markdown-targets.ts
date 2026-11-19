@@ -6,6 +6,7 @@
 import path from 'node:path';
 
 import { decodeCssEscapes } from '@shared/lib/css-escape';
+import { replaceCssImageFunctionAddresses } from '@shared/lib/css-image-function';
 
 import { resolveWorkspaceFilePath } from '../ai/agent-path';
 
@@ -123,19 +124,43 @@ function cssAddress(address: string): string {
   return decodeCssEscapes(decodeHtmlEntities(address.trim()));
 }
 
-function rewriteCssUrls(css: string, root: string | null): string {
+function rewriteCssImport(css: string, root: string | null): string {
   return css.replace(
+    /@import\s*(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    (
+      full,
+      _quote: string | undefined,
+      quotedUrl: string | undefined,
+      bare: string | undefined,
+      _plain: string | undefined,
+      quoted: string | undefined
+    ) => {
+      const address = cssAddress(quotedUrl ?? bare ?? quoted ?? '');
+      return pictureAllowed(address, root) ? full : '';
+    }
+  );
+}
+
+function rewriteCssUrls(css: string, root: string | null): string {
+  const urls = css.replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)/gi,
     (full, _quote: string | undefined, quoted: string | undefined, bare: string | undefined) => {
       const address = cssAddress(quoted ?? bare ?? '');
       return pictureAllowed(address, root) ? full : 'none';
     }
   );
+  return replaceCssImageFunctionAddresses(rewriteCssImport(urls, root), (address) => {
+    return !pictureAllowed(cssAddress(address), root);
+  });
+}
+
+function declaresLoadedFile(value: string): boolean {
+  return /url\s*\(|image-set\s*\(|@import|(?:^|[^\w-])image\s*\(|(?:^|[^\w-])src\s*\(/i.test(value);
 }
 
 function rewriteStyleAttribute(tag: string, root: string | null): string {
   const value = tagAttribute(tag, 'style');
-  if (value === null || !/url\s*\(/i.test(value)) {
+  if (value === null || !declaresLoadedFile(value)) {
     return tag;
   }
   const rewritten = rewriteCssUrls(value, root);
