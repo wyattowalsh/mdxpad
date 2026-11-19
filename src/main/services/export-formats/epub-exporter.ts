@@ -428,6 +428,13 @@ function epubHeading(state: EpubLineState, depth: number, text: string): string 
   return headingTag(depth, renderMarkdownInline(text), allocateHeadingSlug(text, state.slugCounts));
 }
 
+const CHECKED_TASK = '<input type="checkbox" disabled checked />';
+const OPEN_TASK = '<input type="checkbox" disabled />';
+
+function epubTaskBoxes(html: string): string {
+  return html.replaceAll(CHECKED_TASK, '☑').replaceAll(OPEN_TASK, '☐');
+}
+
 function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string {
   const htmlLines: string[] = [];
   if (chapter.slug) {
@@ -472,7 +479,9 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
   if (state.fence) {
     htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
   }
-  return `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlFootnoteMarkers(htmlLines.join('\n'))}`;
+  return epubTaskBoxes(
+    `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlFootnoteMarkers(htmlLines.join('\n'))}`
+  );
 }
 
 const EPUB_LANGUAGE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;

@@ -405,16 +405,19 @@ describe('EpubExporter', () => {
   it('renders a task checkbox in chapter HTML', async () => {
     const epubGen = await import('epub-gen-memory');
     await exporter.export({
-      content: '- [x] done',
+      content: '- [ ] open\n- [x] done',
       outputPath: '/tmp/tasks.epub',
     });
     const contentArg = (epubGen.default as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
       content: string;
     }[];
     const html = contentArg.map((chapter) => chapter.content).join('\n');
-    expect(html).toContain('<input type="checkbox" disabled checked />');
+    expect(html).toContain('☐');
+    expect(html).toContain('☑');
+    expect(html).toContain('open');
     expect(html).toContain('done');
     expect(html).not.toContain('[x]');
+    expect(html).not.toContain('<input');
   });
 
   it('links a footnote in chapter HTML', async () => {
