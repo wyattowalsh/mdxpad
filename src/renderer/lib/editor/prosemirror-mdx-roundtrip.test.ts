@@ -514,6 +514,20 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
   });
 
+  it('keeps code and emphasis inside one link', () => {
+    expect(roundTrip('[a **b** c](url)\n')).toBe('[a **b** c](url)');
+    expect(roundTrip('[a *b* c](url)\n')).toBe('[a *b* c](url)');
+    expect(roundTrip('[a `b` c](url)\n')).toBe('[a `b` c](url)');
+    expect(roundTrip('[`docs`](url)\n')).toBe('[`docs`](url)');
+    expect(roundTrip('[a `b`](url)\n')).toBe('[a `b`](url)');
+    expect(roundTrip('**[docs](url)**\n')).toBe('**[docs](url)**');
+    expect(roundTrip('**a [b](url) c**\n')).toBe('**a [b](url) c**');
+    expect(roundTrip('[~~docs~~](url)\n')).toBe('[~~docs~~](url)');
+    expect(roundTrip('~~[a `b`](url)~~\n')).toBe('[~~a `b`~~](url)');
+    expect(roundTrip('[**a** *b*](url)\n')).toBe('[**a** *b*](url)');
+    expect(roundTrip('[~~a~~ **b**](url)\n')).toBe('[~~a~~ **b**](url)');
+  });
+
   it('keeps a bracket inside a link label', () => {
     const nested = '[link [foo [bar]]](/uri)\n';
     const once = roundTrip(nested);

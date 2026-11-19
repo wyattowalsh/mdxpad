@@ -2,6 +2,7 @@
  * The markdown serializer stores bold before italic and closes marks from
  * the end of that list. A mark that continues onto the next word has to be
  * opened first, so closing the inner mark leaves the outer one in place.
+ * A link that contains code or emphasis stays outside those marks.
  *
  * @module renderer/lib/editor/prosemirror-emphasis-order
  */
@@ -67,12 +68,50 @@ function emphasisMarks(
   });
 }
 
+function markSpan(parent: ProseMirrorNode, index: number, mark: Mark): number {
+  let start = index;
+  while (start > 0 && mark.isInSet(parent.child(start - 1).marks)) {
+    start -= 1;
+  }
+  return markReach(parent, index, mark) - start;
+}
+
+function belongsInsideLink(mark: Mark, span: number, linkSpan: number): boolean {
+  if (span < linkSpan) {
+    return true;
+  }
+  if (span > linkSpan) {
+    return false;
+  }
+  return mark.type.name === 'code' || mark.type.name === 'strikethrough';
+}
+
+function linkOutside(
+  parent: ProseMirrorNode,
+  index: number,
+  marks: readonly Mark[]
+): readonly Mark[] {
+  const link = marks.find((mark) => mark.type.name === 'link');
+  if (!link) {
+    return marks;
+  }
+  const linkSpan = markSpan(parent, index, link);
+  const inside = marks.filter(
+    (mark) => mark !== link && belongsInsideLink(mark, markSpan(parent, index, mark), linkSpan)
+  );
+  if (inside.length === 0) {
+    return marks;
+  }
+  return [...marks.filter((mark) => !inside.includes(mark)), ...inside];
+}
+
 function presentChild(
   parent: ProseMirrorNode,
   index: number,
   node: ProseMirrorNode
 ): ProseMirrorNode {
-  const marks = emphasisMarks(parent, index, strikeOutsideCode(node.marks));
+  const ordered = emphasisMarks(parent, index, strikeOutsideCode(node.marks));
+  const marks = linkOutside(parent, index, ordered);
   const handler: ProxyHandler<ProseMirrorNode> = {
     get(target, prop) {
       if (prop === 'marks') {
