@@ -90,8 +90,16 @@ function insideBareUrl(value: string, index: number): boolean {
   while (start > 0 && !/[\s<>]/.test(value[start - 1] ?? '')) {
     start -= 1;
   }
-  const token = value.slice(start, index);
-  return /^https?:\/\//i.test(token) || /^www\./i.test(token);
+  let end = index;
+  while (end < value.length && !/[\s<>]/.test(value[end] ?? '')) {
+    end += 1;
+  }
+  const token = value.slice(start, end);
+  if (/^https?:\/\//i.test(token) || /^www\./i.test(token)) {
+    return true;
+  }
+  const plain = token.replace(/\\(.)/g, '$1').replace(/[.,;:!?]+$/u, '');
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(plain);
 }
 
 function insideReferenceDestination(value: string, index: number): boolean {

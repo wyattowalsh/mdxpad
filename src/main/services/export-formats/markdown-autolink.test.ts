@@ -23,6 +23,13 @@ describe('protectAutolinks', () => {
     ]);
   });
 
+  it('keeps parentheses escaped inside an email address', () => {
+    const protectedLinks = protectAutolinks('Mail ada\\(b\\)@example.com today.');
+    expect(protectedLinks.links).toEqual([
+      { href: 'mailto:ada(b)@example.com', text: 'ada(b)@example.com' },
+    ]);
+  });
+
   it('keeps parentheses escaped inside a bare address', () => {
     const protectedLinks = protectAutolinks('See https://example.com/a\\(b\\) and \\(x\\).');
     expect(protectedLinks.links).toEqual([

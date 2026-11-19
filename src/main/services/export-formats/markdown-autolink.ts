@@ -93,14 +93,15 @@ function readEmailAutolink(raw: string, index: number): FoundAutolink | null {
     return null;
   }
   const match =
-    /^[A-Za-z0-9+._-]+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
+    /^(?:[A-Za-z0-9+._-]|\\[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
       raw.slice(index)
     );
   const email = match?.[0] ?? '';
-  if (email.length === 0) {
+  const visible = unescapeAutolink(email);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(visible)) {
     return null;
   }
-  return { href: `mailto:${email}`, text: email, length: email.length };
+  return { href: `mailto:${visible}`, text: visible, length: email.length };
 }
 
 function trimAutolinkTrail(value: string): string {
