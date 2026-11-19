@@ -14,6 +14,7 @@ import { mdxSchema } from './prosemirror-mdx-schema';
 import { protectFootnoteBlocks } from './prosemirror-footnote-block';
 import { linkBareAddresses } from './prosemirror-autolink';
 import { liftFootnoteLabels, liftFootnoteRefs } from './prosemirror-footnote-ref';
+import { shieldCellPipes } from './prosemirror-cell-pipe';
 import { indentListMarkerFences } from './indent-list-fence';
 import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
@@ -21,7 +22,6 @@ import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
   protectTexDelimiters,
   restoreMathMarkup,
-  shieldCellPipes,
   shieldMathMarkup,
   TEX_DISPLAY_CLOSE,
   TEX_DISPLAY_OPEN,

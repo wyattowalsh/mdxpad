@@ -1,7 +1,7 @@
 import type { MarkdownSerializerState } from 'prosemirror-markdown';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 
-import { escapeTableCell } from './prosemirror-tex-protect';
+import { escapeTableCell } from './prosemirror-cell-pipe';
 
 interface AlignToken {
   attrGet(name: string): string | null;

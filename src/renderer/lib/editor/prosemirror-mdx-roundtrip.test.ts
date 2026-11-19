@@ -48,6 +48,17 @@ describe('WYSIWYG markdown round trip', () => {
     const image = roundTrip('| f | g |\n| --- | --- |\n| ![a|b](photo.png) | c |\n');
     expect(image).toContain('![a|b](photo.png)');
     expect(image).toContain('| c |');
+    const reference = roundTrip(
+      '| f | g |\n| --- | --- |\n| [a|b][ref] | c |\n\n[ref]: https://example.com\n'
+    );
+    expect(reference).toContain('[a|b](https://example.com)');
+    expect(reference).toContain('| c |');
+    const autolink = roundTrip('| f | g |\n| --- | --- |\n| <https://example.com/a|b> | c |\n');
+    expect(autolink).toContain('example.com/a|b');
+    expect(autolink).toContain('| c |');
+    const strong = roundTrip('| f | g |\n| --- | --- |\n| **a|b** | c |\n');
+    expect(strong).toContain('**a|b**');
+    expect(strong).toContain('| c |');
   });
 
   it('keeps display math inside a list at a stable indent', () => {
