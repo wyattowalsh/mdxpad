@@ -422,36 +422,54 @@ function docxImage(src: string, alt: string, title = ''): ImageRun | null {
   });
 }
 
+function titledRuns(
+  nodes: (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[],
+  title: string | undefined
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
+  if (!title) {
+    return nodes;
+  }
+  return [...nodes, new TextRun({ text: ` ${title}`, italics: true })];
+}
+
+function imageRuns(
+  segment: InlineSegment
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
+  const source = segment.image ?? '';
+  const picture = docxImage(decodeHtmlEntities(source), segment.text, segment.title ?? '');
+  const label = styledRun(segment, segment.text || 'image', 'Hyperlink');
+  const nodes = imageNodes(segment, source, picture, label);
+  return titledRuns(nodes, segment.title);
+}
+
+function imageNodes(
+  segment: InlineSegment,
+  source: string,
+  picture: ImageRun | null,
+  label: TextRun
+): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
+  if (segment.link) {
+    return [docxHyperlink(segment.link, picture ?? label)];
+  }
+  if (picture) {
+    return [picture];
+  }
+  if (safeImageAddress(decodeHtmlEntities(source)) === null) {
+    return [styledRun(segment, segment.text || 'image')];
+  }
+  return [docxHyperlink(source, label)];
+}
+
 function createTextRuns(
   segments: InlineSegment[]
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
   return segments.flatMap((segment) => {
     if (segment.image) {
-      const picture = docxImage(
-        decodeHtmlEntities(segment.image),
-        segment.text,
-        segment.title ?? ''
-      );
-      if (segment.link) {
-        const child = picture ?? styledRun(segment, segment.text || 'image', 'Hyperlink');
-        return [docxHyperlink(segment.link, child)];
-      }
-      if (picture) {
-        return [picture];
-      }
-      if (safeImageAddress(decodeHtmlEntities(segment.image)) === null) {
-        return [styledRun(segment, segment.text || 'image')];
-      }
-      return [
-        docxHyperlink(segment.image, styledRun(segment, segment.text || 'image', 'Hyperlink')),
-      ];
+      return imageRuns(segment);
     }
     if (segment.link) {
       const link = docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
-      if (!segment.title || segment.image) {
-        return [link];
-      }
-      return [link, new TextRun({ text: ` ${segment.title}`, italics: true })];
+      return titledRuns([link], segment.title);
     }
     return [styledRun(segment, segment.text)];
   });

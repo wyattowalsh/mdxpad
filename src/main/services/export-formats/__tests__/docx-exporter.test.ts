@@ -1072,6 +1072,32 @@ describe('DocxExporter', () => {
     expect(document.stdout.toString()).toContain('Docs');
   });
 
+  it('keeps an image title beside the picture', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![Local](photo.jpg "Sunset")\n\n[![sunset](pixel.png "Dawn")](https://example.com)',
+      outputPath: '/tmp/image-title.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print("---RELS---"); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const [document = '', rels = ''] = xml.split('---RELS---');
+    expect(document).toContain('Sunset');
+    expect(document).toContain('Dawn');
+    expect(document).toContain('Local');
+    expect(rels).toContain('photo.jpg');
+    expect(rels).toContain('https://example.com');
+    expect(rels).not.toContain('Sunset');
+    expect(rels).not.toContain('Dawn');
+  });
+
   it('resolves a reference link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
