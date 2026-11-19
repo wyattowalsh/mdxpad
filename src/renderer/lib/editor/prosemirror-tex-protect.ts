@@ -19,13 +19,39 @@ function takeDollarMath(value: string, index: number): number {
   return delimiter === null ? -1 : mathSpanEnd(value, index, delimiter);
 }
 
+function texCloser(value: string, from: number, close: string): number {
+  let index = from;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      index = code.next;
+      continue;
+    }
+    const link = readLinkSpan(value, index);
+    if (link) {
+      index = link.next;
+      continue;
+    }
+    if (value.startsWith('\\\\', index)) {
+      index += 2;
+      continue;
+    }
+    if (value.startsWith(close, index)) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
 function takeTexMath(value: string, index: number): number {
-  const open = value.startsWith('\\[', index) ? '\\[' : value.startsWith('\\(', index) ? '\\(' : '';
-  if (open.length === 0) {
+  const display = value.startsWith('\\[', index);
+  const inline = value.startsWith('\\(', index);
+  if (!display && !inline) {
     return -1;
   }
-  const close = open === '\\[' ? '\\]' : '\\)';
-  const end = unescapedDelimiterIndex(value, index + open.length, close);
+  const close = display ? '\\]' : '\\)';
+  const end = texCloser(value, index + 2, close);
   if (end === -1) {
     return -1;
   }

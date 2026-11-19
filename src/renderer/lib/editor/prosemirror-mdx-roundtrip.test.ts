@@ -654,6 +654,18 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('[~~a~~ **b**](url)\n')).toBe('[~~a~~ **b**](url)');
   });
 
+  it('keeps an escaped bracket in a link after an escaped wiki link', () => {
+    const source = '\\[\\[wiki]]\n\n[link \\[foo\\]](/uri)\n';
+    const serialized = roundTrip(source);
+    expect(serialized).toContain('[link \\[foo\\]](/uri)');
+    expect(serialized).toContain('\\[\\[wiki]]');
+    const again = roundTrip(serialized.endsWith('\n') ? serialized : `${serialized}\n`);
+    expect(again).toContain('[link \\[foo\\]](/uri)');
+    const noted = roundTrip('> \\[!NOTE]\n> hi\n\n[link \\[foo\\]](/uri)\n');
+    expect(noted).toContain('[link \\[foo\\]](/uri)');
+    expect(noted).toContain('hi');
+  });
+
   it('keeps a bracket inside a link label', () => {
     const nested = '[link [foo [bar]]](/uri)\n';
     const once = roundTrip(nested);
