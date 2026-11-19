@@ -4,6 +4,7 @@ import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { renderMarkdownInline } from './markdown-inline-html';
 import { plainFootnoteMarkers } from './markdown-footnote';
+import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 import { expandLinkReferences } from './markdown-reference';
 
 describe('expandLinkReferences', () => {
@@ -172,6 +173,23 @@ describe('expandLinkReferences', () => {
     );
     expect(image).toContain('![shot](https://example.com/?q[id]=1)');
     expect(image).not.toContain('q[id](https://example.com/docs)');
+  });
+
+  it('drops a reference address that an export cannot open', () => {
+    const script = omitLocalMarkdownTargets('See [a][id].\n\n[id]: javascript:alert(1)\n');
+    expect(script).not.toContain('javascript');
+    const file = omitLocalMarkdownTargets('See [a][id].\n\n[id]: file:///etc/passwd\n');
+    expect(file).not.toContain('file:');
+    expect(file).not.toContain('/etc/passwd');
+    const root = omitLocalMarkdownTargets('See [a][id].\n\n[id]: /etc/passwd\n');
+    expect(root).not.toContain('/etc/passwd');
+    const angled = omitLocalMarkdownTargets('See [a][id].\n\n[id]: <javascript:alert(1)>\n');
+    expect(angled).not.toContain('javascript');
+    const kept = omitLocalMarkdownTargets(
+      'See [docs][id].\n\n[id]: https://example.com "Guide"\n\nSee [up][rel].\n\n[rel]: ../notes.md\n'
+    );
+    expect(kept).toContain('https://example.com "Guide"');
+    expect(kept).toContain('../notes.md');
   });
 
   it('resolves an image reference and leaves a fenced definition alone', () => {

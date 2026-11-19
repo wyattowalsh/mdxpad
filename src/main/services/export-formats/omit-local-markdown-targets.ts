@@ -13,7 +13,11 @@ import { resolveWorkspaceFilePath } from '../ai/agent-path';
 import { decodeHtmlEntities } from './markdown-entity';
 import { advanceFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
-import { dropUnreferencedDefinitions, expandImageReferences } from './markdown-reference';
+import {
+  dropUnreferencedDefinitions,
+  dropUnsafeLinkDefinitions,
+  expandImageReferences,
+} from './markdown-reference';
 import {
   addressClimbsOut,
   htmlTagEnd,
@@ -260,7 +264,10 @@ export function omitLocalMarkdownTargets(content: string, sourcePath?: string | 
   const root = sourcePath ? path.dirname(path.resolve(sourcePath)) : null;
   let fence: string | null = null;
   const style = { open: false };
-  const prepared = dropUnreferencedDefinitions(expandImageReferences(content));
+  const prepared = dropUnsafeLinkDefinitions(
+    dropUnreferencedDefinitions(expandImageReferences(content)),
+    (address) => safeLinkAddress(address) !== null
+  );
   return prepared
     .split('\n')
     .map((line) => {

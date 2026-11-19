@@ -478,10 +478,67 @@ function unreferencedDefinitionLines(lines: readonly string[]): Set<number> {
   return drop;
 }
 
+function definitionAddress(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('<')) {
+    return /^\S+/.exec(trimmed)?.[0] ?? trimmed;
+  }
+  let end = 1;
+  while (end < trimmed.length) {
+    if (trimmed[end] === '\\') {
+      end += 2;
+      continue;
+    }
+    if (trimmed[end] === '>') {
+      return trimmed.slice(1, end);
+    }
+    end += 1;
+  }
+  return trimmed;
+}
+
+function unsafeDefinitionLines(
+  lines: readonly string[],
+  keep: (address: string) => boolean
+): Set<number> {
+  const drop = new Set<number>();
+  let fence: string | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const next = advanceFence(line, fence);
+    const boundary = fence !== next;
+    fence = next;
+    if (fence || boundary || drop.has(index)) {
+      continue;
+    }
+    const definition = splitDefinition(lines, index);
+    if (!definition || keep(definitionAddress(definition.destination))) {
+      continue;
+    }
+    for (let offset = 0; offset < definition.consumed; offset += 1) {
+      drop.add(index + offset);
+    }
+  }
+  return drop;
+}
+
 /** Remove definitions whose pictures were already written inline and nothing else uses. */
 export function dropUnreferencedDefinitions(content: string): string {
   const lines = content.split('\n');
   const drop = unreferencedDefinitionLines(lines);
+  if (drop.size === 0) {
+    return content;
+  }
+  return lines.map((line, index) => (drop.has(index) ? '' : line)).join('\n');
+}
+
+/** Remove reference definitions whose address cannot be opened from an export. */
+export function dropUnsafeLinkDefinitions(
+  content: string,
+  keep: (address: string) => boolean
+): string {
+  const lines = content.split('\n');
+  const drop = unsafeDefinitionLines(lines, keep);
   if (drop.size === 0) {
     return content;
   }
