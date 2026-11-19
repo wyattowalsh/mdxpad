@@ -22,6 +22,7 @@ import {
 import { emphasizeOutside } from './prosemirror-emphasis-order';
 import {
   emphasisOpen,
+  linkLabelOpen,
   relaxPunctuationEscapes,
   restoreLiteralDelimiters,
 } from './prosemirror-literal-delimiters';
@@ -520,7 +521,8 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
           startOfLine,
           writer.emphasisOpen,
           writer.strikeLiteral
-        )
+        ),
+        linkLabelOpen(state.out)
       );
     state.renderContent(content);
     // A strike that continues into code or an image is closed and reopened,

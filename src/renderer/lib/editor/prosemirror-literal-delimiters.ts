@@ -125,15 +125,44 @@ function protectBlockMarkers(line: string): string {
   return line.replace(/^(\s{0,3})\*(?=[ \t]|$)/, '$1\\*');
 }
 
+/** A link label is open when an unescaped `[` has no matching `]`. */
+export function linkLabelOpen(value: string): boolean {
+  let depth = 0;
+  let index = 0;
+  while (index < value.length) {
+    const char = value[index] ?? '';
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === '`') {
+      let width = 0;
+      while (value[index + width] === '`') {
+        width += 1;
+      }
+      const closer = value.indexOf('`'.repeat(width), index + width);
+      index = closer === -1 ? value.length : closer + width;
+      continue;
+    }
+    if (char === '[') {
+      depth += 1;
+    } else if (char === ']' && depth > 0) {
+      depth -= 1;
+    }
+    index += 1;
+  }
+  return depth > 0;
+}
+
 /** A backslash already in the text is one character, so it is written as `\\`. */
-export function relaxPunctuationEscapes(escaped: string): string {
-  return escaped
+export function relaxPunctuationEscapes(escaped: string, keepBracketEscape = false): string {
+  const relaxed = escaped
     .replaceAll('\\\\\\[', '\\\\[')
     .replaceAll('\\\\\\]', '\\\\]')
     .replaceAll('\\\\\\(', '\\\\(')
-    .replaceAll('\\\\\\)', '\\\\)')
-    .replaceAll(/(?<!\\)\\\]/g, ']')
-    .replaceAll(/(?<!\\)\\\)/g, ')');
+    .replaceAll('\\\\\\)', '\\\\)');
+  const brackets = keepBracketEscape ? relaxed : relaxed.replaceAll(/(?<!\\)\\\]/g, ']');
+  return brackets.replaceAll(/(?<!\\)\\\)/g, ')');
 }
 
 export function restoreLiteralDelimiters(

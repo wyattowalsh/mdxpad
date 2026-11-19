@@ -458,6 +458,19 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
   });
 
+  it('keeps a bracket inside a link label', () => {
+    const nested = '[link [foo [bar]]](/uri)\n';
+    const once = roundTrip(nested);
+    expect(once).toContain('\\]');
+    expect(once).toContain('](/uri)');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+    const closed = '[foo\\] bar](https://example.com)\n';
+    const saved = roundTrip(closed);
+    expect(saved).toContain('\\]');
+    expect(saved).toContain('](https://example.com)');
+    expect(roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`)).toBe(saved);
+  });
+
   it('keeps an unmatched bracket from gaining backslashes', () => {
     expect(roundTrip('\\[not math]\n')).toBe('\\[not math]');
     expect(roundTrip('see \\[x]\n')).toBe('see \\[x]');

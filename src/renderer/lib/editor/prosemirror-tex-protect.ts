@@ -111,6 +111,12 @@ export function shieldMathMarkup(value: string): string {
       index = code.next;
       continue;
     }
+    const link = readLinkSpan(value, index);
+    if (link) {
+      result += link.text;
+      index = link.next;
+      continue;
+    }
     const mathEnd = takeDollarMath(value, index);
     const texEnd = mathEnd === -1 ? takeTexMath(value, index) : -1;
     const end = mathEnd === -1 ? texEnd : mathEnd;
@@ -193,6 +199,51 @@ export function readDestination(value: string, open: number): { text: string; ne
   return { text: value.slice(open, index + 1), next: index + 1 };
 }
 
+function readBracketGroup(value: string, open: number, right: string): number {
+  if (value[open] !== (right === ')' ? '(' : '[')) {
+    return -1;
+  }
+  let index = open + 1;
+  while (index < value.length) {
+    if (value[index] === '\\') {
+      index += 2;
+      continue;
+    }
+    if (value[index] === right) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+/** A whole link, so `\[` inside its label stays an escaped bracket. */
+export function readLinkSpan(
+  value: string,
+  index: number
+): { text: string; next: number } | null {
+  const start = value[index] === '!' && value[index + 1] === '[' ? index + 1 : index;
+  if (value[start] !== '[') {
+    return null;
+  }
+  const labelEnd = readBracketGroup(value, start, ']');
+  if (labelEnd === -1) {
+    return null;
+  }
+  const destination = readDestination(value, labelEnd + 1);
+  if (destination) {
+    return { text: value.slice(index, destination.next), next: destination.next };
+  }
+  if (value[labelEnd + 1] !== '[') {
+    return null;
+  }
+  const referenceEnd = readBracketGroup(value, labelEnd + 1, ']');
+  if (referenceEnd === -1) {
+    return null;
+  }
+  return { text: value.slice(index, referenceEnd + 1), next: referenceEnd + 1 };
+}
+
 function matchedTex(value: string): Set<number> {
   const matched = new Set<number>();
   const stack: { index: number; close: string }[] = [];
@@ -201,6 +252,11 @@ function matchedTex(value: string): Set<number> {
     const code = copyCodeSpan(value, index);
     if (code) {
       index = code.next;
+      continue;
+    }
+    const link = readLinkSpan(value, index);
+    if (link) {
+      index = link.next;
       continue;
     }
     const destination = readDestination(value, index);
@@ -241,6 +297,12 @@ export function protectTexDelimiters(value: string): string {
     if (code) {
       result += code.text;
       index = code.next;
+      continue;
+    }
+    const link = readLinkSpan(value, index);
+    if (link) {
+      result += link.text;
+      index = link.next;
       continue;
     }
     const destination = readDestination(value, index);
