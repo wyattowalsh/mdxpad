@@ -28,6 +28,13 @@ import {
 } from './prosemirror-literal-delimiters';
 import { serializeTable } from './prosemirror-mdx-table';
 
+function mathContinues(parent: ProseMirrorNode, index: number, mathBreak: boolean): boolean {
+  if (mathBreak || index <= 0) {
+    return mathBreak;
+  }
+  return parent.child(index - 1).isInline;
+}
+
 // =============================================================================
 // NODE SERIALIZERS
 // =============================================================================
@@ -217,7 +224,7 @@ const nodeSerializers: NodeSerializerMap = {
     if (!writer.atBlockStart && writer.out.endsWith('\n')) {
       writer.atBlockStart = true;
     }
-    if (writer.mathCloser && !writer.mathBreak) {
+    if (writer.mathCloser && !mathContinues(parent, index, writer.mathBreak)) {
       writer.mathCloser = null;
     }
     writer.mathBreak = false;
