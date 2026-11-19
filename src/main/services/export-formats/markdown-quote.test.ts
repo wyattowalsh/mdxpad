@@ -160,6 +160,11 @@ describe('quoteBody', () => {
     expect(heading).toContain('<h1 id="title">Title</h1>');
     expect(heading).toContain('<p>still</p>');
     expect(heading).not.toContain('# Title');
+    const task = markdownToPdfHtml('> - [x] done\n> still\n');
+    expect(task).toContain('type="checkbox"');
+    expect(task).toContain('checked');
+    expect(task).toContain('done still');
+    expect(task).not.toContain('[x]');
     expect(quoteToLatex(['1. > Blockquote', 'continued here.'], (line) => line)).toContain(
       'Blockquote continued here.'
     );

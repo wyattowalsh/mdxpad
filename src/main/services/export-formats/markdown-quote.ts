@@ -26,6 +26,7 @@ import {
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  renderListItemHtml,
   type HtmlListFrame,
   type MarkdownListItem,
 } from './markdown-list';
@@ -533,7 +534,7 @@ function renderQuotedPieceHtml(
   if (piece.kind === 'heading') {
     return headingTag(piece.depth, renderLine(piece.text), headingSlug(piece.text));
   }
-  return joinParagraphHtml(piece.lines, renderLine);
+  return renderListItemHtml(piece.lines, renderLine);
 }
 
 function renderQuotedItemHtml(
@@ -545,7 +546,7 @@ function renderQuotedItemHtml(
   return quoteItemPieces(body, column)
     .map((piece) => {
       if (piece.kind === 'prose' && sawBlock) {
-        return `<p>${joinParagraphHtml(piece.lines, renderLine)}</p>`;
+        return `<p>${renderListItemHtml(piece.lines, renderLine)}</p>`;
       }
       if (piece.kind !== 'prose') {
         sawBlock = true;

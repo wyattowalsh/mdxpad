@@ -286,27 +286,31 @@ function cleanStyleChild(child: unknown): unknown {
   return typeof child === 'string' ? sanitizePreviewStyleSheet(child) : child;
 }
 
+const RESOURCE_HREF_TAGS = new Set([
+  'image',
+  'use',
+  'feimage',
+  'cursor',
+  'filter',
+  'pattern',
+  'mask',
+  'clippath',
+  'marker',
+  'textpath',
+  'mpath',
+  'lineargradient',
+  'radialgradient',
+  'meshgradient',
+  'animate',
+  'animatetransform',
+  'animatemotion',
+  'set',
+  'femergenode',
+  'discard',
+]);
+
 function loadsResourceHref(type: unknown): boolean {
-  if (typeof type !== 'string') {
-    return false;
-  }
-  const name = type.toLowerCase();
-  return (
-    name === 'image' ||
-    name === 'use' ||
-    name === 'feimage' ||
-    name === 'cursor' ||
-    name === 'filter' ||
-    name === 'pattern' ||
-    name === 'mask' ||
-    name === 'clippath' ||
-    name === 'marker' ||
-    name === 'textpath' ||
-    name === 'mpath' ||
-    name === 'lineargradient' ||
-    name === 'radialgradient' ||
-    name === 'meshgradient'
-  );
+  return typeof type === 'string' && RESOURCE_HREF_TAGS.has(type.toLowerCase());
 }
 
 function omitBlockedResourceHref(props: Record<string, unknown>): Record<string, unknown> {

@@ -91,6 +91,8 @@ describe('sanitizeExportedHtml', () => {
     expect(sanitizeExportedTag('<filter href="../secret.svg">')).toBe('<filter>');
     expect(sanitizeExportedTag('<mask href="../secret.svg">')).toBe('<mask>');
     expect(sanitizeExportedTag('<clipPath href="../secret.svg">')).toBe('<clipPath>');
+    expect(sanitizeExportedTag('<animate href="../secret.svg">')).toBe('<animate>');
+    expect(sanitizeExportedTag('<set href="../secret.svg">')).toBe('<set>');
     expect(sanitizeExportedHtml('<button formaction="../secret.md">Go</button>')).toBe(
       '<button>Go</button>'
     );

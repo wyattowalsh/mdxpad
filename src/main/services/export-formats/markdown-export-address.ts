@@ -210,6 +210,12 @@ const RESOURCE_HREF_TAGS = new Set([
   'lineargradient',
   'radialgradient',
   'meshgradient',
+  'animate',
+  'animatetransform',
+  'animatemotion',
+  'set',
+  'femergenode',
+  'discard',
 ]);
 
 function resourceHrefTag(name: string): boolean {
