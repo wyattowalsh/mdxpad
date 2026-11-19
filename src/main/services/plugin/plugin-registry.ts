@@ -23,13 +23,15 @@ const EMPTY_REGISTRY: RegistryData = { plugins: [] };
 
 export class PluginRegistry {
   private readonly registryPath: string;
+  private readonly ownedRoot: string | undefined;
 
-  constructor(pluginDir: string) {
+  constructor(pluginDir: string, ownedRoot?: string) {
     this.registryPath = path.join(pluginDir, 'registry.json');
+    this.ownedRoot = ownedRoot;
   }
 
   private async read(): Promise<RegistryData> {
-    await ensureRealDirectory(path.dirname(this.registryPath));
+    await ensureRealDirectory(path.dirname(this.registryPath), this.ownedRoot);
     let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
     try {
       handle = await fs.open(this.registryPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
@@ -52,7 +54,7 @@ export class PluginRegistry {
 
   private async write(data: RegistryData): Promise<void> {
     const dir = path.dirname(this.registryPath);
-    await ensureRealDirectory(dir);
+    await ensureRealDirectory(dir, this.ownedRoot);
     await writeWithoutFollowingLink(this.registryPath, JSON.stringify(data, null, 2));
   }
 

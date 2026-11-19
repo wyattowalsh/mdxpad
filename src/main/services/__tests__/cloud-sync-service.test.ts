@@ -185,4 +185,21 @@ describe('CloudSyncService', () => {
     });
     expect(again.content).toBe('# Local');
   });
+
+  it('does not read connections through a linked parent folder', async () => {
+    const outside = path.join(tempDir, 'outside');
+    const store = path.join(outside, 'cloud-sync');
+    await mkdir(store, { recursive: true });
+    const secret = path.join(store, 'connections.json');
+    await writeFile(secret, JSON.stringify({ connectedProviders: ['mock-cloud'] }));
+    const appLink = path.join(tempDir, 'userData');
+    await symlink(outside, appLink);
+
+    const service = new CloudSyncService(path.join(appLink, 'cloud-sync'), appLink);
+    const providers = await service.listProviders();
+
+    expect(providers.find((provider) => provider.id === 'mock-cloud')?.connected).toBe(false);
+    expect(await readFile(secret, 'utf8')).toContain('mock-cloud');
+    expect((await lstat(appLink)).isSymbolicLink()).toBe(false);
+  });
 });

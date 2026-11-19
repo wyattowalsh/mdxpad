@@ -159,4 +159,20 @@ describe('PublishProvenanceService', () => {
     ).rejects.toThrow('file that is open');
     await expect(fs.access(path.join(tempDir, 'secret.published.mdx'))).rejects.toThrow();
   });
+
+  it('does not read provenance through a linked parent folder', async () => {
+    const outside = path.join(tempDir, 'outside');
+    const store = path.join(outside, 'publish-platform');
+    await fs.mkdir(store, { recursive: true });
+    const secret = path.join(store, 'provenance.jsonl');
+    await writeFile(secret, '{"secret":true}\n');
+    const appLink = path.join(tempDir, 'userData');
+    await symlink(outside, appLink);
+
+    const service = new PublishProvenanceService(path.join(appLink, 'publish-platform'), appLink);
+
+    await expect(service.listProvenance()).resolves.toEqual([]);
+    expect(await readFile(secret, 'utf8')).toBe('{"secret":true}\n');
+    expect((await lstat(appLink)).isSymbolicLink()).toBe(false);
+  });
 });

@@ -16,6 +16,7 @@ import {
   MarketplaceTemplateSchema,
 } from '@shared/contracts/marketplace-schemas';
 import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
+import { containsDirectoryLink } from './ensure-real-directory';
 import { parseTemplateMetadataFile } from './template/parser';
 
 // =============================================================================
@@ -88,6 +89,9 @@ export function marketplaceTemplateDirectories(resourcesPath: string): readonly 
 export async function catalogFromTemplateDirectory(
   directory: string
 ): Promise<MarketplaceTemplateData[]> {
+  if (await containsDirectoryLink(directory, directory)) {
+    return [];
+  }
   let names: string[];
   try {
     names = await fs.readdir(directory);
@@ -120,10 +124,20 @@ export async function catalogFromTemplateDirectory(
   return templates.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function isInsideDirectory(root: string, candidate: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 async function bundledCatalog(
+  resourcesPath: string,
   templateDirectories: readonly string[]
 ): Promise<MarketplaceTemplateData[]> {
+  const resourcesLinked = await containsDirectoryLink(resourcesPath, resourcesPath);
   for (const directory of templateDirectories) {
+    if (resourcesLinked && isInsideDirectory(resourcesPath, directory)) {
+      continue;
+    }
     const templates = await catalogFromTemplateDirectory(directory);
     if (templates.length > 0) {
       return templates;
@@ -133,6 +147,9 @@ async function bundledCatalog(
 }
 
 async function readLocalCatalog(resourcesPath: string): Promise<MarketplaceTemplateData[] | null> {
+  if (await containsDirectoryLink(resourcesPath, resourcesPath)) {
+    return null;
+  }
   const catalogPath = path.join(resourcesPath, LOCAL_CATALOG_FILENAME);
   let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
@@ -160,7 +177,7 @@ async function fetchCatalog(
     return { success: true, data: local };
   }
 
-  const bundled = await bundledCatalog(templateDirectories);
+  const bundled = await bundledCatalog(resourcesPath, templateDirectories);
   if (bundled.length > 0) {
     return { success: true, data: bundled };
   }

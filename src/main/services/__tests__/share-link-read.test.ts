@@ -77,6 +77,38 @@ describe('ShareLinkService.readByToken', () => {
     expect(new ShareLinkService({ storagePath }).getLinks()).toHaveLength(1);
   });
 
+  it('does not read a share list through a linked folder', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-parent-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-share-parent-out-'));
+    tempDirs.push(root, outside);
+    const secret = path.join(outside, 'share-links.json');
+    await writeFile(
+      secret,
+      JSON.stringify({
+        links: [
+          {
+            id: 'link-1',
+            token: 'secret-token',
+            docId: 'doc-1',
+            url: 'mdxpad://share/secret-token',
+            accessMode: 'read-only',
+            createdAt: 1,
+            expiresAt: null,
+            isActive: true,
+          },
+        ],
+        contents: { 'link-1': 'hidden' },
+      })
+    );
+    const linked = path.join(root, 'userData');
+    await symlink(outside, linked);
+    const storagePath = path.join(linked, 'share-links.json');
+
+    expect(new ShareLinkService({ storagePath }).getLinks()).toEqual([]);
+    expect(await readFile(secret, 'utf8')).toContain('secret-token');
+    expect((await lstat(linked)).isSymbolicLink()).toBe(false);
+  });
+
   it('returns stored content for an active token', () => {
     const service = new ShareLinkService();
     const link = service.createLink({

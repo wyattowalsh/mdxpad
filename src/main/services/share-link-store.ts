@@ -5,7 +5,7 @@
 import { closeSync, constants, lstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ensureRealDirectory } from './ensure-real-directory';
+import { ensureRealDirectory, ensureRealDirectorySync } from './ensure-real-directory';
 
 import type { ShareAccessMode, ShareLink } from '@shared/contracts/share-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
@@ -78,6 +78,15 @@ function readLocalText(filePath: string): string | null {
 }
 
 export function readShareStore(filePath: string): ShareStoreData {
+  try {
+    ensureRealDirectorySync(path.dirname(filePath));
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+    if (code === 'ENOTDIR') {
+      return EMPTY_STORE;
+    }
+    throw error;
+  }
   const raw = readLocalText(filePath);
   return raw === null ? EMPTY_STORE : parseShareStore(raw);
 }

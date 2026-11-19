@@ -3,13 +3,15 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ensureRealDirectory } from './ensure-real-directory';
+import { containsDirectoryLink, ensureRealDirectory } from './ensure-real-directory';
 
 describe('ensureRealDirectory', () => {
   const directories: string[] = [];
 
   afterEach(async () => {
-    await Promise.all(directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+    await Promise.all(
+      directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))
+    );
   });
 
   it('replaces a linked directory and leaves the target untouched', async () => {
@@ -45,5 +47,18 @@ describe('ensureRealDirectory', () => {
     expect((await lstat(appLink)).isSymbolicLink()).toBe(false);
     expect((await lstat(path.join(appLink, 'recovery'))).isDirectory()).toBe(true);
     expect(await readFile(secret, 'utf8')).toBe('hidden');
+  });
+
+  it('sees a link in an owned parent directory', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-link-parent-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-link-parent-out-'));
+    directories.push(root, outside);
+    const appLink = path.join(root, 'userData');
+    await symlink(outside, appLink);
+
+    await expect(containsDirectoryLink(appLink, path.join(appLink, 'cloud-sync'))).resolves.toBe(
+      true
+    );
+    await expect(containsDirectoryLink(root, path.join(root, 'notes'))).resolves.toBe(false);
   });
 });

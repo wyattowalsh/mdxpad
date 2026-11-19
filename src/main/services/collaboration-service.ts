@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { app } from 'electron';
 
 import { atomicWrite } from '@shared/lib/atomic-write';
-import { ensureRealDirectory } from './ensure-real-directory';
+import { ensureRealDirectory, resolveAppDirectory } from './ensure-real-directory';
 import type {
   CollaborationAddCommentRequest,
   CollaborationAddCommentResponse,
@@ -30,10 +30,6 @@ function freshDocumentState(): CollaborationDocumentState {
 
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'collaboration');
-}
-
-async function ensureDirectory(dir: string): Promise<void> {
-  await ensureRealDirectory(dir);
 }
 
 async function readDocumentFile(filePath: string): Promise<CollaborationDocumentState> {
@@ -63,9 +59,16 @@ async function readDocumentFile(filePath: string): Promise<CollaborationDocument
 
 export class CollaborationService {
   private readonly baseDir: string;
+  private readonly ownedRoot: string | undefined;
 
-  public constructor(baseDir: string = getDefaultBaseDir()) {
-    this.baseDir = baseDir;
+  public constructor(baseDir?: string, ownedRoot?: string) {
+    const resolved = resolveAppDirectory(baseDir, getDefaultBaseDir, ownedRoot);
+    this.baseDir = resolved.directory;
+    this.ownedRoot = resolved.ownedRoot;
+  }
+
+  private async ensureDirectory(dir: string): Promise<void> {
+    await ensureRealDirectory(dir, this.ownedRoot);
   }
 
   private getDocumentPath(documentId: string): string {
@@ -73,7 +76,7 @@ export class CollaborationService {
   }
 
   private async readDocumentState(documentId: string): Promise<CollaborationDocumentState> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     return readDocumentFile(this.getDocumentPath(documentId));
   }
 
@@ -81,7 +84,7 @@ export class CollaborationService {
     documentId: string,
     state: CollaborationDocumentState
   ): Promise<void> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     await atomicWrite(this.getDocumentPath(documentId), JSON.stringify(state, null, 2));
   }
 

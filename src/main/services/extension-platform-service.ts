@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { app } from 'electron';
 
 import { atomicWrite } from '@shared/lib/atomic-write';
-import { ensureRealDirectory } from './ensure-real-directory';
+import { ensureRealDirectory, resolveAppDirectory } from './ensure-real-directory';
 import type {
   ExtensionInstallRequest,
   ExtensionInstallResponse,
@@ -33,10 +33,6 @@ function freshRegistry(): ExtensionRegistry {
 
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'extensions-platform');
-}
-
-async function ensureDirectory(dir: string): Promise<void> {
-  await ensureRealDirectory(dir);
 }
 
 async function readRegistryFile(filePath: string): Promise<ExtensionRegistry> {
@@ -98,9 +94,16 @@ function getDefaultPermission(
 
 export class ExtensionPlatformService {
   private readonly baseDir: string;
+  private readonly ownedRoot: string | undefined;
 
-  public constructor(baseDir: string = getDefaultBaseDir()) {
-    this.baseDir = baseDir;
+  public constructor(baseDir?: string, ownedRoot?: string) {
+    const resolved = resolveAppDirectory(baseDir, getDefaultBaseDir, ownedRoot);
+    this.baseDir = resolved.directory;
+    this.ownedRoot = resolved.ownedRoot;
+  }
+
+  private async ensureDirectory(dir: string): Promise<void> {
+    await ensureRealDirectory(dir, this.ownedRoot);
   }
 
   private getRegistryPath(): string {
@@ -108,12 +111,12 @@ export class ExtensionPlatformService {
   }
 
   private async readRegistry(): Promise<ExtensionRegistry> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     return readRegistryFile(this.getRegistryPath());
   }
 
   private async writeRegistry(registry: ExtensionRegistry): Promise<void> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     await atomicWrite(this.getRegistryPath(), JSON.stringify(registry, null, 2));
   }
 

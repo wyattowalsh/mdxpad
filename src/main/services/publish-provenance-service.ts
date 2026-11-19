@@ -12,7 +12,7 @@ import type {
   ProvenanceRecord,
 } from '@shared/contracts/platform-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
-import { ensureRealDirectory } from './ensure-real-directory';
+import { ensureRealDirectory, resolveAppDirectory } from './ensure-real-directory';
 import { computeChecksum } from '@shared/lib/checksum';
 
 import { resolveWorkspaceFilePath } from './ai/agent-path';
@@ -21,10 +21,6 @@ type BacklinkIndex = Record<string, BacklinkRecord[]>;
 
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'publish-platform');
-}
-
-async function ensureDirectory(dir: string): Promise<void> {
-  await ensureRealDirectory(dir);
 }
 
 async function readRegularText(filePath: string): Promise<string | null> {
@@ -116,10 +112,17 @@ function extractFrontmatterBacklinks(
 
 export class PublishProvenanceService {
   private readonly baseDir: string;
+  private readonly ownedRoot: string | undefined;
   private persistenceQueue: Promise<unknown> = Promise.resolve();
 
-  public constructor(baseDir: string = getDefaultBaseDir()) {
-    this.baseDir = baseDir;
+  public constructor(baseDir?: string, ownedRoot?: string) {
+    const resolved = resolveAppDirectory(baseDir, getDefaultBaseDir, ownedRoot);
+    this.baseDir = resolved.directory;
+    this.ownedRoot = resolved.ownedRoot;
+  }
+
+  private async ensureDirectory(dir: string): Promise<void> {
+    await ensureRealDirectory(dir, this.ownedRoot);
   }
 
   private getArtifactsDir(): string {
@@ -148,7 +151,7 @@ export class PublishProvenanceService {
   }
 
   private async writeProvenanceRecord(record: ProvenanceRecord): Promise<void> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     const provenancePath = this.getProvenancePath();
     await detachFileLink(provenancePath);
     const line = `${JSON.stringify(record)}\n`;
@@ -180,6 +183,7 @@ export class PublishProvenanceService {
 
   public async listProvenance(sourcePath?: string): Promise<ProvenanceRecord[]> {
     try {
+      await this.ensureDirectory(this.baseDir);
       const provenancePath = this.getProvenancePath();
       const content = await readRegularText(provenancePath);
       if (content === null) {
@@ -204,13 +208,14 @@ export class PublishProvenanceService {
   }
 
   public async getBacklinks(canonicalUrl: string): Promise<BacklinkRecord[]> {
+    await this.ensureDirectory(this.baseDir);
     const index = await readJsonFile<BacklinkIndex>(this.getBacklinkIndexPath(), {});
     return index[canonicalUrl] ?? [];
   }
 
   public async publish(request: PublishRequest): Promise<PublishResponse> {
     const outputPath = this.getDefaultOutputPath(request.sourcePath);
-    await ensureDirectory(path.dirname(outputPath));
+    await this.ensureDirectory(path.dirname(outputPath));
     await atomicWrite(outputPath, request.content);
 
     const canonicalUrl = pathToFileURL(outputPath).toString();

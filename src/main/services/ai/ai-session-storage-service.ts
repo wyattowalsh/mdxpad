@@ -10,7 +10,7 @@ import {
   AIPromptFileMetadataSchema,
 } from '@shared/contracts/ai-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
-import { ensureRealDirectory } from '../ensure-real-directory';
+import { ensureRealDirectory, resolveAppDirectory } from '../ensure-real-directory';
 import { computeChecksum } from '@shared/lib/checksum';
 import { AISessionSchema, type AISession } from '@shared/types/root';
 import type {
@@ -103,10 +103,6 @@ export interface RestoredAISession {
 
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'ai');
-}
-
-async function ensureDirectory(dirPath: string): Promise<void> {
-  await ensureRealDirectory(dirPath);
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -255,11 +251,18 @@ export interface IAISessionStorageService {
 
 export class AISessionStorageService implements IAISessionStorageService {
   private readonly storagePath: string;
+  private readonly ownedRoot: string | undefined;
   private cachedState: SessionStoragePayload | null = null;
   private mutationQueue: Promise<void> = Promise.resolve();
 
-  public constructor(baseDir: string = getDefaultBaseDir()) {
-    this.storagePath = path.join(baseDir, STORAGE_FILE_NAME);
+  public constructor(baseDir?: string, ownedRoot?: string) {
+    const resolved = resolveAppDirectory(baseDir, getDefaultBaseDir, ownedRoot);
+    this.storagePath = path.join(resolved.directory, STORAGE_FILE_NAME);
+    this.ownedRoot = resolved.ownedRoot;
+  }
+
+  private async ensureDirectory(dirPath: string): Promise<void> {
+    await ensureRealDirectory(dirPath, this.ownedRoot);
   }
 
   public async createSession(session: AISession): Promise<AISession> {
@@ -596,7 +599,7 @@ export class AISessionStorageService implements IAISessionStorageService {
   }
 
   private async loadState(): Promise<SessionStoragePayload> {
-    await ensureDirectory(path.dirname(this.storagePath));
+    await this.ensureDirectory(path.dirname(this.storagePath));
     try {
       const raw = await readStoreText(this.storagePath);
       if (raw === null) {
@@ -635,7 +638,7 @@ export class AISessionStorageService implements IAISessionStorageService {
   }
 
   private async persistState(state: SessionStoragePayload): Promise<void> {
-    await ensureDirectory(path.dirname(this.storagePath));
+    await this.ensureDirectory(path.dirname(this.storagePath));
     const snapshot: SessionStorageSnapshot = {
       checksum: computePayloadChecksum(state),
       payload: state,

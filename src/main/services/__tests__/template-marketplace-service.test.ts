@@ -1,4 +1,4 @@
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -104,6 +104,35 @@ describe('marketplace catalog', () => {
 
     expect(names).not.toContain('Secret Catalog');
     expect(names).toContain('Blog Post');
+  });
+
+  it('does not list a catalog through a linked resources folder', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-market-parent-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-market-parent-out-'));
+    tempDirs.push(root, outside);
+    await writeFile(
+      path.join(outside, 'template-catalog.json'),
+      JSON.stringify([{ ...validTemplate, id: 'secret', name: 'Secret Catalog' }])
+    );
+    const linked = path.join(root, 'resources');
+    await symlink(outside, linked);
+    const window = {
+      webContents: { id: 4, send: vi.fn(), mainFrame: { routingId: 8 } },
+    } as unknown as BrowserWindow;
+    registerMarketplaceHandlers(window, linked);
+
+    const list = handlers[MARKETPLACE_LIST_CHANNEL];
+    const result = await list?.({
+      sender: { id: 4 },
+      senderFrame: { routingId: 8 },
+    } as unknown as IpcMainInvokeEvent);
+    const names = (result as { data: { name: string }[] }).data.map((item) => item.name);
+
+    expect(names).not.toContain('Secret Catalog');
+    expect(await readFile(path.join(outside, 'template-catalog.json'), 'utf8')).toContain(
+      'Secret Catalog'
+    );
+    expect((await lstat(linked)).isSymbolicLink()).toBe(true);
   });
 
   it('lists the templates shipped with the app when no catalog file exists', async () => {

@@ -4,7 +4,7 @@ import { app } from 'electron';
 
 import { computeChecksum } from '@shared/lib/checksum';
 import { atomicWrite } from '@shared/lib/atomic-write';
-import { ensureRealDirectory } from './ensure-real-directory';
+import { ensureRealDirectory, resolveAppDirectory } from './ensure-real-directory';
 import type {
   CloudSyncCapabilities,
   CloudSyncConnectResponse,
@@ -92,10 +92,6 @@ interface ConnectionState {
   readonly connectedProviders: CloudSyncProviderId[];
 }
 
-async function ensureDirectory(dir: string): Promise<void> {
-  await ensureRealDirectory(dir);
-}
-
 function getDefaultBaseDir(): string {
   return path.join(app.getPath('userData'), 'cloud-sync');
 }
@@ -123,10 +119,17 @@ async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
 
 export class CloudSyncService {
   private readonly baseDir: string;
+  private readonly ownedRoot: string | undefined;
   private readonly pushQueues = new Map<string, Promise<void>>();
 
-  public constructor(baseDir: string = getDefaultBaseDir()) {
-    this.baseDir = baseDir;
+  public constructor(baseDir?: string, ownedRoot?: string) {
+    const resolved = resolveAppDirectory(baseDir, getDefaultBaseDir, ownedRoot);
+    this.baseDir = resolved.directory;
+    this.ownedRoot = resolved.ownedRoot;
+  }
+
+  private async ensureDirectory(dir: string): Promise<void> {
+    await ensureRealDirectory(dir, this.ownedRoot);
   }
 
   private getConnectionPath(): string {
@@ -173,19 +176,20 @@ export class CloudSyncService {
   }
 
   private async readConnections(): Promise<Set<CloudSyncProviderId>> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     const fallback: ConnectionState = { connectedProviders: [] };
     const parsed = await readJsonFile(this.getConnectionPath(), fallback);
     return new Set(parsed.connectedProviders);
   }
 
   private async writeConnections(connections: Set<CloudSyncProviderId>): Promise<void> {
-    await ensureDirectory(this.baseDir);
+    await this.ensureDirectory(this.baseDir);
     const content = JSON.stringify({ connectedProviders: [...connections] }, null, 2);
     await atomicWrite(this.getConnectionPath(), content);
   }
 
   private async readStatus(providerId: CloudSyncProviderId): Promise<CloudSyncStatus> {
+    await this.ensureDirectory(this.getProviderDir(providerId));
     const statusPath = this.getProviderStatusPath(providerId);
     return readJsonFile(statusPath, DEFAULT_STATUS);
   }
@@ -194,7 +198,7 @@ export class CloudSyncService {
     providerId: CloudSyncProviderId,
     status: CloudSyncStatus
   ): Promise<void> {
-    await ensureDirectory(this.getProviderDir(providerId));
+    await this.ensureDirectory(this.getProviderDir(providerId));
     await atomicWrite(this.getProviderStatusPath(providerId), JSON.stringify(status, null, 2));
   }
 
@@ -258,7 +262,7 @@ export class CloudSyncService {
 
     return this.enqueuePushOperation(request.providerId, request.documentId, async () => {
       const documentPath = this.getDocumentPath(request.providerId, request.documentId);
-      await ensureDirectory(path.dirname(documentPath));
+      await this.ensureDirectory(path.dirname(documentPath));
 
       const current = await readJsonFile<RemoteDocumentRecord | null>(documentPath, null);
       const conflicts: string[] = [];

@@ -7,7 +7,6 @@ import {
   constants,
   fsyncSync,
   lstatSync,
-  mkdirSync,
   openSync,
   readFileSync,
   renameSync,
@@ -19,6 +18,7 @@ import path from 'node:path';
 import { ExportJobSchema, ExportPresetSchema } from '@shared/types/export-model';
 import type { ExportJob, ExportPreset } from '@shared/types/export-model';
 
+import { ensureRealDirectorySync } from './ensure-real-directory';
 import { BUILT_IN_EXPORT_PRESETS } from './built-in-export-presets';
 
 const DIRECTORY_SYNC_UNSUPPORTED = new Set(['EISDIR', 'EPERM', 'ENOTSUP', 'EINVAL']);
@@ -126,7 +126,16 @@ export function readExportState(filePath: string): {
   jobs: Map<string, ExportJob>;
   presets: Map<string, ExportPreset>;
 } {
-  const raw = readLocalText(filePath);
+  let raw: string | null = null;
+  try {
+    ensureRealDirectorySync(path.dirname(filePath));
+    raw = readLocalText(filePath);
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String(error.code) : '';
+    if (code !== 'ENOTDIR') {
+      throw error;
+    }
+  }
   const stored = raw === null ? EMPTY_REGISTRY : parseRegistry(raw);
   const deleted = new Set(stored.deletedBuiltInIds);
   const presets = new Map<string, ExportPreset>();
@@ -160,7 +169,7 @@ export function writeExportState(
       .map((preset) => structuredClone(preset)),
     deletedBuiltInIds: [...builtIns.keys()].filter((id) => !present.has(id)),
   };
-  mkdirSync(path.dirname(filePath), { recursive: true });
+  ensureRealDirectorySync(path.dirname(filePath));
   const tempPath = `${filePath}.${process.pid}.tmp`;
   replaceTempLink(tempPath);
   const handle = openSync(

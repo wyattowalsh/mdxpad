@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-registry.test
  */
 
-import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -139,6 +139,34 @@ describe('PluginRegistry', () => {
     await expect(linkedRegistry.listPlugins()).resolves.toEqual([]);
     expect(await readFile(path.join(outside, 'registry.json'), 'utf-8')).toContain('secret');
     expect((await lstat(linked)).isSymbolicLink()).toBe(false);
+    await rm(outside, { recursive: true, force: true });
+  });
+
+  it('does not read a registry through a linked parent folder', async () => {
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-plugin-parent-out-'));
+    const plugins = path.join(outside, 'plugins');
+    await mkdir(plugins);
+    await writeFile(
+      path.join(plugins, 'registry.json'),
+      JSON.stringify({
+        plugins: [
+          {
+            id: 'secret',
+            manifest: testManifest,
+            state: 'installed',
+            installedAt: 1,
+          },
+        ],
+      })
+    );
+    const appLink = path.join(tempDir, 'mdxpad');
+    await symlink(outside, appLink);
+
+    const linkedRegistry = new PluginRegistry(path.join(appLink, 'plugins'), appLink);
+
+    await expect(linkedRegistry.listPlugins()).resolves.toEqual([]);
+    expect(await readFile(path.join(plugins, 'registry.json'), 'utf8')).toContain('secret');
+    expect((await lstat(appLink)).isSymbolicLink()).toBe(false);
     await rm(outside, { recursive: true, force: true });
   });
 

@@ -235,6 +235,42 @@ describe('ExportOrchestratorService persistence', () => {
     expect(jobs.ok && 'jobs' in jobs && jobs.jobs.some((item) => item.id === job.id)).toBe(true);
   });
 
+  it('does not read an export registry through a linked folder', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-parent-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-parent-out-'));
+    tempDirs.push(root, outside);
+    const secret = path.join(outside, 'export-registry.json');
+    await writeFile(
+      secret,
+      JSON.stringify({
+        jobs: [],
+        presets: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            name: 'Secret Preset',
+            format: 'markdown',
+            options: {},
+          },
+        ],
+        deletedBuiltInIds: [],
+      })
+    );
+    const linked = path.join(root, 'userData');
+    await symlink(outside, linked);
+    const storagePath = path.join(linked, 'export-registry.json');
+
+    const service = new ExportOrchestratorService({ storagePath });
+    const listed = service.handlePresetCrud({ action: 'list' });
+
+    expect(
+      listed.ok &&
+        'presets' in listed &&
+        listed.presets.some((item) => item.name === 'Secret Preset')
+    ).toBe(false);
+    expect(await readFile(secret, 'utf8')).toContain('Secret Preset');
+    expect((await lstat(linked)).isSymbolicLink()).toBe(false);
+  });
+
   it('leaves the preset list unchanged when the save fails', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-export-fail-'));
     tempDirs.push(root);

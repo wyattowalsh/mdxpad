@@ -20,6 +20,7 @@ import type { PluginManifest, PluginRecord } from '@shared/contracts/plugin-sche
 
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { resolveWorkspaceFilePath } from '../ai/agent-path';
+import { resolveAppDirectory } from '../ensure-real-directory';
 import { loadManifest, derivePluginId } from './plugin-manifest';
 import { PluginRegistry } from './plugin-registry';
 
@@ -115,9 +116,10 @@ export class PluginLoader {
   private readonly registry: PluginRegistry;
   private readonly loaded = new Map<string, LoadedPlugin>();
 
-  constructor(pluginDir: string = getDefaultPluginDir()) {
-    this.pluginDir = pluginDir;
-    this.registry = new PluginRegistry(pluginDir);
+  constructor(pluginDir?: string, ownedRoot?: string) {
+    const resolved = resolveAppDirectory(pluginDir, getDefaultPluginDir, ownedRoot);
+    this.pluginDir = resolved.directory;
+    this.registry = new PluginRegistry(this.pluginDir, resolved.ownedRoot);
   }
 
   getRegistry(): PluginRegistry {
