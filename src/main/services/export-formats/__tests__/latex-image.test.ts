@@ -43,4 +43,22 @@ describe('LaTeX local images', () => {
     expect(written).not.toContain('secret.png');
     expect(written).not.toContain('\\includegraphics{../');
   });
+
+  it('keeps an underscore in a picture name', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-latex-image-'));
+    const source = path.join(root, 'note.md');
+    await writeFile(path.join(root, 'my_photo.png'), PNG);
+
+    const result = await new LatexExporter().export({
+      content: '![Shot](my_photo.png)',
+      outputPath: path.join(root, 'out.tex'),
+      sourcePath: source,
+    });
+
+    expect(result.ok).toBe(true);
+    const { writeFile: recorded } = await import('node:fs/promises');
+    const written = (recorded as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    const photo = path.join(root, 'my_photo.png').split(path.sep).join('/');
+    expect(written).toContain(`\\includegraphics{\\detokenize{${photo}}}`);
+  });
 });

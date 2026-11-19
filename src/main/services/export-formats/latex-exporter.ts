@@ -143,7 +143,8 @@ function latexFilename(src: string): string {
   } catch {
     value = src;
   }
-  return value.replaceAll('\\', '/').replaceAll('%', '\\%').replaceAll('}', '');
+  value = value.replaceAll('\\', '/').replaceAll('%', '\\%').replaceAll('}', '');
+  return value.includes('_') ? `\\detokenize{${value}}` : value;
 }
 
 function containedGraphicsPath(src: string): string | null {
