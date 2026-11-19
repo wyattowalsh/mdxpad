@@ -514,6 +514,18 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('10) ten\n    more\n')).toBe('10) ten\n    more');
   });
 
+  it('keeps an escaped entity as text', () => {
+    expect(roundTrip('a\\&amp;b\n')).toBe('a\\&amp;b');
+    expect(roundTrip('a\\&nbsp;b\n')).toBe('a\\&nbsp;b');
+    expect(roundTrip('a\\&#32;b\n')).toBe('a\\&#32;b');
+    expect(roundTrip('AT&T\n')).toBe('AT&T');
+    expect(roundTrip('`&amp;`\n')).toBe('`&amp;`');
+    expect(roundTrip('$a&b$\n')).toContain('$a&b$');
+    expect(roundTrip('&nbsp;keep\n')).toBe('&nbsp;keep');
+    const saved = roundTrip('a\\&amp;b\n');
+    expect(parseMdxContent(`${saved}\n`)?.textContent).toBe('a&amp;b');
+  });
+
   it('keeps tildes inside code', () => {
     expect(roundTrip('`~~~~~~~~`\n')).toBe('`~~~~~~~~`');
     const struck = roundTrip('~~hello `x`~~\n');

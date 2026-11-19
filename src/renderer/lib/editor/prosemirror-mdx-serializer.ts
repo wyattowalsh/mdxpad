@@ -214,7 +214,7 @@ const nodeSerializers: NodeSerializerMap = {
       writer.mathCloser = null;
     }
     writer.mathBreak = false;
-    const text = restorePreservedWhitespace(node.text ?? '');
+    const text = restorePreservedWhitespace(shieldEntityAmpersands(node.text ?? ''));
     if (text === '\u200b' && node.marks.some((mark) => mark.type.name === 'link')) {
       return;
     }
@@ -398,6 +398,15 @@ function nextLiteralSpan(value: string, from: number): LiteralSpan | null {
   return best;
 }
 
+const ENTITY_AMP = '\uE033';
+
+function shieldEntityAmpersands(text: string): string {
+  return text.replace(
+    /&(?:#\d+|#x[\da-fA-F]+|[A-Za-z][A-Za-z0-9]+);/g,
+    (entity) => `${ENTITY_AMP}${entity.slice(1)}`
+  );
+}
+
 function protectTrailingSpaces(
   value: string,
   node: ProseMirrorNode,
@@ -549,7 +558,7 @@ class MdxMarkdownSerializer extends MarkdownSerializer {
         linkLabelOpen(state.out)
       );
     state.renderContent(content);
-    return state.out;
+    return state.out.replaceAll(ENTITY_AMP, '\\&');
   }
 }
 
