@@ -10,6 +10,8 @@ const MATH_UNDER = '\uE018';
 const MATH_DOLLAR = '\uE019';
 const MATH_BACKSLASH = '\uE01A';
 const MATH_LINE = '\uE01B';
+const MATH_ESCAPE = '\uE01C';
+const ESCAPED_PUNCTUATION = /\\([!"#%&'()*+,./:;<=>?@[\]^_`{|}~-])/g;
 
 function takeDollarMath(value: string, index: number): number {
   const delimiter = mathDelimiterAt(value, index);
@@ -35,16 +37,46 @@ function openedInsideQuote(value: string, index: number): boolean {
   return prefix.includes('>') && /^(?:>[ \t]*)+$/.test(prefix);
 }
 
-function shieldMathPiece(value: string, shieldLines: boolean): string {
-  const shielded = value
+interface MathWrap {
+  readonly open: string;
+  readonly close: string;
+  readonly body: string;
+}
+
+function mathWrap(value: string): MathWrap {
+  const delimiter = mathDelimiterAt(value, 0);
+  if (delimiter !== null && value.endsWith(delimiter) && value.length > delimiter.length * 2) {
+    return {
+      open: delimiter,
+      close: delimiter,
+      body: value.slice(delimiter.length, value.length - delimiter.length),
+    };
+  }
+  if (value.startsWith('\\[') && value.endsWith('\\]')) {
+    return { open: '\\[', close: '\\]', body: value.slice(2, -2) };
+  }
+  if (value.startsWith('\\(') && value.endsWith('\\)')) {
+    return { open: '\\(', close: '\\)', body: value.slice(2, -2) };
+  }
+  return { open: '', close: '', body: value };
+}
+
+function shieldMathBody(value: string): string {
+  return value
     .replaceAll('\\\\', MATH_BACKSLASH)
     .replaceAll('\\$', MATH_DOLLAR)
+    .replace(ESCAPED_PUNCTUATION, (_match, punct: string) => `${MATH_ESCAPE}${punct}`)
     .replaceAll('*', MATH_STAR)
     .replaceAll('_', MATH_UNDER);
-  if (!shieldLines || !shielded.includes('\n')) {
-    return shielded;
+}
+
+function shieldMathPiece(value: string, shieldLines: boolean): string {
+  const wrapped = mathWrap(value);
+  let shielded = shieldMathBody(wrapped.body);
+  if (shieldLines && shielded.includes('\n')) {
+    shielded = shielded.replaceAll('\n', `\n${MATH_LINE}`);
   }
-  return shielded.replaceAll('\n', `\n${MATH_LINE}`);
+  return `${wrapped.open}${shielded}${wrapped.close}`;
 }
 
 /** Keep emphasis markers inside formulas from being parsed as Markdown. */
@@ -78,6 +110,7 @@ export function restoreMathMarkup(value: string): string {
     .replaceAll(MATH_STAR, '*')
     .replaceAll(MATH_UNDER, '_')
     .replaceAll(MATH_DOLLAR, '\\$')
+    .replaceAll(MATH_ESCAPE, '\\')
     .replaceAll(MATH_BACKSLASH, '\\\\');
 }
 

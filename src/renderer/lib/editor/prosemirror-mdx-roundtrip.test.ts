@@ -138,6 +138,14 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('%20');
   });
 
+  it('keeps a TeX escape inside a formula', () => {
+    expect(roundTrip('$\\{x\\}$\n')).toContain('$\\{x\\}$');
+    expect(roundTrip('$a\\|b$\n')).toContain('$a\\|b$');
+    expect(roundTrip('$\\#$\n')).toContain('$\\#$');
+    expect(roundTrip('$\\alpha$\n')).toContain('$\\alpha$');
+    expect(roundTrip('\\(\\{x\\}\\)\n')).toContain('\\(\\{x\\}\\)');
+  });
+
   it('keeps asterisks inside a formula', () => {
     expect(roundTrip('$a*b*c$\n')).toContain('$a*b*c$');
     expect(roundTrip('$a*\\$b*$\n')).toContain('$a*\\$b*$');
