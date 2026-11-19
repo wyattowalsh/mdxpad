@@ -5,6 +5,8 @@ import {
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
+import { confineNavigationTag } from './preview-navigation-address';
+
 function withoutHiddenBreaks(value: string): string {
   let result = '';
   for (const char of value) {
@@ -245,7 +247,7 @@ function nextAttribute(name: string, value: string): { readonly value: unknown }
   if (name === 'srcdoc') {
     return { value: undefined };
   }
-  if (name === 'srcset') {
+  if (name === 'srcset' || name === 'imagesrcset') {
     const kept = filterSrcSet(value, (url) => isBlockedPreviewResource(url));
     return kept === value ? undefined : { value: kept };
   }
@@ -265,6 +267,7 @@ function nextAttribute(name: string, value: string): { readonly value: unknown }
 
 const REACT_ATTRIBUTE_NAMES: Readonly<Record<string, string>> = {
   srcset: 'srcSet',
+  imagesrcset: 'imageSrcSet',
   formaction: 'formAction',
   xlinkhref: 'xlinkHref',
   'xlink:href': 'xlinkHref',
@@ -358,7 +361,11 @@ export function confinePreviewElement(type: unknown, props: unknown): unknown {
   if (confined === null || typeof confined !== 'object') {
     return confined;
   }
-  const record = confined as Record<string, unknown>;
+  const record = confineNavigationTag(
+    type,
+    confined as Record<string, unknown>,
+    isBlockedPreviewResource
+  );
   const withoutResourceHref = loadsResourceHref(type) ? omitBlockedResourceHref(record) : record;
   if (type !== 'style') {
     return withoutResourceHref;

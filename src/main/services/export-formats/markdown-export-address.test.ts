@@ -127,6 +127,23 @@ describe('sanitizeExportedHtml', () => {
     );
   });
 
+  it('drops a local file from an image source set', () => {
+    expect(
+      sanitizeExportedHtml(
+        '<img imagesrcset="file:///etc/passwd 1x, https://example.com/a.png 2x" alt="x">'
+      )
+    ).not.toContain('file:');
+    expect(sanitizeExportedHtml('<img imagesrcset="../secret.png 1x" alt="x">')).not.toContain(
+      'secret'
+    );
+    expect(sanitizeExportedHtml('<img imagesrcset="./pixel.png 2x" alt="x">')).toContain(
+      './pixel.png'
+    );
+    expect(sanitizeExportedHtml('<img imagesrcset="https://example.com/a.png 2x" alt="x">')).toContain(
+      'https://example.com/a.png'
+    );
+  });
+
   it('drops a parent path from an svg image and keeps a document link', () => {
     expect(sanitizeExportedTag('<image href="../secret.png">')).toBe('<image>');
     expect(sanitizeExportedTag('<feImage href="../secret.png">')).toBe('<feImage>');

@@ -123,6 +123,53 @@ describe('isBlockedPreviewHref', () => {
     }) as { filter?: string };
     expect(escaped.filter).toBeUndefined();
   });
+
+  it('drops a parent file from a base, a stylesheet, a refresh, and an image source set', () => {
+    const base = confinePreviewElement('base', { href: '../' }) as { href?: string };
+    expect(base.href).toBeUndefined();
+    const remoteBase = confinePreviewElement('base', { href: 'https://example.com/' }) as {
+      href?: string;
+    };
+    expect(remoteBase.href).toBeUndefined();
+
+    const sheet = confinePreviewElement('link', {
+      rel: 'stylesheet',
+      href: '../secret.css',
+    }) as { href?: string };
+    expect(sheet.href).toBeUndefined();
+    const localSheet = confinePreviewElement('link', {
+      rel: 'stylesheet',
+      href: './local.css',
+    }) as { href?: string };
+    expect(localSheet.href).toBe('./local.css');
+
+    const refresh = confinePreviewElement('meta', {
+      httpEquiv: 'refresh',
+      content: '0;url=file:///etc/passwd',
+    }) as { content?: string };
+    expect(refresh.content).toBeUndefined();
+    const parentRefresh = confinePreviewElement('meta', {
+      'http-equiv': 'refresh',
+      content: '0; url=../secret.html',
+    }) as { content?: string };
+    expect(parentRefresh.content).toBeUndefined();
+    const remoteRefresh = confinePreviewElement('meta', {
+      httpEquiv: 'refresh',
+      content: '0;url=https://example.com',
+    }) as { content?: string };
+    expect(remoteRefresh.content).toBe('0;url=https://example.com');
+
+    const area = confinePreviewElement('area', { href: '../secret.png' }) as { href?: string };
+    expect(area.href).toBeUndefined();
+    const note = confinePreviewElement('a', { href: '../notes/a.md' }) as { href?: string };
+    expect(note.href).toBe('../notes/a.md');
+
+    const sources = confinePreviewElement('img', {
+      alt: 'pic',
+      imageSrcSet: 'file:///etc/passwd 1x, https://example.com/a.png 2x',
+    }) as { imageSrcSet?: string };
+    expect(sources.imageSrcSet).toBe('https://example.com/a.png 2x');
+  });
 });
 
 describe('preview anchor', () => {

@@ -162,6 +162,38 @@ describe('createModuleFromCode', () => {
     }
   });
 
+  it('drops a parent file from a base, a stylesheet, and a refresh', async () => {
+    const source = [
+      '<base href="../">',
+      '<link rel="stylesheet" href="../secret.css">',
+      '<link rel="alternate" href="./local.css">',
+      '<meta http-equiv="refresh" content="0;url=file:///etc/passwd">',
+      '<area href="../secret.png" alt="map">',
+      '<img alt="pic" imagesrcset="../secret.png 1x, https://example.com/a.png 2x">',
+      '<a href="../notes/a.md">Notes</a>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('raw-parent-file'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    render(<module.default />);
+    expect(document.querySelector('base')?.getAttribute('href')).toBeNull();
+    expect(document.querySelector('link[rel="stylesheet"]')?.getAttribute('href')).toBeNull();
+    expect(document.querySelector('link[rel="alternate"]')?.getAttribute('href')).toBe('./local.css');
+    expect(document.querySelector('meta')?.getAttribute('content')).toBeNull();
+    expect(document.querySelector('area')?.getAttribute('href')).toBeNull();
+    expect(document.body.innerHTML).not.toContain('secret');
+    expect(document.body.innerHTML).not.toContain('file:');
+    expect(document.head.innerHTML).not.toContain('secret');
+    expect(document.head.innerHTML).not.toContain('file:');
+    expect(document.querySelector('img')?.getAttribute('imagesrcset')).toBe(
+      'https://example.com/a.png 2x'
+    );
+    expect(document.querySelector('a')?.getAttribute('href')).toBe('../notes/a.md');
+  });
+
   it('drops a local file from a style element', async () => {
     const source = [
       '<style>body{background:url(file:///etc/passwd);color:red} @import "file:///etc/passwd.css";</style>',

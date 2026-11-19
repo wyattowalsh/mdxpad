@@ -20,6 +20,7 @@ const URL_ATTRIBUTES = new Set([
   'cite',
   'background',
   'srcset',
+  'imagesrcset',
   'xlink:href',
 ]);
 
@@ -127,7 +128,7 @@ function srcsetAllowed(value: string): boolean {
 }
 
 function attributeAllowed(name: string, value: string): boolean {
-  if (name === 'srcset') {
+  if (name === 'srcset' || name === 'imagesrcset') {
     return srcsetAllowed(value);
   }
   if (name === 'action' || name === 'formaction') {
