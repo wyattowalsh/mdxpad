@@ -24,4 +24,14 @@ describe('disarmFileReadsInMath', () => {
     expect(formula).toContain('\\frac{1}{2}');
     expect(next).toContain('```\n\\input{secret.tex}\n```');
   });
+
+  it('turns a constructed file command inside a formula into text', () => {
+    const source = '$$\n\\@@input{secret}\n$$\n\n$\\csname input\\endcsname{secret}$ and $\\frac{1}{2}$.\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\@@input');
+    expect(next).not.toContain('\\csname');
+    expect(next).toContain('\\relax @@input');
+    expect(next).toContain('\\relax csname');
+    expect(next).toContain('\\frac{1}{2}');
+  });
 });
