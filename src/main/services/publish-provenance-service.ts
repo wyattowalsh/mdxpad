@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app } from 'electron';
@@ -26,20 +26,32 @@ async function ensureDirectory(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+async function readRegularText(filePath: string): Promise<string | null> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    const info = await fs.lstat(filePath);
-    if (info.isSymbolicLink() || !info.isFile()) {
-      return fallback;
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      return null;
     }
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as T;
+    return await handle.readFile({ encoding: 'utf8' });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return fallback;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
+      return null;
     }
     throw error;
+  } finally {
+    await handle?.close();
   }
+}
+
+async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+  const content = await readRegularText(filePath);
+  if (content === null) {
+    return fallback;
+  }
+  return JSON.parse(content) as T;
 }
 
 async function detachFileLink(filePath: string): Promise<void> {
@@ -168,11 +180,10 @@ export class PublishProvenanceService {
   public async listProvenance(sourcePath?: string): Promise<ProvenanceRecord[]> {
     try {
       const provenancePath = this.getProvenancePath();
-      const info = await fs.lstat(provenancePath);
-      if (info.isSymbolicLink() || !info.isFile()) {
+      const content = await readRegularText(provenancePath);
+      if (content === null) {
         return [];
       }
-      const content = await fs.readFile(provenancePath, 'utf-8');
       const records = content
         .split('\n')
         .map((line) => line.trim())
