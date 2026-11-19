@@ -1688,13 +1688,11 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
   flushPendingParagraph(parse);
   if (openListItem) {
     parse.openListItem = openListItem;
-    if (!parse.listBreak) {
-      parse.listBreak = true;
-      if (!parse.listSealed) {
-        parse.listParagraphBreak = true;
-        parse.tailText = null;
-        parse.tailOpen = false;
-      }
+    parse.listBreak = true;
+    if (!parse.listSealed) {
+      parse.listParagraphBreak = true;
+      parse.tailText = null;
+      parse.tailOpen = false;
     }
     return;
   }

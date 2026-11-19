@@ -69,6 +69,27 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('$x^2$');
   });
 
+  it('keeps list paragraphs separate', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- alpha\n\n  beta\n\n  gamma\n',
+      outputPath: '/tmp/list-paragraphs.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); paras=xml.split("<w:p>");\nfor p in paras[1:]:\n t="".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p)).strip();\n if t: print(t)',
+      ],
+      { input: buffer }
+    );
+    const lines = extracted.stdout.toString().trim().split('\n');
+    expect(lines).toContain('beta');
+    expect(lines).toContain('gamma');
+    expect(lines).not.toContain('beta gamma');
+  });
+
   it('keeps a paragraph after a nested list indented', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
