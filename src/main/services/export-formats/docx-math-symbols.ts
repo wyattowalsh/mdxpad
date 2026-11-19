@@ -149,3 +149,23 @@ export const DELIMITER_COMMANDS = new Set([
   'Biggr',
   'Biggm',
 ]);
+
+export const STYLE_COMMANDS = new Set([
+  'limits',
+  'nolimits',
+  'displaystyle',
+  'textstyle',
+  'scriptstyle',
+  'scriptscriptstyle',
+]);
+
+export const ATOM_COMMANDS = new Set([
+  'mathop',
+  'mathord',
+  'mathbin',
+  'mathrel',
+  'mathopen',
+  'mathclose',
+  'mathpunct',
+  'mathinner',
+]);

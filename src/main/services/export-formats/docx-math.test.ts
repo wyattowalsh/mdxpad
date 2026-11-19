@@ -90,6 +90,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('leaves a style command out of the formula', () => {
+    const limited = runText(mathComponents('\\sum\\limits_{i=1}^{n}'));
+    expect(limited).toBe('∑i=1n');
+    expect(limited).not.toContain('limits');
+    expect(runText(mathComponents('\\displaystyle x'))).toBe(' x');
+    expect(runText(mathComponents('\\mathbin{+}'))).toBe('+');
+  });
+
   it('writes a modulus as the word mod', () => {
     const parenthesized = mathComponents('\\pmod{n}');
     expect(parenthesized).toHaveLength(1);

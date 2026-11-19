@@ -8,7 +8,15 @@ import {
   type MathComponent,
 } from 'docx';
 
-import { ACCENTS, DELIMITER_COMMANDS, NEGATED, SYMBOLS, TEXT_COMMANDS } from './docx-math-symbols';
+import {
+  ACCENTS,
+  ATOM_COMMANDS,
+  DELIMITER_COMMANDS,
+  NEGATED,
+  STYLE_COMMANDS,
+  SYMBOLS,
+  TEXT_COMMANDS,
+} from './docx-math-symbols';
 import { readCodeSpan } from './markdown-escape';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
@@ -108,6 +116,12 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (DELIMITER_COMMANDS.has(name)) {
     skipDelimiter(cursor);
     return [];
+  }
+  if (STYLE_COMMANDS.has(name)) {
+    return [];
+  }
+  if (ATOM_COMMANDS.has(name)) {
+    return readGroup(cursor);
   }
   if (name === 'begin' || name === 'end') {
     readGroup(cursor);
