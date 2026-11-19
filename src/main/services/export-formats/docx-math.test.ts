@@ -205,6 +205,17 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
   });
 
+  it('puts an equation number in parentheses', () => {
+    const tagged = mathComponents('a+b\\tag{1}');
+    expect(tagged.at(-1)).toBeInstanceOf(MathRoundBrackets);
+    expect(runText(tagged)).toBe('a+b1');
+    const starred = mathComponents('x\\tag*{2}');
+    expect(starred.at(-1)).toBeInstanceOf(MathRoundBrackets);
+    expect(runText(starred)).toBe('x2');
+    expect(runText(mathComponents('a\\notag'))).toBe('a');
+    expect(runText(mathComponents('b\\nonumber'))).toBe('b');
+  });
+
   it('keeps the words of a font command and drops a color name', () => {
     expect(runText(mathComponents('\\textbf{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\boldsymbol{x}'))).toBe('x');

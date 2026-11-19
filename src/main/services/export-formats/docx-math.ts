@@ -10,7 +10,7 @@ import {
 } from 'docx';
 
 import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
-import { pushScript, scriptBase, takeInfix } from './docx-math-script';
+import { equationTag, pushScript, scriptBase, takeInfix } from './docx-math-script';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -129,6 +129,8 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
     readGroup(cursor);
     return [];
   }
+  if (name === 'notag' || name === 'nonumber') return [];
+  if (name === 'tag') return equationTag(cursor, () => readGroup(cursor));
   if (TEXT_COMMANDS.has(name)) {
     cursor.literal = (cursor.literal ?? 0) + 1;
     const parts = readGroup(cursor);

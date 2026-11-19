@@ -170,6 +170,16 @@ export function takeInfix(
   return true;
 }
 
+export function equationTag(
+  cursor: { source: string; index: number },
+  readGroup: () => readonly MathComponent[],
+): MathComponent[] {
+  if (cursor.source[cursor.index] === '*') {
+    cursor.index += 1;
+  }
+  return [new MathRoundBrackets({ children: readGroup() })];
+}
+
 export function pushScript(
   cursor: { source: string; index: number },
   components: MathComponent[],
