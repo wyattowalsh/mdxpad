@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { markdownToPdfHtml } from './pdf-exporter';
 import { joinParagraphHtml, readSourceLine } from './markdown-paragraph';
 
 describe('readSourceLine', () => {
@@ -35,6 +36,18 @@ describe('readSourceLine', () => {
     expect(joinParagraphHtml([readSourceLine('**hello\\'), readSourceLine('world**')], bold)).toBe(
       '<strong>hello</strong><br /><strong>world</strong>'
     );
+  });
+
+  it('keeps a formula together across a hard break', () => {
+    const html = joinParagraphHtml(
+      [readSourceLine('See $x  '), readSourceLine('y$')],
+      (text) => text
+    );
+    expect(html).toBe('See $x   y$');
+    expect(html).not.toContain('<br');
+    const preview = markdownToPdfHtml('Hard \\(x  \ny\\)\n');
+    expect(preview).toContain('class="katex"');
+    expect(preview).not.toContain('$x');
   });
 
   it('keeps a wrapped code span together', () => {

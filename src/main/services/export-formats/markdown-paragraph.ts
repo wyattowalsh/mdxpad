@@ -1,3 +1,5 @@
+import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
+
 export interface SourceLine {
   readonly text: string;
   readonly hardBreak: boolean;
@@ -70,6 +72,25 @@ function codeSpanCovers(text: string, position: number): boolean {
   return false;
 }
 
+function mathCovers(text: string, position: number): boolean {
+  let index = 0;
+  while (index < text.length && index <= position) {
+    const delimiter = mathDelimiterAt(text, index);
+    if (delimiter !== null) {
+      const end = mathSpanEnd(text, index, delimiter);
+      if (end !== -1) {
+        if (index < position && end > position) {
+          return true;
+        }
+        index = end;
+        continue;
+      }
+    }
+    index += text[index] === '\\' ? 2 : 1;
+  }
+  return false;
+}
+
 function rawLine(line: SourceLine): string {
   return `${line.leading ?? ''}${line.text}${line.codeSuffix ?? ''}`;
 }
@@ -82,7 +103,7 @@ export function paragraphSegments(lines: readonly SourceLine[]): string[] {
   let offset = 0;
   for (const line of lines) {
     const end = offset + rawLine(line).length;
-    const covered = line.hardBreak && codeSpanCovers(raw, end);
+    const covered = line.hardBreak && (codeSpanCovers(raw, end) || mathCovers(raw, end));
     const continued = offset > 0 && codeSpanCovers(raw, offset - 1);
     const suffix = covered ? (line.codeSuffix ?? '') : '';
     const leading = continued ? (line.leading ?? '') : '';
