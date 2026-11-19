@@ -5,6 +5,8 @@
 
 import path from 'node:path';
 
+import { decodeCssEscapes } from '@shared/lib/css-escape';
+
 import { resolveWorkspaceFilePath } from '../ai/agent-path';
 
 import { decodeHtmlEntities } from './markdown-entity';
@@ -64,6 +66,29 @@ function htmlImage(tag: string): { src: string; alt: string } | null {
 
 const RESOURCE_TAGS = new Set(['img', 'video', 'audio', 'source', 'track', 'image', 'use']);
 
+const HREF_TAGS = new Set([
+  'image',
+  'use',
+  'feimage',
+  'cursor',
+  'filter',
+  'pattern',
+  'mask',
+  'clippath',
+  'marker',
+  'textpath',
+  'mpath',
+  'lineargradient',
+  'radialgradient',
+  'meshgradient',
+  'animate',
+  'animatetransform',
+  'animatemotion',
+  'set',
+  'femergenode',
+  'discard',
+]);
+
 function elementName(tag: string): string {
   return (/^<\s*([A-Za-z][A-Za-z0-9:-]*)/.exec(tag)?.[1] ?? '').toLowerCase();
 }
@@ -89,20 +114,44 @@ function replaceAttribute(tag: string, name: string, value: string): string {
 }
 
 function resourceAttributes(name: string): readonly string[] {
-  const href = name === 'image' || name === 'use' ? ['href', 'xlink:href'] : [];
-  return ['src', 'poster', 'srcset', 'imagesrcset', ...href];
+  const href = HREF_TAGS.has(name) ? ['href', 'xlink:href'] : [];
+  const media = RESOURCE_TAGS.has(name) ? ['src', 'poster', 'srcset', 'imagesrcset'] : [];
+  return [...media, ...href];
+}
+
+function cssAddress(address: string): string {
+  return decodeCssEscapes(decodeHtmlEntities(address.trim()));
+}
+
+function rewriteCssUrls(css: string, root: string | null): string {
+  return css.replace(
+    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)/gi,
+    (full, _quote: string | undefined, quoted: string | undefined, bare: string | undefined) => {
+      const address = cssAddress(quoted ?? bare ?? '');
+      return pictureAllowed(address, root) ? full : 'none';
+    }
+  );
+}
+
+function rewriteStyleAttribute(tag: string, root: string | null): string {
+  const value = tagAttribute(tag, 'style');
+  if (value === null || !/url\s*\(/i.test(value)) {
+    return tag;
+  }
+  const rewritten = rewriteCssUrls(value, root);
+  return rewritten === value ? tag : replaceAttribute(tag, 'style', rewritten);
 }
 
 function rewriteResourceTag(tag: string, root: string | null): string {
   const name = elementName(tag);
-  if (!RESOURCE_TAGS.has(name)) {
-    return tag;
-  }
   if (name === 'img') {
     const image = htmlImage(tag);
     if (image && !pictureAllowed(image.src, root)) {
       return image.alt;
     }
+  }
+  if (!RESOURCE_TAGS.has(name) && !HREF_TAGS.has(name)) {
+    return rewriteStyleAttribute(tag, root);
   }
   let next = tag;
   for (const attr of resourceAttributes(name)) {
@@ -123,13 +172,24 @@ function rewriteResourceTag(tag: string, root: string | null): string {
       next = dropAttribute(next, attr);
     }
   }
-  return next;
+  return rewriteStyleAttribute(next, root);
 }
 
-function rewriteHtmlImages(line: string, root: string | null): string {
+function rewriteHtmlImages(line: string, root: string | null, style: { open: boolean }): string {
   let result = '';
   let index = 0;
   while (index < line.length) {
+    if (style.open) {
+      const close = /<\/style\s*>/i.exec(line.slice(index));
+      if (!close) {
+        result += rewriteCssUrls(line.slice(index), root);
+        return result;
+      }
+      result += rewriteCssUrls(line.slice(index, index + close.index), root);
+      index += close.index;
+      style.open = false;
+      continue;
+    }
     if (line[index] !== '<') {
       result += line[index] ?? '';
       index += 1;
@@ -140,7 +200,11 @@ function rewriteHtmlImages(line: string, root: string | null): string {
       result += line.slice(index);
       break;
     }
-    result += rewriteResourceTag(line.slice(index, end), root);
+    const tag = line.slice(index, end);
+    result += rewriteResourceTag(tag, root);
+    if (/^<\s*style\b/i.test(tag) && !/^<\s*\//.test(tag)) {
+      style.open = true;
+    }
     index = end;
   }
   return result;
@@ -164,13 +228,18 @@ export function omitLocalMarkdownTargets(
 ): string {
   const root = sourcePath ? path.dirname(path.resolve(sourcePath)) : null;
   let fence: string | null = null;
+  const style = { open: false };
   return content
     .split('\n')
     .map((line) => {
       const next = advanceFence(line, fence);
       const boundary = fence !== next;
       fence = next;
-      return fence || boundary ? line : rewriteHtmlImages(rewriteLine(line, root), root);
+      if (fence || boundary) {
+        return line;
+      }
+      const source = style.open ? line : rewriteLine(line, root);
+      return rewriteHtmlImages(source, root, style);
     })
     .join('\n');
 }
