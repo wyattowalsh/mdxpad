@@ -9,6 +9,7 @@ const MATH_STAR = '\uE017';
 const MATH_UNDER = '\uE018';
 const MATH_DOLLAR = '\uE019';
 const MATH_BACKSLASH = '\uE01A';
+const MATH_LINE = '\uE01B';
 
 function takeDollarMath(value: string, index: number): number {
   const delimiter = mathDelimiterAt(value, index);
@@ -29,11 +30,15 @@ function takeTexMath(value: string, index: number): number {
 }
 
 function shieldMathPiece(value: string): string {
-  return value
+  const shielded = value
     .replaceAll('\\\\', MATH_BACKSLASH)
     .replaceAll('\\$', MATH_DOLLAR)
     .replaceAll('*', MATH_STAR)
     .replaceAll('_', MATH_UNDER);
+  if (!shielded.startsWith('$$') || !shielded.includes('\n')) {
+    return shielded;
+  }
+  return shielded.replaceAll('\n', `\n${MATH_LINE}`);
 }
 
 /** Keep emphasis markers inside formulas from being parsed as Markdown. */
@@ -63,6 +68,7 @@ export function shieldMathMarkup(value: string): string {
 
 export function restoreMathMarkup(value: string): string {
   return value
+    .replaceAll(MATH_LINE, '')
     .replaceAll(MATH_STAR, '*')
     .replaceAll(MATH_UNDER, '_')
     .replaceAll(MATH_DOLLAR, '\\$')
