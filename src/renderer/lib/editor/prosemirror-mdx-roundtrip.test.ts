@@ -721,6 +721,22 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('\\*\\*\\*\n')).toBe('\\*\\*\\*');
   });
 
+  it('keeps a formula that contains a link', () => {
+    const source = 'See \\(x and [a \\)](https://example.com) y\\).\n';
+    const once = roundTrip(source);
+    expect(once).toContain('\\(x and [a \\)](https://example.com) y\\)');
+    expect(once).not.toContain('y\\\\)');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
+  it('keeps a formula closer after struck text', () => {
+    const source = 'See \\(x ~~y\\)~~ z\\).\n';
+    const once = roundTrip(source);
+    expect(once).toContain('~~y\\)~~');
+    expect(once).toContain('z\\)');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
   it('keeps nested emphasis on the same words', () => {
     expect(roundTrip('***foo** bar*\n')).toBe('***foo** bar*');
     expect(roundTrip('***foo* bar**\n')).toBe('***foo* bar**');

@@ -234,6 +234,13 @@ const nodeSerializers: NodeSerializerMap = {
     if (text === '\u200b' && node.marks.some((mark) => mark.type.name === 'link')) {
       return;
     }
+    const insideMarkedMath =
+      writer.mathCloser !== null &&
+      node.marks.some((mark) => mark.type.name === 'link' || mark.type.name === 'strikethrough');
+    if (insideMarkedMath) {
+      state.text(text, false);
+      return;
+    }
     if (/^\\[[\]()]$/.test(text)) {
       state.text(text, false);
       writer.mathCloser = text === '\\[' ? '\\]' : text === '\\(' ? '\\)' : null;

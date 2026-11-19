@@ -2,6 +2,7 @@ import { flanking } from '@shared/lib/emphasis-flank';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 import { readCodeSpan } from './markdown-escape';
+import { linkedDollarSpan } from './markdown-linked-math';
 import { readMarkdownTarget } from './markdown-link';
 
 export { canOpenEmphasis, canOpenStrikethrough } from '@shared/lib/emphasis-flank';
@@ -37,6 +38,11 @@ function collectRuns(value: string): DelimiterRun[] {
     const mathEnd = value[index] === '$' ? readInlineMath(value, index) : -1;
     if (mathEnd !== -1) {
       index = mathEnd;
+      continue;
+    }
+    const linked = value[index] === '$' ? linkedDollarSpan(value, index) : null;
+    if (linked) {
+      index = linked.end;
       continue;
     }
     if (value[index] === '!' || value[index] === '[') {

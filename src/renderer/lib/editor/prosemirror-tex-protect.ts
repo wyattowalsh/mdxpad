@@ -19,6 +19,14 @@ function takeDollarMath(value: string, index: number): number {
   return delimiter === null ? -1 : mathSpanEnd(value, index, delimiter);
 }
 
+function strikeEnd(value: string, index: number): number {
+  if (!value.startsWith('~~', index)) {
+    return -1;
+  }
+  const end = value.indexOf('~~', index + 2);
+  return end === -1 ? -1 : end + 2;
+}
+
 function texCloser(value: string, from: number, close: string): number {
   let index = from;
   while (index < value.length) {
@@ -30,6 +38,11 @@ function texCloser(value: string, from: number, close: string): number {
     const link = readLinkSpan(value, index);
     if (link) {
       index = link.next;
+      continue;
+    }
+    const strike = strikeEnd(value, index);
+    if (strike !== -1) {
+      index = strike;
       continue;
     }
     if (value.startsWith('\\\\', index)) {
@@ -441,6 +454,11 @@ function matchedTex(value: string): Set<number> {
     const link = readLinkSpan(value, index);
     if (link) {
       index = link.next;
+      continue;
+    }
+    const strike = strikeEnd(value, index);
+    if (strike !== -1) {
+      index = strike;
       continue;
     }
     const destination = readDestination(value, index);
