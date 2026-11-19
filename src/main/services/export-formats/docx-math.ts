@@ -52,7 +52,24 @@ const TEXT_COMMANDS = new Set([
   'mathtt',
   'operatorname',
   'hbox',
+  'mathbb',
+  'mathcal',
+  'mathfrak',
+  'mathscr',
 ]);
+
+const ACCENTS: Record<string, string> = {
+  hat: '\u0302',
+  widehat: '\u0302',
+  bar: '\u0304',
+  overline: '\u0305',
+  vec: '\u20D7',
+  overrightarrow: '\u20D7',
+  dot: '\u0307',
+  ddot: '\u0308',
+  tilde: '\u0303',
+  widetilde: '\u0303',
+};
 
 const DELIMITER_COMMANDS = new Set([
   'left',
@@ -158,6 +175,10 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (name === 'sqrt') {
     return readRadical(cursor);
   }
+  const accent = ACCENTS[name];
+  if (accent !== undefined) {
+    return readAccent(cursor, accent);
+  }
   const symbol = SYMBOLS[name];
   return [new MathRun(symbol ?? name)];
 }
@@ -188,6 +209,31 @@ function readOptionalBracket(cursor: Cursor): MathComponent[] | null {
     cursor.index += 1;
   }
   return parts;
+}
+
+function nestedRoot(value: object): readonly unknown[] | null {
+  const root: unknown = Object.getOwnPropertyDescriptor(value, 'root')?.value;
+  return Array.isArray(root) ? root : null;
+}
+
+function mathRunText(run: MathRun): string {
+  const outer = nestedRoot(run);
+  const inner = outer?.[0];
+  if (typeof inner !== 'object' || inner === null) {
+    return '';
+  }
+  const text = nestedRoot(inner)?.[0];
+  return typeof text === 'string' ? text : '';
+}
+
+function readAccent(cursor: Cursor, mark: string): MathComponent[] {
+  const parts = readGroup(cursor);
+  const last = parts[parts.length - 1];
+  if (last instanceof MathRun) {
+    parts[parts.length - 1] = new MathRun(`${mathRunText(last)}${mark}`);
+    return parts;
+  }
+  return [...parts, new MathRun(mark)];
 }
 
 function readBinom(cursor: Cursor): MathComponent[] {

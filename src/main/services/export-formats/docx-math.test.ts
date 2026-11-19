@@ -61,6 +61,13 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('keeps an accent on its symbol', () => {
+    expect(runText(mathComponents('\\hat{x}'))).toBe('x\u0302');
+    expect(runText(mathComponents('\\overline{ab}'))).toBe('ab\u0305');
+    expect(runText(mathComponents('\\vec{v}'))).toBe('v\u20D7');
+    expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
+  });
+
   it('keeps both parts of a binomial', () => {
     const binom = mathComponents('\\binom{n}{k+1}');
     expect(binom).toHaveLength(1);
