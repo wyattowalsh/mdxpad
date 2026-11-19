@@ -1,4 +1,4 @@
-import { MathFraction, MathRun, MathSuperScript } from 'docx';
+import { MathFraction, MathRadical, MathRun, MathSuperScript } from 'docx';
 import { describe, expect, it } from 'vitest';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
@@ -19,14 +19,30 @@ describe('splitDocxPieces', () => {
 });
 
 function runText(components: readonly object[]): string {
-  return components
-    .filter((component) => component instanceof MathRun)
-    .map((component) => {
+  const parts: string[] = [];
+  const visit = (component: object): void => {
+    if (component instanceof MathRun) {
       const run = component as MathRun & { root: { root: unknown[] }[] };
       const text = run.root[0]?.root[0];
-      return typeof text === 'string' ? text : '';
-    })
-    .join('');
+      if (typeof text === 'string') {
+        parts.push(text);
+      }
+      return;
+    }
+    const children = (component as { root?: unknown }).root;
+    if (!Array.isArray(children)) {
+      return;
+    }
+    for (const child of children) {
+      if (typeof child === 'object' && child !== null) {
+        visit(child);
+      }
+    }
+  };
+  for (const component of components) {
+    visit(component);
+  }
+  return parts.join('');
 }
 
 describe('mathComponents', () => {
@@ -43,6 +59,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\text{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\sum'))).toBe('∑');
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
+  });
+
+  it('keeps the radicand of a root with an index', () => {
+    const indexed = mathComponents('\\sqrt[3]{a+b}');
+    expect(indexed).toHaveLength(1);
+    expect(indexed[0]).toBeInstanceOf(MathRadical);
+    expect(runText(indexed)).toBe('3a+b');
+    expect(runText(mathComponents('\\sqrt{8}'))).toBe('8');
   });
 
   it('builds a superscript and a fraction', () => {

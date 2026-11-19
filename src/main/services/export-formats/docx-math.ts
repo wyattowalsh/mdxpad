@@ -152,7 +152,7 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
     ];
   }
   if (name === 'sqrt') {
-    return [new MathRadical({ children: readGroup(cursor) })];
+    return readRadical(cursor);
   }
   const symbol = SYMBOLS[name];
   return [new MathRun(symbol ?? name)];
@@ -172,6 +172,27 @@ function readCommand(cursor: Cursor): MathComponent[] {
     return readEscapedSymbol(cursor);
   }
   return commandComponents(cursor, name);
+}
+
+function readOptionalBracket(cursor: Cursor): MathComponent[] | null {
+  if (cursor.source[cursor.index] !== '[') {
+    return null;
+  }
+  cursor.index += 1;
+  const parts = readSequence(cursor, ']');
+  if (cursor.source[cursor.index] === ']') {
+    cursor.index += 1;
+  }
+  return parts;
+}
+
+function readRadical(cursor: Cursor): MathComponent[] {
+  const degree = readOptionalBracket(cursor);
+  const children = readGroup(cursor);
+  if (degree === null) {
+    return [new MathRadical({ children })];
+  }
+  return [new MathRadical({ children, degree })];
 }
 
 function readGroup(cursor: Cursor): MathComponent[] {
