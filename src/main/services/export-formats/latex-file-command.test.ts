@@ -43,4 +43,14 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\relax pdffiledump');
     expect(next).toContain('\\relax special');
   });
+
+  it('turns a Lua or shell command inside a formula into text', () => {
+    const source = '$$\n\\directlua{io.open("secret")}\n$$\n\n$\\ShellEscape{cat secret}$ and $\\frac{1}{2}$.\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\directlua');
+    expect(next).not.toContain('\\ShellEscape');
+    expect(next).toContain('\\relax directlua');
+    expect(next).toContain('\\relax ShellEscape');
+    expect(next).toContain('\\frac{1}{2}');
+  });
 });

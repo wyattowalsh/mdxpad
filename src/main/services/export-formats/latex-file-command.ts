@@ -6,8 +6,33 @@
 import { mapFencedProse } from '@shared/lib/markdown-math';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
-const LATEX_FILE_READ =
-  /\\(?:@@input|includegraphics|InputIfFileExists|lstinputlisting|verbatiminput|pdffilemoddate|pdffiledump|pdffilesize|pdfximage|newwrite|newread|openout|openin|include|special|csname|input|write|read)\b/g;
+const LATEX_FILE_COMMANDS = [
+  '@@input',
+  'includegraphics',
+  'InputIfFileExists',
+  'lstinputlisting',
+  'verbatiminput',
+  'pdffilemoddate',
+  'pdffiledump',
+  'pdffilesize',
+  'pdfximage',
+  'ShellEscape',
+  'directlua',
+  'luadirect',
+  'luaexec',
+  'newwrite',
+  'newread',
+  'openout',
+  'openin',
+  'include',
+  'special',
+  'csname',
+  'input',
+  'write',
+  'read',
+];
+
+const LATEX_FILE_READ = new RegExp(`\\\\(?:${LATEX_FILE_COMMANDS.join('|')})\\b`, 'g');
 
 export function disarmLatexFileRead(value: string): string {
   return value.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
