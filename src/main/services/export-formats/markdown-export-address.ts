@@ -307,6 +307,9 @@ export function sanitizeExportedTag(tag: string): string {
     /[\s/]+([^\s=/>]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/g,
     (full, attr: string, raw: string) => {
       const name = attr.toLowerCase();
+      if (name.length > 2 && name.startsWith('on')) {
+        return '';
+      }
       if (name === 'style') {
         return styleAttribute(attr, raw);
       }

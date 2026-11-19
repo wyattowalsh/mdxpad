@@ -247,6 +247,26 @@ describe('preview anchor', () => {
 });
 
 describe('preview image', () => {
+  it('drops an event handler and keeps the picture address', () => {
+    const view = render(
+      <Img src="https://example.com/a.png" alt="Pixel" onError={() => undefined} />
+    );
+    const image = view.getByRole('img');
+    expect(image.getAttribute('src')).toBe('https://example.com/a.png');
+    expect(image.getAttribute('onerror')).toBeNull();
+    view.unmount();
+
+    const raw = confinePreviewElement('img', {
+      src: 'https://example.com/a.png',
+      alt: 'Pixel',
+      onerror: 'alert(1)',
+    }) as { src?: string; onerror?: string; alt?: string };
+    expect(raw.src).toBe('https://example.com/a.png');
+    expect(raw.onerror).toBeUndefined();
+    expect(raw.alt).toBe('Pixel');
+  });
+
+
   it('shows a png data image and drops an svg data image that points at a file', () => {
     const png = render(<Img src="data:image/png;base64,aaaa" alt="Pixel" />);
     expect(png.getByRole('img').getAttribute('src')).toBe('data:image/png;base64,aaaa');

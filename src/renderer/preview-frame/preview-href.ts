@@ -293,10 +293,6 @@ const REACT_ATTRIBUTE_NAMES: Readonly<Record<string, string>> = {
   'xlink:href': 'xlinkHref',
 };
 
-/**
- * Drop a local file from props on a plain HTML tag.
- * Compiled raw HTML does not go through the preview components.
- */
 export function confinePreviewProps(props: unknown): unknown {
   if (props === null || typeof props !== 'object') {
     return props;
@@ -310,6 +306,10 @@ export function confinePreviewProps(props: unknown): unknown {
       continue;
     }
     const name = key.toLowerCase();
+    if (name.length > 2 && name.startsWith('on')) {
+      changed = true;
+      continue;
+    }
     if (name === 'style' && isStyleRecord(value)) {
       changed = true;
       const style = styleRecord(value);

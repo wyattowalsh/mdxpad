@@ -152,6 +152,24 @@ describe('sanitizeExportedHtml', () => {
     );
   });
 
+  it('drops an event handler from exported html', () => {
+    const image = sanitizeExportedHtml(
+      '<img src="https://example.com/a.png" onerror="alert(1)" alt="x">'
+    );
+    expect(image).not.toContain('onerror');
+    expect(image).not.toContain('alert');
+    expect(image).toContain('https://example.com/a.png');
+    expect(image).toContain('alt="x"');
+    const link = sanitizeExportedHtml(
+      '<a href="https://example.com" onclick="location=\'file:///etc/passwd\'">Go</a>'
+    );
+    expect(link).not.toContain('onclick');
+    expect(link).toContain('href="https://example.com"');
+    expect(
+      markdownToPdfHtml('<img src="https://example.com/a.png" onerror="alert(1)" alt="x">')
+    ).not.toContain('onerror');
+  });
+
   it('drops a local file from a css src function', () => {
     const font = sanitizeExportedHtml(
       '<style>@font-face{font-family:x;src:src("../secret.woff")}</style>'
