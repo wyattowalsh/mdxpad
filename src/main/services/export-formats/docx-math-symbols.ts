@@ -47,6 +47,21 @@ export const SYMBOLS: Record<string, string> = {
   leq: '≤',
   geq: '≥',
   neq: '≠',
+  le: '≤',
+  ge: '≥',
+  ne: '≠',
+  ll: '≪',
+  gg: '≫',
+  prec: '≺',
+  succ: '≻',
+  preceq: '⪯',
+  succeq: '⪰',
+  subsetneq: '⊊',
+  supsetneq: '⊋',
+  therefore: '∴',
+  because: '∵',
+  aleph: 'ℵ',
+  owns: '∋',
   infty: '∞',
   sum: '∑',
   int: '∫',
@@ -152,6 +167,10 @@ export const NEGATED: Record<string, string> = {
   '=': '≠',
   '<': '≮',
   '>': '≯',
+  le: '≰',
+  ge: '≱',
+  leq: '≰',
+  geq: '≱',
 };
 
 export const TEXT_COMMANDS = new Set([
@@ -188,6 +207,7 @@ export const ACCENTS: Record<string, string> = {
 
 export const DELIMITER_COMMANDS = new Set([
   'left',
+  'middle',
   'right',
   'big',
   'bigl',

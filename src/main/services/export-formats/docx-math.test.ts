@@ -195,6 +195,13 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('draws a short inequality and a middle bar', () => {
+    expect(runText(mathComponents('a \\le b \\ge c \\ne d'))).toBe('a ≤ b ≥ c ≠ d');
+    expect(runText(mathComponents('a \\ll b \\gg c'))).toBe('a ≪ b ≫ c');
+    expect(runText(mathComponents('\\not\\le'))).toBe('≰');
+    expect(runText(mathComponents('\\left. x \\middle| y \\right.'))).toBe(' x | y ');
+  });
+
   it('raises a prime and keeps an apostrophe in text', () => {
     const prime = mathComponents("f'");
     expect(prime).toHaveLength(1);
