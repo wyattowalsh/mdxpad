@@ -81,13 +81,49 @@ function lineIndent(value: string, index: number): string {
   return value.slice(start, cursor);
 }
 
-function dedentMathSpan(span: string, indent: string): string {
-  if (indent.length === 0 || !span.includes('\n')) {
+function columnWidth(value: string): number {
+  let width = 0;
+  for (const char of value) {
+    width = char === '\t' ? width + 4 - (width % 4) : width + 1;
+  }
+  return width;
+}
+
+function continuationWidth(value: string, index: number): number {
+  const start = value.lastIndexOf('\n', index - 1) + 1;
+  const prefix = value.slice(start, index);
+  const marker = /^(?:[ \t]*)(?:[-+*]|\d{1,9}[.)])[ \t]+/.exec(prefix);
+  if (marker?.[0]) {
+    return columnWidth(marker[0]);
+  }
+  return columnWidth(lineIndent(value, index));
+}
+
+function stripColumns(line: string, width: number): string {
+  let seen = 0;
+  let index = 0;
+  while (index < line.length && seen < width) {
+    const char = line[index] ?? '';
+    if (char !== ' ' && char !== '\t') {
+      return line;
+    }
+    const next = char === '\t' ? 4 - (seen % 4) : 1;
+    if (seen + next > width) {
+      return line;
+    }
+    seen += next;
+    index += 1;
+  }
+  return seen === width ? line.slice(index) : line;
+}
+
+function dedentMathSpan(span: string, width: number): string {
+  if (width === 0 || !span.includes('\n')) {
     return span;
   }
   return span
     .split('\n')
-    .map((line, index) => (index > 0 && line.startsWith(indent) ? line.slice(indent.length) : line))
+    .map((line, index) => (index === 0 ? line : stripColumns(line, width)))
     .join('\n');
 }
 
@@ -121,7 +157,7 @@ export function shieldMathMarkup(value: string): string {
     const texEnd = mathEnd === -1 ? takeTexMath(value, index) : -1;
     const end = mathEnd === -1 ? texEnd : mathEnd;
     if (end !== -1) {
-      const span = dedentMathSpan(value.slice(index, end), lineIndent(value, index));
+      const span = dedentMathSpan(value.slice(index, end), continuationWidth(value, index));
       result += shieldMathPiece(span, !openedInsideQuote(value, index));
       index = end;
       continue;

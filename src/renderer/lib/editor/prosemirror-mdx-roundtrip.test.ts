@@ -74,6 +74,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(once).toContain('a+b');
     expect(once).not.toContain('    a+b');
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+    const numbered = '1. $$\n   {a+b}^2\n   $$\n';
+    const saved = roundTrip(numbered);
+    expect(saved).toContain('{a+b}^2');
+    expect(roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`)).toBe(saved);
+    const bullet = '- $$\n  a+b\n  $$\n';
+    const bulleted = roundTrip(bullet);
+    expect(roundTrip(bulleted.endsWith('\n') ? bulleted : `${bulleted}\n`)).toBe(bulleted);
   });
 
   it('keeps display math inside a blockquote', () => {
