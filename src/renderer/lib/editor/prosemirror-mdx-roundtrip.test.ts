@@ -116,6 +116,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(bulleted.endsWith('\n') ? bulleted : `${bulleted}\n`)).toBe(bulleted);
   });
 
+  it('keeps a wrapped fence inside a quote', () => {
+    const source = '> ```\ncode\n```\n\nafter\n';
+    const saved = roundTrip(source);
+    expect(saved).toContain('> code');
+    expect(saved).toContain('after');
+    expect(saved.indexOf('after')).toBeGreaterThan(saved.lastIndexOf('> ```'));
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    expect(again).toContain('> code');
+    expect(again).toContain('after');
+  });
+
   it('keeps display math inside a blockquote', () => {
     const source = '> $$\n> a+b\n> $$\n';
     const doc = parseMdxContent(source);

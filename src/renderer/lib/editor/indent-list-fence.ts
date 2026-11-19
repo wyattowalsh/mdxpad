@@ -187,9 +187,48 @@ function separateTaskFences(content: string): string {
   return output.join('\n');
 }
 
+/** Keep a fence that opens in a quote together when later lines omit the marker. */
+function markQuoteFences(content: string): string {
+  const lines = content.split('\n');
+  const output: string[] = [];
+  let outer: string | null = null;
+  let quoteFence: { marker: string; depth: number; prefix: string } | null = null;
+  for (const line of lines) {
+    const quoted = splitQuote(line);
+    if (quoteFence) {
+      const inside = quoted.depth >= quoteFence.depth ? line : `${quoteFence.prefix}${line}`;
+      output.push(inside);
+      const body = fenceBody(splitQuote(inside).body);
+      if (closesFence(body, quoteFence.marker)) {
+        quoteFence = null;
+      }
+      continue;
+    }
+    if (outer) {
+      output.push(line);
+      if (closesFence(line.trim(), outer)) {
+        outer = null;
+      }
+      continue;
+    }
+    const marker = openingFence(fenceBody(quoted.body));
+    if (marker && quoted.depth > 0 && leadingSpaces(quoted.body) <= 3) {
+      quoteFence = { marker, depth: quoted.depth, prefix: quoted.prefix };
+      output.push(line);
+      continue;
+    }
+    const top = openingFence(line.trim());
+    if (top && quoted.depth === 0 && leadingSpaces(line) <= 3) {
+      outer = top;
+    }
+    output.push(line);
+  }
+  return output.join('\n');
+}
+
 /** Indent the body of a fence that starts on a list marker. */
 export function indentListMarkerFences(content: string): string {
-  return indentListFences(separateTaskFences(content));
+  return indentListFences(separateTaskFences(markQuoteFences(content)));
 }
 
 function indentListFences(content: string): string {
