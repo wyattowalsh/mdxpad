@@ -19,7 +19,13 @@ import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
 import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
-import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
+import {
+  coveredTargetEnd,
+  findCodeSpan,
+  protectEscapes,
+  readCodeSpan,
+  restoreEscapes,
+} from './markdown-escape';
 import { renderEmphasis } from './markdown-emphasis';
 import { decodeHtmlEntities } from './markdown-entity';
 import { safeLinkAddress } from './markdown-export-address';
@@ -215,9 +221,14 @@ function nextRawStrike(raw: string, from: number): number {
 function nextProtectedBoundary(raw: string, from: number): number {
   for (let index = from; index < raw.length; index += 1) {
     const code = findCodeSpan(raw, index);
-    if (code?.start === index || raw.startsWith('~~', index)) {
-      return index;
+    if (code?.start !== index && !raw.startsWith('~~', index)) {
+      continue;
     }
+    const covered = coveredTargetEnd(raw, index);
+    if (covered !== null) {
+      return covered;
+    }
+    return index;
   }
   return raw.length;
 }

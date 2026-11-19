@@ -1,4 +1,4 @@
-import { readMarkdownTarget } from './markdown-link';
+import { findMarkdownTarget, readMarkdownTarget } from './markdown-link';
 
 const ESCAPE_MARK = '\uE011';
 const PUNCTUATION = new Set('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~');
@@ -55,6 +55,34 @@ export function findCodeSpan(
   return null;
 }
 
+/** End of a link or image whose label contains `index`, when one does. */
+export function coveredTargetEnd(raw: string, index: number): number | null {
+  let cursor = 0;
+  while (cursor <= index && cursor < raw.length) {
+    const target = findMarkdownTarget(raw, cursor);
+    if (!target || target.start > index) {
+      return null;
+    }
+    if (index < target.end) {
+      return target.end;
+    }
+    cursor = target.end > cursor ? target.end : cursor + 1;
+  }
+  return null;
+}
+
+function appendPlain(parts: { code: boolean; text: string }[], text: string): void {
+  if (text.length === 0) {
+    return;
+  }
+  const last = parts.at(-1);
+  if (last && !last.code) {
+    last.text += text;
+    return;
+  }
+  parts.push({ code: false, text });
+}
+
 export function splitCodeSpans(
   raw: string
 ): readonly { readonly code: boolean; readonly text: string }[] {
@@ -63,12 +91,16 @@ export function splitCodeSpans(
   while (index < raw.length) {
     const span = findCodeSpan(raw, index);
     if (!span) {
-      parts.push({ code: false, text: raw.slice(index) });
+      appendPlain(parts, raw.slice(index));
       break;
     }
-    if (span.start > index) {
-      parts.push({ code: false, text: raw.slice(index, span.start) });
+    const covered = coveredTargetEnd(raw, span.start);
+    if (covered !== null) {
+      appendPlain(parts, raw.slice(index, covered));
+      index = covered;
+      continue;
     }
+    appendPlain(parts, raw.slice(index, span.start));
     parts.push({ code: true, text: span.text });
     index = span.end;
   }

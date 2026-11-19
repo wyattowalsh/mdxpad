@@ -911,6 +911,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\href{https://example.com}{\\textbf{docs}}');
   });
 
+  it('keeps code inside a link address label', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See [a `b`](https://example.com) now\n',
+      outputPath: '/tmp/code-link.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).toContain('\\href{https://example.com}{a \\texttt{b}}');
+    expect(written).not.toContain('[a');
+  });
+
   it('renders a task checkbox', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

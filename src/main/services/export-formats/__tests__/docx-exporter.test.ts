@@ -208,6 +208,17 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('[**docs**](https://example.com)')).toEqual([
       { text: 'docs', bold: true, link: 'https://example.com' },
     ]);
+    expect(parseInlineFormatting('[a `b`](https://example.com)')).toEqual([
+      { text: 'a ', link: 'https://example.com' },
+      { text: 'b', code: true, link: 'https://example.com' },
+    ]);
+    expect(parseInlineFormatting('**[a `b`](https://example.com)**')).toEqual([
+      { text: 'a ', bold: true, link: 'https://example.com' },
+      { text: 'b', bold: true, code: true, link: 'https://example.com' },
+    ]);
+    expect(parseInlineFormatting('`[docs](https://example.com)`')).toEqual([
+      { text: '[docs](https://example.com)', code: true },
+    ]);
     expect(parseInlineFormatting('![A photo](photo.jpg)')).toEqual([
       { text: 'A photo', image: 'photo.jpg' },
     ]);
