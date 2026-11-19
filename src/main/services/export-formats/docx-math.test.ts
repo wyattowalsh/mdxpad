@@ -18,7 +18,25 @@ describe('splitDocxPieces', () => {
   });
 });
 
+function runText(components: readonly object[]): string {
+  return components
+    .filter((component) => component instanceof MathRun)
+    .map((component) => {
+      const run = component as MathRun & { root: { root: unknown[] }[] };
+      const text = run.root[0]?.root[0];
+      return typeof text === 'string' ? text : '';
+    })
+    .join('');
+}
+
 describe('mathComponents', () => {
+  it('keeps an escaped brace, bar, and hash', () => {
+    expect(runText(mathComponents('\\{x\\}'))).toBe('{x}');
+    expect(runText(mathComponents('a\\|b'))).toBe('a‖b');
+    expect(runText(mathComponents('\\#'))).toBe('#');
+    expect(runText(mathComponents('\\alpha'))).toBe('α');
+  });
+
   it('builds a superscript and a fraction', () => {
     const power = mathComponents('x^2');
     expect(power[0]).toBeInstanceOf(MathSuperScript);

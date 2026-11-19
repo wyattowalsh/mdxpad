@@ -28,6 +28,15 @@ const SYMBOLS: Record<string, string> = {
   infty: '∞',
 };
 
+const LITERAL_ESCAPE: Record<string, string> = {
+  '|': '‖',
+  ',': '\u2009',
+  ':': '\u2004',
+  ';': '\u2005',
+  '!': '',
+  '\\': '\n',
+};
+
 export type DocxPiece =
   | { readonly kind: 'text'; readonly text: string }
   | { readonly kind: 'math'; readonly tex: string };
@@ -64,6 +73,16 @@ export function splitDocxPieces(value: string): DocxPiece[] {
   return pieces;
 }
 
+function readEscapedSymbol(cursor: Cursor): MathComponent[] {
+  const symbol = cursor.source[cursor.index] ?? '';
+  if (symbol.length === 0) {
+    return [new MathRun('\\')];
+  }
+  cursor.index += 1;
+  const text = LITERAL_ESCAPE[symbol] ?? symbol;
+  return text.length > 0 ? [new MathRun(text)] : [];
+}
+
 function readCommand(cursor: Cursor): MathComponent[] {
   cursor.index += 1;
   let name = '';
@@ -73,6 +92,9 @@ function readCommand(cursor: Cursor): MathComponent[] {
   ) {
     name += cursor.source[cursor.index] ?? '';
     cursor.index += 1;
+  }
+  if (name.length === 0) {
+    return readEscapedSymbol(cursor);
   }
   if (name === 'frac') {
     return [
