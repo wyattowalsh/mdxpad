@@ -19,4 +19,20 @@ describe('sanitizeExportedHtml', () => {
     );
     expect(remote).toContain('https://example.com/a.png');
   });
+
+  it('drops a local file from a style sheet and keeps a remote import', () => {
+    const local = sanitizeExportedHtml(
+      '<style>body{background:url(file:///etc/passwd);color:red} @import "file:///etc/passwd.css";</style>'
+    );
+    expect(local).not.toContain('file:');
+    expect(local).toContain('background:none');
+    expect(local).toContain('color:red');
+    expect(local).not.toContain('@import');
+
+    const remote = sanitizeExportedHtml(
+      '<style>@import "https://example.com/a.css"; h1{color:red}</style>'
+    );
+    expect(remote).toContain('https://example.com/a.css');
+    expect(remote).toContain('color:red');
+  });
 });

@@ -132,6 +132,29 @@ function sanitizeStyleValue(value: string): string {
   );
 }
 
+function sanitizeStyleSheet(css: string): string {
+  const withoutImport = css.replace(
+    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    (full, _quote: string, quotedUrl: string | undefined, bare: string | undefined, _plain: string, quoted: string | undefined) => {
+      const address = (quotedUrl ?? bare ?? quoted ?? '').trim();
+      return safeImageAddress(address) === null ? '' : full;
+    }
+  );
+  return sanitizeStyleValue(withoutImport);
+}
+
+function styleBlock(html: string, start: number, end: number): { text: string; next: number } {
+  const open = sanitizeExportedTag(html.slice(start, end));
+  const close = /<\/style\s*>/i.exec(html.slice(end));
+  if (!close) {
+    return { text: open, next: end };
+  }
+  const closeAt = end + close.index;
+  const body = sanitizeStyleSheet(html.slice(end, closeAt));
+  const next = closeAt + close[0].length;
+  return { text: `${open}${body}${html.slice(closeAt, next)}`, next };
+}
+
 function styleAttribute(attr: string, raw: string): string {
   const cleaned = sanitizeStyleValue(attributeValue(raw));
   if (cleaned === attributeValue(raw)) {
@@ -195,6 +218,12 @@ export function sanitizeExportedHtml(html: string): string {
     }
     const tag = html.slice(start, end);
     const name = tagName(tag);
+    if (name === 'style' && !/^<\s*\//.test(tag)) {
+      const block = styleBlock(html, start, end);
+      result += block.text;
+      index = block.next;
+      continue;
+    }
     if (DROPPED_TAGS.has(name) && !/^<\s*\//.test(tag)) {
       const close = new RegExp(`</${name}\\s*>`, 'i').exec(html.slice(end));
       index = close ? end + close.index + close[0].length : end;
