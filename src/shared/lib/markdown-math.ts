@@ -365,6 +365,24 @@ function prepareProse(prose: string): string {
   return mapOutsideHtml(prose, preparePlainProse);
 }
 
+function texDelimiter(prose: string, index: number): { text: string; next: number } | null {
+  const display = prose.startsWith('\\[', index);
+  const inline = prose.startsWith('\\(', index);
+  if (!display && !inline) {
+    return null;
+  }
+  const close = display ? '\\]' : '\\)';
+  const end = unescapedDelimiterIndex(prose, index + 2, close);
+  if (end === -1 || end <= index + 2) {
+    return null;
+  }
+  const interior = prose.slice(index + 2, end);
+  const body = display
+    ? renderableMathTex(interior)
+    : renderableMathTex(interior.replace(/(?<!\\)\$/g, '\\$'));
+  return { text: display ? `$$${body}$$` : `$${body}$`, next: end + 2 };
+}
+
 function replaceTexMath(prose: string): string {
   let result = '';
   let index = 0;
@@ -375,6 +393,12 @@ function replaceTexMath(prose: string): string {
       index = code.next;
       continue;
     }
+    const angle = prose[index] === '<' ? angleDestinationEnd(prose, index) : -1;
+    if (angle !== -1) {
+      result += prose.slice(index, angle);
+      index = angle;
+      continue;
+    }
     const link = markdownLinkAt(prose, index);
     if (link) {
       result += prose.slice(index, link.labelStart);
@@ -383,22 +407,11 @@ function replaceTexMath(prose: string): string {
       index = link.end;
       continue;
     }
-    if (prose.startsWith('\\[', index)) {
-      const end = unescapedDelimiterIndex(prose, index + 2, '\\]');
-      if (end !== -1 && end > index + 2) {
-        result += `$$${renderableMathTex(prose.slice(index + 2, end))}$$`;
-        index = end + 2;
-        continue;
-      }
-    }
-    if (prose.startsWith('\\(', index)) {
-      const end = unescapedDelimiterIndex(prose, index + 2, '\\)');
-      if (end !== -1 && end > index + 2) {
-        const interior = prose.slice(index + 2, end).replace(/(?<!\\)\$/g, '\\$');
-        result += `$${renderableMathTex(interior)}$`;
-        index = end + 2;
-        continue;
-      }
+    const tex = texDelimiter(prose, index);
+    if (tex) {
+      result += tex.text;
+      index = tex.next;
+      continue;
     }
     const repaired = repairedMathSpan(prose, index);
     if (repaired) {

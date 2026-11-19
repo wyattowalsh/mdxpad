@@ -225,13 +225,28 @@ function referenceAngle(value: string, index: number): boolean {
   if (value[cursor] !== '[') {
     return false;
   }
-  let indent = 0;
-  let probe = cursor - 1;
-  while (probe >= 0 && value[probe] === ' ') {
-    indent += 1;
-    probe -= 1;
+  return definitionLineStart(value, cursor);
+}
+
+function definitionLineStart(value: string, bracket: number): boolean {
+  let cursor = bracket;
+  while (cursor > 0 && value[cursor - 1] !== '\n') {
+    cursor -= 1;
   }
-  return indent <= 3 && (probe < 0 || value[probe] === '\n');
+  return /^(?: {0,3}> ?)* {0,3}$/.test(value.slice(cursor, bracket));
+}
+
+function continuationAngle(value: string, index: number): boolean {
+  let cursor = index - 1;
+  while (cursor >= 0 && value[cursor] !== '\n') {
+    cursor -= 1;
+  }
+  if (cursor < 0 || !/^(?: {0,3}> ?)*[ \t]*$/.test(value.slice(cursor + 1, index))) {
+    return false;
+  }
+  const start = value.lastIndexOf('\n', cursor - 1);
+  const previous = value.slice(start + 1, cursor).replace(/^(?: {0,3}> ?)*/, '');
+  return /^ {0,3}\[[^\]]+\]:[ \t]*$/.test(previous);
 }
 
 function scanAngleEnd(value: string, index: number): number {
@@ -259,7 +274,9 @@ export function angleDestinationEnd(value: string, index: number): number {
   if (value[index] !== '<') {
     return -1;
   }
-  if (!linkOpenBefore(value, index) && !referenceAngle(value, index)) {
+  const kept =
+    linkOpenBefore(value, index) || referenceAngle(value, index) || continuationAngle(value, index);
+  if (!kept) {
     return -1;
   }
   return scanAngleEnd(value, index);

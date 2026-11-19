@@ -13,6 +13,27 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[https://example.com/a(b)]');
   });
 
+  it('keeps a reference address on the following line', () => {
+    const source = 'See [a][id].\n\n[id]:\n<https://example.com/a(b)>\n';
+    const expanded = expandLinkReferences(prepareMarkdownSource(source, { preserveHtml: true }));
+    expect(expanded).toContain('[a](https://example.com/a(b))');
+    expect(expanded).not.toContain('[https://example.com/a(b)]');
+  });
+
+  it('keeps an escaped parenthesis in a reference address', () => {
+    const source = 'See [a][id].\n\n[id]: <https://example.com/a\\(b\\)>\n';
+    const prepared = prepareMarkdownSource(source, { preserveHtml: true });
+    expect(prepared).not.toContain('$');
+    expect(expandLinkReferences(prepared)).toContain('[a](https://example.com/a\\(b\\))');
+  });
+
+  it('keeps a reference address inside a quote', () => {
+    const source = '> [a][id]\n>\n> [id]: <https://example.com/a(b)>\n';
+    const expanded = expandLinkReferences(prepareMarkdownSource(source, { preserveHtml: true }));
+    expect(expanded).toContain('[a](https://example.com/a(b))');
+    expect(expanded).not.toContain('[https://example.com/a(b)]');
+  });
+
   it('turns a reference into an inline link and drops the definition', () => {
     const expanded = expandLinkReferences(
       'See [the docs][guide].\n\n[guide]: https://example.com\n'
