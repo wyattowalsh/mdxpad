@@ -181,6 +181,21 @@ function readBalancedLabel(
   return null;
 }
 
+function labelHoldsLink(label: string): boolean {
+  let index = 0;
+  while (index < label.length) {
+    const nested = findMarkdownTarget(label, index);
+    if (!nested) {
+      return false;
+    }
+    if (!nested.image) {
+      return true;
+    }
+    index = nested.end;
+  }
+  return false;
+}
+
 /** A link or image, including a label that itself contains brackets. */
 export function readMarkdownTarget(raw: string, start: number): MarkdownTarget | null {
   const image = raw[start] === '!' && raw[start + 1] === '[';
@@ -194,6 +209,9 @@ export function readMarkdownTarget(raw: string, start: number): MarkdownTarget |
   }
   const inside = readLinkInside(raw.slice(label.end + 1));
   if (!inside) {
+    return null;
+  }
+  if (labelHoldsLink(label.text)) {
     return null;
   }
   return {

@@ -85,6 +85,11 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('[a `b](no) c`](https://example.com)')).toBe(
       '<a href="https://example.com">a <code>b](no) c</code></a>'
     );
+    expect(
+      renderMarkdownInline('[outer [inner](https://inner.example)](https://outer.example)')
+    ).toBe(
+      '[outer <a href="https://inner.example">inner</a>](https://outer.example)'
+    );
   });
 
   it('keeps an email link as one anchor', () => {
