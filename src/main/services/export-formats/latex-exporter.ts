@@ -74,6 +74,13 @@ function latexSuperscripts(text: string): string {
   });
 }
 
+const LATEX_FILE_READ =
+  /\\(?:includegraphics|InputIfFileExists|verbatiminput|lstinputlisting|openin|openout|include|input|write|read)\b/g;
+
+function disarmLatexFileRead(value: string): string {
+  return value.replace(LATEX_FILE_READ, (command) => `\\relax ${command.slice(1)}`);
+}
+
 function escapeLatex(text: string): string {
   return latexSuperscripts(
     text
@@ -112,7 +119,7 @@ function protectMath(raw: string): { text: string; slots: string[] } {
     const delimiter = mathDelimiterAt(raw, index);
     const end = delimiter === null ? -1 : mathSpanEnd(raw, index, delimiter);
     if (delimiter !== null && end !== -1) {
-      slots.push(raw.slice(index, end));
+      slots.push(disarmLatexFileRead(raw.slice(index, end)));
       text += `${MATH_MARK}${slots.length - 1}${MATH_MARK}`;
       index = end;
       continue;
@@ -941,7 +948,7 @@ function takeLatexItemMath(build: LatexBuild, line: string): boolean {
       list.sealed = true;
       return true;
     }
-    list.itemMath.push(dedentToColumn(line, column));
+    list.itemMath.push(disarmLatexFileRead(dedentToColumn(line, column)));
     return true;
   }
   if (list.stack.length === 0 || list.column === null || line.trim() !== '$$') {
@@ -1035,7 +1042,7 @@ function openLatexMarkerBlock(raw: string, output: string[], listState: ListStat
     return;
   }
   if (block.kind === 'math' && block.lines.length > 0) {
-    output.push('$$', ...block.lines, '$$');
+    output.push('$$', ...block.lines.map(disarmLatexFileRead), '$$');
     listState.sealed = true;
     return;
   }
@@ -1120,7 +1127,7 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
     build.inDisplayMath = !build.inDisplayMath;
     return true;
   }
-  build.output.push(line);
+  build.output.push(disarmLatexFileRead(line));
   return true;
 }
 

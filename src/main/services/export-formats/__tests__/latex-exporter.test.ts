@@ -63,6 +63,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\section{');
   });
 
+  it('does not let a formula read a local file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\input{secret.tex}\n$$\n\nSee $\\include{secret}$ and $\\frac{1}{2}$.\n',
+      outputPath: '/tmp/math-file.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    expect(written).not.toContain('\\input');
+    expect(written).not.toContain('\\include');
+    expect(written).toContain('\\relax input');
+    expect(written).toContain('\\frac{1}{2}');
+  });
+
   it('uses the requested document class, font size, and packages', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
