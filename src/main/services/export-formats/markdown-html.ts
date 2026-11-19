@@ -1,4 +1,5 @@
 import { sanitizeExportedHtml } from './markdown-export-address';
+import { advanceFence } from './markdown-fence';
 
 export interface HtmlBlock {
   readonly html: string;
@@ -119,10 +120,18 @@ export function readHtmlBlock(lines: readonly string[], index: number): HtmlBloc
 export function sanitizeMarkdownHtmlBlocks(content: string): string {
   const lines = content.split('\n');
   const out: string[] = [];
+  let fence: string | null = null;
   for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const nextFence = advanceFence(line, fence);
+    if (fence !== null || nextFence !== null) {
+      out.push(line);
+      fence = nextFence;
+      continue;
+    }
     const block = readHtmlBlock(lines, index);
     if (!block) {
-      out.push(lines[index] ?? '');
+      out.push(sanitizeExportedHtml(line));
       continue;
     }
     const sanitized = sanitizeExportedHtml(block.html);

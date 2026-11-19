@@ -1,4 +1,4 @@
-import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
+import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 export const TEX_INLINE_OPEN = '\uE013';
 export const TEX_INLINE_CLOSE = '\uE014';
@@ -8,6 +8,7 @@ export const TEX_DISPLAY_CLOSE = '\uE016';
 const MATH_STAR = '\uE017';
 const MATH_UNDER = '\uE018';
 const MATH_DOLLAR = '\uE019';
+const MATH_BACKSLASH = '\uE01A';
 
 function takeDollarMath(value: string, index: number): number {
   const delimiter = mathDelimiterAt(value, index);
@@ -20,7 +21,7 @@ function takeTexMath(value: string, index: number): number {
     return -1;
   }
   const close = open === '\\[' ? '\\]' : '\\)';
-  const end = value.indexOf(close, index + open.length);
+  const end = unescapedDelimiterIndex(value, index + open.length, close);
   if (end === -1) {
     return -1;
   }
@@ -29,6 +30,7 @@ function takeTexMath(value: string, index: number): number {
 
 function shieldMathPiece(value: string): string {
   return value
+    .replaceAll('\\\\', MATH_BACKSLASH)
     .replaceAll('\\$', MATH_DOLLAR)
     .replaceAll('*', MATH_STAR)
     .replaceAll('_', MATH_UNDER);
@@ -63,7 +65,8 @@ export function restoreMathMarkup(value: string): string {
   return value
     .replaceAll(MATH_STAR, '*')
     .replaceAll(MATH_UNDER, '_')
-    .replaceAll(MATH_DOLLAR, '\\$');
+    .replaceAll(MATH_DOLLAR, '\\$')
+    .replaceAll(MATH_BACKSLASH, '\\\\');
 }
 
 const TEX_PAIR: Record<string, string> = {
@@ -133,6 +136,10 @@ function matchedTex(value: string): Set<number> {
     const destination = readDestination(value, index);
     if (destination) {
       index = destination.next;
+      continue;
+    }
+    if (value.charAt(index) === '\\' && value.charAt(index + 1) === '\\') {
+      index += 2;
       continue;
     }
     const token = value.slice(index, index + 2);

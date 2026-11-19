@@ -21,6 +21,8 @@ describe('parseMarkdownTable', () => {
   it('keeps a pipe inside a formula', () => {
     const table = parseMarkdownTable(['| formula |', '| --- |', '| \\(a|b\\) |']);
     expect(table?.rows).toEqual([['\\(a|b\\)']]);
+    const display = parseMarkdownTable(['| $$a \\$$ | b$$ |', '| --- |']);
+    expect(display?.headers).toEqual(['$$a \\$$ | b$$']);
   });
 
   it('keeps a pipe inside inline code', () => {

@@ -10,7 +10,7 @@
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
 
-import { mathCloserIndex, nextMathDelimiter } from '@shared/lib/math-span';
+import { nextMathDelimiter, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { taskMarker } from './prosemirror-task-item';
@@ -363,13 +363,8 @@ interface LiteralSpan {
   readonly stayOpen: boolean;
 }
 
-function dollarDelimiter(value: string): '$' | '$$' | null {
-  return value === '$' || value === '$$' ? value : null;
-}
-
 function closerAt(value: string, from: number, closer: string): number {
-  const delimiter = dollarDelimiter(closer);
-  return delimiter === null ? value.indexOf(closer, from) : mathCloserIndex(value, from, delimiter);
+  return unescapedDelimiterIndex(value, from, closer);
 }
 
 function nextLiteralSpan(value: string, from: number): LiteralSpan | null {

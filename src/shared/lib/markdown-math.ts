@@ -1,7 +1,7 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
 import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
-import { mathDelimiterAt, mathSpanEnd } from './math-span';
+import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from './math-span';
 import {
   escapeLooseTags,
   escapeTemplatePlaceholders,
@@ -180,7 +180,7 @@ function takeTexSpan(value: string, index: number): string | null {
     return null;
   }
   const close = open === '\\[' ? '\\]' : '\\)';
-  const end = value.indexOf(close, index + open.length);
+  const end = unescapedDelimiterIndex(value, index + open.length, close);
   if (end <= index + open.length) {
     return null;
   }
@@ -375,7 +375,7 @@ function replaceTexMath(prose: string): string {
       continue;
     }
     if (prose.startsWith('\\[', index)) {
-      const end = prose.indexOf('\\]', index + 2);
+      const end = unescapedDelimiterIndex(prose, index + 2, '\\]');
       if (end !== -1 && end > index + 2) {
         result += `$$${prose.slice(index + 2, end)}$$`;
         index = end + 2;
@@ -383,7 +383,7 @@ function replaceTexMath(prose: string): string {
       }
     }
     if (prose.startsWith('\\(', index)) {
-      const end = prose.indexOf('\\)', index + 2);
+      const end = unescapedDelimiterIndex(prose, index + 2, '\\)');
       if (end !== -1 && end > index + 2) {
         result += `$${prose.slice(index + 2, end).replace(/(?<!\\)\$/g, '\\$')}$`;
         index = end + 2;

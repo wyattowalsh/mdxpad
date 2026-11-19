@@ -32,7 +32,13 @@ import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
 import { isThematicBreak } from './markdown-break';
-import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
+import {
+  closesFence,
+  closesIndentedFence,
+  fenceLanguage,
+  openIndentedFence,
+  openingFence,
+} from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { plainFootnoteMarkers } from './markdown-footnote';
@@ -563,13 +569,13 @@ function appendDocxQuoteCodeLines(
   const first = lines[start] ?? '';
   const block = [first];
   let cursor = start + 1;
-  const marker = openingFence(first);
-  if (marker) {
+  const opened = openIndentedFence(first, column);
+  if (opened) {
     while (cursor < lines.length) {
       const next = lines[cursor] ?? '';
       block.push(next);
       cursor += 1;
-      if (closesFence(next, marker)) {
+      if (closesIndentedFence(next, opened.marker, column)) {
         break;
       }
     }
@@ -635,8 +641,8 @@ function appendDocxQuoteList(
     }
     const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
     const code =
-      (openingFence(line) !== null && indent >= column) ||
-      (openingFence(line) === null && indent >= column + 4);
+      openIndentedFence(line, column) !== null ||
+      (line.trim().length > 0 && indent >= column + 4);
     if (code) {
       blocks.push(listParagraph(current, depth));
       current = null;

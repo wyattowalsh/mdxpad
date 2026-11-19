@@ -90,6 +90,7 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('Price $\\$5$ and $a\\$<b>$.\n')).toContain('$\\$5$');
     expect(prepareMarkdownSource('Price $\\$5$ and $a\\$<b>$.\n')).toContain('$a\\$<b>$');
     expect(prepareMarkdownSource('Price $\\$5$ and $a\\$<b>$.\n')).not.toContain('&lt;');
+    expect(normalizeTexMath('\\(a \\\\) still\\)')).toBe('$a \\\\) still$');
     expect(normalizeTexMath('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');
     expect(normalizeTexMath('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$a\\$b$');
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');

@@ -541,6 +541,27 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('- one');
   });
 
+  it('keeps a fence indented under a quoted list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> - inner\n>     ~~~\n>     **not bold**\n>     ~~~\n',
+      outputPath: '/tmp/quoted-fence.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('**not bold**');
+    expect(xml).not.toContain('<w:b/>');
+    expect(xml).not.toContain('<w:b ');
+  });
+
   it('indents a block quote', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

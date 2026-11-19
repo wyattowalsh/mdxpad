@@ -1,3 +1,5 @@
+import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
+
 import { isThematicBreak } from './markdown-break';
 import { parseListItem } from './markdown-list';
 import { advanceFence, openingFence } from './markdown-fence';
@@ -46,11 +48,11 @@ function skipMath(value: string, index: number): number {
   const opener = value.slice(index, index + 2);
   if (opener === '\\(' || opener === '\\[') {
     const closer = opener === '\\(' ? '\\)' : '\\]';
-    const end = value.indexOf(closer, index + 2);
-    return end === -1 ? index : end + 2;
+    const end = unescapedDelimiterIndex(value, index + 2, closer);
+    return end === -1 ? index : end + closer.length;
   }
   if (value.startsWith('$$', index)) {
-    const end = value.indexOf('$$', index + 2);
+    const end = mathCloserIndex(value, index + 2, '$$');
     return end === -1 ? index : end + 2;
   }
   if (value[index] !== '$' || value[index - 1] === '\\') {

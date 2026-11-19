@@ -15,19 +15,24 @@ export function mathDelimiterAt(raw: string, index: number): '$' | '$$' | null {
   return raw.charAt(index) === '$' ? '$' : null;
 }
 
-export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'): number {
+/** The next delimiter, skipping a backslash escape such as `\\)` or `\$`. */
+export function unescapedDelimiterIndex(raw: string, from: number, delimiter: string): number {
   let cursor = from;
   while (cursor < raw.length) {
+    if (raw.startsWith(delimiter, cursor)) {
+      return cursor;
+    }
     if (raw.charAt(cursor) === '\\') {
       cursor += 2;
       continue;
     }
-    if (raw.startsWith(delimiter, cursor)) {
-      return cursor;
-    }
     cursor += 1;
   }
   return -1;
+}
+
+export function mathCloserIndex(raw: string, from: number, delimiter: '$' | '$$'): number {
+  return unescapedDelimiterIndex(raw, from, delimiter);
 }
 
 export function mathSpanEnd(raw: string, start: number, delimiter: '$' | '$$'): number {

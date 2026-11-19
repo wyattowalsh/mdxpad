@@ -88,6 +88,14 @@ describe('quoteBody', () => {
     expect(item).toContain('item');
     expect(item).toContain('<pre><code>const x = 1</code></pre>');
     const fenced = quoteToHtml(['- item', '', '  ```', '  const x = 1', '  ```'], (line) => line);
+    const nested = quoteToHtml(
+      ['- inner', '    ~~~', '    **not bold**', '    # not a heading', '    ~~~'],
+      (line) => line
+    );
+    const nestedItem = nested.slice(nested.indexOf('<li>'), nested.lastIndexOf('</li>'));
+    expect(nestedItem).toContain('<pre><code>');
+    expect(nestedItem).toContain('**not bold**');
+    expect(nestedItem).toContain('# not a heading');
     const fencedItem = fenced.slice(fenced.indexOf('<li>'), fenced.indexOf('</li>'));
     expect(fencedItem).toContain('<pre><code>const x = 1</code></pre>');
   });

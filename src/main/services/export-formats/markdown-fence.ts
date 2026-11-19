@@ -13,6 +13,37 @@ export function fenceLanguage(line: string): string {
   return /^[A-Za-z0-9_+#.-]+$/.test(token) ? token : '';
 }
 
+/** A fence indented to a list item, plus up to three extra spaces. */
+export function openIndentedFence(
+  line: string,
+  contentColumn: number
+): { marker: string; indent: number } | null {
+  const expanded = line.replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  if (spaces < contentColumn || spaces > contentColumn + 3) {
+    return null;
+  }
+  const body = expanded.slice(spaces);
+  const marker = openingFence(body);
+  if (!marker) {
+    return null;
+  }
+  const info = body.slice(marker.length);
+  const blocked =
+    (marker.startsWith('`') && info.includes('`')) || (marker.startsWith('~') && info.includes('~'));
+  return blocked ? null : { marker, indent: spaces };
+}
+
+/** A closing fence for a list item, indented no more than three extra spaces. */
+export function closesIndentedFence(line: string, marker: string, contentColumn: number): boolean {
+  const expanded = line.replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  if (spaces > contentColumn + 3) {
+    return false;
+  }
+  return closesFence(expanded.slice(spaces), marker);
+}
+
 export function closesFence(line: string, open: string): boolean {
   const match = FENCE_LINE.exec(line);
   const marker = match?.[2];

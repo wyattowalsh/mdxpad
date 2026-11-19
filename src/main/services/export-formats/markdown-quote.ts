@@ -1,7 +1,13 @@
 import { allocateHeadingSlug, headingSlug, headingTag } from '@shared/lib/markdown-heading';
 import { isThematicBreak } from './markdown-break';
 import { setextLevel } from './markdown-setext';
-import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
+import {
+  closesFence,
+  closesIndentedFence,
+  fenceLanguage,
+  openIndentedFence,
+  openingFence,
+} from './markdown-fence';
 import { readHtmlBlock } from './markdown-html';
 import { renderFencedCode } from './markdown-code';
 import { latexVerbatimLines } from './latex-verbatim';
@@ -248,13 +254,13 @@ function collectItemCode(
   const line = body[index]?.text ?? '';
   const lines = [line];
   let cursor = index + 1;
-  const marker = openingFence(line);
-  if (marker) {
+  const opened = openIndentedFence(line, column);
+  if (opened) {
     while (cursor < body.length) {
       const next = body[cursor]?.text ?? '';
       lines.push(next);
       cursor += 1;
-      if (closesFence(next, marker)) {
+      if (closesIndentedFence(next, opened.marker, column)) {
         break;
       }
     }
@@ -290,9 +296,10 @@ function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItem
   let index = 1;
   while (index < body.length) {
     const line = body[index]?.text ?? '';
-    const fence = openingFence(line);
     const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
-    const code = fence !== null ? indent >= column : line.trim().length > 0 && indent >= column + 4;
+    const code =
+      openIndentedFence(line, column) !== null ||
+      (line.trim().length > 0 && indent >= column + 4);
     if (!code) {
       const source = body[index] ?? { text: line, hardBreak: false };
       prose.push({ text: source.text.trim(), hardBreak: source.hardBreak });
