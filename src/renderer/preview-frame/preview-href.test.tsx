@@ -118,6 +118,17 @@ describe('isBlockedPreviewHref', () => {
     expect(painted.markerStart).toBeUndefined();
     expect(painted.fill).toBe('url(#local)');
     expect(painted.stroke).toBe('red');
+    const font = confinePreviewElement('style', {
+      children: '@font-face{font-family:x;src:src("../secret.woff")}',
+    }) as { children: string };
+    expect(font.children).not.toContain('secret');
+    expect(font.children).toContain('font-family:x');
+    const fontBackground = confinePreviewProps({
+      style: "background:src('../secret.png');color:red",
+    }) as { style: Record<string, string> };
+    expect(JSON.stringify(fontBackground.style)).not.toContain('secret');
+    expect(fontBackground.style.color).toBe('red');
+
     const escaped = confinePreviewElement('rect', {
       filter: '\\75rl(file:///etc/passwd)',
     }) as { filter?: string };

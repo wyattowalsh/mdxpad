@@ -127,6 +127,31 @@ describe('sanitizeExportedHtml', () => {
     );
   });
 
+  it('drops a local file from a css src function', () => {
+    const font = sanitizeExportedHtml(
+      '<style>@font-face{font-family:x;src:src("../secret.woff")}</style>'
+    );
+    expect(font).not.toContain('secret');
+    expect(font).toContain('font-family:x');
+    const disk = sanitizeExportedHtml(
+      '<style>@font-face{font-family:x;src:src("file:///etc/passwd")}</style>'
+    );
+    expect(disk).not.toContain('file:');
+    const escaped = sanitizeExportedHtml(
+      '<style>@font-face{font-family:x;src:\\73 rc("../secret.woff")}</style>'
+    );
+    expect(escaped).not.toContain('secret');
+    const remote = sanitizeExportedHtml(
+      '<style>@font-face{font-family:x;src:src("https://example.com/a.woff")}</style>'
+    );
+    expect(remote).toContain('https://example.com/a.woff');
+    const painted = sanitizeExportedHtml(
+      '<div style="background:src(\'../secret.png\');color:red">x</div>'
+    );
+    expect(painted).not.toContain('secret');
+    expect(painted).toContain('color:red');
+  });
+
   it('drops a local file from an animation value and a ping', () => {
     expect(sanitizeExportedHtml('<animate attributeName="href" to="file:///etc/passwd">')).toBe(
       '<animate attributeName="href">'

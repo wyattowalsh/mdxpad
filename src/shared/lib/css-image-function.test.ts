@@ -30,6 +30,18 @@ describe('replaceCssImageFunctionAddresses', () => {
     expect(cssValueHasBlockedAddress('image-set("file:///etc/passwd" 1x)', blocked)).toBe(true);
   });
 
+  it('drops a file from src() and keeps a remote font', () => {
+    expect(replaceCssImageFunctionAddresses('src("file:///etc/passwd")', blocksFile)).toBe(
+      'src(none)'
+    );
+    expect(
+      replaceCssImageFunctionAddresses('src("https://example.com/a.woff")', blocksFile)
+    ).toContain('https://example.com/a.woff');
+    expect(cssValueHasBlockedAddress('src("../secret.woff")', (address) => address.includes('..'))).toBe(
+      true
+    );
+  });
+
   it('drops a file from image() and leaves ordinary text alone', () => {
     expect(replaceCssImageFunctionAddresses('image("file:///etc/passwd")', blocksFile)).toBe(
       'image(none)'

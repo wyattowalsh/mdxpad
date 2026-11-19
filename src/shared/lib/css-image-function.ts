@@ -1,5 +1,5 @@
 /**
- * image() and image-set() load a quoted address without a url() wrapper.
+ * image(), image-set(), and src() load a quoted address without a url() wrapper.
  */
 
 function hasPrefix(css: string, index: number, prefix: string): boolean {
@@ -13,7 +13,8 @@ function isImageFunction(css: string, index: number): boolean {
   return (
     hasPrefix(css, index, '-webkit-image-set(') ||
     hasPrefix(css, index, 'image-set(') ||
-    hasPrefix(css, index, 'image(')
+    hasPrefix(css, index, 'image(') ||
+    hasPrefix(css, index, 'src(')
   );
 }
 
