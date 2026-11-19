@@ -51,6 +51,16 @@ describe('parseMarkdownTable', () => {
       '| 1 | 2 |',
     ]);
     expect(struckInside?.headers).toEqual(['~~keep|pipe~~', 'ok']);
+    const span = parseMarkdownTable([
+      '| <span title="a|b">x</span> | c |',
+      '| --- | --- |',
+      '| 1 | 2 |',
+    ]);
+    expect(span?.headers).toEqual(['<span title="a|b">x</span>', 'c']);
+    const em = parseMarkdownTable(['| <em>a|b</em> | c |', '| --- | --- |', '| 1 | 2 |']);
+    expect(em?.headers).toEqual(['<em>a|b</em>', 'c']);
+    const loose = parseMarkdownTable(['| a < b | c |', '| --- | --- |', '| 1 | 2 |']);
+    expect(loose?.headers).toEqual(['a < b', 'c']);
   });
 
   it('keeps a pipe inside emphasis and a link', () => {

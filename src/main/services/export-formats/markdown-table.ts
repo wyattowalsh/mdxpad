@@ -1,6 +1,7 @@
 import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 import { canOpenEmphasis, canOpenStrikethrough } from './markdown-emphasis';
+import { skipHtmlElement } from './markdown-table-html';
 import { isThematicBreak } from './markdown-break';
 import { parseListItem } from './markdown-list';
 import { advanceFence, openingFence } from './markdown-fence';
@@ -163,6 +164,10 @@ function skipProtected(value: string, index: number): number {
   const linkEnd = skipLink(value, index);
   if (linkEnd > index) {
     return linkEnd;
+  }
+  const htmlEnd = skipHtmlElement(value, index);
+  if (htmlEnd > index) {
+    return htmlEnd;
   }
   return skipAutolink(value, index);
 }
