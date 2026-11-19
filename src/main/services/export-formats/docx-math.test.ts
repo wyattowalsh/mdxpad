@@ -75,6 +75,7 @@ describe('mathComponents', () => {
   it('underlines a Word expression and stacks a subscript column', () => {
     expect(runText(mathComponents('\\underline{ab}'))).toBe('a\u0332b\u0332');
     expect(runText(mathComponents('\\substack{a\\\\b}'))).toBe('a\nb');
+    expect(runText(mathComponents('\\substack{a^2\\\\b_i}'))).toBe('a2\nbi');
   });
 
   it('strikes a cancelled Word expression', () => {

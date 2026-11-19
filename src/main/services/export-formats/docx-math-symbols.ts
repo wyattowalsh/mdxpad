@@ -218,7 +218,6 @@ export const TEXT_COMMANDS = new Set([
   'mathcal',
   'mathfrak',
   'mathscr',
-  'substack',
   'url',
   'ensuremath',
   'smash',
@@ -287,4 +286,5 @@ export const ATOM_COMMANDS = new Set([
   'mathclose',
   'mathpunct',
   'mathinner',
+  'substack',
 ]);
