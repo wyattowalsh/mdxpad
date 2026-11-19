@@ -48,6 +48,9 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('[docs](<https://example.com/a\\<b>)')).toBe(
       '[docs](<https://example.com/a\\<b>)'
     );
+    expect(prepareMarkdownSource('See https://example.com/a\\(b\\) and \\(x\\).')).toBe(
+      'See https://example.com/a\\(b\\) and $x$.'
+    );
     expect(prepareMarkdownSource('Write <mailto:ada@example.com>.')).toBe(
       'Write [mailto:ada@example.com](mailto:ada@example.com).'
     );

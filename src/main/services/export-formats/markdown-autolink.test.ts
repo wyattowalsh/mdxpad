@@ -23,6 +23,13 @@ describe('protectAutolinks', () => {
     ]);
   });
 
+  it('keeps parentheses escaped inside a bare address', () => {
+    const protectedLinks = protectAutolinks('See https://example.com/a\\(b\\) and \\(x\\).');
+    expect(protectedLinks.links).toEqual([
+      { href: 'https://example.com/a(b)', text: 'https://example.com/a(b)' },
+    ]);
+  });
+
   it('leaves a code span and an existing link destination alone', () => {
     const protectedLinks = protectAutolinks(
       '`https://example.com` and [docs](https://example.com)'

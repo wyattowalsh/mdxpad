@@ -85,6 +85,15 @@ function continuesReferenceDestination(value: string, start: number, index: numb
   return labelOnlyLine(value.slice(previousStart, previousEnd));
 }
 
+function insideBareUrl(value: string, index: number): boolean {
+  let start = index;
+  while (start > 0 && !/[\s<>]/.test(value[start - 1] ?? '')) {
+    start -= 1;
+  }
+  const token = value.slice(start, index);
+  return /^https?:\/\//i.test(token) || /^www\./i.test(token);
+}
+
 function insideReferenceDestination(value: string, index: number): boolean {
   let start = index;
   while (start > 0 && value[start - 1] !== '\n') {
@@ -398,7 +407,10 @@ function prepareProse(prose: string): string {
 function texDelimiter(prose: string, index: number): { text: string; next: number } | null {
   const display = prose.startsWith('\\[', index);
   const inline = prose.startsWith('\\(', index);
-  if ((!display && !inline) || insideReferenceDestination(prose, index)) {
+  if (!display && !inline) {
+    return null;
+  }
+  if (insideReferenceDestination(prose, index) || insideBareUrl(prose, index)) {
     return null;
   }
   const close = display ? '\\]' : '\\)';

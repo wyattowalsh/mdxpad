@@ -35,6 +35,22 @@ function readAngleAutolink(raw: string, index: number): FoundAutolink | null {
   return null;
 }
 
+const AUTOLINK_ESCAPE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
+
+function unescapeAutolink(value: string): string {
+  let result = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const next = value[index + 1] ?? '';
+    if (value[index] === '\\' && AUTOLINK_ESCAPE.test(next)) {
+      result += next;
+      index += 1;
+      continue;
+    }
+    result += value[index] ?? '';
+  }
+  return result;
+}
+
 function readBareAutolink(raw: string, index: number): FoundAutolink | null {
   if (!raw.startsWith('http://', index) && !raw.startsWith('https://', index)) {
     return null;
@@ -48,7 +64,8 @@ function readBareAutolink(raw: string, index: number): FoundAutolink | null {
   if (!url) {
     return null;
   }
-  return { href: url, text: url, length: url.length };
+  const visible = unescapeAutolink(url);
+  return { href: visible, text: visible, length: url.length };
 }
 
 function boundaryAllowsWww(previous: string): boolean {
@@ -66,7 +83,8 @@ function readWwwAutolink(raw: string, index: number): FoundAutolink | null {
   if (!/^www\.\S/i.test(url) || !/[A-Za-z0-9]/.test(host)) {
     return null;
   }
-  return { href: `http://${url}`, text: url, length: url.length };
+  const visible = unescapeAutolink(url);
+  return { href: `http://${visible}`, text: visible, length: url.length };
 }
 
 function readEmailAutolink(raw: string, index: number): FoundAutolink | null {
