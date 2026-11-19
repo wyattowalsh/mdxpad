@@ -347,6 +347,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\frac{1}{2}');
   });
 
+  it('does not let a formula load a font or a map file', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '$$\n\\pdfmapfile{secret.map}\n\\font\\x=secret\n$$\n\n$\\fontsize{10}{12}$',
+      outputPath: '/tmp/tex-font.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('\\pdfmapfile');
+    expect(written).not.toContain('\\font\\x');
+    expect(written).toContain('\\relax pdfmapfile');
+    expect(written).toContain('\\relax font');
+    expect(written).toContain('\\fontsize{10}{12}');
+  });
+
   it('does not let a constructed command name in a formula read a file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

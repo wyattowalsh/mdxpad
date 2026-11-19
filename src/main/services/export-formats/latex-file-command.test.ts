@@ -53,6 +53,17 @@ describe('disarmFileReadsInMath', () => {
     expect(next).toContain('\\frac{1}{2}');
   });
 
+  it('turns a font load and a map file inside a formula into text', () => {
+    const source = '$$\n\\pdfmapfile{secret.map}\n\\font\\x=secret\n$$\n\n$\\frac{1}{2}$ and $\\fontsize{10}{12}$.\n';
+    const next = disarmFileReadsInMath(source);
+    expect(next).not.toContain('\\pdfmapfile');
+    expect(next).not.toContain('\\font\\x');
+    expect(next).toContain('\\relax pdfmapfile');
+    expect(next).toContain('\\relax font');
+    expect(next).toContain('\\frac{1}{2}');
+    expect(next).toContain('\\fontsize{10}{12}');
+  });
+
   it('turns a constructed file command inside a formula into text', () => {
     const source = '$$\n\\@@input{secret}\n$$\n\n$\\csname input\\endcsname{secret}$ and $\\frac{1}{2}$.\n';
     const next = disarmFileReadsInMath(source);
