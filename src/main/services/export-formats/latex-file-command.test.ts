@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { disarmFileReadsInMath, omitTexPictureSyntax } from './latex-file-command';
+import { disarmFileReadsInMath, disarmPandocRawTex, omitTexPictureSyntax } from './latex-file-command';
 
 describe('disarmFileReadsInMath', () => {
   it('turns a file command inside a formula into text and keeps a fenced sample', () => {
@@ -212,5 +212,34 @@ describe('omitTexPictureSyntax', () => {
     expect(prose).toContain('Secret');
     expect(prose).toContain('![Pixel](pixel.png "a^b")');
     expect(next).toContain('```\n![Secret](^^5cinput{secret.png)\n```');
+  });
+});
+
+describe('disarmPandocRawTex', () => {
+  it('turns a file command in a raw TeX block into text and keeps a sample', () => {
+    const source = [
+      '```{=latex}',
+      '\\input{secret.tex}',
+      '```',
+      '',
+      '`\\openin\\x=secret`{=tex}',
+      '',
+      '```',
+      '\\input{secret.tex}',
+      '```',
+      '',
+      '```{=html}',
+      '<b>keep</b>',
+      '```',
+      '',
+    ].join('\n');
+    const next = disarmPandocRawTex(source);
+    const raw = next.slice(0, next.indexOf('```\n\\input{secret.tex}'));
+    expect(raw).toContain('\\relax input');
+    expect(raw).not.toContain('\\input');
+    expect(raw).toContain('\\relax openin');
+    expect(raw).not.toContain('\\openin');
+    expect(next).toContain('```\n\\input{secret.tex}\n```');
+    expect(next).toContain('<b>keep</b>');
   });
 });

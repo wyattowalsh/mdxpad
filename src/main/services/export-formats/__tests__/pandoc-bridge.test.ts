@@ -281,6 +281,40 @@ describe('PandocBridge', () => {
     expect(sent).toContain('$\\$5$');
     expect(sent).toContain('$a\\$b$');
   });
+
+  it('keeps a raw TeX block from reading a file', async () => {
+    const latex = new PandocBridge({ targetFormat: 'latex', sourceFormat: 'markdown' });
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/bin/pandoc',
+    });
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    const write = vi.fn();
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return { stdin: { write, end: vi.fn() } };
+      }
+    );
+
+    await latex.export({
+      content: '```{=latex}\n\\input{secret.tex}\n```\n\n```\n\\input{secret.tex}\n```\n',
+      outputPath: '/tmp/raw.tex',
+    });
+
+    const sent = String(write.mock.calls[0]?.[0]);
+    const raw = sent.slice(0, sent.indexOf('```\n\\input{secret.tex}'));
+    expect(raw).toContain('\\relax input');
+    expect(raw).not.toContain('\\input');
+    expect(sent).toContain('```\n\\input{secret.tex}\n```');
+  });
 });
 
 describe('PandocRawExporter', () => {

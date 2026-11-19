@@ -7,6 +7,8 @@
 import { mapFencedProse } from '@shared/lib/markdown-math';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
+import { readCodeSpan } from './markdown-escape';
+import { closesFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
 
 const LATEX_FILE_COMMANDS = [
@@ -147,6 +149,103 @@ export function texPicturePathUnsafe(address: string): boolean {
     }
   }
   return false;
+}
+
+const RAW_TEX_FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
+const RAW_TEX_FORMAT = /(?:^|[\s{])=(?:latex|tex|context|beamer)(?=$|[\s}])/i;
+
+function fenceOpen(line: string): { marker: string; rawTex: boolean } | null {
+  const match = RAW_TEX_FENCE.exec(line);
+  const marker = match?.[2];
+  if (!marker) {
+    return null;
+  }
+  return { marker, rawTex: RAW_TEX_FORMAT.test(match[3] ?? '') };
+}
+
+function readUntilClose(
+  lines: readonly string[],
+  start: number,
+  marker: string
+): { body: string[]; next: number } {
+  const body: string[] = [];
+  let next = start;
+  while (next < lines.length && !closesFence(lines[next] ?? '', marker)) {
+    body.push(lines[next] ?? '');
+    next += 1;
+  }
+  return { body, next };
+}
+
+function disarmedBody(body: readonly string[], disarm: boolean): string[] {
+  if (!disarm || body.length === 0) {
+    return [...body];
+  }
+  return disarmLatexFileRead(body.join('\n')).split('\n');
+}
+
+function replacedCodeSpan(raw: string): string {
+  let ticks = 0;
+  while (raw[ticks] === '`') {
+    ticks += 1;
+  }
+  const mark = '`'.repeat(ticks);
+  const closer = raw.lastIndexOf(mark);
+  if (closer < ticks) {
+    return raw;
+  }
+  return `${mark}${disarmLatexFileRead(raw.slice(ticks, closer))}${mark}`;
+}
+
+function disarmInlineRawTex(prose: string): string {
+  let result = '';
+  let index = 0;
+  while (index < prose.length) {
+    const span = prose[index] === '`' ? readCodeSpan(prose, index) : null;
+    if (!span) {
+      result += prose[index] ?? '';
+      index += 1;
+      continue;
+    }
+    const attr = /^[ \t]*\{[^}\n]*\}/.exec(prose.slice(span.end));
+    if (attr && RAW_TEX_FORMAT.test(attr[0])) {
+      result += replacedCodeSpan(prose.slice(index, span.end));
+      result += attr[0];
+      index = span.end + attr[0].length;
+      continue;
+    }
+    result += prose.slice(index, span.end);
+    index = span.end;
+  }
+  return result;
+}
+
+/** Turn file-reading commands in Pandoc raw TeX into text. A normal code sample stays. */
+export function disarmPandocRawTex(content: string): string {
+  const lines = content.split('\n');
+  const output: string[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const opened = fenceOpen(lines[index] ?? '');
+    if (opened) {
+      const fence = readUntilClose(lines, index + 1, opened.marker);
+      output.push(lines[index] ?? '', ...disarmedBody(fence.body, opened.rawTex));
+      if (fence.next < lines.length) {
+        output.push(lines[fence.next] ?? '');
+      }
+      index = fence.next < lines.length ? fence.next + 1 : fence.next;
+      continue;
+    }
+    const prose: string[] = [];
+    while (index < lines.length && !fenceOpen(lines[index] ?? '')) {
+      prose.push(lines[index] ?? '');
+      index += 1;
+    }
+    if (prose.length > 0) {
+      output.push(disarmInlineRawTex(prose.join('\n')));
+    }
+  }
+  return output.join('\n');
 }
 
 /** Leave the alt text when a picture path can read a file during TeX compilation. */
