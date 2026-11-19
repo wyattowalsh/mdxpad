@@ -195,6 +195,17 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('keeps a script on the symbol before a space', () => {
+    const sum = mathComponents('\\sum _{i=1}^{n}');
+    expect(sum).toHaveLength(1);
+    expect(sum[0]).toBeInstanceOf(MathSubSuperScript);
+    expect(runText(sum)).toBe('∑i=1n');
+    const power = mathComponents('x ^2');
+    expect(power).toHaveLength(1);
+    expect(power[0]).toBeInstanceOf(MathSuperScript);
+    expect(runText(power)).toBe('x2');
+  });
+
   it('leaves a style command out of the formula', () => {
     const limited = runText(mathComponents('\\sum\\limits_{i=1}^{n}'));
     expect(limited).toBe('∑i=1n');

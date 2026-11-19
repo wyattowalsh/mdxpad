@@ -340,11 +340,12 @@ function scriptBase(
   components: MathComponent[],
   plain: string
 ): { plain: string; base: MathComponent[] } {
-  if (plain.length > 0) {
-    return { plain: plain.slice(0, -1), base: [new MathRun(plain.slice(-1))] };
+  const trimmed = plain.trimEnd();
+  if (trimmed.length > 0) {
+    return { plain: trimmed.slice(0, -1), base: [new MathRun(trimmed.slice(-1))] };
   }
   const previous = components.pop();
-  return { plain, base: previous ? [previous] : [new MathRun('')] };
+  return { plain: '', base: previous ? [previous] : [new MathRun('')] };
 }
 
 function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): MathComponent[] {
