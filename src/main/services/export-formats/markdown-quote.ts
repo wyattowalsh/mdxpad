@@ -19,7 +19,6 @@ import {
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
-  renderListItemHtml,
   type HtmlListFrame,
   type MarkdownListItem,
 } from './markdown-list';
@@ -78,6 +77,14 @@ function takeChunk(chunks: QuoteChunk[], current: QuoteChunk | null): QuoteChunk
   return null;
 }
 
+function fenceStaysInList(line: string, current: QuoteChunk | null): boolean {
+  if (current?.kind !== 'list') {
+    return false;
+  }
+  const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  return indent >= listIndent(current.lines);
+}
+
 function listIndent(lines: readonly string[]): number {
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const column = listContentColumn(lines[index] ?? '');
@@ -102,7 +109,10 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
     const column = listIndent(current.lines);
     const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
     if (openingFence(line) === null && line.trim().length > 0 && indent >= column + 4) {
-      return 'code';
+      return 'list';
+    }
+    if (openingFence(line) !== null && indent >= column) {
+      return 'list';
     }
     if (isListContinuation(line, column)) {
       return 'list';
@@ -151,7 +161,7 @@ function takeQuoteLine(
   current: QuoteChunk | null,
   line: string
 ): QuoteChunk | null {
-  if (quoteBody(line) === null && openingFence(line)) {
+  if (quoteBody(line) === null && openingFence(line) && !fenceStaysInList(line, current)) {
     takeChunk(chunks, current);
     return { kind: 'code', lines: [line] };
   }
@@ -199,10 +209,12 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   return chunks;
 }
 
-function groupQuoteItems(
-  lines: readonly string[]
-): { item: MarkdownListItem; body: SourceLine[] }[] {
-  const groups: { item: MarkdownListItem; body: SourceLine[] }[] = [];
+function groupQuoteItems(lines: readonly string[]): {
+  item: MarkdownListItem;
+  column: number;
+  body: SourceLine[];
+}[] {
+  const groups: { item: MarkdownListItem; column: number; body: SourceLine[] }[] = [];
   for (const line of lines) {
     if (line.trim().length === 0) {
       continue;
@@ -211,13 +223,89 @@ function groupQuoteItems(
     if (item) {
       groups.push({
         item,
+        column: listContentColumn(line) ?? 2,
         body: [{ text: item.text, hardBreak: readSourceLine(line).hardBreak }],
       });
       continue;
     }
-    groups[groups.length - 1]?.body.push(readSourceLine(line));
+    const source = readSourceLine(line);
+    groups[groups.length - 1]?.body.push({ text: line, hardBreak: source.hardBreak });
   }
   return groups;
+}
+
+function shiftIndent(line: string, count: number): string {
+  const expanded = line.replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  return expanded.slice(Math.min(count, spaces));
+}
+
+function collectItemCode(
+  body: readonly SourceLine[],
+  index: number,
+  column: number
+): { lines: string[]; next: number } {
+  const line = body[index]?.text ?? '';
+  const lines = [line];
+  let cursor = index + 1;
+  const marker = openingFence(line);
+  if (marker) {
+    while (cursor < body.length) {
+      const next = body[cursor]?.text ?? '';
+      lines.push(next);
+      cursor += 1;
+      if (closesFence(next, marker)) {
+        break;
+      }
+    }
+    return { lines, next: cursor };
+  }
+  while (cursor < body.length) {
+    const next = body[cursor]?.text ?? '';
+    const indent = /^ */.exec(next.replaceAll('\t', '    '))?.[0].length ?? 0;
+    if (next.trim().length > 0 && indent < column + 4) {
+      break;
+    }
+    lines.push(next);
+    cursor += 1;
+  }
+  return { lines, next: cursor };
+}
+
+type QuoteItemPiece =
+  | { readonly kind: 'prose'; readonly lines: SourceLine[] }
+  | { readonly kind: 'code'; readonly lines: string[] };
+
+function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItemPiece[] {
+  const pieces: QuoteItemPiece[] = [];
+  let prose: SourceLine[] = [];
+  const flush = (): void => {
+    if (prose.length === 0) {
+      return;
+    }
+    pieces.push({ kind: 'prose', lines: prose });
+    prose = [];
+  };
+  prose.push(body[0] ?? { text: '', hardBreak: false });
+  let index = 1;
+  while (index < body.length) {
+    const line = body[index]?.text ?? '';
+    const fence = openingFence(line);
+    const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+    const code = fence !== null ? indent >= column : line.trim().length > 0 && indent >= column + 4;
+    if (!code) {
+      const source = body[index] ?? { text: line, hardBreak: false };
+      prose.push({ text: source.text.trim(), hardBreak: source.hardBreak });
+      index += 1;
+      continue;
+    }
+    flush();
+    const block = collectItemCode(body, index, column);
+    pieces.push({ kind: 'code', lines: block.lines.map((entry) => shiftIndent(entry, column)) });
+    index = block.next;
+  }
+  flush();
+  return pieces;
 }
 
 function quoteCodeParts(lines: readonly string[]): { language: string; body: string[] } {
@@ -266,11 +354,39 @@ function quoteTableLatex(lines: readonly string[], renderLine: (line: string) =>
   return markdownTableToLatex(table, renderLine);
 }
 
+function codeSample(lines: readonly string[]): string[] {
+  const marker = openingFence(lines[0] ?? '');
+  if (!marker) {
+    return [...lines];
+  }
+  const last = lines[lines.length - 1] ?? '';
+  return [...lines.slice(1, closesFence(last, marker) ? -1 : undefined)];
+}
+
+function renderQuotedItemHtml(
+  body: readonly SourceLine[],
+  column: number,
+  renderLine: (line: string) => string
+): string {
+  return quoteItemPieces(body, column)
+    .map((piece) =>
+      piece.kind === 'code'
+        ? quoteCodeHtml(codeSample(piece.lines))
+        : joinParagraphHtml(piece.lines, renderLine)
+    )
+    .join('\n');
+}
+
 function quoteListHtml(lines: readonly string[], renderLine: (line: string) => string): string {
   const parts: string[] = [];
   const stack: HtmlListFrame[] = [];
   for (const group of groupQuoteItems(lines)) {
-    pushHtmlListItem(parts, stack, group.item, renderListItemHtml(group.body, renderLine));
+    pushHtmlListItem(
+      parts,
+      stack,
+      group.item,
+      renderQuotedItemHtml(group.body, group.column, renderLine)
+    );
   }
   closeHtmlLists(parts, stack);
   return parts.join('\n');
@@ -289,10 +405,26 @@ function formatQuoteItem(
   return task ? taskItemLatex(task.checked, formatted) : formatted;
 }
 
+function renderQuotedItemLatex(
+  body: readonly SourceLine[],
+  column: number,
+  renderLine: (line: string) => string
+): string {
+  return quoteItemPieces(body, column)
+    .map((piece) =>
+      piece.kind === 'code'
+        ? quoteCodeLatex(codeSample(piece.lines))
+        : formatQuoteItem(piece.lines, renderLine)
+    )
+    .join('\n');
+}
+
 function quoteListLatex(lines: readonly string[], renderLine: (line: string) => string): string {
   const groups = groupQuoteItems(lines);
   const env = groups[0]?.item.ordered === true ? 'enumerate' : 'itemize';
-  const items = groups.map((group) => `\\item ${formatQuoteItem(group.body, renderLine)}`);
+  const items = groups.map(
+    (group) => `\\item ${renderQuotedItemLatex(group.body, group.column, renderLine)}`
+  );
   return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`;
 }
 

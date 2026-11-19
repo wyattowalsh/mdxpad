@@ -84,9 +84,12 @@ describe('quoteBody', () => {
 
   it('keeps indented code after a quoted list item', () => {
     const html = quoteToHtml(['- item', '', '      const x = 1'], (line) => line);
-    expect(html).toContain('<pre>');
-    expect(html).toContain('const x = 1');
-    expect(html).not.toContain('item const');
+    const item = html.slice(html.indexOf('<li>'), html.indexOf('</li>'));
+    expect(item).toContain('item');
+    expect(item).toContain('<pre><code>const x = 1</code></pre>');
+    const fenced = quoteToHtml(['- item', '', '  ```', '  const x = 1', '  ```'], (line) => line);
+    const fencedItem = fenced.slice(fenced.indexOf('<li>'), fenced.indexOf('</li>'));
+    expect(fencedItem).toContain('<pre><code>const x = 1</code></pre>');
   });
 
   it('turns a quoted setext underline into a heading', () => {

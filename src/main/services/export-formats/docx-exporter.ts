@@ -554,14 +554,69 @@ function flushDocxTable(blocks: (Paragraph | Table)[], tableLines: string[]): vo
   blocks.push(new Table({ rows: [toRow(table.headers), ...table.rows.map((row) => toRow(row))] }));
 }
 
+function appendDocxQuoteCodeLines(
+  blocks: (Paragraph | Table)[],
+  lines: readonly string[],
+  start: number,
+  column: number
+): number {
+  const first = lines[start] ?? '';
+  const block = [first];
+  let cursor = start + 1;
+  const marker = openingFence(first);
+  if (marker) {
+    while (cursor < lines.length) {
+      const next = lines[cursor] ?? '';
+      block.push(next);
+      cursor += 1;
+      if (closesFence(next, marker)) {
+        break;
+      }
+    }
+  } else {
+    while (cursor < lines.length) {
+      const next = lines[cursor] ?? '';
+      const indent = /^ */.exec(next.replaceAll('\t', '    '))?.[0].length ?? 0;
+      if (next.trim().length > 0 && indent < column + 4) {
+        break;
+      }
+      block.push(next);
+      cursor += 1;
+    }
+  }
+  const shifted = block.map((line) => {
+    const expanded = line.replaceAll('\t', '    ');
+    let spaces = 0;
+    while (expanded[spaces] === ' ') {
+      spaces += 1;
+    }
+    const cut = spaces < column ? spaces : column;
+    return expanded.slice(cut);
+  });
+  appendDocxQuoteCode(blocks, shifted);
+  return cursor;
+}
+
+function continueDocxQuoteItem(
+  current: MarkdownListItem,
+  line: string,
+  hard: boolean
+): MarkdownListItem {
+  const source = readSourceLine(line);
+  const text = hard ? `${current.text}\n${source.text}` : `${current.text} ${source.text}`;
+  return { level: current.level, ordered: current.ordered, start: current.start, text };
+}
+
 function appendDocxQuoteList(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
   depth: number
 ): void {
   let current: MarkdownListItem | null = null;
+  let column = 2;
   let hard = false;
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
     if (line.trim().length === 0) {
       continue;
     }
@@ -571,23 +626,25 @@ function appendDocxQuoteList(
         blocks.push(listParagraph(current, depth));
       }
       current = item;
+      column = listContentColumn(line) ?? 2;
       hard = readSourceLine(line).hardBreak;
       continue;
     }
     if (!current) {
       continue;
     }
-    const source = readSourceLine(line);
-    const nextText: string = hard
-      ? `${current.text}\n${source.text}`
-      : `${current.text} ${source.text}`;
-    current = {
-      level: current.level,
-      ordered: current.ordered,
-      start: current.start,
-      text: nextText,
-    };
-    hard = source.hardBreak;
+    const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+    const code =
+      (openingFence(line) !== null && indent >= column) ||
+      (openingFence(line) === null && indent >= column + 4);
+    if (code) {
+      blocks.push(listParagraph(current, depth));
+      current = null;
+      index = appendDocxQuoteCodeLines(blocks, lines, index, column) - 1;
+      continue;
+    }
+    current = continueDocxQuoteItem(current, line, hard);
+    hard = readSourceLine(line).hardBreak;
   }
   if (current) {
     blocks.push(listParagraph(current, depth));
