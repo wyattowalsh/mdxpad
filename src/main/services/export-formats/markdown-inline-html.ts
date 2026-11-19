@@ -1,6 +1,6 @@
 import katex from 'katex';
 
-import { isCurrencySpan } from '@shared/lib/currency-span';
+import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
@@ -21,26 +21,6 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
-}
-
-function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
-  let cursor = start + delimiter.length;
-  while (cursor < raw.length) {
-    if (raw[cursor] === '\\') {
-      cursor += 2;
-      continue;
-    }
-    if (!raw.startsWith(delimiter, cursor)) {
-      cursor += 1;
-      continue;
-    }
-    const interior = raw.slice(start + delimiter.length, cursor);
-    if (interior.length === 0 || isCurrencySpan(interior)) {
-      return -1;
-    }
-    return cursor + delimiter.length;
-  }
-  return -1;
 }
 
 function renderKatex(interior: string, display: boolean): string {
@@ -244,10 +224,8 @@ interface PlainSpan {
 
 function findMathSpan(raw: string, from: number): PlainSpan | null {
   for (let index = from; index < raw.length; index += 1) {
-    const escaped = index > 0 && raw[index - 1] === '\\';
-    const delimiter =
-      escaped ? null : raw.startsWith('$$', index) ? '$$' : raw[index] === '$' ? '$' : null;
-    const end = delimiter === null ? -1 : takeMath(raw, index, delimiter);
+    const delimiter = mathDelimiterAt(raw, index);
+    const end = delimiter === null ? -1 : mathSpanEnd(raw, index, delimiter);
     if (delimiter === null || end === -1) {
       continue;
     }

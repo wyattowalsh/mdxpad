@@ -7,9 +7,8 @@ import {
   type MathComponent,
 } from 'docx';
 
-import { isCurrencySpan } from '@shared/lib/currency-span';
-
 import { readCodeSpan } from './markdown-escape';
+import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 
 interface Cursor {
   source: string;
@@ -29,18 +28,6 @@ const SYMBOLS: Record<string, string> = {
   infty: '∞',
 };
 
-function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
-  const end = raw.indexOf(delimiter, start + delimiter.length);
-  if (end === -1) {
-    return -1;
-  }
-  const interior = raw.slice(start + delimiter.length, end);
-  if (interior.length === 0 || isCurrencySpan(interior)) {
-    return -1;
-  }
-  return end + delimiter.length;
-}
-
 export type DocxPiece =
   | { readonly kind: 'text'; readonly text: string }
   | { readonly kind: 'math'; readonly tex: string };
@@ -55,8 +42,8 @@ export function splitDocxPieces(value: string): DocxPiece[] {
       index = span ? span.end : index + 1;
       continue;
     }
-    const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : null;
-    const end = delimiter === null ? -1 : takeMath(value, index, delimiter);
+    const delimiter = mathDelimiterAt(value, index);
+    const end = delimiter === null ? -1 : mathSpanEnd(value, index, delimiter);
     if (delimiter !== null && end !== -1) {
       if (index > textStart) {
         pieces.push({ kind: 'text', text: value.slice(textStart, index) });

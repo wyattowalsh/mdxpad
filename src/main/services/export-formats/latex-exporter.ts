@@ -1,7 +1,7 @@
 import { writeRegularFile } from './write-regular-file';
 
 import { allocateHeadingSlug, headingAnchor, parseAtxHeading } from '@shared/lib/markdown-heading';
-import { isCurrencySpan } from '@shared/lib/currency-span';
+import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 
 import { inlineLocalImages } from './export-image';
@@ -95,18 +95,6 @@ function wrapLatex(command: string, content: string): string {
 
 const MATH_MARK = '\uE001';
 
-function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
-  const end = raw.indexOf(delimiter, start + delimiter.length);
-  if (end === -1) {
-    return -1;
-  }
-  const interior = raw.slice(start + delimiter.length, end);
-  if (interior.length === 0 || isCurrencySpan(interior)) {
-    return -1;
-  }
-  return end + delimiter.length;
-}
-
 function protectMath(raw: string): { text: string; slots: string[] } {
   const slots: string[] = [];
   let text = '';
@@ -119,8 +107,8 @@ function protectMath(raw: string): { text: string; slots: string[] } {
       index = end;
       continue;
     }
-    const delimiter = raw.startsWith('$$', index) ? '$$' : raw[index] === '$' ? '$' : null;
-    const end = delimiter === null ? -1 : takeMath(raw, index, delimiter);
+    const delimiter = mathDelimiterAt(raw, index);
+    const end = delimiter === null ? -1 : mathSpanEnd(raw, index, delimiter);
     if (delimiter !== null && end !== -1) {
       slots.push(raw.slice(index, end));
       text += `${MATH_MARK}${slots.length - 1}${MATH_MARK}`;
