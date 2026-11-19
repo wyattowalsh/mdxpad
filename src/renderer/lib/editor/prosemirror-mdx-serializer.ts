@@ -179,7 +179,14 @@ const nodeSerializers: NodeSerializerMap = {
     state.write(`![${markdownAlt(alt)}](${markdownTarget(src, title)})`);
   },
 
-  footnote_ref: writeFootnoteRef,
+  footnote_ref(state, node) {
+    writeFootnoteRef(state, node);
+    const carrier = state as MarkdownSerializerState & {
+      mathCloser?: string | null;
+      mathBreak?: boolean;
+    };
+    carrier.mathBreak = Boolean(carrier.mathCloser);
+  },
 
   footnote_label: writeFootnoteLabel,
 
@@ -476,7 +483,7 @@ function writeTextPreservingMath(state: MarkdownSerializerState, value: string):
     }
     const closeAt = closerAt(value, open.index + open.opener.length, open.closer);
     if (closeAt === -1 && open.opener === '$') {
-      state.text(value.slice(cursor, open.index + 1));
+      state.text(value.slice(open.index, open.index + 1));
       cursor = open.index + 1;
       continue;
     }

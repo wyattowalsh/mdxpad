@@ -261,8 +261,13 @@ describe('WYSIWYG markdown round trip', () => {
     expect(reference).toContain('\\(x\\)');
     expect(reference).not.toContain('\uE013');
     const priced = roundTrip('Price $5 and \\(x\\).\n');
-    expect(priced).toContain('\\(x\\)');
+    expect(priced).toContain('Price $5 and \\(x\\).');
+    expect(priced).not.toContain('Price Price');
     expect(priced).not.toContain('\\\\(x');
+    const noted = roundTrip('Math note \\(x[^1]\\).\n\n[^1]: M\n');
+    expect(noted).toContain('\\(x[^1]\\)');
+    expect(noted).toContain('[^1]: M');
+    expect(noted).not.toContain('\\\\)');
     const price = roundTrip('Price \\(\\$5\\).\n');
     expect(price).toContain('\\$5');
     expect(price).not.toContain('\uE019');
