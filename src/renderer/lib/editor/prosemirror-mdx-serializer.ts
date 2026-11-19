@@ -203,7 +203,9 @@ const nodeSerializers: NodeSerializerMap = {
       parent.type.name === 'paragraph' &&
       startsFootnoteDefinition(parent.firstChild) &&
       !startsFootnoteDefinition(next);
-    const indent = footnote ? '    ' : '';
+    const nextText = next?.isText ? (next.text ?? '') : '';
+    const alreadyIndented = nextText.startsWith('    ') || nextText.startsWith('\t');
+    const indent = footnote && !alreadyIndented ? '    ' : '';
     state.write(node.attrs.hard === false ? `\n${indent}` : `\\\n${indent}`);
     const carrier = state as MarkdownSerializerState & {
       mathCloser?: string | null;

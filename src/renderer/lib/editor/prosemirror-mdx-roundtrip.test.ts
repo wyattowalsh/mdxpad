@@ -451,6 +451,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(after).toContain('[docs](https://example.com)[^1]');
   });
 
+  it('does not indent a footnote formula further on each save', () => {
+    const source = 'Foot[^1]\n\n[^1]: \\(x  \n    y\\)\n';
+    const first = roundTrip(source);
+    const second = roundTrip(first.endsWith('\n') ? first : `${first}\n`);
+    expect(second).toBe(first);
+    expect(first).toContain('y\\)');
+    expect(first).not.toContain('        y');
+  });
+
   it('keeps a footnote reference and its definition', () => {
     const serialized = roundTrip('A footnote[^1].\n\n[^1]: The note\n');
     expect(serialized).toContain('A footnote[^1].');
