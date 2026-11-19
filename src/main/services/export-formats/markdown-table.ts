@@ -1,7 +1,8 @@
+import { containsColumnPipe } from '@shared/lib/emphasis-flank';
+import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { mathCloserIndex, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
 import { canOpenEmphasis, canOpenStrikethrough } from './markdown-emphasis';
-import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { isThematicBreak } from './markdown-break';
 import { parseListItem } from './markdown-list';
 import { advanceFence, openingFence } from './markdown-fence';
@@ -96,7 +97,10 @@ function matchingCloser(value: string, open: number, left: string, right: string
 
 function skipCloser(value: string, index: number, marker: string): number {
   const end = value.indexOf(marker, index + marker.length);
-  return end === -1 ? index : end + marker.length;
+  if (end === -1 || containsColumnPipe(value.slice(index, end))) {
+    return index;
+  }
+  return end + marker.length;
 }
 
 function skipEmphasis(value: string, index: number): number {

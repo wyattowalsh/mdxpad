@@ -43,6 +43,9 @@ describe('parseMarkdownTable', () => {
     expect(doubledStars?.headers).toEqual(['a**', 'b**']);
     const inside = parseMarkdownTable(['| *keep|pipe* | ok |', '| --- | --- |', '| 1 | 2 |']);
     expect(inside?.headers).toEqual(['*keep|pipe*', 'ok']);
+    const across = parseMarkdownTable(['| **a | b** |', '| --- | --- |', '| 1 | 2 |']);
+    expect(across?.headers).toEqual(['**a', 'b**']);
+    expect(across?.rows).toEqual([['1', '2']]);
     const struck = parseMarkdownTable(['| a~~ | b~~ |', '| --- | --- |', '| 1 | 2 |']);
     expect(struck?.headers).toEqual(['a~~', 'b~~']);
     const struckInside = parseMarkdownTable([

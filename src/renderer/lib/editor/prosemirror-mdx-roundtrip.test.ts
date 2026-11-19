@@ -43,6 +43,10 @@ describe('WYSIWYG markdown round trip', () => {
     const tildes = roundTrip('| a~~ | b~~ |\n| --- | --- |\n| 1 | 2 |\n');
     expect(tildes).toContain('| b');
     expect(roundTrip(`${tildes}\n`)).toBe(tildes);
+    const across = roundTrip('| **a | b** |\n| --- | --- |\n| 1 | 2 |\n');
+    expect(across).toContain('| --- | --- |');
+    expect(across).toContain('| 1 | 2 |');
+    expect(roundTrip(`${across}\n`)).toBe(across);
     const words = roundTrip('| notes_txt | size_kb |\n| --- | --- |\n| 1 | 2 |\n');
     expect(words).toContain('notes_txt');
     expect(words).toContain('| size_kb |');

@@ -42,6 +42,25 @@ export function canOpenEmphasis(value: string, index: number): boolean {
   return flanking(value, index, length, char).canOpen;
 }
 
+/** A pipe with space beside it is a table column, even inside emphasis markers. */
+export function containsColumnPipe(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === '\\') {
+      index += 1;
+      continue;
+    }
+    if (value[index] !== '|') {
+      continue;
+    }
+    const before = value[index - 1] ?? '';
+    const after = value[index + 1] ?? '';
+    if (before === ' ' || before === '\t' || after === ' ' || after === '\t') {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Whether `~~` at `index` can open strikethrough. */
 export function canOpenStrikethrough(value: string, index: number): boolean {
   if (value[index] !== '~') {

@@ -1,4 +1,4 @@
-import { canOpenEmphasis, canOpenStrikethrough } from '@shared/lib/emphasis-flank';
+import { canOpenEmphasis, canOpenStrikethrough, containsColumnPipe } from '@shared/lib/emphasis-flank';
 import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
@@ -116,7 +116,7 @@ function readEmphasis(value: string, index: number): TextSpan | null {
     return null;
   }
   const end = value.indexOf(marker, index + marker.length);
-  if (end === -1) {
+  if (end === -1 || containsColumnPipe(value.slice(index, end))) {
     return null;
   }
   return { text: value.slice(index, end + marker.length), next: end + marker.length };
