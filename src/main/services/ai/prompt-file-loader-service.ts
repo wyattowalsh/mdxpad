@@ -9,6 +9,7 @@ import {
   type AIPromptFileMetadata,
 } from '@shared/contracts/ai-schemas';
 import { trustedDirectoryError } from '@main/ipc/trusted-directory';
+import { containsLinkBelowRoot } from '@main/services/ensure-real-directory';
 import { readFileWithoutFollowingLinks } from '@main/services/file-service';
 import { computeChecksum } from '@shared/lib/checksum';
 
@@ -94,7 +95,7 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
     for (const rootPath of contextRoots) {
       for (const relativePromptDir of PROMPT_DIRECTORY_CANDIDATES) {
         const promptDirPath = path.join(rootPath, relativePromptDir);
-        const promptFilePaths = await this.findPromptFiles(promptDirPath);
+        const promptFilePaths = await this.findPromptFiles(rootPath, promptDirPath);
         for (const promptFilePath of promptFilePaths) {
           const metadata = await this.parsePromptMetadata(promptFilePath);
           if (!metadata || promptsById.has(metadata.id)) {
@@ -121,7 +122,10 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
     );
   }
 
-  private async findPromptFiles(dirPath: string): Promise<string[]> {
+  private async findPromptFiles(rootPath: string, dirPath: string): Promise<string[]> {
+    if (await containsLinkBelowRoot(rootPath, dirPath)) {
+      return [];
+    }
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
       const files: string[] = [];
@@ -135,7 +139,7 @@ export class AIPromptFileLoaderService implements IAIPromptFileLoaderService {
         }
 
         if (entry.isDirectory()) {
-          files.push(...(await this.findPromptFiles(entryPath)));
+          files.push(...(await this.findPromptFiles(rootPath, entryPath)));
           continue;
         }
         if (entry.isFile() && isPromptFile(entryPath)) {

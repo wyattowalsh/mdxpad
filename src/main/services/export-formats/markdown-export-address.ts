@@ -3,6 +3,7 @@
  * A picture or link must not point at a local file.
  */
 
+import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeHtmlEntities } from './markdown-entity';
 
 const URL_ATTRIBUTES = new Set([
@@ -122,21 +123,33 @@ function attributeAllowed(name: string, value: string): boolean {
   return (image ? safeImageAddress(value) : safeLinkAddress(value)) !== null;
 }
 
+function cssAddress(address: string): string {
+  return decodeCssEscapes(address.trim());
+}
+
 function sanitizeStyleValue(value: string): string {
-  return value.replace(
+  return stripCssComments(value).replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
-      const address = (quoted ?? bare ?? '').trim();
+      const address = cssAddress(quoted ?? bare ?? '');
       return safeImageAddress(address) === null ? 'none' : full;
     }
   );
 }
 
 function sanitizeStyleSheet(css: string): string {
-  const withoutImport = css.replace(
+  const visible = stripCssComments(css);
+  const withoutImport = visible.replace(
     /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
-    (full, _quote: string, quotedUrl: string | undefined, bare: string | undefined, _plain: string, quoted: string | undefined) => {
-      const address = (quotedUrl ?? bare ?? quoted ?? '').trim();
+    (
+      full,
+      _quote: string,
+      quotedUrl: string | undefined,
+      bare: string | undefined,
+      _plain: string,
+      quoted: string | undefined
+    ) => {
+      const address = cssAddress(quotedUrl ?? bare ?? quoted ?? '');
       return safeImageAddress(address) === null ? '' : full;
     }
   );

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Video } from './components/preview-media';
 import { Area, Base, Form, Link } from './components/preview-navigation';
 import { A, Img } from './components/typography';
-import { confinePreviewProps, isBlockedPreviewHref } from './preview-href';
+import { confinePreviewElement, confinePreviewProps, isBlockedPreviewHref } from './preview-href';
 
 describe('isBlockedPreviewHref', () => {
   it('blocks file and javascript links', () => {
@@ -30,6 +30,20 @@ describe('isBlockedPreviewHref', () => {
     expect(props.style).toEqual({ background: 'none', color: 'red', textAlign: 'right' });
     expect(props.href).toBe('/notes/a.md');
     expect(props.src).toBeUndefined();
+  });
+
+  it('drops a css escape and a nested document', () => {
+    const styled = confinePreviewProps({
+      style: 'background:url(\\66ile:///etc/passwd);color:red',
+    }) as { style: Record<string, string> };
+    expect(JSON.stringify(styled.style)).not.toContain('file:');
+    expect(styled.style.background).toBe('none');
+    expect(styled.style.color).toBe('red');
+
+    const frame = confinePreviewElement('iframe', {
+      srcdoc: '<img src="file:///etc/passwd">',
+    }) as { srcdoc?: string };
+    expect(frame.srcdoc).toBeUndefined();
   });
 });
 

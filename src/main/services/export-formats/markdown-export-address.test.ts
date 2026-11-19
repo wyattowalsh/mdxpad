@@ -35,4 +35,17 @@ describe('sanitizeExportedHtml', () => {
     expect(remote).toContain('https://example.com/a.css');
     expect(remote).toContain('color:red');
   });
+
+  it('drops a local file hidden by a css escape', () => {
+    const styled = sanitizeExportedHtml(
+      '<div style="background:url(\\66ile:///etc/passwd);color:red"></div>'
+    );
+    expect(styled).not.toContain('file:');
+    expect(styled).toContain('background:none');
+    expect(styled).toContain('color:red');
+
+    const imported = sanitizeExportedHtml('<style>@import "\\66ile:///etc/passwd.css";</style>');
+    expect(imported).not.toContain('file:');
+    expect(imported).not.toContain('@import');
+  });
 });

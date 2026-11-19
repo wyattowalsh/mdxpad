@@ -77,6 +77,7 @@ export function Track({ src, ...props }: TrackHTMLAttributes<HTMLTrackElement>):
 
 export function Iframe({
   src,
+  srcDoc: _srcDoc,
   className = '',
   ...props
 }: IframeHTMLAttributes<HTMLIFrameElement>): JSX.Element {

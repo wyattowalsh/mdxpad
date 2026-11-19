@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -188,5 +188,24 @@ author: "mdxpad"
         downloads: 0,
       },
     ]);
+  });
+
+  it('does not read templates through a linked resources folder', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-market-link-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-market-outside-'));
+    tempDirs.push(root, outside);
+    await mkdir(path.join(outside, 'templates'), { recursive: true });
+    await writeFile(
+      path.join(outside, 'templates', 'secret.mdxt'),
+      '---\nname: Secret\nid: secret\ncategory: writing\n---\nHi\n'
+    );
+    await symlink(outside, path.join(root, 'resources'));
+
+    await expect(
+      catalogFromTemplateDirectory(path.join(root, 'resources', 'templates'))
+    ).resolves.toEqual([]);
+    expect(await readFile(path.join(outside, 'templates', 'secret.mdxt'), 'utf8')).toContain(
+      'Secret'
+    );
   });
 });

@@ -16,7 +16,7 @@ import {
   MarketplaceTemplateSchema,
 } from '@shared/contracts/marketplace-schemas';
 import { registerAuthorizedIpcHandler } from '@main/ipc/ipc-sender-authorization';
-import { containsDirectoryLink } from './ensure-real-directory';
+import { containsDirectoryLink, linkedResourceDirectory } from './ensure-real-directory';
 import { parseTemplateMetadataFile } from './template/parser';
 
 // =============================================================================
@@ -89,7 +89,7 @@ export function marketplaceTemplateDirectories(resourcesPath: string): readonly 
 export async function catalogFromTemplateDirectory(
   directory: string
 ): Promise<MarketplaceTemplateData[]> {
-  if (await containsDirectoryLink(directory, directory)) {
+  if (await linkedResourceDirectory(directory)) {
     return [];
   }
   let names: string[];

@@ -1,5 +1,7 @@
 import { decodeHTMLStrict } from 'entities';
 
+import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
+
 function withoutHiddenBreaks(value: string): string {
   let result = '';
   for (const char of value) {
@@ -98,8 +100,13 @@ const RESOURCE_ATTRIBUTES = new Set([
   'xlinkhref',
 ]);
 
+function blockedCssAddress(address: string): boolean {
+  const decoded = decodeCssEscapes(address.trim());
+  return decoded.length > 0 && isBlockedPreviewResource(decoded);
+}
+
 function sanitizePreviewImport(css: string): string {
-  return css.replace(
+  return stripCssComments(css).replace(
     /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
@@ -110,7 +117,7 @@ function sanitizePreviewImport(css: string): string {
       quoted: string | undefined
     ) => {
       const address = (quotedUrl ?? bare ?? quoted ?? '').trim();
-      return address.length > 0 && isBlockedPreviewResource(address) ? '' : full;
+      return blockedCssAddress(address) ? '' : full;
     }
   );
 }
@@ -121,11 +128,11 @@ export function sanitizePreviewStyleSheet(css: string): string {
 }
 
 function sanitizePreviewStyle(value: string): string {
-  return value.replace(
+  return stripCssComments(value).replace(
     /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
     (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
       const address = (quoted ?? bare ?? '').trim();
-      return address.length > 0 && isBlockedPreviewResource(address) ? 'none' : full;
+      return blockedCssAddress(address) ? 'none' : full;
     }
   );
 }
@@ -161,6 +168,9 @@ function styleObject(value: string): Record<string, string> | undefined {
 function nextAttribute(name: string, value: string): { readonly value: unknown } | undefined {
   if (name === 'style') {
     return { value: styleObject(value) };
+  }
+  if (name === 'srcdoc') {
+    return { value: undefined };
   }
   if (name === 'srcset') {
     const kept = filterSrcSet(value, (url) => isBlockedPreviewResource(url));

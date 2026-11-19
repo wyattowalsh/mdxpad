@@ -92,6 +92,53 @@ export async function containsDirectoryLink(ownedRoot: string, target: string): 
 }
 
 /**
+ * True when a directory under `root` is a symlink.
+ * The root itself may be a link the user chose.
+ */
+export async function containsLinkBelowRoot(root: string, target: string): Promise<boolean> {
+  const base = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  const relative = path.relative(base, resolvedTarget);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return true;
+  }
+  let current = base;
+  for (const segment of relative.split(path.sep)) {
+    if (segment.length === 0 || segment === '.') {
+      continue;
+    }
+    current = path.join(current, segment);
+    try {
+      const info = await fs.lstat(current);
+      if (info.isSymbolicLink()) {
+        return true;
+      }
+      if (typeof info.isDirectory === 'function' && !info.isDirectory()) {
+        return true;
+      }
+    } catch (error) {
+      if (errorCode(error) === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+  return false;
+}
+
+/** True when a templates directory or its resources parent is a symlink. */
+export async function linkedResourceDirectory(directory: string): Promise<boolean> {
+  if (await containsDirectoryLink(directory, directory)) {
+    return true;
+  }
+  const parent = path.dirname(path.resolve(directory));
+  if (path.basename(parent).toLowerCase() !== 'resources') {
+    return false;
+  }
+  return containsDirectoryLink(parent, parent);
+}
+
+/**
  * Create `directory` as a real folder.
  * When `ownedRoot` is set, a symlink at that root or any directory under it is
  * replaced before the child is created.

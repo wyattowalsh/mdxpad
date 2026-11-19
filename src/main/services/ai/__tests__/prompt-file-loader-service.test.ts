@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -175,5 +175,29 @@ hidden
     const prompts = await service.discoverPromptFiles({ workspaceRootPath });
 
     expect(prompts).toEqual([]);
+  });
+
+  it('does not read prompts through a linked prompts directory', async () => {
+    const workspaceRootPath = path.join(tempDir, 'workspace');
+    const outside = path.join(tempDir, 'outside');
+    await mkdir(path.join(outside, 'prompts'), { recursive: true });
+    await writeFile(
+      path.join(outside, 'prompts', 'secret.md'),
+      `---
+title: Secret
+---
+hidden
+`,
+      'utf-8'
+    );
+    await mkdir(workspaceRootPath);
+    await symlink(path.join(outside, 'prompts'), path.join(workspaceRootPath, 'prompts'));
+
+    grantReadCapability(path.join(workspaceRootPath, 'note.md'));
+    const service = new AIPromptFileLoaderService();
+    const prompts = await service.discoverPromptFiles({ workspaceRootPath });
+
+    expect(prompts).toEqual([]);
+    expect(await readFile(path.join(outside, 'prompts', 'secret.md'), 'utf8')).toContain('hidden');
   });
 });

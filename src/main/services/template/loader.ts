@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import matter from 'gray-matter';
 
 import type { TemplateMetadata } from '@shared/contracts/template-schemas';
-import { containsDirectoryLink } from '../ensure-real-directory';
+import { containsDirectoryLink, linkedResourceDirectory } from '../ensure-real-directory';
 import { getBuiltinTemplatesPathCandidates, getCustomTemplatesPath } from './paths';
 import { parseTemplateMetadataFile, readTemplateSource, slugify } from './parser';
 
@@ -24,7 +24,7 @@ export async function loadTemplatesFromDir(
   dirPath: string,
   isBuiltIn: boolean
 ): Promise<TemplateMetadata[]> {
-  if (await containsDirectoryLink(dirPath, dirPath)) {
+  if (await linkedResourceDirectory(dirPath)) {
     return [];
   }
   try {
@@ -77,7 +77,7 @@ export async function loadCustomTemplates(): Promise<TemplateMetadata[]> {
  * Finds a template file by ID in a specific directory.
  */
 async function findTemplateInDir(dirPath: string, id: string): Promise<string | null> {
-  if (await containsDirectoryLink(dirPath, dirPath)) {
+  if (await linkedResourceDirectory(dirPath)) {
     return null;
   }
   try {
