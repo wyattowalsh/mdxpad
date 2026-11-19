@@ -122,6 +122,25 @@ function attributeAllowed(name: string, value: string): boolean {
   return (image ? safeImageAddress(value) : safeLinkAddress(value)) !== null;
 }
 
+function sanitizeStyleValue(value: string): string {
+  return value.replace(
+    /url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"\s]+))\s*\)/gi,
+    (full, _quote: string, quoted: string | undefined, bare: string | undefined) => {
+      const address = (quoted ?? bare ?? '').trim();
+      return safeImageAddress(address) === null ? 'none' : full;
+    }
+  );
+}
+
+function styleAttribute(attr: string, raw: string): string {
+  const cleaned = sanitizeStyleValue(attributeValue(raw));
+  if (cleaned === attributeValue(raw)) {
+    return ` ${attr}=${raw}`;
+  }
+  const quote = raw.startsWith("'") ? "'" : '"';
+  return ` ${attr}=${quote}${cleaned}${quote}`;
+}
+
 /** Drop an address that would read a local file. A loading tag is removed. */
 export function sanitizeExportedTag(tag: string): string {
   if (DROPPED_TAGS.has(tagName(tag))) {
@@ -131,6 +150,9 @@ export function sanitizeExportedTag(tag: string): string {
     /\s([^\s=/>]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/g,
     (full, attr: string, raw: string) => {
       const name = attr.toLowerCase();
+      if (name === 'style') {
+        return styleAttribute(attr, raw);
+      }
       return URL_ATTRIBUTES.has(name) && !attributeAllowed(name, attributeValue(raw)) ? '' : full;
     }
   );

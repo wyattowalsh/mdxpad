@@ -1,0 +1,22 @@
+import { describe, expect, it } from 'vitest';
+
+import { sanitizeExportedHtml } from './markdown-export-address';
+
+describe('sanitizeExportedHtml', () => {
+  it('keeps alignment and drops a local file inside a style', () => {
+    const aligned = sanitizeExportedHtml('<td style="text-align: right">2</td>');
+    expect(aligned).toContain('style="text-align: right"');
+
+    const local = sanitizeExportedHtml(
+      '<div style="background:url(file:///etc/passwd);color:red"></div>'
+    );
+    expect(local).not.toContain('file:');
+    expect(local).toContain('background:none');
+    expect(local).toContain('color:red');
+
+    const remote = sanitizeExportedHtml(
+      '<div style="background:url(https://example.com/a.png)"></div>'
+    );
+    expect(remote).toContain('https://example.com/a.png');
+  });
+});
