@@ -252,6 +252,10 @@ export function confinePreviewProps(props: unknown): unknown {
   const nextEntries: [string, unknown][] = [];
   let changed = false;
   for (const [key, value] of entries) {
+    if (key === 'dangerouslySetInnerHTML') {
+      changed = true;
+      continue;
+    }
     const name = key.toLowerCase();
     if (name === 'style' && isStyleRecord(value)) {
       changed = true;

@@ -47,6 +47,12 @@ describe('isBlockedPreviewHref', () => {
       style: { backgroundImage: 'image-set("file:///etc/passwd" 1x)' },
     }) as { style: Record<string, string> };
     expect(imageSet.style.backgroundImage).not.toContain('file:');
+    const injected = confinePreviewProps({
+      className: 'note',
+      dangerouslySetInnerHTML: { __html: '<img src="file:///etc/passwd">' },
+    }) as { className?: string; dangerouslySetInnerHTML?: unknown };
+    expect(injected.className).toBe('note');
+    expect(injected.dangerouslySetInnerHTML).toBeUndefined();
     expect(props.href).toBe('/notes/a.md');
     expect(props.src).toBeUndefined();
   });
