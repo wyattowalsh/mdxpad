@@ -19,6 +19,7 @@ import { restoreMathMarkupNode } from './prosemirror-math-restore';
 import { indentListMarkerFences } from './indent-list-fence';
 import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
+import { retainNestedEmphasis } from './prosemirror-nested-marks';
 import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
   protectTexDelimiters,
@@ -337,6 +338,8 @@ function restoreJsxFences(doc: ProseMirrorNode): ProseMirrorNode {
 const markdownTokenizer = new MarkdownIt('commonmark', { html: false });
 markdownTokenizer.enable('table');
 enableStrikethrough(markdownTokenizer);
+
+retainNestedEmphasis(markdownTokenizer);
 
 export const mdxParser = new MarkdownParser(mdxSchema, markdownTokenizer, MDX_TOKENS);
 
