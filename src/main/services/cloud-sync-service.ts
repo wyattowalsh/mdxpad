@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app } from 'electron';
 
@@ -100,18 +100,23 @@ function getDefaultBaseDir(): string {
 }
 
 async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    const info = await fs.lstat(filePath);
-    if (info.isSymbolicLink() || !info.isFile()) {
+    handle = await fs.open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const info = await handle.stat();
+    if (!info.isFile()) {
       return fallback;
     }
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await handle.readFile({ encoding: 'utf8' });
     return JSON.parse(content) as T;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ELOOP' || code === 'EINVAL' || code === 'EPERM') {
       return fallback;
     }
     throw error;
+  } finally {
+    await handle?.close();
   }
 }
 
