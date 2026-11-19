@@ -11,6 +11,8 @@ import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import type { PluginManifest, PluginRecord, PluginState } from '@shared/contracts/plugin-schemas';
+import { writeWithoutFollowingLink } from '@shared/lib/atomic-write';
+
 import { ensureRealDirectory } from '../ensure-real-directory';
 
 interface RegistryData {
@@ -27,6 +29,7 @@ export class PluginRegistry {
   }
 
   private async read(): Promise<RegistryData> {
+    await ensureRealDirectory(path.dirname(this.registryPath));
     let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
     try {
       handle = await fs.open(this.registryPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
@@ -50,21 +53,7 @@ export class PluginRegistry {
   private async write(data: RegistryData): Promise<void> {
     const dir = path.dirname(this.registryPath);
     await ensureRealDirectory(dir);
-    await this.replaceRegistryLink();
-    await fs.writeFile(this.registryPath, JSON.stringify(data, null, 2), 'utf-8');
-  }
-
-  private async replaceRegistryLink(): Promise<void> {
-    try {
-      const info = await fs.lstat(this.registryPath);
-      if (info.isSymbolicLink()) {
-        await fs.unlink(this.registryPath);
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
+    await writeWithoutFollowingLink(this.registryPath, JSON.stringify(data, null, 2));
   }
 
   async listPlugins(): Promise<PluginRecord[]> {

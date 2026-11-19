@@ -10,6 +10,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { writeWithoutFollowingLink } from '@shared/lib/atomic-write';
+
 import { ensureRealDirectory } from '../ensure-real-directory';
 
 // =============================================================================
@@ -163,7 +165,6 @@ export class VectorStore {
   async saveToDisk(): Promise<void> {
     const dir = path.dirname(this.storagePath);
     await ensureRealDirectory(dir);
-    await this.replaceIndexLink();
 
     const data: SerializedStore = {
       version: 1,
@@ -171,13 +172,14 @@ export class VectorStore {
       lastIndexedAt: this.lastIndexedAt ?? new Date().toISOString(),
     };
 
-    await fs.promises.writeFile(this.storagePath, JSON.stringify(data), 'utf-8');
+    await writeWithoutFollowingLink(this.storagePath, JSON.stringify(data));
   }
 
   /**
    * Loads the store from disk if the file exists.
    */
   async loadFromDisk(): Promise<boolean> {
+    await ensureRealDirectory(path.dirname(this.storagePath));
     let handle: fs.promises.FileHandle | undefined;
     try {
       handle = await fs.promises.open(
@@ -203,20 +205,6 @@ export class VectorStore {
       return false;
     } finally {
       await handle?.close();
-    }
-  }
-
-  private async replaceIndexLink(): Promise<void> {
-    try {
-      const info = await fs.promises.lstat(this.storagePath);
-      if (info.isSymbolicLink()) {
-        await fs.promises.unlink(this.storagePath);
-      }
-    } catch (error) {
-      const code = error instanceof Error && 'code' in error ? String(error.code) : '';
-      if (code !== 'ENOENT') {
-        throw error;
-      }
     }
   }
 }

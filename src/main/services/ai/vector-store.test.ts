@@ -124,6 +124,26 @@ describe('VectorStore', () => {
     expect(store2.size).toBe(2);
   });
 
+  it('does not load an index through a linked folder', async () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'vector-outside-'));
+    const indexDir = path.join(tmpDir, '.mdxpad');
+    fs.writeFileSync(
+      path.join(outside, 'vector-index.json'),
+      JSON.stringify({
+        version: 1,
+        entries: [makeEntry('secret', '/secret.md', [1, 0, 0])],
+        lastIndexedAt: '2020-01-01T00:00:00.000Z',
+      })
+    );
+    fs.symlinkSync(outside, indexDir);
+
+    await expect(store.loadFromDisk()).resolves.toBe(false);
+    expect(store.size).toBe(0);
+    expect(fs.readFileSync(path.join(outside, 'vector-index.json'), 'utf-8')).toContain('secret');
+    expect(fs.lstatSync(indexDir).isSymbolicLink()).toBe(false);
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
+
   it('does not load or overwrite an index that is a link', async () => {
     const indexDir = path.join(tmpDir, '.mdxpad');
     fs.mkdirSync(indexDir);

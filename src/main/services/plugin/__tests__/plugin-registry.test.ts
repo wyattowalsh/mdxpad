@@ -117,6 +117,31 @@ describe('PluginRegistry', () => {
     expect(result).toBeUndefined();
   });
 
+  it('does not read a registry through a linked folder', async () => {
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-plugin-outside-'));
+    const linked = path.join(tempDir, 'linked-plugins');
+    await writeFile(
+      path.join(outside, 'registry.json'),
+      JSON.stringify({
+        plugins: [
+          {
+            id: 'secret',
+            manifest: testManifest,
+            state: 'installed',
+            installedAt: 1,
+          },
+        ],
+      })
+    );
+    await symlink(outside, linked);
+
+    const linkedRegistry = new PluginRegistry(linked);
+    await expect(linkedRegistry.listPlugins()).resolves.toEqual([]);
+    expect(await readFile(path.join(outside, 'registry.json'), 'utf-8')).toContain('secret');
+    expect((await lstat(linked)).isSymbolicLink()).toBe(false);
+    await rm(outside, { recursive: true, force: true });
+  });
+
   it('does not read or overwrite a registry that is a link', async () => {
     const outside = path.join(tempDir, 'outside.json');
     const registryPath = path.join(tempDir, 'registry.json');
