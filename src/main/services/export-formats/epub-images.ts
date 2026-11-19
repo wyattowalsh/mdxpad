@@ -38,7 +38,15 @@ function attribute(tag: string, name: string): string {
 }
 
 function escapeText(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function titled(title: string): string {
+  return title.length > 0 ? ` title="${escapeText(title)}"` : '';
 }
 
 async function writeTempImage(bytes: Buffer, extension: string): Promise<string> {
@@ -62,7 +70,9 @@ function dataImage(src: string): { readonly bytes: Buffer; readonly extension: s
   return bytes.byteLength > 0 && bytes.byteLength <= MAX_IMAGE_BYTES ? { bytes, extension } : null;
 }
 
-async function remoteImage(src: string): Promise<{ readonly bytes: Buffer; readonly extension: string } | null> {
+async function remoteImage(
+  src: string
+): Promise<{ readonly bytes: Buffer; readonly extension: string } | null> {
   if (!/^https?:\/\//i.test(src)) {
     return null;
   }
@@ -80,7 +90,10 @@ async function remoteImage(src: string): Promise<{ readonly bytes: Buffer; reado
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_IMAGE_BYTES) {
       return null;
     }
-    if (extension === 'svg' && safeImageAddress(`data:image/svg+xml;base64,${bytes.toString('base64')}`) === null) {
+    if (
+      extension === 'svg' &&
+      safeImageAddress(`data:image/svg+xml;base64,${bytes.toString('base64')}`) === null
+    ) {
       return null;
     }
     return { bytes, extension };
@@ -97,15 +110,19 @@ async function embeddedSrc(src: string): Promise<string | null> {
   return writeTempImage(image.bytes, image.extension);
 }
 
-async function replaceImage(tag: string): Promise<{ readonly html: string; readonly file?: string; readonly warning?: string }> {
+async function replaceImage(
+  tag: string
+): Promise<{ readonly html: string; readonly file?: string; readonly warning?: string }> {
   const src = attribute(tag, 'src');
   const alt = escapeText(attribute(tag, 'alt'));
+  const title = attribute(tag, 'title');
   const file = src.length > 0 ? await embeddedSrc(src) : null;
   if (file) {
-    return { html: `<img src="${file}" alt="${alt}" />`, file };
+    return { html: `<img src="${file}" alt="${alt}"${titled(title)} />`, file };
   }
+  const visible = title.length > 0 ? `${alt} <em>${escapeText(title)}</em>`.trim() : alt;
   return {
-    html: alt,
+    html: visible,
     ...(src.length > 0 ? { warning: 'A picture could not be included in the EPUB' } : {}),
   };
 }
