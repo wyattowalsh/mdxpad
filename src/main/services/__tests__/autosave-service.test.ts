@@ -587,17 +587,18 @@ describe('AutosaveService', () => {
       expect(Object.keys(manifest.entries).length).toBe(1);
     });
 
-    it('returns an empty manifest when the manifest is a link', async () => {
+    it('replaces a linked recovery directory before reading the manifest', async () => {
       mockLstat.mockResolvedValueOnce({
         isSymbolicLink: () => true,
         isFile: () => false,
+        isDirectory: () => false,
       });
-      mockReadFile.mockResolvedValue(JSON.stringify({ version: 1, entries: { secret: {} } }));
+      mockReadFile.mockResolvedValue(JSON.stringify(EMPTY_RECOVERY_MANIFEST));
 
-      const manifest = await service.readManifest();
+      await service.readManifest();
 
-      expect(manifest).toEqual(EMPTY_RECOVERY_MANIFEST);
-      expect(mockReadFile).not.toHaveBeenCalled();
+      expect(mockUnlink).toHaveBeenCalledWith('/mock/user/data/recovery');
+      expect(mockMkdir).toHaveBeenCalledWith('/mock/user/data/recovery', { recursive: true });
     });
 
     it('returns an empty manifest when the manifest becomes a link before it is opened', async () => {

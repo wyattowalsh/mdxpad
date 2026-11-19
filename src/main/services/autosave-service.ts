@@ -27,6 +27,7 @@ import { computeChecksum } from '@shared/lib/checksum';
 import { createWriteLock } from '@shared/lib/write-lock';
 
 import type { AutosaveSettingsService } from './autosave-settings';
+import { ensureRealDirectory } from './ensure-real-directory';
 import {
   type DocumentId,
   type RecoveryFile,
@@ -277,8 +278,7 @@ export class AutosaveService {
     const userData = app.getPath('userData');
     const recoveryDir = path.join(userData, RECOVERY_DIR_NAME);
 
-    // Ensure directory exists
-    await fs.mkdir(recoveryDir, { recursive: true });
+    await ensureRealDirectory(recoveryDir);
 
     this.recoveryDirPath = recoveryDir;
     return recoveryDir;
