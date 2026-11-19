@@ -827,11 +827,9 @@ function takeLatexListBreak(raw: string, output: string[], listState: ListState)
     return false;
   }
   if (listState.stack.length > 0) {
-    if (!listState.break) {
-      listState.break = true;
-      listState.paragraphBreak = true;
-      listState.tailLines = null;
-    }
+    listState.break = true;
+    listState.paragraphBreak = true;
+    listState.tailLines = null;
   } else {
     resetListState(output, listState);
     listState.break = false;

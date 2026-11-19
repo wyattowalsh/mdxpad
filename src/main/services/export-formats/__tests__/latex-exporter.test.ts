@@ -24,6 +24,19 @@ describe('LatexExporter', () => {
     expect(exporter.mimeType).toBe('application/x-latex');
   });
 
+  it('keeps paragraphs apart inside a list item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '1. one\n\n   two\n\n   three\n\n2. four\n',
+      outputPath: '/tmp/list-paragraphs.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const body = written.split('\\begin{document}')[1] ?? '';
+    expect(body).toMatch(/\\item one\s+two\s+three\s+\\item four/);
+    expect(body).not.toContain('two three');
+    expect(body).not.toContain('one two');
+  });
+
   it('leaves YAML metadata out of the document', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
