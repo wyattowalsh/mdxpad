@@ -18,6 +18,7 @@ import {
   safeLinkAddress,
   sanitizeExportedTag,
   skippedDroppedElement,
+  styleBlock,
 } from './markdown-export-address';
 
 function escapeHtml(value: string): string {
@@ -152,7 +153,15 @@ function protectInlineHtml(raw: string): { text: string; tags: string[] } {
         index = skipped;
         continue;
       }
-      tags.push(sanitizeExportedTag(raw.slice(index, end)));
+      const opening = raw.slice(index, end);
+      if (/^<\s*style\b/i.test(opening) && !/^<\s*\//.test(opening)) {
+        const style = styleBlock(raw, index, end);
+        tags.push(style.text);
+        text += `${HTML_MARK}${tags.length - 1}${HTML_MARK}`;
+        index = style.next;
+        continue;
+      }
+      tags.push(sanitizeExportedTag(opening));
       text += `${HTML_MARK}${tags.length - 1}${HTML_MARK}`;
       index = end;
       continue;

@@ -227,7 +227,7 @@ function sanitizeStyleSheet(css: string): string {
   return sanitizeStyleValue(withoutImport);
 }
 
-function styleBlock(html: string, start: number, end: number): { text: string; next: number } {
+export function styleBlock(html: string, start: number, end: number): { text: string; next: number } {
   const open = sanitizeExportedTag(html.slice(start, end));
   const close = /<\/style\s*>/i.exec(html.slice(end));
   if (!close) {
