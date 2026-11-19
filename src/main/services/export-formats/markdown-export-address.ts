@@ -211,7 +211,7 @@ function sanitizeStyleValue(value: string): string {
 function sanitizeStyleSheet(css: string): string {
   const visible = decodeCssEscapes(decodeAddressEntities(stripCssComments(css)));
   const withoutImport = visible.replace(
-    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    /@import\s*(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
       _quote: string,

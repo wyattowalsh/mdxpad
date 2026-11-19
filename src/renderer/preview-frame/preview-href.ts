@@ -150,7 +150,7 @@ function blockedCssAddress(address: string): boolean {
 
 function sanitizePreviewImport(css: string): string {
   return decodeCssEscapes(decodeAddressEntities(stripCssComments(css))).replace(
-    /@import\s+(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
+    /@import\s*(?:url\(\s*(?:(['"])([\s\S]*?)\1|([^)'"]+))\s*\)|(['"])([\s\S]*?)\4)/gi,
     (
       full,
       _quote: string,

@@ -219,6 +219,7 @@ describe('createModuleFromCode', () => {
     const source = [
       '<style>body{background:url(file:///etc/passwd);color:red} @import "file:///etc/passwd.css";</style>',
       '<style>@import "https://example.com/a.css"; h1{color:blue}</style>',
+      '<style>@import"file:///etc/passwd.css";p{color:green}</style>',
     ].join('\n\n');
     const result = await compileMdx(testId('raw-style-file'), source);
     expect(result.ok).toBe(true);
@@ -233,5 +234,7 @@ describe('createModuleFromCode', () => {
     expect(sheets[0]).toContain('color:red');
     expect(sheets[1]).toContain('https://example.com/a.css');
     expect(sheets[1]).toContain('color:blue');
+    expect(sheets[2]).toContain('color:green');
+    expect(sheets[2]).not.toContain('@import');
   });
 });

@@ -48,6 +48,17 @@ describe('sanitizeExportedHtml', () => {
     const imported = sanitizeExportedHtml('<style>@import "\\66ile:///etc/passwd.css";</style>');
     expect(imported).not.toContain('file:');
     expect(imported).not.toContain('@import');
+    const tight = sanitizeExportedHtml('<style>@import"file:///etc/passwd.css";p{color:red}</style>');
+    expect(tight).not.toContain('file:');
+    expect(tight).not.toContain('@import');
+    expect(tight).toContain('color:red');
+    const commented = sanitizeExportedHtml(
+      '<style>@import/*x*/"file:///etc/passwd.css";p{color:blue}</style>'
+    );
+    expect(commented).not.toContain('file:');
+    expect(commented).not.toContain('@import');
+    const kept = sanitizeExportedHtml('<style>@import"https://example.com/a.css";</style>');
+    expect(kept).toContain('@import"https://example.com/a.css"');
   });
 
   it('drops a file hidden by a numeric reference without a semicolon', () => {
