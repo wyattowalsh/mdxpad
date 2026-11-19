@@ -49,15 +49,7 @@ function mapFsError(error: unknown, filePath: string): FileError {
  * @returns A FileResult containing the file contents as a string, or an error
  */
 export async function readFile(filePath: string): Promise<FileResult<string>> {
-  try {
-    const content = await fs.readFile(filePath, { encoding: 'utf-8' });
-    return { ok: true, value: content };
-  } catch (error: unknown) {
-    const fileError = mapFsError(error, filePath);
-    // SEC-2: Only log basename to avoid exposing full paths in logs
-    console.error(`[FileService] Failed to read file "${path.basename(filePath)}":`, fileError);
-    return { ok: false, error: fileError };
-  }
+  return readFileWithoutFollowingLinks(filePath);
 }
 
 function isSymlinkOpenError(error: unknown): boolean {

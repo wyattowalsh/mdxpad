@@ -7,7 +7,9 @@
  * @module tests/unit/file-service
  */
 
+import { constants as fsConstants } from 'node:fs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { open } from 'node:fs/promises';
 import type { FileHandle, FileId } from '@shared/types/file';
 import type { FileWatcher } from '../file-watcher';
 import type { RecentFilesService } from '../recent-files';
@@ -28,9 +30,17 @@ vi.mock('node:fs/promises', () => ({
   default: {
     readFile: mockReadFile,
     writeFile: mockWriteFile,
+    open: vi.fn(async (filePath: string) => ({
+      readFile: async (options?: { encoding?: string }) => mockReadFile(filePath, options),
+      close: async () => undefined,
+    })),
   },
   readFile: mockReadFile,
   writeFile: mockWriteFile,
+  open: vi.fn(async (filePath: string) => ({
+    readFile: async (options?: { encoding?: string }) => mockReadFile(filePath, options),
+    close: async () => undefined,
+  })),
 }));
 
 vi.mock('@shared/lib/atomic-write', () => ({
@@ -109,7 +119,11 @@ describe('readFile', () => {
     if (result.ok) {
       expect(result.value).toBe(testContent);
     }
-    expect(mockReadFile).toHaveBeenCalledWith('/test/file.mdx', { encoding: 'utf-8' });
+    expect(open).toHaveBeenCalledWith(
+      '/test/file.mdx',
+      fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW
+    );
+    expect(mockReadFile).toHaveBeenCalledWith('/test/file.mdx', { encoding: 'utf8' });
   });
 
   it('should handle file not found error', async () => {
@@ -173,6 +187,22 @@ describe('readFile', () => {
     if (result.ok) {
       expect(result.value).toBe(unicodeContent);
     }
+  });
+
+  it('does not follow a symlink', async () => {
+    const error = Object.assign(new Error('ELOOP'), { code: 'ELOOP' });
+    vi.mocked(open).mockRejectedValueOnce(error);
+
+    const result = await readFile('/test/link.mdx');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('PERMISSION_DENIED');
+    }
+    if (!result.ok && result.error.code === 'PERMISSION_DENIED') {
+      expect(result.error.path).toBe('/test/link.mdx');
+    }
+    expect(mockReadFile).not.toHaveBeenCalled();
   });
 
   it('should handle empty files', async () => {
