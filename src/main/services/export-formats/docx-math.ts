@@ -152,7 +152,6 @@ function readMarked(cursor: Cursor, mark: string): MathComponent[] {
     return new MathRun(marked);
   });
 }
-
 function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   const grouped = groupedCommand(cursor, name);
   if (grouped !== null) {
@@ -161,8 +160,10 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (name === 'overbrace' || name === 'underbrace') {
     return readBraceSpan(cursor, name === 'overbrace');
   }
-  if (name === 'boxed') {
-    return [new MathSquareBrackets({ children: readGroup(cursor) })];
+  if (name === 'boxed') return [new MathSquareBrackets({ children: readGroup(cursor) })];
+  if (name === 'textcolor' || name === 'colorbox' || name === 'fcolorbox') {
+    readGroup(cursor);
+    return readGroup(cursor);
   }
   if (name === 'overset' || name === 'stackrel') {
     return readStack(cursor, true);
@@ -200,7 +201,6 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   const symbol = SYMBOLS[name];
   return [new MathRun(symbol ?? name)];
 }
-
 function readCommand(cursor: Cursor): MathComponent[] {
   cursor.index += 1;
   const name = readCommandName(cursor);

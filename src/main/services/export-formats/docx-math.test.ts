@@ -83,6 +83,11 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\xcancel{y}'))).toBe('y\u0336');
   });
 
+  it('keeps the words of a colored Word expression', () => {
+    expect(runText(mathComponents('\\textcolor{red}{hello}'))).toBe('hello');
+    expect(runText(mathComponents('\\colorbox{blue}{sky}'))).toBe('sky');
+  });
+
   it('draws a box around a Word expression', () => {
     const boxed = mathComponents('\\boxed{x+y}');
     expect(boxed).toHaveLength(1);
