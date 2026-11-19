@@ -754,15 +754,20 @@ describe('citation.parse', () => {
       ok: true,
       value: { bibliography: 'One. (n.d.).', entryCount: 1 },
     });
+    const formatCitation = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { formatted: 'One. (n.d.).', inlineRef: '(Unknown, n.d.)' },
+    });
     const notify = vi.fn();
     const context = {
       document: { filePath: null, content: '@article{a, title={One}}' },
-      api: { citation: { parseBibtex, generateBibliography } },
+      api: { citation: { parseBibtex, generateBibliography, formatCitation } },
       notify,
     } as unknown as CommandContext;
 
     const command = SERVICE_COMMANDS.find((item) => item.id === 'citation.parse');
     await expect(command?.execute(context)).resolves.toEqual({ ok: true });
+    expect(formatCitation).toHaveBeenCalledWith({ id: 'a', type: 'article', title: 'One' }, 'apa');
     expect(useDocumentStore.getState().content).toBe('@article{a, title={One}}\n\nOne. (n.d.).');
   });
 
@@ -784,9 +789,13 @@ describe('citation.parse', () => {
       ok: true,
       value: { bibliography: 'Live. (n.d.).', entryCount: 1 },
     });
+    const formatCitation = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { formatted: 'Live. (n.d.).', inlineRef: '(Unknown, n.d.)' },
+    });
     const context = {
       document: { filePath: '/notes/readme.md', content: 'old', isDirty: false, fileId: 'file-1' },
-      api: { citation: { parseBibtex, generateBibliography } },
+      api: { citation: { parseBibtex, generateBibliography, formatCitation } },
       notify: vi.fn(),
     } as unknown as CommandContext;
 

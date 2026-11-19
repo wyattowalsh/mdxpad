@@ -1,3 +1,4 @@
+import type { CitationEntry } from '@shared/contracts/citation-schemas';
 import type { Command, CommandId, CommandResult, CommandContext } from '@shared/types/commands';
 import type { DocumentId } from '@shared/types/document';
 import type { FileHandle, FileId } from '@shared/types/file';
@@ -11,6 +12,7 @@ import { useDocumentStore } from '@renderer/stores/document-store';
 import { useTabStore } from '@renderer/stores/tab-store';
 import { useWorkspaceStore } from '@renderer/stores/workspace-store';
 import { useCommandRegistry } from '../stores/command-registry-store';
+import { GIT_BRANCH_COMMANDS } from './git-branch-commands';
 import { IMPORT_COMMANDS } from './import-commands';
 import {
   documentStillMatches,
@@ -535,6 +537,14 @@ async function appendParsedBibliography(ctx: CommandContext): Promise<CommandRes
     ctx.notify({ type: 'info', message: 'Parsed 0 citations' });
     return { ok: true };
   }
+  const inline = await citationInlineRefs(citation, parsed.value.entries);
+  if (!documentStillMatches(ctx, snapshot)) {
+    return citationChanged(ctx);
+  }
+  if (!inline.ok) {
+    ctx.notify({ type: 'error', message: inline.error });
+    return { ok: false, error: inline.error };
+  }
   const generated = await citation.generateBibliography(parsed.value.entries, 'apa');
   if (!documentStillMatches(ctx, snapshot)) {
     return citationChanged(ctx);
@@ -543,7 +553,28 @@ async function appendParsedBibliography(ctx: CommandContext): Promise<CommandRes
     ctx.notify({ type: 'error', message: generated.error.message });
     return { ok: false, error: generated.error.message };
   }
-  return writeBibliography(ctx, snapshot, generated.value.bibliography, generated.value.entryCount);
+  return writeBibliography(
+    ctx,
+    snapshot,
+    generated.value.bibliography,
+    generated.value.entryCount,
+    inline.refs
+  );
+}
+
+async function citationInlineRefs(
+  citation: NonNullable<CommandContext['api']['citation']>,
+  entries: readonly CitationEntry[]
+): Promise<{ ok: true; refs: string } | { ok: false; error: string }> {
+  const refs: string[] = [];
+  for (const entry of entries) {
+    const formatted = await citation.formatCitation(entry, 'apa');
+    if (!formatted.ok) {
+      return { ok: false, error: formatted.error.message };
+    }
+    refs.push(formatted.value.inlineRef);
+  }
+  return { ok: true, refs: refs.join(', ') };
 }
 
 function citationChanged(ctx: CommandContext): CommandResult {
@@ -558,7 +589,8 @@ function writeBibliography(
   ctx: CommandContext,
   snapshot: string,
   bibliography: string,
-  entryCount: number
+  entryCount: number,
+  inlineRefs: string
 ): CommandResult {
   if (!documentStillMatches(ctx, snapshot)) {
     ctx.notify({
@@ -578,7 +610,7 @@ function writeBibliography(
   useDocumentStore.getState().setContent(`${snapshot}${separator}${bibliography}`);
   ctx.notify({
     type: 'success',
-    message: `Added a bibliography for ${entryCount} citation${entryCount === 1 ? '' : 's'}.`,
+    message: `Added a bibliography for ${entryCount} citation${entryCount === 1 ? '' : 's'}. In text: ${inlineRefs}.`,
   });
   return { ok: true };
 }
@@ -596,6 +628,7 @@ export const SERVICE_COMMANDS: readonly Command[] = [
   gitLogCommand,
   gitDiffCommand,
   gitCommitCommand,
+  ...GIT_BRANCH_COMMANDS,
   searchWorkspaceCommand,
   ...IMPORT_COMMANDS,
   parseCitationsCommand,
