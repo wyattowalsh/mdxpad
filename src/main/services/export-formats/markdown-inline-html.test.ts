@@ -224,6 +224,10 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('<a href="file:///etc/passwd">Disk</a>')).toBe('<a>Disk</a>');
     expect(renderMarkdownInline('<a href="file&#58;///etc/passwd">Disk</a>')).toBe('<a>Disk</a>');
     expect(renderMarkdownInline('<a href=file:///etc/passwd>Disk</a>')).toBe('<a>Disk</a>');
+    expect(renderMarkdownInline('<a href="java\fscript:alert(1)">Run</a>')).toBe('<a>Run</a>');
+    expect(renderMarkdownInline('<svg><use href="..\f/secret.svg"></use></svg>')).not.toContain(
+      'secret'
+    );
     expect(renderMarkdownInline('[secret](/etc/passwd)')).toBe('secret');
     expect(renderMarkdownInline('<iframe src="file:///etc/passwd"></iframe>')).toBe('');
     expect(renderMarkdownInline('<script>location="file:///etc/passwd"</script>')).toBe('');

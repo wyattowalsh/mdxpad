@@ -12,6 +12,8 @@ describe('isBlockedPreviewHref', () => {
     expect(isBlockedPreviewHref(' JavaScript:alert(1)')).toBe(true);
     expect(isBlockedPreviewHref('java\tscript:alert(1)')).toBe(true);
     expect(isBlockedPreviewHref('file\n:///etc/passwd')).toBe(true);
+    expect(isBlockedPreviewHref('java\fscript:alert(1)')).toBe(true);
+    expect(isBlockedPreviewHref('java&#12;script:alert(1)')).toBe(true);
     expect(isBlockedPreviewHref('\0javascript:alert(1)')).toBe(true);
     expect(isBlockedPreviewHref('https://example.com')).toBe(false);
     expect(isBlockedPreviewHref('./note.md')).toBe(false);
@@ -260,6 +262,8 @@ describe('preview image', () => {
     expect(JSON.stringify(formFeed.style)).not.toContain('file:');
     expect(JSON.stringify(formFeed.style)).not.toContain('passwd');
     expect(formFeed.style.color).toBe('blue');
+    const climbed = confinePreviewElement('use', { href: '..\f/secret.svg' }) as { href?: string };
+    expect(climbed.href).toBeUndefined();
   });
 
   it('drops an event handler and keeps the picture address', () => {

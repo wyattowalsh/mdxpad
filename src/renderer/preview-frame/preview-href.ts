@@ -11,7 +11,7 @@ function withoutHiddenBreaks(value: string): string {
   let result = '';
   for (const char of value) {
     const code = char.charCodeAt(0);
-    if (code !== 0 && code !== 9 && code !== 10 && code !== 13) {
+    if (code > 31 && code !== 127) {
       result += char;
     }
   }
