@@ -436,6 +436,39 @@ function epubTaskBoxes(html: string): string {
   return html.replaceAll(CHECKED_TASK, '☑').replaceAll(OPEN_TASK, '☐');
 }
 
+function epubChapterFilename(index: number): string {
+  return `chapter-${index}.xhtml`;
+}
+
+function linkEpubFootnotes(chapters: { filename: string; content: string }[]): void {
+  const noteFile = new Map<string, string>();
+  const refFile = new Map<string, string>();
+  for (const chapter of chapters) {
+    for (const match of chapter.content.matchAll(/id="fn-(\d+)"/g)) {
+      const num = match[1];
+      if (num) {
+        noteFile.set(num, chapter.filename);
+      }
+    }
+    for (const match of chapter.content.matchAll(/id="fnref-(\d+)"/g)) {
+      const num = match[1];
+      if (num) {
+        refFile.set(num, chapter.filename);
+      }
+    }
+  }
+  for (const chapter of chapters) {
+    chapter.content = chapter.content.replace(/href="#fn-(\d+)"/g, (full, num: string) => {
+      const file = noteFile.get(num);
+      return file && file !== chapter.filename ? `href="${file}#fn-${num}"` : full;
+    });
+    chapter.content = chapter.content.replace(/href="#fnref-(\d+)"/g, (full, num: string) => {
+      const file = refFile.get(num);
+      return file && file !== chapter.filename ? `href="${file}#fnref-${num}"` : full;
+    });
+  }
+}
+
 function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string {
   const htmlLines: string[] = [];
   if (chapter.slug) {
@@ -505,6 +538,33 @@ function epubCover(metadata: Record<string, unknown> | undefined): string | unde
   }
 }
 
+async function renderEpubBuffer(
+  options: {
+    readonly title: string;
+    readonly author: string;
+    readonly metadata?: Record<string, unknown>;
+  },
+  chapters: readonly { title: string; filename: string; content: string }[]
+): Promise<Buffer> {
+  const epubGen = await import('epub-gen-memory');
+  const lang = epubLanguage(options.metadata);
+  const cover = epubCover(options.metadata);
+  const epubBuffer = await epubGen.default(
+    {
+      title: options.title,
+      author: options.author,
+      ...(lang ? { lang } : {}),
+      ...(cover ? { cover } : {}),
+    },
+    chapters.map((chapter) => ({
+      title: chapter.title,
+      filename: chapter.filename,
+      content: chapter.content,
+    }))
+  );
+  return epubBuffer instanceof Buffer ? epubBuffer : Buffer.from(epubBuffer);
+}
+
 export class EpubExporter implements Exporter {
   readonly format = 'epub';
   readonly label = 'EPUB';
@@ -521,34 +581,28 @@ export class EpubExporter implements Exporter {
       const split = splitIntoChapters(content);
 
       const epubContent = await Promise.all(
-        split.chapters.map(async (chapter) => {
+        split.chapters.map(async (chapter, index) => {
           const images = await embedEpubImages(chapterToHtml(chapter, split.slugs));
           warnings.push(...images.warnings);
-          return { title: chapter.title, content: images.html, cleanup: images.cleanup };
+          return {
+            title: chapter.title,
+            filename: epubChapterFilename(index),
+            content: images.html,
+            cleanup: images.cleanup,
+          };
         })
       );
+      linkEpubFootnotes(epubContent);
 
-      const epubGen = await import('epub-gen-memory');
-      const epubCreate = epubGen.default;
-
-      const lang = epubLanguage(options.metadata);
-      const cover = epubCover(options.metadata);
-      let epubBuffer: Buffer | ArrayBuffer | Uint8Array;
+      let buffer: Buffer;
       try {
-        epubBuffer = await epubCreate(
-          {
-            title,
-            author,
-            ...(lang ? { lang } : {}),
-            ...(cover ? { cover } : {}),
-          },
-          epubContent.map((chapter) => ({ title: chapter.title, content: chapter.content }))
+        buffer = await renderEpubBuffer(
+          options.metadata ? { title, author, metadata: options.metadata } : { title, author },
+          epubContent
         );
       } finally {
         await Promise.all(epubContent.map(async (chapter) => chapter.cleanup()));
       }
-
-      const buffer = epubBuffer instanceof Buffer ? epubBuffer : Buffer.from(epubBuffer);
       await writeRegularFile(options.outputPath, buffer);
 
       return {
