@@ -1,3 +1,5 @@
+import { decodeHTMLStrict } from 'entities';
+
 function withoutHiddenBreaks(value: string): string {
   let result = '';
   for (const char of value) {
@@ -6,7 +8,37 @@ function withoutHiddenBreaks(value: string): string {
       result += char;
     }
   }
-  return result;
+  return result.trim();
+}
+
+function decodedHref(value: string): string {
+  let current = withoutHiddenBreaks(decodeHTMLStrict(value));
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const next = withoutHiddenBreaks(decodeURIComponent(current));
+      if (next === current) {
+        return current;
+      }
+      current = next;
+    } catch {
+      return current;
+    }
+  }
+  return current;
+}
+
+function addressScheme(value: string): string | null {
+  const separator = value.indexOf(':');
+  if (separator <= 0) {
+    return null;
+  }
+  const scheme = value.slice(0, separator).toLowerCase();
+  return /^[a-z][a-z0-9+.-]*$/.test(scheme) ? scheme : null;
+}
+
+function isDocumentPath(value: string): boolean {
+  const pathPart = value.split('#')[0]?.split('?')[0] ?? '';
+  return /\.(md|mdx|markdown|txt)$/i.test(pathPart);
 }
 
 /** A preview link that must not navigate or open a local file. */
@@ -14,11 +46,13 @@ export function isBlockedPreviewHref(href: string | undefined): boolean {
   if (!href) {
     return false;
   }
-  const normalized = withoutHiddenBreaks(href).trim();
-  const separator = normalized.indexOf(':');
-  if (separator <= 0) {
+  const normalized = decodedHref(href);
+  if (normalized.startsWith('/') || normalized.startsWith('\\')) {
+    return !isDocumentPath(normalized);
+  }
+  const scheme = addressScheme(normalized);
+  if (scheme === null) {
     return false;
   }
-  const scheme = normalized.slice(0, separator).toLowerCase();
-  return scheme === 'file' || scheme === 'javascript';
+  return scheme !== 'http' && scheme !== 'https' && scheme !== 'mailto';
 }

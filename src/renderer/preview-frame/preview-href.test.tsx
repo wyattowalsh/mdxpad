@@ -13,6 +13,10 @@ describe('isBlockedPreviewHref', () => {
     expect(isBlockedPreviewHref('\0javascript:alert(1)')).toBe(true);
     expect(isBlockedPreviewHref('https://example.com')).toBe(false);
     expect(isBlockedPreviewHref('./note.md')).toBe(false);
+    expect(isBlockedPreviewHref('file&#58;///etc/passwd')).toBe(true);
+    expect(isBlockedPreviewHref('/etc/passwd')).toBe(true);
+    expect(isBlockedPreviewHref('/notes/a.md')).toBe(false);
+    expect(isBlockedPreviewHref('data:text/html,hi')).toBe(true);
   });
 });
 
@@ -21,6 +25,15 @@ describe('preview anchor', () => {
     const view = render(<A href="file:///etc/passwd">Disk</A>);
     const link = view.getByText('Disk').closest('a');
     expect(link).toBeInstanceOf(HTMLAnchorElement);
+    expect(link?.getAttribute('href')).toBeNull();
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link?.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does not follow a root path', () => {
+    const view = render(<A href="/etc/passwd">Disk</A>);
+    const link = view.getByText('Disk').closest('a');
     expect(link?.getAttribute('href')).toBeNull();
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     link?.dispatchEvent(event);
@@ -49,5 +62,9 @@ describe('preview image', () => {
 
     const hidden = render(<Img src={'file\n:///etc/passwd'} alt="Hidden" />);
     expect(hidden.getByRole('img').getAttribute('src')).toBeNull();
+    hidden.unmount();
+
+    const rooted = render(<Img src="/etc/passwd.png" alt="Rooted" />);
+    expect(rooted.getByRole('img').getAttribute('src')).toBeNull();
   });
 });
