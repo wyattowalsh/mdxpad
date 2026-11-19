@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { app } from 'electron';
 
 import { atomicWrite } from '@shared/lib/atomic-write';
+import { ensureRealDirectory } from './ensure-real-directory';
 import type {
   CollaborationAddCommentRequest,
   CollaborationAddCommentResponse,
@@ -32,7 +33,7 @@ function getDefaultBaseDir(): string {
 }
 
 async function ensureDirectory(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
+  await ensureRealDirectory(dir);
 }
 
 async function readDocumentFile(filePath: string): Promise<CollaborationDocumentState> {

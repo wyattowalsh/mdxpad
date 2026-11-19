@@ -10,6 +10,7 @@ import {
   AIPromptFileMetadataSchema,
 } from '@shared/contracts/ai-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
+import { ensureRealDirectory } from '../ensure-real-directory';
 import { computeChecksum } from '@shared/lib/checksum';
 import { AISessionSchema, type AISession } from '@shared/types/root';
 import type {
@@ -105,7 +106,7 @@ function getDefaultBaseDir(): string {
 }
 
 async function ensureDirectory(dirPath: string): Promise<void> {
-  await fs.mkdir(dirPath, { recursive: true });
+  await ensureRealDirectory(dirPath);
 }
 
 function isNotFoundError(error: unknown): boolean {

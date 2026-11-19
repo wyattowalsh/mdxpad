@@ -4,6 +4,7 @@ import { app } from 'electron';
 
 import { computeChecksum } from '@shared/lib/checksum';
 import { atomicWrite } from '@shared/lib/atomic-write';
+import { ensureRealDirectory } from './ensure-real-directory';
 import type {
   CloudSyncCapabilities,
   CloudSyncConnectResponse,
@@ -92,7 +93,7 @@ interface ConnectionState {
 }
 
 async function ensureDirectory(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
+  await ensureRealDirectory(dir);
 }
 
 function getDefaultBaseDir(): string {

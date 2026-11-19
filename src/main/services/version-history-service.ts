@@ -16,6 +16,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
+
+import { ensureRealDirectory } from './ensure-real-directory';
 import type {
   VersionEntry,
   VersionHistoryResponse,
@@ -429,7 +431,7 @@ export class VersionHistoryService {
     const userData = app.getPath('userData');
     const historyDir = path.join(userData, HISTORY_DIR_NAME);
 
-    await fs.mkdir(historyDir, { recursive: true });
+    await ensureRealDirectory(historyDir);
 
     this.historyDirPath = historyDir;
     return historyDir;

@@ -13,9 +13,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock Setup
 // ============================================================================
 
-const { mockMkdir, mockAccess } = vi.hoisted(() => ({
+const { mockMkdir, mockAccess, mockLstat } = vi.hoisted(() => ({
   mockMkdir: vi.fn(),
   mockAccess: vi.fn(),
+  mockLstat: vi.fn(),
+}));
+
+vi.mock('node:fs', () => ({
+  promises: {
+    lstat: mockLstat,
+    unlink: vi.fn(),
+    mkdir: mockMkdir,
+  },
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -76,6 +85,7 @@ describe('ensureCustomTemplatesDir', () => {
   });
 
   it('should create directory recursively', async () => {
+    mockLstat.mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     mockMkdir.mockResolvedValue(undefined);
 
     await ensureCustomTemplatesDir();

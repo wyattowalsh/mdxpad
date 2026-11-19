@@ -3,8 +3,9 @@
  */
 
 import { closeSync, constants, lstatSync, openSync, readFileSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+
+import { ensureRealDirectory } from './ensure-real-directory';
 
 import type { ShareAccessMode, ShareLink } from '@shared/contracts/share-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
@@ -82,6 +83,6 @@ export function readShareStore(filePath: string): ShareStoreData {
 }
 
 export async function writeShareStore(filePath: string, data: ShareStoreData): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
+  await ensureRealDirectory(path.dirname(filePath));
   await atomicWrite(filePath, JSON.stringify(data));
 }

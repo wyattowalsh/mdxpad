@@ -10,6 +10,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { ensureRealDirectory } from '../ensure-real-directory';
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -160,7 +162,7 @@ export class VectorStore {
    */
   async saveToDisk(): Promise<void> {
     const dir = path.dirname(this.storagePath);
-    await fs.promises.mkdir(dir, { recursive: true });
+    await ensureRealDirectory(dir);
     await this.replaceIndexLink();
 
     const data: SerializedStore = {

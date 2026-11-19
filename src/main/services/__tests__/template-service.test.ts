@@ -41,6 +41,19 @@ const {
   mockOpen: vi.fn(),
 }));
 
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return {
+    ...actual,
+    promises: {
+      ...actual.promises,
+      lstat: mockLstat,
+      unlink: mockUnlink,
+      mkdir: mockMkdir,
+    },
+  };
+});
+
 vi.mock('node:fs/promises', () => ({
   default: {
     readFile: mockReadFile,

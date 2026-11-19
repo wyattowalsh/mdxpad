@@ -12,6 +12,7 @@ import type {
   ProvenanceRecord,
 } from '@shared/contracts/platform-schemas';
 import { atomicWrite } from '@shared/lib/atomic-write';
+import { ensureRealDirectory } from './ensure-real-directory';
 import { computeChecksum } from '@shared/lib/checksum';
 
 import { resolveWorkspaceFilePath } from './ai/agent-path';
@@ -23,7 +24,7 @@ function getDefaultBaseDir(): string {
 }
 
 async function ensureDirectory(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
+  await ensureRealDirectory(dir);
 }
 
 async function readRegularText(filePath: string): Promise<string | null> {

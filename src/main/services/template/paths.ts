@@ -13,6 +13,8 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
+import { ensureRealDirectory } from '../ensure-real-directory';
+
 /**
  * Gets ordered candidate paths for built-in templates.
  *
@@ -55,8 +57,7 @@ export function getCustomTemplatesPath(): string {
  * Ensures the custom templates directory exists.
  */
 export async function ensureCustomTemplatesDir(): Promise<void> {
-  const customPath = getCustomTemplatesPath();
-  await fs.mkdir(customPath, { recursive: true });
+  await ensureRealDirectory(getCustomTemplatesPath());
 }
 
 /**

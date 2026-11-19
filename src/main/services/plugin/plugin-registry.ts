@@ -11,6 +11,7 @@ import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import type { PluginManifest, PluginRecord, PluginState } from '@shared/contracts/plugin-schemas';
+import { ensureRealDirectory } from '../ensure-real-directory';
 
 interface RegistryData {
   plugins: PluginRecord[];
@@ -48,7 +49,7 @@ export class PluginRegistry {
 
   private async write(data: RegistryData): Promise<void> {
     const dir = path.dirname(this.registryPath);
-    await fs.mkdir(dir, { recursive: true });
+    await ensureRealDirectory(dir);
     await this.replaceRegistryLink();
     await fs.writeFile(this.registryPath, JSON.stringify(data, null, 2), 'utf-8');
   }

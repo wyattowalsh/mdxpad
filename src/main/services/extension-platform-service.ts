@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { app } from 'electron';
 
 import { atomicWrite } from '@shared/lib/atomic-write';
+import { ensureRealDirectory } from './ensure-real-directory';
 import type {
   ExtensionInstallRequest,
   ExtensionInstallResponse,
@@ -35,7 +36,7 @@ function getDefaultBaseDir(): string {
 }
 
 async function ensureDirectory(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
+  await ensureRealDirectory(dir);
 }
 
 async function readRegistryFile(filePath: string): Promise<ExtensionRegistry> {
