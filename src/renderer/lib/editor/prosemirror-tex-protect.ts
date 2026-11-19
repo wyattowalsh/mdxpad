@@ -11,6 +11,7 @@ const MATH_DOLLAR = '\uE019';
 const MATH_BACKSLASH = '\uE01A';
 const MATH_LINE = '\uE01B';
 const MATH_ESCAPE = '\uE01C';
+const MATH_PIPE = '\uE01D';
 const ESCAPED_PUNCTUATION = /\\([!"#%&'()*+,./:;<=>?@[\]^_`{|}~-])/g;
 
 function takeDollarMath(value: string, index: number): number {
@@ -67,7 +68,8 @@ function shieldMathBody(value: string): string {
     .replaceAll('\\$', MATH_DOLLAR)
     .replace(ESCAPED_PUNCTUATION, (_match, punct: string) => `${MATH_ESCAPE}${punct}`)
     .replaceAll('*', MATH_STAR)
-    .replaceAll('_', MATH_UNDER);
+    .replaceAll('_', MATH_UNDER)
+    .replaceAll('|', MATH_PIPE);
 }
 
 function lineIndent(value: string, index: number): string {
@@ -130,6 +132,7 @@ export function restoreMathMarkup(value: string): string {
     .replaceAll(MATH_STAR, '*')
     .replaceAll(MATH_UNDER, '_')
     .replaceAll(MATH_DOLLAR, '\\$')
+    .replaceAll(MATH_PIPE, '|')
     .replaceAll(MATH_ESCAPE, '\\')
     .replaceAll(MATH_BACKSLASH, '\\\\');
 }

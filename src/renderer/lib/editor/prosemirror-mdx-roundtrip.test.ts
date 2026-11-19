@@ -33,6 +33,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('$$\n```\nnot code\n```\n$$\n')).toContain('not code');
   });
 
+  it('keeps a pipe inside a table formula', () => {
+    const source = '| f | g |\n| --- | --- |\n| $a|b$ | c |\n';
+    const serialized = roundTrip(source);
+    expect(serialized).toContain('$a|b$');
+    expect(serialized).toContain('| c |');
+    const escaped = roundTrip('| f |\n| --- |\n| $a\\|b$ |\n');
+    expect(escaped).toContain('$a\\|b$');
+    expect(roundTrip('| a\\|b | c |\n| --- | --- |\n| 1 | 2 |\n')).toContain('a\\|b');
+  });
+
   it('keeps display math inside a list at a stable indent', () => {
     const source = '- item\n\n  $$\n  a+b\n  $$\n';
     const once = roundTrip(source);
