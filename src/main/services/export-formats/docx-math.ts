@@ -10,7 +10,7 @@ import {
 } from 'docx';
 
 import { endsMatrix, readMatrix, readRawGroup } from './docx-math-matrix';
-import { attachScript } from './docx-math-script';
+import { attachScript, scriptBase, takePrimes } from './docx-math-script';
 import {
   ACCENTS,
   ATOM_COMMANDS,
@@ -26,6 +26,7 @@ import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 interface Cursor {
   source: string;
   index: number;
+  literal?: number;
 }
 
 const LITERAL_ESCAPE: Record<string, string> = {
@@ -123,9 +124,13 @@ function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
   if (STYLE_COMMANDS.has(name)) {
     return [];
   }
-  if (ATOM_COMMANDS.has(name) || TEXT_COMMANDS.has(name)) {
-    return readGroup(cursor);
+  if (TEXT_COMMANDS.has(name)) {
+    cursor.literal = (cursor.literal ?? 0) + 1;
+    const parts = readGroup(cursor);
+    cursor.literal = (cursor.literal ?? 1) - 1;
+    return parts;
   }
+  if (ATOM_COMMANDS.has(name)) return readGroup(cursor);
   if (name === 'begin') {
     return readMatrix(cursor, (current, env) => readSequence(current, null, env));
   }
@@ -336,18 +341,6 @@ function readToken(cursor: Cursor): MathComponent[] {
   return char.length > 0 ? [new MathRun(char)] : [];
 }
 
-function scriptBase(
-  components: MathComponent[],
-  plain: string
-): { plain: string; base: MathComponent[] } {
-  const trimmed = plain.trimEnd();
-  if (trimmed.length > 0) {
-    return { plain: trimmed.slice(0, -1), base: [new MathRun(trimmed.slice(-1))] };
-  }
-  const previous = components.pop();
-  return { plain: '', base: previous ? [previous] : [new MathRun('')] };
-}
-
 function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): MathComponent[] {
   const components: MathComponent[] = [];
   let plain = '';
@@ -375,13 +368,18 @@ function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): M
       components.push(...readGroup(cursor));
       continue;
     }
-    if (char === '^' || char === '_') {
+    if ((cursor.literal ?? 0) === 0 && (char === '^' || char === '_' || char === "'")) {
       const base = scriptBase(components, plain);
       plain = base.plain;
       flush();
-      cursor.index += 1;
-      const script = readGroup(cursor);
-      components.push(attachScript(base.base, char, script));
+      if (char === "'") {
+        const primes = takePrimes(cursor.source, cursor.index);
+        cursor.index = primes.next;
+        components.push(attachScript(base.base, '^', [primes.mark]));
+      } else {
+        cursor.index += 1;
+        components.push(attachScript(base.base, char, readGroup(cursor)));
+      }
       continue;
     }
     plain += char;

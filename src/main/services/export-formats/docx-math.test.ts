@@ -195,6 +195,18 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\mathbb{R}'))).toBe('R');
   });
 
+  it('raises a prime and keeps an apostrophe in text', () => {
+    const prime = mathComponents("f'");
+    expect(prime).toHaveLength(1);
+    expect(prime[0]).toBeInstanceOf(MathSuperScript);
+    expect(runText(prime)).toBe('f′');
+    expect(runText(mathComponents("f''"))).toBe('f′′');
+    const both = mathComponents("f_i'");
+    expect(both[0]).toBeInstanceOf(MathSubSuperScript);
+    expect(runText(both)).toBe('fi′');
+    expect(runText(mathComponents("\\text{it's}"))).toBe("it's");
+  });
+
   it('keeps a script on the symbol before a space', () => {
     const sum = mathComponents('\\sum _{i=1}^{n}');
     expect(sum).toHaveLength(1);

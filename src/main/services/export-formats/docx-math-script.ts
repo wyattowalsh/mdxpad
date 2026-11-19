@@ -72,6 +72,24 @@ function pairedScripts(component: MathComponent): {
   return subscript ? { base, sub: scripts } : { base, sup: scripts };
 }
 
+export function scriptBase(
+  components: MathComponent[],
+  plain: string,
+): { plain: string; base: MathComponent[] } {
+  const trimmed = plain.trimEnd();
+  if (trimmed.length > 0) {
+    return { plain: trimmed.slice(0, -1), base: [new MathRun(trimmed.slice(-1))] };
+  }
+  const previous = components.pop();
+  return { plain: '', base: previous ? [previous] : [new MathRun('')] };
+}
+
+export function takePrimes(source: string, index: number): { next: number; mark: MathRun } {
+  let next = index;
+  while (source[next] === "'") next += 1;
+  return { next, mark: new MathRun('′'.repeat(next - index)) };
+}
+
 export function attachScript(
   base: readonly MathComponent[],
   mark: '^' | '_',
