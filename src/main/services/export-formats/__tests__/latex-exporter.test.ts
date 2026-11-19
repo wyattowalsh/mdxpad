@@ -294,6 +294,28 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\href{mailto:ada@example.com}{\\href');
   });
 
+  it('keeps a remote picture whose address uses a TeX special character', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: [
+        '![shot](https://cdn.example/a.png?x=1&y=2)',
+        '',
+        '![hash](https://example.com/a#frag)',
+        '',
+        '![dollar](https://cdn.example/a$b.png)',
+        '',
+        '![local](pixel$1.png)',
+      ].join('\n'),
+      outputPath: '/tmp/remote-picture.tex',
+      sourcePath: '/tmp/note.md',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\href{https://cdn.example/a.png?x=1&y=2}{shot}');
+    expect(written).toContain('\\href{https://example.com/a#frag}{hash}');
+    expect(written).toContain('\\href{https://cdn.example/a$b.png}{dollar}');
+    expect(written).not.toContain('includegraphics{pixel$1.png}');
+  });
+
   it('does not include a rooted picture whose description contains a bracket', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -212,6 +212,11 @@ describe('omitTexPictureSyntax', () => {
     expect(prose).toContain('Secret');
     expect(prose).toContain('![Pixel](pixel.png "a^b")');
     expect(next).toContain('```\n![Secret](^^5cinput{secret.png)\n```');
+    const remote = omitTexPictureSyntax('![shot](https://cdn.example/a.png?x=1&y=2)\n');
+    expect(remote).toContain('https://cdn.example/a.png?x=1&y=2');
+    const local = omitTexPictureSyntax('![local](pixel$1.png)\n');
+    expect(local).not.toContain('pixel$1.png');
+    expect(local).toContain('local');
   });
 });
 

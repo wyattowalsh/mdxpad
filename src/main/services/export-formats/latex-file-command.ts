@@ -248,6 +248,10 @@ export function disarmPandocRawTex(content: string): string {
   return output.join('\n');
 }
 
+function remotePicture(address: string): boolean {
+  return /^https?:\/\//i.test(address.trim());
+}
+
 /** Leave the alt text when a picture path can read a file during TeX compilation. */
 export function omitTexPictureSyntax(content: string): string {
   return mapFencedProse(content, (prose) =>
@@ -256,7 +260,11 @@ export function omitTexPictureSyntax(content: string): string {
       if (!target.image) {
         return full;
       }
-      return texPicturePathUnsafe(linkDestination(target.destination)) ? target.label : full;
+      const address = linkDestination(target.destination);
+      if (remotePicture(address)) {
+        return full;
+      }
+      return texPicturePathUnsafe(address) ? target.label : full;
     })
   );
 }
