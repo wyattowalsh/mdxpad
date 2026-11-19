@@ -1312,11 +1312,29 @@ function takeDocxItemMath(parse: DocxParse, line: string): boolean {
     parse.itemMath.push(body);
     return true;
   }
-  if (parse.openListItem === null || parse.listColumn === null || line.trim() !== '$$') {
+  if (parse.openListItem === null || parse.listColumn === null || !isListContinuation(line, column)) {
     return false;
   }
-  if (!isListContinuation(line, column)) {
+  const opened = dedentToColumn(line, column);
+  const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
+  if (lead === null) {
     return false;
+  }
+  if (lead.length > 0) {
+    const item = parse.openListItem;
+    if (parse.listBreak) {
+      parse.blocks.push(
+        new Paragraph({
+          indent: { left: 720 * (item.level + 1) },
+          children: createParagraphChildren(lead),
+        })
+      );
+    } else {
+      const shown = { ...item, text: `${item.text} ${lead}`.trim() };
+      parse.openListItem = shown;
+      parse.blocks.pop();
+      parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
+    }
   }
   parse.itemMath = [];
   parse.listBreak = false;

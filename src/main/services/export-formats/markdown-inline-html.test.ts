@@ -198,6 +198,15 @@ describe('renderMarkdownInline', () => {
     expect(table).toContain('<p>after</p>');
   });
 
+  it('keeps a later formula inside its list item', () => {
+    const html = markdownToPdfHtml('- item\n\n  Text $$\n  x^2\n  $$\n  more\n');
+    const item = html.slice(html.indexOf('<li>'), html.lastIndexOf('</li>'));
+    expect(item).toContain('item');
+    expect(item).toContain('Text');
+    expect(item).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(item).toContain('more');
+  });
+
   it('closes a list formula on the last formula line', () => {
     const html = markdownToPdfHtml('1. Text $$\n   x^2 $$\n   more\n');
     expect(html).toContain('<li>');

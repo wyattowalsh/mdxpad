@@ -585,13 +585,23 @@ export function takeListItemMath(
     state.itemMath.push(body);
     return true;
   }
-  if (!listOpen || state.listColumn === null || line.trim() !== '$$') {
+  if (!listOpen || state.listColumn === null || !isListContinuation(line, column)) {
     return false;
   }
-  if (!isListContinuation(line, column)) {
+  const opened = dedentToColumn(line, column);
+  const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
+  if (lead === null) {
     return false;
   }
-  sealProse(state, render);
+  if (lead.length > 0) {
+    state.listLines.push({ text: lead, hardBreak: readSourceLine(line).hardBreak });
+  }
+  if (state.listBreak && state.listLines.length > 0) {
+    state.itemHtml += `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.listLines = [];
+  } else {
+    sealProse(state, render);
+  }
   state.itemMath = [];
   state.listBreak = false;
   return true;

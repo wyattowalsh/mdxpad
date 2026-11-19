@@ -1192,11 +1192,22 @@ function takeLatexItemMath(build: LatexBuild, line: string): boolean {
     list.itemMath.push(body);
     return true;
   }
-  if (list.stack.length === 0 || list.column === null || line.trim() !== '$$') {
+  if (list.stack.length === 0 || list.column === null || !isListContinuation(line, column)) {
     return false;
   }
-  if (!isListContinuation(line, column)) {
+  const opened = dedentToColumn(line, column);
+  const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
+  if (lead === null) {
     return false;
+  }
+  if (lead.length > 0) {
+    const formatted = convertInlineFormatting(lead);
+    const last = build.output[build.output.length - 1] ?? '';
+    if (!list.break && last.includes('\\item')) {
+      build.output[build.output.length - 1] = `${last} ${formatted}`;
+    } else {
+      build.output.push(formatted);
+    }
   }
   list.itemMath = [];
   list.break = false;
