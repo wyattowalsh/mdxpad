@@ -915,6 +915,19 @@ function takeDocxQuotedContinuation(
   reference?: string
 ): { current: MarkdownListItem | null; index: number } | null {
   const line = lines[index] ?? '';
+  if (isTableRow(line)) {
+    const rows = [line.trim()];
+    let cursor = index + 1;
+    while (cursor < lines.length && isTableRow(lines[cursor] ?? '')) {
+      rows.push((lines[cursor] ?? '').trim());
+      cursor += 1;
+    }
+    if (parseMarkdownTable(rows)) {
+      blocks.push(listParagraph(current, depth, reference));
+      flushDocxTable(blocks, rows);
+      return { current: null, index: cursor - 1 };
+    }
+  }
   const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
   const code =
     openIndentedFence(line, column) !== null || (line.trim().length > 0 && indent >= column + 4);

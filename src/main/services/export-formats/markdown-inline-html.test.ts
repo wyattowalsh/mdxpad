@@ -101,6 +101,14 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a table inside a quoted list item', () => {
+    const html = markdownToPdfHtml('> - item\n>   | Name | Qty |\n>   | --- | --- |\n>   | Ada | 2 |\n');
+    expect(html).toContain('<table>');
+    expect(html).toContain('<td>Ada</td>');
+    expect(html).toContain('<td>2</td>');
+    expect(html).not.toContain('| --- |');
+  });
+
   it('keeps an indented fence inside a quoted list item', () => {
     const html = markdownToPdfHtml('> - item\n>\n>   ```\ncode\n```\n\nafter\n');
     expect(html).toContain('<pre><code>code</code></pre>');

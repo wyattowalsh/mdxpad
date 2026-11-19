@@ -369,8 +369,8 @@ function markdownAlt(alt: string): string {
   for (let index = 0; index < alt.length; index += 1) {
     const char = alt[index] ?? '';
     const next = alt[index + 1] ?? '';
-    if (char === '\\' && (next === '(' || next === ')')) {
-      result += `${char}${next}`;
+    if (char === '\\' && (next === '[' || next === ']')) {
+      result += `\\\\${next}`;
       index += 1;
       continue;
     }
@@ -382,7 +382,7 @@ function markdownAlt(alt: string): string {
         continue;
       }
     }
-    if (char === '\\' || char === '[' || char === ']') {
+    if (char === '[' || char === ']') {
       result += `\\${char}`;
       continue;
     }

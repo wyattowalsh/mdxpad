@@ -313,6 +313,27 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\*');
   });
 
+  it('keeps extra backslashes in an image description', () => {
+    const source = '![\\\\(x\\\\\\)](a.png)\n';
+    const saved = roundTrip(source);
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    expect(again.replace(/\n$/, '')).toBe(saved.replace(/\n$/, ''));
+    const doc = parseMdxContent(source);
+    let alt = '';
+    doc?.descendants((node) => {
+      if (node.type.name === 'image') {
+        alt = String(node.attrs.alt ?? '');
+      }
+    });
+    let savedAlt = '';
+    parseMdxContent(saved.endsWith('\n') ? saved : `${saved}\n`)?.descendants((node) => {
+      if (node.type.name === 'image') {
+        savedAlt = String(node.attrs.alt ?? '');
+      }
+    });
+    expect(savedAlt).toBe(alt);
+  });
+
   it('keeps a formula in an image description', () => {
     const serialized = roundTrip('![alt \\(x^2\\)](a.png)\n');
     expect(serialized).toContain('\\(x^2\\)');

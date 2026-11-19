@@ -576,6 +576,61 @@ function takeQuotedUnderline(prose: readonly SourceLine[], line: string): QuoteI
   return text.length > 0 ? { kind: 'heading', depth: level, text } : null;
 }
 
+function takeQuotedItemTable(
+  body: readonly SourceLine[],
+  index: number
+): { lines: string[]; next: number } | null {
+  const line = body[index]?.text ?? '';
+  if (!isTableRow(line)) {
+    return null;
+  }
+  const table = collectMarkerTable(body.slice(index), line.trim());
+  return parseMarkdownTable(table.lines) ? table : null;
+}
+
+function readQuotedItemLine(
+  pieces: QuoteItemPiece[],
+  prose: SourceLine[],
+  body: readonly SourceLine[],
+  index: number,
+  column: number
+): { prose: SourceLine[]; next: number } {
+  const line = body[index]?.text ?? '';
+  const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
+  const code =
+    openIndentedFence(line, column) !== null || (line.trim().length > 0 && indent >= column + 4);
+  const table = code ? null : takeQuotedItemTable(body, index);
+  if (table) {
+    if (prose.length > 0) {
+      pieces.push({ kind: 'prose', lines: prose });
+    }
+    pieces.push({ kind: 'table', lines: table.lines });
+    return { prose: [], next: index + table.next };
+  }
+  if (!code) {
+    const heading = takeQuotedUnderline(prose, line);
+    if (heading) {
+      pieces.push(heading);
+      return { prose: [], next: index + 1 };
+    }
+    const source = body[index] ?? { text: line, hardBreak: false };
+    return {
+      prose: [...prose, { text: source.text.trim(), hardBreak: source.hardBreak }],
+      next: index + 1,
+    };
+  }
+  if (prose.length > 0) {
+    pieces.push({ kind: 'prose', lines: prose });
+  }
+  const block = collectItemCode(body, index, column);
+  const fenceIndent = openIndentedFence(block.lines[0] ?? '', column)?.indent ?? column;
+  pieces.push({
+    kind: 'code',
+    lines: block.lines.map((entry) => shiftIndent(entry, fenceIndent)),
+  });
+  return { prose: [], next: block.next };
+}
+
 function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItemPiece[] {
   const pieces: QuoteItemPiece[] = [];
   let prose: SourceLine[] = [];
@@ -596,32 +651,9 @@ function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItem
     index = 1;
   }
   while (index < body.length) {
-    const line = body[index]?.text ?? '';
-    const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
-    const code =
-      openIndentedFence(line, column) !== null ||
-      (line.trim().length > 0 && indent >= column + 4);
-    if (!code) {
-      const heading = takeQuotedUnderline(prose, line);
-      if (heading) {
-        prose = [];
-        pieces.push(heading);
-        index += 1;
-        continue;
-      }
-      const source = body[index] ?? { text: line, hardBreak: false };
-      prose.push({ text: source.text.trim(), hardBreak: source.hardBreak });
-      index += 1;
-      continue;
-    }
-    flush();
-    const block = collectItemCode(body, index, column);
-    const fenceIndent = openIndentedFence(block.lines[0] ?? '', column)?.indent ?? column;
-    pieces.push({
-      kind: 'code',
-      lines: block.lines.map((entry) => shiftIndent(entry, fenceIndent)),
-    });
-    index = block.next;
+    const next = readQuotedItemLine(pieces, prose, body, index, column);
+    prose = next.prose;
+    index = next.next;
   }
   flush();
   return pieces;
