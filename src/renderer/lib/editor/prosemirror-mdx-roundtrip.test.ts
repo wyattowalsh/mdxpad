@@ -227,6 +227,12 @@ describe('WYSIWYG markdown round trip', () => {
     expect(saved).toContain('```js');
     expect(saved).toContain('const x = 1');
     expect(roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`)).toBe(saved);
+    const quoted = '> - [x] ```\n>       code\n>       ```\n';
+    const inQuote = roundTrip(quoted);
+    expect(inQuote).toContain('```');
+    expect(inQuote).toContain('code');
+    expect(inQuote).not.toContain('`    code');
+    expect(roundTrip(inQuote.endsWith('\n') ? inQuote : `${inQuote}\n`)).toBe(inQuote);
   });
 
   it('keeps a task checkbox', () => {

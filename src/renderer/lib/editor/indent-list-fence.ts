@@ -90,16 +90,25 @@ function takeColumns(line: string, width: number): { rest: string; full: boolean
   return { rest: line.slice(index), full: seen === width };
 }
 
+function lineBody(line: string, quotePrefix: string): string | null {
+  return line.startsWith(quotePrefix) ? line.slice(quotePrefix.length) : null;
+}
+
 function taskFenceEnd(
   lines: readonly string[],
   start: number,
   fence: string,
-  prefixWidth: number
+  prefixWidth: number,
+  quotePrefix: string
 ): number {
   const char = fence.startsWith('~') ? '~' : '`';
   const close = new RegExp(`^\\${char}{${fence.length},}\\s*$`);
   for (let index = start; index < lines.length; index += 1) {
-    const taken = takeColumns(lines[index] ?? '', prefixWidth);
+    const body = lineBody(lines[index] ?? '', quotePrefix);
+    if (body === null) {
+      return -1;
+    }
+    const taken = takeColumns(body, prefixWidth);
     if (taken.full && close.test(taken.rest)) {
       return index;
     }
@@ -110,7 +119,8 @@ function taskFenceEnd(
 function taskFenceLines(
   lines: readonly string[],
   index: number,
-  match: RegExpExecArray
+  match: RegExpExecArray,
+  quotePrefix: string
 ): { lines: string[]; next: number } | null {
   const fence = match[6];
   if (fence === undefined) {
@@ -124,17 +134,18 @@ function taskFenceLines(
   const info = match[7] ?? '';
   const removed = columnWidth(`[${box}]${fenceGap}`);
   const prefixWidth = columnWidth(`${indent}${marker}${gap}[${box}]${fenceGap}`);
-  const end = taskFenceEnd(lines, index + 1, fence, prefixWidth);
+  const end = taskFenceEnd(lines, index + 1, fence, prefixWidth, quotePrefix);
   if (end === -1) {
     return null;
   }
   const contentColumn = columnWidth(`${indent}${marker}${gap}`);
   const rewritten = [
-    `${indent}${marker}${gap}[${box}]`,
-    `${' '.repeat(contentColumn)}${fence}${info}`,
+    `${quotePrefix}${indent}${marker}${gap}[${box}]`,
+    `${quotePrefix}${' '.repeat(contentColumn)}${fence}${info}`,
   ];
   for (let cursor = index + 1; cursor <= end; cursor += 1) {
-    rewritten.push(takeColumns(lines[cursor] ?? '', removed).rest);
+    const body = lineBody(lines[cursor] ?? '', quotePrefix) ?? '';
+    rewritten.push(`${quotePrefix}${takeColumns(body, removed).rest}`);
   }
   return { lines: rewritten, next: end + 1 };
 }
@@ -146,6 +157,7 @@ function separateTaskFences(content: string): string {
   let index = 0;
   while (index < lines.length) {
     const line = lines[index] ?? '';
+    const quoted = splitQuote(line);
     if (open) {
       output.push(line);
       if (closesFence(line.trim(), open)) {
@@ -154,12 +166,12 @@ function separateTaskFences(content: string): string {
       index += 1;
       continue;
     }
-    const match = TASK_FENCE.exec(line);
+    const match = TASK_FENCE.exec(quoted.body);
     const fence = match?.[6] ?? '';
     const info = match?.[7] ?? '';
     const blocked =
       (fence.startsWith('`') && info.includes('`')) || (fence.startsWith('~') && info.includes('~'));
-    const rewritten = match && !blocked ? taskFenceLines(lines, index, match) : null;
+    const rewritten = match && !blocked ? taskFenceLines(lines, index, match, quoted.prefix) : null;
     if (!rewritten) {
       const opened = openingFence(line.trim());
       if (opened && leadingSpaces(line) <= 3) {
