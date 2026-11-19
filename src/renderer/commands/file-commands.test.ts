@@ -13,6 +13,7 @@ import type { MdxpadAPI } from '../../preload/api';
 import type { AIApi } from '../../preload/ai-api';
 import { INITIAL_DOCUMENT_STATE } from '@shared/types/document';
 import { useFeatureFlagsStore } from '../stores/feature-flags-store';
+import { useUtilityPanelStore } from '../stores/utility-panel-store';
 import { useTabStore } from '../stores/tab-store';
 
 // Enable Immer MapSet plugin for Map/Set support in stores
@@ -1011,23 +1012,14 @@ describe('managePluginsCommand', () => {
     useFeatureFlagsStore.getState().setFlag('plugin', true);
   });
 
-  it('lists plugins when plugin surface is enabled', async () => {
-    const pluginList = vi.fn().mockResolvedValue({ plugins: [] });
-    const mockApi = createMockApi({
-      plugin: {
-        list: pluginList,
-        install: vi.fn(),
-        uninstall: vi.fn(),
-        enable: vi.fn(),
-        disable: vi.fn(),
-      },
-    });
-    const ctx = createMockContext({ api: mockApi });
+  it('opens the plugin marketplace when the plugin surface is enabled', async () => {
+    useUtilityPanelStore.setState({ activeUtilityPanel: null });
+    const ctx = createMockContext();
 
     const result = await managePluginsCommand.execute(ctx);
 
     expect(result).toEqual({ ok: true });
-    expect(pluginList).toHaveBeenCalledTimes(1);
+    expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('plugins');
   });
 
   it('returns an error when plugin surface is disabled', async () => {

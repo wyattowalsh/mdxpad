@@ -17,6 +17,7 @@ import { DiagramDialog } from '@renderer/features/diagrams/DiagramDialog';
 import { MultiFileEditPanel } from '@renderer/components/ai/MultiFileEditPanel';
 import { ComponentPlayground } from '@renderer/features/playground/ComponentPlayground';
 import { MarketplacePanel } from '@renderer/components/template-marketplace/MarketplacePanel';
+import { PluginMarketplace } from '@renderer/features/plugins/PluginMarketplace';
 import { CssEditorDialog } from '@renderer/features/plugins/CssEditorDialog';
 import { ThemePicker } from '@renderer/features/plugins/ThemePicker';
 import { insertTextAtSelection } from '@renderer/lib/insert-document-text';
@@ -53,6 +54,7 @@ const PANEL_TITLES: Record<UtilityPanelId, string> = {
   marketplace: 'Template marketplace',
   css: 'Custom CSS',
   themes: 'Themes',
+  plugins: 'Plugins',
 };
 
 function PanelBody({
@@ -110,6 +112,8 @@ function PanelBody({
       return <MarketplacePanel />;
     case 'themes':
       return <ThemePicker />;
+    case 'plugins':
+      return <PluginMarketplace />;
     case 'agent':
       return (
         <div className="h-96">

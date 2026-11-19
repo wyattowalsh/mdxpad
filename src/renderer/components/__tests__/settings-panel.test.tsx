@@ -11,6 +11,7 @@ import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
 
 import { AUTOSAVE_INTERVAL_STEPS, SettingsPanel, autosaveIntervalFromSlider } from '../settings-panel';
 import { useFeatureFlagsStore } from '../../stores/feature-flags-store';
+import { useUtilityPanelStore } from '../../stores/utility-panel-store';
 
 // =============================================================================
 // MOCKS
@@ -87,10 +88,6 @@ vi.mock('../ui/slider', () => ({
   ),
 }));
 
-vi.mock('../../features/plugins/PluginMarketplace', () => ({
-  PluginMarketplace: () => <div data-testid="plugin-marketplace-component" />,
-}));
-
 // =============================================================================
 // CLEANUP
 // =============================================================================
@@ -156,6 +153,9 @@ describe('SettingsPanel', () => {
       expect(screen.getByTestId('plugin-settings-section')).toBeTruthy();
       expect(screen.getByTestId('toggle-plugin-marketplace-button')).toBeTruthy();
     });
+    useUtilityPanelStore.setState({ activeUtilityPanel: null });
+    fireEvent.click(screen.getByTestId('toggle-plugin-marketplace-button'));
+    expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('plugins');
   });
 
   it('should hide plugin section when plugin feature flag is disabled', async () => {

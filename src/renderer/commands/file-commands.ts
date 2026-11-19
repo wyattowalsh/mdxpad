@@ -14,6 +14,7 @@ import type { FileExportError } from '@shared/contracts/file-schemas';
 import { useCommandRegistry } from '../stores/command-registry-store';
 import { useDocumentStore } from '../stores/document-store';
 import { isFeatureEnabled } from '../stores/feature-flags-store';
+import { useUtilityPanelStore } from '../stores/utility-panel-store';
 import { editorHasUnsavedText, liveDocumentContent, syncSavedText } from './live-document';
 import { useTabStore } from '../stores/tab-store';
 import { revealNextDirtyTab } from '../components/tabs/document-tabs';
@@ -500,10 +501,10 @@ const exportFileCommand: Command = {
 const managePluginsCommand: Command = {
   id: FILE_COMMAND_IDS.plugins,
   name: 'Manage Plugins',
-  description: 'View installed plugins and plugin surface status',
+  description: 'Open the plugin marketplace',
   category: 'file',
   icon: '🧩',
-  execute: async (ctx: CommandContext): Promise<CommandResult> => {
+  execute: (ctx: CommandContext): CommandResult => {
     if (!isFeatureEnabled('plugin')) {
       ctx.notify({
         type: 'warning',
@@ -512,29 +513,8 @@ const managePluginsCommand: Command = {
       return { ok: false, error: 'Plugin surface is disabled' };
     }
 
-    if (!ctx.api.plugin) {
-      ctx.notify({
-        type: 'error',
-        message: 'Plugin API is unavailable',
-      });
-      return { ok: false, error: 'Plugin API is unavailable' };
-    }
-
-    try {
-      const { plugins } = await ctx.api.plugin.list();
-      ctx.notify({
-        type: 'info',
-        message: `${plugins.length} plugin${plugins.length === 1 ? '' : 's'} installed`,
-      });
-      return { ok: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      ctx.notify({
-        type: 'error',
-        message: `Failed to load plugins: ${message}`,
-      });
-      return { ok: false, error: message };
-    }
+    useUtilityPanelStore.getState().setActiveUtilityPanel('plugins');
+    return { ok: true };
   },
   enabled: () => isFeatureEnabled('plugin'),
 };

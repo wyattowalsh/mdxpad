@@ -19,12 +19,12 @@ import { Slider } from './ui/slider';
 import { Button } from './ui/button';
 import type { AutosaveSettings } from '@shared/contracts/autosave-schemas';
 import { DEFAULT_AUTOSAVE_SETTINGS } from '@shared/contracts/autosave-schemas';
-import { PluginMarketplace } from '../features/plugins/PluginMarketplace';
 import {
   useFeatureFlagsStore,
   selectFeatureFlags,
   type FeatureFlagKey,
 } from '../stores/feature-flags-store';
+import { useUtilityPanelStore } from '../stores/utility-panel-store';
 import { useEditorPreferencesStore } from '../stores/editor-preferences-store';
 import type { KeymapMode } from '../lib/editor/keymaps';
 
@@ -274,7 +274,6 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
   const [settings, setLocalSettings] = useState<AutosaveSettings>(DEFAULT_AUTOSAVE_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
   const featureFlags = useFeatureFlagsStore(selectFeatureFlags);
   const setFeatureFlag = useFeatureFlagsStore((state) => state.setFlag);
 
@@ -377,8 +376,8 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
     });
   }, [featureFlags.ai]);
 
-  const togglePluginMarketplace = useCallback(() => {
-    setShowPluginMarketplace((current) => !current);
+  const openPluginMarketplace = useCallback(() => {
+    useUtilityPanelStore.getState().setActiveUtilityPanel('plugins');
   }, []);
 
   return (
@@ -565,19 +564,11 @@ function SettingsPanelComponent({ isOpen, onClose }: SettingsPanelProps): React.
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={togglePluginMarketplace}
+                  onClick={openPluginMarketplace}
                   data-testid="toggle-plugin-marketplace-button"
                 >
-                  {showPluginMarketplace ? 'Hide Plugin Marketplace' : 'Open Plugin Marketplace'}
+                  Open Plugin Marketplace
                 </Button>
-                {showPluginMarketplace && (
-                  <div
-                    className="max-h-72 overflow-y-auto rounded-md border border-border p-2"
-                    data-testid="plugin-marketplace-panel"
-                  >
-                    <PluginMarketplace />
-                  </div>
-                )}
               </div>
             )}
           </div>

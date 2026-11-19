@@ -3,6 +3,7 @@ import { isFeatureEnabled } from '@renderer/stores/feature-flags-store';
 import { useCommandRegistry } from '@renderer/stores/command-registry-store';
 import { useUtilityPanelStore, type UtilityPanelId } from '@renderer/stores/utility-panel-store';
 import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
+import { useAIProviderStore } from '@renderer/features/ai-provider/store';
 
 export const PANEL_COMMAND_IDS = {
   workspace: 'view.toggle-workspace',
@@ -21,6 +22,8 @@ export const PANEL_COMMAND_IDS = {
   marketplace: 'view.toggle-marketplace',
   css: 'view.toggle-css',
   themes: 'view.toggle-themes',
+  plugins: 'view.toggle-plugins',
+  usage: 'view.open-usage',
   wysiwyg: 'view.toggle-wysiwyg',
 } as const;
 
@@ -63,6 +66,22 @@ export const PANEL_COMMANDS: readonly Command[] = [
   toggleCommand('view.toggle-marketplace', 'Toggle Template Marketplace', 'marketplace'),
   toggleCommand('view.toggle-css', 'Toggle Custom CSS', 'css', () => isFeatureEnabled('plugin')),
   toggleCommand('view.toggle-themes', 'Toggle Themes', 'themes', () => isFeatureEnabled('plugin')),
+  toggleCommand('view.toggle-plugins', 'Toggle Plugin Marketplace', 'plugins', () =>
+    isFeatureEnabled('plugin')
+  ),
+  {
+    id: 'view.open-usage' as CommandId,
+    name: 'Open Usage Stats',
+    category: 'view',
+    enabled: () => isFeatureEnabled('ai'),
+    execute: () => {
+      if (!isFeatureEnabled('ai')) {
+        return { ok: false, error: 'AI feature is disabled' };
+      }
+      useAIProviderStore.getState().openSettings();
+      return { ok: true };
+    },
+  },
   {
     id: 'view.toggle-wysiwyg' as CommandId,
     name: 'Toggle WYSIWYG Editor',

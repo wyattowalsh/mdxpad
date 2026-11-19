@@ -3,6 +3,8 @@ import type { CommandContext } from '@shared/types/commands';
 import { PANEL_COMMANDS } from '../panel-commands';
 import { useUtilityPanelStore } from '@renderer/stores/utility-panel-store';
 import { useEditorModeStore } from '@renderer/stores/editor-mode-store';
+import { useAIProviderStore } from '@renderer/features/ai-provider/store';
+import { useFeatureFlagsStore } from '@renderer/stores/feature-flags-store';
 
 const context = {
   editor: null,
@@ -36,6 +38,8 @@ describe('PANEL_COMMANDS', () => {
       'view.toggle-marketplace',
       'view.toggle-css',
       'view.toggle-themes',
+      'view.toggle-plugins',
+      'view.open-usage',
       'view.toggle-wysiwyg',
     ]);
     expect(
@@ -67,6 +71,20 @@ describe('PANEL_COMMANDS', () => {
     const command = PANEL_COMMANDS.find((item) => item.id === 'view.toggle-agent');
     await command?.execute(context);
     expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('agent');
+  });
+
+  it('opens the plugin marketplace', async () => {
+    const command = PANEL_COMMANDS.find((item) => item.id === 'view.toggle-plugins');
+    await command?.execute(context);
+    expect(useUtilityPanelStore.getState().activeUtilityPanel).toBe('plugins');
+  });
+
+  it('opens usage stats in provider settings', async () => {
+    useFeatureFlagsStore.getState().setFlag('ai', true);
+    useAIProviderStore.setState({ settingsOpen: false });
+    const command = PANEL_COMMANDS.find((item) => item.id === 'view.open-usage');
+    await command?.execute(context);
+    expect(useAIProviderStore.getState().settingsOpen).toBe(true);
   });
 
   it('toggles the editor between source and WYSIWYG', async () => {
