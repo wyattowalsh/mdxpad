@@ -21,6 +21,7 @@ import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
   protectTexDelimiters,
   restoreMathMarkup,
+  shieldCellPipes,
   shieldMathMarkup,
   TEX_DISPLAY_CLOSE,
   TEX_DISPLAY_OPEN,
@@ -384,7 +385,7 @@ export function parseMdxContent(content: string): ProseMirrorNode | null {
   const definitions = extractLinkDefinitions(body);
   const protectedNotes = protectFootnoteBlocks(body);
   const { processedText } = extractJsxBlocks(
-    protectTexDelimiters(shieldMathMarkup(protectFootnoteMarkers(protectedNotes)))
+    protectTexDelimiters(shieldCellPipes(shieldMathMarkup(protectFootnoteMarkers(protectedNotes))))
   );
   const restored = restoreMathMarkupNode(
     liftFootnoteLabels(

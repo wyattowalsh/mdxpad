@@ -1,6 +1,7 @@
 import type { MarkdownSerializerState } from 'prosemirror-markdown';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
-import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
+
+import { escapeTableCell } from './prosemirror-tex-protect';
 
 interface AlignToken {
   attrGet(name: string): string | null;
@@ -61,37 +62,6 @@ export const tableNodes: Record<string, NodeSpec> = {
   table_cell: cellSpec('td'),
 };
 
-function mathSpanEndAt(value: string, index: number): number {
-  const delimiter = mathDelimiterAt(value, index);
-  if (delimiter !== null) {
-    return mathSpanEnd(value, index, delimiter);
-  }
-  const open = value.startsWith('\\[', index) ? '\\[' : value.startsWith('\\(', index) ? '\\(' : '';
-  if (open.length === 0) {
-    return -1;
-  }
-  const close = open === '\\[' ? '\\]' : '\\)';
-  const end = unescapedDelimiterIndex(value, index + open.length, close);
-  return end === -1 ? -1 : end + close.length;
-}
-
-function escapeCellPipes(value: string): string {
-  let result = '';
-  let index = 0;
-  while (index < value.length) {
-    const mathEnd = mathSpanEndAt(value, index);
-    if (mathEnd > index) {
-      result += value.slice(index, mathEnd);
-      index = mathEnd;
-      continue;
-    }
-    const char = value[index] ?? '';
-    result += char === '|' && value[index - 1] !== '\\' ? '\\|' : char;
-    index += 1;
-  }
-  return result;
-}
-
 function inlineMarkdown(state: MarkdownSerializerState, node: ProseMirrorNode): string {
   const writable = state as MarkdownSerializerState & {
     out: string;
@@ -103,7 +73,7 @@ function inlineMarkdown(state: MarkdownSerializerState, node: ProseMirrorNode): 
   const atBlockStart = writable.atBlockStart;
   writable.closed = null;
   state.renderInline(node);
-  const text = escapeCellPipes(writable.out.slice(start).replaceAll('\n', ' ').trim());
+  const text = escapeTableCell(writable.out.slice(start).replaceAll('\n', ' ').trim());
   writable.out = writable.out.slice(0, start);
   writable.closed = closed;
   writable.atBlockStart = atBlockStart;

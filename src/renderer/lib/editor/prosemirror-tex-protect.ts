@@ -100,6 +100,108 @@ function shieldMathPiece(value: string, shieldLines: boolean): string {
   return `${wrapped.open}${shielded}${wrapped.close}`;
 }
 
+function readInlineLink(value: string, index: number): { text: string; next: number } | null {
+  const image = value[index] === '!' && value[index + 1] === '[';
+  const labelOpen = image ? index + 1 : value[index] === '[' ? index : -1;
+  if (labelOpen === -1) {
+    return null;
+  }
+  let depth = 0;
+  let cursor = labelOpen;
+  while (cursor < value.length) {
+    const char = value[cursor] ?? '';
+    if (char === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (char === '[') {
+      depth += 1;
+    } else if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        break;
+      }
+    }
+    cursor += 1;
+  }
+  if (value[cursor] !== ']') {
+    return null;
+  }
+  const destination = readDestination(value, cursor + 1);
+  if (destination === null) {
+    return null;
+  }
+  const from = image ? index : labelOpen;
+  return { text: value.slice(from, destination.next), next: destination.next };
+}
+
+function mathEndAt(value: string, index: number): number {
+  const delimiter = mathDelimiterAt(value, index);
+  if (delimiter !== null) {
+    return mathSpanEnd(value, index, delimiter);
+  }
+  const open = value.startsWith('\\[', index) ? '\\[' : value.startsWith('\\(', index) ? '\\(' : '';
+  if (open.length === 0) {
+    return -1;
+  }
+  const close = open === '\\[' ? '\\]' : '\\)';
+  const end = unescapedDelimiterIndex(value, index + open.length, close);
+  return end === -1 ? -1 : end + close.length;
+}
+
+/** Keep a bar inside code or a link from splitting a table cell. */
+export function shieldCellPipes(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      result += code.text.replaceAll('|', MATH_PIPE);
+      index = code.next;
+      continue;
+    }
+    const link = readInlineLink(value, index);
+    if (link) {
+      result += link.text.replaceAll('|', MATH_PIPE);
+      index = link.next;
+      continue;
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
+/** Escape a table-cell bar, leaving one inside a formula, code, or link. */
+export function escapeTableCell(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = copyCodeSpan(value, index);
+    if (code) {
+      result += code.text;
+      index = code.next;
+      continue;
+    }
+    const mathEnd = mathEndAt(value, index);
+    if (mathEnd > index) {
+      result += value.slice(index, mathEnd);
+      index = mathEnd;
+      continue;
+    }
+    const link = readInlineLink(value, index);
+    if (link) {
+      result += link.text;
+      index = link.next;
+      continue;
+    }
+    const char = value[index] ?? '';
+    result += char === '|' && value[index - 1] !== '\\' ? '\\|' : char;
+    index += 1;
+  }
+  return result;
+}
+
 /** Keep emphasis markers inside formulas from being parsed as Markdown. */
 export function shieldMathMarkup(value: string): string {
   let result = '';
