@@ -8,7 +8,7 @@
  * @module main/services/plugin/plugin-loader
  */
 
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as vm from 'node:vm';
 
@@ -64,6 +64,29 @@ function assertInstallablePluginPath(pluginRoot: string, pluginPath: string): vo
   }
 }
 
+async function writePluginFile(
+  pluginRoot: string,
+  filePath: string,
+  content: string
+): Promise<void> {
+  const target = resolveWorkspaceFilePath(pluginRoot, filePath);
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  const confirmed = resolveWorkspaceFilePath(pluginRoot, filePath);
+  if (confirmed !== target) {
+    throw new Error('Plugin file could not be written');
+  }
+  const handle = await fs.open(
+    confirmed,
+    fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+    0o600
+  );
+  try {
+    await handle.writeFile(content, 'utf-8');
+  } finally {
+    await handle.close();
+  }
+}
+
 function buildSandboxApi(manifest: PluginManifest, pluginRoot: string): PluginSandboxApi {
   const log = (...args: unknown[]): void => {
     console.log(`[plugin:${manifest.name}]`, ...args);
@@ -81,11 +104,7 @@ function buildSandboxApi(manifest: PluginManifest, pluginRoot: string): PluginSa
     : undefined;
 
   const writeFile = manifest.permissions.includes('file-write')
-    ? async (filePath: string, content: string) => {
-        const target = resolveWorkspaceFilePath(pluginRoot, filePath);
-        await fs.mkdir(path.dirname(target), { recursive: true });
-        await fs.writeFile(target, content, 'utf-8');
-      }
+    ? (filePath: string, content: string) => writePluginFile(pluginRoot, filePath, content)
     : undefined;
 
   return { log, readFile, writeFile };

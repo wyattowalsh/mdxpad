@@ -290,6 +290,63 @@ Draft details.`,
     );
   });
 
+  it('does not open a workspace model through a linked folder', async () => {
+    const outside = path.join(tempDir, 'outside-model');
+    await mkdir(outside);
+    const secret = path.join(outside, 'workspace.json');
+    await writeFile(secret, '{"secret":true}\n');
+    await symlink(outside, path.join(workspaceRoot, '.mdxpad'));
+
+    const opened = await new WorkspaceService().openWorkspace({ rootPath: workspaceRoot });
+
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+    expect(opened.value.workspace.name).toBe('workspace');
+    expect(await readFile(secret, 'utf-8')).toBe('{"secret":true}\n');
+    expect((await lstat(path.join(workspaceRoot, '.mdxpad'))).isSymbolicLink()).toBe(false);
+    expect((await lstat(path.join(workspaceRoot, '.mdxpad'))).isDirectory()).toBe(true);
+  });
+
+  it('does not save a workspace model through a linked folder', async () => {
+    const service = new WorkspaceService();
+    const opened = await service.openWorkspace({ rootPath: workspaceRoot });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+
+    const modelDir = path.join(workspaceRoot, '.mdxpad');
+    const outside = path.join(tempDir, 'outside-save');
+    await mkdir(outside);
+    const secret = path.join(outside, 'workspace.json');
+    await writeFile(secret, '{"secret":true}\n');
+    await rm(modelDir, { recursive: true });
+    await symlink(outside, modelDir);
+
+    const saveResult = await service.saveWorkspace({
+      model: {
+        ...opened.value,
+        workspace: {
+          ...opened.value.workspace,
+          name: 'Renamed Workspace',
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    expect(saveResult.ok).toBe(true);
+    expect(await readFile(secret, 'utf-8')).toBe('{"secret":true}\n');
+    expect((await lstat(modelDir)).isSymbolicLink()).toBe(false);
+    const persisted = JSON.parse(
+      await readFile(path.join(modelDir, 'workspace.json'), 'utf-8')
+    ) as {
+      workspace: { name: string };
+    };
+    expect(persisted.workspace.name).toBe('Renamed Workspace');
+  });
+
   it('does not open a workspace model that is a link', async () => {
     const first = await new WorkspaceService().openWorkspace({ rootPath: workspaceRoot });
     expect(first.ok).toBe(true);

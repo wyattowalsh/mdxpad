@@ -4,7 +4,7 @@
  * @module main/services/plugin/__tests__/plugin-loader.test
  */
 
-import { access, mkdtemp, rm, symlink, writeFile, mkdir } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, symlink, writeFile, mkdir } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -164,6 +164,27 @@ describe('PluginLoader', () => {
       await loader.installPlugin(path.join(tempDir, 'escape'));
       await expect(loader.loadPlugin('escape')).rejects.toThrow('outside the workspace');
       expect(loader.isLoaded('escape')).toBe(false);
+    });
+
+    it('does not let a plugin write through a linked file', async () => {
+      const outside = path.join(tempDir, 'secret.txt');
+      await writeFile(outside, 'secret');
+      const pluginDir = await createPluginDir(
+        tempDir,
+        'linked-writer',
+        {
+          name: 'Linked Writer',
+          version: '1.0.0',
+          description: 'test',
+          permissions: ['file-write'],
+        },
+        `module.exports = { activate: function() { return mdxpad.writeFile('linked.txt', 'pwned'); }, deactivate: function() {} };`
+      );
+      await symlink(outside, path.join(pluginDir, 'linked.txt'));
+      await loader.installPlugin(pluginDir);
+      await loader.loadPlugin('linked-writer');
+      await expect(loader.activatePlugin('linked-writer')).rejects.toThrow('outside the workspace');
+      expect(await readFile(outside, 'utf-8')).toBe('secret');
     });
 
     it('does not let a plugin write outside its directory', async () => {

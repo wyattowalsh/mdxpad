@@ -111,8 +111,12 @@ async function writeApprovedFile(
     throw new WorkspacePathError('The file path changed before approval');
   }
   await fs.promises.mkdir(path.dirname(confirmed), { recursive: true });
+  const placed = resolveWorkspaceFilePath(workspacePath, requestedPath);
+  if (placed !== confirmed) {
+    throw new WorkspacePathError('The file path changed before approval');
+  }
   const handle = await fs.promises.open(
-    confirmed,
+    placed,
     fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW,
     0o600
   );

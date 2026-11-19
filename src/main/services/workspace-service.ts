@@ -31,6 +31,7 @@ import type {
   WorkspaceModel,
 } from '@shared/types/workspace';
 
+import { ensureRealDirectory } from './ensure-real-directory';
 import {
   FileIndexService,
   type FileIndexCollectionFilter,
@@ -189,6 +190,7 @@ export class WorkspaceService {
   }
 
   private async readModelText(modelPath: string): Promise<string> {
+    await ensureRealDirectory(path.dirname(modelPath));
     const read = await readFileWithoutFollowingLinks(modelPath);
     if (read.ok) {
       return read.value;
@@ -215,7 +217,7 @@ export class WorkspaceService {
 
   private async persistWorkspaceModel(model: WorkspaceModel): Promise<void> {
     const modelPath = this.getWorkspaceModelPath(model.workspace.rootPath);
-    await fs.mkdir(path.dirname(modelPath), { recursive: true });
+    await ensureRealDirectory(path.dirname(modelPath));
     await atomicWrite(modelPath, JSON.stringify(model, null, 2));
     this.workspaceRootById.set(model.workspace.id, model.workspace.rootPath);
 
