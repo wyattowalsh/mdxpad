@@ -1,17 +1,18 @@
+import { operatorScript } from './docx-math-operator';
 import {
   MathCurlyBrackets,
   MathFraction,
   MathLimitLower,
   MathLimitUpper,
   MathPreSubSuperScript,
-  MathIntegral,
   MathRadical,
   MathRoundBrackets,
+  MathIntegral,
   MathRun,
   MathSquareBrackets,
+  MathSum,
   MathSubScript,
   MathSubSuperScript,
-  MathSum,
   MathSuperScript,
   type MathComponent,
 } from 'docx';
@@ -95,80 +96,17 @@ export function takePrimes(source: string, index: number): { next: number; mark:
   return { next, mark: new MathRun('′'.repeat(next - index)) };
 }
 
-function xmlName(value: object): string {
-  const descriptor = Object.getOwnPropertyDescriptor(value, 'rootKey');
-  if (typeof descriptor?.value !== 'string') {
-    return '';
-  }
-  return descriptor.value;
-}
-
-function naryKind(component: MathComponent): 'sum' | 'integral' | null {
-  if (component instanceof MathSum) {
-    return 'sum';
-  }
-  if (component instanceof MathIntegral) {
-    return 'integral';
-  }
-  const text = mathRunString(component);
-  if (text === '∑') {
-    return 'sum';
-  }
-  if (text === '∫') {
-    return 'integral';
-  }
-  return null;
-}
-
-function naryScripts(component: MathComponent): {
-  sub?: readonly MathComponent[];
-  sup?: readonly MathComponent[];
-} {
-  const root = nestedRoot(component);
-  const found: { sub?: MathComponent[]; sup?: MathComponent[] } = {};
-  if (root === null) {
-    return found;
-  }
-  for (const item of root) {
-    if (typeof item !== 'object' || item === null) {
-      continue;
-    }
-    const name = xmlName(item);
-    if (name === 'm:sub') {
-      found.sub = collectMath(item);
-    } else if (name === 'm:sup') {
-      found.sup = collectMath(item);
-    }
-  }
-  return found;
-}
-
-function attachNary(
-  kind: 'sum' | 'integral',
-  existing: { sub?: readonly MathComponent[]; sup?: readonly MathComponent[] },
-  mark: '^' | '_',
-  script: readonly MathComponent[],
-): MathComponent {
-  const sub = mark === '_' ? script : existing.sub;
-  const sup = mark === '^' ? script : existing.sup;
-  const options = {
-    children: [new MathRun('')],
-    ...(sub === undefined ? {} : { subScript: sub }),
-    ...(sup === undefined ? {} : { superScript: sup }),
-  };
-  return kind === 'sum' ? new MathSum(options) : new MathIntegral(options);
-}
-
 export function attachScript(
   base: readonly MathComponent[],
   mark: '^' | '_',
   script: readonly MathComponent[],
 ): MathComponent {
   const only = base.length === 1 ? base[0] : undefined;
-  const kind = only === undefined ? null : naryKind(only);
-  if (only !== undefined && kind !== null) {
-    const existing = only instanceof MathRun ? {} : naryScripts(only);
-    return attachNary(kind, existing, mark, script);
+  if (only !== undefined) {
+    const operator = operatorScript(only, mark, script);
+    if (operator !== null) {
+      return operator;
+    }
   }
   const paired = only === undefined ? null : pairedScripts(only);
   if (paired !== null) {

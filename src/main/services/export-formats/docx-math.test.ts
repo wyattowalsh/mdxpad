@@ -203,6 +203,10 @@ describe('mathComponents', () => {
 
   it('draws a big operator and a set difference', () => {
     expect(runText(mathComponents('\\bigcup_{i} A_i'))).toBe('⋃i Ai');
+    expect(mathComponents('\\bigcup_{i} A_i')[0]).toBeInstanceOf(MathLimitLower);
+    expect(mathComponents('\\prod_{i=1}^{n}')[0]).toBeInstanceOf(MathLimitUpper);
+    expect(mathComponents('\\lim_{n \\to \\infty}')[0]).toBeInstanceOf(MathLimitLower);
+    expect(mathComponents('\\sin^2')[0]).toBeInstanceOf(MathSuperScript);
     expect(runText(mathComponents('\\oint'))).toBe('∮');
     expect(runText(mathComponents('A \\setminus B'))).toBe('A ∖ B');
     expect(runText(mathComponents('A \\sqsubseteq B'))).toBe('A ⊑ B');
@@ -382,7 +386,6 @@ describe('mathComponents', () => {
   it('builds a superscript and a fraction', () => {
     const power = mathComponents('x^2');
     expect(power[0]).toBeInstanceOf(MathSuperScript);
-
     const fraction = mathComponents('\\frac{a}{b}');
     expect(fraction[0]).toBeInstanceOf(MathFraction);
     const display = mathComponents('\\dfrac{a}{b}');
