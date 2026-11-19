@@ -27,8 +27,9 @@ describe('fences', () => {
     expect(fenceIndentedCode('hello\n    still text\n')).toBe('hello\n    still text\n');
     expect(fenceIndentedCode('- item\n\n    continued\n')).toBe('- item\n\n    continued\n');
     expect(fenceIndentedCode('- item\n\n      const x = 1\n')).toBe(
-      '- item\n\n      const x = 1\n'
+      '- item\n\n  ```\n  const x = 1\n  ```\n'
     );
+    expect(fenceIndentedCode('>     \\(x^2\\)\n')).toBe('> ```\n> \\(x^2\\)\n> ```\n');
     expect(fenceIndentedCode('Intro\n\n    ```\n    # Secret\n    $x^2$\n')).toBe(
       'Intro\n\n````\n```\n# Secret\n$x^2$\n````\n'
     );

@@ -69,62 +69,157 @@ function longestBacktickRun(lines: readonly string[]): number {
   return longest;
 }
 
-function emitIndentedFence(output: string[], lines: readonly string[]): void {
+function emitIndentedFence(output: string[], lines: readonly string[], indent = ''): void {
   if (lines.length === 0) {
     return;
   }
   const marker = '`'.repeat(Math.max(3, longestBacktickRun(lines) + 1));
-  output.push(marker, ...lines, marker);
+  const fenced = lines.map((line) => (line.length === 0 ? '' : `${indent}${line}`));
+  output.push(`${indent}${marker}`, ...fenced, `${indent}${marker}`);
 }
 
-/** Turn a top-level indented code block into a fence. */
-export function fenceIndentedCode(content: string): string {
-  const output: string[] = [];
-  const pendingBlanks: string[] = [];
-  const codeLines: string[] = [];
-  let fence: string | null = null;
-  let inIndented = false;
-  let column: number | null = null;
-  const closeCode = (): void => {
-    if (!inIndented) {
-      return;
+function quoteCodeBody(line: string): string | null {
+  const match = /^(>)([ \t].*)$/.exec(line);
+  if (!match) {
+    return null;
+  }
+  const rest = (match[2] ?? '').replaceAll('\t', '    ');
+  const spaces = /^ */.exec(rest)?.[0].length ?? 0;
+  if (spaces < 5 || rest.trim().length === 0) {
+    return null;
+  }
+  return rest.slice(5);
+}
+
+function listCodeBody(line: string, column: number): string | null {
+  const expanded = line.replaceAll('\t', '    ');
+  if (expanded.trim().length === 0 || leadingSpaces(expanded) < column + 4) {
+    return null;
+  }
+  return expanded.slice(column + 4);
+}
+
+interface FenceState {
+  output: string[];
+  pendingBlanks: string[];
+  codeLines: string[];
+  fence: string | null;
+  inIndented: boolean;
+  codeIndent: string;
+  codeKind: 'top' | 'list' | 'quote';
+  column: number | null;
+}
+
+function closeCode(state: FenceState): void {
+  if (!state.inIndented) {
+    return;
+  }
+  emitIndentedFence(state.output, state.codeLines.splice(0), state.codeIndent);
+  state.output.push(...state.pendingBlanks.splice(0));
+  state.inIndented = false;
+  state.codeIndent = '';
+  state.codeKind = 'top';
+}
+
+function blankBefore(state: FenceState): boolean {
+  const last = state.output[state.output.length - 1] ?? '';
+  return state.output.length === 0 || last.trim() === '';
+}
+
+function openCode(
+  state: FenceState,
+  body: string,
+  indent: string,
+  kind: FenceState['codeKind']
+): void {
+  state.codeLines.push(body);
+  state.codeIndent = indent;
+  state.codeKind = kind;
+  state.inIndented = true;
+}
+
+function activeCode(state: FenceState, line: string): string | null {
+  if (state.codeKind === 'quote') {
+    return quoteCodeBody(line);
+  }
+  if (state.codeKind === 'list' && state.column !== null) {
+    return listCodeBody(line, state.column);
+  }
+  return state.inIndented ? indentedCodeText(line) : null;
+}
+
+function continueCode(state: FenceState, line: string): boolean {
+  if (!state.inIndented) {
+    return false;
+  }
+  const code = activeCode(state, line);
+  if (code !== null) {
+    state.codeLines.push(...state.pendingBlanks.splice(0), code);
+    return true;
+  }
+  if (line.trim().length === 0 || (state.codeKind === 'quote' && /^> ?$/.test(line))) {
+    state.pendingBlanks.push('');
+    return true;
+  }
+  closeCode(state);
+  state.output.push(line);
+  state.column = nextListColumn(state.column, line);
+  return true;
+}
+
+function startCode(state: FenceState, line: string): boolean {
+  const quoted = quoteCodeBody(line);
+  if (quoted !== null && blankBefore(state)) {
+    openCode(state, quoted, '> ', 'quote');
+    return true;
+  }
+  const top = indentedCodeText(line);
+  const insideList = state.column !== null && leadingSpaces(line) >= state.column;
+  if (top !== null && blankBefore(state) && !insideList) {
+    state.column = null;
+    openCode(state, top, '', 'top');
+    return true;
+  }
+  if (state.column !== null && blankBefore(state)) {
+    const listed = listCodeBody(line, state.column);
+    if (listed !== null) {
+      openCode(state, listed, ' '.repeat(state.column), 'list');
+      return true;
     }
-    emitIndentedFence(output, codeLines.splice(0));
-    output.push(...pendingBlanks.splice(0));
-    inIndented = false;
+  }
+  return false;
+}
+
+function consumeLine(state: FenceState, line: string): void {
+  const next = advanceFence(line, state.fence);
+  if (state.fence || next) {
+    closeCode(state);
+    state.output.push(line);
+    state.fence = next;
+    return;
+  }
+  if (continueCode(state, line) || startCode(state, line)) {
+    return;
+  }
+  state.output.push(line);
+  state.column = nextListColumn(state.column, line);
+}
+
+/** Turn indented code, including code in a list or quote, into a fence. */
+export function fenceIndentedCode(content: string): string {
+  const state: FenceState = {
+    output: [],
+    pendingBlanks: [],
+    codeLines: [],
+    fence: null,
+    inIndented: false,
+    codeIndent: '',
+    codeKind: 'top',
+    column: null,
   };
   for (const line of content.split('\n')) {
-    const next = advanceFence(line, fence);
-    if (fence || next) {
-      closeCode();
-      output.push(line);
-      fence = next;
-      continue;
-    }
-    const code = indentedCodeText(line);
-    if (inIndented && code !== null) {
-      codeLines.push(...pendingBlanks.splice(0), code);
-      continue;
-    }
-    if (inIndented && line.trim().length === 0) {
-      pendingBlanks.push('');
-      continue;
-    }
-    if (inIndented) {
-      closeCode();
-      output.push(line);
-      continue;
-    }
-    const previousBlank = output.length === 0 || (output[output.length - 1] ?? '').trim() === '';
-    if (code !== null && previousBlank && !(column !== null && leadingSpaces(line) >= column)) {
-      column = null;
-      codeLines.push(code);
-      inIndented = true;
-      continue;
-    }
-    output.push(line);
-    column = nextListColumn(column, line);
+    consumeLine(state, line);
   }
-  closeCode();
-  return output.join('\n');
+  closeCode(state);
+  return state.output.join('\n');
 }

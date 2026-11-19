@@ -15,8 +15,12 @@ const MDX_EXPRESSION_OPTIONS: AcornOptions = {
   preserveParens: true,
 };
 
+function fenceLine(line: string): string {
+  return line.replace(/^(?:>[ \t]?)+/, '');
+}
+
 function updateFence(fence: string | null, line: string): string | null {
-  const match = FENCE_LINE.exec(line);
+  const match = FENCE_LINE.exec(fenceLine(line));
   if (!match) {
     return fence;
   }
