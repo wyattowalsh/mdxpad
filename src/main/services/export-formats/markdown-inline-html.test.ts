@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdownInline } from './markdown-inline-html';
 
 describe('renderMarkdownInline', () => {
+  it('renders an escaped dollar inside a formula', () => {
+    const html = renderMarkdownInline('$\\$5$ and $a\\$b$');
+    expect(html).not.toContain('katex-error');
+    expect(html).toContain('5');
+    expect(html).toContain('annotation encoding="application/x-tex">a\\$b</annotation>');
+  });
+
   it('renders an image that is the label of a link', () => {
     expect(renderMarkdownInline('[![alt](a.png)](https://example.com)')).toBe(
       '<a href="https://example.com"><img src="a.png" alt="alt" /></a>'

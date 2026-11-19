@@ -24,15 +24,23 @@ function escapeHtml(value: string): string {
 }
 
 function takeMath(raw: string, start: number, delimiter: '$' | '$$'): number {
-  const end = raw.indexOf(delimiter, start + delimiter.length);
-  if (end === -1) {
-    return -1;
+  let cursor = start + delimiter.length;
+  while (cursor < raw.length) {
+    if (raw[cursor] === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (!raw.startsWith(delimiter, cursor)) {
+      cursor += 1;
+      continue;
+    }
+    const interior = raw.slice(start + delimiter.length, cursor);
+    if (interior.length === 0 || isCurrencySpan(interior)) {
+      return -1;
+    }
+    return cursor + delimiter.length;
   }
-  const interior = raw.slice(start + delimiter.length, end);
-  if (interior.length === 0 || isCurrencySpan(interior)) {
-    return -1;
-  }
-  return end + delimiter.length;
+  return -1;
 }
 
 function renderKatex(interior: string, display: boolean): string {
@@ -236,7 +244,9 @@ interface PlainSpan {
 
 function findMathSpan(raw: string, from: number): PlainSpan | null {
   for (let index = from; index < raw.length; index += 1) {
-    const delimiter = raw.startsWith('$$', index) ? '$$' : raw[index] === '$' ? '$' : null;
+    const escaped = index > 0 && raw[index - 1] === '\\';
+    const delimiter =
+      escaped ? null : raw.startsWith('$$', index) ? '$$' : raw[index] === '$' ? '$' : null;
     const end = delimiter === null ? -1 : takeMath(raw, index, delimiter);
     if (delimiter === null || end === -1) {
       continue;
