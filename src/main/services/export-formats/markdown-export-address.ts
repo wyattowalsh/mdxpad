@@ -331,7 +331,7 @@ export function sanitizeExportedTag(tag: string): string {
   );
 }
 
-function htmlTagEnd(html: string, index: number): number {
+export function htmlTagEnd(html: string, index: number): number {
   let quote: '"' | "'" | null = null;
   for (let cursor = index + 1; cursor < html.length; cursor += 1) {
     const char = html[cursor];

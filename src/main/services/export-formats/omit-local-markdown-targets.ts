@@ -10,7 +10,7 @@ import { resolveWorkspaceFilePath } from '../ai/agent-path';
 import { decodeHtmlEntities } from './markdown-entity';
 import { advanceFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
-import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
+import { htmlTagEnd, safeImageAddress, safeLinkAddress } from './markdown-export-address';
 
 const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 const LINK = /(?<!!)\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
@@ -33,6 +33,48 @@ function pictureAllowed(address: string, root: string | null): boolean {
   } catch {
     return false;
   }
+}
+
+function attributeValue(raw: string): string {
+  return raw.startsWith('"') || raw.startsWith("'") ? raw.slice(1, -1) : raw;
+}
+
+function tagAttribute(tag: string, name: string): string | null {
+  const match = new RegExp(`\\b${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i').exec(tag);
+  return match?.[1] ? decodeHtmlEntities(attributeValue(match[1])) : null;
+}
+
+function htmlImage(tag: string): { src: string; alt: string } | null {
+  if (!/^<\s*img\b/i.test(tag)) {
+    return null;
+  }
+  const src = tagAttribute(tag, 'src');
+  if (src === null) {
+    return null;
+  }
+  return { src, alt: tagAttribute(tag, 'alt') ?? '' };
+}
+
+function rewriteHtmlImages(line: string, root: string | null): string {
+  let result = '';
+  let index = 0;
+  while (index < line.length) {
+    if (line[index] !== '<') {
+      result += line[index] ?? '';
+      index += 1;
+      continue;
+    }
+    const end = htmlTagEnd(line, index);
+    if (end === -1) {
+      result += line.slice(index);
+      break;
+    }
+    const tag = line.slice(index, end);
+    const image = htmlImage(tag);
+    result += image && !pictureAllowed(image.src, root) ? image.alt : tag;
+    index = end;
+  }
+  return result;
 }
 
 function rewriteLine(line: string, root: string | null): string {
@@ -59,7 +101,7 @@ export function omitLocalMarkdownTargets(
       const next = advanceFence(line, fence);
       const boundary = fence !== next;
       fence = next;
-      return fence || boundary ? line : rewriteLine(line, root);
+      return fence || boundary ? line : rewriteHtmlImages(rewriteLine(line, root), root);
     })
     .join('\n');
 }

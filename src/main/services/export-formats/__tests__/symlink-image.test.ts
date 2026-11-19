@@ -47,6 +47,20 @@ describe('pictures that leave the source folder through a symlink', () => {
     expect(kept).toContain('![Ok](pixel.png)');
     expect(kept).toContain('https://example.com/a.png');
     expect(kept).toContain('Secret');
+    const html = [
+      '<img src="alias.png" alt="Secret">',
+      '<img src="escape/secret.png" alt="Secret">',
+      '<img src="pixel.png" alt="Ok">',
+      '<img src="https://example.com/a.png" alt="Remote">',
+    ].join('\n');
+    const htmlKept = omitLocalMarkdownTargets(html, source);
+    expect(htmlKept).not.toContain('alias.png');
+    expect(htmlKept).not.toContain('escape/secret.png');
+    expect(htmlKept).toContain('<img src="pixel.png" alt="Ok">');
+    expect(htmlKept).toContain('https://example.com/a.png');
+    expect(htmlKept).toContain('Secret');
+    const fenced = '```html\n<img src="alias.png" alt="Secret">\n```\n';
+    expect(omitLocalMarkdownTargets(fenced, source)).toContain('alias.png');
   });
 
   it('does not hand a symlink to LaTeX', async () => {
