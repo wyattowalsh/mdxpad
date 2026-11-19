@@ -181,12 +181,11 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
     return readMod(cursor, false);
   }
   if (name === 'frac' || name === 'dfrac' || name === 'tfrac' || name === 'cfrac') {
-    return [
-      new MathFraction({
-        numerator: readGroup(cursor),
-        denominator: readGroup(cursor),
-      }),
-    ];
+    return [new MathFraction({ numerator: readGroup(cursor), denominator: readGroup(cursor) })];
+  }
+  if (name === 'phantom' || name === 'hphantom' || name === 'vphantom') {
+    readGroup(cursor);
+    return [new MathRun('')];
   }
   if (name === 'sqrt') {
     return readRadical(cursor);

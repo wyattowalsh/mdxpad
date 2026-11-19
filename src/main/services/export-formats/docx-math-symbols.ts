@@ -153,6 +153,8 @@ export const TEXT_COMMANDS = new Set([
   'mathscr',
   'substack',
   'url',
+  'ensuremath',
+  'smash',
 ]);
 
 export const ACCENTS: Record<string, string> = {
@@ -196,6 +198,8 @@ export const STYLE_COMMANDS = new Set([
   'textstyle',
   'scriptstyle',
   'scriptscriptstyle',
+  'relax',
+  'allowbreak',
 ]);
 
 export const ATOM_COMMANDS = new Set([

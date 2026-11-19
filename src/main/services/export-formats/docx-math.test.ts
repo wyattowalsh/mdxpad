@@ -83,6 +83,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\xcancel{y}'))).toBe('y\u0336');
   });
 
+  it('hides a phantom and keeps an ensured expression', () => {
+    expect(runText(mathComponents('\\phantom{secret}'))).toBe('');
+    expect(runText(mathComponents('\\ensuremath{x+1}'))).toBe('x+1');
+    expect(runText(mathComponents('a\\relax b'))).toBe('a b');
+  });
+
   it('keeps the label of a Word link', () => {
     expect(runText(mathComponents('\\href{https://example.com}{docs}'))).toBe('docs');
     expect(runText(mathComponents('\\url{https://example.com}'))).toBe('https://example.com');
