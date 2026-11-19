@@ -61,6 +61,12 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
   });
 
+  it('keeps the entries of a matrix', () => {
+    expect(runText(mathComponents('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}'))).toBe(
+      ' a & b \n c & d '
+    );
+  });
+
   it('keeps an accent on its symbol', () => {
     expect(runText(mathComponents('\\hat{x}'))).toBe('x\u0302');
     expect(runText(mathComponents('\\overline{ab}'))).toBe('ab\u0305');

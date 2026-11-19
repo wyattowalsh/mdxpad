@@ -158,6 +158,10 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
     skipDelimiter(cursor);
     return [];
   }
+  if (name === 'begin' || name === 'end') {
+    readGroup(cursor);
+    return [];
+  }
   if (TEXT_COMMANDS.has(name)) {
     return readGroup(cursor);
   }
