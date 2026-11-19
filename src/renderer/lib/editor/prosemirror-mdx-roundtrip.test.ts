@@ -214,6 +214,21 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(top)).toBe(top);
   });
 
+  it('keeps a code fence that starts on a task item', () => {
+    const source = '- [x] ```\n      code\n      ```\n';
+    const once = roundTrip(source);
+    expect(once).toContain('[x]');
+    expect(once).toContain('```');
+    expect(once).toContain('code');
+    expect(once).not.toContain('`    code');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+    const labeled = '- [ ] ```js\n      const x = 1\n      ```\n';
+    const saved = roundTrip(labeled);
+    expect(saved).toContain('```js');
+    expect(saved).toContain('const x = 1');
+    expect(roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`)).toBe(saved);
+  });
+
   it('keeps a task checkbox', () => {
     const serialized = roundTrip('- [ ] todo\n');
     expect(serialized).toContain('[ ] todo');
