@@ -187,11 +187,17 @@ export function A({ children, href, className = '', ...props }: AnchorProps): Re
           event.preventDefault();
           return;
         }
-        if (event.defaultPrevented || !href || !opensDocument) {
+        if (event.defaultPrevented || !href) {
           return;
         }
-        event.preventDefault();
-        window.parent.postMessage({ type: 'open-document', href }, '*');
+        if (opensDocument) {
+          event.preventDefault();
+          window.parent.postMessage({ type: 'open-document', href }, '*');
+          return;
+        }
+        if (!isExternal) {
+          event.preventDefault();
+        }
       }}
     >
       {children}

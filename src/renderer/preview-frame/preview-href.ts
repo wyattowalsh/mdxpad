@@ -42,6 +42,14 @@ function climbsOut(value: string): boolean {
   return value.replaceAll('\\', '/').split('/').some((part) => part === '..');
 }
 
+/** A relative address that leaves its folder, such as `../secret.css`. */
+export function previewAddressClimbsOut(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  return climbsOut(decodedHref(value));
+}
+
 function isDocumentPath(value: string): boolean {
   const pathPart = value.split('#')[0]?.split('?')[0] ?? '';
   return /\.(md|mdx|markdown|txt)$/i.test(pathPart);

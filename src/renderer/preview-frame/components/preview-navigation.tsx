@@ -10,12 +10,16 @@ import type {
   LinkHTMLAttributes,
 } from 'react';
 
-import { isBlockedPreviewHref } from '../preview-href';
+import { isBlockedPreviewHref, previewAddressClimbsOut } from '../preview-href';
 
 function safeAddress(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 && !isBlockedPreviewHref(value)
-    ? value
-    : undefined;
+  if (typeof value !== 'string' || value.length === 0) {
+    return undefined;
+  }
+  if (isBlockedPreviewHref(value) || previewAddressClimbsOut(value)) {
+    return undefined;
+  }
+  return value;
 }
 
 export function Base({ href: _href, ...props }: BaseHTMLAttributes<HTMLBaseElement>): JSX.Element {

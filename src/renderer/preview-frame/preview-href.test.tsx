@@ -150,5 +150,17 @@ describe('preview navigation elements', () => {
 
     const documentLink = render(<Link href="/notes/a.md" />);
     expect(documentLink.container.querySelector('link')?.getAttribute('href')).toBe('/notes/a.md');
+    documentLink.unmount();
+
+    const parent = render(<Link href="../secret.css" />);
+    expect(parent.container.querySelector('link')?.getAttribute('href')).toBeNull();
+  });
+
+  it('does not let the preview follow a parent file', () => {
+    const view = render(<A href="../secret.png">Secret</A>);
+    const link = view.getByText('Secret').closest('a');
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link?.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
   });
 });
