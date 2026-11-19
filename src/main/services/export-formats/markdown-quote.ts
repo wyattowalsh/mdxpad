@@ -68,6 +68,11 @@ export function isLazyQuoteLine(line: string): boolean {
   return readHtmlBlock([line], 0) === null;
 }
 
+/** A `$$` line that still belongs to the open quote, rather than starting display math. */
+export function quoteHoldsDelimiter(quoteOpen: boolean, line: string): boolean {
+  return quoteOpen && line.trim() === '$$' && isLazyQuoteLine(line);
+}
+
 export function quoteBody(line: string): string | null {
   const match = QUOTE_LINE.exec(line);
   if (!match) {

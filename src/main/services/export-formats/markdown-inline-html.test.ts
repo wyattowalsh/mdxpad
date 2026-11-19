@@ -101,6 +101,17 @@ describe('renderMarkdownInline', () => {
     );
   });
 
+  it('keeps a wrapped display formula inside the quote', () => {
+    const html = markdownToPdfHtml('> $$\nx^2\n$$\n\nafter\n');
+    expect(html).toContain('x^2');
+    expect(html).toContain('<p>after</p>');
+    expect(html).not.toContain('> after </annotation>');
+    const separate = markdownToPdfHtml('> quote\n\n$$\nx^2\n$$\n\nafter\n');
+    expect(separate).toContain('<blockquote>');
+    expect(separate).toContain('x^2');
+    expect(separate).toContain('<p>after</p>');
+  });
+
   it('leaves YAML metadata out of the exported document', () => {
     const html = markdownToPdfHtml('---\ntitle: Hello\nauthor: Ada\n---\n\nBody text.\n');
     expect(html).toContain('Body text.');

@@ -24,6 +24,20 @@ describe('LatexExporter', () => {
     expect(exporter.mimeType).toBe('application/x-latex');
   });
 
+  it('keeps a wrapped display formula inside the quote', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> $$\nx^2\n$$\n\nafter\n',
+      outputPath: '/tmp/quote-math.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as string;
+    const body = written.split('\\begin{document}')[1] ?? '';
+    expect(body).toContain('x^2');
+    expect(body).toContain('after');
+    expect(body).not.toContain('\\textasciicircum');
+    expect(body.indexOf('after')).toBeGreaterThan(body.lastIndexOf('$$'));
+  });
+
   it('closes a display formula before the next paragraph when code shows the delimiter', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

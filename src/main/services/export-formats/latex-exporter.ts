@@ -29,7 +29,13 @@ import { plainFootnoteMarkers } from './markdown-footnote';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
-import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
+import {
+  isLazyQuoteLine,
+  quoteBody,
+  quoteHoldsDelimiter,
+  quoteMarkerLine,
+  quoteToLatex,
+} from './markdown-quote';
 import { autolinkLength, protectAutolinks, replaceAutolinks } from './markdown-autolink';
 import {
   coveredTargetEnd,
@@ -1321,6 +1327,9 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
     return false;
   }
   if (line.trim() === '$$') {
+    if (!build.inDisplayMath && quoteHoldsDelimiter(build.quoteLines.length > 0, line)) {
+      return false;
+    }
     flushLatexProse(build.output, build.prose);
     flushLatexTable(build.output, build.tableLines);
     flushLatexQuote(build.output, build.quoteLines, build.slugCounts);

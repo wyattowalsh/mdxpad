@@ -23,7 +23,13 @@ import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { htmlFootnoteMarkers } from './markdown-footnote';
 import { joinParagraphHtml, readSourceLine, type SourceLine } from './markdown-paragraph';
-import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
+import {
+  isLazyQuoteLine,
+  quoteBody,
+  quoteHoldsDelimiter,
+  quoteMarkerLine,
+  quoteToHtml,
+} from './markdown-quote';
 import {
   closeHtmlLists,
   continuesList,
@@ -219,6 +225,9 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
   }
   const trimmed = line.trim();
   if (trimmed === '$$') {
+    if (!state.displayMath && quoteHoldsDelimiter(state.quoteLines.length > 0, line)) {
+      return false;
+    }
     flushEpubParagraph(htmlLines, state);
     flushEpubTable(htmlLines, state);
     flushEpubQuote(htmlLines, state);
