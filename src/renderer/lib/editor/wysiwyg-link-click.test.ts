@@ -1,4 +1,4 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -66,6 +66,9 @@ describe('visual link clicks', () => {
     });
     expect(classifyVisualLink('file:///etc/passwd')).toEqual({ kind: 'ignore' });
     expect(classifyVisualLink('javascript:alert(1)')).toEqual({ kind: 'ignore' });
+    expect(classifyVisualLink('#')).toEqual({ kind: 'ignore' });
+    expect(classifyVisualLink('#Two')).toEqual({ kind: 'heading', slug: 'two' });
+    expect(classifyVisualLink('#Hello World')).toEqual({ kind: 'heading', slug: 'hello-world' });
   });
 
   it('keeps a plain click in the editor', () => {
@@ -93,6 +96,44 @@ describe('visual link clicks', () => {
     view.dom.appendChild(fileLink);
     click(view, fileLink, { ctrl: true });
     expect(openPreviewDocumentLink).toHaveBeenCalledTimes(1);
+  });
+
+  function headingIndex(view: EditorView): number {
+    const pos = view.state.selection.from;
+    let index = 0;
+    let found = -1;
+    view.state.doc.descendants((node, nodePos) => {
+      if (node.type.name !== 'heading') {
+        return true;
+      }
+      if (nodePos < pos && pos < nodePos + node.nodeSize) {
+        found = index;
+      }
+      index += 1;
+      return false;
+    });
+    return found;
+  }
+
+  it('moves a modifier click on a heading link to that heading', () => {
+    const view = open('# Two\n\n# Two\n\n[first](#Two)\n\n[second](#two-1)\n');
+    views.push(view);
+    let linkPos = 1;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'first') {
+        linkPos = pos + 1;
+      }
+      return true;
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, linkPos)));
+    const anchors = view.dom.querySelectorAll('a');
+    click(view, anchors[0] ?? null);
+    expect(headingIndex(view)).toBe(-1);
+    click(view, anchors[0] ?? null, { meta: true });
+    expect(headingIndex(view)).toBe(0);
+    click(view, anchors[1] ?? null, { ctrl: true });
+    expect(headingIndex(view)).toBe(1);
+    expect(openPreviewDocumentLink).not.toHaveBeenCalled();
   });
 
   it('leaves a local file off the link and the image', () => {
