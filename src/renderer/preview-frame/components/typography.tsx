@@ -8,7 +8,11 @@
 
 import * as React from 'react';
 
-import { isBlockedPreviewHref, safePreviewSrcSet } from '../preview-href';
+import {
+  isBlockedPreviewHref,
+  isBlockedPreviewResource,
+  safePreviewSrcSet,
+} from '../preview-href';
 
 /* ============================================================================
    Type Definitions
@@ -262,7 +266,7 @@ export function Img({ alt, className = '', src, srcSet, ...props }: ImageProps):
   // If alt is explicitly empty string, treat as decorative
   const isDecorative = alt === '';
   const safeSrc =
-    typeof src === 'string' && src.length > 0 && !isBlockedPreviewHref(src) ? src : undefined;
+    typeof src === 'string' && src.length > 0 && !isBlockedPreviewResource(src) ? src : undefined;
   const safeSrcSet = typeof srcSet === 'string' ? safePreviewSrcSet(srcSet) : undefined;
 
   return (

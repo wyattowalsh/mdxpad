@@ -95,6 +95,10 @@ describe('preview image', () => {
     expect(rooted.getByRole('img').getAttribute('src')).toBeNull();
     rooted.unmount();
 
+    const parent = render(<Img src="../secret.png" alt="Parent" />);
+    expect(parent.getByRole('img').getAttribute('src')).toBeNull();
+    parent.unmount();
+
     const sources = render(
       <Img src="./pixel.png" srcSet="file:///etc/passwd 1x, ./pixel.png 2x" alt="Sources" />
     );

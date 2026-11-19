@@ -165,6 +165,8 @@ describe('renderMarkdownInline', () => {
 
   it('does not point a picture or link at a local file', () => {
     expect(renderMarkdownInline('![Secret](/etc/passwd.png)')).toBe('Secret');
+    expect(renderMarkdownInline('![Secret](../secret.png)')).toBe('Secret');
+    expect(renderMarkdownInline('![Pixel](images/../pixel.png)')).toBe('Pixel');
     expect(renderMarkdownInline('![Secret](//localhost/etc/passwd.png)')).toBe('Secret');
     expect(renderMarkdownInline('[Disk](file:///etc/passwd)')).toBe('Disk');
     expect(renderMarkdownInline('[Run](javascript:alert(1))')).toBe('Run');

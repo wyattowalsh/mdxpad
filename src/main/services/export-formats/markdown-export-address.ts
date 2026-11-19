@@ -77,7 +77,7 @@ export function safeImageAddress(destination: string): string | null {
   if (scheme === 'data' && decodedAddress(destination).toLowerCase().startsWith('data:image/')) {
     return destination;
   }
-  if (scheme !== null || rootedPath(destination)) {
+  if (scheme !== null || rootedPath(destination) || climbsOut(destination)) {
     return null;
   }
   return destination;
@@ -86,6 +86,13 @@ export function safeImageAddress(destination: string): string | null {
 function rootedPath(destination: string): boolean {
   const decoded = decodedAddress(destination);
   return decoded.startsWith('/') || decoded.startsWith('\\');
+}
+
+function climbsOut(destination: string): boolean {
+  return decodedAddress(destination)
+    .replaceAll('\\', '/')
+    .split('/')
+    .some((part) => part === '..');
 }
 
 /** A link address the exported page can open. */

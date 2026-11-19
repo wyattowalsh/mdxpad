@@ -13,10 +13,10 @@ import type {
   VideoHTMLAttributes,
 } from 'react';
 
-import { isBlockedPreviewHref, safePreviewSrcSet } from '../preview-href';
+import { isBlockedPreviewResource, safePreviewSrcSet } from '../preview-href';
 
 function safeMediaUrl(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 && !isBlockedPreviewHref(value)
+  return typeof value === 'string' && value.length > 0 && !isBlockedPreviewResource(value)
     ? value
     : undefined;
 }

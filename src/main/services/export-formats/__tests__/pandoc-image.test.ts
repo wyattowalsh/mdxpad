@@ -64,4 +64,49 @@ describe('Pandoc image paths', () => {
     const absolute = path.join(root, 'pixel.png').split(path.sep).join('/');
     expect(written.join('')).toContain(`![Pixel](${absolute})`);
   });
+
+  it('does not send a picture outside the document folder', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-pandoc-image-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'mdxpad-pandoc-out-'));
+    const source = path.join(root, 'note.md');
+    await writeFile(path.join(outside, 'secret.png'), Buffer.from('png'));
+
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/local/bin/pandoc',
+    });
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    const written: string[] = [];
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return {
+          stdin: {
+            write: (value: string) => {
+              written.push(value);
+            },
+            end: vi.fn(),
+          },
+        };
+      }
+    );
+
+    const outsideName = path.basename(outside);
+    const result = await new PandocRawExporter().export({
+      content: `![Secret](../${outsideName}/secret.png)`,
+      outputPath: path.join(root, 'out.html'),
+      sourcePath: source,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(written.join('')).not.toContain('secret.png');
+    expect(written.join('')).toContain('Secret');
+  });
 });

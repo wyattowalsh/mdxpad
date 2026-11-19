@@ -38,6 +38,10 @@ function addressScheme(value: string): string | null {
   return /^[a-z][a-z0-9+.-]*$/.test(scheme) ? scheme : null;
 }
 
+function climbsOut(value: string): boolean {
+  return value.replaceAll('\\', '/').split('/').some((part) => part === '..');
+}
+
 function isDocumentPath(value: string): boolean {
   const pathPart = value.split('#')[0]?.split('?')[0] ?? '';
   return /\.(md|mdx|markdown|txt)$/i.test(pathPart);
@@ -65,6 +69,9 @@ export function isBlockedPreviewResource(value: string | undefined): boolean {
     return false;
   }
   const normalized = decodedHref(value);
+  if (climbsOut(normalized)) {
+    return true;
+  }
   if (normalized.startsWith('/') || normalized.startsWith('\\')) {
     return true;
   }
@@ -87,7 +94,7 @@ export function safePreviewSrcSet(value: string | undefined): string | undefined
   if (!value) {
     return undefined;
   }
-  return filterSrcSet(value, (url) => isBlockedPreviewHref(url));
+  return filterSrcSet(value, (url) => isBlockedPreviewResource(url));
 }
 
 const LINK_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'cite']);
