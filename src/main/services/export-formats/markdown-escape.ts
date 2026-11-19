@@ -1,4 +1,4 @@
-import { findMarkdownTarget, readMarkdownTarget } from './markdown-link';
+import { findMarkdownTarget, readMarkdownTarget, type MarkdownTarget } from './markdown-link';
 
 const ESCAPE_MARK = '\uE011';
 const PUNCTUATION = new Set('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~');
@@ -81,6 +81,32 @@ function appendPlain(parts: { code: boolean; text: string }[], text: string): vo
     return;
   }
   parts.push({ code: false, text });
+}
+
+/** Walk markdown links and images, leaving inline code unchanged. */
+export function mapMarkdownTargets(
+  value: string,
+  mapTarget: (target: MarkdownTarget) => string
+): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const code = value[index] === '`' ? readCodeSpan(value, index) : null;
+    if (code) {
+      result += value.slice(index, code.end);
+      index = code.end;
+      continue;
+    }
+    const target = readMarkdownTarget(value, index);
+    if (target?.start === index) {
+      result += mapTarget(target);
+      index = target.end;
+      continue;
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
 }
 
 export function splitCodeSpans(

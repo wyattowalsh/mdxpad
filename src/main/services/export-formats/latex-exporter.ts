@@ -29,7 +29,7 @@ import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToLatex } from './markdown-quote';
-import { protectAutolinks, replaceAutolinks } from './markdown-autolink';
+import { autolinkLength, protectAutolinks, replaceAutolinks } from './markdown-autolink';
 import {
   coveredTargetEnd,
   findCodeSpan,
@@ -45,6 +45,7 @@ import {
   findMarkdownTarget,
   linkDestination,
   linkTitle,
+  readMarkdownTarget,
   type MarkdownTarget,
 } from './markdown-link';
 import {
@@ -138,8 +139,24 @@ function protectLinkedDollar(raw: string, index: number, slots: string[]): { tex
   return { text, end: linked.end };
 }
 
-function protectMath(raw: string): { text: string; slots: string[] } {
-  const slots: string[] = [];
+function protectLinkLabel(
+  raw: string,
+  index: number,
+  slots: string[]
+): { text: string; end: number } | null {
+  const target = readMarkdownTarget(raw, index);
+  if (target?.start !== index) {
+    return null;
+  }
+  const openLength = raw[index] === '!' ? 2 : 1;
+  const labelStart = index + openLength;
+  const labelEnd = labelStart + target.label.length;
+  const label = appendProtected(raw.slice(labelStart, labelEnd), slots);
+  const text = `${raw.slice(index, labelStart)}${label}${raw.slice(labelEnd, target.end)}`;
+  return { text, end: target.end };
+}
+
+function appendProtected(raw: string, slots: string[]): string {
   let text = '';
   let index = 0;
   while (index < raw.length) {
@@ -148,6 +165,18 @@ function protectMath(raw: string): { text: string; slots: string[] } {
       const end = span ? span.end : index + 1;
       text += raw.slice(index, end);
       index = end;
+      continue;
+    }
+    const link = protectLinkLabel(raw, index, slots);
+    if (link) {
+      text += link.text;
+      index = link.end;
+      continue;
+    }
+    const autolink = autolinkLength(raw, index);
+    if (autolink > 0) {
+      text += raw.slice(index, index + autolink);
+      index += autolink;
       continue;
     }
     const delimiter = mathDelimiterAt(raw, index);
@@ -167,7 +196,12 @@ function protectMath(raw: string): { text: string; slots: string[] } {
     text += raw[index] ?? '';
     index += 1;
   }
-  return { text, slots };
+  return text;
+}
+
+function protectMath(raw: string): { text: string; slots: string[] } {
+  const slots: string[] = [];
+  return { text: appendProtected(raw, slots), slots };
 }
 
 function restoreMath(formatted: string, slots: readonly string[]): string {

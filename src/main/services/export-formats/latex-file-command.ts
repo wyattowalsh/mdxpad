@@ -7,7 +7,7 @@
 import { mapFencedProse } from '@shared/lib/markdown-math';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
-import { readCodeSpan } from './markdown-escape';
+import { mapMarkdownTargets, readCodeSpan } from './markdown-escape';
 import { closesFence } from './markdown-fence';
 import { linkDestination } from './markdown-link';
 
@@ -129,7 +129,6 @@ export function disarmFileReadsInMath(content: string): string {
 }
 
 const TEX_PICTURE = '^\\{}#$&~';
-const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 
 function texPictureChar(char: string): boolean {
   const code = char.codePointAt(0) ?? 0;
@@ -252,8 +251,12 @@ export function disarmPandocRawTex(content: string): string {
 /** Leave the alt text when a picture path can read a file during TeX compilation. */
 export function omitTexPictureSyntax(content: string): string {
   return mapFencedProse(content, (prose) =>
-    prose.replace(MARKDOWN_IMAGE, (full, alt: string, destination: string) =>
-      texPicturePathUnsafe(linkDestination(destination)) ? alt : full
-    )
+    mapMarkdownTargets(prose, (target) => {
+      const full = prose.slice(target.start, target.end);
+      if (!target.image) {
+        return full;
+      }
+      return texPicturePathUnsafe(linkDestination(target.destination)) ? target.label : full;
+    })
   );
 }

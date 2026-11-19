@@ -141,6 +141,16 @@ function linkDestinationEnd(raw: string, index: number): number | null {
   return null;
 }
 
+/** The length of an autolink at `index`, or zero when the index is not one. */
+export function autolinkLength(raw: string, index: number): number {
+  const found =
+    readAngleAutolink(raw, index) ??
+    readBareAutolink(raw, index) ??
+    readWwwAutolink(raw, index) ??
+    readEmailAutolink(raw, index);
+  return found?.length ?? 0;
+}
+
 /** Replace autolinks with markers, leaving code spans and link destinations untouched. */
 export function protectAutolinks(raw: string): ProtectedAutolinks {
   const links: Autolink[] = [];

@@ -12,6 +12,7 @@ import { resolveWorkspaceFilePath } from '../ai/agent-path';
 
 import { decodeHtmlEntities } from './markdown-entity';
 import { advanceFence } from './markdown-fence';
+import { mapMarkdownTargets } from './markdown-escape';
 import { linkDestination } from './markdown-link';
 import {
   dropUnreferencedDefinitions,
@@ -24,9 +25,6 @@ import {
   safeImageAddress,
   safeLinkAddress,
 } from './markdown-export-address';
-
-const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
-const LINK = /(?<!!)\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 
 function hasScheme(address: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(address.trim());
@@ -249,13 +247,13 @@ function rewriteHtmlImages(line: string, root: string | null, style: { open: boo
 }
 
 function rewriteLine(line: string, root: string | null): string {
-  const images = line.replace(IMAGE, (full, alt: string, destination: string) => {
-    const address = linkDestination(decodeHtmlEntities(destination));
-    return pictureAllowed(address, root) ? full : alt;
-  });
-  return images.replace(LINK, (full, label: string, destination: string) => {
-    const address = linkDestination(decodeHtmlEntities(destination));
-    return safeLinkAddress(address) === null ? label : full;
+  return mapMarkdownTargets(line, (target) => {
+    const address = linkDestination(decodeHtmlEntities(target.destination));
+    const full = line.slice(target.start, target.end);
+    if (target.image) {
+      return pictureAllowed(address, root) ? full : target.label;
+    }
+    return safeLinkAddress(address) === null ? target.label : full;
   });
 }
 

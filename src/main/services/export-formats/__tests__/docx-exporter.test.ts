@@ -69,6 +69,27 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('$x^2$');
   });
 
+  it('keeps a formula after a dollar sign in a link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See [the guide](https://example.com/a$b) and $x^2$.',
+      outputPath: '/tmp/dollar-link.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print("---RELS---"); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('https://example.com/a$b');
+    expect(xml).toContain('<m:oMath>');
+    expect(xml).not.toContain('b) and');
+  });
+
   it('keeps a formula that contains a link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

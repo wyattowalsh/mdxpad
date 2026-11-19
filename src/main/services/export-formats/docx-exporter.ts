@@ -70,11 +70,11 @@ import {
   quotedUnderlineLevel,
 } from './markdown-quote';
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
-import { protectEscapes, restoreEscapes, splitCodeSpans } from './markdown-escape';
+import { protectEscapes, readCodeSpan, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
 import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
-import { findMarkdownTarget, linkDestination, linkTitle } from './markdown-link';
+import { findMarkdownTarget, linkDestination, linkTitle, readMarkdownTarget } from './markdown-link';
 import {
   isListContinuation,
   listContentColumn,
@@ -172,6 +172,14 @@ interface EmphasisFlags {
 
 function nextPlainChunk(text: string, from: number): number {
   for (let index = from; index < text.length; index += 1) {
+    const code = text[index] === '`' ? readCodeSpan(text, index) : null;
+    if (code) {
+      index = code.end - 1;
+      continue;
+    }
+    if (readMarkdownTarget(text, index)?.start === index) {
+      return index;
+    }
     const delimiter = mathDelimiterAt(text, index);
     if (delimiter !== null && mathSpanEnd(text, index, delimiter) !== -1) {
       return index;
@@ -201,6 +209,18 @@ function parseCodeAndPlain(text: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
   let index = 0;
   while (index < text.length) {
+    const code = text[index] === '`' ? readCodeSpan(text, index) : null;
+    if (code) {
+      segments.push({ text: code.text, code: true });
+      index = code.end;
+      continue;
+    }
+    const target = readMarkdownTarget(text, index);
+    if (target?.start === index) {
+      segments.push(...parsePlainMarks(text.slice(index, target.end)));
+      index = target.end;
+      continue;
+    }
     const delimiter = mathDelimiterAt(text, index);
     const mathEnd = delimiter === null ? -1 : mathSpanEnd(text, index, delimiter);
     if (delimiter !== null && mathEnd !== -1) {

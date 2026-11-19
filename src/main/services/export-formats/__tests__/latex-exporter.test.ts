@@ -294,6 +294,33 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\href{mailto:ada@example.com}{\\href');
   });
 
+  it('does not include a rooted picture whose description contains a bracket', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '![foo [bar]](/etc/passwd)\n\n![Pixel](pixel.png)',
+      outputPath: '/tmp/bracket-picture.tex',
+      sourcePath: '/tmp/note.md',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).not.toContain('/etc/passwd');
+    expect(written).not.toContain('includegraphics{/etc');
+    expect(written).toContain('foo');
+    expect(written).toContain('\\includegraphics{pixel.png}');
+  });
+
+  it('keeps a formula after a dollar sign in a link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See [the guide](https://example.com/a$b) and $x^2$.\n\nRead https://example.com/a$b and $x^2$.',
+      outputPath: '/tmp/dollar-link.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\href{https://example.com/a$b}{the guide}');
+    expect(written).toContain('\\href{https://example.com/a$b}');
+    expect(written).toContain('$x^2$');
+    expect(written).not.toContain('a$b and $x');
+  });
+
   it('does not point a picture or link at a local file', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

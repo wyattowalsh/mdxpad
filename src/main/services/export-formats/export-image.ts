@@ -4,11 +4,11 @@ import path from 'node:path';
 
 import { readStaysInsideDirectory } from '@main/ipc/read-scope';
 
+import { mapMarkdownTargets } from './markdown-escape';
 import { advanceFence } from './markdown-fence';
 import { linkDestination, linkTitle } from './markdown-link';
 import { expandImageReferences } from './markdown-reference';
 
-const IMAGE = /!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -151,12 +151,12 @@ function destinationsOutsideFences(content: string): string[] {
     if (fence || boundary) {
       continue;
     }
-    for (const match of line.matchAll(IMAGE)) {
-      const destination = match[2];
-      if (destination) {
-        found.push(destination);
+    mapMarkdownTargets(line, (target) => {
+      if (target.image) {
+        found.push(target.destination);
       }
-    }
+      return '';
+    });
     for (const match of line.matchAll(/<img\b[^>]*\bsrc=(?:"([^"]+)"|'([^']+)')/gi)) {
       const destination = match[1] ?? match[2];
       if (destination) {
@@ -178,9 +178,13 @@ function replaceOutsideFences(content: string, replacements: ReadonlyMap<string,
       if (fence || boundary) {
         return line;
       }
-      const images = line.replace(IMAGE, (full, alt: string, destination: string) => {
-        const replacement = replacements.get(destination);
-        return replacement ? `![${alt}](${replacement})` : full;
+      const images = mapMarkdownTargets(line, (target) => {
+        const full = line.slice(target.start, target.end);
+        if (!target.image) {
+          return full;
+        }
+        const replacement = replacements.get(target.destination);
+        return replacement ? `![${target.label}](${replacement})` : full;
       });
       return images.replace(
         /<img\b[^>]*\bsrc=(?:"([^"]+)"|'([^']+)')/gi,
