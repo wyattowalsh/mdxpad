@@ -5,7 +5,7 @@ import {
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
-import { blockedDataResource, confineNavigationTag, confineSmilValues } from './preview-navigation-address';
+import { blockedDataResource, confineNavigationTag, confineSmilValues, srcsetPartBlocked } from './preview-navigation-address';
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -99,10 +99,7 @@ function filterSrcSet(value: string, blocked: (url: string) => boolean): string 
   const kept = value
     .split(',')
     .map((part) => part.trim())
-    .filter((part) => {
-      const url = withoutHiddenBreaks(part).split(/\s+/)[0] ?? '';
-      return url.length > 0 && !blocked(url);
-    });
+    .filter((part) => !srcsetPartBlocked(part, withoutHiddenBreaks, blocked));
   return kept.length > 0 ? kept.join(', ') : undefined;
 }
 

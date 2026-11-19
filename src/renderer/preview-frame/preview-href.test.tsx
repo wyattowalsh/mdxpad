@@ -220,6 +220,15 @@ describe('isBlockedPreviewHref', () => {
       srcSet: 'java\fscript:alert(1) 1x, https://example.com/a.png 2x',
     }) as { srcSet?: string };
     expect(hidden.srcSet).toBe('https://example.com/a.png 2x');
+    const svg = "<svg><image href='file:///etc/passwd'/></svg>";
+    const embedded = confinePreviewElement('img', {
+      alt: 'pic',
+      src: 'https://example.com/a.png',
+      srcSet: `https://example.com/a.png 1x, data:image/svg+xml,${svg} 2x`,
+    }) as { src?: string; srcSet?: string };
+    expect(embedded.src).toBe('https://example.com/a.png');
+    expect(embedded.srcSet).toBe('https://example.com/a.png 1x');
+    expect(embedded.srcSet).not.toContain('file:');
   });
 });
 

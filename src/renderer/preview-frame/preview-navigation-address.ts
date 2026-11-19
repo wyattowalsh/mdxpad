@@ -5,6 +5,20 @@
 
 import { safeImageAddress } from '../../main/services/export-formats/markdown-export-address';
 
+/** A srcset candidate that is empty or still contains a file or script address. */
+export function srcsetPartBlocked(
+  part: string,
+  normalize: (value: string) => string,
+  blocked: (url: string) => boolean
+): boolean {
+  const normalized = normalize(part);
+  const url = normalized.split(/\s+/)[0] ?? '';
+  if (url.length === 0 || blocked(url)) {
+    return true;
+  }
+  return /(?:^|[\s'"(=])(?:file|javascript):/i.test(normalized);
+}
+
 /** A data image the preview must not load. Null when the address is not a data URL. */
 export function blockedDataResource(value: string): boolean | null {
   const separator = value.indexOf(':');
