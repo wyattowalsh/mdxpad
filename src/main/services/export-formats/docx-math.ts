@@ -26,7 +26,53 @@ const SYMBOLS: Record<string, string> = {
   geq: '≥',
   neq: '≠',
   infty: '∞',
+  sum: '∑',
+  int: '∫',
+  prod: '∏',
+  partial: '∂',
+  nabla: '∇',
+  ldots: '…',
+  cdots: '⋯',
+  to: '→',
+  rightarrow: '→',
+  leftarrow: '←',
+  approx: '≈',
+  equiv: '≡',
+  quad: '\u2003',
+  qquad: '\u2003\u2003',
 };
+
+const TEXT_COMMANDS = new Set([
+  'text',
+  'mathrm',
+  'mathbf',
+  'mathit',
+  'mathsf',
+  'mathtt',
+  'operatorname',
+  'hbox',
+]);
+
+const DELIMITER_COMMANDS = new Set([
+  'left',
+  'right',
+  'big',
+  'bigl',
+  'bigr',
+  'bigm',
+  'Big',
+  'Bigl',
+  'Bigr',
+  'Bigm',
+  'bigg',
+  'biggl',
+  'biggr',
+  'biggm',
+  'Bigg',
+  'Biggl',
+  'Biggr',
+  'Biggm',
+]);
 
 const LITERAL_ESCAPE: Record<string, string> = {
   '|': '‖',
@@ -83,6 +129,35 @@ function readEscapedSymbol(cursor: Cursor): MathComponent[] {
   return text.length > 0 ? [new MathRun(text)] : [];
 }
 
+function skipDelimiter(cursor: Cursor): void {
+  if (cursor.source[cursor.index] === '.') {
+    cursor.index += 1;
+  }
+}
+
+function commandComponents(cursor: Cursor, name: string): MathComponent[] {
+  if (DELIMITER_COMMANDS.has(name)) {
+    skipDelimiter(cursor);
+    return [];
+  }
+  if (TEXT_COMMANDS.has(name)) {
+    return readGroup(cursor);
+  }
+  if (name === 'frac') {
+    return [
+      new MathFraction({
+        numerator: readGroup(cursor),
+        denominator: readGroup(cursor),
+      }),
+    ];
+  }
+  if (name === 'sqrt') {
+    return [new MathRadical({ children: readGroup(cursor) })];
+  }
+  const symbol = SYMBOLS[name];
+  return [new MathRun(symbol ?? name)];
+}
+
 function readCommand(cursor: Cursor): MathComponent[] {
   cursor.index += 1;
   let name = '';
@@ -96,18 +171,7 @@ function readCommand(cursor: Cursor): MathComponent[] {
   if (name.length === 0) {
     return readEscapedSymbol(cursor);
   }
-  if (name === 'frac') {
-    return [
-      new MathFraction({
-        numerator: readGroup(cursor),
-        denominator: readGroup(cursor),
-      }),
-    ];
-  }
-  if (name === 'sqrt') {
-    return [new MathRadical({ children: readGroup(cursor) })];
-  }
-  return [new MathRun(SYMBOLS[name] ?? name)];
+  return commandComponents(cursor, name);
 }
 
 function readGroup(cursor: Cursor): MathComponent[] {

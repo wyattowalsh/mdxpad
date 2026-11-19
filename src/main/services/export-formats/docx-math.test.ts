@@ -37,6 +37,14 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\alpha'))).toBe('α');
   });
 
+  it('hides a delimiter command and keeps the words in text', () => {
+    expect(runText(mathComponents('\\left\\{x\\right\\}'))).toBe('{x}');
+    expect(runText(mathComponents('\\bigl(x\\bigr)'))).toBe('(x)');
+    expect(runText(mathComponents('\\text{hello}'))).toBe('hello');
+    expect(runText(mathComponents('\\sum'))).toBe('∑');
+    expect(runText(mathComponents('\\left. x \\right|'))).toBe(' x |');
+  });
+
   it('builds a superscript and a fraction', () => {
     const power = mathComponents('x^2');
     expect(power[0]).toBeInstanceOf(MathSuperScript);
