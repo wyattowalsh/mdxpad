@@ -33,6 +33,22 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip('$$\n```\nnot code\n```\n$$\n')).toContain('not code');
   });
 
+  it('keeps unmatched markers in separate table columns', () => {
+    const stars = roundTrip('| a* | b* |\n| --- | --- |\n| 1 | 2 |\n');
+    expect(stars).toContain('| b');
+    expect(roundTrip(`${stars}\n`)).toBe(stars);
+    const doubled = roundTrip('| a** | b** |\n| --- | --- |\n| 1 | 2 |\n');
+    expect(doubled).toContain('| b');
+    expect(roundTrip(`${doubled}\n`)).toBe(doubled);
+    const tildes = roundTrip('| a~~ | b~~ |\n| --- | --- |\n| 1 | 2 |\n');
+    expect(tildes).toContain('| b');
+    expect(roundTrip(`${tildes}\n`)).toBe(tildes);
+    const words = roundTrip('| notes_txt | size_kb |\n| --- | --- |\n| 1 | 2 |\n');
+    expect(words).toContain('notes_txt');
+    expect(words).toContain('| size_kb |');
+    expect(roundTrip(`${words}\n`)).toBe(words);
+  });
+
   it('keeps a pipe inside a table formula', () => {
     const source = '| f | g |\n| --- | --- |\n| $a|b$ | c |\n';
     const serialized = roundTrip(source);

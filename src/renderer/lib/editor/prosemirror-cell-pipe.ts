@@ -1,3 +1,4 @@
+import { canOpenEmphasis, canOpenStrikethrough } from '@shared/lib/emphasis-flank';
 import { skipHtmlElement } from '@shared/lib/html-element-span';
 import { mathDelimiterAt, mathSpanEnd, unescapedDelimiterIndex } from '@shared/lib/math-span';
 
@@ -85,20 +86,33 @@ function readAutolink(value: string, index: number): TextSpan | null {
   return url ? { text: value.slice(index, end + 1), next: end + 1 } : null;
 }
 
-function readEmphasis(value: string, index: number): TextSpan | null {
-  let marker = '';
+function emphasisMarker(value: string, index: number): string {
   if (value.startsWith('~~', index)) {
-    marker = '~~';
-  } else if (value.startsWith('**', index)) {
-    marker = '**';
-  } else if (value.startsWith('__', index)) {
-    marker = '__';
-  } else if (value[index] === '*' && value[index + 1] !== '*') {
-    marker = '*';
-  } else if (value[index] === '_' && value[index + 1] !== '_') {
-    marker = '_';
+    return '~~';
   }
+  if (value.startsWith('**', index)) {
+    return '**';
+  }
+  if (value.startsWith('__', index)) {
+    return '__';
+  }
+  if (value[index] === '*' && value[index + 1] !== '*') {
+    return '*';
+  }
+  if (value[index] === '_' && value[index + 1] !== '_') {
+    return '_';
+  }
+  return '';
+}
+
+function readEmphasis(value: string, index: number): TextSpan | null {
+  const marker = emphasisMarker(value, index);
   if (marker.length === 0) {
+    return null;
+  }
+  const opens =
+    marker === '~~' ? canOpenStrikethrough(value, index) : canOpenEmphasis(value, index);
+  if (!opens) {
     return null;
   }
   const end = value.indexOf(marker, index + marker.length);

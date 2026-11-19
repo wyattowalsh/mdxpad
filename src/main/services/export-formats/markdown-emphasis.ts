@@ -1,9 +1,10 @@
+import { flanking } from '@shared/lib/emphasis-flank';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 import { readCodeSpan } from './markdown-escape';
 import { readMarkdownTarget } from './markdown-link';
 
-const PUNCTUATION = /^[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]$/;
+export { canOpenEmphasis, canOpenStrikethrough } from '@shared/lib/emphasis-flank';
 
 interface DelimiterRun {
   char: '*' | '_';
@@ -17,34 +18,6 @@ export interface EmphasisMatch {
   readonly start: number;
   readonly end: number;
   readonly size: 1 | 2;
-}
-
-function whitespace(char: string): boolean {
-  return char.length === 0 || /\s/.test(char);
-}
-
-function flanking(
-  value: string,
-  index: number,
-  length: number,
-  char: '*' | '_' | '~'
-): {
-  canOpen: boolean;
-  canClose: boolean;
-} {
-  const before = index === 0 ? '' : (value[index - 1] ?? '');
-  const after = value[index + length] ?? '';
-  const beforePunct = PUNCTUATION.test(before);
-  const afterPunct = PUNCTUATION.test(after);
-  const left = !whitespace(after) && (!afterPunct || whitespace(before) || beforePunct);
-  const right = !whitespace(before) && (!beforePunct || whitespace(after) || afterPunct);
-  if (char === '*') {
-    return { canOpen: left, canClose: right };
-  }
-  return {
-    canOpen: left && (!right || beforePunct),
-    canClose: right && (!left || afterPunct),
-  };
 }
 
 function readInlineMath(value: string, index: number): number {
@@ -174,30 +147,6 @@ function renderRange(
 
 export function collectEmphasis(value: string): EmphasisMatch[] {
   return matchRuns(collectRuns(value));
-}
-
-/** Whether `_` or `*` at `index` can open emphasis under the CommonMark flanking rule. */
-export function canOpenStrikethrough(value: string, index: number): boolean {
-  if (value[index] !== '~') {
-    return false;
-  }
-  let length = 0;
-  while (value[index + length] === '~') {
-    length += 1;
-  }
-  return length >= 2 && flanking(value, index, length, '~').canOpen;
-}
-
-export function canOpenEmphasis(value: string, index: number): boolean {
-  const char = value[index];
-  if (char !== '*' && char !== '_') {
-    return false;
-  }
-  let length = 1;
-  while (value[index + length] === char) {
-    length += 1;
-  }
-  return flanking(value, index, length, char).canOpen;
 }
 
 export function outerEmphasisMatches(
