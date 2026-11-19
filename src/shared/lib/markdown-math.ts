@@ -1,7 +1,7 @@
 import { Parser, type Options as AcornOptions } from 'acorn';
 
-import { isCurrencySpan } from './currency-span';
 import { fenceIndentedCode } from './indented-code';
+import { mathDelimiterAt, mathSpanEnd } from './math-span';
 import {
   escapeLooseTags,
   escapeTemplatePlaceholders,
@@ -187,19 +187,12 @@ function escapeMdxSyntax(value: string): string {
 const MATH_MARK = '\uE017';
 
 function takeDollarSpan(value: string, index: number): string | null {
-  const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : '';
-  if (delimiter.length === 0) {
+  const delimiter = mathDelimiterAt(value, index);
+  if (delimiter === null) {
     return null;
   }
-  const end = value.indexOf(delimiter, index + delimiter.length);
-  if (end === -1) {
-    return null;
-  }
-  const interior = value.slice(index + delimiter.length, end);
-  if (interior.length === 0 || isCurrencySpan(interior)) {
-    return null;
-  }
-  return value.slice(index, end + delimiter.length);
+  const end = mathSpanEnd(value, index, delimiter);
+  return end === -1 ? null : value.slice(index, end);
 }
 
 function takeTexSpan(value: string, index: number): string | null {

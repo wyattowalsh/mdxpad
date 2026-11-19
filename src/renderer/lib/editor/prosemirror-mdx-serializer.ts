@@ -8,6 +8,10 @@
  */
 
 import { MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
+import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
+
+import { mathCloserIndex, nextMathDelimiter } from '@shared/lib/math-span';
+
 import { FOOTNOTE_BLOCK_LANGUAGE } from './prosemirror-footnote-block';
 import { taskMarker } from './prosemirror-task-item';
 import {
@@ -15,8 +19,6 @@ import {
   writeFootnoteLabel,
   writeFootnoteRef,
 } from './prosemirror-footnote-ref';
-import { Fragment, type Node as ProseMirrorNode, type Mark } from 'prosemirror-model';
-
 import { emphasizeOutside } from './prosemirror-emphasis-order';
 import {
   emphasisOpen,
@@ -361,24 +363,40 @@ interface LiteralSpan {
   readonly stayOpen: boolean;
 }
 
+function dollarDelimiter(value: string): '$' | '$$' | null {
+  return value === '$' || value === '$$' ? value : null;
+}
+
+function closerAt(value: string, from: number, closer: string): number {
+  const delimiter = dollarDelimiter(closer);
+  return delimiter === null ? value.indexOf(closer, from) : mathCloserIndex(value, from, delimiter);
+}
+
 function nextLiteralSpan(value: string, from: number): LiteralSpan | null {
   const options = [
-    { token: '$$', closer: '$$', stayOpen: true },
     { token: '\\[', closer: '\\]', stayOpen: true },
     { token: '\\(', closer: '\\)', stayOpen: true },
     { token: '{/*', closer: '*/', stayOpen: true },
-    { token: '$', closer: '$', stayOpen: false },
     { token: '[^', closer: ']', stayOpen: false },
   ];
   let best: LiteralSpan | null = null;
   for (const option of options) {
     const index = value.indexOf(option.token, from);
-    if (index === -1 || (option.token === '$' && value.startsWith('$$', index))) {
+    if (index === -1) {
       continue;
     }
     if (!best || index < best.index) {
       best = { index, opener: option.token, closer: option.closer, stayOpen: option.stayOpen };
     }
+  }
+  const dollar = nextMathDelimiter(value, from);
+  if (dollar && (!best || dollar.index < best.index)) {
+    best = {
+      index: dollar.index,
+      opener: dollar.delimiter,
+      closer: dollar.delimiter,
+      stayOpen: dollar.delimiter === '$$',
+    };
   }
   return best;
 }
@@ -389,7 +407,7 @@ function writeTextPreservingMath(state: MarkdownSerializerState, value: string):
   let closer = writer.mathCloser ?? null;
   while (cursor < value.length) {
     if (closer) {
-      const end = value.indexOf(closer, cursor);
+      const end = closerAt(value, cursor, closer);
       if (end === -1) {
         state.text(value.slice(cursor), false);
         writer.mathCloser = closer;
@@ -410,7 +428,7 @@ function writeTextPreservingMath(state: MarkdownSerializerState, value: string):
     if (open.index > cursor) {
       state.text(value.slice(cursor, open.index));
     }
-    const closeAt = value.indexOf(open.closer, open.index + open.opener.length);
+    const closeAt = closerAt(value, open.index + open.opener.length, open.closer);
     if (closeAt === -1) {
       state.text(value.slice(open.index), !open.stayOpen);
       writer.mathCloser = open.stayOpen ? open.closer : null;

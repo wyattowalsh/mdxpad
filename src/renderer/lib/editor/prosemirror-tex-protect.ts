@@ -1,4 +1,4 @@
-import { isCurrencySpan } from '@shared/lib/currency-span';
+import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 export const TEX_INLINE_OPEN = '\uE013';
 export const TEX_INLINE_CLOSE = '\uE014';
@@ -10,22 +10,8 @@ const MATH_UNDER = '\uE018';
 const MATH_DOLLAR = '\uE019';
 
 function takeDollarMath(value: string, index: number): number {
-  if (index > 0 && value[index - 1] === '\\') {
-    return -1;
-  }
-  const delimiter = value.startsWith('$$', index) ? '$$' : value[index] === '$' ? '$' : '';
-  if (delimiter.length === 0) {
-    return -1;
-  }
-  const end = value.indexOf(delimiter, index + delimiter.length);
-  if (end === -1) {
-    return -1;
-  }
-  const interior = value.slice(index + delimiter.length, end);
-  if (interior.length === 0 || isCurrencySpan(interior)) {
-    return -1;
-  }
-  return end + delimiter.length;
+  const delimiter = mathDelimiterAt(value, index);
+  return delimiter === null ? -1 : mathSpanEnd(value, index, delimiter);
 }
 
 function takeTexMath(value: string, index: number): number {

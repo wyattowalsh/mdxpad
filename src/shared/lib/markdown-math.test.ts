@@ -87,6 +87,11 @@ describe('normalizeTexMath', () => {
     expect(
       prepareMarkdownSource('<div>\n\\(x^2\\)\na < b\n</div>\n', { preserveHtml: true })
     ).toContain('a < b');
+    expect(prepareMarkdownSource('Price $\\$5$ and $a\\$<b>$.\n')).toContain('$\\$5$');
+    expect(prepareMarkdownSource('Price $\\$5$ and $a\\$<b>$.\n')).toContain('$a\\$<b>$');
+    expect(prepareMarkdownSource('Price $\\$5$ and $a\\$<b>$.\n')).not.toContain('&lt;');
+    expect(normalizeTexMath('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');
+    expect(normalizeTexMath('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$a\\$b$');
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$\\$5$');
     expect(prepareMarkdownSource('Price \\(\\$5\\) and \\(a$b\\).\n')).toContain('$a\\$b$');
     expect(prepareMarkdownSource('    $x^2$\n')).toBe('```\n$x^2$\n```\n');

@@ -250,6 +250,37 @@ describe('PandocBridge', () => {
       expect.any(Function)
     );
   });
+
+  it('sends an escaped dollar as one formula', async () => {
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/bin/pandoc',
+    });
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    const write = vi.fn();
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return { stdin: { write, end: vi.fn() } };
+      }
+    );
+
+    await bridge.export({
+      content: 'Price \\(\\$5\\) and \\(a$b\\).',
+      outputPath: '/tmp/math.html',
+    });
+
+    const sent = String(write.mock.calls[0]?.[0]);
+    expect(sent).toContain('$\\$5$');
+    expect(sent).toContain('$a\\$b$');
+  });
 });
 
 describe('PandocRawExporter', () => {

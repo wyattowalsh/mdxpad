@@ -28,6 +28,11 @@ describe('WYSIWYG math decorations', () => {
     expect(mathDecorations(stateFor('Pay $100 dollars$ today')).find()).toHaveLength(0);
   });
 
+  it('keeps an escaped dollar inside one formula', () => {
+    expect(mathDecorations(stateFor('Price $a\\$b$ today')).find()).toHaveLength(2);
+    expect(mathDecorations(stateFor('Prices are $5 and $10')).find()).toHaveLength(0);
+  });
+
   it('renders TeX delimiters', () => {
     const decorations = mathDecorations(stateFor('The area is \\(x^2\\).'));
     expect(decorations.find()).toHaveLength(2);

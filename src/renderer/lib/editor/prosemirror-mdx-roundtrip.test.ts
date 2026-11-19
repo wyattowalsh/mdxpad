@@ -103,6 +103,7 @@ describe('WYSIWYG markdown round trip', () => {
 
   it('keeps asterisks inside a formula', () => {
     expect(roundTrip('$a*b*c$\n')).toContain('$a*b*c$');
+    expect(roundTrip('$a*\\$b*$\n')).toContain('$a*\\$b*$');
     expect(roundTrip('Area \\((a*b)*(c*d)\\).\n')).toContain('\\((a*b)*(c*d)\\)');
   });
 
