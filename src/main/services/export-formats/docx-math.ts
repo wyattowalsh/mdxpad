@@ -1,7 +1,9 @@
 import {
   MathFraction,
+  MathCurlyBrackets,
   MathRadical,
   MathRoundBrackets,
+  MathSquareBrackets,
   MathRun,
   MathSubScript,
   MathSuperScript,
@@ -112,7 +114,7 @@ function skipDelimiter(cursor: Cursor): void {
   }
 }
 
-function commandComponents(cursor: Cursor, name: string): MathComponent[] {
+function groupedCommand(cursor: Cursor, name: string): MathComponent[] | null {
   if (DELIMITER_COMMANDS.has(name)) {
     skipDelimiter(cursor);
     return [];
@@ -120,15 +122,23 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (STYLE_COMMANDS.has(name)) {
     return [];
   }
-  if (ATOM_COMMANDS.has(name)) {
+  if (ATOM_COMMANDS.has(name) || TEXT_COMMANDS.has(name)) {
     return readGroup(cursor);
   }
-  if (name === 'begin' || name === 'end') {
-    readGroup(cursor);
+  if (name === 'begin') {
+    return readEnvironment(cursor);
+  }
+  if (name === 'end') {
+    readRawGroup(cursor);
     return [];
   }
-  if (TEXT_COMMANDS.has(name)) {
-    return readGroup(cursor);
+  return null;
+}
+
+function commandComponents(cursor: Cursor, name: string): MathComponent[] {
+  const grouped = groupedCommand(cursor, name);
+  if (grouped !== null) {
+    return grouped;
   }
   if (name === 'binom' || name === 'dbinom' || name === 'tbinom') {
     return readBinom(cursor);
@@ -275,7 +285,59 @@ function scriptBase(
   return { plain, base: previous ? [previous] : [new MathRun('')] };
 }
 
-function readSequence(cursor: Cursor, stop: string | null): MathComponent[] {
+function readRawGroup(cursor: Cursor): string {
+  if (cursor.source[cursor.index] !== '{') {
+    return '';
+  }
+  cursor.index += 1;
+  let name = '';
+  while (cursor.index < cursor.source.length && cursor.source[cursor.index] !== '}') {
+    name += cursor.source[cursor.index] ?? '';
+    cursor.index += 1;
+  }
+  if (cursor.source[cursor.index] === '}') {
+    cursor.index += 1;
+  }
+  return name.trim();
+}
+
+function endsEnvironment(cursor: Cursor, name: string): boolean {
+  if (!cursor.source.startsWith('\\end', cursor.index)) {
+    return false;
+  }
+  const saved = cursor.index;
+  cursor.index += 4;
+  const endName = readRawGroup(cursor);
+  if (endName === name) {
+    return true;
+  }
+  cursor.index = saved;
+  return false;
+}
+
+function wrapEnvironment(name: string, body: MathComponent[]): MathComponent[] {
+  if (name === 'pmatrix') {
+    return [new MathRoundBrackets({ children: body })];
+  }
+  if (name === 'bmatrix') {
+    return [new MathSquareBrackets({ children: body })];
+  }
+  if (name === 'Bmatrix' || name === 'cases') {
+    return [new MathCurlyBrackets({ children: body })];
+  }
+  if (name === 'vmatrix' || name === 'Vmatrix') {
+    const bar = name === 'Vmatrix' ? '‖' : '|';
+    return [new MathRun(bar), ...body, new MathRun(bar)];
+  }
+  return body;
+}
+
+function readEnvironment(cursor: Cursor): MathComponent[] {
+  const name = readRawGroup(cursor);
+  return wrapEnvironment(name, readSequence(cursor, null, name));
+}
+
+function readSequence(cursor: Cursor, stop: string | null, untilEnd?: string): MathComponent[] {
   const components: MathComponent[] = [];
   let plain = '';
   const flush = (): void => {
@@ -286,6 +348,9 @@ function readSequence(cursor: Cursor, stop: string | null): MathComponent[] {
   };
   while (cursor.index < cursor.source.length) {
     const char = cursor.source[cursor.index] ?? '';
+    if (untilEnd !== undefined && endsEnvironment(cursor, untilEnd)) {
+      break;
+    }
     if (stop !== null && char === stop) {
       break;
     }

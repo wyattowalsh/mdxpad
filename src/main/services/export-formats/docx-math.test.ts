@@ -1,4 +1,12 @@
-import { MathFraction, MathRadical, MathRoundBrackets, MathRun, MathSuperScript } from 'docx';
+import {
+  MathCurlyBrackets,
+  MathFraction,
+  MathRadical,
+  MathRoundBrackets,
+  MathRun,
+  MathSquareBrackets,
+  MathSuperScript,
+} from 'docx';
 import { describe, expect, it } from 'vitest';
 
 import { mathComponents, splitDocxPieces } from './docx-math';
@@ -85,9 +93,17 @@ describe('mathComponents', () => {
   });
 
   it('keeps the entries of a matrix', () => {
-    expect(runText(mathComponents('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}'))).toBe(
-      ' a & b \n c & d '
-    );
+    const round = mathComponents('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}');
+    expect(round).toHaveLength(1);
+    expect(round[0]).toBeInstanceOf(MathRoundBrackets);
+    expect(runText(round)).toBe(' a & b \n c & d ');
+    const square = mathComponents('\\begin{bmatrix}1\\end{bmatrix}');
+    expect(square[0]).toBeInstanceOf(MathSquareBrackets);
+    expect(runText(square)).toBe('1');
+    const cases = mathComponents('\\begin{cases}x\\end{cases}');
+    expect(cases[0]).toBeInstanceOf(MathCurlyBrackets);
+    expect(runText(cases)).toBe('x');
+    expect(runText(mathComponents('\\begin{vmatrix}a\\end{vmatrix}'))).toBe('|a|');
   });
 
   it('keeps an accent on its symbol', () => {
