@@ -1292,6 +1292,20 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('[x]');
   });
 
+  it('formats an HTML table', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content:
+        '<table><tr><th>Name</th><th align="right">Amount</th></tr><tr><td>A | B</td><td>2</td></tr></table>\n',
+      outputPath: '/tmp/html-table.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\begin{tabular}{lr}');
+    expect(written).toContain('Name & Amount');
+    expect(written).toContain('A | B & 2');
+    expect(written).not.toContain('<table>');
+  });
+
   it('renders a markdown table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

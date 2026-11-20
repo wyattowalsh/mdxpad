@@ -1031,6 +1031,29 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('[x]');
   });
 
+  it('formats an HTML table', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<table><tr><th>Name</th><th>Value</th></tr><tr><td>A</td><td>1</td></tr></table>\n',
+      outputPath: '/tmp/html-table.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('<w:tbl>');
+    expect(xml).toContain('Name');
+    expect(xml).toContain('Value');
+    expect(xml).toContain('>A<');
+    expect(xml).not.toContain('&lt;table');
+  });
+
   it('writes a markdown table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

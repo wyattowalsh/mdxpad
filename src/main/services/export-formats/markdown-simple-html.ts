@@ -5,6 +5,7 @@ import { readAngleTag } from '@shared/lib/markdown-tags';
 import { readCodeSpan } from './markdown-escape';
 import { plainFootnoteMarkers } from './markdown-footnote';
 import { expandLinkReferences } from './markdown-reference';
+import type { TableAlign } from './markdown-table';
 
 const UNWRAP = new Set([
   'article',
@@ -36,6 +37,14 @@ function simpleName(name: string): boolean {
     name === 'blockquote' ||
     name === 'pre' ||
     name === 'span' ||
+    name === 'table' ||
+    name === 'thead' ||
+    name === 'tbody' ||
+    name === 'tfoot' ||
+    name === 'caption' ||
+    name === 'tr' ||
+    name === 'th' ||
+    name === 'td' ||
     /^h[1-6]$/.test(name)
   );
 }
@@ -157,6 +166,111 @@ function renderPre(inner: string): string {
   return `\n\n\`\`\`\n${text}\n\`\`\`\n\n`;
 }
 
+interface TableCell {
+  readonly text: string;
+  readonly align: TableAlign;
+}
+
+function cellAlign(openTag: string): TableAlign {
+  const match = /(?:\balign\s*=\s*["']?|text-align\s*:\s*)(left|center|right)/i.exec(openTag);
+  switch (match?.[1]?.toLowerCase()) {
+    case 'center':
+      return 'center';
+    case 'right':
+      return 'right';
+    default:
+      return 'left';
+  }
+}
+
+function cellText(inner: string): string {
+  return convertHtml(inner)
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replaceAll('|', '\\|')
+    .trim();
+}
+
+function rowCells(value: string): TableCell[] {
+  const cells: TableCell[] = [];
+  let index = 0;
+  while (index < value.length) {
+    const element = value[index] === '<' ? readSimpleElement(value, index) : null;
+    if (element && (element.name === 'td' || element.name === 'th')) {
+      const openAt = value.lastIndexOf('<', Math.max(0, element.innerStart - 1));
+      const openTag = openAt === -1 ? '' : value.slice(openAt, element.innerStart);
+      cells.push({
+        text: cellText(value.slice(element.innerStart, element.innerEnd)),
+        align: cellAlign(openTag),
+      });
+      index = element.end;
+      continue;
+    }
+    index = element ? element.end : index + 1;
+  }
+  return cells;
+}
+
+function tableRows(value: string): TableCell[][] {
+  const rows: TableCell[][] = [];
+  let index = 0;
+  while (index < value.length) {
+    const element = value[index] === '<' ? readSimpleElement(value, index) : null;
+    if (!element) {
+      index += 1;
+      continue;
+    }
+    if (element.name === 'tr') {
+      rows.push(rowCells(value.slice(element.innerStart, element.innerEnd)));
+    } else if (element.name === 'thead' || element.name === 'tbody' || element.name === 'tfoot') {
+      rows.push(...tableRows(value.slice(element.innerStart, element.innerEnd)));
+    }
+    index = element.end;
+  }
+  return rows;
+}
+
+function ruleCell(align: TableAlign): string {
+  switch (align) {
+    case 'center':
+      return ':---:';
+    case 'right':
+      return '---:';
+    case 'left':
+      return '---';
+    default: {
+      const unexpected: never = align;
+      return unexpected;
+    }
+  }
+}
+
+function markdownTable(rows: readonly (readonly TableCell[])[]): string {
+  const filled = rows.filter((row) => row.length > 0);
+  const width = filled.reduce((max, row) => Math.max(max, row.length), 0);
+  if (width === 0) {
+    return '';
+  }
+  const line = (row: readonly TableCell[] | undefined, rule: boolean): string => {
+    const cells: string[] = [];
+    for (let index = 0; index < width; index += 1) {
+      const cell = row?.[index];
+      cells.push(rule ? ruleCell(cell?.align ?? 'left') : (cell?.text ?? ''));
+    }
+    return `| ${cells.join(' | ')} |`;
+  };
+  const [header, ...body] = filled;
+  const lines = [line(header, false), line(header, true), ...body.map((row) => line(row, false))];
+  return blockWrap(lines.join('\n'));
+}
+
+function renderTable(name: string, inner: string): string {
+  if (name === 'tr') {
+    return markdownTable([rowCells(inner)]);
+  }
+  return markdownTable(tableRows(inner));
+}
+
 function renderElement(element: HtmlElement, value: string): string {
   const inner = value.slice(element.innerStart, element.innerEnd);
   switch (element.name) {
@@ -170,6 +284,16 @@ function renderElement(element: HtmlElement, value: string): string {
       return renderQuote(inner);
     case 'pre':
       return renderPre(inner);
+    case 'table':
+    case 'thead':
+    case 'tbody':
+    case 'tfoot':
+    case 'tr':
+      return renderTable(element.name, inner);
+    case 'caption':
+    case 'th':
+    case 'td':
+      return cellText(inner);
     case 'span':
       return convertHtml(inner);
     case 'h1':

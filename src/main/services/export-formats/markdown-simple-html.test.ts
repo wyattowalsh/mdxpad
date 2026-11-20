@@ -25,4 +25,16 @@ describe('rewriteSimpleHtml', () => {
   it('quotes an HTML blockquote', () => {
     expect(rewriteSimpleHtml('<blockquote>Quote</blockquote>').trim()).toBe('> Quote');
   });
+
+  it('turns an HTML table into a markdown table', () => {
+    const html = [
+      '<table>',
+      '<tr><th>Name</th><th align="right">Amount</th></tr>',
+      '<tr><td>A | B</td><td>2</td></tr>',
+      '</table>',
+    ].join('');
+    expect(rewriteSimpleHtml(html).trim()).toBe(
+      ['| Name | Amount |', '| --- | ---: |', '| A \\| B | 2 |'].join('\n')
+    );
+  });
 });
