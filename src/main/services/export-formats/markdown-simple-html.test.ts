@@ -223,8 +223,8 @@ describe('rewriteSimpleHtml', () => {
     expect(
       rewriteSimpleHtml(
         '<input value="Red"><datalist><option>Red</option><option>Blue</option></datalist>'
-      )
-    ).toBe('Red');
+      ).trim()
+    ).toBe('Red\n\nRed, Blue');
     expect(
       rewriteSimpleHtml('<details><summary>More <b>info</b></summary>\nHidden\n</details>').trim()
     ).toBe('More **info**\n\nHidden');
@@ -246,6 +246,24 @@ describe('rewriteSimpleHtml', () => {
     ).toBe('Red, **Blue**');
     expect(rewriteSimpleHtml('<button>Save</button>').trim()).toBe('Save');
     expect(rewriteSimpleHtml('<input type="hidden" value="secret">')).toBe('');
+    expect(
+      rewriteSimpleHtml(
+        '<datalist><option value="Boston"></option><option>Paris</option></datalist>'
+      ).trim()
+    ).toBe('Boston, Paris');
+    expect(
+      rewriteSimpleHtml('<input type="image" alt="Search the notes" src="file:///tmp/go.png">')
+    ).toBe('Search the notes');
+    expect(rewriteSimpleHtml('<input type="image" alt="Search" src="go.png">')).toBe(
+      '![Search](go.png)'
+    );
+    expect(rewriteSimpleHtml('<track label="English captions">')).toBe('English captions');
+    expect(
+      rewriteSimpleHtml('<video src="clip.mp4"><track label="English captions"></video>').trim()
+    ).toBe('clip.mp4 (English captions)');
+    expect(rewriteSimpleHtml('<video><track label="English captions"></video>').trim()).toBe(
+      'English captions'
+    );
     expect(rewriteSimpleHtml('<progress value="3" max="10">3/10</progress>').trim()).toBe('3/10');
   });
 

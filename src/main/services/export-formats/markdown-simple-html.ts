@@ -928,8 +928,11 @@ function renderDetails(inner: string): string {
 function renderInput(value: string, element: HtmlElement): string {
   const openTag = openTagBefore(value, element.innerStart);
   const type = attribute(openTag, 'type').trim().toLowerCase();
-  if (type === 'hidden' || type === 'file' || type === 'image' || type === 'radio') {
+  if (type === 'hidden' || type === 'file' || type === 'radio') {
     return '';
+  }
+  if (type === 'image') {
+    return renderImageInput(openTag);
   }
   if (type !== 'checkbox') {
     const entered = attribute(openTag, 'value').trim();
@@ -1182,18 +1185,66 @@ function firstSourceAddress(inner: string): string {
   return '';
 }
 
+function renderImageInput(openTag: string): string {
+  const alt = attribute(openTag, 'alt')
+    .trim()
+    .replace(/[\\[\]]/g, (char) => `\\${char}`);
+  const address = imageAddress(attribute(openTag, 'src'));
+  if (address.length === 0) {
+    return alt;
+  }
+  return `![${alt}](${address})`;
+}
+
+function trackLabels(inner: string): string[] {
+  const labels: string[] = [];
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (element?.name === 'track') {
+      const label = attribute(openTagBefore(inner, element.innerStart), 'label').trim();
+      if (label.length > 0) {
+        labels.push(label);
+      }
+    }
+    index = element ? element.end : index + 1;
+  }
+  return labels;
+}
+
+function withoutTag(inner: string, name: string): string {
+  let result = '';
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (element?.name === name) {
+      index = element.end;
+      continue;
+    }
+    const next = element ? element.end : index + 1;
+    result += inner.slice(index, next);
+    index = next;
+  }
+  return result;
+}
+
+function withNote(body: string, note: string): string {
+  if (note.length === 0) {
+    return body;
+  }
+  return body.length === 0 ? note : `${body} (${note})`;
+}
+
 function renderMediaFallback(value: string, element: HtmlElement, inner: string): string {
-  const text = convertHtml(inner).trim();
+  const text = convertHtml(withoutTag(inner, 'track')).trim();
+  const note = trackLabels(inner).join(', ');
   if (text.length > 0) {
-    return text;
+    return withNote(text, note);
   }
   const openTag = openTagBefore(value, element.innerStart);
   const own = visibleAddress(attribute(openTag, 'src'));
-  if (own.length > 0) {
-    return own;
-  }
-  const source = firstSourceAddress(inner);
-  return source.length > 0 ? source : posterImage(openTag);
+  const address = own.length > 0 ? own : firstSourceAddress(inner);
+  return withNote(address.length > 0 ? address : posterImage(openTag), note);
 }
 
 function posterImage(openTag: string): string {
@@ -1212,9 +1263,11 @@ function posterImage(openTag: string): string {
 function renderEmbedded(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'source':
-    case 'track':
-    case 'datalist':
       return '';
+    case 'track':
+      return attribute(openTagBefore(value, element.innerStart), 'label').trim();
+    case 'datalist':
+      return blockWrap(renderChoices(inner).join(', '));
     case 'applet':
       return renderApplet(value, element, inner);
     case 'area':
