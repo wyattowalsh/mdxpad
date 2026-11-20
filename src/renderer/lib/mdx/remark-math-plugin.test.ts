@@ -45,6 +45,16 @@ describe('remark math prices', () => {
     }
   });
 
+  it('renders a formula on a task line', async () => {
+    const result = await compileMdx(testId('task-formula'), '- [ ] task $$\n  x^2\n  $$\n  more\n');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('children: "x^2"');
+      expect(result.code).toContain('"more"');
+      expect(result.code).not.toContain('children: "m"');
+    }
+  });
+
   it('renders a formula on a later line of a list item', async () => {
     const result = await compileMdx(
       testId('loose-list-formula'),

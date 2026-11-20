@@ -144,13 +144,16 @@ function fencedList(
 }
 
 function listPrefix(text: string): string | null {
-  if (/^\[[ xX]\](?:\s|$)/.test(text)) {
-    return null;
-  }
-  if (text.trim() === '$$') {
+  const task = /^(\[[ xX]\][ \t]+)(.*)$/.exec(text);
+  const body = task?.[2] ?? text;
+  if (!task && text.trim() === '$$') {
     return '';
   }
-  return displayMathPrefix(text);
+  const prefix = displayMathPrefix(body);
+  if (prefix === null) {
+    return null;
+  }
+  return task ? `${task[1]}${prefix}` : prefix;
 }
 
 function takeList(lines: readonly string[], index: number): PromotedBlock | null {
