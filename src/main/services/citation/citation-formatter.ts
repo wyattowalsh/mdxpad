@@ -125,20 +125,32 @@ const MONTH_NUMBERS = [
   'December',
 ] as const;
 
-function accessedLabel(value: string | undefined): string | undefined {
+function calendarText(text: string): string | undefined {
+  const match = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(text);
+  if (match?.[1] === undefined) {
+    return undefined;
+  }
+  const month = match[2] === undefined ? undefined : MONTH_NUMBERS[Number(match[2]) - 1];
+  if (match[2] !== undefined && month === undefined) {
+    return undefined;
+  }
+  if (month === undefined) {
+    return match[1];
+  }
+  const day = match[3] === undefined ? '' : String(Number(match[3]));
+  return day.length > 0 && day !== 'NaN' ? `${day} ${month} ${match[1]}` : `${month} ${match[1]}`;
+}
+
+function datedPhrase(value: string | undefined, prefix: string): string | undefined {
   const text = value?.trim() ?? '';
   if (text.length === 0) {
     return undefined;
   }
-  const match = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(text);
-  const month = match?.[2] === undefined ? undefined : MONTH_NUMBERS[Number(match[2]) - 1];
-  if (match?.[1] === undefined || month === undefined) {
-    return `Accessed ${text}`;
-  }
-  const day = match[3] === undefined ? '' : String(Number(match[3]));
-  const when =
-    day.length > 0 && day !== 'NaN' ? `${day} ${month} ${match[1]}` : `${month} ${match[1]}`;
-  return `Accessed ${when}`;
+  return `${prefix} ${calendarText(text) ?? text}`;
+}
+
+function accessedLabel(value: string | undefined): string | undefined {
+  return datedPhrase(value, 'Accessed');
 }
 
 function versionLabel(value: string | undefined): string | undefined {
@@ -149,18 +161,45 @@ function versionLabel(value: string | undefined): string | undefined {
   return /version/i.test(text) ? text : `Version ${text}`;
 }
 
-function pageCount(value: string | undefined): string | undefined {
+function counted(value: string | undefined, unit: string): string | undefined {
   const text = value?.trim() ?? '';
   if (text.length === 0) {
     return undefined;
   }
-  return /^\d+$/.test(text) ? `${text} pp.` : text;
+  return /^\d+$/.test(text) ? `${text} ${unit}` : text;
+}
+
+function pageCount(value: string | undefined): string | undefined {
+  return counted(value, 'pp.');
+}
+
+function addEditors(parts: string[], entry: CitationEntry): void {
+  const seen = new Set<string>();
+  const first = entry.editor?.trim() ?? '';
+  if (first.length > 0) {
+    seen.add(first);
+  }
+  for (const name of [entry.editora, entry.editorb, entry.editorc]) {
+    const text = name?.trim() ?? '';
+    if (text.length === 0 || seen.has(text)) {
+      continue;
+    }
+    seen.add(text);
+    addSentence(parts, `Ed. ${text}`);
+  }
 }
 
 function addParties(parts: string[], entry: CitationEntry): void {
-  if (entry.editora && entry.editora !== entry.editor) {
-    addSentence(parts, `Ed. ${entry.editora}`);
-  }
+  addSentence(parts, entry.afterword ? `Afterword by ${entry.afterword}` : undefined);
+  addSentence(parts, entry.foreword ? `Foreword by ${entry.foreword}` : undefined);
+  addSentence(parts, entry.introduction ? `Introduction by ${entry.introduction}` : undefined);
+  addSentence(parts, counted(entry.volumes, 'vols.'));
+  addSentence(parts, datedPhrase(entry.origdate, 'Originally'));
+  addSentence(parts, entry.addendum);
+  addSentence(parts, entry.pubstate);
+  addSentence(parts, entry.keywords);
+  addSentence(parts, entry.annotation);
+  addSentence(parts, entry.annote);
   addSentence(parts, entry.annotator ? `Annotated by ${entry.annotator}` : undefined);
   addSentence(parts, entry.commentator ? `Commentary by ${entry.commentator}` : undefined);
   addSentence(parts, entry.holder);
@@ -177,6 +216,7 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.school);
   addSentence(parts, entry.institution);
   addSentence(parts, entry.editor ? `Ed. ${entry.editor}` : undefined);
+  addEditors(parts, entry);
   addSentence(parts, entry.series);
   addSentence(parts, entry.address);
   addSentence(parts, editionLabel(entry.edition));

@@ -180,6 +180,41 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('Winter Issue');
   });
 
+  it('keeps further editors, an original date, and a short remark', () => {
+    const entry: CitationEntry = {
+      id: 'ada1830',
+      type: 'book',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      editor: 'Charles Babbage',
+      editorb: 'Mary Somerville',
+      editorc: 'Charles Babbage',
+      afterword: 'Charles Babbage',
+      foreword: 'Michael Faraday',
+      introduction: 'Augusta King',
+      volumes: '3',
+      origdate: '1830-05-04',
+      addendum: 'See the plate',
+      pubstate: 'forthcoming',
+      keywords: 'ice engines',
+      annotation: 'A short remark',
+      annote: 'Library note',
+    };
+    const formatted = formatCitation(entry, 'apa').formatted;
+    expect(formatted).toContain('Ed. Mary Somerville');
+    expect(formatted.match(/Ed\. Charles Babbage/g)).toHaveLength(1);
+    expect(formatted).toContain('Afterword by Charles Babbage');
+    expect(formatted).toContain('Foreword by Michael Faraday');
+    expect(formatted).toContain('Introduction by Augusta King');
+    expect(formatted).toContain('3 vols.');
+    expect(formatted).toContain('Originally 4 May 1830');
+    expect(formatted).toContain('See the plate');
+    expect(formatted).toContain('forthcoming');
+    expect(formatted).toContain('ice engines');
+    expect(formatted).toContain('A short remark');
+    expect(formatted).toContain('Library note');
+  });
+
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {
     const entry: CitationEntry = {
       id: 'ada1840',

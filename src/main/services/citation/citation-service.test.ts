@@ -258,6 +258,37 @@ describe('citation-service', () => {
       expect(named.entries[0]?.editora).toBe('Ada Lovelace');
     });
 
+    it('keeps further editors, an original date, and a short remark', () => {
+      const result = parseBibtex(`
+@book{ada1830,
+  title = {The Engine},
+  editorb = {Mary Somerville},
+  editorc = {George Boole},
+  afterword = {Charles Babbage},
+  foreword = {Michael Faraday},
+  introduction = {Augusta King},
+  volumes = {3},
+  origdate = {1830-05-04},
+  addendum = {See the plate},
+  pubstate = {forthcoming},
+  keywords = {ice engines},
+  annotation = {A short remark},
+  annote = {Library note}
+}`);
+      expect(result.entries[0]?.editorb).toBe('Mary Somerville');
+      expect(result.entries[0]?.editorc).toBe('George Boole');
+      expect(result.entries[0]?.afterword).toBe('Charles Babbage');
+      expect(result.entries[0]?.foreword).toBe('Michael Faraday');
+      expect(result.entries[0]?.introduction).toBe('Augusta King');
+      expect(result.entries[0]?.volumes).toBe('3');
+      expect(result.entries[0]?.origdate).toBe('1830-05-04');
+      expect(result.entries[0]?.addendum).toBe('See the plate');
+      expect(result.entries[0]?.pubstate).toBe('forthcoming');
+      expect(result.entries[0]?.keywords).toBe('ice engines');
+      expect(result.entries[0]?.annotation).toBe('A short remark');
+      expect(result.entries[0]?.annote).toBe('Library note');
+    });
+
     it('keeps a month, a subtitle, a translator, and an ISBN', () => {
       const result = parseBibtex(`
 @book{ada1840,
