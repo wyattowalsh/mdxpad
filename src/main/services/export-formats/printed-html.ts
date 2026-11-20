@@ -203,6 +203,14 @@ const WRITTEN_VALUE = new Set([
   'week',
   'month',
   'datetime-local',
+  'password',
+  'search',
+  'email',
+  'url',
+  'tel',
+  'submit',
+  'button',
+  'reset',
 ]);
 
 function writtenValue(type: string, value: string, rest: string): string {
@@ -270,9 +278,16 @@ function revealMedia(html: string, tag: string, name: string, openEnd: number): 
   const pieces = mediaPieces(html.slice(openEnd, close.innerEnd));
   const words = revealPrintedHtml(pieces.words).trim();
   const caption = pieces.labels.join(', ');
+  const title = attribute(tag, 'title').trim() || attribute(tag, 'aria-label').trim();
   const body = words.length > 0 && caption.length > 0 ? `${words} (${caption})` : words || caption;
+  const named =
+    title.length > 0 && !body.includes(title)
+      ? body.length > 0
+        ? `${body} (${title})`
+        : title
+      : body;
   const player = `${tag}${pieces.kept}</${name}>`;
-  return { text: body.length > 0 ? `${player}${body}` : player, next: close.next };
+  return { text: named.length > 0 ? `${player}${named}` : player, next: close.next };
 }
 
 function revealMath(html: string, start: number, openEnd: number): Revealed | null {
@@ -346,7 +361,13 @@ function revealEmpty(
     .replace(/<[^>]+>/g, '')
     .trim();
   if (inner.length > 0) {
-    return null;
+    if (inner.includes(label)) {
+      return null;
+    }
+    return {
+      text: `${tag}${html.slice(openEnd, close.innerEnd)} (${escapeText(label)})</${name}>`,
+      next: close.next,
+    };
   }
   return { text: escapeText(format(label)), next: close.next };
 }
@@ -439,8 +460,69 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
     case 'table':
       return revealTable(html, tag, end);
     default:
-      return null;
+      return revealRest(html, tag, name, end);
   }
+}
+
+function revealArea(tag: string, end: number): Revealed | null {
+  const alt = attribute(tag, 'alt').trim();
+  const href = attribute(tag, 'href').trim();
+  const safe = /^https?:\/\//i.test(href) ? href : '';
+  if (alt.length === 0 && safe.length === 0) {
+    return null;
+  }
+  const text = alt.length > 0 && safe.length > 0 ? `${alt} (${safe})` : alt || safe;
+  return { text: escapeText(text), next: end };
+}
+
+function revealTextarea(html: string, tag: string, end: number): Revealed | null {
+  const close = matchingClose(html, 'textarea', end);
+  if (!close) {
+    return null;
+  }
+  const inner = html
+    .slice(end, close.innerEnd)
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  if (inner.length > 0) {
+    return null;
+  }
+  const label = attribute(tag, 'placeholder').trim() || attribute(tag, 'aria-label').trim();
+  if (label.length === 0) {
+    return null;
+  }
+  return { text: escapeText(label), next: close.next };
+}
+
+function revealSummary(html: string, tag: string, end: number): Revealed | null {
+  const title = attribute(tag, 'title').trim();
+  if (title.length === 0) {
+    return null;
+  }
+  const close = matchingClose(html, 'summary', end);
+  if (!close) {
+    return null;
+  }
+  const inner = html.slice(end, close.innerEnd);
+  if (inner.includes(title)) {
+    return null;
+  }
+  const text = inner.replace(/<[^>]+>/g, '').trim();
+  const body = text.length > 0 ? `${inner} (${escapeText(title)})` : escapeText(title);
+  return { text: `${tag}${body}</summary>`, next: close.next };
+}
+
+function revealRest(html: string, tag: string, name: string, end: number): Revealed | null {
+  if (name === 'area') {
+    return revealArea(tag, end);
+  }
+  if (name === 'textarea') {
+    return revealTextarea(html, tag, end);
+  }
+  if (name === 'summary') {
+    return revealSummary(html, tag, end);
+  }
+  return null;
 }
 
 /** Show words that a canvas, dialog, disclosure, or media element would hide. */

@@ -118,6 +118,36 @@ describe('printed html', () => {
     expect(image).not.toContain('file:');
   });
 
+  it('shows a masked value, a placeholder, and an expansion', () => {
+    expect(markdownToPdfHtml('<input type="password" value="Secretword">\n')).toContain(
+      'Secretword'
+    );
+    expect(markdownToPdfHtml('<input type="search" value="Icequery">\n')).toContain('Icequery');
+    expect(markdownToPdfHtml('<textarea placeholder="Notewords"></textarea>\n')).toContain(
+      'Notewords'
+    );
+    expect(markdownToPdfHtml('<abbr title="Worldhealth">WHO</abbr>\n')).toContain(
+      'WHO (Worldhealth)'
+    );
+    expect(markdownToPdfHtml('<area alt="Northregion" href="https://example.com">\n')).toContain(
+      'Northregion'
+    );
+    const blocked = markdownToPdfHtml('<area alt="Secret" href="file:///etc/passwd">\n');
+    expect(blocked).toContain('Secret');
+    expect(blocked).not.toContain('file:');
+    expect(markdownToPdfHtml('<summary title="Therest">Moreword</summary>\n')).toContain(
+      'Moreword (Therest)'
+    );
+    expect(
+      markdownToPdfHtml('<input type="submit" value="Sendform" aria-label="Sendlabel">\n')
+    ).toContain('Sendform (Sendlabel)');
+    expect(
+      markdownToPdfHtml(
+        '<video src="https://example.com/a.mp4" title="Lecturetitle">Watchice</video>\n'
+      )
+    ).toContain('Watchice (Lecturetitle)');
+  });
+
   it('shows a date, a time, a week, and a month', () => {
     expect(
       markdownToPdfHtml('<input type="date" value="2020-01-02" aria-label="Birthdate">\n')
