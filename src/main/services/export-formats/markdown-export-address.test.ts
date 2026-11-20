@@ -48,7 +48,9 @@ describe('sanitizeExportedHtml', () => {
     const imported = sanitizeExportedHtml('<style>@import "\\66ile:///etc/passwd.css";</style>');
     expect(imported).not.toContain('file:');
     expect(imported).not.toContain('@import');
-    const tight = sanitizeExportedHtml('<style>@import"file:///etc/passwd.css";p{color:red}</style>');
+    const tight = sanitizeExportedHtml(
+      '<style>@import"file:///etc/passwd.css";p{color:red}</style>'
+    );
     expect(tight).not.toContain('file:');
     expect(tight).not.toContain('@import');
     expect(tight).toContain('color:red');
@@ -84,9 +86,7 @@ describe('sanitizeExportedHtml', () => {
   });
 
   it('drops a file written after a slash and an escaped css function', () => {
-    expect(sanitizeExportedHtml('<img /src="file:///etc/passwd" alt="x">')).toBe(
-      '<img alt="x">'
-    );
+    expect(sanitizeExportedHtml('<img /src="file:///etc/passwd" alt="x">')).toBe('<img alt="x">');
     expect(sanitizeExportedHtml('<a/href="javascript:alert(1)">Run</a>')).toBe('<a>Run</a>');
     const styled = sanitizeExportedHtml(
       '<div style="background:IMAGE-SET(\'file:///etc/passwd\' 1x);color:red">x</div>'
@@ -117,23 +117,23 @@ describe('sanitizeExportedHtml', () => {
     expect(sanitizeExportedHtml('<svg><rect filter="url(../secret.svg#a)" /></svg>')).toBe(
       '<svg><rect /></svg>'
     );
-    expect(sanitizeExportedHtml('<svg><rect filter="url(file:///etc/passwd)" /></svg>')).not.toContain(
-      'file:'
-    );
+    expect(
+      sanitizeExportedHtml('<svg><rect filter="url(file:///etc/passwd)" /></svg>')
+    ).not.toContain('file:');
     expect(sanitizeExportedHtml('<svg><rect fill="url(#local)" /></svg>')).toContain('url(#local)');
     expect(sanitizeExportedHtml('<svg><rect fill="red" /></svg>')).toContain('fill="red"');
-    expect(sanitizeExportedHtml('<svg><rect clip-path="url(../secret.svg)" /></svg>')).not.toContain(
-      'secret'
-    );
+    expect(
+      sanitizeExportedHtml('<svg><rect clip-path="url(../secret.svg)" /></svg>')
+    ).not.toContain('secret');
     expect(
       sanitizeExportedHtml('<svg><rect marker-start="url(../secret.svg#m)" /></svg>')
     ).not.toContain('secret');
-    expect(sanitizeExportedHtml('<svg><rect filter="\\75rl(file:///etc/passwd)" /></svg>')).not.toContain(
-      'file:'
-    );
-    expect(sanitizeExportedHtml('<svg><rect fill="url(https://example.com/a.svg#g)" /></svg>')).toContain(
-      'https://example.com/a.svg'
-    );
+    expect(
+      sanitizeExportedHtml('<svg><rect filter="\\75rl(file:///etc/passwd)" /></svg>')
+    ).not.toContain('file:');
+    expect(
+      sanitizeExportedHtml('<svg><rect fill="url(https://example.com/a.svg#g)" /></svg>')
+    ).toContain('https://example.com/a.svg');
     expect(sanitizeExportedHtml('<svg><rect filter=url(../secret.svg#a) /></svg>')).not.toContain(
       'secret'
     );
@@ -226,12 +226,17 @@ describe('sanitizeExportedHtml', () => {
     );
     expect(ping).not.toContain('file:');
     expect(ping).toContain('https://example.com/t');
-    expect(sanitizeExportedHtml('<a ping="../secret" href="https://example.com">x</a>')).not.toContain(
-      'ping='
-    );
+    expect(
+      sanitizeExportedHtml('<a ping="../secret" href="https://example.com">x</a>')
+    ).not.toContain('ping=');
     expect(sanitizeExportedHtml('<img longdesc="file:///etc/passwd" alt="x">')).toBe(
       '<img alt="x">'
     );
+    expect(
+      sanitizeExportedHtml(
+        '<img src="https://example.com/a.png" alt="Altice" longdesc="A long description of ice">'
+      )
+    ).toContain('A long description of ice');
     expect(sanitizeExportedHtml('<img longdesc="../notes/a.md" alt="x">')).toContain(
       'longdesc="../notes/a.md"'
     );
@@ -249,9 +254,9 @@ describe('sanitizeExportedHtml', () => {
     expect(sanitizeExportedHtml('<img imagesrcset="./pixel.png 2x" alt="x">')).toContain(
       './pixel.png'
     );
-    expect(sanitizeExportedHtml('<img imagesrcset="https://example.com/a.png 2x" alt="x">')).toContain(
-      'https://example.com/a.png'
-    );
+    expect(
+      sanitizeExportedHtml('<img imagesrcset="https://example.com/a.png 2x" alt="x">')
+    ).toContain('https://example.com/a.png');
   });
 
   it('drops a parent path from an svg image and keeps a document link', () => {

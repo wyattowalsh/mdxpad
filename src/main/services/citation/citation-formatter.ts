@@ -233,6 +233,14 @@ function distinctText(values: readonly (string | undefined)[]): string[] {
   return names;
 }
 
+function doiLabel(value: string | undefined): string | undefined {
+  const text = value?.trim().replace(/^doi:/i, '') ?? '';
+  if (text.length === 0) {
+    return undefined;
+  }
+  return text.toLowerCase().startsWith('https://doi.org/') ? text : `https://doi.org/${text}`;
+}
+
 function preprintLabel(entry: CitationEntry): string | undefined {
   const id = entry.eprint?.trim() ?? '';
   const archive = distinctText([entry.archiveprefix, entry.eprinttype]).join(' ');
@@ -261,6 +269,7 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.isbn ? `ISBN ${entry.isbn}` : undefined);
   addSentence(parts, entry.issn ? `ISSN ${entry.issn}` : undefined);
   addSentence(parts, entry.url);
+  addSentence(parts, doiLabel(entry.doi));
   addSentence(parts, preprintLabel(entry));
   addSentence(parts, accessedLabel(entry.urldate));
   addSentence(parts, entry.language);
@@ -290,7 +299,6 @@ function formatApa(entry: CitationEntry): string {
     parts.push(`${entry.publisher}.`);
   }
   addBooktitle(parts, entry, `In ${entry.booktitle}.`);
-  if (entry.doi) parts.push(`https://doi.org/${entry.doi}`);
   addContext(parts, entry);
   return parts.join(' ');
 }

@@ -195,8 +195,18 @@ function promotedImage(attrs: string, match: string): string {
     return match;
   }
   const alt = markdownImageAlt(attrValue(attrs, 'alt') ?? '');
+  const described = imageDescription(attrs);
   const title = markdownImageTitle(attrValue(attrs, 'title'));
-  return `![${alt}](${markdownImageDestination(address)}${title})`;
+  const image = `![${alt}](${markdownImageDestination(address)}${title})`;
+  return described.length > 0 && !alt.includes(described) ? `${image}\n\n${described}` : image;
+}
+
+function imageDescription(attrs: string): string {
+  const text = (attrValue(attrs, 'longdesc') ?? '').trim();
+  if (text.length === 0 || text.includes(':') || /^[./\\]/.test(text)) {
+    return '';
+  }
+  return markdownImageAlt(text);
 }
 
 function promotedVoid(name: 'hr' | 'img', attrs: string, match: string): string {

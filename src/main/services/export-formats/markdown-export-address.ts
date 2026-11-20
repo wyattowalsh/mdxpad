@@ -419,6 +419,24 @@ export function skippedDroppedElement(html: string, start: number, openEnd: numb
   return readDroppedElement(html, start, openEnd)?.next ?? -1;
 }
 
+function attributeText(tag: string, name: string): string {
+  const match = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>\`]+))`, 'i').exec(
+    tag
+  );
+  return (match?.[1] ?? match?.[2] ?? match?.[3] ?? '').trim();
+}
+
+function proseLongdesc(tag: string): string {
+  if (tagName(tag) !== 'img') {
+    return '';
+  }
+  const value = attributeText(tag, 'longdesc');
+  if (value.length === 0 || value.includes(':') || /^[./\\]/.test(value)) {
+    return '';
+  }
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 /** Remove local-file addresses from an HTML fragment, including the tags that load them. */
 export function sanitizeExportedHtml(html: string): string {
   let result = '';
@@ -447,7 +465,9 @@ export function sanitizeExportedHtml(html: string): string {
       index = dropped.next;
       continue;
     }
-    result += sanitizeExportedTag(tag);
+    const sanitized = sanitizeExportedTag(tag);
+    const description = proseLongdesc(tag);
+    result += description.length > 0 ? `${sanitized}${description}` : sanitized;
     index = end;
   }
   return result;

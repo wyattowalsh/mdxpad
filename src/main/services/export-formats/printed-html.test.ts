@@ -102,6 +102,19 @@ describe('printed html', () => {
     );
   });
 
+  it('shows a table summary and an image description', () => {
+    const table = markdownToPdfHtml(
+      '<table summary="Sales table"><tr><td>Cellword</td></tr></table>\n'
+    );
+    expect(table.replace(/<[^>]+>/g, '')).toContain('Sales table');
+    expect(table).toContain('Cellword');
+    const image = markdownToPdfHtml(
+      '<img src="https://example.com/a.png" alt="Altice" longdesc="A long description of ice">\n'
+    );
+    expect(image.replace(/<[^>]+>/g, '')).toContain('A long description of ice');
+    expect(image).not.toContain('file:');
+  });
+
   it('shows a date, a time, a week, and a month', () => {
     expect(
       markdownToPdfHtml('<input type="date" value="2020-01-02" aria-label="Birthdate">\n')

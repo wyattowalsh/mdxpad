@@ -268,6 +268,22 @@ describe('citation-formatter', () => {
     expect(formatCitation(lone, 'ieee').formatted).toContain('1843.00001');
   });
 
+  it('keeps a DOI in every style', () => {
+    const entry: CitationEntry = {
+      id: 'ada',
+      type: 'article',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      year: 1843,
+      doi: '10.1000/ice',
+    };
+    for (const style of ['apa', 'mla', 'chicago', 'ieee'] as const) {
+      const formatted = formatCitation(entry, style).formatted;
+      expect(formatted).toContain('https://doi.org/10.1000/ice');
+      expect(formatted.match(/10\.1000\/ice/g)).toHaveLength(1);
+    }
+  });
+
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {
     const entry: CitationEntry = {
       id: 'ada1840',

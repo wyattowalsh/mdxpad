@@ -380,6 +380,14 @@ function revealHeader(html: string, openEnd: number, tag: string): Revealed | nu
   return { text: `${tag}${body}</th>`, next: close.next };
 }
 
+function revealTable(html: string, tag: string, end: number): Revealed | null {
+  const summary = attribute(tag, 'summary').trim();
+  if (summary.length === 0 || html.slice(end).includes(summary)) {
+    return null;
+  }
+  return { text: `${escapeText(summary)}${withoutPopover(tag)}`, next: end };
+}
+
 function revealElement(html: string, start: number, end: number): Revealed | null {
   const tag = html.slice(start, end);
   const name = tagName(tag);
@@ -423,6 +431,8 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
       return revealMath(html, start, end);
     case 'th':
       return revealHeader(html, end, tag);
+    case 'table':
+      return revealTable(html, tag, end);
     default:
       return null;
   }

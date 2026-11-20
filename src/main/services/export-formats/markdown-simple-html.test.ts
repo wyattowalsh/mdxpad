@@ -165,6 +165,14 @@ describe('rewriteSimpleHtml', () => {
     );
     expect(rewriteSimpleHtml('<input type="time" value="09:30">')).toBe('09:30');
     expect(
+      rewriteSimpleHtml('<table summary="Sales table"><tr><td>Cellword</td></tr></table>').trim()
+    ).toContain('Sales table');
+    expect(
+      rewriteSimpleHtml(
+        '<img src="https://example.com/a.png" alt="Altice" longdesc="A long description of ice">'
+      )
+    ).toBe('![Altice](https://example.com/a.png)\n\nA long description of ice');
+    expect(
       rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
     ).toContain('Qty (Quantity)');
     expect(rewriteSimpleHtml('<textarea aria-label="Notes"></textarea>').trim()).toBe('Notes');

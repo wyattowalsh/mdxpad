@@ -872,16 +872,25 @@ function markdownTable(rows: readonly (readonly TableCell[])[]): string {
   return blockWrap(lines.join('\n'));
 }
 
-function renderTable(name: string, inner: string): string {
+function renderDescribedTable(value: string, element: HtmlElement, inner: string): string {
+  return renderTable(
+    element.name,
+    inner,
+    attribute(openTagBefore(value, element.innerStart), 'summary')
+  );
+}
+
+function renderTable(name: string, inner: string, summary = ''): string {
   if (name === 'tr') {
     return markdownTable([rowCells(inner)]);
   }
   const parts = tableParts(inner);
   const table = markdownTable([...parts.head, ...parts.body, ...parts.foot]);
-  if (parts.captions.length === 0) {
+  const captions = [summary.trim(), ...parts.captions].filter((part) => part.length > 0);
+  if (captions.length === 0) {
     return table;
   }
-  const body = [parts.captions.join('\n\n'), table.trim()].filter((part) => part.length > 0);
+  const body = [captions.join('\n\n'), table.trim()].filter((part) => part.length > 0);
   return blockWrap(body.join('\n\n'));
 }
 
@@ -1761,6 +1770,7 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'picture':
       return renderPicture(inner);
     case 'table':
+      return renderDescribedTable(value, element, inner);
     case 'thead':
     case 'tbody':
     case 'tfoot':
