@@ -26,6 +26,7 @@ import {
   closeHtmlLists,
   isListContinuation,
   listContentColumn,
+  nestedListText,
   parseListItem,
   pushHtmlListItem,
   renderListItemHtml,
@@ -470,11 +471,20 @@ function groupQuoteItems(lines: readonly string[]): {
   body: SourceLine[];
 }[] {
   const groups: { item: MarkdownListItem; column: number; body: SourceLine[] }[] = [];
-  for (const line of lines) {
+  const pending = [...lines];
+  while (pending.length > 0) {
+    const line = pending.shift() ?? '';
     if (line.trim().length === 0) {
       continue;
     }
     const item = parseListItem(line);
+    const nested = item && !isThematicBreak(item.text) ? nestedListText(item.text) : null;
+    if (item && nested) {
+      const column = listContentColumn(line) ?? 2;
+      groups.push({ item: { ...item, text: '' }, column, body: [] });
+      pending.unshift(`${' '.repeat(column)}${item.text}`);
+      continue;
+    }
     if (item) {
       groups.push({
         item,
@@ -907,13 +917,69 @@ function renderQuotedItemLatex(
     .join('\n');
 }
 
+function quoteLatexCounter(item: MarkdownListItem): string {
+  if (!item.ordered || item.start === 1) {
+    return '';
+  }
+  const counters = ['enumi', 'enumii', 'enumiii', 'enumiv', 'enumv', 'enumvi'];
+  const counter = counters[item.level] ?? 'enumi';
+  return `\\setcounter{${counter}}{${item.start - 1}}\n`;
+}
+
+function nestedQuoteLatex(
+  groups: readonly { item: MarkdownListItem; column: number; body: SourceLine[] }[],
+  start: number,
+  level: number,
+  renderLine: (line: string) => string
+): { text: string; next: number } {
+  const first = groups[start];
+  if (!first) {
+    return { text: '', next: start };
+  }
+  const env = first.item.ordered ? 'enumerate' : 'itemize';
+  const items: string[] = [];
+  let index = start;
+  while (index < groups.length) {
+    const group = groups[index];
+    if (group?.item.level !== level) {
+      break;
+    }
+    if (
+      group.item.ordered !== first.item.ordered ||
+      (group.item.delimiter ?? '') !== (first.item.delimiter ?? '')
+    ) {
+      break;
+    }
+    index += 1;
+    const child = groups[index];
+    const nested =
+      child && child.item.level > level
+        ? nestedQuoteLatex(groups, index, child.item.level, renderLine)
+        : null;
+    if (nested) {
+      index = nested.next;
+    }
+    const body = renderQuotedItemLatex(group.body, group.column, renderLine);
+    const inner = nested ? `\n${nested.text}` : '';
+    items.push(`${quoteLatexCounter(group.item)}\\item ${body}${inner}`);
+  }
+  return { text: `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`, next: index };
+}
+
 function quoteListLatex(lines: readonly string[], renderLine: (line: string) => string): string {
   const groups = groupQuoteItems(lines);
-  const env = groups[0]?.item.ordered === true ? 'enumerate' : 'itemize';
-  const items = groups.map(
-    (group) => `\\item ${renderQuotedItemLatex(group.body, group.column, renderLine)}`
-  );
-  return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`;
+  const parts: string[] = [];
+  let index = 0;
+  while (index < groups.length) {
+    const group = groups[index];
+    if (!group) {
+      break;
+    }
+    const rendered = nestedQuoteLatex(groups, index, group.item.level, renderLine);
+    parts.push(rendered.text);
+    index = rendered.next;
+  }
+  return parts.join('\n');
 }
 
 type QuoteHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;

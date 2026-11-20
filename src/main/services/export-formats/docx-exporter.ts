@@ -1053,12 +1053,30 @@ function continueQuotedListLine(
   };
 }
 
+function expandQuotedMarker(lines: readonly string[]): string[] {
+  const pending = [...lines];
+  for (let index = 0; index < pending.length; index += 1) {
+    const line = pending[index] ?? '';
+    const item = parseListItem(line);
+    if (!item || isThematicBreak(item.text) || !nestedListText(item.text)) {
+      continue;
+    }
+    const column = listContentColumn(line) ?? 2;
+    const indent = ' '.repeat(item.level * 2);
+    const marker = item.ordered ? `${item.start}${item.delimiter ?? '.'}` : (item.delimiter ?? '-');
+    pending.splice(index, 1, `${indent}${marker}`, `${' '.repeat(column)}${item.text}`);
+    index -= 1;
+  }
+  return pending;
+}
+
 function appendDocxQuoteList(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
   depth: number,
   plans: OrderedNumberingPlan[] = []
 ): void {
+  const source = expandQuotedMarker(lines);
   let cursor: QuoteListCursor = {
     current: null,
     open: null,
@@ -1067,19 +1085,19 @@ function appendDocxQuoteList(
     hard: false,
     index: 0,
   };
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? '';
+  for (let index = 0; index < source.length; index += 1) {
+    const line = source[index] ?? '';
     cursor = { ...cursor, index };
     if (line.trim().length === 0) {
       continue;
     }
     const item = parseListItem(line);
     if (item) {
-      cursor = openQuotedListItem(blocks, lines, cursor, item, depth, plans);
+      cursor = openQuotedListItem(blocks, source, cursor, item, depth, plans);
       index = cursor.index;
       continue;
     }
-    const continued = continueQuotedListLine(blocks, lines, cursor, line, index, depth);
+    const continued = continueQuotedListLine(blocks, source, cursor, line, index, depth);
     if (!continued) {
       continue;
     }
