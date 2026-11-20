@@ -57,9 +57,8 @@ describe('quoteBody', () => {
     expect(list).toContain('<li>two</li>');
     expect(quoteToHtml(['- hello', '  world'], (line) => line)).toContain('<li>hello world</li>');
     expect(quoteToHtml(['- hello', '', 'After'], (line) => line)).toContain('<p>After</p>');
-    expect(quoteToHtml(['- item', '', '  continued'], (line) => line)).toContain(
-      '<li>item continued</li>'
-    );
+    expect(quoteToHtml(['- item', '', '  continued'], (line) => line)).toContain('<p>item</p>');
+    expect(quoteToHtml(['- item', '', '  continued'], (line) => line)).toContain('<p>continued</p>');
     expect(quoteToLatex(['- hello', '  world'], (line) => line)).toContain('\\item hello world');
     expect(quoteToLatex(['- Stay\\', '  put'], (line) => line)).toContain('\\item Stay\\\\\nput');
   });
@@ -102,7 +101,8 @@ describe('quoteBody', () => {
     expect(kept).not.toContain('````');
     const indented = ['> - item', '>', '>       const x = 1'].join('\n');
     const inside = quoteToHtml(fenceIndentedCode(indented).split('\n'), (line) => line);
-    expect(inside).toContain('<li>item\n<pre><code>const x = 1</code></pre></li>');
+    expect(inside).toContain('<p>item</p>');
+    expect(inside).toContain('<pre><code>const x = 1</code></pre>');
     const prose = ['> - item', '>', '>     const x = 1'].join('\n');
     const paragraph = quoteToHtml(fenceIndentedCode(prose).split('\n'), (line) => line);
     expect(paragraph).not.toContain('<pre>');

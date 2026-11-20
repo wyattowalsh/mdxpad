@@ -988,6 +988,7 @@ interface QuoteListCursor {
   column: number;
   hard: boolean;
   index: number;
+  split: boolean;
 }
 
 function openQuotedListItem(
@@ -1005,7 +1006,7 @@ function openQuotedListItem(
   const consumed = appendDocxMarkerQuoteItem(blocks, lines, cursor.index, item, depth, reference);
   const line = lines[cursor.index] ?? '';
   if (consumed !== null) {
-    return { ...cursor, current: null, open: item, reference, index: consumed - 1 };
+    return { ...cursor, current: null, open: item, reference, split: false, index: consumed - 1 };
   }
   return {
     current: item,
@@ -1013,6 +1014,7 @@ function openQuotedListItem(
     reference,
     column: listContentColumn(line) ?? 2,
     hard: readSourceLine(line).hardBreak,
+    split: false,
     index: cursor.index,
   };
 }
@@ -1083,12 +1085,17 @@ function appendDocxQuoteList(
     reference: undefined,
     column: 2,
     hard: false,
+    split: false,
     index: 0,
   };
   for (let index = 0; index < source.length; index += 1) {
     const line = source[index] ?? '';
     cursor = { ...cursor, index };
     if (line.trim().length === 0) {
+      if (cursor.current && cursor.current.text.length > 0) {
+        blocks.push(listParagraph(cursor.current, depth, cursor.reference));
+        cursor = { ...cursor, current: { ...cursor.current, text: '' }, split: true };
+      }
       continue;
     }
     const item = parseListItem(line);
@@ -1104,7 +1111,7 @@ function appendDocxQuoteList(
     cursor = continued.cursor;
     index = continued.index;
   }
-  if (cursor.current) {
+  if (cursor.current && (cursor.current.text.length > 0 || !cursor.split)) {
     blocks.push(listParagraph(cursor.current, depth, cursor.reference));
   }
 }

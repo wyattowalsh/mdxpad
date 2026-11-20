@@ -476,6 +476,7 @@ function groupQuoteItems(lines: readonly string[]): {
   while (pending.length > 0) {
     const line = pending.shift() ?? '';
     if (line.trim().length === 0) {
+      groups[groups.length - 1]?.body.push({ text: '', hardBreak: false });
       continue;
     }
     const item = parseListItem(line);
@@ -682,6 +683,12 @@ function readQuotedItemLine(
   column: number
 ): { prose: SourceLine[]; next: number } {
   const line = body[index]?.text ?? '';
+  if (line.trim().length === 0) {
+    if (prose.length > 0) {
+      pieces.push({ kind: 'prose', lines: prose });
+    }
+    return { prose: [], next: index + 1 };
+  }
   const indent = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
   const code =
     openIndentedFence(line, column) !== null || (line.trim().length > 0 && indent >= column + 4);
@@ -713,6 +720,16 @@ function readQuotedItemLine(
       next: index + 1,
     };
   }
+  return takeQuotedItemCode(pieces, prose, body, index, column);
+}
+
+function takeQuotedItemCode(
+  pieces: QuoteItemPiece[],
+  prose: SourceLine[],
+  body: readonly SourceLine[],
+  index: number,
+  column: number
+): { prose: SourceLine[]; next: number } {
   if (prose.length > 0) {
     pieces.push({ kind: 'prose', lines: prose });
   }
@@ -839,10 +856,11 @@ function renderQuotedItemHtml(
   column: number,
   renderLine: (line: string) => string
 ): string {
+  const loose = body.some((line) => line.text.trim().length === 0);
   let sawBlock = false;
   return quoteItemPieces(body, column)
     .map((piece) => {
-      if (piece.kind === 'prose' && sawBlock) {
+      if (piece.kind === 'prose' && (sawBlock || loose)) {
         return paragraphOrBlockTag(renderListItemHtml(piece.lines, renderLine));
       }
       if (piece.kind !== 'prose') {
@@ -915,7 +933,7 @@ function renderQuotedItemLatex(
 ): string {
   return quoteItemPieces(body, column)
     .map((piece) => renderQuotedPieceLatex(piece, renderLine))
-    .join('\n');
+    .join('\n\n');
 }
 
 function quoteLatexCounter(item: MarkdownListItem): string {

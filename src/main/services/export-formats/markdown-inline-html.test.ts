@@ -270,6 +270,13 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps a blank line inside a quoted list item', () => {
+    const html = markdownToPdfHtml('> - item\n>\n>   more\n');
+    expect(html).toContain('<p>item</p>');
+    expect(html).toContain('<p>more</p>');
+    expect(html).not.toContain('item more');
+  });
+
   it('renders an empty heading', () => {
     const html = markdownToPdfHtml('#\n\nbody\n');
     expect(html).toContain('<h1 id="section"></h1>');
