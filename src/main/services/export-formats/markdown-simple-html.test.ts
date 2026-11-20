@@ -56,6 +56,17 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('turns HTML checkboxes into task markers', () => {
+    const html = [
+      '<ul>',
+      '<li><input type="checkbox" checked> done</li>',
+      '<li><input type="checkbox" checked="checked" /> also</li>',
+      '<li><input type="checkbox"> todo</li>',
+      '</ul>',
+    ].join('');
+    expect(rewriteSimpleHtml(html).trim()).toBe('- [x] done\n- [x] also\n- [ ] todo');
+  });
+
   it('keeps letters, roman numerals, and a reversed list', () => {
     expect(rewriteSimpleHtml('<ol type="a"><li>One</li><li>Two</li></ol>').trim()).toBe(
       '- a. One\n- b. Two'

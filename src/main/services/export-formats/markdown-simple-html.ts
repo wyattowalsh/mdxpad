@@ -57,6 +57,7 @@ function simpleName(name: string): boolean {
     name === 'summary' ||
     name === 'kbd' ||
     name === 'ins' ||
+    name === 'input' ||
     name === 'abbr' ||
     /^h[1-6]$/.test(name)
   );
@@ -109,7 +110,7 @@ function readSimpleElement(value: string, index: number): HtmlElement | null {
   if (!simpleName(name)) {
     return null;
   }
-  if (open.selfClosing) {
+  if (open.selfClosing || name === 'input') {
     return { name, innerStart: open.end, innerEnd: open.end, end: open.end };
   }
   return elementBounds(value, name, open.end);
@@ -487,6 +488,16 @@ function renderDetails(inner: string): string {
   return blockWrap(parts.join('\n\n'));
 }
 
+function renderInput(value: string, element: HtmlElement): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  if (attribute(openTag, 'type').trim().toLowerCase() !== 'checkbox') {
+    return openTag;
+  }
+  const box = /\bchecked\b/i.test(openTag) ? '[x]' : '[ ]';
+  const follower = value[element.end] ?? '';
+  return follower.length === 0 || /\s/.test(follower) ? box : `${box} `;
+}
+
 function renderKbd(inner: string): string {
   const text = cellText(inner);
   if (text.length === 0 || text.includes('`')) {
@@ -602,6 +613,8 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
       return renderKbd(inner);
     case 'ins':
       return `<u>${inner}</u>`;
+    case 'input':
+      return renderInput(value, element);
     case 'abbr':
       return renderAbbr(value, element);
     case 'ruby':

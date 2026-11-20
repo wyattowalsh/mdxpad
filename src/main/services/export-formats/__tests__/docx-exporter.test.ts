@@ -1159,6 +1159,30 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&gt; Keep this');
   });
 
+  it('writes an HTML checkbox as a task', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content:
+        '<ul><li><input type="checkbox" checked> done</li><li><input type="checkbox"> todo</li></ul>\n',
+      outputPath: '/tmp/html-tasks.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('☑');
+    expect(xml).toContain('☐');
+    expect(xml).toContain('done');
+    expect(xml).toContain('todo');
+    expect(xml).not.toContain('&lt;input');
+  });
+
   it('writes a task checkbox', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
