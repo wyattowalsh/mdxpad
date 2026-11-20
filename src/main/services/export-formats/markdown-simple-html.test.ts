@@ -114,6 +114,14 @@ describe('rewriteSimpleHtml', () => {
       '“quoted” (https://example.com/source)'
     );
     expect(rewriteSimpleHtml('<q cite="file:///etc/passwd">quoted</q>')).toBe('“quoted”');
+    expect(rewriteSimpleHtml('<a title="The guide"></a>')).toBe('The guide');
+    expect(rewriteSimpleHtml('<a href="https://example.com" title="The guide">Docs</a>')).toBe(
+      '[Docs](https://example.com "The guide")'
+    );
+    expect(rewriteSimpleHtml('<dfn title="a definition">term</dfn>')).toBe('*term* (a definition)');
+    expect(rewriteSimpleHtml('<video src="clip.mp4" title="The lecture"></video>').trim()).toBe(
+      'clip.mp4 (The lecture)'
+    );
     expect(
       rewriteSimpleHtml(
         '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>'

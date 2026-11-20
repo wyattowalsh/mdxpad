@@ -112,14 +112,19 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
       return mappedScript(inner, SUPERSCRIPT);
     case 'a': {
       const href = markdownHref(attrs);
-      if (href === null) {
-        return inner;
-      }
-      if (linkedImages(inner)) {
+      const title = attrValue(attrs, 'title')?.trim() ?? '';
+      if (linkedImages(inner) && href !== null) {
         return `[${inner.trim()}](${href})`;
       }
-      const label = linkLabel(inner);
-      return label === null ? null : `[${label}](${href})`;
+      const label = linkLabel(inner) ?? (title.length > 0 ? title : null);
+      if (href === null) {
+        return label ?? inner;
+      }
+      if (label === null) {
+        return null;
+      }
+      const shownTitle = title.length > 0 && title !== label ? markdownImageTitle(title) : '';
+      return `[${label}](${href}${shownTitle})`;
     }
     default:
       return null;

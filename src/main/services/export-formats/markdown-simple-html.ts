@@ -1004,6 +1004,15 @@ function linkedText(label: string, href: string): string {
   return `[${text}](${destination})`;
 }
 
+function titledEmphasis(value: string, element: HtmlElement, text: string): string {
+  const title = attribute(openTagBefore(value, element.innerStart), 'title').trim();
+  const body = emphasized(text);
+  if (title.length === 0 || title === text) {
+    return body;
+  }
+  return body.length > 0 ? `${body} (${title})` : title;
+}
+
 function renderTime(value: string, element: HtmlElement, text: string): string {
   const openAt = value.lastIndexOf('<', Math.max(0, element.innerStart - 1));
   const openTag = openAt === -1 ? '' : value.slice(openAt, element.innerStart);
@@ -1025,9 +1034,10 @@ function renderInlineRole(element: HtmlElement, value: string, inner: string): s
       return cite.length === 0 ? `“${text}”` : `“${text}” (${cite})`;
     }
     case 'cite':
-    case 'dfn':
     case 'var':
       return emphasized(text);
+    case 'dfn':
+      return titledEmphasis(value, element, text);
     case 'samp':
       return renderKbd(inner);
     case 'small':
@@ -1248,11 +1258,13 @@ function withNote(body: string, note: string): string {
 
 function renderMediaFallback(value: string, element: HtmlElement, inner: string): string {
   const text = convertHtml(withoutTag(inner, 'track')).trim();
-  const note = trackLabels(inner).join(', ');
+  const openTag = openTagBefore(value, element.innerStart);
+  const note = [trackLabels(inner).join(', '), attribute(openTag, 'title').trim()]
+    .filter((part) => part.length > 0)
+    .join(', ');
   if (text.length > 0) {
     return withNote(text, note);
   }
-  const openTag = openTagBefore(value, element.innerStart);
   const own = visibleAddress(attribute(openTag, 'src'));
   const address = own.length > 0 ? own : firstSourceAddress(inner);
   return withNote(address.length > 0 ? address : posterImage(openTag), note);
