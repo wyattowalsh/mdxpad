@@ -102,6 +102,20 @@ describe('printed html', () => {
     );
   });
 
+  it('shows a date, a time, a week, and a month', () => {
+    expect(
+      markdownToPdfHtml('<input type="date" value="2020-01-02" aria-label="Birthdate">\n')
+    ).toContain('2020-01-02 (Birthdate)');
+    expect(markdownToPdfHtml('<input type="time" value="09:30">\n')).toContain('09:30');
+    expect(
+      markdownToPdfHtml('<input type="week" value="2020-W01" aria-label="Weekone">\n')
+    ).toContain('2020-W01 (Weekone)');
+    expect(markdownToPdfHtml('<input type="month" value="2020-01">\n')).toContain('2020-01');
+    expect(markdownToPdfHtml('<input type="datetime-local" value="2020-01-02T09:30">\n')).toContain(
+      '2020-01-02T09:30'
+    );
+  });
+
   it('leaves a formula inside a code sample alone', () => {
     const code = markdownToPdfHtml('```\n<canvas>Chart of sales</canvas>\n```\n');
     expect(code).toContain('&lt;canvas&gt;Chart of sales&lt;/canvas&gt;');

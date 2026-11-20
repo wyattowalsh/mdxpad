@@ -194,6 +194,24 @@ function unwrap(html: string, name: string, openEnd: number): Revealed | null {
   return { text: revealPrintedHtml(html.slice(openEnd, close.innerEnd)), next: close.next };
 }
 
+const WRITTEN_VALUE = new Set([
+  'color',
+  'range',
+  'number',
+  'date',
+  'time',
+  'week',
+  'month',
+  'datetime-local',
+]);
+
+function writtenValue(type: string, value: string, rest: string): string {
+  if (!WRITTEN_VALUE.has(type) || value.length === 0 || rest.includes(value)) {
+    return '';
+  }
+  return value;
+}
+
 function inputCaption(html: string, tag: string, end: number): string {
   const type = attribute(tag, 'type').trim().toLowerCase();
   const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
@@ -211,14 +229,13 @@ function inputCaption(html: string, tag: string, end: number): string {
     return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
   }
   const value = attribute(tag, 'value').trim() || attribute(tag, 'placeholder').trim();
-  const name = label.length > 0 && label !== value && !html.slice(end).includes(label) ? label : '';
-  if (name.length === 0) {
-    return '';
+  const rest = html.slice(end);
+  const name = label.length > 0 && label !== value && !rest.includes(label) ? label : '';
+  const shown = writtenValue(type, value, rest);
+  if (shown.length > 0 && name.length > 0) {
+    return `${shown} (${name})`;
   }
-  if ((type === 'color' || type === 'range' || type === 'number') && value.length > 0) {
-    return `${value} (${name})`;
-  }
-  return name;
+  return shown.length > 0 ? shown : name;
 }
 
 function revealInput(html: string, tag: string, end: number): Revealed | null {

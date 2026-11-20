@@ -160,6 +160,10 @@ describe('rewriteSimpleHtml', () => {
       '12 (Countpick)'
     );
     expect(rewriteSimpleHtml('<input type="color" aria-label="Colorpick">')).toBe('Colorpick');
+    expect(rewriteSimpleHtml('<input type="date" value="2020-01-02" aria-label="Birthdate">')).toBe(
+      '2020-01-02 (Birthdate)'
+    );
+    expect(rewriteSimpleHtml('<input type="time" value="09:30">')).toBe('09:30');
     expect(
       rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
     ).toContain('Qty (Quantity)');
