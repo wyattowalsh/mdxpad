@@ -776,6 +776,10 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('> - one\n>   *\n')).toContain('one *');
     expect(markdownToPdfHtml('> - one\n>   *\n')).not.toContain('<ul class="star">');
     expect(markdownToPdfHtml('> - one\n>   * nested\n')).toContain('<ul class="star">');
+    expect(markdownToPdfHtml('- one\r\n- two\r\n')).toBe(markdownToPdfHtml('- one\n- two\n'));
+    expect(markdownToPdfHtml('A\\\r\nB\r\n')).toContain('<br />');
+    expect(markdownToPdfHtml('> quote\r\n> next\r\n')).toContain('<blockquote>');
+    expect(markdownToPdfHtml('- [x] done\r\n')).toContain('checked');
     expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(
       '<p><a href="https://example.com">https://example.com</a></p>'
     );
