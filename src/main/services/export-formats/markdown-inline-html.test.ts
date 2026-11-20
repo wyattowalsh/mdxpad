@@ -783,6 +783,12 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('Say <em>hello</em> now\n')).toContain('<em>hello</em>');
     expect(markdownToPdfHtml('Say <strong>hello</strong> now\n')).toContain('<strong>hello</strong>');
     expect(markdownToPdfHtml('H<sub>2</sub>O\n')).toContain('H₂O');
+    expect(markdownToPdfHtml('Before <img alt="sunset" src="pic.png"> after\n')).toContain(
+      'alt="sunset"'
+    );
+    expect(markdownToPdfHtml('One<hr>Two\n')).toContain('<hr');
+    expect(markdownToPdfHtml('<h1>Title</h1>\n\nbody\n')).toContain('<h1');
+    expect(markdownToPdfHtml('<h1>Title</h1>\n\nbody\n')).toContain('Title');
     expect(markdownToPdfHtml('\uFEFF- one\n- two\n')).toBe(markdownToPdfHtml('- one\n- two\n'));
     expect(markdownToPdfHtml('\uFEFF# Title\n')).toContain('<h1');
     expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(

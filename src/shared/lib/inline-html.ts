@@ -1,5 +1,7 @@
 const SIMPLE_TAG =
   /<(em|i|strong|b|code|del|s|strike|sub|sup|a)(\s[^<>]*)?>([^<>]*)<\/\1>/gi;
+const HEADING_TAG = /<h([1-6])\b[^<>]*>([^<>]*)<\/h\1>/gi;
+const VOID_TAG = /<(img|hr)\b([^<>]*?)\/?>/gi;
 
 const SUBSCRIPT: Record<string, string> = {
   '0': '₀',
@@ -107,17 +109,50 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
   }
 }
 
+function attrValue(attrs: string, name: string): string | null {
+  const match = new RegExp(
+    `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`,
+    'i'
+  ).exec(attrs);
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+}
+
+function promotedVoid(name: string, attrs: string, match: string): string {
+  if (name.toLowerCase() === 'hr') {
+    return '\n\n***\n\n';
+  }
+  const src = attrValue(attrs, 'src');
+  const alt = attrValue(attrs, 'alt') ?? '';
+  if (src === null || src.length === 0 || /^(?:javascript|data|file):/i.test(src)) {
+    return match;
+  }
+  return `![${alt}](${src})`;
+}
+
+function promoteVoids(value: string): string {
+  return value.replace(VOID_TAG, (match, name: string, attrs: string | undefined) =>
+    promotedVoid(name, attrs ?? '', match)
+  );
+}
+
+function promoteHeadings(value: string): string {
+  return value.replace(HEADING_TAG, (_match, level: string, inner: string) => {
+    const depth = Number(level);
+    return `\n\n${'#'.repeat(depth)} ${inner.trim()}\n\n`;
+  });
+}
+
 /** Turn simple inline HTML into markdown so every export can format it. */
 export function promoteInlineHtml(value: string): string {
-  let current = value;
+  let current = promoteVoids(value);
   for (let pass = 0; pass < 4; pass += 1) {
     const next = current.replace(SIMPLE_TAG, (match, name: string, attrs: string | undefined, inner: string) => {
       return promotedTag(name, attrs ?? '', inner) ?? match;
     });
     if (next === current) {
-      return current;
+      break;
     }
     current = next;
   }
-  return current;
+  return promoteHeadings(current);
 }
