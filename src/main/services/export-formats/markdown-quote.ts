@@ -254,6 +254,15 @@ function indentedUnderList(line: string, current: QuoteChunk | null): boolean {
   return indent >= column;
 }
 
+function listKeepsThematic(line: string, current: QuoteChunk | null): boolean {
+  if (current?.kind !== 'list') {
+    return false;
+  }
+  const plain = plainQuoteLine(line).replaceAll('\t', '    ');
+  const spaces = /^ */.exec(plain)?.[0].length ?? 0;
+  return spaces >= listIndent(current.lines);
+}
+
 function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['kind'] | null {
   if (indentedUnderList(line, current)) {
     return 'list';
@@ -263,6 +272,9 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
   }
   if (line.length === 0) {
     return null;
+  }
+  if (isThematicBreak(plainQuoteLine(line)) && !listKeepsThematic(line, current)) {
+    return 'paragraph';
   }
   if (parseListItem(line) !== null) {
     return 'list';
@@ -665,6 +677,10 @@ function readQuotedItemLine(
       pieces.push(heading);
       return { prose: [], next: index + 1 };
     }
+    const atx = takeQuotedItemAtx(pieces, prose, line, column, index);
+    if (atx) {
+      return atx;
+    }
     const rule = takeQuotedItemRule(pieces, prose, line, column, index);
     if (rule) {
       return rule;
@@ -896,6 +912,30 @@ type QuoteParagraphPiece =
   | { readonly kind: 'paragraph'; readonly lines: string[] }
   | { readonly kind: 'math'; readonly lines: string[] }
   | { readonly kind: 'rule' };
+
+function quotedColumnSlice(line: string, column: number): string {
+  const expanded = plainQuoteLine(line).replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  return expanded.slice(Math.min(spaces, column));
+}
+
+function takeQuotedItemAtx(
+  pieces: QuoteItemPiece[],
+  prose: SourceLine[],
+  line: string,
+  column: number,
+  index: number
+): { prose: SourceLine[]; next: number } | null {
+  const parsed = parseAtxHeading(quotedColumnSlice(line, column));
+  if (!parsed) {
+    return null;
+  }
+  if (prose.length > 0) {
+    pieces.push({ kind: 'prose', lines: prose });
+  }
+  pieces.push({ kind: 'heading', depth: parsed.depth, text: parsed.text });
+  return { prose: [], next: index + 1 };
+}
 
 function quotedListRule(line: string, column: number): boolean {
   const plain = plainQuoteLine(line).replaceAll('\t', '    ');

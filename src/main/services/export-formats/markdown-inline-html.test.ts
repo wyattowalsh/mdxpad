@@ -270,6 +270,23 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('renders a spaced rule inside a quote', () => {
+    const html = markdownToPdfHtml('> * * *\n');
+    expect(html).toContain('<hr />');
+    expect(html).not.toContain('<ul');
+    const nested = markdownToPdfHtml('> > * * *\n');
+    expect(nested).toContain('<hr />');
+    expect(nested).not.toContain('<li>');
+  });
+
+  it('keeps a heading inside a quoted list item', () => {
+    const html = markdownToPdfHtml('> - item\n>   # Title\n>   body\n');
+    expect(html).toContain('<h1 id="title">Title</h1>');
+    expect(html.indexOf('<h1')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html.indexOf('body')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).toContain('item');
+  });
+
   it('renders a thematic break inside a quote', () => {
     const tight = markdownToPdfHtml('> quote\n> ***\n> after\n');
     const quote = tight.slice(tight.indexOf('<blockquote>'), tight.lastIndexOf('</blockquote>'));

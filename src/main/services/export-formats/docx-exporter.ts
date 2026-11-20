@@ -913,6 +913,26 @@ function appendDocxMarkerQuoteItem(
   return read.next;
 }
 
+function takeDocxQuotedHeading(
+  blocks: (Paragraph | Table)[],
+  current: MarkdownListItem,
+  line: string,
+  column: number,
+  depth: number,
+  index: number,
+  reference?: string
+): { current: MarkdownListItem; index: number } | null {
+  const heading = parseAtxHeading(dedentToColumn(plainQuoteLine(line), column));
+  if (!heading) {
+    return null;
+  }
+  if (current.text.length > 0) {
+    blocks.push(listParagraph(current, depth, reference));
+  }
+  blocks.push(bookmarkedHeading(heading.depth, heading.text, new Map()));
+  return { current: { ...current, text: '' }, index };
+}
+
 function takeDocxQuotedContinuation(
   blocks: (Paragraph | Table)[],
   lines: readonly string[],
@@ -942,6 +962,10 @@ function takeDocxQuotedContinuation(
   if (code) {
     blocks.push(listParagraph(current, depth, reference));
     return { current: null, index: appendDocxQuoteCodeLines(blocks, lines, index, column, depth) - 1 };
+  }
+  const atx = takeDocxQuotedHeading(blocks, current, line, column, depth, index, reference);
+  if (atx) {
+    return atx;
   }
   const underline = quotedUnderlineLevel(line);
   if (underline !== null && current.text.length > 0) {
