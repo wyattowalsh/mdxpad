@@ -221,6 +221,7 @@ const TEXT_FIELDS = [
   'keywords',
   'annotation',
   'annote',
+  'entrysubtype',
   'note',
   'doi',
   'url',
@@ -314,6 +315,10 @@ function buildEntry(id: string, type: string, fields: Map<string, string>): Cita
   if (pages) entry.pages = pages.replaceAll('--', '-');
 
   copyTextFields(entry, fields);
+  const pubtype = fields.get('type')?.trim() ?? '';
+  if (pubtype.length > 0 && pubtype.toLowerCase() !== entry.type) {
+    entry.pubtype = pubtype;
+  }
   applyDate(entry, fields);
 
   return entry;

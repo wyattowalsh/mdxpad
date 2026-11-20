@@ -215,6 +215,33 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('Library note');
   });
 
+  it('keeps a thesis type and spells a numeric month', () => {
+    const thesis: CitationEntry = {
+      id: 'ada1843',
+      type: 'phdthesis',
+      title: 'The Ice',
+      author: [{ family: 'Lovelace' }],
+      year: 1843,
+      school: 'University of the North',
+      pubtype: 'PhD thesis',
+      entrysubtype: 'catalog',
+    };
+    const formatted = formatCitation(thesis, 'apa').formatted;
+    expect(formatted).toContain('PhD thesis');
+    expect(formatted).toContain('catalog');
+    expect(formatted).toContain('University of the North');
+    const numbered: CitationEntry = {
+      id: 'num',
+      type: 'article',
+      title: 'The Ice',
+      author: [{ family: 'Lovelace' }],
+      year: 1843,
+      month: '1',
+    };
+    expect(formatCitation(numbered, 'chicago').formatted).toContain('January');
+    expect(formatCitation({ ...numbered, month: 'jan' }, 'apa').formatted).toContain('January');
+  });
+
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {
     const entry: CitationEntry = {
       id: 'ada1840',

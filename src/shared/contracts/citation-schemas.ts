@@ -85,6 +85,8 @@ export const CitationEntrySchema = z.object({
   keywords: z.string().optional(),
   annotation: z.string().optional(),
   annote: z.string().optional(),
+  pubtype: z.string().optional(),
+  entrysubtype: z.string().optional(),
   note: z.string().optional(),
   doi: z.string().optional(),
   url: z.string().optional(),

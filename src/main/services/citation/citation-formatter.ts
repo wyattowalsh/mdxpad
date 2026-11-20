@@ -73,7 +73,13 @@ function monthName(value: string | undefined): string | undefined {
   if (text.length === 0) {
     return undefined;
   }
-  return MONTHS[text.toLowerCase()] ?? text;
+  const named = MONTHS[text.toLowerCase()];
+  if (named !== undefined) {
+    return named;
+  }
+  const numeric = /^0?(\d{1,2})$/.exec(text);
+  const month = numeric?.[1] === undefined ? undefined : MONTH_NUMBERS[Number(numeric[1]) - 1];
+  return month ?? text;
 }
 
 function fullTitle(entry: CitationEntry): string {
@@ -215,6 +221,8 @@ function addParties(parts: string[], entry: CitationEntry): void {
 function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.school);
   addSentence(parts, entry.institution);
+  addSentence(parts, entry.pubtype);
+  addSentence(parts, entry.entrysubtype);
   addSentence(parts, entry.editor ? `Ed. ${entry.editor}` : undefined);
   addEditors(parts, entry);
   addSentence(parts, entry.series);

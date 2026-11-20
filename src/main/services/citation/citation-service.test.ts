@@ -289,6 +289,31 @@ describe('citation-service', () => {
       expect(result.entries[0]?.annote).toBe('Library note');
     });
 
+    it('keeps a thesis type and a numeric month', () => {
+      const thesis = parseBibtex(`
+@phdthesis{ada1843,
+  title = {The Ice},
+  type = {PhD thesis},
+  entrysubtype = {catalog}
+}`);
+      const same = parseBibtex(`
+@phdthesis{plain,
+  title = {The Ice},
+  type = {phdthesis}
+}`);
+      const numbered = parseBibtex(`
+@article{num,
+  title = {The Ice},
+  month = {1}
+}`);
+      expect(thesis.entries[0]?.type).toBe('phdthesis');
+      expect(thesis.entries[0]?.pubtype).toBe('PhD thesis');
+      expect(thesis.entries[0]?.entrysubtype).toBe('catalog');
+      expect(same.entries[0]?.type).toBe('phdthesis');
+      expect(same.entries[0]?.pubtype).toBeUndefined();
+      expect(numbered.entries[0]?.month).toBe('1');
+    });
+
     it('keeps a month, a subtitle, a translator, and an ISBN', () => {
       const result = parseBibtex(`
 @book{ada1840,
