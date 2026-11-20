@@ -138,6 +138,12 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<input type="submit" aria-label="Save the file">')).toBe(
       'Save the file'
     );
+    expect(rewriteSimpleHtml('<input type="file" aria-label="Upload the paper">')).toBe(
+      'Upload the paper'
+    );
+    expect(rewriteSimpleHtml('<input type="radio" value="Morning">')).toBe('Morning');
+    expect(rewriteSimpleHtml('<input type="radio" value="file:///etc/passwd">')).toBe('');
+    expect(rewriteSimpleHtml('<input type="file" value="file:///tmp/paper.md">')).toBe('');
     expect(
       rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
     ).toContain('Qty (Quantity)');

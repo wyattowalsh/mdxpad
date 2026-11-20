@@ -75,6 +75,16 @@ describe('printed html', () => {
     expect(markdownToPdfHtml('<meter value="4" max="10"></meter>\n')).toContain('4');
     expect(markdownToPdfHtml('<progress value="3" max="10"></progress>\n')).toContain('3/10');
     expect(markdownToPdfHtml('<meter value="4" max="10">half</meter>\n')).toContain('half');
+    expect(markdownToPdfHtml('<input type="file" aria-label="Upload the paper">\n')).toContain(
+      'Upload the paper'
+    );
+    expect(markdownToPdfHtml('<input type="radio" value="Morning" />\n')).toContain('Morning');
+    expect(markdownToPdfHtml('<input type="radio" value="file:///etc/passwd" />\n')).toBe(
+      '<p><input type="radio" value="file:///etc/passwd" /></p>'
+    );
+    expect(markdownToPdfHtml('- [x] done\n')).toContain(
+      '<input type="checkbox" disabled checked />'
+    );
   });
 
   it('leaves a formula inside a code sample alone', () => {

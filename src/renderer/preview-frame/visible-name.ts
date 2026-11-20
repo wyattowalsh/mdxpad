@@ -226,15 +226,28 @@ function gaugeName(
   return { kind: 'replace', text: label };
 }
 
+function choiceName(props: Record<string, unknown>, type: string): VisibleName | undefined {
+  const label =
+    stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
+  if (label.length > 0) {
+    return { kind: 'note', text: label };
+  }
+  if (type !== 'radio') {
+    return undefined;
+  }
+  const choice = stringProp(props, 'value');
+  if (choice.length === 0 || /^(?:javascript|data|file):/i.test(choice)) {
+    return undefined;
+  }
+  return { kind: 'note', text: choice };
+}
+
 function inputName(props: Record<string, unknown>): VisibleName | undefined {
   const type = stringProp(props, 'type').toLowerCase();
-  if (
-    type === 'hidden' ||
-    type === 'file' ||
-    type === 'radio' ||
-    type === 'checkbox' ||
-    type === 'image'
-  ) {
+  if (type === 'file' || type === 'radio') {
+    return choiceName(props, type);
+  }
+  if (type === 'hidden' || type === 'checkbox' || type === 'image') {
     return undefined;
   }
   if (stringProp(props, 'value').length > 0 || stringProp(props, 'placeholder').length > 0) {

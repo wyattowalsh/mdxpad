@@ -392,6 +392,24 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('Enable the page');
   });
 
+  it('shows the name of a file control and a choice', async () => {
+    const source = [
+      '<input type="file" aria-label="Upload the paper" />',
+      '<input type="radio" value="Morning" />',
+    ].join('\n\n');
+    const result = await compileMdx(testId('choice-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Upload the paper');
+    expect(container.textContent).toContain('Morning');
+    expect(container.querySelector('input[type="file"]')).not.toBeNull();
+    expect(container.querySelector('input[type="radio"]')).not.toBeNull();
+  });
+
   it('shows a button name, a suggestion, a formula source, and a caption', async () => {
     const source = [
       '<button aria-label="Save the file"></button>',

@@ -955,11 +955,23 @@ function renderDetails(inner: string): string {
   return blockWrap(parts.join('\n\n'));
 }
 
+function namedChoice(openTag: string, type: string): string {
+  const label = attribute(openTag, 'aria-label').trim() || attribute(openTag, 'title').trim();
+  if (label.length > 0 || type !== 'radio') {
+    return label;
+  }
+  const choice = attribute(openTag, 'value').trim();
+  return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
+}
+
 function renderInput(value: string, element: HtmlElement): string {
   const openTag = openTagBefore(value, element.innerStart);
   const type = attribute(openTag, 'type').trim().toLowerCase();
-  if (type === 'hidden' || type === 'file' || type === 'radio') {
+  if (type === 'hidden') {
     return '';
+  }
+  if (type === 'file' || type === 'radio') {
+    return namedChoice(openTag, type);
   }
   if (type === 'image') {
     return renderImageInput(openTag);

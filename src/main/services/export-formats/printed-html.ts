@@ -194,6 +194,27 @@ function unwrap(html: string, name: string, openEnd: number): Revealed | null {
   return { text: revealPrintedHtml(html.slice(openEnd, close.innerEnd)), next: close.next };
 }
 
+function inputCaption(tag: string): string {
+  const type = attribute(tag, 'type').trim().toLowerCase();
+  if (type !== 'file' && type !== 'radio') {
+    return '';
+  }
+  const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
+  if (label.length > 0 || type !== 'radio') {
+    return label;
+  }
+  const choice = attribute(tag, 'value').trim();
+  return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
+}
+
+function revealInput(tag: string, end: number): Revealed | null {
+  const caption = inputCaption(tag);
+  if (caption.length === 0) {
+    return null;
+  }
+  return { text: `${tag}${escapeText(caption)}`, next: end };
+}
+
 function revealButton(html: string, tag: string, openEnd: number): Revealed | null {
   const close = matchingClose(html, 'button', openEnd);
   if (!close) {
@@ -328,6 +349,9 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
   const name = tagName(tag);
   if ((name === 'track' || name === 'source') && tag.startsWith('</')) {
     return { text: '', next: end };
+  }
+  if (name === 'input') {
+    return revealInput(tag, end);
   }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
     return null;
