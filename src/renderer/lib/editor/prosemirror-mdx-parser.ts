@@ -248,6 +248,9 @@ function imageAlt(token: MarkdownToken): string {
 }
 
 const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
+const DEFINITION_TITLE = /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\([^)\n]*\))/;
+const DEFINITION_HAS_TITLE = new RegExp(`[ \\t]+${DEFINITION_TITLE.source}[ \\t]*$`);
+const TITLE_LINE = new RegExp(`^ {0,3}${DEFINITION_TITLE.source}[ \\t]*$`);
 
 function restoreTexDelimiters(value: string): string {
   return value
@@ -289,16 +292,30 @@ function restoreFootnoteMarkers(node: ProseMirrorNode): ProseMirrorNode {
 }
 const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
 
+function definitionWithTitle(line: string, next: string | undefined): { text: string; skip: boolean } {
+  if (next !== undefined && !DEFINITION_HAS_TITLE.test(line) && TITLE_LINE.test(next)) {
+    return { text: `${line.trim()}\n${next.trimEnd()}`, skip: true };
+  }
+  return { text: line.trim(), skip: false };
+}
+
 export function extractLinkDefinitions(body: string): string {
   const definitions: string[] = [];
+  const lines = body.split('\n');
   let inFence = false;
-  for (const line of body.split('\n')) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
     if (FENCE_LINE.test(line)) {
       inFence = !inFence;
       continue;
     }
-    if (!inFence && LINK_DEFINITION.test(line)) {
-      definitions.push(line.trim());
+    if (inFence || !LINK_DEFINITION.test(line)) {
+      continue;
+    }
+    const definition = definitionWithTitle(line, lines[index + 1]);
+    definitions.push(definition.text);
+    if (definition.skip) {
+      index += 1;
     }
   }
   return definitions.join('\n');

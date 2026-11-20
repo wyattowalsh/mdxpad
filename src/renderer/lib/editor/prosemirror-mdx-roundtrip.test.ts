@@ -264,6 +264,21 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps a link title that starts on the next line', () => {
+    const saved = roundTrip('[id]: https://example.com\n  "Title"\n');
+    expect(saved).toContain('[id]: https://example.com');
+    expect(saved).toContain('"Title"');
+    const quoted = roundTrip("[id]: https://example.com\n  'Guide'\n");
+    expect(quoted).toContain("'Guide'");
+    const paren = roundTrip('[id]: https://example.com\n  (Notes)\n');
+    expect(paren).toContain('(Notes)');
+    const used = roundTrip('See [a][id].\n\n[id]: https://example.com\n  "Title"\n');
+    expect(used).toContain('"Title"');
+    const kept = roundTrip('[id]: https://example.com "Title"\n\nhello\n');
+    expect(kept).toContain('hello');
+    expect(kept).toContain('"Title"');
+  });
+
   it('keeps a heading that starts with a byte-order mark', () => {
     const saved = roundTrip('\uFEFF# Title\n\nbody\n');
     expect(saved).toContain('# Title');
