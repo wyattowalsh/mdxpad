@@ -1822,8 +1822,28 @@ function keepDocxListBreak(parse: DocxParse, openListItem: MarkdownListItem | nu
   parse.listStack.length = 0;
 }
 
+function takeDocxItemAtx(parse: DocxParse, line: string): boolean {
+  if (
+    parse.openListItem === null ||
+    parse.listColumn === null ||
+    !isListContinuation(line, parse.listColumn)
+  ) {
+    return false;
+  }
+  const heading = parseAtxHeading(dedentToColumn(line, parse.listColumn));
+  if (!heading) {
+    return false;
+  }
+  flushPendingParagraph(parse);
+  parse.blocks.push(bookmarkedHeading(heading.depth, heading.text, parse.slugCounts));
+  parse.listBreak = false;
+  parse.listParagraphBreak = true;
+  return true;
+}
+
 function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
   return (
+    takeDocxItemAtx(parse, line) ||
     takeDocxItemQuote(parse, line) ||
     takeDocxItemTable(parse, line) ||
     takeDocxItemMath(parse, line) ||

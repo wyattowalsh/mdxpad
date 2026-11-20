@@ -270,6 +270,15 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps a heading inside the list item', () => {
+    const html = markdownToPdfHtml('- item\n\n  # Title\n\n  body\n');
+    expect(html).toContain('<h1');
+    expect(html.indexOf('<h1')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html.indexOf('body')).toBeLessThan(html.indexOf('</ul>'));
+    const tight = markdownToPdfHtml('- item\n  # Title\n');
+    expect(tight.indexOf('<h1')).toBeLessThan(tight.indexOf('</ul>'));
+  });
+
   it('keeps a tight indented line inside the list paragraph', () => {
     const html = markdownToPdfHtml('- item\n      code\n');
     expect(html).toContain('item');

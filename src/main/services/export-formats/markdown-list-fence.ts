@@ -15,6 +15,7 @@ import {
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { renderDisplayMathBlock } from './markdown-inline-html';
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import { displayMathPrefix } from '@shared/lib/math-span';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 
@@ -507,6 +508,39 @@ export function takeListItemSetext(
   state.loose = true;
   state.listBreak = false;
   writeListItem(state, () => '');
+  return true;
+}
+
+/** Keep an indented heading inside the open list item. */
+export function takeListItemAtx(
+  state: HtmlListItemState,
+  line: string,
+  render: (text: string) => string,
+  heading: (level: number, text: string) => string,
+  listOpen: boolean
+): boolean {
+  if (
+    state.itemFence ||
+    state.itemQuote ||
+    state.itemTable ||
+    state.itemMath ||
+    state.itemCode ||
+    !listOpen ||
+    state.listColumn === null ||
+    !isListContinuation(line, state.listColumn)
+  ) {
+    return false;
+  }
+  const parsed = parseAtxHeading(dedentToColumn(line, state.listColumn));
+  if (!parsed) {
+    return false;
+  }
+  sealProse(state, render);
+  state.itemHtml += heading(parsed.depth, parsed.text);
+  state.listLines = [];
+  state.loose = true;
+  state.listBreak = false;
+  writeListItem(state, render);
   return true;
 }
 

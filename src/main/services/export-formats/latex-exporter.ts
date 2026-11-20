@@ -889,6 +889,17 @@ function takeLatexHeading(
 ): boolean {
   const trimmed = readSourceLine(raw).text;
   const heading = parseAtxHeading(trimmed);
+  if (heading && listState.stack.length > 0 && isListContinuation(raw, listState.column ?? 2)) {
+    flushLatexProse(output, prose);
+    const cmd = getHeadingCommand(heading.depth);
+    output.push(
+      latexLabeledHeading(cmd, convertInlineFormatting(heading.text), heading.text, counts)
+    );
+    listState.break = false;
+    listState.paragraphBreak = true;
+    listState.itemLines = [];
+    return true;
+  }
   if (heading) {
     flushLatexProse(output, prose);
     resetListState(output, listState);

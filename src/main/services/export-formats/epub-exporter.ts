@@ -54,6 +54,7 @@ import {
   resetListItem,
   takeListItemCode,
   takeListItemFence,
+  takeListItemAtx,
   takeListItemRule,
   takeListItemSetext,
   takeListItemMath,
@@ -94,7 +95,8 @@ function splitExpandedChapters(content: string): {
     const fenced = fence !== null || nextFence !== null;
     const heading = fenced ? null : parseAtxHeading(line);
     fence = nextFence;
-    if (heading && heading.depth <= 2) {
+    const leading = line.length - line.trimStart().length;
+    if (heading && heading.depth <= 2 && leading < 2) {
       // Save previous chapter if it has content
       if (currentLines.length > 0 || chapters.length === 0) {
         chapters.push({
@@ -323,17 +325,19 @@ function closeEpubList(htmlLines: string[], state: EpubLineState): void {
   state.itemCode = null;
 }
 
+function takeEpubItemStructure(line: string, state: EpubLineState): boolean {
+  const open = state.lists.length > 0;
+  const heading = (level: number, text: string): string => epubHeading(state, level, text);
+  return (
+    takeListItemCode(state, line, renderMarkdownInline, open) ||
+    takeListItemSetext(state, line, heading, open) ||
+    takeListItemRule(state, line, renderMarkdownInline, open) ||
+    takeListItemAtx(state, line, renderMarkdownInline, heading, open)
+  );
+}
+
 function appendEpubLine(htmlLines: string[], line: string, state: EpubLineState): void {
-  if (
-    takeListItemCode(state, line, renderMarkdownInline, state.lists.length > 0) ||
-    takeListItemSetext(
-      state,
-      line,
-      (level, text) => epubHeading(state, level, text),
-      state.lists.length > 0
-    ) ||
-    takeListItemRule(state, line, renderMarkdownInline, state.lists.length > 0)
-  ) {
+  if (takeEpubItemStructure(line, state)) {
     return;
   }
   if (takeListItemFence(state, line, renderMarkdownInline, state.lists.length > 0)) {
