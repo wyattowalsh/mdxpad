@@ -1,7 +1,7 @@
 import { readCodeSpan } from './markdown-escape';
 
 export interface PhraseTag {
-  readonly kind: 'mark' | 'underline';
+  readonly kind: 'mark' | 'underline' | 'superscript' | 'subscript';
   readonly start: number;
   readonly end: number;
   readonly inner: string;
@@ -13,6 +13,10 @@ function phraseKind(name: string): PhraseTag['kind'] | null {
       return 'mark';
     case 'u':
       return 'underline';
+    case 'sup':
+      return 'superscript';
+    case 'sub':
+      return 'subscript';
     default:
       return null;
   }
@@ -22,7 +26,7 @@ function phraseAt(value: string, index: number): PhraseTag | null {
   if (value[index] !== '<') {
     return null;
   }
-  const match = /^<(mark|u)\b[^<>]*>([^<>]*)<\/\1>/i.exec(value.slice(index));
+  const match = /^<(mark|u|sup|sub)\b[^<>]*>([^<>]*)<\/\1>/i.exec(value.slice(index));
   const kind = phraseKind(match?.[1] ?? '');
   if (!match || kind === null) {
     return null;
@@ -30,7 +34,7 @@ function phraseAt(value: string, index: number): PhraseTag | null {
   return { kind, start: index, end: index + match[0].length, inner: match[2] ?? '' };
 }
 
-/** The next `<mark>` or `<u>` that is outside a code span. */
+/** The next inline HTML phrase that is outside a code span. */
 export function nextPhraseTag(value: string, from: number): PhraseTag | null {
   let index = from;
   while (index < value.length) {

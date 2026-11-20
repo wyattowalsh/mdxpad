@@ -53,6 +53,30 @@ describe('DocxExporter', () => {
     expect(output).not.toContain('&lt;b');
   });
 
+  it('raises and lowers HTML scripts', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'x<sup>y</sup> and a<sub>b</sub>\n',
+      outputPath: '/tmp/scripts.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('w:val="superscript"');
+    expect(xml).toContain('w:val="subscript"');
+    expect(xml).toContain('y');
+    expect(xml).toContain('>b<');
+    expect(xml).not.toContain('&lt;sup');
+    expect(xml).not.toContain('&lt;sub');
+  });
+
   it('highlights and underlines HTML phrases', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
@@ -516,6 +540,12 @@ describe('DocxExporter', () => {
       { text: ' now' },
     ]);
     expect(parseInlineFormatting('<u>hi</u>')).toEqual([{ text: 'hi', underline: true }]);
+    expect(parseInlineFormatting('x<sup>y</sup> and a<sub>n</sub>')).toEqual([
+      { text: 'x' },
+      { text: 'y', superScript: true },
+      { text: ' and a' },
+      { text: 'n', subScript: true },
+    ]);
     expect(parseInlineFormatting('`<mark>hi</mark>`')).toEqual([
       { text: '<mark>hi</mark>', code: true },
     ]);

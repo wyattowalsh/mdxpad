@@ -174,6 +174,8 @@ interface InlineSegment {
   strike?: boolean;
   underline?: boolean;
   highlight?: boolean;
+  superScript?: boolean;
+  subScript?: boolean;
   mathTex?: string;
 }
 
@@ -265,12 +267,18 @@ function parseCodeAndPlain(text: string): InlineSegment[] {
   return segments;
 }
 
-function phraseFlags(kind: PhraseTag['kind']): Pick<InlineSegment, 'highlight' | 'underline'> {
+function phraseFlags(
+  kind: PhraseTag['kind']
+): Pick<InlineSegment, 'highlight' | 'underline' | 'superScript' | 'subScript'> {
   switch (kind) {
     case 'mark':
       return { highlight: true };
     case 'underline':
       return { underline: true };
+    case 'superscript':
+      return { superScript: true };
+    case 'subscript':
+      return { subScript: true };
     default: {
       const unexpected: never = kind;
       return unexpected;
@@ -495,6 +503,8 @@ function styledRun(segment: InlineSegment, text: string, style?: string): TextRu
     ...(segment.strike ? { strike: true } : {}),
     ...(segment.underline ? { underline: {} } : {}),
     ...(segment.highlight ? { highlight: 'yellow' } : {}),
+    ...(segment.superScript ? { superScript: true } : {}),
+    ...(segment.subScript ? { subScript: true } : {}),
     ...(segment.code ? { font: { name: 'Courier New' } } : {}),
   });
 }

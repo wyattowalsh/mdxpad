@@ -981,6 +981,19 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('<h1');
   });
 
+  it('raises and lowers HTML scripts', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'x<sup>y</sup> and a<sub>b</sub>\n',
+      outputPath: '/tmp/scripts.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\textsuperscript{y}');
+    expect(written).toContain('\\textsubscript{b}');
+    expect(written).not.toContain('<sup>');
+    expect(written).not.toContain('<sub>');
+  });
+
   it('highlights and underlines HTML phrases', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

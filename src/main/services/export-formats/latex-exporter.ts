@@ -418,6 +418,10 @@ function latexPhraseWrap(kind: PhraseTag['kind'], inner: string): string {
       return `\\uline{${inner}}`;
     case 'mark':
       return `\\colorbox{yellow}{${inner}}`;
+    case 'superscript':
+      return `\\textsuperscript{${inner}}`;
+    case 'subscript':
+      return `\\textsubscript{${inner}}`;
     default: {
       const unexpected: never = kind;
       return unexpected;
