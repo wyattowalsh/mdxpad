@@ -1425,7 +1425,16 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
   switch (element.name) {
     case 'textarea':
       return renderTextarea(value, element, inner);
-    case 'output':
+    case 'output': {
+      const text = convertHtml(inner).trim();
+      const label =
+        attribute(openTagBefore(value, element.innerStart), 'aria-label').trim() ||
+        attribute(openTagBefore(value, element.innerStart), 'title').trim();
+      if (label.length === 0 || text.includes(label)) {
+        return text;
+      }
+      return text.length > 0 ? `${text} (${label})` : label;
+    }
     case 'label':
       return convertHtml(inner);
     case 'button':
@@ -1602,6 +1611,15 @@ function firstPhrase(element: HtmlElement, value: string, inner: string): string
   );
 }
 
+function phraseStamp(value: string, element: HtmlElement, text: string): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  const stamp = attribute(openTag, 'datetime').trim() || attribute(openTag, 'cite').trim();
+  if (stamp.length === 0 || text.includes(stamp) || /^(?:javascript|data|file):/i.test(stamp)) {
+    return text;
+  }
+  return text.length > 0 ? `${text} (${stamp})` : stamp;
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
   const first = firstPhrase(element, value, inner);
   if (first !== null) {
@@ -1626,7 +1644,7 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
     case 'kbd':
       return renderKbd(inner);
     case 'ins':
-      return `<u>${inner}</u>`;
+      return phraseStamp(value, element, `<u>${inner}</u>`);
     case 'input':
       return renderInput(value, element);
     case 'abbr':

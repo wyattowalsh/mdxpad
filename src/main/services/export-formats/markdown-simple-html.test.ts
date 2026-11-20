@@ -167,6 +167,15 @@ describe('rewriteSimpleHtml', () => {
     expect(
       rewriteSimpleHtml('<select aria-label="Colorname"><option>Red</option></select>').trim()
     ).toBe('Colorname: Red');
+    expect(rewriteSimpleHtml('<output aria-label="Runningtotal">Fortytwo</output>').trim()).toBe(
+      'Fortytwo (Runningtotal)'
+    );
+    expect(rewriteSimpleHtml('<del datetime="2020-01-02">Removedwords</del>')).toBe(
+      '~~Removedwords~~ (2020-01-02)'
+    );
+    expect(rewriteSimpleHtml('<ins cite="file:///etc/passwd">Addedwords</ins>')).toBe(
+      '<u>Addedwords</u>'
+    );
     expect(
       rewriteSimpleHtml('<table summary="Sales table"><tr><td>Cellword</td></tr></table>').trim()
     ).toContain('Sales table');

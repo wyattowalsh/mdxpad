@@ -229,6 +229,21 @@ function gaugeName(
   return { kind: 'replace', text: label };
 }
 
+function stampName(props: Record<string, unknown>): VisibleName | undefined {
+  const cite = stringProp(props, 'cite');
+  const stamp =
+    stringProp(props, 'aria-label') ||
+    stringProp(props, 'ariaLabel') ||
+    stringProp(props, 'title') ||
+    stringProp(props, 'dateTime') ||
+    stringProp(props, 'datetime') ||
+    (cite.length > 0 && !/^(?:javascript|data|file):/i.test(cite) ? cite : '');
+  if (stamp.length === 0 || textOf(props.children).includes(stamp)) {
+    return undefined;
+  }
+  return { kind: 'note', text: stamp };
+}
+
 function selectName(props: Record<string, unknown>): VisibleName | undefined {
   const label =
     stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
@@ -288,13 +303,7 @@ function mediaNote(props: Record<string, unknown>): VisibleName | undefined {
   return labels.length > 0 ? { kind: 'note', text: labels.join(', ') } : undefined;
 }
 
-/** The visible name for a control, formula, or caption that would not paint its words. */
-export function visibleName(type: unknown, props: unknown): VisibleName | undefined {
-  const name = nameOf(type);
-  if (name === null || props === null || typeof props !== 'object') {
-    return undefined;
-  }
-  const record = props as Record<string, unknown>;
+function namedElement(name: string, record: Record<string, unknown>): VisibleName | undefined {
   switch (name) {
     case 'button':
       return buttonName(record);
@@ -308,6 +317,10 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
       return optionName(record);
     case 'select':
       return selectName(record);
+    case 'output':
+    case 'del':
+    case 'ins':
+      return stampName(record);
     case 'summary':
       return summaryName(record);
     case 'time':
@@ -336,4 +349,13 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
     default:
       return undefined;
   }
+}
+
+/** The visible name for a control, formula, or caption that would not paint its words. */
+export function visibleName(type: unknown, props: unknown): VisibleName | undefined {
+  const name = nameOf(type);
+  if (name === null || props === null || typeof props !== 'object') {
+    return undefined;
+  }
+  return namedElement(name, props as Record<string, unknown>);
 }

@@ -542,7 +542,72 @@ function revealRest(html: string, tag: string, name: string, end: number): Revea
   if (name === 'option') {
     return revealOption(html, tag, end);
   }
+  if (name === 'output') {
+    return revealOutput(html, tag, end);
+  }
+  if (name === 'del' || name === 'ins') {
+    return revealStamp(html, tag, name, end);
+  }
   return null;
+}
+
+function revealOutput(html: string, tag: string, end: number): Revealed | null {
+  const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
+  if (label.length === 0) {
+    return null;
+  }
+  const close = matchingClose(html, 'output', end);
+  if (!close) {
+    return { text: escapeText(label), next: end };
+  }
+  const inner = html.slice(end, close.innerEnd);
+  if (inner.includes(label)) {
+    return null;
+  }
+  const text = inner.replace(/<[^>]+>/g, '').trim();
+  const body = text.length > 0 ? `${inner} (${escapeText(label)})` : escapeText(label);
+  return { text: `${tag}${body}</output>`, next: close.next };
+}
+
+function withoutBlockedStamp(tag: string): string {
+  return tag.replace(
+    /\s+(?:cite|datetime)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi,
+    (
+      full,
+      doubleQuoted: string | undefined,
+      singleQuoted: string | undefined,
+      bare: string | undefined
+    ) => {
+      const value = (doubleQuoted ?? singleQuoted ?? bare ?? '').trim();
+      return /^(?:javascript|data|file):/i.test(value) ? '' : full;
+    }
+  );
+}
+
+function revealStamp(html: string, tag: string, name: string, end: number): Revealed | null {
+  const stamp = attribute(tag, 'datetime').trim() || attribute(tag, 'cite').trim();
+  if (/^(?:javascript|data|file):/i.test(stamp)) {
+    const close = matchingClose(html, name, end);
+    if (!close) {
+      return { text: withoutBlockedStamp(tag), next: end };
+    }
+    return {
+      text: `${withoutBlockedStamp(tag)}${html.slice(end, close.next)}`,
+      next: close.next,
+    };
+  }
+  if (stamp.length === 0) {
+    return null;
+  }
+  const close = matchingClose(html, name, end);
+  if (!close) {
+    return { text: escapeText(stamp), next: end };
+  }
+  const inner = html.slice(end, close.innerEnd);
+  if (inner.includes(stamp)) {
+    return null;
+  }
+  return { text: `${tag}${inner} (${escapeText(stamp)})</${name}>`, next: close.next };
 }
 
 function revealOption(html: string, tag: string, end: number): Revealed | null {

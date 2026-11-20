@@ -92,6 +92,16 @@ function linkLabel(inner: string): string | null {
   return label;
 }
 
+function stampSuffix(attrs: string): string {
+  const datetime = attrValue(attrs, 'datetime')?.trim() ?? '';
+  const cite = attrValue(attrs, 'cite')?.trim() ?? '';
+  const stamp = datetime.length > 0 ? datetime : cite;
+  if (stamp.length === 0 || /^(?:javascript|data|file):/i.test(stamp)) {
+    return '';
+  }
+  return ` (${stamp})`;
+}
+
 function promotedTag(name: string, attrs: string, inner: string): string | null {
   switch (name.toLowerCase()) {
     case 'em':
@@ -103,7 +113,7 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
     case 'del':
     case 's':
     case 'strike':
-      return `~~${inner}~~`;
+      return `~~${inner}~~${name.toLowerCase() === 'del' ? stampSuffix(attrs) : ''}`;
     case 'code':
       return inner.includes('`') ? null : `\`${inner}\``;
     case 'sub':

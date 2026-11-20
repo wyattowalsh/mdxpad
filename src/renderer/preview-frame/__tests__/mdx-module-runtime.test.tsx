@@ -364,6 +364,23 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('(Hypertext Markup)');
   });
 
+  it('shows a result name and a deletion date', async () => {
+    const source = [
+      '<output aria-label="Runningtotal">Fortytwo</output>',
+      '<del datetime="2020-01-02">Removedwords</del>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('stamp-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Runningtotal');
+    expect(container.textContent).toContain('Fortytwo');
+    expect(container.textContent).toContain('Removedwords');
+  });
+
   it('shows the name of a choice list', async () => {
     const source = '<select aria-label="Colorname"><option>Red</option></select>';
     const result = await compileMdx(testId('select-name'), source);

@@ -118,6 +118,21 @@ describe('printed html', () => {
     expect(image).not.toContain('file:');
   });
 
+  it('shows a result name and a deletion date', () => {
+    expect(
+      markdownToPdfHtml('<output aria-label="Runningtotal">Fortytwo</output>\n').replace(
+        /<[^>]+>/g,
+        ''
+      )
+    ).toContain('Fortytwo (Runningtotal)');
+    expect(
+      markdownToPdfHtml('<del datetime="2020-01-02">Removedwords</del>\n').replace(/<[^>]+>/g, '')
+    ).toContain('Removedwords (2020-01-02)');
+    const blocked = markdownToPdfHtml('<ins cite="file:///etc/passwd">Addedwords</ins>\n');
+    expect(blocked).toContain('Addedwords');
+    expect(blocked).not.toContain('file:');
+  });
+
   it('shows an image description', () => {
     expect(
       markdownToPdfHtml('<img src="https://example.com/a.png" alt="Altice">\n').replace(
