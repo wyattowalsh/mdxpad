@@ -260,6 +260,24 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('Info');
   });
 
+  it('uses a picture accessible name when the source has no alt', async () => {
+    const source = [
+      '<picture aria-label="Photolabel"><source srcset="https://example.com/a.webp" /></picture>',
+      '<picture aria-label="Other"><source srcset="https://example.com/b.webp" /><img alt="Cat" src="file:///tmp/a.png" /></picture>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('picture-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    const images = container.querySelectorAll('img');
+    expect(images[0]?.getAttribute('alt')).toBe('Photolabel');
+    expect(images[1]?.getAttribute('alt')).toBe('Cat');
+    expect(container.innerHTML).not.toContain('file:');
+  });
+
   it('shows a picture that only names its file in a source', async () => {
     const source = [
       '<picture><source srcset="https://example.com/a.webp" /></picture>',

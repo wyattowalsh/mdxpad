@@ -155,11 +155,15 @@ function pictureNode(
   if (elementName(type) !== 'picture' || props === null || typeof props !== 'object') {
     return undefined;
   }
-  const image = pictureImage((props as { readonly children?: unknown }).children);
+  const record = props as Record<string, unknown>;
+  const image = pictureImage(record.children);
   if (image === undefined) {
     return undefined;
   }
-  const next = { src: image.src, alt: image.alt };
+  const own =
+    (typeof record['aria-label'] === 'string' ? record['aria-label'].trim() : '') ||
+    (typeof record.ariaLabel === 'string' ? record.ariaLabel.trim() : '');
+  const next = { src: image.src, alt: image.alt.length > 0 ? image.alt : own };
   return key === undefined ? jsx('img', next) : jsx('img', next, key);
 }
 
