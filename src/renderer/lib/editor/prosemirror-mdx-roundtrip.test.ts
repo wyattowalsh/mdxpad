@@ -332,6 +332,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(serialized).not.toContain('\\*');
   });
 
+  it('keeps escaped backslashes in a footnote', () => {
+    const source = 'Note[^n]\n\n[^n]: \\\\(x\\\\\\)\n';
+    const saved = roundTrip(source);
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    const first = parseMdxContent(source)?.textContent ?? '';
+    const second = parseMdxContent(saved.endsWith('\n') ? saved : `${saved}\n`)?.textContent ?? '';
+    expect(second).toBe(first);
+    expect(again.replace(/\n$/, '')).toBe(saved.replace(/\n$/, ''));
+    expect(second).toContain('x');
+  });
+
   it('keeps extra backslashes in an image description', () => {
     const source = '![\\\\(x\\\\\\)](a.png)\n';
     const saved = roundTrip(source);

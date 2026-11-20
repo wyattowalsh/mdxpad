@@ -57,10 +57,18 @@ function texCloser(value: string, from: number, close: string): number {
   return -1;
 }
 
+function escapedBackslash(value: string, index: number): boolean {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === '\\'; cursor -= 1) {
+    count += 1;
+  }
+  return count % 2 === 1;
+}
+
 function takeTexMath(value: string, index: number): number {
   const display = value.startsWith('\\[', index);
   const inline = value.startsWith('\\(', index);
-  if (!display && !inline) {
+  if ((!display && !inline) || escapedBackslash(value, index)) {
     return -1;
   }
   const close = display ? '\\]' : '\\)';
