@@ -58,8 +58,7 @@ import {
   openingFence,
 } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
-import { expandLinkReferences } from './markdown-reference';
-import { plainFootnoteMarkers } from './markdown-footnote';
+import { preparedExportSource } from './markdown-simple-html';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
@@ -2279,10 +2278,8 @@ function parseContentToParagraphs(content: string): {
   const codeLines: string[] = [];
   const language = { current: '' };
 
-  const lines = plainFootnoteMarkers(
-    expandLinkReferences(
-      prepareMarkdownSource(sanitizeMarkdownHtmlBlocks(content), { preserveHtml: true })
-    )
+  const lines = preparedExportSource(
+    prepareMarkdownSource(sanitizeMarkdownHtmlBlocks(content), { preserveHtml: true })
   ).split('\n');
   parse.laterLines = lines;
   for (let index = 0; index < lines.length; index += 1) {

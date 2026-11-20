@@ -964,6 +964,23 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\sout{world}');
   });
 
+  it('formats an HTML list, wrapper, and heading', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<ul><li>One</li><li>Two</li></ul>\n\n<div>Hello <b>there</b></div>\n\n<h1>A<br>B</h1>\n',
+      outputPath: '/tmp/html-list.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\begin{itemize}');
+    expect(written).toContain('\\item One');
+    expect(written).toContain('\\item Two');
+    expect(written).toContain('\\textbf{there}');
+    expect(written).toContain('\\section{A B}');
+    expect(written).not.toContain('<ul>');
+    expect(written).not.toContain('<div>');
+    expect(written).not.toContain('<h1');
+  });
+
   it('highlights and underlines HTML phrases', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

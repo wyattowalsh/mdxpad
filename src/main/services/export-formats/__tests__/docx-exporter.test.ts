@@ -27,6 +27,32 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('formats an HTML list and a bold wrapper', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<ul><li>One</li><li>Two</li></ul>\n\n<div>\nHello <b>there</b>\n</div>\n',
+      outputPath: '/tmp/html-list.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); paras=xml.split("<w:p>")[1:]; texts=[" ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p)).strip() for p in paras]; print("\\n".join(texts)); print("---XML---"); print("bold" if "<w:b" in xml else "plain")',
+      ],
+      { input: buffer }
+    );
+    const output = extracted.stdout.toString();
+    expect(output).toContain('One');
+    expect(output).toContain('Two');
+    expect(output).toContain('Hello');
+    expect(output).toContain('there');
+    expect(output).toContain('bold');
+    expect(output).not.toContain('&lt;ul');
+    expect(output).not.toContain('&lt;div');
+    expect(output).not.toContain('&lt;b');
+  });
+
   it('highlights and underlines HTML phrases', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
