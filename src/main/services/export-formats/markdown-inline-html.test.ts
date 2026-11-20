@@ -270,6 +270,13 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('drops the list indent inside a wrapped code span', () => {
+    expect(markdownToPdfHtml('- `a\n  b`\n')).toContain('<code>a b</code>');
+    expect(markdownToPdfHtml('- `a\n    b`\n')).toContain('<code>a   b</code>');
+    expect(markdownToPdfHtml('1. `a\n   b`\n')).toContain('<code>a b</code>');
+    expect(markdownToPdfHtml('`a\n  b`\n')).toContain('<code>a   b</code>');
+  });
+
   it('keeps the paragraph after quoted code in the quote', () => {
     const html = markdownToPdfHtml('> item\n>\n>     code\n>\n> after\n');
     const quote = html.slice(html.indexOf('<blockquote>'), html.lastIndexOf('</blockquote>'));

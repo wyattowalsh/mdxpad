@@ -29,6 +29,13 @@ function trailingSlashes(line: string): number {
   return slashes;
 }
 
+/** A list continuation with the item indent removed and any extra spaces kept. */
+export function readListContinuation(line: string, column: number): SourceLine {
+  const expanded = line.replaceAll('\t', '    ');
+  const spaces = /^ */.exec(expanded)?.[0].length ?? 0;
+  return readSourceLine(expanded.slice(Math.min(spaces, Math.max(0, column))));
+}
+
 /** Read a Markdown line, keeping a hard break made with two spaces or one backslash. */
 export function readSourceLine(line: string): SourceLine {
   const leading = /^ */.exec(line)?.[0] ?? '';

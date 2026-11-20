@@ -17,7 +17,7 @@ import {
   type MarkdownListItem,
 } from './markdown-list';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
-import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { readListContinuation, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { renderDisplayMathBlock } from './markdown-inline-html';
 import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import { displayMathPrefix } from '@shared/lib/math-span';
@@ -375,7 +375,7 @@ export function continueListItem(
   ) {
     return false;
   }
-  state.listLines.push(readSourceLine(raw));
+  state.listLines.push(readListContinuation(raw, state.listColumn));
   const replaced = writeListItem(state, render);
   if (!replaced) {
     state.listLines.pop();
@@ -412,7 +412,7 @@ export function continueOpenList(
     state.listLines.length > 0 &&
     parts.at(-1)?.startsWith('<p>')
   ) {
-    state.listLines.push(readSourceLine(raw));
+    state.listLines.push(readListContinuation(raw, state.listColumn ?? 2));
     parts[parts.length - 1] = `<p>${renderListItemHtml(state.listLines, render)}</p>`;
     return true;
   }
@@ -456,7 +456,7 @@ function continueListParagraph(
   state.listColumn = frame.column;
   state.listBreak = false;
   state.loose = true;
-  state.listLines = [readSourceLine(raw)];
+  state.listLines = [readListContinuation(raw, frame.column)];
   if (!returned) {
     if (writeListItem(state, render)) {
       return true;

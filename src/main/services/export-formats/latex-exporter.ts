@@ -28,7 +28,7 @@ import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
 import { plainFootnoteMarkers } from './markdown-footnote';
 import { renderedSegments } from './markdown-marks';
-import { readSourceLine, type SourceLine } from './markdown-paragraph';
+import { readListContinuation, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
 import {
   continuesQuote,
@@ -768,7 +768,7 @@ function processListItem(
 }
 
 function writeLatexTail(output: string[], listState: ListState, raw: string): void {
-  const source = readSourceLine(raw);
+  const source = readListContinuation(raw, listState.column ?? 2);
   if (listState.paragraphBreak || !listState.tailLines) {
     listState.tailLines = [source];
     listState.paragraphBreak = false;
@@ -818,7 +818,7 @@ function takeLatexListContinuation(raw: string, output: string[], listState: Lis
   if (!last?.includes('\\item ')) {
     return false;
   }
-  listState.itemLines.push(readSourceLine(raw));
+  listState.itemLines.push(readListContinuation(raw, column));
   const at = last.lastIndexOf('\\item ');
   const prefix = last.slice(0, at + '\\item '.length);
   output[output.length - 1] = `${prefix}${renderLatexItem(listState.itemLines)}`;
