@@ -173,6 +173,8 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<del datetime="2020-01-02">Removedwords</del>')).toBe(
       '~~Removedwords~~ (2020-01-02)'
     );
+    expect(rewriteSimpleHtml('<del datetime="2020-01-02"></del>')).toBe('(2020-01-02)');
+    expect(rewriteSimpleHtml('<s></s>')).toBe('');
     expect(rewriteSimpleHtml('<ins cite="file:///etc/passwd">Addedwords</ins>')).toBe(
       '<u>Addedwords</u>'
     );

@@ -128,6 +128,10 @@ describe('printed html', () => {
     expect(
       markdownToPdfHtml('<del datetime="2020-01-02">Removedwords</del>\n').replace(/<[^>]+>/g, '')
     ).toContain('Removedwords (2020-01-02)');
+    const dated = markdownToPdfHtml('<del datetime="2020-01-02"></del>\n');
+    expect(dated).toContain('2020-01-02');
+    expect(dated).not.toContain('<pre>');
+    expect(markdownToPdfHtml('<s></s>\n')).not.toContain('<pre>');
     const blocked = markdownToPdfHtml('<ins cite="file:///etc/passwd">Addedwords</ins>\n');
     expect(blocked).toContain('Addedwords');
     expect(blocked).not.toContain('file:');

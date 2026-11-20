@@ -102,6 +102,13 @@ function stampSuffix(attrs: string): string {
   return ` (${stamp})`;
 }
 
+function struckPhrase(inner: string, suffix: string): string {
+  if (inner.length === 0) {
+    return suffix.trim();
+  }
+  return `~~${inner}~~${suffix}`;
+}
+
 function promotedTag(name: string, attrs: string, inner: string): string | null {
   switch (name.toLowerCase()) {
     case 'em':
@@ -113,7 +120,7 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
     case 'del':
     case 's':
     case 'strike':
-      return `~~${inner}~~${name.toLowerCase() === 'del' ? stampSuffix(attrs) : ''}`;
+      return struckPhrase(inner, name.toLowerCase() === 'del' ? stampSuffix(attrs) : '');
     case 'code':
       return inner.includes('`') ? null : `\`${inner}\``;
     case 'sub':
