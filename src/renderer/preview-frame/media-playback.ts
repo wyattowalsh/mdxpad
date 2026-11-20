@@ -71,6 +71,66 @@ function visibleFallback(node: unknown, sourceType: unknown, trackType: unknown)
   return !hiddenChild(node, sourceType, trackType);
 }
 
+function isSourceType(type: unknown): boolean {
+  return typeof type === 'string' && type.toLowerCase() === 'source';
+}
+
+function candidateAddress(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const kept = safePreviewSrcSet(value);
+  const url = kept?.split(',')[0]?.trim().split(/\s+/)[0];
+  return url && url.length > 0 ? url : undefined;
+}
+
+function mediaAddress(props: Record<string, unknown>): string | undefined {
+  if (playableAddress(props.src) && typeof props.src === 'string') {
+    return props.src;
+  }
+  return candidateAddress(props.srcSet) ?? candidateAddress(props.srcset);
+}
+
+function usablePictureImage(node: unknown): boolean {
+  const element = nodeParts(node);
+  return (
+    element !== null && !isSourceType(element.type) && mediaAddress(element.props) !== undefined
+  );
+}
+
+function sourceAddress(node: unknown): string | undefined {
+  const element = nodeParts(node);
+  if (element === null || !isSourceType(element.type)) {
+    return undefined;
+  }
+  return mediaAddress(element.props);
+}
+
+function pictureAlt(nodes: readonly unknown[]): string {
+  for (const node of nodes) {
+    const element = nodeParts(node);
+    if (element && !isSourceType(element.type) && typeof element.props.alt === 'string') {
+      return element.props.alt;
+    }
+  }
+  return '';
+}
+
+/** An image to show when a picture has a source and no usable image. */
+export function pictureImage(
+  children: unknown
+): { readonly src: string; readonly alt: string } | undefined {
+  const nodes = listed(children);
+  if (nodes.some((node) => usablePictureImage(node))) {
+    return undefined;
+  }
+  const src = nodes.map((node) => sourceAddress(node)).find((url) => url !== undefined);
+  if (src === undefined) {
+    return undefined;
+  }
+  return { src, alt: pictureAlt(nodes) };
+}
+
 /** Words to show when an embed cannot load. Undefined keeps the embed element. */
 export function embedReplacement(src: unknown, children: unknown, alt: unknown): unknown {
   if (playableAddress(src)) {

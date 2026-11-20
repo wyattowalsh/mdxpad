@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { BuiltInComponents } from './components';
-import { embedReplacement, showMediaFallback } from './media-playback';
+import { embedReplacement, pictureImage, showMediaFallback } from './media-playback';
 import { confinePreviewElement } from './preview-href';
 
 interface MDXComponentProps {
@@ -144,12 +144,33 @@ function embedNode(type: React.ElementType, props: unknown): React.ReactNode | u
   return replacement === undefined ? undefined : (replacement as React.ReactNode);
 }
 
+function pictureNode(
+  jsx: typeof jsxRuntime.jsx,
+  type: React.ElementType,
+  props: unknown,
+  key?: React.Key
+): React.ReactElement | undefined {
+  if (elementName(type) !== 'picture' || props === null || typeof props !== 'object') {
+    return undefined;
+  }
+  const image = pictureImage((props as { readonly children?: unknown }).children);
+  if (image === undefined) {
+    return undefined;
+  }
+  const next = { src: image.src, alt: image.alt };
+  return key === undefined ? jsx('img', next) : jsx('img', next, key);
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
   props: unknown,
   key?: React.Key
 ): React.ReactElement {
+  const picture = pictureNode(jsx, type, props, key);
+  if (picture !== undefined) {
+    return picture;
+  }
   const embed = embedNode(type, props);
   const replaced =
     embed !== undefined ||

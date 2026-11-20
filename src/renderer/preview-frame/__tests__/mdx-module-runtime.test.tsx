@@ -263,6 +263,33 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('Info');
   });
 
+  it('shows a picture that only names its file in a source', async () => {
+    const source = [
+      '<picture><source srcset="https://example.com/a.webp" /></picture>',
+      '<picture><source srcset="file:///tmp/a.webp 1x, https://example.com/b.webp 2x" /><img alt="Cat" src="file:///tmp/a.png" /></picture>',
+      '<picture><img alt="Dog" src="dog.png" /></picture>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('picture-source'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(
+      <module.default
+        components={previewComponents as unknown as NonNullable<MDXContentProps['components']>}
+      />
+    );
+    const images = [...container.querySelectorAll('img')];
+    expect(images.map((image) => image.getAttribute('src'))).toEqual([
+      'https://example.com/a.webp',
+      'https://example.com/b.webp',
+      'dog.png',
+    ]);
+    expect(images[1]?.getAttribute('alt')).toBe('Cat');
+    expect(container.innerHTML).not.toContain('file:');
+  });
+
   it('shows the words of a closed dialog and a popover', async () => {
     const source = '<dialog><p>Saved the note</p></dialog>\n\n<div popover>Popover words</div>';
     const result = await compileMdx(testId('dialog-popover'), source);
