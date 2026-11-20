@@ -105,6 +105,26 @@ describe('html-to-mdx-converter', () => {
     expect(result).toMatch(/[*-]{3}/);
   });
 
+  it('keeps a formula, a drawing, a caption, and a picture', async () => {
+    const formula = await convertHtmlToMdx('<math><mi>x</mi><mo>+</mo><mn>2</mn></math>');
+    expect(formula).toContain('x');
+    expect(formula).toContain('2');
+    const drawing = await convertHtmlToMdx('<svg><text>Box</text></svg>');
+    expect(drawing).toContain('Box');
+    const caption = await convertHtmlToMdx(
+      '<table><caption>Prices</caption><tr><td>Tea</td></tr></table>'
+    );
+    expect(caption).toContain('Prices');
+    expect(caption).toContain('Tea');
+    const picture = await convertHtmlToMdx(
+      '<picture><source srcset="https://example.com/a.webp"></picture>'
+    );
+    expect(picture).toContain('https://example.com/a.webp');
+    const sample = await convertHtmlToMdx('<pre>a < b</pre>');
+    expect(sample).toContain('a < b');
+    expect(sample).not.toContain('&lt;');
+  });
+
   it('should handle complex nested HTML', async () => {
     const html = `
       <div>
