@@ -19,6 +19,7 @@ import type {
 import type { CompileError } from '@shared/types/preview';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
 import { preparePreviewDollars } from '@shared/lib/preview-math-dollars';
+import { promoteTrailingDisplayMath } from '@shared/lib/promote-display-math';
 import type { OutlineAST } from '@shared/types/outline';
 import {
   createDefaultMdxPluginRegistry,
@@ -151,7 +152,9 @@ async function performCompilation(
 ): Promise<CompileResponse> {
   const vfile = new VFile({ value: source });
   matter(vfile, { strip: true });
-  vfile.value = preparePreviewDollars(prepareMarkdownSource(String(vfile.value)));
+  vfile.value = preparePreviewDollars(
+    promoteTrailingDisplayMath(prepareMarkdownSource(String(vfile.value)))
+  );
 
   const rawFrontmatter = (vfile.data.matter ?? {}) as Record<string, unknown>;
   const frontmatter = sanitizeFrontmatter(rawFrontmatter);
