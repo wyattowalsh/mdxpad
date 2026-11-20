@@ -901,6 +901,16 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps a bracket that belongs to a web address', () => {
+    const saved = roundTrip('See https://example.com/a<b> now\n');
+    expect(saved).toContain('https://example.com/a%3Cb%3E');
+    expect(saved).toContain('<b>');
+    expect(saved).not.toContain('example.com/a)');
+    const again = roundTrip(saved.endsWith('\n') ? saved : `${saved}\n`);
+    expect(again).toContain('https://example.com/a%3Cb%3E');
+    expect(again).not.toContain('example.com/a)');
+  });
+
   it('keeps nested emphasis on the same words', () => {
     expect(roundTrip('***foo** bar*\n')).toBe('***foo** bar*');
     expect(roundTrip('***foo* bar**\n')).toBe('***foo* bar**');

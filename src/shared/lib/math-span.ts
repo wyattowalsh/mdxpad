@@ -78,7 +78,7 @@ function dollarInUrl(raw: string, index: number): boolean {
     start -= 1;
   }
   const from = raw[start] === '(' ? start + 1 : start;
-  const match = /^https?:\/\/[^\s<]+/i.exec(raw.slice(from));
+  const match = /^https?:\/\/[^\s]+/i.exec(raw.slice(from));
   if (!match) {
     return false;
   }

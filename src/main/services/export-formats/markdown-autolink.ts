@@ -59,7 +59,7 @@ function readBareAutolink(raw: string, index: number): FoundAutolink | null {
   if (previous !== '' && !/[\s(]/.test(previous)) {
     return null;
   }
-  const match = /^https?:\/\/[^\s<]+/i.exec(raw.slice(index));
+  const match = /^https?:\/\/[^\s]+/i.exec(raw.slice(index));
   const url = match?.[0] === undefined ? '' : trimAutolinkTrail(match[0]);
   if (!url) {
     return null;
@@ -77,7 +77,7 @@ function readWwwAutolink(raw: string, index: number): FoundAutolink | null {
   if (!boundaryAllowsWww(previous)) {
     return null;
   }
-  const match = /^www\.[^\s<]+/i.exec(raw.slice(index));
+  const match = /^www\.[^\s]+/i.exec(raw.slice(index));
   const url = match?.[0] === undefined ? '' : trimAutolinkTrail(match[0]);
   const host = url.slice(4).split(/[/?#]/)[0] ?? '';
   if (!/^www\.\S/i.test(url) || !/[A-Za-z0-9]/.test(host)) {
