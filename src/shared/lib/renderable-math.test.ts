@@ -46,6 +46,13 @@ describe('renderableMathTex', () => {
     expect(katexMathTex('\\begin{proof}\\frac{1}{2}\\end{proof}')).toBe(
       '\\textbf{Proof. }\\frac{1}{2}'
     );
+    expect(katexMathTex('\\begin{claim}Ice floats.\\end{claim}')).toBe(
+      '\\textbf{Claim. }\\text{Ice floats.}'
+    );
+    expect(katexMathTex('\\begin{enumerate}\\item First item\\end{enumerate}')).toBe(
+      '\\text{First item}'
+    );
+    expect(katexMathTex('\\begin{verbatim}Code sample\\end{verbatim}')).toBe('\\text{Code sample}');
     expect(katexMathTex('\\mbox{a}')).toBe('\\text{a}');
     expect(renderableMathTex('\\begin{multline}a\\\\b\\end{multline}')).toBe(
       '\\begin{multline}a\\\\b\\end{multline}'

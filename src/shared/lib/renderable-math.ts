@@ -98,7 +98,11 @@ function inText(groups: readonly BraceGroup[]): boolean {
   return groups.some((group) => group.text);
 }
 
-function textSpecial(char: string, groups: readonly BraceGroup[], alignment: readonly boolean[]): string | null {
+function textSpecial(
+  char: string,
+  groups: readonly BraceGroup[],
+  alignment: readonly boolean[]
+): string | null {
   if (inText(groups) && char === '^') {
     return '\\textasciicircum{}';
   }
@@ -206,16 +210,31 @@ const STRIPPED_ENVIRONMENT = new Set(['math', 'subequations']);
 
 const PROSE_ENVIRONMENT = [
   'abstract',
+  'center',
+  'claim',
+  'conjecture',
   'corollary',
   'definition',
+  'description',
+  'enumerate',
   'example',
+  'exercise',
+  'itemize',
   'lemma',
+  'lstlisting',
   'note',
   'proof',
   'proposition',
+  'quote',
   'remark',
+  'solution',
   'theorem',
+  'verbatim',
+  'warning',
 ].join('|');
+
+const VERBATIM_ENVIRONMENT = new Set(['lstlisting', 'verbatim']);
+const LIST_ENVIRONMENT = new Set(['description', 'enumerate', 'itemize']);
 
 function escapeProse(body: string): string {
   return body
@@ -230,15 +249,44 @@ function escapeProse(body: string): string {
     .replaceAll('~', '\\textasciitilde{}');
 }
 
+function prosePiece(body: string): string {
+  const text = body.trim();
+  if (text.length === 0) {
+    return '';
+  }
+  return text.includes('\\') ? text : `\\text{${escapeProse(text)}}`;
+}
+
+function listItems(body: string): string {
+  return body
+    .split(/\\item/)
+    .map((part) => {
+      const labeled = /^\[([^\]]*)\]([\s\S]*)$/.exec(part.trim());
+      const label = labeled?.[1]?.trim() ?? '';
+      const text = prosePiece(labeled?.[2] ?? part);
+      if (label.length === 0) {
+        return text;
+      }
+      const named = prosePiece(label);
+      return text.length > 0 ? `\\textbf{${named}} ${text}` : `\\textbf{${named}}`;
+    })
+    .filter((part) => part.length > 0)
+    .join('\\\\ ');
+}
+
 function replaceProseEnvironments(source: string): string {
   return source.replace(
     new RegExp(`\\\\begin\\{(${PROSE_ENVIRONMENT})\\}([\\s\\S]*?)\\\\end\\{\\1\\}`, 'g'),
     (_match, name: string, body: string) => {
-      const label = name.charAt(0).toUpperCase() + name.slice(1);
-      if (body.includes('\\')) {
-        return `\\textbf{${label}. }${body}`;
+      if (VERBATIM_ENVIRONMENT.has(name)) {
+        return `\\text{${escapeProse(body)}}`;
       }
-      return `\\textbf{${label}. }\\text{${escapeProse(body)}}`;
+      if (LIST_ENVIRONMENT.has(name)) {
+        return listItems(body);
+      }
+      const label = name.charAt(0).toUpperCase() + name.slice(1);
+      const text = prosePiece(body);
+      return text.length > 0 ? `\\textbf{${label}. }${text}` : `\\textbf{${label}. }`;
     }
   );
 }

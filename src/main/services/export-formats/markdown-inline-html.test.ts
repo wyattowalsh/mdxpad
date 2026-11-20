@@ -68,6 +68,13 @@ describe('renderMarkdownInline', () => {
     const stated = renderDisplayMathBlock(['\\begin{theorem}', 'The ice melts.', '\\end{theorem}']);
     expect(stated).not.toContain('katex-error');
     expect(stated).toContain('ice');
+    const listed = renderDisplayMathBlock([
+      '\\begin{itemize}',
+      '\\item First item',
+      '\\end{itemize}',
+    ]);
+    expect(listed).not.toContain('katex-error');
+    expect(listed).toContain('First item');
     const water = renderDisplayMathBlock(['\\ce{H2O}']);
     expect(water).not.toContain('katex-error');
     expect(water).toContain('H');
@@ -109,7 +116,9 @@ describe('renderMarkdownInline', () => {
   });
 
   it('keeps a table inside a quoted list item', () => {
-    const html = markdownToPdfHtml('> - item\n>   | Name | Qty |\n>   | --- | --- |\n>   | Ada | 2 |\n');
+    const html = markdownToPdfHtml(
+      '> - item\n>   | Name | Qty |\n>   | --- | --- |\n>   | Ada | 2 |\n'
+    );
     expect(html).toContain('<table>');
     expect(html).toContain('<td>Ada</td>');
     expect(html).toContain('<td>2</td>');
@@ -798,7 +807,9 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('See <mark>hi</mark> now\n')).toContain('<mark>hi</mark>');
     expect(markdownToPdfHtml('See <u>there</u> now\n')).toContain('<u>there</u>');
     expect(markdownToPdfHtml('Say <em>hello</em> now\n')).toContain('<em>hello</em>');
-    expect(markdownToPdfHtml('Say <strong>hello</strong> now\n')).toContain('<strong>hello</strong>');
+    expect(markdownToPdfHtml('Say <strong>hello</strong> now\n')).toContain(
+      '<strong>hello</strong>'
+    );
     expect(markdownToPdfHtml('H<sub>2</sub>O\n')).toContain('H₂O');
     expect(markdownToPdfHtml('Before <img alt="sunset" src="pic.png"> after\n')).toContain(
       'alt="sunset"'
