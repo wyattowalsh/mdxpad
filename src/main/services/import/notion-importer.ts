@@ -22,6 +22,7 @@ interface NotionRichText {
     bold?: boolean;
     italic?: boolean;
     strikethrough?: boolean;
+    underline?: boolean;
     code?: boolean;
   };
   href?: string | null;
@@ -111,6 +112,7 @@ function extractRichText(richTexts: NotionRichText[]): string {
       if (rt.annotations?.bold) text = `**${text}**`;
       if (rt.annotations?.italic) text = `_${text}_`;
       if (rt.annotations?.strikethrough) text = `~~${text}~~`;
+      if (rt.annotations?.underline && text.length > 0) text = `<u>${text}</u>`;
       const href = safeHref(rt.href);
       if (href.length > 0 && text.length > 0 && text !== href) {
         text = `[${text}](${href})`;

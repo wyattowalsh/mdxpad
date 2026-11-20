@@ -133,6 +133,8 @@ describe('notion-importer', () => {
               { plain_text: 'bold', annotations: { bold: true } },
               { plain_text: ' and ', annotations: {} },
               { plain_text: 'italic', annotations: { italic: true } },
+              { plain_text: ' and ', annotations: {} },
+              { plain_text: 'underlined', annotations: { underline: true } },
             ],
           },
         },
@@ -150,6 +152,7 @@ describe('notion-importer', () => {
     const result = await importFromNotion('page-id', 'key');
     expect(result.content).toContain('**bold**');
     expect(result.content).toContain('_italic_');
+    expect(result.content).toContain('<u>underlined</u>');
   });
 
   it('should throw UNAUTHORIZED for 401 response', async () => {
