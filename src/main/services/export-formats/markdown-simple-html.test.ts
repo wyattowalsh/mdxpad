@@ -175,6 +175,17 @@ describe('rewriteSimpleHtml', () => {
     );
     expect(rewriteSimpleHtml('<del datetime="2020-01-02"></del>')).toBe('(2020-01-02)');
     expect(rewriteSimpleHtml('<s></s>')).toBe('');
+    expect(rewriteSimpleHtml('<strong></strong>')).toBe('');
+    expect(rewriteSimpleHtml('<strong>*</strong>')).toBe('\\*');
+    expect(rewriteSimpleHtml('<strong>Boldword</strong>')).toBe('**Boldword**');
+    expect(rewriteSimpleHtml('<em>Italicword</em>')).toBe('*Italicword*');
+    expect(rewriteSimpleHtml('<canvas aria-label="Sketchname"></canvas>').trim()).toBe(
+      'Sketchname'
+    );
+    expect(rewriteSimpleHtml('<canvas>Chart of sales</canvas>').trim()).toBe('Chart of sales');
+    expect(rewriteSimpleHtml('<img src="go.png" aria-label="Photolabel">').trim()).toBe(
+      '![Photolabel](go.png)'
+    );
     expect(rewriteSimpleHtml('<ins cite="file:///etc/passwd">Addedwords</ins>')).toBe(
       '<u>Addedwords</u>'
     );

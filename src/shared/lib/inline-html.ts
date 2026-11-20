@@ -109,14 +109,30 @@ function struckPhrase(inner: string, suffix: string): string {
   return `~~${inner}~~${suffix}`;
 }
 
+function isThematicBreak(line: string): boolean {
+  return /^([-*_])(?:\s*\1){2,}\s*$/.test(line.trim());
+}
+
+function markedPhrase(marker: string, inner: string): string {
+  if (inner.trim().length === 0) {
+    return '';
+  }
+  const marked = `${marker}${inner}${marker}`;
+  if (!isThematicBreak(marked)) {
+    return marked;
+  }
+  const loose = inner.trim();
+  return isThematicBreak(inner) || /^[*+-]$/.test(loose) ? `\\${inner}` : inner;
+}
+
 function promotedTag(name: string, attrs: string, inner: string): string | null {
   switch (name.toLowerCase()) {
     case 'em':
     case 'i':
-      return `*${inner}*`;
+      return markedPhrase('*', inner);
     case 'strong':
     case 'b':
-      return `**${inner}**`;
+      return markedPhrase('**', inner);
     case 'del':
     case 's':
     case 'strike':
@@ -211,7 +227,9 @@ function promotedImage(attrs: string, match: string): string {
   if (address === null) {
     return match;
   }
-  const alt = markdownImageAlt(attrValue(attrs, 'alt') ?? '');
+  const alt = markdownImageAlt(
+    (attrValue(attrs, 'alt') ?? '').trim() || (attrValue(attrs, 'aria-label') ?? '').trim()
+  );
   const described = imageDescription(attrs);
   const title = markdownImageTitle(attrValue(attrs, 'title'));
   const image = `![${alt}](${markdownImageDestination(address)}${title})`;

@@ -5,6 +5,18 @@ import { markdownToPdfHtml } from './pdf-exporter';
 describe('printed html', () => {
   it('shows words a canvas, a dialog, and a disclosure would hide', () => {
     expect(markdownToPdfHtml('<canvas>Chart of sales</canvas>\n')).toBe('<p>Chart of sales</p>');
+    expect(markdownToPdfHtml('<canvas aria-label="Sketchname"></canvas>\n')).toContain(
+      'Sketchname'
+    );
+    expect(markdownToPdfHtml('<strong></strong>\n')).not.toContain('<hr');
+    expect(markdownToPdfHtml('<b></b>\n')).not.toContain('<hr');
+    expect(markdownToPdfHtml('<strong>*</strong>\n')).toBe('<p>*</p>');
+    expect(
+      markdownToPdfHtml('<picture><source srcset="https://example.com/a.png"></picture>\n')
+    ).toContain('<img src="https://example.com/a.png"');
+    expect(
+      markdownToPdfHtml('<picture><source srcset="file:///tmp/a.png"></picture>\n')
+    ).not.toContain('file:');
     expect(markdownToPdfHtml('<dialog><p>Saved</p></dialog>\n')).toContain('<p>Saved</p>');
     expect(markdownToPdfHtml('<dialog><p>Saved</p></dialog>\n')).not.toContain('<dialog');
     const details = markdownToPdfHtml(

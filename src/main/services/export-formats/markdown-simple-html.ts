@@ -1620,7 +1620,20 @@ function phraseStamp(value: string, element: HtmlElement, text: string): string 
   return text.length > 0 ? `${text} (${stamp})` : stamp;
 }
 
+function renderCanvas(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner).trim();
+  const openTag = openTagBefore(value, element.innerStart);
+  const label = attribute(openTag, 'aria-label').trim() || attribute(openTag, 'title').trim();
+  if (label.length === 0 || text.includes(label)) {
+    return text.length > 0 ? blockWrap(text) : '';
+  }
+  return blockWrap(text.length > 0 ? `${text} (${label})` : label);
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  if (element.name === 'canvas') {
+    return renderCanvas(value, element, inner);
+  }
   const first = firstPhrase(element, value, inner);
   if (first !== null) {
     return first;

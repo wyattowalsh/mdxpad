@@ -186,12 +186,25 @@ interface Revealed {
   readonly next: number;
 }
 
+function canvasName(html: string, openEnd: number, inner: string): string {
+  const start = html.lastIndexOf('<', Math.max(0, openEnd - 1));
+  const tag = start === -1 ? '' : html.slice(start, openEnd);
+  const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
+  const text = inner.replace(/<[^>]+>/g, '').trim();
+  if (label.length === 0 || text.includes(label)) {
+    return inner;
+  }
+  return text.length > 0 ? `${inner} (${escapeText(label)})` : escapeText(label);
+}
+
 function unwrap(html: string, name: string, openEnd: number): Revealed | null {
   const close = matchingClose(html, name, openEnd);
   if (!close) {
     return null;
   }
-  return { text: revealPrintedHtml(html.slice(openEnd, close.innerEnd)), next: close.next };
+  const inner = revealPrintedHtml(html.slice(openEnd, close.innerEnd));
+  const text = name === 'canvas' ? canvasName(html, openEnd, inner) : inner;
+  return { text, next: close.next };
 }
 
 const WRITTEN_VALUE = new Set([
@@ -568,7 +581,52 @@ function revealRest(html: string, tag: string, name: string, end: number): Revea
   if (name === 'applet') {
     return revealApplet(html, tag, end);
   }
+  if (name === 'picture') {
+    return revealPicture(html, end);
+  }
   return null;
+}
+
+function safePictureAddress(value: string): string {
+  const url = value.trim().split(/\s+/)[0] ?? '';
+  if (
+    url.length === 0 ||
+    /^(?:javascript|data|file):/i.test(url) ||
+    url.startsWith('/') ||
+    url.startsWith('\\') ||
+    url.split(/[/\\]/).includes('..')
+  ) {
+    return '';
+  }
+  return url;
+}
+
+function pictureAddress(inner: string): string {
+  const match = /<source\b[^>]*\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i.exec(inner);
+  const srcset = match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
+  for (const part of srcset.split(',')) {
+    const url = safePictureAddress(part);
+    if (url.length > 0) {
+      return url;
+    }
+  }
+  return '';
+}
+
+function revealPicture(html: string, end: number): Revealed | null {
+  const close = matchingClose(html, 'picture', end);
+  if (!close) {
+    return null;
+  }
+  const inner = html.slice(end, close.innerEnd);
+  if (/<img\b/i.test(inner)) {
+    return { text: revealPrintedHtml(inner), next: close.next };
+  }
+  const src = pictureAddress(inner);
+  if (src.length === 0) {
+    return { text: revealPrintedHtml(inner.replace(/<source\b[^>]*>/gi, '')), next: close.next };
+  }
+  return { text: `<img src="${escapeText(src)}" alt="" />`, next: close.next };
 }
 
 function readableCite(tag: string): string {
