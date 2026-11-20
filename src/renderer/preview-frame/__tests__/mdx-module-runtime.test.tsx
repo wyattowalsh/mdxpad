@@ -155,10 +155,8 @@ describe('createModuleFromCode', () => {
     const { container } = render(<module.default />);
     expect(container.innerHTML).not.toContain('file:');
     expect(container.querySelector('a[href="/notes/a.md"]')?.textContent).toBe('doc');
-    expect(container.querySelector('img')?.getAttribute('src')).toBeNull();
-    expect(container.querySelector('img')?.getAttribute('srcset')).toBe(
-      'https://example.com/a.png 2x'
-    );
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a.png');
+    expect(container.querySelector('img')?.getAttribute('alt')).toBe('pic');
     const style = container.querySelector('div')?.getAttribute('style') ?? '';
     expect(style).not.toContain('file:');
     if (style.length > 0) {

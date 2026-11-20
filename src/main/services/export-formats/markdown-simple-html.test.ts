@@ -333,6 +333,17 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<plaintext>a < b')).toBe('a < b');
     expect(
       rewriteSimpleHtml(
+        '<img alt="Cat" srcset="https://example.com/a.webp 1x, https://example.com/b.webp 2x">'
+      ).trim()
+    ).toBe('![Cat](https://example.com/a.webp)');
+    expect(
+      rewriteSimpleHtml(
+        '<img alt="Cat" src="file:///tmp/a.png" srcset="https://example.com/b.webp 2x">'
+      ).trim()
+    ).toBe('![Cat](https://example.com/b.webp)');
+    expect(rewriteSimpleHtml('<img alt="Cat" src="cat.png">').trim()).toBe('![Cat](cat.png)');
+    expect(
+      rewriteSimpleHtml(
         '<menu><menuitem>Cut</menuitem><menuitem label="Copy"></menuitem></menu>'
       ).trim()
     ).toBe('- Cut\n- Copy');

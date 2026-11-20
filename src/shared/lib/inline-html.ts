@@ -1,7 +1,6 @@
 import { readAngleTag } from './markdown-tags';
 
-const SIMPLE_TAG =
-  /<(em|i|strong|b|code|del|s|strike|sub|sup|a)(\s[^<>]*)?>([^<>]*)<\/\1>/gi;
+const SIMPLE_TAG = /<(em|i|strong|b|code|del|s|strike|sub|sup|a)(\s[^<>]*)?>([^<>]*)<\/\1>/gi;
 const HEADING_TAG = /<h([1-6])\b[^<>]*>([^<>]*)<\/h\1>/gi;
 
 const SUBSCRIPT: Record<string, string> = {
@@ -128,10 +127,9 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
 }
 
 function attrValue(attrs: string, name: string): string | null {
-  const match = new RegExp(
-    `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`,
-    'i'
-  ).exec(attrs);
+  const match = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i').exec(
+    attrs
+  );
   return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
 }
 
@@ -154,14 +152,37 @@ function markdownImageTitle(title: string | null): string {
   return ` "${title.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 }
 
+function usableImageAddress(destination: string | null): destination is string {
+  return (
+    destination !== null &&
+    destination.length > 0 &&
+    !/^(?:javascript|data|file):/i.test(destination)
+  );
+}
+
+function srcsetAddress(attrs: string): string | null {
+  const srcset = attrValue(attrs, 'srcset');
+  if (srcset === null) {
+    return null;
+  }
+  for (const part of srcset.split(',')) {
+    const url = part.trim().split(/\s+/)[0] ?? '';
+    if (usableImageAddress(url) && !/[\s()]/.test(url)) {
+      return url;
+    }
+  }
+  return null;
+}
+
 function promotedImage(attrs: string, match: string): string {
   const src = attrValue(attrs, 'src');
-  if (src === null || src.length === 0 || /^(?:javascript|data|file):/i.test(src)) {
+  const address = usableImageAddress(src) ? src : srcsetAddress(attrs);
+  if (address === null) {
     return match;
   }
   const alt = markdownImageAlt(attrValue(attrs, 'alt') ?? '');
   const title = markdownImageTitle(attrValue(attrs, 'title'));
-  return `![${alt}](${markdownImageDestination(src)}${title})`;
+  return `![${alt}](${markdownImageDestination(address)}${title})`;
 }
 
 function promotedVoid(name: 'hr' | 'img', attrs: string, match: string): string {
@@ -216,9 +237,12 @@ function promoteHeadings(value: string): string {
 export function promoteInlineHtml(value: string): string {
   let current = promoteVoids(value);
   for (let pass = 0; pass < 4; pass += 1) {
-    const next = current.replace(SIMPLE_TAG, (match, name: string, attrs: string | undefined, inner: string) => {
-      return promotedTag(name, attrs ?? '', inner) ?? match;
-    });
+    const next = current.replace(
+      SIMPLE_TAG,
+      (match, name: string, attrs: string | undefined, inner: string) => {
+        return promotedTag(name, attrs ?? '', inner) ?? match;
+      }
+    );
     if (next === current) {
       break;
     }
