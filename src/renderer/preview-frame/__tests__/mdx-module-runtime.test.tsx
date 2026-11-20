@@ -334,6 +334,23 @@ describe('createModuleFromCode', () => {
     expect(container.querySelector('textarea')?.value).toBe('Notes');
   });
 
+  it('shows a choice label and a summary title', async () => {
+    const source = [
+      '<option label="Boston"></option>',
+      '<details><summary title="The rest">More</summary>Body</details>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('choice-summary'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Boston');
+    expect(container.textContent).toContain('More (The rest)');
+    expect(container.textContent).toContain('Body');
+  });
+
   it('shows the words of a noscript block', async () => {
     const source = '<noscript><p>Enable the page</p></noscript>';
     const result = await compileMdx(testId('noscript-words'), source);

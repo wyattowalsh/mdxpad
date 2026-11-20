@@ -172,6 +172,26 @@ function textareaName(props: Record<string, unknown>): VisibleName | undefined {
   return label.length > 0 ? { kind: 'button', text: label } : undefined;
 }
 
+function optionName(props: Record<string, unknown>): VisibleName | undefined {
+  if (textOf(props.children).length > 0) {
+    return undefined;
+  }
+  const label = stringProp(props, 'label') || stringProp(props, 'value');
+  return label.length > 0 ? { kind: 'button', text: label } : undefined;
+}
+
+function summaryName(props: Record<string, unknown>): VisibleName | undefined {
+  const title = stringProp(props, 'title');
+  if (title.length === 0 || nodes(props.children).some((node) => parts(node) !== null)) {
+    return undefined;
+  }
+  const text = textOf(props.children);
+  if (title === text) {
+    return undefined;
+  }
+  return { kind: 'button', text: text.length === 0 ? title : `${text} (${title})` };
+}
+
 function inputName(props: Record<string, unknown>): VisibleName | undefined {
   const type = stringProp(props, 'type').toLowerCase();
   if (
@@ -223,6 +243,10 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
       return textareaName(record);
     case 'th':
       return headerName(record);
+    case 'option':
+      return optionName(record);
+    case 'summary':
+      return summaryName(record);
     case 'datalist':
       return listName(record);
     case 'math':

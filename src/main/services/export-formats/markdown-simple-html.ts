@@ -920,23 +920,35 @@ function renderDefinitions(inner: string): string {
   return blockWrap(parts.join('\n\n'));
 }
 
-function extractElement(value: string, name: string): { inner: string; rest: string } | null {
+function extractElement(
+  value: string,
+  name: string
+): { inner: string; rest: string; openTag: string } | null {
   let index = 0;
   while (index < value.length) {
     const element = value[index] === '<' ? readSimpleElement(value, index) : null;
     if (element?.name === name) {
       const inner = value.slice(element.innerStart, element.innerEnd);
       const rest = value.slice(0, index) + value.slice(element.end);
-      return { inner, rest };
+      return { inner, rest, openTag: value.slice(index, element.innerStart) };
     }
     index = element ? element.end : index + 1;
   }
   return null;
 }
 
+function aside(text: string, note: string): string {
+  if (note.length === 0 || note === text) {
+    return text;
+  }
+  return text.length === 0 ? note : `${text} (${note})`;
+}
+
 function renderDetails(inner: string): string {
   const summary = extractElement(inner, 'summary');
-  const label = summary ? cellText(summary.inner) : '';
+  const text = summary ? cellText(summary.inner) : '';
+  const title = summary ? attribute(summary.openTag, 'title').trim() : '';
+  const label = aside(text, title);
   const body = convertHtml(summary ? summary.rest : inner).trim();
   const heading = boldLabel(label);
   const parts = [heading, body].filter((part) => part.length > 0);
@@ -1172,6 +1184,16 @@ function renderTextarea(value: string, element: HtmlElement, inner: string): str
   return placeholder.length > 0 ? placeholder : attribute(openTag, 'aria-label').trim();
 }
 
+function optionText(value: string, element: HtmlElement, inner: string): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  const named = attribute(openTag, 'label').trim();
+  if (named.length > 0) {
+    return named;
+  }
+  const text = cellText(inner);
+  return text.length > 0 ? text : attribute(openTag, 'value').trim();
+}
+
 function renderButton(value: string, element: HtmlElement, inner: string): string {
   const text = convertHtml(inner).trim();
   if (text.length > 0) {
@@ -1360,7 +1382,7 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
     case 'optgroup':
       return renderChoices(inner).join(', ');
     case 'option':
-      return cellText(inner);
+      return optionText(value, element, inner);
     case 'progress':
     case 'meter':
       return renderGauge(value, element, inner);
@@ -1532,8 +1554,14 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
     case 'dt':
       return blockWrap(boldLabel(cellText(inner)));
     case 'dd':
-    case 'summary':
       return blockWrap(convertHtml(inner));
+    case 'summary':
+      return blockWrap(
+        aside(
+          convertHtml(inner).trim(),
+          attribute(openTagBefore(value, element.innerStart), 'title').trim()
+        )
+      );
     case 'details':
       return renderDetails(inner);
     case 'kbd':

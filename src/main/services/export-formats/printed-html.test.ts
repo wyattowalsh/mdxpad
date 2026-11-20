@@ -63,6 +63,9 @@ describe('printed html', () => {
     expect(markdownToPdfHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>\n')).toContain(
       'Qty (Quantity)'
     );
+    expect(
+      markdownToPdfHtml('<select><option>Red</option><option>Blue</option></select>\n')
+    ).toContain('Red, Blue');
   });
 
   it('leaves a formula inside a code sample alone', () => {

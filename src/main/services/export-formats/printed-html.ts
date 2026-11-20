@@ -247,6 +247,17 @@ function revealList(html: string, openEnd: number): Revealed | null {
   };
 }
 
+function revealSelect(html: string, openEnd: number): Revealed | null {
+  const close = matchingClose(html, 'select', openEnd);
+  if (!close) {
+    return null;
+  }
+  return {
+    text: escapeText(optionLabels(html.slice(openEnd, close.innerEnd)).join(', ')),
+    next: close.next,
+  };
+}
+
 function revealHeader(html: string, openEnd: number, tag: string): Revealed | null {
   const expansion = attribute(tag, 'abbr').trim();
   if (expansion.length === 0) {
@@ -283,6 +294,8 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
       return unwrap(html, name, end);
     case 'datalist':
       return revealList(html, end);
+    case 'select':
+      return revealSelect(html, end);
     case 'button':
       return revealButton(html, tag, end);
     case 'video':

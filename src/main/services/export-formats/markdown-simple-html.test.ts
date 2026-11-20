@@ -142,6 +142,13 @@ describe('rewriteSimpleHtml', () => {
       rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
     ).toContain('Qty (Quantity)');
     expect(rewriteSimpleHtml('<textarea aria-label="Notes"></textarea>').trim()).toBe('Notes');
+    expect(rewriteSimpleHtml('<option label="Boston"></option>')).toBe('Boston');
+    expect(rewriteSimpleHtml('<option value="Paris"></option>')).toBe('Paris');
+    expect(
+      rewriteSimpleHtml(
+        '<details><summary title="The rest">More</summary>\nBody\n</details>'
+      ).trim()
+    ).toBe('**More (The rest)**\n\nBody');
     expect(
       rewriteSimpleHtml(
         '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>'
