@@ -212,6 +212,29 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: equation');
   });
 
+  it('keeps the emoji on a callout', async () => {
+    const mockBlocks = {
+      results: [
+        {
+          type: 'callout',
+          callout: {
+            rich_text: [{ plain_text: 'Watch the ice', annotations: {} }],
+            icon: { type: 'emoji', emoji: '💡' },
+          },
+        },
+      ],
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(JSON.stringify(mockBlocks), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('> 💡 Watch the ice');
+  });
+
   it('keeps the rows of a table and the words inside a toggle', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const urlStr = url instanceof Request ? url.url : url.toString();

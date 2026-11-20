@@ -139,6 +139,15 @@ function combineBlock(type: string, own: string | null, nested: string): string 
   return `${own}\n${nested.trim()}\n`;
 }
 
+function calloutEmoji(data: Record<string, unknown>): string {
+  const icon = data.icon;
+  if (icon === null || typeof icon !== 'object') {
+    return '';
+  }
+  const emoji = (icon as { emoji?: unknown }).emoji;
+  return typeof emoji === 'string' ? emoji.trim() : '';
+}
+
 function getBlockContent(block: NotionBlock): string | null {
   const data = block[block.type] as Record<string, unknown> | undefined;
   if (!data) return null;
@@ -169,8 +178,11 @@ function getBlockContent(block: NotionBlock): string | null {
     }
     case 'quote':
       return `> ${text}\n`;
-    case 'callout':
-      return `> ${text}\n`;
+    case 'callout': {
+      const emoji = calloutEmoji(data);
+      const body = emoji.length > 0 ? `${emoji} ${text}`.trim() : text;
+      return `> ${body}\n`;
+    }
     case 'divider':
       return '---\n';
     case 'image':
