@@ -8,6 +8,9 @@
  */
 
 import { z } from 'zod';
+
+import '@shared/lib/katex-mhchem';
+
 import type { MdxPluginDefinition, MdxPipelinePlugin } from './plugin-pipeline';
 
 const katexOptionsSchema = z

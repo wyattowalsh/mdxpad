@@ -324,6 +324,16 @@ describe('remark math prices', () => {
     }
   });
 
+  it('renders a chemical formula', async () => {
+    const result = await compileMdx(testId('chem'), 'Water is $\\ce{H2O}$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('katex');
+      expect(result.code).not.toContain('katex-error');
+      expect(result.code).toContain('H');
+    }
+  });
+
   it('renders a formula written in words', async () => {
     const result = await compileMdx(testId('words'), 'Compare $n and m$.');
     expect(result.ok).toBe(true);

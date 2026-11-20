@@ -1,5 +1,7 @@
 import katex from 'katex';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+
+import '@shared/lib/katex-mhchem';
 import { Plugin, TextSelection, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 

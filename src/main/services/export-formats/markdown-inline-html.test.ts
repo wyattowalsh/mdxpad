@@ -65,6 +65,10 @@ describe('renderMarkdownInline', () => {
     expect(words).toContain('hello_world');
     const lines = renderDisplayMathBlock(['\\begin{multline}', 'a \\\\ b', '\\end{multline}']);
     expect(lines).not.toContain('katex-error');
+    const water = renderDisplayMathBlock(['\\ce{H2O}']);
+    expect(water).not.toContain('katex-error');
+    expect(water).toContain('H');
+    expect(water).toContain('O');
   });
 
   it('renders an escaped dollar inside a formula', () => {

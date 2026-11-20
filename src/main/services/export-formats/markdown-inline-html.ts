@@ -1,5 +1,6 @@
 import katex from 'katex';
 
+import '@shared/lib/katex-mhchem';
 import { normalizedHeadingFragment } from '@shared/lib/markdown-heading';
 import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
 
