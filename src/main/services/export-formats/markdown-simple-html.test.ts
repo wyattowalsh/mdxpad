@@ -38,6 +38,18 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<abbr title="Hypertext">HTML</abbr>')).toBe('HTML (Hypertext)');
   });
 
+  it('turns a quotation, a citation, a sample, and a time into text', () => {
+    expect(rewriteSimpleHtml('See <q>quoted</q> now')).toBe('See “quoted” now');
+    expect(rewriteSimpleHtml('Read <cite>Title</cite> and <var>x</var>')).toBe(
+      'Read *Title* and *x*'
+    );
+    expect(rewriteSimpleHtml('<samp>ok</samp>')).toBe('`ok`');
+    expect(rewriteSimpleHtml('Price <small>was $5</small>')).toBe('Price was $5');
+    expect(rewriteSimpleHtml('<time datetime="2020-01-01">then</time>')).toBe(
+      'then (2020-01-01)'
+    );
+  });
+
   it('turns an HTML table into a markdown table', () => {
     const html = [
       '<table>',

@@ -7,6 +7,8 @@ import { plainFootnoteMarkers } from './markdown-footnote';
 import { expandLinkReferences } from './markdown-reference';
 import type { TableAlign } from './markdown-table';
 
+const PHRASE = new Set(['cite', 'dfn', 'q', 'samp', 'small', 'time', 'var']);
+
 const UNWRAP = new Set([
   'article',
   'aside',
@@ -31,6 +33,7 @@ interface HtmlElement {
 function simpleName(name: string): boolean {
   return (
     UNWRAP.has(name) ||
+    PHRASE.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
     name === 'li' ||
@@ -352,6 +355,43 @@ function renderAbbr(value: string, element: HtmlElement): string {
   return title.length > 0 ? `${text} (${title})` : text;
 }
 
+function emphasized(text: string): string {
+  if (text.length === 0 || text.includes('*') || text.includes('_')) {
+    return text;
+  }
+  return `*${text}*`;
+}
+
+function renderTime(value: string, element: HtmlElement, text: string): string {
+  const openAt = value.lastIndexOf('<', Math.max(0, element.innerStart - 1));
+  const openTag = openAt === -1 ? '' : value.slice(openAt, element.innerStart);
+  const when = attribute(openTag, 'datetime').trim();
+  if (when.length === 0 || when === text) {
+    return text;
+  }
+  return `${text} (${when})`;
+}
+
+function renderInlineRole(element: HtmlElement, value: string, inner: string): string | null {
+  const text = cellText(inner);
+  switch (element.name) {
+    case 'q':
+      return text.length === 0 ? '' : `“${text}”`;
+    case 'cite':
+    case 'dfn':
+    case 'var':
+      return emphasized(text);
+    case 'samp':
+      return renderKbd(inner);
+    case 'small':
+      return text;
+    case 'time':
+      return renderTime(value, element, text);
+    default:
+      return null;
+  }
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'dl':
@@ -370,7 +410,7 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
     case 'abbr':
       return renderAbbr(value, element);
     default:
-      return null;
+      return renderInlineRole(element, value, inner);
   }
 }
 

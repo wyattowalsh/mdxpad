@@ -53,6 +53,31 @@ describe('DocxExporter', () => {
     expect(output).not.toContain('&lt;b');
   });
 
+  it('formats a quotation, a citation, and a time', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <q>quoted</q>, <cite>Title</cite>, and <time datetime="2020">then</time>\n',
+      outputPath: '/tmp/html-roles.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('quoted');
+    expect(xml).toContain('Title');
+    expect(xml).toContain('then (2020)');
+    expect(xml).toContain('<w:i');
+    expect(xml).not.toContain('&lt;q');
+    expect(xml).not.toContain('&lt;cite');
+    expect(xml).not.toContain('&lt;time');
+  });
+
   it('raises and lowers HTML scripts', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

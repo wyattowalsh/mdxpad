@@ -981,6 +981,21 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('<h1');
   });
 
+  it('formats a quotation, a citation, and a time', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <q>quoted</q>, <cite>Title</cite>, and <time datetime="2020">then</time>\n',
+      outputPath: '/tmp/html-roles.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('“quoted”');
+    expect(written).toContain('\\textit{Title}');
+    expect(written).toContain('then (2020)');
+    expect(written).not.toContain('<q>');
+    expect(written).not.toContain('<cite>');
+    expect(written).not.toContain('<time');
+  });
+
   it('raises and lowers HTML scripts', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
