@@ -172,5 +172,9 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('`$a & b$` and ```\n$$a & b$$\n```')).toContain('$$a & b$$');
     expect(prepareMarkdownSource('Price is $5 & $6$.')).not.toContain('\\&');
     expect(normalizeTexMath('\\[a & b\\]')).toContain('$$a \\& b$$');
+    expect(normalizeTexMath('[a\\[b\\]](https://example.com)')).toBe(
+      '[a\\[b\\]](https://example.com)'
+    );
+    expect(normalizeTexMath('[size $n^2$](https://example.com)')).toContain('$n^2$');
   });
 });

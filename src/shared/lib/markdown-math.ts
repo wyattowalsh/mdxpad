@@ -330,7 +330,7 @@ function angleAutolinkEnd(value: string, index: number): number {
   return match ? index + match[0].length : -1;
 }
 
-function shieldMath(value: string): { text: string; math: string[] } {
+function shieldMath(value: string, insideLabel = false): { text: string; math: string[] } {
   const math: string[] = [];
   let text = '';
   let index = 0;
@@ -349,7 +349,7 @@ function shieldMath(value: string): { text: string; math: string[] } {
     }
     const link = markdownLinkAt(value, index);
     if (link) {
-      const label = shieldMath(value.slice(link.labelStart, link.labelEnd));
+      const label = shieldMath(value.slice(link.labelStart, link.labelEnd), true);
       text += value.slice(index, link.labelStart);
       text += shiftMath(label.text, math.length);
       text += value.slice(link.labelEnd, link.end);
@@ -357,7 +357,9 @@ function shieldMath(value: string): { text: string; math: string[] } {
       index = link.end;
       continue;
     }
-    const span = takeDollarSpan(value, index) ?? takeTexSpan(value, index);
+    const texSpan =
+      insideLabel && value.startsWith('\\[', index) ? null : takeTexSpan(value, index);
+    const span = takeDollarSpan(value, index) ?? texSpan;
     if (span) {
       text += `${MATH_MARK}${math.length}${MATH_MARK}`;
       math.push(span);
@@ -488,7 +490,7 @@ function inlineFormula(interior: string): string {
   return renderableMathTex(isCurrencySpan(escaped) ? `{${escaped}}` : escaped);
 }
 
-function replaceTexMath(prose: string): string {
+function replaceTexMath(prose: string, insideLabel = false): string {
   let result = '';
   let index = 0;
   while (index < prose.length) {
@@ -507,12 +509,13 @@ function replaceTexMath(prose: string): string {
     const link = markdownLinkAt(prose, index);
     if (link) {
       result += prose.slice(index, link.labelStart);
-      result += replaceTexMath(prose.slice(link.labelStart, link.labelEnd));
+      result += replaceTexMath(prose.slice(link.labelStart, link.labelEnd), true);
       result += prose.slice(link.labelEnd, link.end);
       index = link.end;
       continue;
     }
-    const tex = texDelimiter(prose, index);
+    const tex =
+      insideLabel && prose.startsWith('\\[', index) ? null : texDelimiter(prose, index);
     if (tex) {
       result += tex.text;
       index = tex.next;

@@ -677,6 +677,13 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('\\[docs](https://example.com)')).toBe(
       '[docs](https://example.com)'
     );
+    expect(renderMarkdownInline('[a\\[b\\]](https://example.com)')).toBe(
+      '<a href="https://example.com">a[b]</a>'
+    );
+    expect(markdownToPdfHtml('[a\\[b\\]](https://example.com)\n')).toContain(
+      '<a href="https://example.com">a[b]</a>'
+    );
+    expect(markdownToPdfHtml('[a\\[b\\]](https://example.com)\n')).not.toContain('katex');
   });
 
   it('links a www address and a bare email', () => {
