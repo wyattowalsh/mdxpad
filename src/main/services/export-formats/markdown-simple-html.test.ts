@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+
 import { rewriteSimpleHtml } from './markdown-simple-html';
 
 describe('rewriteSimpleHtml', () => {
@@ -321,8 +323,14 @@ describe('rewriteSimpleHtml', () => {
       'Read the frames'
     );
     expect(rewriteSimpleHtml('A<spacer>B</spacer>C')).toBe('ABC');
-    expect(rewriteSimpleHtml('<xmp>Raw words</xmp>').trim()).toBe('Raw words');
-    expect(rewriteSimpleHtml('<plaintext>Kept words')).toBe('Kept words');
+    expect(rewriteSimpleHtml('<xmp>a < b</xmp>').trim()).toBe('```\na < b\n```');
+    expect(rewriteSimpleHtml('<listing>a < b</listing>').trim()).toBe('```\na < b\n```');
+    expect(
+      rewriteSimpleHtml(
+        prepareMarkdownSource('<listing>a < b</listing>', { preserveHtml: true })
+      ).trim()
+    ).toBe('```\na < b\n```');
+    expect(rewriteSimpleHtml('<plaintext>a < b')).toBe('a < b');
     expect(
       rewriteSimpleHtml(
         '<menu><menuitem>Cut</menuitem><menuitem label="Copy"></menuitem></menu>'

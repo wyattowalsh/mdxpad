@@ -112,6 +112,7 @@ const UNCLOSED_HTML = new Set([
   'nav',
   'ol',
   'p',
+  'plaintext',
   'pre',
   'section',
   'span',

@@ -1352,7 +1352,6 @@ function renderPresentational(element: HtmlElement, value: string, inner: string
     case 'big':
     case 'blink':
     case 'font':
-    case 'listing':
     case 'marquee':
     case 'multicol':
     case 'nextid':
@@ -1361,8 +1360,10 @@ function renderPresentational(element: HtmlElement, value: string, inner: string
     case 'plaintext':
     case 'portal':
     case 'spacer':
-    case 'xmp':
       return convertHtml(inner);
+    case 'listing':
+    case 'xmp':
+      return renderPre(inner);
     case 'tt':
       return renderKbd(inner);
     case 'acronym':

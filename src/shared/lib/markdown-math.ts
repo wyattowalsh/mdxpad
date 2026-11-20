@@ -425,13 +425,16 @@ const KEPT_HTML = new Set([
   'header',
   'main',
   'nav',
+  'listing',
   'ol',
   'p',
+  'plaintext',
   'pre',
   'script',
   'section',
   'style',
   'table',
+  'xmp',
   'textarea',
   'ul',
 ]);
@@ -548,8 +551,7 @@ function replaceTexMath(prose: string, insideLabel = false): string {
       index = link.end;
       continue;
     }
-    const tex =
-      insideLabel && prose.startsWith('\\[', index) ? null : texDelimiter(prose, index);
+    const tex = insideLabel && prose.startsWith('\\[', index) ? null : texDelimiter(prose, index);
     if (tex) {
       result += tex.text;
       index = tex.next;

@@ -75,6 +75,15 @@ describe('normalizeTexMath', () => {
       '{css({ color: "red" })} and {(a)} and `{a <= b}`'
     );
     expect(prepareMarkdownSource('Use {foo: 1}')).toContain('\\{foo: 1\\}');
+    expect(prepareMarkdownSource('<listing>a < b</listing>', { preserveHtml: true })).toBe(
+      '<listing>a < b</listing>'
+    );
+    expect(prepareMarkdownSource('<xmp>a < b</xmp>', { preserveHtml: true })).toBe(
+      '<xmp>a < b</xmp>'
+    );
+    expect(prepareMarkdownSource('<plaintext>a < b', { preserveHtml: true })).toBe(
+      '<plaintext>a < b'
+    );
     expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
       'I &lt;3 this'
     );
