@@ -90,6 +90,25 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('On the Engine');
   });
 
+  it('keeps a subtitle, a month, a translator, and an ISBN', () => {
+    const entry: CitationEntry = {
+      id: 'ada1840',
+      type: 'book',
+      title: 'The Engine',
+      subtitle: 'A Study of Ice',
+      author: [{ family: 'Lovelace' }],
+      year: 1840,
+      month: 'jan',
+      translator: 'Charles Babbage',
+      isbn: '978-1-840-00000-1',
+    };
+    const formatted = formatCitation(entry, 'apa').formatted;
+    expect(formatted).toContain('The Engine: A Study of Ice');
+    expect(formatted).toContain('January');
+    expect(formatted).toContain('Charles Babbage');
+    expect(formatted).toContain('978-1-840-00000-1');
+  });
+
   describe('formatCitation', () => {
     describe('APA style', () => {
       it('should format article citation', () => {

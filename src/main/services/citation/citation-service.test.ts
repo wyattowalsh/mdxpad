@@ -158,6 +158,21 @@ describe('citation-service', () => {
       expect(result.entries[0]?.chapter).toBe('On the Engine');
     });
 
+    it('keeps a month, a subtitle, a translator, and an ISBN', () => {
+      const result = parseBibtex(`
+@book{ada1840,
+  title = {The Engine},
+  subtitle = {A Study of Ice},
+  translator = {Charles Babbage},
+  month = jan,
+  isbn = {978-1-840-00000-1}
+}`);
+      expect(result.entries[0]?.subtitle).toBe('A Study of Ice');
+      expect(result.entries[0]?.translator).toBe('Charles Babbage');
+      expect(result.entries[0]?.month).toBe('jan');
+      expect(result.entries[0]?.isbn).toBe('978-1-840-00000-1');
+    });
+
     it('should handle publisher field', () => {
       const bibtex = `
 @book{test,

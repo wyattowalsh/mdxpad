@@ -53,6 +53,41 @@ function formatAuthors(authors: AuthorRef[], style: CitationStyle): string {
   return `${allButLast.join(', ')}${separator}${last}`;
 }
 
+const MONTHS: Readonly<Record<string, string>> = {
+  jan: 'January',
+  feb: 'February',
+  mar: 'March',
+  apr: 'April',
+  may: 'May',
+  jun: 'June',
+  jul: 'July',
+  aug: 'August',
+  sep: 'September',
+  oct: 'October',
+  nov: 'November',
+  dec: 'December',
+};
+
+function monthName(value: string | undefined): string | undefined {
+  const text = value?.trim() ?? '';
+  if (text.length === 0) {
+    return undefined;
+  }
+  return MONTHS[text.toLowerCase()] ?? text;
+}
+
+function fullTitle(entry: CitationEntry): string {
+  const title = entry.title?.trim() ?? '';
+  const subtitle = entry.subtitle?.trim() ?? '';
+  if (title.length === 0) {
+    return subtitle;
+  }
+  if (subtitle.length === 0) {
+    return title;
+  }
+  return `${title}: ${subtitle}`;
+}
+
 function addBooktitle(parts: string[], entry: CitationEntry, rendered: string): void {
   if (entry.booktitle) {
     parts.push(rendered);
@@ -84,6 +119,9 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, editionLabel(entry.edition));
   addSentence(parts, entry.organization);
   addSentence(parts, entry.chapter ? `Ch. ${entry.chapter}` : undefined);
+  addSentence(parts, monthName(entry.month));
+  addSentence(parts, entry.translator ? `Trans. ${entry.translator}` : undefined);
+  addSentence(parts, entry.isbn ? `ISBN ${entry.isbn}` : undefined);
   addSentence(parts, entry.howpublished);
   addSentence(parts, entry.note);
 }
@@ -93,7 +131,8 @@ function formatApa(entry: CitationEntry): string {
   const authors = entry.author ? formatAuthors(entry.author, 'apa') : 'Unknown Author';
   const year = entry.year ? `(${entry.year})` : '(n.d.)';
   parts.push(`${authors} ${year}.`);
-  if (entry.title) parts.push(`${entry.title}.`);
+  const apaTitle = fullTitle(entry);
+  if (apaTitle.length > 0) parts.push(`${apaTitle}.`);
   if (entry.journal) {
     let journalPart = `_${entry.journal}_`;
     if (entry.volume) journalPart += `, _${entry.volume}_`;
@@ -113,7 +152,8 @@ function formatMla(entry: CitationEntry): string {
   const parts: string[] = [];
   const authors = entry.author ? formatAuthors(entry.author, 'mla') : 'Unknown Author';
   parts.push(`${authors}.`);
-  if (entry.title) parts.push(`"${entry.title}."`);
+  const mlaTitle = fullTitle(entry);
+  if (mlaTitle.length > 0) parts.push(`"${mlaTitle}."`);
   if (entry.journal) {
     let journalPart = `_${entry.journal}_`;
     if (entry.volume) journalPart += `, vol. ${entry.volume}`;
@@ -134,11 +174,12 @@ function formatChicago(entry: CitationEntry): string {
   const parts: string[] = [];
   const authors = entry.author ? formatAuthors(entry.author, 'chicago') : 'Unknown Author';
   parts.push(`${authors}.`);
-  if (entry.title) {
+  const chicagoTitle = fullTitle(entry);
+  if (chicagoTitle.length > 0) {
     if (entry.journal) {
-      parts.push(`"${entry.title}."`);
+      parts.push(`"${chicagoTitle}."`);
     } else {
-      parts.push(`_${entry.title}_.`);
+      parts.push(`_${chicagoTitle}_.`);
     }
   }
   if (entry.journal) {
@@ -161,7 +202,8 @@ function formatIeee(entry: CitationEntry): string {
   const parts: string[] = [];
   const authors = entry.author ? formatAuthors(entry.author, 'ieee') : 'Unknown Author';
   parts.push(`${authors},`);
-  if (entry.title) parts.push(`"${entry.title},"`);
+  const ieeeTitle = fullTitle(entry);
+  if (ieeeTitle.length > 0) parts.push(`"${ieeeTitle},"`);
   if (entry.journal) {
     let journalPart = `_${entry.journal}_`;
     if (entry.volume) journalPart += `, vol. ${entry.volume}`;
