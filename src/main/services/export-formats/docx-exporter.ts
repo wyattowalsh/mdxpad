@@ -999,7 +999,7 @@ function openQuotedListItem(
   depth: number,
   plans: OrderedNumberingPlan[]
 ): QuoteListCursor {
-  if (cursor.current) {
+  if (cursor.current && (cursor.current.text.length > 0 || !cursor.split)) {
     blocks.push(listParagraph(cursor.current, depth, cursor.reference));
   }
   const reference = nextOrderedReference(plans, cursor.open, cursor.reference, item);

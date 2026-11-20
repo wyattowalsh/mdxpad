@@ -27,6 +27,29 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('does not insert an empty paragraph between quoted list items', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '> - one\n>\n> - two\n',
+      outputPath: '/tmp/quoted-list-gap.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); paras=xml.split("<w:p>")[1:]; texts=[" ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p)).strip() for p in paras]; print("\\n".join(texts))',
+      ],
+      { input: buffer }
+    );
+    const texts = extracted.stdout
+      .toString()
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    expect(texts).toEqual(['one', 'two']);
+  });
+
   it('keeps a nested list that starts on the marker line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
