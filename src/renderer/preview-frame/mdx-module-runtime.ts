@@ -97,6 +97,20 @@ function droppedPreviewTag(type: React.ElementType): boolean {
   return typeof type === 'string' && DROPPED_PREVIEW_TAGS.has(type.toLowerCase());
 }
 
+function fallbackChildren(type: React.ElementType, props: unknown): React.ReactNode {
+  if (typeof type !== 'string') {
+    return undefined;
+  }
+  const name = type.toLowerCase();
+  if (name !== 'iframe' && name !== 'object') {
+    return undefined;
+  }
+  if (!props || typeof props !== 'object' || !('children' in props)) {
+    return undefined;
+  }
+  return (props as { children?: React.ReactNode }).children;
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
@@ -104,9 +118,11 @@ function confinedJsx(
   key?: React.Key
 ): React.ReactElement {
   if (droppedPreviewTag(type)) {
+    const children = fallbackChildren(type, props);
+    const fragmentProps = children === undefined ? {} : { children };
     return key === undefined
-      ? jsx(jsxRuntime.Fragment, {})
-      : jsx(jsxRuntime.Fragment, {}, key);
+      ? jsx(jsxRuntime.Fragment, fragmentProps)
+      : jsx(jsxRuntime.Fragment, fragmentProps, key);
   }
   const next = confinePreviewElement(type, props);
   if (key === undefined) {

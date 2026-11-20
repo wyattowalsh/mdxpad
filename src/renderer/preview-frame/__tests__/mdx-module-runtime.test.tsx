@@ -194,6 +194,26 @@ describe('createModuleFromCode', () => {
     expect(document.querySelector('a')?.getAttribute('href')).toBe('../notes/a.md');
   });
 
+  it('shows the fallback inside a frame without its address', async () => {
+    const source = [
+      '<iframe src="file:///etc/passwd">Read the page</iframe>',
+      '<object data="file:///etc/passwd">The report</object>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('frame-fallback'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.querySelector('iframe')).toBeNull();
+    expect(container.querySelector('object')).toBeNull();
+    expect(container.textContent).toContain('Read the page');
+    expect(container.textContent).toContain('The report');
+    expect(container.innerHTML).not.toContain('file:');
+    expect(container.innerHTML).not.toContain('passwd');
+  });
+
   it('does not render a script or a frame', async () => {
     const source = [
       '<script src="file:///etc/passwd">alert(1)</script>',
