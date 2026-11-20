@@ -97,9 +97,10 @@ function optionLabels(inner: string): string[] {
   return labels;
 }
 
-function mediaPieces(inner: string): { kept: string; words: string } {
+function mediaPieces(inner: string): { kept: string; words: string; labels: string[] } {
   let kept = '';
   let words = '';
+  const labels: string[] = [];
   let index = 0;
   while (index < inner.length) {
     const start = inner.indexOf('<', index);
@@ -115,7 +116,15 @@ function mediaPieces(inner: string): { kept: string; words: string } {
     }
     const tag = inner.slice(start, end);
     const name = tagName(tag);
+    if (name === 'track' && tag.startsWith('</')) {
+      index = end;
+      continue;
+    }
     if ((name === 'source' || name === 'track') && !tag.startsWith('</')) {
+      const label = name === 'track' ? attribute(tag, 'label') : '';
+      if (label.length > 0) {
+        labels.push(label);
+      }
       const close = tag.endsWith('/>') ? null : matchingClose(inner, name, end);
       const next = close?.next ?? end;
       kept += inner.slice(start, next);
@@ -125,7 +134,7 @@ function mediaPieces(inner: string): { kept: string; words: string } {
     words += tag;
     index = end;
   }
-  return { kept, words };
+  return { kept, words, labels };
 }
 
 function withoutAnnotations(inner: string): string {
@@ -202,8 +211,10 @@ function revealMedia(html: string, tag: string, name: string, openEnd: number): 
   }
   const pieces = mediaPieces(html.slice(openEnd, close.innerEnd));
   const words = revealPrintedHtml(pieces.words).trim();
+  const caption = pieces.labels.join(', ');
+  const body = words.length > 0 && caption.length > 0 ? `${words} (${caption})` : words || caption;
   const player = `${tag}${pieces.kept}</${name}>`;
-  return { text: words.length > 0 ? `${player}${words}` : player, next: close.next };
+  return { text: body.length > 0 ? `${player}${body}` : player, next: close.next };
 }
 
 function revealMath(html: string, start: number, openEnd: number): Revealed | null {
@@ -233,6 +244,9 @@ function revealList(html: string, openEnd: number): Revealed | null {
 function revealElement(html: string, start: number, end: number): Revealed | null {
   const tag = html.slice(start, end);
   const name = tagName(tag);
+  if ((name === 'track' || name === 'source') && tag.startsWith('</')) {
+    return { text: '', next: end };
+  }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
     return null;
   }

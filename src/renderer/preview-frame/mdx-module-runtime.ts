@@ -3,6 +3,7 @@ import * as jsxRuntime from 'react/jsx-runtime';
 import { BuiltInComponents } from './components';
 import { embedReplacement, pictureImage, showMediaFallback } from './media-playback';
 import { confinePreviewElement } from './preview-href';
+import { visibleName } from './visible-name';
 
 interface MDXComponentProps {
   readonly children?: React.ReactNode;
@@ -161,6 +162,22 @@ function pictureNode(
   return key === undefined ? jsx('img', next) : jsx('img', next, key);
 }
 
+function notedElement(
+  jsx: typeof jsxRuntime.jsx,
+  type: React.ElementType,
+  props: unknown,
+  text: string,
+  key?: React.Key
+): React.ReactElement {
+  const next = confinePreviewElement(type, props);
+  const player = jsx(type, next, 'player');
+  const caption = jsx('span', { children: text }, 'caption');
+  const fragmentProps = { children: [player, caption] };
+  return key === undefined
+    ? jsx(jsxRuntime.Fragment, fragmentProps)
+    : jsx(jsxRuntime.Fragment, fragmentProps, key);
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
@@ -172,6 +189,7 @@ function confinedJsx(
     return picture;
   }
   const embed = embedNode(type, props);
+  const named = visibleName(type, props);
   const replaced =
     embed !== undefined ||
     droppedPreviewTag(type) ||
@@ -179,10 +197,24 @@ function confinedJsx(
     blockedMedia(type, props);
   if (replaced) {
     const children = embed !== undefined ? embed : fallbackChildren(type, props);
-    const fragmentProps = children === undefined ? {} : { children };
+    const shown = named?.kind === 'note' ? [children, named.text] : children;
+    const fragmentProps = shown === undefined ? {} : { children: shown };
     return key === undefined
       ? jsx(jsxRuntime.Fragment, fragmentProps)
       : jsx(jsxRuntime.Fragment, fragmentProps, key);
+  }
+  if (named?.kind === 'replace') {
+    const fragmentProps = { children: named.text };
+    return key === undefined
+      ? jsx(jsxRuntime.Fragment, fragmentProps)
+      : jsx(jsxRuntime.Fragment, fragmentProps, key);
+  }
+  if (named?.kind === 'button' && props !== null && typeof props === 'object') {
+    const next = confinePreviewElement(type, { ...props, children: named.text });
+    return key === undefined ? jsx(type, next) : jsx(type, next, key);
+  }
+  if (named?.kind === 'note') {
+    return notedElement(jsx, type, props, named.text, key);
   }
   const next = confinePreviewElement(type, props);
   if (key === undefined) {

@@ -60,6 +60,23 @@ function closedVoid(raw: string): string {
 }
 
 /** Close a void tag without treating a quoted `>` as the end of the tag. */
+function followingVoidClose(value: string, index: number, name: string): number {
+  let cursor = index;
+  while (
+    value[cursor] === ' ' ||
+    value[cursor] === '\t' ||
+    value[cursor] === '\n' ||
+    value[cursor] === '\r'
+  ) {
+    cursor += 1;
+  }
+  const tag = value[cursor] === '<' ? readAngleTag(value, cursor) : null;
+  if (!tag?.closing || tag.name.toLowerCase() !== name.toLowerCase()) {
+    return index;
+  }
+  return tag.end;
+}
+
 function closeVoidTags(value: string): string {
   let result = '';
   let index = 0;
@@ -76,7 +93,7 @@ function closeVoidTags(value: string): string {
       continue;
     }
     result += closedVoid(value.slice(start, tag.end));
-    index = tag.end;
+    index = followingVoidClose(value, tag.end, tag.name);
   }
   return result;
 }

@@ -287,6 +287,30 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows a button name, a suggestion, a formula source, and a caption', async () => {
+    const source = [
+      '<button aria-label="Save the file"></button>',
+      '<datalist><option label="Shown">Hidden</option></datalist>',
+      '<math><semantics><annotation>x^2 + 1</annotation></semantics></math>',
+      '<math><semantics><mi>x</mi><annotation>secret</annotation></semantics></math>',
+      '<video src="https://example.com/clip.mp4"><track label="English captions" /></video>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('visible-names'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.querySelector('button')?.textContent).toBe('Save the file');
+    expect(container.textContent).toContain('Shown');
+    expect(container.textContent).not.toContain('Hidden');
+    expect(container.textContent).toContain('x^2 + 1');
+    expect(container.querySelector('mi')?.textContent).toBe('x');
+    expect(container.querySelector('video')).not.toBeNull();
+    expect(container.textContent).toContain('English captions');
+  });
+
   it('shows the words of a closed dialog and a popover', async () => {
     const source = '<dialog><p>Saved the note</p></dialog>\n\n<div popover>Popover words</div>';
     const result = await compileMdx(testId('dialog-popover'), source);

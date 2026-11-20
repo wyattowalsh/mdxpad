@@ -27,6 +27,15 @@ describe('printed html', () => {
     const video = markdownToPdfHtml('<video src="clip.mp4">Watch the clip</video>\n');
     expect(video).toContain('<video src="clip.mp4">');
     expect(video).toContain('</video>Watch the clip');
+    const caption = markdownToPdfHtml(
+      '<video src="clip.mp4"><track label="English captions"></video>\n'
+    );
+    expect(caption).toContain('English captions');
+    const lyrics = markdownToPdfHtml(
+      '<audio src="song.mp3"><track label="Lyrics"></track></audio>\n'
+    );
+    expect(lyrics).toContain('Lyrics');
+    expect(lyrics).not.toContain('</track>');
     expect(
       markdownToPdfHtml('<math><semantics><annotation>x^2 + 1</annotation></semantics></math>\n')
     ).toContain('x^2 + 1');
