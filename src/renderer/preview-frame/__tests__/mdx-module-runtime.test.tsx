@@ -535,6 +535,27 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('passwd');
   });
 
+  it('shows the name of a canvas that has no picture', async () => {
+    const source =
+      [
+        '<canvas aria-label="Sketchname"></canvas>',
+        '<canvas title="Sketchtitle"></canvas>',
+        '<canvas aria-label="Sketchname">Drawnwords</canvas>',
+      ].join('\n\n');
+    const result = await compileMdx(testId('canvas-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.querySelector('canvas')).toBeNull();
+    expect(container.textContent).toContain('Sketchname');
+    expect(container.textContent).toContain('Sketchtitle');
+    expect(container.textContent).toContain('Drawnwords');
+    expect(container.textContent).toContain('Drawnwords (Sketchname)');
+  });
+
   it('does not render a script or a frame', async () => {
     const source = [
       '<script src="file:///etc/passwd">alert(1)</script>',

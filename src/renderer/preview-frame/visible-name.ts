@@ -298,6 +298,19 @@ function frameName(props: Record<string, unknown>): VisibleName | undefined {
   return label.length > 0 ? { kind: 'replace', text: label } : undefined;
 }
 
+function canvasName(props: Record<string, unknown>): VisibleName | undefined {
+  const text = textOf(props.children);
+  const label =
+    stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
+  if (label.length === 0 || text.includes(label)) {
+    return undefined;
+  }
+  if (text.length === 0 && !nodes(props.children).some((node) => parts(node))) {
+    return { kind: 'replace', text: label };
+  }
+  return { kind: 'note', text: ` (${label})` };
+}
+
 function mediaNote(props: Record<string, unknown>): VisibleName | undefined {
   const labels = nodes(props.children).flatMap((node) => trackLabels(node));
   return labels.length > 0 ? { kind: 'note', text: labels.join(', ') } : undefined;
@@ -346,6 +359,8 @@ function namedElement(name: string, record: Record<string, unknown>): VisibleNam
     case 'object':
     case 'embed':
       return frameName(record);
+    case 'canvas':
+      return canvasName(record);
     default:
       return undefined;
   }
