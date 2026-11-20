@@ -202,6 +202,17 @@ describe('rewriteSimpleHtml', () => {
       ).trim()
     ).toBe('![Cat](cat.png)');
     expect(
+      rewriteSimpleHtml('<picture><source srcset="https://example.com/a.webp"></picture>').trim()
+    ).toBe('![](https://example.com/a.webp)');
+    expect(
+      rewriteSimpleHtml(
+        '<picture><source srcset="file:///tmp/a.webp 1x, https://example.com/a.webp 2x"><img alt="Cat" src="file:///tmp/a.png"></picture>'
+      ).trim()
+    ).toBe('![Cat](https://example.com/a.webp)');
+    expect(
+      rewriteSimpleHtml('<picture><source srcset="file:///tmp/a.webp"></picture>').trim()
+    ).toBe('');
+    expect(
       rewriteSimpleHtml(
         '<map name="m"><area alt="Top" href="https://example.com/top"></map>'
       ).trim()

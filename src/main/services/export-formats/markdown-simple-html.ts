@@ -1460,6 +1460,77 @@ function renderMenuItem(value: string, element: HtmlElement, inner: string): str
   return attribute(openTagBefore(value, element.innerStart), 'label').trim();
 }
 
+function imageAddress(destination: string): string {
+  const address = destination.trim();
+  if (
+    address.length === 0 ||
+    /^(?:javascript|data|file):/i.test(address) ||
+    address.startsWith('/') ||
+    address.startsWith('\\') ||
+    /[\s()]/.test(address)
+  ) {
+    return '';
+  }
+  return address;
+}
+
+function srcsetAddress(value: string): string {
+  for (const part of value.split(',')) {
+    const url = imageAddress(part.trim().split(/\s+/)[0] ?? '');
+    if (url.length > 0) {
+      return url;
+    }
+  }
+  return '';
+}
+
+function firstPictureSource(inner: string): string {
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (element?.name === 'source') {
+      const openTag = openTagBefore(inner, element.innerStart);
+      const address =
+        srcsetAddress(attribute(openTag, 'srcset')) || imageAddress(attribute(openTag, 'src'));
+      if (address.length > 0) {
+        return address;
+      }
+    }
+    index = element ? element.end : index + 1;
+  }
+  return '';
+}
+
+function pictureImageTag(inner: string): string {
+  let index = 0;
+  while (index < inner.length) {
+    if (inner[index] !== '<') {
+      index += 1;
+      continue;
+    }
+    const open = readAngleTag(inner, index);
+    if (open && !open.closing && open.name.toLowerCase() === 'img') {
+      return inner.slice(index, open.end);
+    }
+    index = open ? open.end : index + 1;
+  }
+  return '';
+}
+
+function renderPicture(inner: string): string {
+  const image = pictureImageTag(inner);
+  if (imageAddress(attribute(image, 'src')).length > 0) {
+    return blockWrap(convertHtml(inner));
+  }
+  const address = firstPictureSource(inner);
+  if (address.length > 0) {
+    const alt = attribute(image, 'alt').replace(/[\\[\]]/g, (char) => `\\${char}`);
+    return blockWrap(`![${alt}](${address})`);
+  }
+  const rendered = convertHtml(inner).trim();
+  return rendered.length > 0 ? blockWrap(rendered) : '';
+}
+
 function renderElement(element: HtmlElement, value: string): string {
   const inner = value.slice(element.innerStart, element.innerEnd);
   const phrase = renderPhrase(element, value, inner);
@@ -1482,6 +1553,8 @@ function renderElement(element: HtmlElement, value: string): string {
       return renderQuote(inner);
     case 'pre':
       return renderPre(inner);
+    case 'picture':
+      return renderPicture(inner);
     case 'table':
     case 'thead':
     case 'tbody':
