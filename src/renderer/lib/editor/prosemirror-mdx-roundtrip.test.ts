@@ -273,6 +273,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(indented).toContain('    continued');
   });
 
+  it('keeps a link address that starts on the next line', () => {
+    const saved = roundTrip('[id]:\nhttps://example.com\n');
+    expect(saved).toContain('[id]:');
+    expect(saved).toContain('https://example.com');
+    const angled = roundTrip('[id]:\n<https://example.com>\n');
+    expect(angled).toContain('<https://example.com>');
+    const titled = roundTrip('[id]:\nhttps://example.com\n  "Title"\n');
+    expect(titled).toContain('https://example.com');
+    expect(titled).toContain('"Title"');
+  });
+
   it('keeps a link title that starts on the next line', () => {
     const saved = roundTrip('[id]: https://example.com\n  "Title"\n');
     expect(saved).toContain('[id]: https://example.com');

@@ -248,6 +248,8 @@ function imageAlt(token: MarkdownToken): string {
 }
 
 const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
+const LABEL_ONLY = /^\s{0,3}\[(?!\^)[^\]]+\]:[ \t]*$/;
+const DESTINATION_LINE = /^ {0,3}(?:<[^>\n]*>|\S+)[ \t]*$/;
 const DEFINITION_TITLE = /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\([^)\n]*\))/;
 const DEFINITION_HAS_TITLE = new RegExp(`[ \\t]+${DEFINITION_TITLE.source}[ \\t]*$`);
 const TITLE_LINE = new RegExp(`^ {0,3}${DEFINITION_TITLE.source}[ \\t]*$`);
@@ -292,11 +294,37 @@ function restoreFootnoteMarkers(node: ProseMirrorNode): ProseMirrorNode {
 }
 const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
 
-function definitionWithTitle(line: string, next: string | undefined): { text: string; skip: boolean } {
-  if (next !== undefined && !DEFINITION_HAS_TITLE.test(line) && TITLE_LINE.test(next)) {
-    return { text: `${line.trim()}\n${next.trimEnd()}`, skip: true };
+function appendTitle(parts: string[], lines: readonly string[], cursor: number): number {
+  const current = parts[parts.length - 1] ?? '';
+  const title = lines[cursor];
+  if (title !== undefined && !DEFINITION_HAS_TITLE.test(current) && TITLE_LINE.test(title)) {
+    parts.push(title.trimEnd());
+    return cursor + 1;
   }
-  return { text: line.trim(), skip: false };
+  return cursor;
+}
+
+function continuedDefinition(
+  lines: readonly string[],
+  index: number
+): { text: string; next: number } | null {
+  const line = lines[index] ?? '';
+  const labelOnly = LABEL_ONLY.test(line);
+  if (!labelOnly && !LINK_DEFINITION.test(line)) {
+    return null;
+  }
+  const parts = [line.trimEnd()];
+  let cursor = index + 1;
+  if (labelOnly) {
+    const destination = lines[cursor];
+    if (destination === undefined || FENCE_LINE.test(destination) || !DESTINATION_LINE.test(destination)) {
+      return null;
+    }
+    parts.push(destination.trimEnd());
+    cursor += 1;
+  }
+  const next = appendTitle(parts, lines, cursor);
+  return { text: parts.join('\n'), next };
 }
 
 export function extractLinkDefinitions(body: string): string {
@@ -309,14 +337,15 @@ export function extractLinkDefinitions(body: string): string {
       inFence = !inFence;
       continue;
     }
-    if (inFence || !LINK_DEFINITION.test(line)) {
+    if (inFence) {
       continue;
     }
-    const definition = definitionWithTitle(line, lines[index + 1]);
-    definitions.push(definition.text);
-    if (definition.skip) {
-      index += 1;
+    const definition = continuedDefinition(lines, index);
+    if (!definition) {
+      continue;
     }
+    definitions.push(definition.text);
+    index = definition.next - 1;
   }
   return definitions.join('\n');
 }
