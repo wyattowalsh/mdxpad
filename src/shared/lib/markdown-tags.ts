@@ -318,6 +318,50 @@ function escapedAngle(value: string, index: number): boolean {
   return count % 2 === 1;
 }
 
+const RAW_ANGLE_REGIONS = new Set(['math', 'svg']);
+
+function closingName(value: string, open: number): string | null {
+  const match = /^<\/([A-Za-z][\w:-]*)\s*>/.exec(value.slice(open));
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function rawRegionEnd(value: string, tag: AngleTag): number | null {
+  if (tag.closing || tag.selfClosing || tag.fragment) {
+    return null;
+  }
+  const name = tag.name.toLowerCase();
+  if (!RAW_ANGLE_REGIONS.has(name)) {
+    return null;
+  }
+  let depth = 1;
+  let index = tag.end;
+  while (index < value.length && depth > 0) {
+    const next = value.indexOf('<', index);
+    if (next === -1) {
+      return null;
+    }
+    const closer = closingName(value, next);
+    if (closer === name) {
+      depth -= 1;
+      const end = value.indexOf('>', next);
+      if (end === -1) {
+        return null;
+      }
+      if (depth === 0) {
+        return end + 1;
+      }
+      index = end + 1;
+      continue;
+    }
+    const inner = readAngleTag(value, next);
+    if (inner && !inner.closing && !inner.selfClosing && inner.name.toLowerCase() === name) {
+      depth += 1;
+    }
+    index = inner ? inner.end : next + 1;
+  }
+  return null;
+}
+
 /** Escape `<...>` that is prose, including nested types, and leave real tags in place. */
 export function escapeLooseTags(value: string, prose: string): string {
   let result = '';
@@ -343,6 +387,12 @@ export function escapeLooseTags(value: string, prose: string): string {
     if (!tag) {
       result += '&lt;';
       index += 1;
+      continue;
+    }
+    const region = rawRegionEnd(value, tag);
+    if (region !== null) {
+      result += value.slice(index, region);
+      index = region;
       continue;
     }
     const raw = value.slice(index, tag.end);

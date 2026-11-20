@@ -84,6 +84,15 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('<plaintext>a < b', { preserveHtml: true })).toBe(
       '<plaintext>a < b'
     );
+    expect(prepareMarkdownSource('See <math><mtext>hello < there</mtext></math>.')).toContain(
+      'hello < there'
+    );
+    expect(prepareMarkdownSource('See <math><mtext>hello < there</mtext></math>.')).not.toContain(
+      '&lt;'
+    );
+    expect(prepareMarkdownSource('<svg><text>hello < there</text></svg>')).toContain(
+      'hello < there'
+    );
     expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
       'I &lt;3 this'
     );
