@@ -222,11 +222,22 @@ function writtenValue(type: string, value: string, rest: string): string {
   return value;
 }
 
+function imageButtonName(html: string, tag: string, end: number): string {
+  const alt = attribute(tag, 'alt').trim() || attribute(tag, 'aria-label').trim();
+  if (alt.length === 0 || html.slice(end).includes(alt)) {
+    return '';
+  }
+  return alt;
+}
+
 function inputCaption(html: string, tag: string, end: number): string {
   const type = attribute(tag, 'type').trim().toLowerCase();
   const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
   if (type === 'hidden') {
     return '';
+  }
+  if (type === 'image') {
+    return imageButtonName(html, tag, end);
   }
   if (type === 'checkbox') {
     return label.length === 0 || html.slice(end).includes(label) ? '' : label;
@@ -422,7 +433,7 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
   if ((name === 'track' || name === 'source') && tag.startsWith('</')) {
     return { text: '', next: end };
   }
-  if (name === 'input' || name === 'area' || name === 'img') {
+  if (name === 'input' || name === 'area' || name === 'img' || name === 'menuitem') {
     return revealVoid(html, tag, name, end);
   }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
@@ -472,6 +483,9 @@ function revealVoid(html: string, tag: string, name: string, end: number): Revea
   }
   if (name === 'area') {
     return revealArea(tag, end);
+  }
+  if (name === 'menuitem') {
+    return revealMenuItem(html, tag, end);
   }
   return revealImage(html, tag, end);
 }
@@ -548,7 +562,77 @@ function revealRest(html: string, tag: string, name: string, end: number): Revea
   if (name === 'del' || name === 'ins') {
     return revealStamp(html, tag, name, end);
   }
+  if (name === 'q' || name === 'blockquote') {
+    return revealCited(html, tag, name, end);
+  }
+  if (name === 'applet') {
+    return revealApplet(html, tag, end);
+  }
   return null;
+}
+
+function readableCite(tag: string): string {
+  const cite = attribute(tag, 'cite').trim();
+  if (cite.length === 0 || /^(?:javascript|data|file):/i.test(cite)) {
+    return '';
+  }
+  return cite;
+}
+
+function revealCited(html: string, tag: string, name: string, end: number): Revealed | null {
+  const cite = readableCite(tag);
+  if (cite.length === 0) {
+    return null;
+  }
+  const close = matchingClose(html, name, end);
+  if (!close) {
+    return { text: escapeText(cite), next: end };
+  }
+  const inner = html.slice(end, close.innerEnd);
+  if (inner.includes(cite)) {
+    return null;
+  }
+  const text = inner.replace(/<[^>]+>/g, '').trim();
+  const body = text.length > 0 ? `${inner} (${escapeText(cite)})` : escapeText(cite);
+  return { text: `${tag}${body}</${name}>`, next: close.next };
+}
+
+function revealApplet(html: string, tag: string, end: number): Revealed | null {
+  const alt = attribute(tag, 'alt').trim();
+  const close = matchingClose(html, 'applet', end);
+  if (!close) {
+    return alt.length > 0 ? { text: `${tag} ${escapeText(alt)}`, next: end } : null;
+  }
+  const inner = html.slice(end, close.innerEnd);
+  const text = inner.replace(/<[^>]+>/g, '').trim();
+  if (alt.length === 0 || text.includes(alt) || (text.length > 0 && !text.includes('&lt;'))) {
+    return null;
+  }
+  const body = text.length > 0 ? `${inner} ${escapeText(alt)}` : escapeText(alt);
+  return { text: `${tag}${body}</applet>`, next: close.next };
+}
+
+function revealMenuItem(html: string, tag: string, end: number): Revealed | null {
+  const named = attribute(tag, 'label').trim();
+  if (tag.startsWith('</')) {
+    return null;
+  }
+  if (tag.endsWith('/>')) {
+    return named.length > 0 ? { text: escapeText(named), next: end } : null;
+  }
+  const close = matchingClose(html, 'menuitem', end);
+  if (!close) {
+    return named.length > 0 ? { text: escapeText(named), next: end } : null;
+  }
+  const text = html
+    .slice(end, close.innerEnd)
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  const label = text.length > 0 ? text : named;
+  if (label.length === 0) {
+    return null;
+  }
+  return { text: escapeText(label), next: close.next };
 }
 
 function revealOutput(html: string, tag: string, end: number): Revealed | null {

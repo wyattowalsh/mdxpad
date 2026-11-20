@@ -207,6 +207,54 @@ describe('printed html', () => {
     );
   });
 
+  it('shows an image button, a command, a quotation source, and an applet name', () => {
+    const visible = (html: string): string => html.replace(/<[^>]+>/g, '');
+    expect(
+      visible(markdownToPdfHtml('<input type="image" alt="Searchgo" src="go.png">\n'))
+    ).toContain('Searchgo');
+    expect(
+      visible(
+        markdownToPdfHtml('<input type="image" alt="Searchgo" title="Findnotes" src="go.png">\n')
+      )
+    ).toContain('Searchgo');
+    expect(
+      visible(
+        markdownToPdfHtml('<input type="image" aria-label="Search" src="file:///tmp/go.png">\n')
+      )
+    ).toContain('Search');
+    const menu = visible(
+      markdownToPdfHtml('<menu><menuitem>Cut</menuitem><menuitem label="Copy"></menuitem></menu>\n')
+    );
+    expect(menu).toContain('Cut');
+    expect(menu).toContain('Copy');
+    const quote = visible(markdownToPdfHtml('<q cite="https://example.com/source">quoted</q>\n'));
+    expect(quote).toContain('quoted');
+    expect(quote).toContain('https://example.com/source');
+    const blocked = markdownToPdfHtml('<q cite="file:///etc/passwd">quoted</q>\n');
+    expect(visible(blocked)).toContain('quoted');
+    expect(blocked).not.toContain('file:');
+    expect(
+      visible(
+        markdownToPdfHtml(
+          '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>\n'
+        )
+      )
+    ).toContain('https://example.com/source');
+    expect(
+      visible(markdownToPdfHtml('<applet alt="Gameword" code="Game.class"></applet>\n'))
+    ).toContain('Gameword');
+    const named = visible(markdownToPdfHtml('<applet alt="Gameword">Innergame</applet>\n'));
+    expect(named).toContain('Innergame');
+    expect(named).not.toContain('Gameword');
+    expect(
+      visible(
+        markdownToPdfHtml(
+          '<applet alt="Gameword" code="Game.class"><param name="a" value="b"></applet>\n'
+        )
+      )
+    ).toContain('Gameword');
+  });
+
   it('leaves a formula inside a code sample alone', () => {
     const code = markdownToPdfHtml('```\n<canvas>Chart of sales</canvas>\n```\n');
     expect(code).toContain('&lt;canvas&gt;Chart of sales&lt;/canvas&gt;');
