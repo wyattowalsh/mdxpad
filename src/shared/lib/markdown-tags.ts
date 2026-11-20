@@ -309,6 +309,14 @@ export function angleDestinationEnd(value: string, index: number): number {
   return scanAngleEnd(value, index);
 }
 
+function escapedAngle(value: string, index: number): boolean {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === '\\'; cursor -= 1) {
+    count += 1;
+  }
+  return count % 2 === 1;
+}
+
 /** Escape `<...>` that is prose, including nested types, and leave real tags in place. */
 export function escapeLooseTags(value: string, prose: string): string {
   let result = '';
@@ -316,6 +324,11 @@ export function escapeLooseTags(value: string, prose: string): string {
   while (index < value.length) {
     if (value[index] !== '<') {
       result += value[index] ?? '';
+      index += 1;
+      continue;
+    }
+    if (escapedAngle(value, index)) {
+      result += '<';
       index += 1;
       continue;
     }
