@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from './markdown-entity';
 import { readCodeSpan } from './markdown-escape';
 import { readMarkdownTarget } from './markdown-link';
 
@@ -64,7 +65,7 @@ function readBareAutolink(raw: string, index: number): FoundAutolink | null {
   if (!url) {
     return null;
   }
-  const visible = unescapeAutolink(url);
+  const visible = autolinkText(url);
   return { href: visible, text: visible, length: url.length };
 }
 
@@ -79,11 +80,11 @@ function readWwwAutolink(raw: string, index: number): FoundAutolink | null {
   }
   const match = /^www\.[^\s]+/i.exec(raw.slice(index));
   const url = match?.[0] === undefined ? '' : trimAutolinkTrail(match[0]);
-  const host = url.slice(4).split(/[/?#]/)[0] ?? '';
-  if (!/^www\.\S/i.test(url) || !/[A-Za-z0-9]/.test(host)) {
+  const visible = autolinkText(url);
+  const host = visible.slice(4).split(/[/?#]/)[0] ?? '';
+  if (!/^www\.\S/i.test(visible) || !/[A-Za-z0-9]/.test(host)) {
     return null;
   }
-  const visible = unescapeAutolink(url);
   return { href: `http://${visible}`, text: visible, length: url.length };
 }
 
@@ -104,9 +105,20 @@ function readEmailAutolink(raw: string, index: number): FoundAutolink | null {
   return { href: `mailto:${visible}`, text: visible, length: email.length };
 }
 
+function closesEntity(url: string): boolean {
+  return /&(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#x[0-9A-Fa-f]+);$/.test(url);
+}
+
+function autolinkText(url: string): string {
+  return trimAutolinkTrail(decodeHtmlEntities(unescapeAutolink(url)));
+}
+
 function trimAutolinkTrail(value: string): string {
   let url = value;
   while (url.length > 0) {
+    if (closesEntity(url)) {
+      return url;
+    }
     const trimmed = url.replace(/[.,;:!?_*~'"]+$/, '');
     const open = trimmed.split('(').length - 1;
     const close = trimmed.split(')').length - 1;

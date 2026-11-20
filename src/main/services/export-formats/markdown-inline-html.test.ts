@@ -768,6 +768,12 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('&lt;ada@example.com&gt;\n')).toBe(
       '<p><a href="mailto:ada@example.com">ada@example.com</a></p>'
     );
+    expect(markdownToPdfHtml('https://example.com/a&amp;b=1\n')).toBe(
+      '<p><a href="https://example.com/a&amp;b=1">https://example.com/a&amp;b=1</a></p>'
+    );
+    expect(markdownToPdfHtml('www.example.com/a<b>\n')).toBe(
+      '<p><a href="http://www.example.com/a&lt;b&gt;">www.example.com/a&lt;b&gt;</a></p>'
+    );
     expect(renderMarkdownInline('`AT&amp;T`')).toBe('<code>AT&amp;amp;T</code>');
     expect(renderMarkdownInline('&ast;not italic&ast;')).toBe('*not italic*');
     expect(renderMarkdownInline('[docs](https://example.com?a=1&amp;b=2)')).toBe(
