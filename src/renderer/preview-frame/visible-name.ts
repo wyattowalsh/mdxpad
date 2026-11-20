@@ -192,6 +192,21 @@ function summaryName(props: Record<string, unknown>): VisibleName | undefined {
   return { kind: 'button', text: text.length === 0 ? title : `${text} (${title})` };
 }
 
+function emptyName(
+  props: Record<string, unknown>,
+  keys: readonly string[],
+  format: (value: string) => string
+): VisibleName | undefined {
+  if (
+    textOf(props.children).length > 0 ||
+    nodes(props.children).some((node) => parts(node) !== null)
+  ) {
+    return undefined;
+  }
+  const value = keys.map((key) => stringProp(props, key)).find((item) => item.length > 0) ?? '';
+  return value.length > 0 ? { kind: 'replace', text: format(value) } : undefined;
+}
+
 function inputName(props: Record<string, unknown>): VisibleName | undefined {
   const type = stringProp(props, 'type').toLowerCase();
   if (
@@ -247,6 +262,14 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
       return optionName(record);
     case 'summary':
       return summaryName(record);
+    case 'time':
+      return emptyName(record, ['dateTime', 'datetime'], (value) => `(${value})`);
+    case 'abbr':
+      return emptyName(record, ['title'], (value) => `(${value})`);
+    case 'dfn':
+      return emptyName(record, ['title'], (value) => value);
+    case 'data':
+      return emptyName(record, ['value'], (value) => value);
     case 'datalist':
       return listName(record);
     case 'math':

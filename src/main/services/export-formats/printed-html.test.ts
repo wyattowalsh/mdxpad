@@ -66,6 +66,12 @@ describe('printed html', () => {
     expect(
       markdownToPdfHtml('<select><option>Red</option><option>Blue</option></select>\n')
     ).toContain('Red, Blue');
+    expect(markdownToPdfHtml('<time datetime="2020-01-01"></time>\n')).toContain('(2020-01-01)');
+    expect(markdownToPdfHtml('<abbr title="Hypertext Markup"></abbr>\n')).toContain(
+      '(Hypertext Markup)'
+    );
+    expect(markdownToPdfHtml('<data value="forty-two"></data>\n')).toContain('forty-two');
+    expect(markdownToPdfHtml('<time datetime="2020-01-01">then</time>\n')).toContain('then');
   });
 
   it('leaves a formula inside a code sample alone', () => {

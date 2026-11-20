@@ -351,6 +351,19 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('Body');
   });
 
+  it('shows a date and an expansion that have no other text', async () => {
+    const source = '<time datetime="2020-01-01"></time>\n\n<abbr title="Hypertext Markup"></abbr>';
+    const result = await compileMdx(testId('empty-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('(2020-01-01)');
+    expect(container.textContent).toContain('(Hypertext Markup)');
+  });
+
   it('shows the words of a noscript block', async () => {
     const source = '<noscript><p>Enable the page</p></noscript>';
     const result = await compileMdx(testId('noscript-words'), source);

@@ -247,6 +247,32 @@ function revealList(html: string, openEnd: number): Revealed | null {
   };
 }
 
+function revealEmpty(
+  html: string,
+  openEnd: number,
+  tag: string,
+  name: string,
+  attr: string,
+  format: (value: string) => string
+): Revealed | null {
+  const label = attribute(tag, attr).trim();
+  if (label.length === 0) {
+    return null;
+  }
+  const close = matchingClose(html, name, openEnd);
+  if (!close) {
+    return null;
+  }
+  const inner = html
+    .slice(openEnd, close.innerEnd)
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  if (inner.length > 0) {
+    return null;
+  }
+  return { text: escapeText(format(label)), next: close.next };
+}
+
 function revealSelect(html: string, openEnd: number): Revealed | null {
   const close = matchingClose(html, 'select', openEnd);
   if (!close) {
@@ -296,6 +322,14 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
       return revealList(html, end);
     case 'select':
       return revealSelect(html, end);
+    case 'time':
+      return revealEmpty(html, end, tag, 'time', 'datetime', (value) => `(${value})`);
+    case 'abbr':
+      return revealEmpty(html, end, tag, 'abbr', 'title', (value) => `(${value})`);
+    case 'dfn':
+      return revealEmpty(html, end, tag, 'dfn', 'title', (value) => value);
+    case 'data':
+      return revealEmpty(html, end, tag, 'data', 'value', (value) => value);
     case 'button':
       return revealButton(html, tag, end);
     case 'video':
