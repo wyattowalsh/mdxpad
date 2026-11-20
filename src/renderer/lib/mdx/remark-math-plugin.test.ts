@@ -10,6 +10,16 @@ import { compileMdx } from './compile';
 const testId = (id: string): RequestId => id as RequestId;
 
 describe('remark math prices', () => {
+  it('renders the formula after a price', async () => {
+    const result = await compileMdx(testId('price-formula'), 'Pay $5 then $a*b$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('a*b');
+      expect(result.code).toContain('katex');
+      expect(result.code).not.toContain('$5 then $');
+    }
+  });
+
   it('leaves a price out of KaTeX', async () => {
     const result = await compileMdx(testId('price'), 'It costs $5 and $10 today.');
     expect(result.ok).toBe(true);

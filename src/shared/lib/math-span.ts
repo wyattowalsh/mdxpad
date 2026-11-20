@@ -317,6 +317,43 @@ export function displayMathPrefix(line: string): string | null {
   return match[1] ?? '';
 }
 
+/** Escape the opening `$` of a price so a later compiler does not steal the next formula. */
+export function escapeNonMathDollars(value: string): string {
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    if (value[index] === '\\') {
+      result += value.slice(index, index + 2);
+      index += 2;
+      continue;
+    }
+    const codeEnd = codeSpanEnd(value, index);
+    if (codeEnd !== -1) {
+      result += value.slice(index, codeEnd);
+      index = codeEnd;
+      continue;
+    }
+    if (value.startsWith('$$', index)) {
+      const displayEnd = mathSpanEnd(value, index, '$$');
+      const end = displayEnd === -1 ? index + 2 : displayEnd;
+      result += value.slice(index, end);
+      index = end;
+      continue;
+    }
+    const delimiter = value[index] === '$' ? mathDelimiterAt(value, index) : null;
+    const closer = delimiter === '$' ? mathCloserIndex(value, index + 1, '$') : -1;
+    const interior = closer === -1 ? '' : value.slice(index + 1, closer);
+    if (delimiter === '$' && closer !== -1 && isCurrencySpan(interior)) {
+      result += '\\$';
+      index += 1;
+      continue;
+    }
+    result += value[index] ?? '';
+    index += 1;
+  }
+  return result;
+}
+
 export function nextMathDelimiter(
   raw: string,
   from: number
