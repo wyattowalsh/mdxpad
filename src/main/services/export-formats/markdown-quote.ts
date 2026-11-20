@@ -364,6 +364,43 @@ function takeQuoteLine(
   return { kind, lines: [text] };
 }
 
+function quoteMathEdge(line: string): boolean {
+  return line.trim() === '$$' || displayMathPrefix(line) !== null;
+}
+
+function quoteMathRemainsOpen(lines: readonly string[]): boolean {
+  let open = false;
+  for (const line of lines) {
+    if (quoteMathEdge(line)) {
+      open = !open;
+    }
+  }
+  return open;
+}
+
+function mergeOpenQuoteMath(chunks: readonly QuoteChunk[]): QuoteChunk[] {
+  const merged: QuoteChunk[] = [];
+  let index = 0;
+  while (index < chunks.length) {
+    const chunk = chunks[index];
+    if (chunk?.kind !== 'paragraph' || !quoteMathRemainsOpen(chunk.lines)) {
+      if (chunk) merged.push(chunk);
+      index += 1;
+      continue;
+    }
+    const lines = [...chunk.lines];
+    index += 1;
+    while (index < chunks.length && quoteMathRemainsOpen(lines)) {
+      const next = chunks[index];
+      if (!next) break;
+      lines.push(...next.lines);
+      index += 1;
+    }
+    merged.push({ kind: 'paragraph', lines });
+  }
+  return merged;
+}
+
 export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   const chunks: QuoteChunk[] = [];
   let current: QuoteChunk | null = null;
@@ -388,7 +425,7 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
     }
   }
   takeChunk(chunks, current);
-  return chunks;
+  return mergeOpenQuoteMath(chunks);
 }
 
 function groupQuoteItems(lines: readonly string[]): {

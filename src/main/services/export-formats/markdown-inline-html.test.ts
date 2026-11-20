@@ -246,6 +246,15 @@ describe('renderMarkdownInline', () => {
     expect(ordered).not.toContain('<p>1.</p>');
   });
 
+  it('keeps a blank line inside a quoted formula', () => {
+    const html = markdownToPdfHtml('> Text $$\n>\n> x^2\n>\n> $$\n>\n> more\n');
+    expect(html).toContain('<p>Text</p>');
+    expect(html).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(html).toContain('<p>more</p>');
+    expect(html).not.toContain('<p>x^2</p>');
+    expect(html).not.toContain('<p>$$</p>');
+  });
+
   it('keeps a quoted formula that opens at the end of a line', () => {
     const html = markdownToPdfHtml('> Text $$\n> x^2\n> $$\n>\n> more\n');
     expect(html).toContain('<p>Text</p>');
