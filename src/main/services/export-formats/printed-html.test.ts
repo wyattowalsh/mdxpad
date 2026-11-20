@@ -129,9 +129,15 @@ describe('printed html', () => {
     expect(markdownToPdfHtml('<abbr title="Worldhealth">WHO</abbr>\n')).toContain(
       'WHO (Worldhealth)'
     );
-    expect(markdownToPdfHtml('<area alt="Northregion" href="https://example.com">\n')).toContain(
-      'Northregion'
-    );
+    expect(
+      markdownToPdfHtml('<area alt="Northregion" href="https://example.com" />\n').replace(
+        /<[^>]+>/g,
+        ''
+      )
+    ).toContain('Northregion');
+    expect(
+      markdownToPdfHtml('<option label="Visibleopt">Inneropt</option>\n').replace(/<[^>]+>/g, '')
+    ).toContain('Visibleopt');
     const blocked = markdownToPdfHtml('<area alt="Secret" href="file:///etc/passwd">\n');
     expect(blocked).toContain('Secret');
     expect(blocked).not.toContain('file:');

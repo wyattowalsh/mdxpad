@@ -420,8 +420,8 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
   if ((name === 'track' || name === 'source') && tag.startsWith('</')) {
     return { text: '', next: end };
   }
-  if (name === 'input') {
-    return revealInput(html, tag, end);
+  if (name === 'input' || name === 'area') {
+    return name === 'input' ? revealInput(html, tag, end) : revealArea(tag, end);
   }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
     return null;
@@ -513,16 +513,33 @@ function revealSummary(html: string, tag: string, end: number): Revealed | null 
 }
 
 function revealRest(html: string, tag: string, name: string, end: number): Revealed | null {
-  if (name === 'area') {
-    return revealArea(tag, end);
-  }
   if (name === 'textarea') {
     return revealTextarea(html, tag, end);
   }
   if (name === 'summary') {
     return revealSummary(html, tag, end);
   }
+  if (name === 'option') {
+    return revealOption(html, tag, end);
+  }
   return null;
+}
+
+function revealOption(html: string, tag: string, end: number): Revealed | null {
+  const named = attribute(tag, 'label').trim();
+  const close = matchingClose(html, 'option', end);
+  if (!close) {
+    return named.length > 0 ? { text: escapeText(named), next: end } : null;
+  }
+  const text = html
+    .slice(end, close.innerEnd)
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  const label = named.length > 0 ? named : text || attribute(tag, 'value').trim();
+  if (label.length === 0) {
+    return null;
+  }
+  return { text: escapeText(label), next: close.next };
 }
 
 /** Show words that a canvas, dialog, disclosure, or media element would hide. */
