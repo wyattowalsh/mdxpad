@@ -669,6 +669,18 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\texttt{a`b}');
   });
 
+  it('keeps a nested empty marker in the item', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- one\n  *\n',
+      outputPath: '/tmp/nested-empty.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\item one');
+    expect(written).toContain('*');
+    expect(written).not.toContain('\\item[*]');
+  });
+
   it('starts an ordered list at its written number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

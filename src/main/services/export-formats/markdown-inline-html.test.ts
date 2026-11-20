@@ -768,6 +768,9 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('foo\\\nbar\n')).not.toContain('foo\\');
     expect(markdownToPdfHtml('em\n* \n')).toBe('<p>em *</p>');
     expect(markdownToPdfHtml('em\n* star\n')).toContain('<li>star</li>');
+    expect(markdownToPdfHtml('- one\n  *\n')).toContain('one *');
+    expect(markdownToPdfHtml('- one\n  *\n')).not.toContain('<ul class="star">');
+    expect(markdownToPdfHtml('- one\n  * nested\n')).toContain('<ul class="star">');
     expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(
       '<p><a href="https://example.com">https://example.com</a></p>'
     );

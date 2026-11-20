@@ -64,6 +64,7 @@ import {
   listContentColumn,
   nestedListText,
   parseListItem,
+  proseStillOpen,
   shouldOpenListItem,
   type ListDelimiter,
   type MarkdownListItem,
@@ -791,6 +792,14 @@ function latexListFrames(stack: readonly LatexListFrame[]): {
   }));
 }
 
+function latexProseOpen(prose: readonly SourceLine[], listState: ListState): boolean {
+  return proseStillOpen(
+    prose.length > 0,
+    listState.break,
+    listState.itemLines.some((line) => line.text.trim().length > 0)
+  );
+}
+
 function indentedIntoList(raw: string, column: number): boolean {
   const spaces = /^ */.exec(raw.replaceAll('\t', '    '))?.[0].length ?? 0;
   return raw.trim().length > 0 && spaces >= column;
@@ -799,9 +808,10 @@ function indentedIntoList(raw: string, column: number): boolean {
 function takeLatexListContinuation(raw: string, output: string[], listState: ListState): boolean {
   const column = listState.column ?? 2;
   const marker = parseListItem(raw);
+  const itemOpen = latexProseOpen([], listState);
   const joinsMarker =
     marker !== null &&
-    !shouldOpenListItem(marker, latexListFrames(listState.stack), listState.break, false) &&
+    !shouldOpenListItem(marker, latexListFrames(listState.stack), listState.break, itemOpen) &&
     indentedIntoList(raw, column);
   if (listState.stack.length === 0 || (!isListContinuation(raw, column) && !joinsMarker)) {
     return false;
@@ -1092,7 +1102,12 @@ function processMarkdownLine(
   const marker = parseListItem(raw);
   const openMarker =
     marker !== null &&
-    shouldOpenListItem(marker, latexListFrames(listState.stack), listState.break, prose.length > 0);
+    shouldOpenListItem(
+      marker,
+      latexListFrames(listState.stack),
+      listState.break,
+      latexProseOpen(prose, listState)
+    );
   if (openMarker) {
     flushLatexProse(output, prose);
   }

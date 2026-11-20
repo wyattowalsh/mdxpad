@@ -13,6 +13,7 @@ import {
   pushHtmlListItem,
   renderListItemHtml,
   replaceHtmlListItem,
+  proseStillOpen,
   shouldOpenListItem,
   type HtmlListFrame,
   type MarkdownListItem,
@@ -408,7 +409,8 @@ export function continueOpenList(
     return false;
   }
   const marker = parseListItem(raw);
-  if (marker && shouldOpenListItem(marker, stack, state.listBreak, false)) {
+  const proseOpen = proseStillOpen(false, state.listBreak, itemHasText(state));
+  if (marker && shouldOpenListItem(marker, stack, state.listBreak, proseOpen)) {
     return false;
   }
   if (

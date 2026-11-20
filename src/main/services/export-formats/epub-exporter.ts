@@ -42,6 +42,7 @@ import {
   listContentColumn,
   parseListItem,
   pushHtmlListItem,
+  proseStillOpen,
   shouldOpenListItem,
   type HtmlListFrame,
   type MarkdownListItem,
@@ -486,7 +487,12 @@ function appendEpubFlow(htmlLines: string[], raw: string, state: EpubLineState):
     return;
   }
   const item = parseListItem(raw);
-  if (item && shouldOpenListItem(item, state.lists, state.listBreak, state.paragraph.length > 0)) {
+  const proseOpen = proseStillOpen(
+    state.paragraph.length > 0,
+    state.listBreak,
+    state.listLines.some((line) => line.text.trim().length > 0)
+  );
+  if (item && shouldOpenListItem(item, state.lists, state.listBreak, proseOpen)) {
     flushEpubParagraph(htmlLines, state);
     startEpubListItem(htmlLines, state, raw, item);
     return;

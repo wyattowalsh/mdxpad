@@ -120,6 +120,15 @@ export interface HtmlListFrame {
 }
 
 /** A new list may break a paragraph only when it is unordered or starts at 1. */
+/** A paragraph is still open in the body or in the current list item. */
+export function proseStillOpen(
+  paragraphOpen: boolean,
+  listBreak: boolean,
+  listHasText: boolean
+): boolean {
+  return paragraphOpen || (!listBreak && listHasText);
+}
+
 export function shouldOpenListItem(
   item: MarkdownListItem,
   stack: readonly { level: number; kind: 'ul' | 'ol'; delimiter: '' | ListDelimiter }[],
