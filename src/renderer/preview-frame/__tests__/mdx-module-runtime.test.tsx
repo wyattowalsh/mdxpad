@@ -469,6 +469,34 @@ describe('createModuleFromCode', () => {
     expect(container.querySelector('input[type="radio"]')).not.toBeNull();
   });
 
+  it('shows a clip caption, a track label, and a map area outside the player', async () => {
+    const source = [
+      '<video src="https://example.com/clip.mp4" title="Lecturetitle">Watch the clip</video>',
+      '<audio src="song.mp3"></audio>',
+      '<video src="file:///tmp/clip.mp4"></video>',
+      '<track label="Captionlabel" src="c.vtt" />',
+      '<area alt="Northregion" href="https://example.com" />',
+      '<area alt="Secret" href="file:///etc/passwd" />',
+    ].join('\n\n');
+    const result = await compileMdx(testId('clip-caption'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    const video = container.querySelector('video');
+    const outside = (container.textContent ?? '').replace(video?.textContent ?? '', '');
+    expect(outside).toContain('Watch the clip');
+    expect(outside).toContain('Lecturetitle');
+    expect(container.textContent).toContain('song.mp3');
+    expect(container.textContent).toContain('Captionlabel');
+    expect(container.textContent).toContain('Northregion');
+    expect(container.textContent).toContain('https://example.com');
+    expect(container.textContent).toContain('Secret');
+    expect(container.innerHTML).not.toContain('file:');
+  });
+
   it('shows a button name, a suggestion, a formula source, and a caption', async () => {
     const source = [
       '<button aria-label="Save the file"></button>',

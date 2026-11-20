@@ -363,9 +363,63 @@ function canvasName(props: Record<string, unknown>): VisibleName | undefined {
   return { kind: 'note', text: ` (${label})` };
 }
 
+function fallbackWords(value: unknown): string {
+  return nodes(value)
+    .map((node) => {
+      if (typeof node === 'string') {
+        return node.trim();
+      }
+      const element = parts(node);
+      if (element === null) {
+        return '';
+      }
+      const name = nameOf(element.type);
+      if (name === 'source' || name === 'track') {
+        return '';
+      }
+      return fallbackWords(element.props.children);
+    })
+    .filter((part) => part.length > 0)
+    .join(' ')
+    .trim();
+}
+
+function mediaAddress(props: Record<string, unknown>): string {
+  const src = stringProp(props, 'src');
+  if (src.length === 0 || /^(?:javascript|data|file):/i.test(src)) {
+    return '';
+  }
+  return src;
+}
+
+function mediaCaption(props: Record<string, unknown>): string {
+  const labels = nodes(props.children)
+    .flatMap((node) => trackLabels(node))
+    .join(', ');
+  const words = fallbackWords(props.children);
+  const title =
+    stringProp(props, 'title') || stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel');
+  const body = words.length > 0 && labels.length > 0 ? `${words} (${labels})` : words || labels;
+  if (title.length > 0 && !body.includes(title)) {
+    return body.length > 0 ? `${body} (${title})` : title;
+  }
+  return body.length > 0 ? body : mediaAddress(props);
+}
+
 function mediaNote(props: Record<string, unknown>): VisibleName | undefined {
-  const labels = nodes(props.children).flatMap((node) => trackLabels(node));
-  return labels.length > 0 ? { kind: 'note', text: labels.join(', ') } : undefined;
+  const text = mediaCaption(props);
+  return text.length > 0 ? { kind: 'note', text } : undefined;
+}
+
+function areaName(props: Record<string, unknown>): VisibleName | undefined {
+  const alt = stringProp(props, 'alt');
+  const href = stringProp(props, 'href');
+  const safe = /^https?:\/\//i.test(href) ? href : '';
+  if (alt.length === 0 && safe.length === 0) {
+    return undefined;
+  }
+  const text = alt.length > 0 && safe.length > 0 ? `${alt} (${safe})` : alt || safe;
+  return { kind: 'note', text };
 }
 
 function namedElement(name: string, record: Record<string, unknown>): VisibleName | undefined {
@@ -427,6 +481,10 @@ function namedExtra(name: string, record: Record<string, unknown>): VisibleName 
       return commandName(record);
     case 'applet':
       return appletName(record);
+    case 'track':
+      return commandName(record);
+    case 'area':
+      return areaName(record);
     default:
       return undefined;
   }
