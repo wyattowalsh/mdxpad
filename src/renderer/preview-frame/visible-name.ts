@@ -151,6 +151,27 @@ function trackLabels(node: unknown): string[] {
   return nodes(element.props.children).flatMap((child) => trackLabels(child));
 }
 
+function headerName(props: Record<string, unknown>): VisibleName | undefined {
+  const expansion = stringProp(props, 'abbr');
+  if (expansion.length === 0 || nodes(props.children).some((node) => parts(node) !== null)) {
+    return undefined;
+  }
+  const text = textOf(props.children);
+  if (expansion === text) {
+    return undefined;
+  }
+  const shown = text.length === 0 ? expansion : `${text} (${expansion})`;
+  return { kind: 'button', text: shown };
+}
+
+function textareaName(props: Record<string, unknown>): VisibleName | undefined {
+  if (textOf(props.children).length > 0 || stringProp(props, 'placeholder').length > 0) {
+    return undefined;
+  }
+  const label = stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel');
+  return label.length > 0 ? { kind: 'button', text: label } : undefined;
+}
+
 function inputName(props: Record<string, unknown>): VisibleName | undefined {
   const type = stringProp(props, 'type').toLowerCase();
   if (
@@ -198,6 +219,10 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
       return buttonName(record);
     case 'input':
       return inputName(record);
+    case 'textarea':
+      return textareaName(record);
+    case 'th':
+      return headerName(record);
     case 'datalist':
       return listName(record);
     case 'math':

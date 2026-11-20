@@ -139,6 +139,10 @@ describe('rewriteSimpleHtml', () => {
       'Save the file'
     );
     expect(
+      rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
+    ).toContain('Qty (Quantity)');
+    expect(rewriteSimpleHtml('<textarea aria-label="Notes"></textarea>').trim()).toBe('Notes');
+    expect(
       rewriteSimpleHtml(
         '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>'
       ).trim()

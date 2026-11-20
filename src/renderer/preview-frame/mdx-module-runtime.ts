@@ -186,7 +186,13 @@ function namedControl(
   text: string,
   key?: React.Key
 ): React.ReactElement {
-  const patch = elementName(type) === 'input' ? { value: text } : { children: text };
+  const name = elementName(type);
+  const patch =
+    name === 'textarea'
+      ? { defaultValue: text }
+      : name === 'input'
+        ? { value: text }
+        : { children: text };
   const next = confinePreviewElement(type, { ...props, ...patch });
   return key === undefined ? jsx(type, next) : jsx(type, next, key);
 }

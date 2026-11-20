@@ -318,6 +318,22 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows a header abbreviation and an empty note field', async () => {
+    const source = [
+      '<table><tbody><tr><th abbr="Quantity">Qty</th></tr></tbody></table>',
+      '<textarea aria-label="Notes"></textarea>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('header-note'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Qty (Quantity)');
+    expect(container.querySelector('textarea')?.value).toBe('Notes');
+  });
+
   it('shows the words of a noscript block', async () => {
     const source = '<noscript><p>Enable the page</p></noscript>';
     const result = await compileMdx(testId('noscript-words'), source);

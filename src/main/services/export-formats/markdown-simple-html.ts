@@ -702,6 +702,15 @@ function cellLines(text: string): string {
     .join('<br>');
 }
 
+function headerCell(value: string, element: HtmlElement, inner: string): string {
+  const text = cellText(inner);
+  const expansion = attribute(openTagBefore(value, element.innerStart), 'abbr').trim();
+  if (expansion.length === 0 || expansion === text) {
+    return text;
+  }
+  return text.length === 0 ? expansion : `${text} (${expansion})`;
+}
+
 function cellText(inner: string): string {
   const text = flattenNestedTables(convertHtml(inner)).replace(htmlBreakPattern(), '\n');
   return cellLines(text).replaceAll('|', '\\|').trim();
@@ -716,8 +725,9 @@ function rowCells(value: string): TableCell[] {
     if (element && (element.name === 'td' || element.name === 'th')) {
       const openAt = source.lastIndexOf('<', Math.max(0, element.innerStart - 1));
       const openTag = openAt === -1 ? '' : source.slice(openAt, element.innerStart);
+      const inner = source.slice(element.innerStart, element.innerEnd);
       cells.push({
-        text: cellText(source.slice(element.innerStart, element.innerEnd)),
+        text: element.name === 'th' ? headerCell(source, element, inner) : cellText(inner),
         align: cellAlign(openTag),
         colspan: spanCount(openTag, 'colspan'),
         rowspan: spanCount(openTag, 'rowspan'),
@@ -1157,7 +1167,9 @@ function renderTextarea(value: string, element: HtmlElement, inner: string): str
   if (text.length > 0) {
     return text;
   }
-  return attribute(openTagBefore(value, element.innerStart), 'placeholder').trim();
+  const openTag = openTagBefore(value, element.innerStart);
+  const placeholder = attribute(openTag, 'placeholder').trim();
+  return placeholder.length > 0 ? placeholder : attribute(openTag, 'aria-label').trim();
 }
 
 function renderButton(value: string, element: HtmlElement, inner: string): string {
@@ -1689,9 +1701,10 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'tr':
       return renderTable(element.name, inner);
     case 'caption':
-    case 'th':
     case 'td':
       return cellText(inner);
+    case 'th':
+      return headerCell(value, element, inner);
     case 'span':
       return convertHtml(inner);
     case 'h1':

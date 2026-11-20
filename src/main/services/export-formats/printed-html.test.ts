@@ -60,6 +60,9 @@ describe('printed html', () => {
       '<noscript'
     );
     expect(markdownToPdfHtml('<p hidden>Hidden words</p>\n')).toContain('hidden');
+    expect(markdownToPdfHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>\n')).toContain(
+      'Qty (Quantity)'
+    );
   });
 
   it('leaves a formula inside a code sample alone', () => {

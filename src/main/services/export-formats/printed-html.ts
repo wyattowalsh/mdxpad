@@ -247,6 +247,24 @@ function revealList(html: string, openEnd: number): Revealed | null {
   };
 }
 
+function revealHeader(html: string, openEnd: number, tag: string): Revealed | null {
+  const expansion = attribute(tag, 'abbr').trim();
+  if (expansion.length === 0) {
+    return null;
+  }
+  const close = matchingClose(html, 'th', openEnd);
+  if (!close) {
+    return null;
+  }
+  const inner = revealPrintedHtml(html.slice(openEnd, close.innerEnd));
+  if (inner.includes(expansion)) {
+    return { text: `${tag}${inner}</th>`, next: close.next };
+  }
+  const body =
+    inner.trim().length === 0 ? escapeText(expansion) : `${inner} (${escapeText(expansion)})`;
+  return { text: `${tag}${body}</th>`, next: close.next };
+}
+
 function revealElement(html: string, start: number, end: number): Revealed | null {
   const tag = html.slice(start, end);
   const name = tagName(tag);
@@ -272,6 +290,8 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
       return revealMedia(html, tag, name, end);
     case 'math':
       return revealMath(html, start, end);
+    case 'th':
+      return revealHeader(html, end, tag);
     default:
       return null;
   }
