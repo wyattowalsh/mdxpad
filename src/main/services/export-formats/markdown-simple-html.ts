@@ -19,6 +19,30 @@ const FORM = new Set([
   'select',
   'textarea',
 ]);
+const GROUP = new Set([
+  'address',
+  'center',
+  'dialog',
+  'fieldset',
+  'form',
+  'hgroup',
+  'map',
+  'picture',
+  'search',
+]);
+const EMBEDDED = new Set([
+  'area',
+  'audio',
+  'bdo',
+  'data',
+  'datalist',
+  'legend',
+  'source',
+  'track',
+  'video',
+]);
+const COMMAND = new Set(['dir', 'menu']);
+const VOID_HTML = new Set(['area', 'source', 'track']);
 const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 
 const UNWRAP = new Set([
@@ -47,6 +71,9 @@ function simpleName(name: string): boolean {
     UNWRAP.has(name) ||
     PHRASE.has(name) ||
     FORM.has(name) ||
+    GROUP.has(name) ||
+    EMBEDDED.has(name) ||
+    COMMAND.has(name) ||
     RUBY.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
@@ -122,7 +149,7 @@ function readSimpleElement(value: string, index: number): HtmlElement | null {
   if (!simpleName(name)) {
     return null;
   }
-  if (open.selfClosing || name === 'input') {
+  if (open.selfClosing || name === 'input' || VOID_HTML.has(name)) {
     return { name, innerStart: open.end, innerEnd: open.end, end: open.end };
   }
   return elementBounds(value, name, open.end);
@@ -495,7 +522,7 @@ function renderDetails(inner: string): string {
   const summary = extractElement(inner, 'summary');
   const label = summary ? cellText(summary.inner) : '';
   const body = convertHtml(summary ? summary.rest : inner).trim();
-  const heading = label.length > 0 ? `**${label}**` : '';
+  const heading = boldLabel(label);
   const parts = [heading, body].filter((part) => part.length > 0);
   return blockWrap(parts.join('\n\n'));
 }
@@ -544,6 +571,33 @@ function emphasized(text: string): string {
     return text;
   }
   return `*${text}*`;
+}
+
+function boldLabel(text: string): string {
+  if (text.length === 0 || text.includes('*') || text.includes('_') || text.includes('<')) {
+    return text;
+  }
+  return `**${text}**`;
+}
+
+function visibleAddress(href: string): string {
+  const destination = href.trim();
+  if (destination.length === 0 || /^(?:javascript|data|file):/i.test(destination)) {
+    return '';
+  }
+  return destination;
+}
+
+function linkedText(label: string, href: string): string {
+  const destination = visibleAddress(href);
+  const text = label.trim();
+  if (destination.length === 0) {
+    return text;
+  }
+  if (text.length === 0 || text.includes('[') || text.includes(']') || /[\s<>]/.test(destination)) {
+    return text.length === 0 ? destination : text;
+  }
+  return `[${text}](${destination})`;
 }
 
 function renderTime(value: string, element: HtmlElement, text: string): string {
@@ -668,6 +722,50 @@ function renderButton(value: string, element: HtmlElement, inner: string): strin
   return attribute(openTagBefore(value, element.innerStart), 'value').trim();
 }
 
+function renderArea(value: string, element: HtmlElement): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  return linkedText(attribute(openTag, 'alt'), attribute(openTag, 'href'));
+}
+
+function renderData(value: string, element: HtmlElement, inner: string): string {
+  const text = cellText(inner);
+  const raw = attribute(openTagBefore(value, element.innerStart), 'value').trim();
+  if (raw.length === 0 || raw === text) {
+    return text;
+  }
+  return text.length === 0 ? raw : `${text} (${raw})`;
+}
+
+function renderMediaFallback(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner).trim();
+  if (text.length > 0) {
+    return text;
+  }
+  return visibleAddress(attribute(openTagBefore(value, element.innerStart), 'src'));
+}
+
+function renderEmbedded(element: HtmlElement, value: string, inner: string): string | null {
+  switch (element.name) {
+    case 'source':
+    case 'track':
+    case 'datalist':
+      return '';
+    case 'area':
+      return renderArea(value, element);
+    case 'video':
+    case 'audio':
+      return renderMediaFallback(value, element, inner);
+    case 'data':
+      return renderData(value, element, inner);
+    case 'legend':
+      return blockWrap(boldLabel(cellText(inner)));
+    case 'bdo':
+      return convertHtml(inner);
+    default:
+      return null;
+  }
+}
+
 function renderForm(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'textarea':
@@ -690,6 +788,10 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
 }
 
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  const embedded = renderEmbedded(element, value, inner);
+  if (embedded !== null) {
+    return embedded;
+  }
   const form = renderForm(element, value, inner);
   if (form !== null) {
     return form;
@@ -698,7 +800,7 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
     case 'dl':
       return renderDefinitions(inner);
     case 'dt':
-      return blockWrap(`**${cellText(inner)}**`);
+      return blockWrap(boldLabel(cellText(inner)));
     case 'dd':
     case 'summary':
       return blockWrap(convertHtml(inner));
@@ -725,6 +827,11 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
   }
 }
 
+function renderCommandList(inner: string): string {
+  const listed = renderList(inner, false);
+  return listed.trim().length > 0 ? listed : blockWrap(convertHtml(inner));
+}
+
 function renderElement(element: HtmlElement, value: string): string {
   const inner = value.slice(element.innerStart, element.innerEnd);
   const phrase = renderPhrase(element, value, inner);
@@ -734,6 +841,9 @@ function renderElement(element: HtmlElement, value: string): string {
   switch (element.name) {
     case 'ul':
       return renderList(inner, false);
+    case 'menu':
+    case 'dir':
+      return renderCommandList(inner);
     case 'ol':
       return renderList(inner, true, listOptions(value, element.innerStart));
     case 'li':

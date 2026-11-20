@@ -1183,6 +1183,40 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('shows the text inside an HTML grouping', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: [
+        '<fieldset><legend>Name</legend>Ada</fieldset>',
+        '<address>Ada Lovelace<br>London</address>',
+        '<video src="clip.mp4">Watch</video>',
+        '<map name="m"><area alt="Top" href="https://example.com/top"></map>',
+        '',
+      ].join('\n\n'),
+      outputPath: '/tmp/html-grouping.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Ada');
+    expect(xml).toContain('London');
+    expect(xml).toContain('Watch');
+    expect(xml).toContain('Top');
+    expect(xml).toContain('https://example.com/top');
+    expect(xml).toContain('<w:br');
+    expect(xml).not.toContain('&lt;fieldset');
+    expect(xml).not.toContain('&lt;address');
+    expect(xml).not.toContain('&lt;video');
+    expect(xml).not.toContain('&lt;legend');
+  });
+
   it('writes an HTML checkbox as a task', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
