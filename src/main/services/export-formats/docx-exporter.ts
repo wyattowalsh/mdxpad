@@ -1768,7 +1768,11 @@ function takeDocxNestedMarker(
   parse.listSealed = false;
   resetDocxItem(parse, null);
   parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
-  takeDocxList(parse, `${' '.repeat(column)}${item.text}`, shown);
+  const childLine = `${' '.repeat(column)}${item.text}`;
+  const child = parseListItem(childLine);
+  if (child) {
+    openDocxListItem(parse, childLine, child, false);
+  }
   parse.listColumn = column;
   const top = parse.listStack[parse.listStack.length - 1];
   if (top) {

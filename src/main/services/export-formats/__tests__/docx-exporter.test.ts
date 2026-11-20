@@ -27,6 +27,28 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps a nested list that starts on the marker line', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '- 3. three\n  4. four\n',
+      outputPath: '/tmp/nested-marker.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('three');
+    expect(xml).toContain('four');
+    expect(xml).not.toContain('3. three');
+    expect(xml).not.toContain('4. four');
+  });
+
   it('does not link a picture that climbs out of its folder', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
