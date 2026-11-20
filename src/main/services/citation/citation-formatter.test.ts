@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { formatCitation, generateBibliography } from './citation-formatter';
+import { parseBibtex } from './citation-service';
 import type { CitationEntry } from '@shared/contracts/citation-schemas';
 
 const sampleArticle: CitationEntry = {
@@ -88,6 +89,29 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('Second');
     expect(formatted).toContain('Analytical Society');
     expect(formatted).toContain('On the Engine');
+  });
+
+  it('keeps a journal title, a date, a place, an ISSN, and a link', () => {
+    const parsed = parseBibtex(`
+@article{ada1843,
+  author = {Ada Lovelace},
+  title = {The Engine},
+  journaltitle = {Annals of Ice},
+  date = {1843-01-15},
+  location = {London},
+  issn = {1234-5678},
+  url = {https://example.com/ice}
+}`);
+    const entry = parsed.entries[0];
+    expect(entry).toBeDefined();
+    if (!entry) return;
+    const formatted = formatCitation(entry, 'apa').formatted;
+    expect(formatted).toContain('Annals of Ice');
+    expect(formatted).toContain('(1843)');
+    expect(formatted).toContain('15 January');
+    expect(formatted).toContain('London');
+    expect(formatted).toContain('1234-5678');
+    expect(formatted).toContain('https://example.com/ice');
   });
 
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {

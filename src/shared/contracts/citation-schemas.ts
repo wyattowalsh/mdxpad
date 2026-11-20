@@ -55,6 +55,7 @@ export const CitationEntrySchema = z.object({
   subtitle: z.string().optional(),
   translator: z.string().optional(),
   isbn: z.string().optional(),
+  issn: z.string().optional(),
   note: z.string().optional(),
   doi: z.string().optional(),
   url: z.string().optional(),

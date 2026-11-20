@@ -191,6 +191,7 @@ const TEXT_FIELDS = [
   'subtitle',
   'translator',
   'isbn',
+  'issn',
   'note',
   'doi',
   'url',
@@ -205,7 +206,58 @@ function copyTextFields(entry: CitationEntry, fields: Map<string, string>): void
   }
 }
 
+const MONTH_NUMBERS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+function fillAliases(fields: Map<string, string>): void {
+  if (!fields.get('journal')) {
+    const journal = fields.get('journaltitle');
+    if (journal) fields.set('journal', journal);
+  }
+  if (!fields.get('address')) {
+    const location = fields.get('location');
+    if (location) fields.set('address', location);
+  }
+}
+
+function datedMonth(match: RegExpExecArray): string | undefined {
+  const month = MONTH_NUMBERS[Number(match[2]) - 1];
+  if (month === undefined) return undefined;
+  const day = match[3] === undefined ? '' : String(Number(match[3]));
+  return day.length > 0 && day !== 'NaN' ? `${day} ${month}` : month;
+}
+
+function applyDate(entry: CitationEntry, fields: Map<string, string>): void {
+  const raw = fields.get('date')?.trim() ?? '';
+  const match = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/.exec(raw);
+  if (entry.year === undefined && match?.[1] !== undefined) {
+    const year = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(year)) entry.year = year;
+  }
+  if (fields.get('month') || raw.length === 0) return;
+  if (raw.includes('/')) {
+    entry.month = raw;
+    return;
+  }
+  if (match?.[2] === undefined) return;
+  const month = datedMonth(match);
+  if (month !== undefined) entry.month = month;
+}
+
 function buildEntry(id: string, type: string, fields: Map<string, string>): CitationEntry {
+  fillAliases(fields);
   const entry: CitationEntry = { id, type };
 
   const title = fields.get('title');
@@ -233,6 +285,7 @@ function buildEntry(id: string, type: string, fields: Map<string, string>): Cita
   if (pages) entry.pages = pages.replaceAll('--', '-');
 
   copyTextFields(entry, fields);
+  applyDate(entry, fields);
 
   return entry;
 }

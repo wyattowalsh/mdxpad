@@ -122,6 +122,8 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, monthName(entry.month));
   addSentence(parts, entry.translator ? `Trans. ${entry.translator}` : undefined);
   addSentence(parts, entry.isbn ? `ISBN ${entry.isbn}` : undefined);
+  addSentence(parts, entry.issn ? `ISSN ${entry.issn}` : undefined);
+  addSentence(parts, entry.url);
   addSentence(parts, entry.howpublished);
   addSentence(parts, entry.note);
 }

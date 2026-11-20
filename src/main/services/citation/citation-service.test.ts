@@ -158,6 +158,51 @@ describe('citation-service', () => {
       expect(result.entries[0]?.chapter).toBe('On the Engine');
     });
 
+    it('keeps a journal title, a full date, a place, an ISSN, and a link', () => {
+      const result = parseBibtex(`
+@article{ada1843,
+  title = {The Engine},
+  journal = {Nature},
+  journaltitle = {Annals of Ice},
+  year = {1800},
+  month = jan,
+  date = {1843-01-15},
+  address = {Paris},
+  location = {London},
+  issn = {1234-5678},
+  url = {https://example.com/ice}
+}`);
+      const alias = parseBibtex(`
+@article{alias1843,
+  title = {The Engine},
+  journaltitle = {Annals of Ice},
+  date = {1843-01-15},
+  location = {London},
+  issn = {1234-5678},
+  url = {https://example.com/ice}
+}`);
+      expect(result.entries[0]?.journal).toBe('Nature');
+      expect(result.entries[0]?.year).toBe(1800);
+      expect(result.entries[0]?.month).toBe('jan');
+      expect(result.entries[0]?.address).toBe('Paris');
+      expect(alias.entries[0]?.journal).toBe('Annals of Ice');
+      expect(alias.entries[0]?.year).toBe(1843);
+      expect(alias.entries[0]?.month).toBe('15 January');
+      expect(alias.entries[0]?.address).toBe('London');
+      expect(alias.entries[0]?.issn).toBe('1234-5678');
+      expect(alias.entries[0]?.url).toBe('https://example.com/ice');
+    });
+
+    it('keeps both years of a date range', () => {
+      const result = parseBibtex(`
+@book{span,
+  title = {The Engine},
+  date = {1843/1844}
+}`);
+      expect(result.entries[0]?.year).toBe(1843);
+      expect(result.entries[0]?.month).toBe('1843/1844');
+    });
+
     it('keeps a month, a subtitle, a translator, and an ISBN', () => {
       const result = parseBibtex(`
 @book{ada1840,
