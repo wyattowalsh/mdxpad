@@ -46,6 +46,18 @@ function textOf(value: unknown): string {
     .trim();
 }
 
+function elementText(value: unknown): string {
+  return nodes(value)
+    .map((node) => {
+      if (typeof node === 'string' || typeof node === 'number') {
+        return String(node);
+      }
+      const element = parts(node);
+      return element === null ? '' : elementText(element.props.children);
+    })
+    .join('');
+}
+
 function stringProp(props: Record<string, unknown>, key: string): string {
   const value = props[key];
   return typeof value === 'string' ? value.trim() : '';
@@ -472,6 +484,14 @@ function namedElement(name: string, record: Record<string, unknown>): VisibleNam
   }
 }
 
+function tableName(props: Record<string, unknown>): VisibleName | undefined {
+  const summary = stringProp(props, 'summary');
+  if (summary.length === 0 || elementText(props.children).includes(summary)) {
+    return undefined;
+  }
+  return { kind: 'note', text: summary };
+}
+
 function namedExtra(name: string, record: Record<string, unknown>): VisibleName | undefined {
   switch (name) {
     case 'q':
@@ -485,6 +505,8 @@ function namedExtra(name: string, record: Record<string, unknown>): VisibleName 
       return commandName(record);
     case 'area':
       return areaName(record);
+    case 'table':
+      return tableName(record);
     default:
       return undefined;
   }

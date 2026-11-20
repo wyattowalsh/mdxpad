@@ -318,6 +318,23 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows a table summary that is not already in the cells', async () => {
+    const source = [
+      '<table summary="Sales table"><tbody><tr><td>Cellword</td></tr></tbody></table>',
+      '<table summary="Cellword"><tbody><tr><td>Cellword</td></tr></tbody></table>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('table-summary'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Sales table');
+    expect(container.textContent).toContain('Cellword');
+    expect(container.textContent?.split('Cellword').length).toBe(3);
+  });
+
   it('shows a header abbreviation and an empty note field', async () => {
     const source = [
       '<table><tbody><tr><th abbr="Quantity">Qty</th></tr></tbody></table>',
