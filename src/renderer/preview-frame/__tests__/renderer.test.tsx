@@ -23,6 +23,7 @@ vi.mock('react-dom/client', () => ({
 
 vi.mock('../mdx-module-runtime', () => ({
   createModuleFromCode: mocks.createModuleFromCode,
+  previewComponents: {},
 }));
 
 vi.mock('../mermaid-render-scheduler', () => ({

@@ -131,6 +131,21 @@ function confinedJsx(
   return jsx(type, next, key);
 }
 
+function UnknownMdxComponent(props: MDXComponentProps): React.ReactElement {
+  return jsxRuntime.jsx(jsxRuntime.Fragment, { children: props.children });
+}
+
+/** Built-in components, with unknown tags rendered as their words. */
+export const previewComponents = new Proxy(BuiltInComponents, {
+  get(target, prop, receiver): unknown {
+    if (typeof prop !== 'string' || prop in target) {
+      const value: unknown = Reflect.get(target, prop, receiver);
+      return value;
+    }
+    return UnknownMdxComponent;
+  },
+});
+
 const previewJsxRuntime = {
   ...jsxRuntime,
   jsx: (type: React.ElementType, props: unknown, key?: React.Key): React.ReactElement =>

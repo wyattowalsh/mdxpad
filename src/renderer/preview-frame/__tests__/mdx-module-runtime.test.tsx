@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import type { RequestId } from '@shared/types/preview-worker';
 import { compileMdx } from '@renderer/lib/mdx/compile';
 import { BuiltInComponents } from '../components';
-import { createModuleFromCode, type MDXContentProps } from '../mdx-module-runtime';
+import { createModuleFromCode, previewComponents, type MDXContentProps } from '../mdx-module-runtime';
 
 const testId = (id: string): RequestId => id as RequestId;
 
@@ -192,6 +192,24 @@ describe('createModuleFromCode', () => {
       'https://example.com/a.png 2x'
     );
     expect(document.querySelector('a')?.getAttribute('href')).toBe('../notes/a.md');
+  });
+
+  it('shows the words of an unknown component', async () => {
+    const source = '<Widget>Remember the ice</Widget>\n\n<Callout>Stay warm</Callout>';
+    const result = await compileMdx(testId('unknown-component'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(
+      <module.default
+        components={previewComponents as unknown as NonNullable<MDXContentProps['components']>}
+      />
+    );
+    expect(container.textContent).toContain('Remember the ice');
+    expect(container.textContent).toContain('Stay warm');
+    expect(container.textContent).toContain('Info');
   });
 
   it('shows the fallback inside a frame without its address', async () => {

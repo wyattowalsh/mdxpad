@@ -9,7 +9,7 @@ import 'katex/dist/katex.min.css';
 import * as React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { BuiltInComponents } from './components';
+import { previewComponents } from './mdx-module-runtime';
 import { applyPreviewCss } from './apply-preview-css';
 import { createMermaidRenderScheduler } from './mermaid-render-scheduler';
 import { createModuleFromCode } from './mdx-module-runtime';
@@ -277,7 +277,6 @@ async function renderContent(command: RenderCommand): Promise<void> {
     }
     const MDXContent = mdxModule.default;
 
-    // Render with error boundary, passing BuiltInComponents to MDXContent
     // resetKey ensures ErrorBoundary resets when new content is received
     root.render(
       <ErrorBoundary
@@ -287,7 +286,7 @@ async function renderContent(command: RenderCommand): Promise<void> {
         }}
       >
         <MDXContent
-          components={BuiltInComponents as unknown as NonNullable<MDXContentProps['components']>}
+          components={previewComponents as unknown as NonNullable<MDXContentProps['components']>}
           frontmatter={command.frontmatter}
         />
       </ErrorBoundary>
