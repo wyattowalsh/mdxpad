@@ -109,6 +109,19 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\url{https://example.com}'))).toBe('https://example.com');
   });
 
+  it('keeps the words of a nested Word command', () => {
+    expect(runText(mathComponents('\\footnote{See \\cite{Knuth1984} for ice}'))).toBe(
+      'See Knuth1984 for ice'
+    );
+    expect(runText(mathComponents('\\section{The \\emph{title}}'))).toBe('The title');
+    expect(runText(mathComponents('\\caption{A caption about ice}'))).toBe('A caption about ice');
+    expect(runText(mathComponents('\\cite[see][12]{Knuth1984}'))).toBe('Knuth1984 (see, 12)');
+    expect(runText(mathComponents('\\section*{Starred title}'))).toBe('Starred title');
+    expect(runText(mathComponents('\\ce{H2O}'))).toBe('H2O');
+    expect(runText(mathComponents('\\alpha{x}'))).toBe('αx');
+    expect(runText(mathComponents('\\sin{x}'))).toBe('sinx');
+  });
+
   it('keeps the words of a colored Word expression', () => {
     expect(runText(mathComponents('\\textcolor{red}{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\colorbox{blue}{sky}'))).toBe('sky');

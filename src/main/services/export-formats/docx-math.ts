@@ -161,6 +161,106 @@ function readMarked(cursor: Cursor, mark: string): MathComponent[] {
     return new MathRun(marked);
   });
 }
+const PROSE_COMMANDS = new Set([
+  'author',
+  'caption',
+  'ce',
+  'chapter',
+  'cite',
+  'emph',
+  'footnote',
+  'mbox',
+  'paragraph',
+  'part',
+  'pu',
+  'section',
+  'subparagraph',
+  'subsection',
+  'subsubsection',
+  'textsc',
+  'textsl',
+  'thanks',
+  'title',
+]);
+
+function argumentReady(source: string, index: number): boolean {
+  let cursor = index;
+  if (source[cursor] === '*') {
+    cursor += 1;
+  }
+  while (source[cursor] === ' ' || source[cursor] === '\n') {
+    cursor += 1;
+  }
+  const char = source[cursor];
+  return char === '[' || char === '{';
+}
+
+function readBracketNote(cursor: Cursor): string | null {
+  skipArgumentSpace(cursor);
+  if (cursor.source[cursor.index] !== '[') {
+    return null;
+  }
+  cursor.index += 1;
+  let note = '';
+  while (cursor.index < cursor.source.length && cursor.source[cursor.index] !== ']') {
+    note += cursor.source[cursor.index] ?? '';
+    cursor.index += 1;
+  }
+  if (cursor.source[cursor.index] === ']') {
+    cursor.index += 1;
+  }
+  return note.trim();
+}
+
+function proseNotes(cursor: Cursor): string {
+  const notes: string[] = [];
+  let note = readBracketNote(cursor);
+  while (note !== null) {
+    if (note.length > 0) {
+      notes.push(note);
+    }
+    note = readBracketNote(cursor);
+  }
+  return notes.join(', ');
+}
+
+function notedParts(parts: MathComponent[], notes: string): MathComponent[] {
+  if (notes.length === 0) {
+    return parts;
+  }
+  const suffix = parts.length > 0 ? ` (${notes})` : notes;
+  return [...parts, new MathRun(suffix)];
+}
+
+function readProseArgument(cursor: Cursor): MathComponent[] | null {
+  if (!argumentReady(cursor.source, cursor.index)) {
+    return null;
+  }
+  if (cursor.source[cursor.index] === '*') {
+    cursor.index += 1;
+  }
+  const notes = proseNotes(cursor);
+  skipArgumentSpace(cursor);
+  if (cursor.source[cursor.index] !== '{') {
+    return notes.length > 0 ? [new MathRun(notes)] : null;
+  }
+  return notedParts(readGroup(cursor), notes);
+}
+
+function unknownCommand(cursor: Cursor, name: string): MathComponent[] {
+  const symbol = SYMBOLS[name];
+  if (symbol !== undefined) {
+    return [new MathRun(symbol)];
+  }
+  if (PROSE_COMMANDS.has(name)) {
+    const prose = readProseArgument(cursor);
+    if (prose !== null) {
+      return prose;
+    }
+  }
+  return [new MathRun(name)];
+}
+
 function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   const grouped = groupedCommand(cursor, name);
   if (grouped !== null) {
@@ -206,8 +306,7 @@ function commandComponents(cursor: Cursor, name: string): MathComponent[] {
   if (accent !== undefined) {
     return readAccent(cursor, accent);
   }
-  const symbol = SYMBOLS[name];
-  return [new MathRun(symbol ?? name)];
+  return unknownCommand(cursor, name);
 }
 function readCommand(cursor: Cursor): MathComponent[] {
   cursor.index += 1;
