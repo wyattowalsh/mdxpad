@@ -161,45 +161,39 @@ function readMarked(cursor: Cursor, mark: string): MathComponent[] {
     return new MathRun(marked);
   });
 }
-const PROSE_COMMANDS = new Set([
-  'author',
-  'bibliography',
-  'caption',
-  'ce',
-  'chapter',
-  'cite',
-  'citeauthor',
-  'citep',
-  'citet',
-  'emph',
-  'fbox',
-  'footnote',
-  'footnotetext',
-  'framebox',
-  'hl',
-  'marginpar',
-  'mbox',
-  'paragraph',
-  'parbox',
-  'part',
-  'pu',
-  'raisebox',
-  'reflectbox',
-  'resizebox',
-  'rotatebox',
-  'scalebox',
-  'sout',
-  'todo',
-  'includegraphics',
-  'ref',
-  'section',
-  'subparagraph',
-  'subsection',
-  'subsubsection',
-  'textsc',
-  'textsl',
-  'thanks',
-  'title',
+const OPERATOR_COMMANDS = new Set([
+  'Pr',
+  'arccos',
+  'arcsin',
+  'arctan',
+  'arg',
+  'cos',
+  'cosh',
+  'cot',
+  'coth',
+  'csc',
+  'deg',
+  'det',
+  'dim',
+  'exp',
+  'gcd',
+  'hom',
+  'inf',
+  'ker',
+  'lg',
+  'lim',
+  'liminf',
+  'limsup',
+  'ln',
+  'log',
+  'max',
+  'min',
+  'sec',
+  'sin',
+  'sinh',
+  'sup',
+  'tan',
+  'tanh',
 ]);
 
 function argumentReady(source: string, index: number): boolean {
@@ -386,7 +380,7 @@ function unknownCommand(cursor: Cursor, name: string): MathComponent[] {
   if (symbol !== undefined) {
     return [new MathRun(symbol)];
   }
-  if (PROSE_COMMANDS.has(name)) {
+  if (!OPERATOR_COMMANDS.has(name)) {
     const prose = readProseArgument(cursor);
     if (prose !== null) {
       return prose;

@@ -167,6 +167,9 @@ describe('mathComponents', () => {
     const broken = runText(mathComponents('\\newline next line'));
     expect(broken).toContain('next line');
     expect(broken).not.toContain('newline');
+    expect(runText(mathComponents('\\blurb{hello ice}'))).toBe('hello ice');
+    expect(runText(mathComponents('\\sin{x}'))).toBe('sinx');
+    expect(runText(mathComponents('\\log{n}'))).toBe('logn');
   });
 
   it('keeps the words of a colored Word expression', () => {
