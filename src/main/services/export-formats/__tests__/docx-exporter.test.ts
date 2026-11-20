@@ -1183,6 +1183,30 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('shows an HTML code sample without its tags', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<font color="red">Hello</font>\n\n<pre><code class="language-ts">const answer = 1;</code></pre>\n',
+      outputPath: '/tmp/html-code.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Hello');
+    expect(xml).toContain('const');
+    expect(xml).toContain('answer');
+    expect(xml).toContain('w:val="7C3AED"');
+    expect(xml).not.toContain('&lt;font');
+    expect(xml).not.toContain('&lt;code');
+  });
+
   it('shows the text inside an HTML grouping', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

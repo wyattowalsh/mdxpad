@@ -56,6 +56,25 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('shows presentational HTML and an HTML code sample', () => {
+    expect(rewriteSimpleHtml('<font color="red">Hello</font>')).toBe('Hello');
+    expect(rewriteSimpleHtml('<big>Hello</big>')).toBe('Hello');
+    expect(rewriteSimpleHtml('Type <tt>ls</tt> now')).toBe('Type `ls` now');
+    expect(rewriteSimpleHtml('<acronym title="Hypertext">HTML</acronym>')).toBe('HTML (Hypertext)');
+    expect(rewriteSimpleHtml('<marquee>News</marquee>')).toBe('News');
+    expect(rewriteSimpleHtml('<nobr>keep together</nobr>')).toBe('keep together');
+    expect(
+      rewriteSimpleHtml('<dl><dt>Term <em>x</em></dt><dd>See <strong>this</strong></dd></dl>').trim()
+    ).toBe('Term *x*\n\nSee **this**');
+    expect(rewriteSimpleHtml('<blockquote><p>One</p><p>Two</p></blockquote>').trim()).toBe(
+      '> One\n>\n> Two'
+    );
+    expect(rewriteSimpleHtml('<pre><code class="language-ts">const x = 1</code></pre>').trim()).toBe(
+      '```ts\nconst x = 1\n```'
+    );
+    expect(rewriteSimpleHtml('<pre>plain</pre>').trim()).toBe('```\nplain\n```');
+  });
+
   it('shows the text inside an HTML grouping', () => {
     expect(rewriteSimpleHtml('<fieldset><legend>Name</legend>Ada</fieldset>').trim()).toBe(
       '**Name**\n\nAda'

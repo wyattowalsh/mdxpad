@@ -42,6 +42,7 @@ const EMBEDDED = new Set([
   'video',
 ]);
 const COMMAND = new Set(['dir', 'menu']);
+const PRESENT = new Set(['acronym', 'big', 'font', 'marquee', 'nobr', 'tt']);
 const VOID_HTML = new Set(['area', 'source', 'track']);
 const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 
@@ -74,6 +75,7 @@ function simpleName(name: string): boolean {
     GROUP.has(name) ||
     EMBEDDED.has(name) ||
     COMMAND.has(name) ||
+    PRESENT.has(name) ||
     RUBY.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
@@ -328,7 +330,7 @@ function renderHeading(level: number, inner: string): string {
 }
 
 function renderQuote(inner: string): string {
-  const text = convertHtml(inner).trim();
+  const text = convertHtml(inner).trim().replace(/\n{3,}/g, '\n\n');
   if (text.length === 0) {
     return '';
   }
@@ -339,9 +341,32 @@ function renderQuote(inner: string): string {
   return blockWrap(quoted);
 }
 
+function codeFenceLanguage(openTag: string): string {
+  const match = /(?:^|\s)language-([\w+-]+)/.exec(attribute(openTag, 'class'));
+  return match?.[1] ?? '';
+}
+
+function unwrapPreCode(inner: string): { text: string; language: string } {
+  const trimmed = inner.replace(/^\n/, '').replace(/\n$/, '');
+  const start = trimmed.search(/\S/);
+  if (start < 0) {
+    return { text: trimmed, language: '' };
+  }
+  const open = readAngleTag(trimmed, start);
+  if (!open || open.closing || open.name.toLowerCase() !== 'code') {
+    return { text: trimmed, language: '' };
+  }
+  const bounds = elementBounds(trimmed, 'code', open.end);
+  if (!bounds || trimmed.slice(bounds.end).trim().length > 0) {
+    return { text: trimmed, language: '' };
+  }
+  const text = trimmed.slice(bounds.innerStart, bounds.innerEnd).replace(/^\n/, '').replace(/\n$/, '');
+  return { text, language: codeFenceLanguage(trimmed.slice(start, open.end)) };
+}
+
 function renderPre(inner: string): string {
-  const text = inner.replace(/^\n/, '').replace(/\n$/, '');
-  return `\n\n\`\`\`\n${text}\n\`\`\`\n\n`;
+  const sample = unwrapPreCode(inner);
+  return `\n\n\`\`\`${sample.language}\n${sample.text}\n\`\`\`\n\n`;
 }
 
 interface TableCell {
@@ -486,7 +511,7 @@ function renderDefinitions(inner: string): string {
     if (element?.name === 'dt') {
       const term = cellText(inner.slice(element.innerStart, element.innerEnd));
       if (term.length > 0) {
-        parts.push(`**${term}**`);
+        parts.push(boldLabel(term));
       }
       index = element.end;
       continue;
@@ -787,7 +812,27 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
   }
 }
 
+function renderPresentational(element: HtmlElement, value: string, inner: string): string | null {
+  switch (element.name) {
+    case 'font':
+    case 'big':
+    case 'marquee':
+    case 'nobr':
+      return convertHtml(inner);
+    case 'tt':
+      return renderKbd(inner);
+    case 'acronym':
+      return renderAbbr(value, element);
+    default:
+      return null;
+  }
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  const present = renderPresentational(element, value, inner);
+  if (present !== null) {
+    return present;
+  }
   const embedded = renderEmbedded(element, value, inner);
   if (embedded !== null) {
     return embedded;
