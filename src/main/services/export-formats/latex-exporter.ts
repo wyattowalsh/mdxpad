@@ -69,6 +69,7 @@ import {
 } from './markdown-list';
 import {
   dedentToColumn,
+  listDisplayCloses,
   listFenceOnMarker,
   listMarkerBlock,
   listIndentedCode,
@@ -532,6 +533,8 @@ interface ListState {
   sealed: boolean;
   paragraphBreak: boolean;
   tailLines: SourceLine[] | null;
+  laterLines: readonly string[];
+  laterIndex: number;
 }
 
 function closeLatexFrame(output: string[], stack: LatexListFrame[]): void {
@@ -680,7 +683,11 @@ function takeLatexMarkerMath(
   listState: ListState
 ): boolean {
   const lead = item.text.trim() === '$$' ? '' : displayMathPrefix(item.text);
-  if (lead === null) {
+  const column = listContentColumn(raw) ?? 2;
+  if (
+    lead === null ||
+    !listDisplayCloses(listState.laterLines, listState.laterIndex, column)
+  ) {
     return false;
   }
   listState.itemLines =
@@ -690,7 +697,6 @@ function takeLatexMarkerMath(
   listState.tailLines = null;
   listState.sealed = false;
   const formatted = lead.length > 0 ? renderLatexItem(listState.itemLines) : '';
-  const column = listContentColumn(raw) ?? 2;
   openLatexListItem(output, listState.stack, item, formatted, column);
   listState.column = column;
   return true;
@@ -1201,7 +1207,7 @@ function takeLatexItemMath(build: LatexBuild, line: string): boolean {
     return false;
   }
   const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
-  if (lead === null) {
+  if (lead === null || !listDisplayCloses(list.laterLines, list.laterIndex, column)) {
     return false;
   }
   if (lead.length > 0) {
@@ -1549,6 +1555,8 @@ function emptyListState(): ListState {
     sealed: false,
     paragraphBreak: false,
     tailLines: null,
+    laterLines: [],
+    laterIndex: 0,
   };
 }
 
@@ -1563,8 +1571,10 @@ function writeLatexItemQuote(build: LatexBuild): void {
 
 function writeLatexLines(build: LatexBuild, lines: readonly string[]): void {
   build.laterLines = lines;
+  build.listState.laterLines = lines;
   for (let index = 0; index < lines.length; index += 1) {
     build.laterIndex = index + 1;
+    build.listState.laterIndex = index + 1;
     appendLatexSourceLine(build, lines[index] ?? '');
   }
 }

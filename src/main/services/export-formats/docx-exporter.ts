@@ -91,6 +91,7 @@ import {
 } from './markdown-list';
 import {
   dedentToColumn,
+  listDisplayCloses,
   listFenceOnMarker,
   listMarkerBlock,
   type ListMarkerBlock,
@@ -1341,7 +1342,7 @@ function takeDocxItemMath(parse: DocxParse, line: string): boolean {
     return false;
   }
   const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
-  if (lead === null) {
+  if (lead === null || !listDisplayCloses(parse.laterLines, parse.laterIndex, column)) {
     return false;
   }
   if (lead.length > 0) {
@@ -1656,6 +1657,13 @@ function takeDocxMarkerBlock(
   hardBreak: boolean,
   block: ListMarkerBlock
 ): boolean {
+  if (
+    block.kind === 'math' &&
+    block.lines.length === 0 &&
+    !listDisplayCloses(parse.laterLines, parse.laterIndex, column)
+  ) {
+    return false;
+  }
   const shown = { ...item, text: block.kind === 'math' ? (block.lead ?? '') : '' };
   parse.openListItem = shown;
   parse.listColumn = column;

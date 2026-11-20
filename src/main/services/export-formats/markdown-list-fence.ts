@@ -41,6 +41,8 @@ export interface HtmlListItemState {
   itemMath: string[] | null;
   itemCode: string[] | null;
   listColumn: number | null;
+  laterLines?: readonly string[];
+  laterIndex?: number;
   listBreak: boolean;
   loose: boolean;
 }
@@ -137,6 +139,28 @@ export function listIndentedCode(line: string, contentColumn: number): string | 
     return null;
   }
   return expanded.slice(contentColumn + 4);
+}
+
+/** A later list-item line closes display math that opened in the item. */
+export function listDisplayCloses(
+  lines: readonly string[],
+  start: number,
+  column: number
+): boolean {
+  for (let index = start; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    if (line.trim().length === 0) {
+      continue;
+    }
+    if (!isListContinuation(line, column)) {
+      return false;
+    }
+    const body = dedentToColumn(line, column);
+    if (body.trim() === '$$' || displayMathPrefix(body) !== null) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function dedentToColumn(line: string, contentColumn: number): string {
@@ -239,6 +263,10 @@ function openMarkerBlock(state: HtmlListItemState, text: string): string | null 
     return state.itemHtml;
   }
   if (block.kind === 'math') {
+    const column = state.listColumn ?? 2;
+    if (!listDisplayCloses(state.laterLines ?? [], state.laterIndex ?? 0, column)) {
+      return null;
+    }
     if (block.lead) {
       state.listLines = [{ text: block.lead, hardBreak: false }];
     }
@@ -593,7 +621,7 @@ export function takeListItemMath(
     return false;
   }
   const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
-  if (lead === null) {
+  if (lead === null || !listDisplayCloses(state.laterLines ?? [], state.laterIndex ?? 0, column)) {
     return false;
   }
   if (lead.length > 0) {

@@ -896,11 +896,16 @@ function closeQuoteMath(pieces: QuoteParagraphPiece[], math: string[]): void {
   pieces.push({ kind: 'math', lines: math });
 }
 
+function quoteDisplayCloses(lines: readonly string[]): boolean {
+  return lines.some((line) => line.trim() === '$$' || displayMathPrefix(line) !== null);
+}
+
 function readQuoteParagraphLine(
   pieces: QuoteParagraphPiece[],
   paragraph: string[],
   math: string[] | null,
-  line: string
+  line: string,
+  following: readonly string[]
 ): { paragraph: string[]; math: string[] | null } {
   if (math) {
     const closing = displayMathPrefix(line);
@@ -915,6 +920,7 @@ function readQuoteParagraphLine(
     return { paragraph, math: [...math, line] };
   }
   const opening = displayMathPrefix(line);
+  if (opening !== null && !quoteDisplayCloses(following)) return { paragraph: [...paragraph, line], math };
   if (opening !== null) {
     const next = opening.length > 0 ? [...paragraph, opening] : paragraph;
     if (next.length > 0) {
@@ -948,8 +954,9 @@ export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPi
   const pieces: QuoteParagraphPiece[] = [];
   let paragraph: string[] = [];
   let math: string[] | null = null;
-  for (const line of lines) {
-    const next = readQuoteParagraphLine(pieces, paragraph, math, line);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const next = readQuoteParagraphLine(pieces, paragraph, math, line, lines.slice(index + 1));
     paragraph = next.paragraph;
     math = next.math;
   }

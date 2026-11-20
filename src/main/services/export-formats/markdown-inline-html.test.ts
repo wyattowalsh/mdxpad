@@ -270,6 +270,18 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('leaves the next lines in place when a list formula never closes', () => {
+    const html = markdownToPdfHtml('- Text $$\n  more\n\nafter\n');
+    expect(html).toContain('Text $$');
+    expect(html).toContain('more');
+    expect(html).toContain('after');
+    expect(html).not.toContain('annotation encoding="application/x-tex">');
+    const quoted = markdownToPdfHtml('> Text $$\n> more\n');
+    expect(quoted).toContain('Text $$');
+    expect(quoted).toContain('more');
+    expect(quoted).not.toContain('annotation encoding="application/x-tex">');
+  });
+
   it('leaves the next paragraph in place when a formula never closes', () => {
     const html = markdownToPdfHtml('Text $$\n\nmore\n');
     expect(html).toContain('Text $$');
