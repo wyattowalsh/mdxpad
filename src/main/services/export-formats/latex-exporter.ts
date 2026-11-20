@@ -14,6 +14,7 @@ import {
 } from './latex-file-command';
 import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+import { displayFenceCloses, displayPrefixCloses } from '@shared/lib/promote-display-math';
 import { displayMathPrefix, unescapedDelimiterIndex } from '@shared/lib/math-span';
 import { renderableMathTex } from '@shared/lib/renderable-math';
 
@@ -1266,6 +1267,8 @@ interface LatexBuild {
   codeLines: string[];
   inDisplayMath: boolean;
   displayLines: string[];
+  laterLines: readonly string[];
+  laterIndex: number;
   tableLines: string[];
   quoteLines: string[];
   listState: ListState;
@@ -1417,12 +1420,29 @@ function takeOpenedDisplay(build: LatexBuild, line: string): boolean {
   return true;
 }
 
+function latexDisplayStaysText(build: LatexBuild, line: string, prefix: string | null): boolean {
+  if (build.inDisplayMath) {
+    return false;
+  }
+  if (prefix !== null) {
+    return !displayPrefixCloses(build.laterLines, build.laterIndex);
+  }
+  return (
+    line.trim() === '$$' &&
+    !quoteHoldsDelimiter(build.quoteLines, line) &&
+    !displayFenceCloses(build.laterLines, build.laterIndex)
+  );
+}
+
 function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (takeOpenedDisplay(build, line)) {
     return true;
   }
   const quoted = quoteBody(line) !== null || quoteBody(line.trimStart()) !== null;
   const prefix = !quoted && parseListItem(line) === null ? displayMathPrefix(line) : null;
+  if (latexDisplayStaysText(build, line, prefix)) {
+    return false;
+  }
   if (prefix !== null && !build.inDisplayMath) {
     build.prose.push(readSourceLine(prefix));
     openDisplayMath(build);
@@ -1541,6 +1561,14 @@ function writeLatexItemQuote(build: LatexBuild): void {
   );
 }
 
+function writeLatexLines(build: LatexBuild, lines: readonly string[]): void {
+  build.laterLines = lines;
+  for (let index = 0; index < lines.length; index += 1) {
+    build.laterIndex = index + 1;
+    appendLatexSourceLine(build, lines[index] ?? '');
+  }
+}
+
 function contentToLatex(content: string): string {
   const build: LatexBuild = {
     output: [],
@@ -1549,17 +1577,17 @@ function contentToLatex(content: string): string {
     codeLines: [],
     inDisplayMath: false,
     displayLines: [],
+    laterLines: [],
+    laterIndex: 0,
     tableLines: [],
     quoteLines: [],
     listState: emptyListState(),
     slugCounts: new Map<string, number>(),
   };
 
-  for (const line of plainFootnoteMarkers(
+  writeLatexLines(build, plainFootnoteMarkers(
     expandLinkReferences(prepareMarkdownSource(content, { preserveHtml: true }))
-  ).split('\n')) {
-    appendLatexSourceLine(build, line);
-  }
+  ).split('\n'));
 
   closeOpenDisplayMath(build);
   flushLatexProse(build.output, build.prose);

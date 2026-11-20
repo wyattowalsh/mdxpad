@@ -1303,6 +1303,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('\\begin{gather}');
   });
 
+  it('leaves the next paragraph in place when a formula never closes', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Text $$\n\nmore\n',
+      outputPath: '/tmp/unclosed-display.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('Text \\$\\$');
+    expect(written).toContain('\nmore\n');
+    expect(written).not.toMatch(/\$\$\nmore/);
+  });
+
   it('keeps a percent inside a display formula that looks like a price', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

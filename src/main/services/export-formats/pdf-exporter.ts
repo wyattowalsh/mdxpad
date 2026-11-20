@@ -6,6 +6,7 @@ import { buildPdfDocument } from '../export-document-builders';
 import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+import { displayFenceCloses, displayPrefixCloses } from '@shared/lib/promote-display-math';
 import { displayMathPrefix } from '@shared/lib/math-span';
 
 import { inlineLocalImages } from './export-image';
@@ -72,6 +73,8 @@ interface PdfBuild {
   fence: { marker: string; language: string; lines: string[] } | null;
   lists: HtmlListFrame[];
   displayMath: string[] | null;
+  laterLines: readonly string[];
+  laterIndex: number;
   tableLines: string[];
   quoteLines: string[];
   listBreak: boolean;
@@ -116,6 +119,20 @@ function finishDisplayMath(build: PdfBuild): void {
   build.displayMath = null;
 }
 
+function pdfDisplayStaysText(build: PdfBuild, line: string, prefix: string | null): boolean {
+  if (build.displayMath) {
+    return false;
+  }
+  if (prefix !== null) {
+    return !displayPrefixCloses(build.laterLines, build.laterIndex);
+  }
+  return (
+    line.trim() === '$$' &&
+    !quoteHoldsDelimiter(build.quoteLines, line) &&
+    !displayFenceCloses(build.laterLines, build.laterIndex)
+  );
+}
+
 function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   if (build.fence) {
     return false;
@@ -125,6 +142,9 @@ function consumePdfDisplayMath(build: PdfBuild, line: string): boolean {
   }
   const quoted = quoteBody(line) !== null || quoteBody(line.trimStart()) !== null;
   const prefix = !quoted && parseListItem(line) === null ? displayMathPrefix(line) : null;
+  if (pdfDisplayStaysText(build, line, prefix)) {
+    return false;
+  }
   if (prefix !== null && !build.displayMath) {
     build.paragraph.push({ text: prefix, hardBreak: false });
     flushPdfParagraph(build);
@@ -425,6 +445,8 @@ export function markdownToPdfHtml(content: string): string {
     itemCode: null,
     loose: false,
     displayMath: null,
+    laterLines: [],
+    laterIndex: 0,
     tableLines: [],
     quoteLines: [],
     slugCounts: new Map<string, number>(),
@@ -432,7 +454,9 @@ export function markdownToPdfHtml(content: string): string {
   const lines = expandLinkReferences(prepareMarkdownSource(content, { preserveHtml: true })).split(
     '\n'
   );
+  build.laterLines = lines;
   for (let index = 0; index < lines.length; index += 1) {
+    build.laterIndex = index + 1;
     const htmlEnd = consumePdfHtml(build, lines, index);
     if (htmlEnd !== null) {
       index = htmlEnd;

@@ -47,6 +47,21 @@ function plainCloser(lines: readonly string[], start: number): number {
   return -1;
 }
 
+/** A later `$$` closes `Text $$` when no heading, list, quote, or fence starts first. */
+export function displayPrefixCloses(lines: readonly string[], start: number): boolean {
+  return plainCloser(lines, start) !== -1;
+}
+
+/** A later line that is only `$$` closes a display fence. */
+export function displayFenceCloses(lines: readonly string[], start: number): boolean {
+  for (let index = start; index < lines.length; index += 1) {
+    if ((lines[index] ?? '').trim() === '$$') {
+      return true;
+    }
+  }
+  return false;
+}
+
 function takePlain(lines: readonly string[], index: number): PromotedBlock | null {
   const line = lines[index] ?? '';
   if (line.startsWith(' ') || line.startsWith('\t') || structuralLine(line)) {

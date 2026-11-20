@@ -3,6 +3,7 @@ import { writeRegularFile } from './write-regular-file';
 import { stripLeadingFrontmatter } from '@shared/lib/frontmatter';
 import { allocateHeadingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
+import { displayFenceCloses, displayPrefixCloses } from '@shared/lib/promote-display-math';
 import { displayMathPrefix } from '@shared/lib/math-span';
 
 import { embedEpubImages } from './epub-images';
@@ -132,6 +133,8 @@ interface EpubLineState {
   fence: { marker: string; language: string; lines: string[] } | null;
   lists: HtmlListFrame[];
   displayMath: string[] | null;
+  laterLines: readonly string[];
+  laterIndex: number;
   tableLines: string[];
   quoteLines: string[];
   paragraph: SourceLine[];
@@ -221,6 +224,20 @@ function consumeEpubTable(htmlLines: string[], line: string, state: EpubLineStat
   return false;
 }
 
+function epubDisplayStaysText(state: EpubLineState, line: string, prefix: string | null): boolean {
+  if (state.displayMath) {
+    return false;
+  }
+  if (prefix !== null) {
+    return !displayPrefixCloses(state.laterLines, state.laterIndex);
+  }
+  return (
+    line.trim() === '$$' &&
+    !quoteHoldsDelimiter(state.quoteLines, line) &&
+    !displayFenceCloses(state.laterLines, state.laterIndex)
+  );
+}
+
 function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLineState): boolean {
   if (state.fence) {
     return false;
@@ -230,6 +247,9 @@ function consumeEpubDisplayMath(htmlLines: string[], line: string, state: EpubLi
   }
   const quoted = quoteBody(line) !== null || quoteBody(line.trimStart()) !== null;
   const prefix = !quoted && parseListItem(line) === null ? displayMathPrefix(line) : null;
+  if (epubDisplayStaysText(state, line, prefix)) {
+    return false;
+  }
   if (prefix !== null && !state.displayMath) {
     state.paragraph.push({ text: prefix, hardBreak: false });
     flushEpubParagraph(htmlLines, state);
@@ -495,6 +515,23 @@ function linkEpubAnchors(chapters: { filename: string; content: string }[]): voi
   }
 }
 
+function writeChapterLines(
+  htmlLines: string[],
+  lines: readonly string[],
+  state: EpubLineState
+): void {
+  state.laterLines = lines;
+  for (let index = 0; index < lines.length; index += 1) {
+    state.laterIndex = index + 1;
+    const htmlEnd = consumeEpubHtml(htmlLines, lines, index, state);
+    if (htmlEnd !== null) {
+      index = htmlEnd;
+      continue;
+    }
+    appendEpubLine(htmlLines, lines[index] ?? '', state);
+  }
+}
+
 function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string {
   const htmlLines: string[] = [];
   if (chapter.slug) {
@@ -515,20 +552,14 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     loose: false,
     parts: htmlLines,
     displayMath: null,
+    laterLines: [],
+    laterIndex: 0,
     tableLines: [],
     quoteLines: [],
     paragraph: [],
     slugCounts: slugs,
   };
-  const lines = chapter.content.split('\n');
-  for (let index = 0; index < lines.length; index += 1) {
-    const htmlEnd = consumeEpubHtml(htmlLines, lines, index, state);
-    if (htmlEnd !== null) {
-      index = htmlEnd;
-      continue;
-    }
-    appendEpubLine(htmlLines, lines[index] ?? '', state);
-  }
+  writeChapterLines(htmlLines, chapter.content.split('\n'), state);
   if (state.displayMath) {
     htmlLines.push(renderDisplayMathBlock(state.displayMath));
   }

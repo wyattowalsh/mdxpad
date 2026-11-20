@@ -270,6 +270,17 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('leaves the next paragraph in place when a formula never closes', () => {
+    const html = markdownToPdfHtml('Text $$\n\nmore\n');
+    expect(html).toContain('Text $$');
+    expect(html).toContain('<p>more</p>');
+    expect(html).not.toContain('annotation encoding="application/x-tex">');
+    const quoted = markdownToPdfHtml('Text $$\n\n> inside\n\n$$\n');
+    expect(quoted).toContain('<blockquote>');
+    expect(quoted).toContain('inside');
+    expect(quoted).not.toContain('&gt; inside');
+  });
+
   it('keeps the paragraph after a formula that opens at the end of a line', () => {
     const html = markdownToPdfHtml('Text $$\nx^2\n$$\nmore\n');
     expect(html).toContain('<p>Text</p>');

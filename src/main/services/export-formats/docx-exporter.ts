@@ -37,6 +37,7 @@ import { highlightCodeHtml } from './markdown-code';
 import { imagePixels, inlineLocalImages, type ImageKind } from './export-image';
 import { omitLocalMarkdownTargets } from './omit-local-markdown-targets';
 
+import { displayFenceCloses, displayPrefixCloses } from '@shared/lib/promote-display-math';
 import { displayMathPrefix, mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
 import { linkedDisplaySpan, linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
@@ -1427,12 +1428,17 @@ function pushDisplayMath(paragraphs: (Paragraph | Table)[], lines: readonly stri
 function takeDisplayLine(
   paragraphs: (Paragraph | Table)[],
   line: string,
-  displayLines: string[] | null
+  displayLines: string[] | null,
+  laterLines: readonly string[],
+  laterIndex: number
 ): string[] | null | false {
   const trimmed = line.trim();
   const quoted = quoteBody(line) !== null || quoteBody(line.trimStart()) !== null;
   const prefix = !quoted && parseListItem(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && displayLines === null) {
+    if (!displayPrefixCloses(laterLines, laterIndex)) {
+      return false;
+    }
     paragraphs.push(new Paragraph({ children: createParagraphChildren(prefix) }));
     return [];
   }
@@ -1449,7 +1455,7 @@ function takeDisplayLine(
     return null;
   }
   if (trimmed === '$$') {
-    return [];
+    return displayFenceCloses(laterLines, laterIndex) ? [] : false;
   }
   displayLines?.push(line);
   return displayLines;
@@ -1466,6 +1472,8 @@ interface DocxParse {
   blocks: (Paragraph | Table)[];
   pending: SourceLine[];
   displayLines: string[] | null;
+  laterLines: readonly string[];
+  laterIndex: number;
   tableLines: string[];
   quoteLines: string[];
   listStack: DocxListFrame[];
@@ -1817,6 +1825,19 @@ function takeDocxItemBlock(parse: DocxParse, line: string): boolean {
   );
 }
 
+function readDocxDisplay(parse: DocxParse, line: string): string[] | null | false {
+  if (parse.displayLines === null && quoteHoldsDelimiter(parse.quoteLines, line)) {
+    return false;
+  }
+  return takeDisplayLine(
+    parse.blocks,
+    line,
+    parse.displayLines,
+    parse.laterLines,
+    parse.laterIndex
+  );
+}
+
 function appendDocxBodyLine(parse: DocxParse, line: string): void {
   if (takeDocxItemBlock(parse, line)) {
     return;
@@ -1832,11 +1853,7 @@ function appendDocxBodyLine(parse: DocxParse, line: string): void {
   if (structural) {
     flushPendingParagraph(parse);
   }
-  const heldByQuote =
-    parse.displayLines === null && quoteHoldsDelimiter(parse.quoteLines, line);
-  const nextDisplay = heldByQuote
-    ? false
-    : takeDisplayLine(parse.blocks, line, parse.displayLines);
+  const nextDisplay = readDocxDisplay(parse, line);
   if (nextDisplay !== false) {
     flushDocxTable(parse.blocks, parse.tableLines);
     flushDocxQuote(parse.blocks, parse.quoteLines, parse.slugCounts, parse.numbering);
@@ -1995,6 +2012,8 @@ function emptyDocxParse(): DocxParse {
     blocks: [],
     pending: [],
     displayLines: null,
+    laterLines: [],
+    laterIndex: 0,
     tableLines: [],
     quoteLines: [],
     listStack: [],
@@ -2047,12 +2066,15 @@ function parseContentToParagraphs(content: string): {
   const codeLines: string[] = [];
   const language = { current: '' };
 
-  for (const line of plainFootnoteMarkers(
+  const lines = plainFootnoteMarkers(
     expandLinkReferences(
       prepareMarkdownSource(sanitizeMarkdownHtmlBlocks(content), { preserveHtml: true })
     )
-  ).split('\n')) {
-    fence = readDocxLine(parse, line, fence, codeLines, language);
+  ).split('\n');
+  parse.laterLines = lines;
+  for (let index = 0; index < lines.length; index += 1) {
+    parse.laterIndex = index + 1;
+    fence = readDocxLine(parse, lines[index] ?? '', fence, codeLines, language);
   }
 
   flushPendingParagraph(parse);
