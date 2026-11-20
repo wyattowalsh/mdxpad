@@ -51,13 +51,15 @@ describe('rewriteSimpleHtml', () => {
     );
     expect(rewriteSimpleHtml('<samp>ok</samp>')).toBe('`ok`');
     expect(rewriteSimpleHtml('Price <small>was $5</small>')).toBe('Price was $5');
-    expect(rewriteSimpleHtml('<time datetime="2020-01-01">then</time>')).toBe(
-      'then (2020-01-01)'
-    );
+    expect(rewriteSimpleHtml('<time datetime="2020-01-01">then</time>')).toBe('then (2020-01-01)');
   });
 
   it('hides an HTML comment and keeps the words around it', () => {
     expect(rewriteSimpleHtml('See <!-- secret note --> this')).toBe('See this');
+    expect(rewriteSimpleHtml('<svg><text>Hello<!-- secret --> there</text></svg>').trim()).toBe(
+      'Hello there'
+    );
+    expect(rewriteSimpleHtml('<ruby>漢<!-- x --><rt>kan</rt></ruby>')).toBe('漢 (kan)');
     expect(rewriteSimpleHtml('See <!-- forever this')).toBe('See <!-- forever this');
     expect(rewriteSimpleHtml('`<!-- keep -->`')).toBe('`<!-- keep -->`');
     expect(rewriteSimpleHtml('```\n<!-- keep -->\n```')).toBe('```\n<!-- keep -->\n```');
@@ -72,9 +74,9 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<a href="https://example.com"><div>Docs</div></a>').trim()).toBe(
       '[Docs](https://example.com)'
     );
-    expect(rewriteSimpleHtml('<a href="https://example.com"><p>Read the guide</p></a>').trim()).toBe(
-      '[Read the guide](https://example.com)'
-    );
+    expect(
+      rewriteSimpleHtml('<a href="https://example.com"><p>Read the guide</p></a>').trim()
+    ).toBe('[Read the guide](https://example.com)');
     expect(rewriteSimpleHtml('<a href="file:///etc/passwd"><div>Docs</div></a>')).not.toContain(
       '](file:'
     );
@@ -88,12 +90,16 @@ describe('rewriteSimpleHtml', () => {
       'H~2~ O'
     );
     expect(
-      rewriteSimpleHtml('<math><semantics><mi>x</mi><annotation>secret</annotation></semantics></math>')
+      rewriteSimpleHtml(
+        '<math><semantics><mi>x</mi><annotation>secret</annotation></semantics></math>'
+      )
     ).toBe('x');
   });
 
   it('shows the words inside an MDX component', () => {
-    expect(rewriteSimpleHtml('<Callout>Remember the ice</Callout>').trim()).toBe('Remember the ice');
+    expect(rewriteSimpleHtml('<Callout>Remember the ice</Callout>').trim()).toBe(
+      'Remember the ice'
+    );
     expect(rewriteSimpleHtml('<Button>Save</Button> now')).toBe('Save now');
     expect(rewriteSimpleHtml('<Callout><strong>Remember</strong> the ice</Callout>').trim()).toBe(
       '**Remember** the ice'
@@ -113,11 +119,13 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<table><tr><td>Left<td>Right<tr><td>A<td>B</table>').trim()).toBe(
       '| Left | Right |\n| --- | --- |\n| A | B |'
     );
-    expect(rewriteSimpleHtml('<ul><li>Outer<ul><li>Inner</li></ul></li><li>Next</li></ul>')).toContain(
-      'Inner'
-    );
     expect(
-      rewriteSimpleHtml('<a href="https://example.com"><img alt="Cat photo" src="cat.png"></a>').trim()
+      rewriteSimpleHtml('<ul><li>Outer<ul><li>Inner</li></ul></li><li>Next</li></ul>')
+    ).toContain('Inner');
+    expect(
+      rewriteSimpleHtml(
+        '<a href="https://example.com"><img alt="Cat photo" src="cat.png"></a>'
+      ).trim()
     ).toBe('[![Cat photo](cat.png)](https://example.com)');
     expect(
       rewriteSimpleHtml('<a href="file:///etc/passwd"><img alt="Cat" src="cat.png"></a>').trim()
@@ -142,14 +150,16 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<marquee>News</marquee>')).toBe('News');
     expect(rewriteSimpleHtml('<nobr>keep together</nobr>')).toBe('keep together');
     expect(
-      rewriteSimpleHtml('<dl><dt>Term <em>x</em></dt><dd>See <strong>this</strong></dd></dl>').trim()
+      rewriteSimpleHtml(
+        '<dl><dt>Term <em>x</em></dt><dd>See <strong>this</strong></dd></dl>'
+      ).trim()
     ).toBe('Term *x*\n\nSee **this**');
     expect(rewriteSimpleHtml('<blockquote><p>One</p><p>Two</p></blockquote>').trim()).toBe(
       '> One\n>\n> Two'
     );
-    expect(rewriteSimpleHtml('<pre><code class="language-ts">const x = 1</code></pre>').trim()).toBe(
-      '```ts\nconst x = 1\n```'
-    );
+    expect(
+      rewriteSimpleHtml('<pre><code class="language-ts">const x = 1</code></pre>').trim()
+    ).toBe('```ts\nconst x = 1\n```');
     expect(rewriteSimpleHtml('<pre>plain</pre>').trim()).toBe('```\nplain\n```');
   });
 
@@ -160,7 +170,9 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<address>Ada Lovelace<br>London</address>').trim()).toBe(
       'Ada Lovelace<br>London'
     );
-    expect(rewriteSimpleHtml('<menu><li>Cut</li><li>Copy</li></menu>').trim()).toBe('- Cut\n- Copy');
+    expect(rewriteSimpleHtml('<menu><li>Cut</li><li>Copy</li></menu>').trim()).toBe(
+      '- Cut\n- Copy'
+    );
     expect(rewriteSimpleHtml('<menu>Cut</menu>').trim()).toBe('Cut');
     expect(rewriteSimpleHtml('Hello <bdo dir="rtl">Ada</bdo> there')).toBe('Hello Ada there');
     expect(rewriteSimpleHtml('<data value="42">forty-two</data>')).toBe('forty-two (42)');
@@ -174,14 +186,31 @@ describe('rewriteSimpleHtml', () => {
     );
     expect(rewriteSimpleHtml('<video src="file:///tmp/clip.mp4"></video>').trim()).toBe('');
     expect(
-      rewriteSimpleHtml('<picture><source srcset="a.webp"><img alt="Cat" src="cat.png"></picture>').trim()
+      rewriteSimpleHtml('<video><source src="https://example.com/a.mp4"></video>').trim()
+    ).toBe('https://example.com/a.mp4');
+    expect(
+      rewriteSimpleHtml(
+        '<video><source src="file:///tmp/a.mp4"><source src="https://example.com/a.mp4"></video>'
+      ).trim()
+    ).toBe('https://example.com/a.mp4');
+    expect(rewriteSimpleHtml('<video><source src="file:///tmp/a.mp4"></video>').trim()).toBe('');
+    expect(rewriteSimpleHtml('Hello <bdi>Ada</bdi> there')).toBe('Hello Ada there');
+    expect(rewriteSimpleHtml('Name: <slot>Fallback</slot>')).toBe('Name: Fallback');
+    expect(
+      rewriteSimpleHtml(
+        '<picture><source srcset="a.webp"><img alt="Cat" src="cat.png"></picture>'
+      ).trim()
     ).toBe('![Cat](cat.png)');
     expect(
-      rewriteSimpleHtml('<map name="m"><area alt="Top" href="https://example.com/top"></map>').trim()
+      rewriteSimpleHtml(
+        '<map name="m"><area alt="Top" href="https://example.com/top"></map>'
+      ).trim()
     ).toBe('[Top](https://example.com/top)');
     expect(rewriteSimpleHtml('<area alt="Secret" href="javascript:alert(1)">')).toBe('Secret');
     expect(
-      rewriteSimpleHtml('<input value="Red"><datalist><option>Red</option><option>Blue</option></datalist>')
+      rewriteSimpleHtml(
+        '<input value="Red"><datalist><option>Red</option><option>Blue</option></datalist>'
+      )
     ).toBe('Red');
     expect(
       rewriteSimpleHtml('<details><summary>More <b>info</b></summary>\nHidden\n</details>').trim()
@@ -192,7 +221,9 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('Name <input type="text" value="Ada">')).toBe('Name Ada');
     expect(rewriteSimpleHtml('<textarea>Hello</textarea>').trim()).toBe('Hello');
     expect(
-      rewriteSimpleHtml('<select><option>Red</option><option selected>Blue</option></select>').trim()
+      rewriteSimpleHtml(
+        '<select><option>Red</option><option selected>Blue</option></select>'
+      ).trim()
     ).toBe('Red, **Blue**');
     expect(rewriteSimpleHtml('<button>Save</button>').trim()).toBe('Save');
     expect(rewriteSimpleHtml('<input type="hidden" value="secret">')).toBe('');
@@ -214,7 +245,9 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<ol type="a"><li>One</li><li>Two</li></ol>').trim()).toBe(
       '- a. One\n- b. Two'
     );
-    expect(rewriteSimpleHtml('<ol type="i" start="4"><li>Four</li></ol>').trim()).toBe('- iv. Four');
+    expect(rewriteSimpleHtml('<ol type="i" start="4"><li>Four</li></ol>').trim()).toBe(
+      '- iv. Four'
+    );
     expect(
       rewriteSimpleHtml('<ol reversed><li>One</li><li>Two</li><li>Three</li></ol>').trim()
     ).toBe('- 3. One\n- 2. Two\n- 1. Three');

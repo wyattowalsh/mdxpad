@@ -33,10 +33,12 @@ const GROUP = new Set([
 const EMBEDDED = new Set([
   'area',
   'audio',
+  'bdi',
   'bdo',
   'data',
   'datalist',
   'legend',
+  'slot',
   'source',
   'track',
   'video',
@@ -231,7 +233,9 @@ function parentClose(name: string, closeName: string): boolean {
   const family = optionalFamily(name);
   switch (family) {
     case 'li':
-      return closeName === 'ul' || closeName === 'ol' || closeName === 'menu' || closeName === 'dir';
+      return (
+        closeName === 'ul' || closeName === 'ol' || closeName === 'menu' || closeName === 'dir'
+      );
     case 'item':
       return closeName === 'dl';
     case 'cell':
@@ -243,7 +247,12 @@ function parentClose(name: string, closeName: string): boolean {
         closeName === 'tfoot'
       );
     case 'row':
-      return closeName === 'table' || closeName === 'thead' || closeName === 'tbody' || closeName === 'tfoot';
+      return (
+        closeName === 'table' ||
+        closeName === 'thead' ||
+        closeName === 'tbody' ||
+        closeName === 'tfoot'
+      );
     case 'option':
       return closeName === 'select' || closeName === 'optgroup' || closeName === 'datalist';
     case null:
@@ -297,9 +306,15 @@ function elementAt(
   const open = readAngleTag(value, cursor);
   const openName = open && !open.closing ? open.name.toLowerCase() : '';
   if (open && nest === 0 && siblingOpen(name, openName)) {
-    return { element: { name, innerStart: openEnd, innerEnd: cursor, end: cursor }, depth, nest, cursor };
+    return {
+      element: { name, innerStart: openEnd, innerEnd: cursor, end: cursor },
+      depth,
+      nest,
+      cursor,
+    };
   }
-  const nextNest = open && !open.closing && !open.selfClosing && entersNest(name, openName) ? nest + 1 : nest;
+  const nextNest =
+    open && !open.closing && !open.selfClosing && entersNest(name, openName) ? nest + 1 : nest;
   const same = open && !open.closing && !open.selfClosing && openName === name && nest === 0;
   const next = open && !open.closing ? open.end : cursor + 1;
   return {
@@ -505,7 +520,8 @@ function renderList(inner: string, ordered: boolean, options?: OrderedListOption
   if (ordered && options && needsExplicitLabels(items, options)) {
     return renderExplicitList(items, options);
   }
-  const start = ordered && options?.start !== null && options?.start !== undefined ? options.start : 1;
+  const start =
+    ordered && options?.start !== null && options?.start !== undefined ? options.start : 1;
   const lines = items.map((item, index) =>
     markerBlock(ordered ? `${start + index}. ` : '- ', convertHtml(item.body))
   );
@@ -522,7 +538,9 @@ function renderHeading(level: number, inner: string): string {
 }
 
 function renderQuote(inner: string): string {
-  const text = convertHtml(inner).trim().replace(/\n{3,}/g, '\n\n');
+  const text = convertHtml(inner)
+    .trim()
+    .replace(/\n{3,}/g, '\n\n');
   if (text.length === 0) {
     return '';
   }
@@ -552,7 +570,10 @@ function unwrapPreCode(inner: string): { text: string; language: string } {
   if (!bounds || trimmed.slice(bounds.end).trim().length > 0) {
     return { text: trimmed, language: '' };
   }
-  const text = trimmed.slice(bounds.innerStart, bounds.innerEnd).replace(/^\n/, '').replace(/\n$/, '');
+  const text = trimmed
+    .slice(bounds.innerStart, bounds.innerEnd)
+    .replace(/^\n/, '')
+    .replace(/\n$/, '');
   return { text, language: codeFenceLanguage(trimmed.slice(start, open.end)) };
 }
 
@@ -893,10 +914,9 @@ function renderKbd(inner: string): string {
 }
 
 function attribute(openTag: string, name: string): string {
-  const match = new RegExp(
-    `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`,
-    'i'
-  ).exec(openTag);
+  const match = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i').exec(
+    openTag
+  );
   return match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
 }
 
@@ -979,7 +999,10 @@ function renderRuby(inner: string): string {
   const flush = (reading: string): void => {
     const separated = base.length > 0 && reading.length > 0 && !base.endsWith(' ') ? ' ' : '';
     const spoken = reading.length > 0 ? `${separated}(${reading})` : '';
-    const gap = result.length > 0 && base.length > 0 && !result.endsWith(' ') && !base.startsWith(' ') ? ' ' : '';
+    const gap =
+      result.length > 0 && base.length > 0 && !result.endsWith(' ') && !base.startsWith(' ')
+        ? ' '
+        : '';
     result += `${gap}${base}${spoken}`;
     base = '';
   };
@@ -1000,6 +1023,11 @@ function renderRuby(inner: string): string {
       continue;
     }
     if (!element) {
+      const commentNext = inner[index] === '<' ? afterHtmlComment(inner, index, base) : null;
+      if (commentNext !== null) {
+        index = commentNext;
+        continue;
+      }
       base += inner[index] ?? '';
       index += 1;
       continue;
@@ -1031,7 +1059,8 @@ function renderChoices(inner: string): string[] {
     if (element.name === 'option') {
       const text = cellText(source.slice(element.innerStart, element.innerEnd));
       const openTag = openTagBefore(source, element.innerStart);
-      const label = text || attribute(openTag, 'label').trim() || attribute(openTag, 'value').trim();
+      const label =
+        text || attribute(openTag, 'label').trim() || attribute(openTag, 'value').trim();
       if (label.length > 0) {
         choices.push(markedChoice(label, /\bselected\b/i.test(openTag)));
       }
@@ -1079,12 +1108,32 @@ function renderData(value: string, element: HtmlElement, inner: string): string 
   return text.length === 0 ? raw : `${text} (${raw})`;
 }
 
+function firstSourceAddress(inner: string): string {
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (!element) {
+      index += 1;
+      continue;
+    }
+    if (element.name === 'source') {
+      const address = visibleAddress(attribute(openTagBefore(inner, element.innerStart), 'src'));
+      if (address.length > 0) {
+        return address;
+      }
+    }
+    index = element.end;
+  }
+  return '';
+}
+
 function renderMediaFallback(value: string, element: HtmlElement, inner: string): string {
   const text = convertHtml(inner).trim();
   if (text.length > 0) {
     return text;
   }
-  return visibleAddress(attribute(openTagBefore(value, element.innerStart), 'src'));
+  const own = visibleAddress(attribute(openTagBefore(value, element.innerStart), 'src'));
+  return own.length > 0 ? own : firstSourceAddress(inner);
 }
 
 function renderEmbedded(element: HtmlElement, value: string, inner: string): string | null {
@@ -1102,7 +1151,9 @@ function renderEmbedded(element: HtmlElement, value: string, inner: string): str
       return renderData(value, element, inner);
     case 'legend':
       return blockWrap(boldLabel(cellText(inner)));
+    case 'bdi':
     case 'bdo':
+    case 'slot':
       return convertHtml(inner);
     default:
       return null;
@@ -1134,6 +1185,13 @@ function graphicText(inner: string): string {
   let result = '';
   let index = 0;
   while (index < inner.length) {
+    if (inner[index] === '<') {
+      const commentNext = afterHtmlComment(inner, index, result);
+      if (commentNext !== null) {
+        index = commentNext;
+        continue;
+      }
+    }
     const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
     if (!element) {
       result += inner[index] ?? '';
@@ -1329,6 +1387,14 @@ function htmlCommentEnd(value: string, index: number): number | null {
   return end === -1 ? null : end + 3;
 }
 
+function afterHtmlComment(value: string, index: number, result: string): number | null {
+  const end = htmlCommentEnd(value, index);
+  if (end === null) {
+    return null;
+  }
+  return result.endsWith(' ') && value[end] === ' ' ? end + 1 : end;
+}
+
 function convertHtml(value: string): string {
   let result = '';
   let index = 0;
@@ -1344,12 +1410,9 @@ function convertHtml(value: string): string {
       index += 1;
       continue;
     }
-    const commentEnd = value[index] === '<' ? htmlCommentEnd(value, index) : null;
-    if (commentEnd !== null) {
-      index = commentEnd;
-      if (result.endsWith(' ') && value[index] === ' ') {
-        index += 1;
-      }
+    const commentNext = value[index] === '<' ? afterHtmlComment(value, index, result) : null;
+    if (commentNext !== null) {
+      index = commentNext;
       continue;
     }
     const element = value[index] === '<' ? readSimpleElement(value, index) : null;
