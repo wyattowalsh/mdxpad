@@ -568,8 +568,10 @@ export function normalizeTexMath(content: string): string {
   return mapFencedProse(content, replaceTexMath);
 }
 
-function normalizeNewlines(content: string): string {
-  return content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+/** Drop a leading byte-order mark and read carriage returns as line breaks. */
+export function normalizeMarkdownInput(content: string): string {
+  const withoutMark = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  return withoutMark.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 }
 
 /** Make Markdown safe to compile as MDX and to export without leaking hidden notes. */
@@ -579,7 +581,7 @@ export function prepareMarkdownSource(
 ): string {
   const transform = options?.preserveHtml === true ? prepareProse : preparePlainProse;
   return mapFencedProse(
-    fenceIndentedCode(stripLeadingFrontmatter(normalizeNewlines(content))),
+    fenceIndentedCode(stripLeadingFrontmatter(normalizeMarkdownInput(content))),
     transform
   );
 }

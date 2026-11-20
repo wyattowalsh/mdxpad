@@ -780,6 +780,8 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('A\\\r\nB\r\n')).toContain('<br />');
     expect(markdownToPdfHtml('> quote\r\n> next\r\n')).toContain('<blockquote>');
     expect(markdownToPdfHtml('- [x] done\r\n')).toContain('checked');
+    expect(markdownToPdfHtml('\uFEFF- one\n- two\n')).toBe(markdownToPdfHtml('- one\n- two\n'));
+    expect(markdownToPdfHtml('\uFEFF# Title\n')).toContain('<h1');
     expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(
       '<p><a href="https://example.com">https://example.com</a></p>'
     );

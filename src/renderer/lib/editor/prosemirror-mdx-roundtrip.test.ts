@@ -264,6 +264,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps a heading that starts with a byte-order mark', () => {
+    const saved = roundTrip('\uFEFF# Title\n\nbody\n');
+    expect(saved).toContain('# Title');
+    expect(saved).not.toContain('\\#');
+    expect(saved).toContain('body');
+    const listed = roundTrip('\uFEFF- one\n- two\n');
+    expect(listed).toContain('- one');
+    expect(listed).toContain('- two');
+    expect(listed).not.toContain('\\-');
+  });
+
   it('keeps a backslash at the end of a web address', () => {
     const source = 'www.example.com/a\\ b\n';
     const once = roundTrip(source);

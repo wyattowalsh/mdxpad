@@ -10,6 +10,9 @@
 
 import MarkdownIt from 'markdown-it';
 import { MarkdownParser } from 'prosemirror-markdown';
+
+import { normalizeMarkdownInput } from '@shared/lib/markdown-math';
+
 import { mdxSchema } from './prosemirror-mdx-schema';
 import {
   FOOTNOTE_MARK,
@@ -366,7 +369,7 @@ function keepEmptyLinkLabels(value: string): string {
 }
 
 export function parseMdxContent(content: string): ProseMirrorNode | null {
-  const { frontmatter, body: sourceBody } = splitLeadingFrontmatter(content);
+  const { frontmatter, body: sourceBody } = splitLeadingFrontmatter(normalizeMarkdownInput(content));
   const body = indentListMarkerFences(sourceBody);
   const definitions = extractLinkDefinitions(body);
   const protectedNotes = protectFootnoteBlocks(body);
