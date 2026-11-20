@@ -25,12 +25,30 @@ interface NotionRichText {
     code?: boolean;
   };
   href?: string | null;
+  equation?: { expression?: string };
+  mention?: { date?: { start?: string }; user?: { name?: string } };
+}
+
+function richSource(rt: NotionRichText): string {
+  const plain = rt.plain_text.trim();
+  if (plain.length > 0) {
+    return rt.plain_text;
+  }
+  const expression = rt.equation?.expression?.trim() ?? '';
+  if (expression.length > 0) {
+    return expression;
+  }
+  const start = rt.mention?.date?.start?.trim() ?? '';
+  if (start.length > 0) {
+    return start;
+  }
+  return rt.mention?.user?.name?.trim() ?? '';
 }
 
 function extractRichText(richTexts: NotionRichText[]): string {
   return richTexts
     .map((rt) => {
-      let text = rt.plain_text;
+      let text = richSource(rt);
       if (rt.annotations?.code) text = `\`${text}\``;
       if (rt.annotations?.bold) text = `**${text}**`;
       if (rt.annotations?.italic) text = `_${text}_`;

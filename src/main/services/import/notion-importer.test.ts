@@ -212,6 +212,37 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: equation');
   });
 
+  it('keeps an inline formula and a mentioned date', async () => {
+    const mockBlocks = {
+      results: [
+        {
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              { plain_text: '', equation: { expression: 'E=mc^2' }, annotations: {} },
+              { plain_text: ' on ', annotations: {} },
+              {
+                plain_text: '',
+                mention: { date: { start: '2020-01-02' } },
+                annotations: {},
+              },
+            ],
+          },
+        },
+      ],
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(JSON.stringify(mockBlocks), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('E=mc^2');
+    expect(result.content).toContain('2020-01-02');
+  });
+
   it('keeps the caption on a code block', async () => {
     const mockBlocks = {
       results: [
