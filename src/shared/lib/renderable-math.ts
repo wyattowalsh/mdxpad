@@ -189,22 +189,37 @@ export function renderableMathTex(source: string): string {
 }
 
 const KATEX_ENVIRONMENT_ALIAS: Readonly<Record<string, string>> = {
-  multline: 'gather',
-  'multline*': 'gather*',
+  displaymath: 'equation*',
+  eqnarray: 'align',
+  'eqnarray*': 'align*',
   flalign: 'align',
   'flalign*': 'align*',
+  multline: 'gather',
+  'multline*': 'gather*',
+  xalignat: 'alignat',
+  'xalignat*': 'alignat*',
+  xxalignat: 'alignat',
+  'xxalignat*': 'alignat*',
 };
+
+const STRIPPED_ENVIRONMENT = new Set(['math', 'subequations']);
 
 /** KaTeX names for environments and text commands it does not implement. */
 export function katexMathTex(source: string): string {
   const aliased = source.replace(
-    /\\(begin|end)\{(multline\*|multline|flalign\*|flalign)\}/g,
+    /\\(begin|end)\{([A-Za-z*]+)\}/g,
     (match: string, edge: string, name: string) => {
+      if (STRIPPED_ENVIRONMENT.has(name)) {
+        return '';
+      }
       const alias = KATEX_ENVIRONMENT_ALIAS[name];
       return alias === undefined ? match : `\\${edge}{${alias}}`;
     }
   );
-  return aliased.replace(/\\(mbox|textsc|textsl)(?![A-Za-z])/g, '\\text');
+  return aliased
+    .replace(/\\(mbox|textsc|textsl)(?![A-Za-z])/g, '\\text')
+    .replace(/\\label\{[^{}]*\}/g, '')
+    .replace(/\\eqref\{([^{}]*)\}/g, '\\text{($1)}');
 }
 
 export function repairedMathSpan(

@@ -28,6 +28,18 @@ describe('renderableMathTex', () => {
     expect(katexMathTex('\\begin{multline}a\\\\b\\end{multline}')).toBe(
       '\\begin{gather}a\\\\b\\end{gather}'
     );
+    expect(katexMathTex('\\begin{eqnarray}a&=b\\end{eqnarray}')).toBe(
+      '\\begin{align}a&=b\\end{align}'
+    );
+    expect(katexMathTex('\\begin{displaymath}a=b\\end{displaymath}')).toBe(
+      '\\begin{equation*}a=b\\end{equation*}'
+    );
+    expect(katexMathTex('\\begin{math}a=b\\end{math}')).toBe('a=b');
+    expect(katexMathTex('\\begin{xalignat}{2}a&=b\\end{xalignat}')).toBe(
+      '\\begin{alignat}{2}a&=b\\end{alignat}'
+    );
+    expect(katexMathTex('a=b\\label{eq:a}')).toBe('a=b');
+    expect(katexMathTex('\\eqref{eq:a}')).toBe('\\text{(eq:a)}');
     expect(katexMathTex('\\mbox{a}')).toBe('\\text{a}');
     expect(renderableMathTex('\\begin{multline}a\\\\b\\end{multline}')).toBe(
       '\\begin{multline}a\\\\b\\end{multline}'
