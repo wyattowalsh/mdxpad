@@ -187,18 +187,34 @@ function splitTrailingPunctuation(url: string): { url: string; suffix: string } 
   return { url: url.slice(0, end), suffix: url.slice(end) };
 }
 
+function escapedAngleAutolink(open: string | undefined, url: string): string | null {
+  if (open !== '&lt;' || !url.endsWith('&gt;')) {
+    return null;
+  }
+  const body = url.slice(0, -'&gt;'.length);
+  if (body.length === 0 || body.includes('&lt;') || body.includes('&gt;')) {
+    return null;
+  }
+  return `[${body}](${body})`;
+}
+
 /** Keep a URL readable after an angle bracket inside it was escaped. */
 export function linkUrlsWithEscapedAngles(value: string): string {
-  return value.replace(/https?:\/\/[^\s)]+/gi, (url, offset) => {
+  return value.replace(/(&lt;)?(https?:\/\/[^\s)]+)/gi, (match, open: string | undefined, url: string, offset: number) => {
+    const angle = escapedAngleAutolink(open, url);
+    if (angle) {
+      return angle;
+    }
     if (!url.includes('&lt;') && !url.includes('&gt;')) {
-      return url;
+      return match;
     }
     const previous = value[offset - 1];
     if (previous === '(' || previous === '[') {
-      return url;
+      return match;
     }
     const trimmed = splitTrailingPunctuation(url);
-    return `[${trimmed.url}](${hrefForEncodedUrl(trimmed.url)})${trimmed.suffix}`;
+    const linked = `[${trimmed.url}](${hrefForEncodedUrl(trimmed.url)})${trimmed.suffix}`;
+    return open ? `${open}${linked}` : linked;
   });
 }
 

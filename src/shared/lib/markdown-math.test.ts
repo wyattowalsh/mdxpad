@@ -85,6 +85,10 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('See https://example.com/a<b> and {1 +} more')).toContain(
       'a&lt;b&gt;'
     );
+    expect(prepareMarkdownSource('&lt;https://example.com&gt;')).toContain(
+      '[https://example.com](https://example.com)'
+    );
+    expect(prepareMarkdownSource('&lt;https://example.com&gt;')).not.toContain('%3E');
     expect(prepareMarkdownSource('See https://example.com/a<b> and {1 +} more')).toContain(
       '\\{1 +\\}'
     );

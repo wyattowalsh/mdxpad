@@ -762,6 +762,9 @@ describe('renderMarkdownInline', () => {
 
   it('decodes a character reference and leaves one inside code', () => {
     expect(renderMarkdownInline('AT&amp;T and &lt;tag&gt;')).toBe('AT&amp;T and &lt;tag&gt;');
+    expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(
+      '<p><a href="https://example.com">https://example.com</a></p>'
+    );
     expect(renderMarkdownInline('`AT&amp;T`')).toBe('<code>AT&amp;amp;T</code>');
     expect(renderMarkdownInline('&ast;not italic&ast;')).toBe('*not italic*');
     expect(renderMarkdownInline('[docs](https://example.com?a=1&amp;b=2)')).toBe(
