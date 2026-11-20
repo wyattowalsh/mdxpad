@@ -194,12 +194,15 @@ function unwrap(html: string, name: string, openEnd: number): Revealed | null {
   return { text: revealPrintedHtml(html.slice(openEnd, close.innerEnd)), next: close.next };
 }
 
-function inputCaption(tag: string): string {
+function inputCaption(html: string, tag: string, end: number): string {
   const type = attribute(tag, 'type').trim().toLowerCase();
+  const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
+  if (type === 'checkbox') {
+    return label.length === 0 || html.slice(end).includes(label) ? '' : label;
+  }
   if (type !== 'file' && type !== 'radio') {
     return '';
   }
-  const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
   if (label.length > 0 || type !== 'radio') {
     return label;
   }
@@ -207,12 +210,12 @@ function inputCaption(tag: string): string {
   return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
 }
 
-function revealInput(tag: string, end: number): Revealed | null {
-  const caption = inputCaption(tag);
+function revealInput(html: string, tag: string, end: number): Revealed | null {
+  const caption = inputCaption(html, tag, end);
   if (caption.length === 0) {
     return null;
   }
-  return { text: `${tag}${escapeText(caption)}`, next: end };
+  return { text: `${tag} ${escapeText(caption)}`, next: end };
 }
 
 function revealButton(html: string, tag: string, openEnd: number): Revealed | null {
@@ -351,7 +354,7 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
     return { text: '', next: end };
   }
   if (name === 'input') {
-    return revealInput(tag, end);
+    return revealInput(html, tag, end);
   }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
     return null;

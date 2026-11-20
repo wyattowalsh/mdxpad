@@ -244,10 +244,10 @@ function choiceName(props: Record<string, unknown>, type: string): VisibleName |
 
 function inputName(props: Record<string, unknown>): VisibleName | undefined {
   const type = stringProp(props, 'type').toLowerCase();
-  if (type === 'file' || type === 'radio') {
+  if (type === 'file' || type === 'radio' || type === 'checkbox') {
     return choiceName(props, type);
   }
-  if (type === 'hidden' || type === 'checkbox' || type === 'image') {
+  if (type === 'hidden' || type === 'image') {
     return undefined;
   }
   if (stringProp(props, 'value').length > 0 || stringProp(props, 'placeholder').length > 0) {

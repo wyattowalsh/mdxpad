@@ -964,6 +964,17 @@ function namedChoice(openTag: string, type: string): string {
   return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
 }
 
+function checkboxMarker(value: string, element: HtmlElement, openTag: string): string {
+  const box = /\bchecked\b/i.test(openTag) ? '[x]' : '[ ]';
+  const follower = value[element.end] ?? '';
+  const marker = follower.length === 0 || /\s/.test(follower) ? box : `${box} `;
+  const label = attribute(openTag, 'aria-label').trim() || attribute(openTag, 'title').trim();
+  if (label.length === 0 || value.slice(element.end).includes(label)) {
+    return marker;
+  }
+  return `${marker} ${label}`;
+}
+
 function renderInput(value: string, element: HtmlElement): string {
   const openTag = openTagBefore(value, element.innerStart);
   const type = attribute(openTag, 'type').trim().toLowerCase();
@@ -976,14 +987,12 @@ function renderInput(value: string, element: HtmlElement): string {
   if (type === 'image') {
     return renderImageInput(openTag);
   }
-  if (type !== 'checkbox') {
-    const entered = attribute(openTag, 'value').trim();
-    const shown = entered.length > 0 ? entered : attribute(openTag, 'placeholder').trim();
-    return shown.length > 0 ? shown : attribute(openTag, 'aria-label').trim();
+  if (type === 'checkbox') {
+    return checkboxMarker(value, element, openTag);
   }
-  const box = /\bchecked\b/i.test(openTag) ? '[x]' : '[ ]';
-  const follower = value[element.end] ?? '';
-  return follower.length === 0 || /\s/.test(follower) ? box : `${box} `;
+  const entered = attribute(openTag, 'value').trim();
+  const shown = entered.length > 0 ? entered : attribute(openTag, 'placeholder').trim();
+  return shown.length > 0 ? shown : attribute(openTag, 'aria-label').trim();
 }
 
 function renderKbd(inner: string): string {

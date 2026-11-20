@@ -144,6 +144,12 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<input type="radio" value="Morning">')).toBe('Morning');
     expect(rewriteSimpleHtml('<input type="radio" value="file:///etc/passwd">')).toBe('');
     expect(rewriteSimpleHtml('<input type="file" value="file:///tmp/paper.md">')).toBe('');
+    expect(rewriteSimpleHtml('<input type="checkbox" aria-label="Agreed" checked>')).toBe(
+      '[x] Agreed'
+    );
+    expect(rewriteSimpleHtml('<input type="checkbox" aria-label="Agreed" checked> Agreed')).toBe(
+      '[x] Agreed'
+    );
     expect(
       rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
     ).toContain('Qty (Quantity)');

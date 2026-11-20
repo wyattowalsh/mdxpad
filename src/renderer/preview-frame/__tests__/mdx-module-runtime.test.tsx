@@ -396,6 +396,7 @@ describe('createModuleFromCode', () => {
     const source = [
       '<input type="file" aria-label="Upload the paper" />',
       '<input type="radio" value="Morning" />',
+      '<input type="checkbox" aria-label="Agreed" />',
     ].join('\n\n');
     const result = await compileMdx(testId('choice-name'), source);
     expect(result.ok).toBe(true);
@@ -406,6 +407,7 @@ describe('createModuleFromCode', () => {
     const { container } = render(<module.default />);
     expect(container.textContent).toContain('Upload the paper');
     expect(container.textContent).toContain('Morning');
+    expect(container.textContent).toContain('Agreed');
     expect(container.querySelector('input[type="file"]')).not.toBeNull();
     expect(container.querySelector('input[type="radio"]')).not.toBeNull();
   });

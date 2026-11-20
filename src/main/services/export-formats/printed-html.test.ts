@@ -78,6 +78,12 @@ describe('printed html', () => {
     expect(markdownToPdfHtml('<input type="file" aria-label="Upload the paper">\n')).toContain(
       'Upload the paper'
     );
+    expect(markdownToPdfHtml('<input type="checkbox" aria-label="Agreed" checked>\n')).toContain(
+      'Agreed'
+    );
+    expect(
+      markdownToPdfHtml('<input type="checkbox" aria-label="Agreed" checked> Agreed\n')
+    ).not.toContain('Agreed Agreed');
     expect(markdownToPdfHtml('<input type="radio" value="Morning" />\n')).toContain('Morning');
     expect(markdownToPdfHtml('<input type="radio" value="file:///etc/passwd" />\n')).toBe(
       '<p><input type="radio" value="file:///etc/passwd" /></p>'
