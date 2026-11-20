@@ -75,7 +75,8 @@ describe('PdfExporter', () => {
 
   it('does not print a local file named by an HTML block', async () => {
     await exporter.export({
-      content: '<iframe src="file:///etc/passwd"></iframe>\n\n<script>\nlocation="file:///etc/passwd"\n</script>',
+      content:
+        '<iframe src="file:///etc/passwd"></iframe>\n\n<script>\nlocation="file:///etc/passwd"\n</script>',
       outputPath: '/tmp/local.pdf',
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
@@ -880,7 +881,7 @@ describe('PdfExporter', () => {
     });
     const loadedUrl = mockLoadURL.mock.calls[0]?.[0];
     const html = decodeURIComponent(String(loadedUrl).replace('data:text/html;charset=utf-8,', ''));
-    expect(html).toContain('<a href="https://example.com"><img src="a.png" alt="alt" /></a>');
+    expect(html).toContain('<a href="https://example.com"><img src="a.png" alt="alt" /> alt</a>');
   });
 
   it('keeps an escaped parenthesis and a spaced address in a link', async () => {

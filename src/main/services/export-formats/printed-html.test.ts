@@ -118,6 +118,15 @@ describe('printed html', () => {
     expect(image).not.toContain('file:');
   });
 
+  it('shows an image description', () => {
+    expect(
+      markdownToPdfHtml('<img src="https://example.com/a.png" alt="Altice">\n').replace(
+        /<[^>]+>/g,
+        ''
+      )
+    ).toContain('Altice');
+  });
+
   it('shows a typed value', () => {
     expect(
       markdownToPdfHtml('Name <input type="text" value="Ada">\n').replace(/<[^>]+>/g, '')

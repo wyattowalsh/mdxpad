@@ -422,8 +422,8 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
   if ((name === 'track' || name === 'source') && tag.startsWith('</')) {
     return { text: '', next: end };
   }
-  if (name === 'input' || name === 'area') {
-    return name === 'input' ? revealInput(html, tag, end) : revealArea(tag, end);
+  if (name === 'input' || name === 'area' || name === 'img') {
+    return revealVoid(html, tag, name, end);
   }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
     return null;
@@ -464,6 +464,24 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
     default:
       return revealRest(html, tag, name, end);
   }
+}
+
+function revealVoid(html: string, tag: string, name: string, end: number): Revealed | null {
+  if (name === 'input') {
+    return revealInput(html, tag, end);
+  }
+  if (name === 'area') {
+    return revealArea(tag, end);
+  }
+  return revealImage(html, tag, end);
+}
+
+function revealImage(html: string, tag: string, end: number): Revealed | null {
+  const alt = attribute(tag, 'alt').trim();
+  if (alt.length === 0 || html.slice(end).includes(alt)) {
+    return null;
+  }
+  return { text: `${tag} ${escapeText(alt)}`, next: end };
 }
 
 function revealArea(tag: string, end: number): Revealed | null {
