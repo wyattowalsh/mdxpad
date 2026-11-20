@@ -56,6 +56,16 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('shows a noscript fallback and the words in a drawing', () => {
+    expect(rewriteSimpleHtml('<noscript>Need script</noscript>')).toBe('Need script');
+    expect(
+      rewriteSimpleHtml('<svg><title>Chart</title><path d="M0 0"/><text>Label</text></svg>').trim()
+    ).toBe('Chart Label');
+    expect(rewriteSimpleHtml('<template><p>Hidden</p></template>Shown')).toBe('Shown');
+    expect(rewriteSimpleHtml('<script>alert(1)</script>Hello')).toBe('Hello');
+    expect(rewriteSimpleHtml('<style>body{color:red}</style>Hello')).toBe('Hello');
+  });
+
   it('shows presentational HTML and an HTML code sample', () => {
     expect(rewriteSimpleHtml('<font color="red">Hello</font>')).toBe('Hello');
     expect(rewriteSimpleHtml('<big>Hello</big>')).toBe('Hello');

@@ -43,6 +43,47 @@ const EMBEDDED = new Set([
 ]);
 const COMMAND = new Set(['dir', 'menu']);
 const PRESENT = new Set(['acronym', 'big', 'font', 'marquee', 'nobr', 'tt']);
+const GRAPHIC = new Set([
+  'clippath',
+  'defs',
+  'desc',
+  'foreignobject',
+  'g',
+  'lineargradient',
+  'marker',
+  'mask',
+  'metadata',
+  'noscript',
+  'pattern',
+  'radialgradient',
+  'svg',
+  'symbol',
+  'text',
+  'textpath',
+  'title',
+  'tspan',
+]);
+const HIDDEN = new Set([
+  'animate',
+  'animatemotion',
+  'animatetransform',
+  'circle',
+  'ellipse',
+  'feimage',
+  'image',
+  'line',
+  'mpath',
+  'path',
+  'polygon',
+  'polyline',
+  'rect',
+  'script',
+  'set',
+  'stop',
+  'style',
+  'template',
+  'use',
+]);
 const VOID_HTML = new Set(['area', 'source', 'track']);
 const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 
@@ -76,6 +117,8 @@ function simpleName(name: string): boolean {
     EMBEDDED.has(name) ||
     COMMAND.has(name) ||
     PRESENT.has(name) ||
+    GRAPHIC.has(name) ||
+    HIDDEN.has(name) ||
     RUBY.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
@@ -881,6 +924,39 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
   }
 }
 
+function graphicText(inner: string): string {
+  let result = '';
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (!element) {
+      result += inner[index] ?? '';
+      index += 1;
+      continue;
+    }
+    const piece = renderElement(element, inner).trim();
+    if (piece.length > 0) {
+      const gap = result.length > 0 && !/\s$/.test(result) ? ' ' : '';
+      result += `${gap}${piece}`;
+    }
+    index = element.end;
+  }
+  return result.replace(/\s+/g, ' ').trim();
+}
+
+function renderGraphic(name: string, inner: string): string | null {
+  if (HIDDEN.has(name)) {
+    return '';
+  }
+  if (name === 'noscript' || name === 'foreignobject') {
+    return convertHtml(inner);
+  }
+  if (GRAPHIC.has(name)) {
+    return graphicText(inner);
+  }
+  return null;
+}
+
 function renderPresentational(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'font':
@@ -898,6 +974,10 @@ function renderPresentational(element: HtmlElement, value: string, inner: string
 }
 
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  const graphic = renderGraphic(element.name, inner);
+  if (graphic !== null) {
+    return graphic;
+  }
   const present = renderPresentational(element, value, inner);
   if (present !== null) {
     return present;

@@ -1183,6 +1183,32 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('shows a noscript fallback and the words in a drawing', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content:
+        '<noscript>Need script</noscript>\n\n<svg><title>Chart</title><path d="M0 0"/><text>Label</text></svg>\n\n<script>alert(1)</script>\n',
+      outputPath: '/tmp/html-graphic.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Need script');
+    expect(xml).toContain('Chart');
+    expect(xml).toContain('Label');
+    expect(xml).not.toContain('alert');
+    expect(xml).not.toContain('M0');
+    expect(xml).not.toContain('&lt;noscript');
+    expect(xml).not.toContain('&lt;svg');
+  });
+
   it('shows an HTML code sample without its tags', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
