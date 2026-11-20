@@ -163,6 +163,15 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml(html).trim()).toBe('Prices\n\n| A |\n| --- |');
   });
 
+  it('keeps a cell beside a cell that spans rows', () => {
+    const rowspan =
+      '<table><tr><td rowspan="2">Tall</td><td>A</td></tr><tr><td>B</td></tr></table>';
+    expect(rewriteSimpleHtml(rowspan).trim()).toBe('| Tall | A |\n| --- | --- |\n|  | B |');
+    const colspan =
+      '<table><tr><th colspan="2">Wide</th></tr><tr><td>A</td><td>B</td></tr></table>';
+    expect(rewriteSimpleHtml(colspan).trim()).toBe('| Wide |  |\n| --- | --- |\n| A | B |');
+  });
+
   it('turns an HTML table into a markdown table', () => {
     const html = [
       '<table>',

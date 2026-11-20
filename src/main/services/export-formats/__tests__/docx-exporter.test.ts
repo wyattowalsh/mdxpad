@@ -1311,6 +1311,31 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;kbd');
   });
 
+  it('keeps a cell beside a cell that spans rows', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<table><tr><td rowspan="2">Tall</td><td>A</td></tr><tr><td>B</td></tr></table>\n',
+      outputPath: '/tmp/html-rowspan.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const rows = xml.split('<w:tr').slice(1);
+    const second = rows[1]?.split('<w:tc') ?? [];
+    expect(rows[0]).toContain('Tall');
+    expect(rows[0]).toContain('>A<');
+    expect(second[1]).not.toContain('>B<');
+    expect(second[2]).toContain('>B<');
+    expect(xml).not.toContain('&lt;td');
+  });
+
   it('formats an HTML table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

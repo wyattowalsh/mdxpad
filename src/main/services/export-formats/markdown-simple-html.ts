@@ -372,6 +372,18 @@ function renderPre(inner: string): string {
 interface TableCell {
   readonly text: string;
   readonly align: TableAlign;
+  readonly colspan: number;
+  readonly rowspan: number;
+}
+
+const MAX_COLSPAN = 50;
+
+function spanCount(openTag: string, name: string): number {
+  const parsed = parsedAttribute(openTag, name);
+  if (parsed === null || parsed < 1) {
+    return 1;
+  }
+  return Math.min(parsed, MAX_COLSPAN);
 }
 
 function cellAlign(openTag: string): TableAlign {
@@ -405,6 +417,8 @@ function rowCells(value: string): TableCell[] {
       cells.push({
         text: cellText(value.slice(element.innerStart, element.innerEnd)),
         align: cellAlign(openTag),
+        colspan: spanCount(openTag, 'colspan'),
+        rowspan: spanCount(openTag, 'rowspan'),
       });
       index = element.end;
       continue;
@@ -471,8 +485,63 @@ function ruleCell(align: TableAlign): string {
   }
 }
 
+function blankCell(): TableCell {
+  return { text: '', align: 'left', colspan: 1, rowspan: 1 };
+}
+
+function placeSpan(covered: number[], column: number, colspan: number, rowspan: number): void {
+  for (let offset = 0; offset < colspan; offset += 1) {
+    covered[column + offset] = rowspan - 1;
+  }
+}
+
+function takeCovered(covered: number[], column: number): boolean {
+  const remaining = covered[column] ?? 0;
+  if (remaining <= 0) {
+    return false;
+  }
+  covered[column] = remaining - 1;
+  return true;
+}
+
+function expandRow(row: readonly TableCell[], covered: number[]): TableCell[] {
+  const line: TableCell[] = [];
+  let column = 0;
+  let source = 0;
+  while (source < row.length || covered.some((count) => count > 0)) {
+    if (takeCovered(covered, column)) {
+      line.push(blankCell());
+      column += 1;
+      continue;
+    }
+    const cell = row[source];
+    if (!cell) {
+      if (!covered.slice(column).some((count) => count > 0)) {
+        break;
+      }
+      line.push(blankCell());
+      column += 1;
+      continue;
+    }
+    source += 1;
+    const colspan = cell.colspan;
+    line.push({ ...cell, colspan: 1, rowspan: 1 });
+    for (let extra = 1; extra < colspan; extra += 1) {
+      line.push(blankCell());
+    }
+    placeSpan(covered, column, colspan, cell.rowspan);
+    column += colspan;
+  }
+  return line;
+}
+
+function expandTableRows(rows: readonly (readonly TableCell[])[]): TableCell[][] {
+  const covered: number[] = [];
+  return rows.map((row) => expandRow(row, covered));
+}
+
 function markdownTable(rows: readonly (readonly TableCell[])[]): string {
-  const filled = rows.filter((row) => row.length > 0);
+  const filled = expandTableRows(rows).filter((row) => row.some((cell) => cell.text.length > 0));
   const width = filled.reduce((max, row) => Math.max(max, row.length), 0);
   if (width === 0) {
     return '';
