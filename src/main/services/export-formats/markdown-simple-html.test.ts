@@ -38,6 +38,12 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<abbr title="Hypertext">HTML</abbr>')).toBe('HTML (Hypertext)');
   });
 
+  it('turns a ruby annotation into the character and its reading', () => {
+    expect(rewriteSimpleHtml('<ruby>漢<rt>kan</rt></ruby>')).toBe('漢 (kan)');
+    expect(rewriteSimpleHtml('<ruby>漢<rp>(</rp><rt>kan</rt><rp>)</rp></ruby>')).toBe('漢 (kan)');
+    expect(rewriteSimpleHtml('<ruby>漢<rt>kan</rt>字<rt>ji</rt></ruby>')).toBe('漢 (kan) 字 (ji)');
+  });
+
   it('turns a quotation, a citation, a sample, and a time into text', () => {
     expect(rewriteSimpleHtml('See <q>quoted</q> now')).toBe('See “quoted” now');
     expect(rewriteSimpleHtml('Read <cite>Title</cite> and <var>x</var>')).toBe(

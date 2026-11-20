@@ -8,6 +8,7 @@ import { expandLinkReferences } from './markdown-reference';
 import type { TableAlign } from './markdown-table';
 
 const PHRASE = new Set(['cite', 'dfn', 'q', 'samp', 'small', 'time', 'var']);
+const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 
 const UNWRAP = new Set([
   'article',
@@ -34,6 +35,7 @@ function simpleName(name: string): boolean {
   return (
     UNWRAP.has(name) ||
     PHRASE.has(name) ||
+    RUBY.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
     name === 'li' ||
@@ -392,6 +394,45 @@ function renderInlineRole(element: HtmlElement, value: string, inner: string): s
   }
 }
 
+function renderRuby(inner: string): string {
+  let result = '';
+  let base = '';
+  let index = 0;
+  const flush = (reading: string): void => {
+    const separated = base.length > 0 && reading.length > 0 && !base.endsWith(' ') ? ' ' : '';
+    const spoken = reading.length > 0 ? `${separated}(${reading})` : '';
+    const gap = result.length > 0 && base.length > 0 && !result.endsWith(' ') && !base.startsWith(' ') ? ' ' : '';
+    result += `${gap}${base}${spoken}`;
+    base = '';
+  };
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (element?.name === 'rt') {
+      flush(cellText(inner.slice(element.innerStart, element.innerEnd)));
+      index = element.end;
+      continue;
+    }
+    if (element?.name === 'rp') {
+      index = element.end;
+      continue;
+    }
+    if (element?.name === 'rb') {
+      base += cellText(inner.slice(element.innerStart, element.innerEnd));
+      index = element.end;
+      continue;
+    }
+    if (!element) {
+      base += inner[index] ?? '';
+      index += 1;
+      continue;
+    }
+    base += renderElement(element, inner);
+    index = element.end;
+  }
+  flush('');
+  return result.trim();
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'dl':
@@ -409,6 +450,14 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
       return `<u>${inner}</u>`;
     case 'abbr':
       return renderAbbr(value, element);
+    case 'ruby':
+      return renderRuby(inner);
+    case 'rb':
+      return cellText(inner);
+    case 'rt':
+      return cellText(inner).length === 0 ? '' : `(${cellText(inner)})`;
+    case 'rp':
+      return '';
     default:
       return renderInlineRole(element, value, inner);
   }

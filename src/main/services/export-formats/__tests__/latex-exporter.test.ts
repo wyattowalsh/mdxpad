@@ -981,6 +981,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('<h1');
   });
 
+  it('formats a ruby reading beside its character', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<ruby>漢<rt>kan</rt></ruby>\n',
+      outputPath: '/tmp/ruby.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('漢 (kan)');
+    expect(written).not.toContain('<ruby>');
+    expect(written).not.toContain('<rt>');
+  });
+
   it('formats a quotation, a citation, and a time', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
