@@ -263,6 +263,25 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('Info');
   });
 
+  it('shows the words of a closed dialog and a popover', async () => {
+    const source = '<dialog><p>Saved the note</p></dialog>\n\n<div popover>Popover words</div>';
+    const result = await compileMdx(testId('dialog-popover'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(
+      <module.default
+        components={previewComponents as unknown as NonNullable<MDXContentProps['components']>}
+      />
+    );
+    expect(container.querySelector('dialog')).toBeNull();
+    expect(container.querySelector('[popover]')).toBeNull();
+    expect(container.textContent).toContain('Saved the note');
+    expect(container.textContent).toContain('Popover words');
+  });
+
   it('shows the fallback inside a frame without its address', async () => {
     const source = [
       '<iframe src="file:///etc/passwd">Read the page</iframe>',

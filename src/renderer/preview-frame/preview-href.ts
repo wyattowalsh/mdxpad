@@ -5,7 +5,12 @@ import {
 import { decodeCssEscapes, stripCssComments } from '@shared/lib/css-escape';
 import { decodeAddressEntities } from '@shared/lib/html-numeric-reference';
 
-import { blockedDataResource, confineNavigationTag, confineSmilValues, srcsetPartBlocked } from './preview-navigation-address';
+import {
+  blockedDataResource,
+  confineNavigationTag,
+  confineSmilValues,
+  srcsetPartBlocked,
+} from './preview-navigation-address';
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -44,7 +49,10 @@ function addressScheme(value: string): string | null {
 }
 
 function climbsOut(value: string): boolean {
-  return value.replaceAll('\\', '/').split('/').some((part) => part === '..');
+  return value
+    .replaceAll('\\', '/')
+    .split('/')
+    .some((part) => part === '..');
 }
 
 /** A relative address that leaves its folder, such as `../secret.css`. */
@@ -307,6 +315,10 @@ export function confinePreviewProps(props: unknown): unknown {
       changed = true;
       continue;
     }
+    if (name === 'popover') {
+      changed = true;
+      continue;
+    }
     if (name === 'style' && isStyleRecord(value)) {
       changed = true;
       const style = styleRecord(value);
@@ -388,7 +400,9 @@ export function confinePreviewElement(type: unknown, props: unknown): unknown {
     return withoutResourceHref;
   }
   const children = withoutResourceHref.children;
-  const cleaned = Array.isArray(children) ? children.map(cleanStyleChild) : cleanStyleChild(children);
+  const cleaned = Array.isArray(children)
+    ? children.map(cleanStyleChild)
+    : cleanStyleChild(children);
   if (cleaned === children) {
     return withoutResourceHref;
   }

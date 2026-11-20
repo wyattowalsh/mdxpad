@@ -100,9 +100,15 @@ function showsFallback(name: string): boolean {
     name === 'iframe' ||
     name === 'object' ||
     name === 'canvas' ||
+    name === 'dialog' ||
     name === 'video' ||
     name === 'audio'
   );
+}
+
+function inlineFallback(type: React.ElementType): boolean {
+  const name = elementName(type);
+  return name === 'canvas' || name === 'dialog';
 }
 
 function blockedMedia(type: React.ElementType, props: unknown): boolean {
@@ -148,7 +154,7 @@ function confinedJsx(
   const replaced =
     embed !== undefined ||
     droppedPreviewTag(type) ||
-    elementName(type) === 'canvas' ||
+    inlineFallback(type) ||
     blockedMedia(type, props);
   if (replaced) {
     const children = embed !== undefined ? embed : fallbackChildren(type, props);
