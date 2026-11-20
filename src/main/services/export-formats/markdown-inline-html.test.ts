@@ -198,6 +198,13 @@ describe('renderMarkdownInline', () => {
     expect(table).toContain('<p>after</p>');
   });
 
+  it('keeps escaped backslashes in a link label', () => {
+    const html = markdownToPdfHtml('See [\\\\(x\\\\\\)](https://example.com)\n');
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('\\(x\\)');
+    expect(html).not.toContain('$x');
+  });
+
   it('keeps a later formula inside its list item', () => {
     const html = markdownToPdfHtml('- item\n\n  Text $$\n  x^2\n  $$\n  more\n');
     const item = html.slice(html.indexOf('<li>'), html.lastIndexOf('</li>'));

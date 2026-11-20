@@ -260,7 +260,7 @@ function texCloserIndex(value: string, from: number, close: string): number {
 function takeTexSpan(value: string, index: number): string | null {
   const display = value.startsWith('\\[', index);
   const inline = value.startsWith('\\(', index);
-  if (!display && !inline) {
+  if ((!display && !inline) || escapedBackslash(value, index)) {
     return null;
   }
   const close = display ? '\\]' : '\\)';
@@ -456,10 +456,18 @@ function prepareProse(prose: string): string {
   return mapOutsideHtml(prose, preparePlainProse);
 }
 
+function escapedBackslash(value: string, index: number): boolean {
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === '\\'; cursor -= 1) {
+    count += 1;
+  }
+  return count % 2 === 1;
+}
+
 function texDelimiter(prose: string, index: number): { text: string; next: number } | null {
   const display = prose.startsWith('\\[', index);
   const inline = prose.startsWith('\\(', index);
-  if (!display && !inline) {
+  if ((!display && !inline) || escapedBackslash(prose, index)) {
     return null;
   }
   if (insideReferenceDestination(prose, index) || insideBareUrl(prose, index)) {
