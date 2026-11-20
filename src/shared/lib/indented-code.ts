@@ -3,7 +3,15 @@
  * MDX compiles indented lines as prose, which would render a formula inside them.
  */
 
-import { listMarkerCode, quoteTabParagraph, quotedIndentedCode } from '@shared/lib/tab-stop';
+import {
+  indentedBlockBody,
+  listMarkerCode,
+  quoteListCodeLine,
+  quoteListFence,
+  quoteTabParagraph,
+  quotedIndentedCode,
+  renderQuoteListFence,
+} from '@shared/lib/tab-stop';
 
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])[ \t]+/;
 const FENCE_MARKER = /^(`{3,}|~{3,})(.*)$/;
@@ -138,11 +146,14 @@ function pushProse(state: FenceState, line: string): void {
 }
 
 function listCodeBody(line: string, column: number): string | null {
-  const expanded = line.replaceAll('\t', '    ');
-  if (expanded.trim().length === 0 || leadingSpaces(expanded) < column + 4) {
-    return null;
-  }
-  return expanded.slice(column + 4);
+  return indentedBlockBody(line, column + 4);
+}
+
+interface QuoteListOpen {
+  opener: string;
+  prefix: string;
+  removed: number;
+  bodies: string[];
 }
 
 interface FenceState {
@@ -154,6 +165,7 @@ interface FenceState {
   codeIndent: string;
   codeKind: 'top' | 'list' | 'quote';
   columns: number[];
+  quoteList: QuoteListOpen | null;
 }
 
 function closeCode(state: FenceState): void {
@@ -308,7 +320,24 @@ function startMarkerCode(state: FenceState, line: string): boolean {
   return true;
 }
 
+function flushQuoteList(state: FenceState): void {
+  const open = state.quoteList;
+  if (!open) {
+    return;
+  }
+  state.output.push(...renderQuoteListFence(open.opener, open.prefix, open.bodies));
+  state.quoteList = null;
+}
+
 function consumeLine(state: FenceState, line: string): void {
+  if (state.quoteList) {
+    const continued = quoteListCodeLine(line, state.quoteList.prefix, state.quoteList.removed);
+    if (continued !== null) {
+      state.quoteList.bodies.push(continued);
+      return;
+    }
+    flushQuoteList(state);
+  }
   const next = nextProseFence(state.fence, line, state.columns);
   if (state.fence || next) {
     closeCode(state);
@@ -316,7 +345,20 @@ function consumeLine(state: FenceState, line: string): void {
     state.fence = next;
     return;
   }
-  if (continueCode(state, line) || startMarkerCode(state, line) || startCode(state, line)) {
+  if (continueCode(state, line)) {
+    return;
+  }
+  const quotedList = quoteListFence(line);
+  if (quotedList) {
+    state.quoteList = {
+      opener: quotedList.opener,
+      prefix: quotedList.prefix,
+      removed: quotedList.removed,
+      bodies: [quotedList.body],
+    };
+    return;
+  }
+  if (startMarkerCode(state, line) || startCode(state, line)) {
     return;
   }
   pushProse(state, line);
@@ -333,10 +375,12 @@ export function fenceIndentedCode(content: string): string {
     codeIndent: '',
     codeKind: 'top',
     columns: [],
+    quoteList: null,
   };
   for (const line of content.split('\n')) {
     consumeLine(state, line);
   }
+  flushQuoteList(state);
   closeCode(state);
   return state.output.join('\n');
 }

@@ -33,6 +33,7 @@ export interface ListMarkerCode {
   readonly marker: string;
   readonly column: number;
   readonly body: string;
+  readonly removed: number;
 }
 
 function markLine(text: string): MarkedLine {
@@ -145,6 +146,51 @@ function codeText(line: MarkedLine, indent: number): string | null {
   return extra + line.text.slice(first, line.end);
 }
 
+/** Drop a leading column count, leaving a tab that starts after that indent unchanged. */
+export function dedentColumns(line: string, count: number): string {
+  let index = 0;
+  let column = 0;
+  while (index < line.length && column < count) {
+    const code = line.charCodeAt(index);
+    if (code === TAB) {
+      const width = 4 - (column % 4);
+      if (column + width > count) {
+        return `${' '.repeat(column + width - count)}${line.slice(index + 1)}`;
+      }
+      column += width;
+    } else if (code === SPACE) {
+      column += 1;
+    } else {
+      return line.slice(index);
+    }
+    index += 1;
+  }
+  return line.slice(index);
+}
+
+function leadingColumns(line: string): number {
+  let column = 0;
+  for (const char of line) {
+    const code = char.charCodeAt(0);
+    if (code === SPACE) {
+      column += 1;
+    } else if (code === TAB) {
+      column += 4 - (column % 4);
+    } else {
+      break;
+    }
+  }
+  return column;
+}
+
+/** The text of an indented code line once `minimum` columns have been removed. */
+export function indentedBlockBody(line: string, minimum: number): string | null {
+  if (line.trim().length === 0 || leadingColumns(line) < minimum) {
+    return null;
+  }
+  return dedentColumns(line, minimum);
+}
+
 /** Indented code after one or more quote markers, measured from the marker column. */
 export function quotedIndentedCode(text: string): QuotedCode | null {
   const peeled = peelQuotes(text);
@@ -209,37 +255,95 @@ function skipMarkerSpace(text: string, pos: number, offset: number, base: number
   return moved && cursor < text.length ? { pos: cursor, offset: column } : null;
 }
 
-/** A list marker whose following tab is wide enough to open a code block. */
-export function listMarkerCode(text: string): ListMarkerCode | null {
-  const line = markLine(text);
+function listCodeFrom(line: MarkedLine): ListMarkerCode | null {
   if (line.columns >= 4) {
     return null;
   }
   const markerStart = line.start + line.shift;
-  const posAfterMarker = markerEnd(text, markerStart);
+  const posAfterMarker = markerEnd(line.text, markerStart);
   if (posAfterMarker < 0) {
     return null;
   }
-  const after = text.charCodeAt(posAfterMarker);
+  const after = line.text.charCodeAt(posAfterMarker);
   if (after !== SPACE && after !== TAB) {
     return null;
   }
   const initial = line.columns + posAfterMarker - markerStart;
-  const spaced = skipMarkerSpace(text, posAfterMarker, initial, line.base);
-  if (!spaced) {
-    return null;
-  }
-  const indentAfter = spaced.offset - initial;
-  if (indentAfter <= 4) {
+  const spaced = skipMarkerSpace(line.text, posAfterMarker, initial, line.base);
+  if (!spaced || spaced.offset - initial <= 4) {
     return null;
   }
   const column = initial + 1;
   const body = codeText(
-    { text, start: line.start, end: line.end, shift: spaced.pos - line.start, columns: spaced.offset, base: line.base },
+    {
+      text: line.text,
+      start: line.start,
+      end: line.end,
+      shift: spaced.pos - line.start,
+      columns: spaced.offset,
+      base: line.base,
+    },
     column + 4
   );
   if (body === null) {
     return null;
   }
-  return { marker: `${' '.repeat(line.columns)}${text.slice(markerStart, posAfterMarker)}`, column, body };
+  const marker = `${' '.repeat(line.columns)}${line.text.slice(markerStart, posAfterMarker)}`;
+  return { marker, column, body, removed: column + 4 };
+}
+
+/** A list marker whose following tab is wide enough to open a code block. */
+export function listMarkerCode(text: string): ListMarkerCode | null {
+  return listCodeFrom(markLine(text));
+}
+
+export interface QuoteListFence {
+  readonly opener: string;
+  readonly prefix: string;
+  readonly body: string;
+  readonly removed: number;
+}
+
+/** A quoted list marker that opens with a tab wide enough for code. */
+export function quoteListFence(text: string): QuoteListFence | null {
+  const peeled = peelQuotes(text);
+  if (peeled.depth === 0) {
+    return null;
+  }
+  const found = listCodeFrom(peeled.line);
+  if (!found) {
+    return null;
+  }
+  const prefix = `${peeled.lead}${'> '.repeat(peeled.depth)}`;
+  return { opener: `${prefix}${found.marker} \`\`\``, prefix, body: found.body, removed: found.removed };
+}
+
+function fenceToken(lines: readonly string[]): string {
+  let longest = 0;
+  for (const line of lines) {
+    for (const run of line.match(/`+/g) ?? []) {
+      longest = Math.max(longest, run.length);
+    }
+  }
+  return '`'.repeat(Math.max(3, longest + 1));
+}
+
+/** Another line of a quoted list's code block. Null when the block has ended. */
+export function quoteListCodeLine(text: string, prefix: string, removed: number): string | null {
+  if (text === prefix || text === prefix.trimEnd()) {
+    return '';
+  }
+  const peeled = peelQuotes(text);
+  const sameQuote = `${peeled.lead}${'> '.repeat(peeled.depth)}` === prefix;
+  if (!sameQuote || peeled.depth === 0) {
+    return null;
+  }
+  return codeText(peeled.line, removed);
+}
+
+/** The finished quoted list fence, including every code line gathered so far. */
+export function renderQuoteListFence(openerMarker: string, prefix: string, bodies: readonly string[]): string[] {
+  const token = fenceToken(bodies);
+  const opener = openerMarker.replace(/`{3,}$/, token);
+  return [opener, ...bodies.map((body) => `${prefix}${body}`), `${prefix}${token}`];
 }

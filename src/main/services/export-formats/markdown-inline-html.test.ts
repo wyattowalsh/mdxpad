@@ -806,6 +806,9 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('> text\n>\t\tmore\n')).toContain('text more');
     expect(markdownToPdfHtml('-\t\tfoo\n')).toContain('<code>  foo</code>');
     expect(markdownToPdfHtml('1.\t\tfoo\n')).toContain('<code> foo</code>');
+    expect(markdownToPdfHtml('-\t\t\tfoo\n')).toContain('<code>  \tfoo</code>');
+    expect(markdownToPdfHtml('> -\t\tfoo\n> \t\tbar\n')).toContain('<code>foo\nbar</code>');
+    expect(markdownToPdfHtml('> ```\n>\tkept\n> ```\n')).toContain('<code>\tkept</code>');
   });
 
   it('keeps an inline HTML tag and escapes one inside code', () => {

@@ -36,7 +36,7 @@ import {
 } from './markdown-list';
 import { splitTaskItem, taskItemLatex } from './markdown-task';
 
-const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
+const QUOTE_LINE = /^ {0,3}> ?(.*)$/;
 const QUOTED_SETEXT = '\uE019';
 
 /** Drop the marker that keeps a setext underline distinct while a quote is collected. */

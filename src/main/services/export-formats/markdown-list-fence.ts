@@ -22,6 +22,7 @@ import { readListContinuation, readSourceLine, type SourceLine } from './markdow
 import { renderDisplayMathBlock } from './markdown-inline-html';
 import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import { displayMathPrefix } from '@shared/lib/math-span';
+import { dedentColumns } from '@shared/lib/tab-stop';
 import { isLazyQuoteLine, quoteBody, quoteMarkerLine, quoteToHtml } from './markdown-quote';
 
 export interface OpenListFence {
@@ -94,8 +95,7 @@ export function listFenceOnMarker(raw: string, contentColumn: number): OpenListF
 }
 
 function dedentFenceLine(line: string, indent: number): string {
-  const { expanded, spaces } = expandedIndent(line);
-  return expanded.slice(Math.min(spaces, indent));
+  return dedentColumns(line, indent);
 }
 
 export function readListFenceLine(
