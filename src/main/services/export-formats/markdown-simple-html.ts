@@ -146,9 +146,16 @@ function listBodies(inner: string): string[] {
   return bodies;
 }
 
-function renderList(inner: string, ordered: boolean): string {
+function listStart(value: string, innerStart: number): number {
+  const openAt = value.lastIndexOf('<', Math.max(0, innerStart - 1));
+  const openTag = openAt === -1 ? '' : value.slice(openAt, innerStart);
+  const start = Number.parseInt(attribute(openTag, 'start'), 10);
+  return Number.isFinite(start) && start > 0 ? start : 1;
+}
+
+function renderList(inner: string, ordered: boolean, start = 1): string {
   const items = listBodies(inner).map((body, index) =>
-    markerBlock(ordered ? `${index + 1}. ` : '- ', convertHtml(body))
+    markerBlock(ordered ? `${start + index}. ` : '- ', convertHtml(body))
   );
   return blockWrap(items.join('\n'));
 }
@@ -224,9 +231,16 @@ function rowCells(value: string): TableCell[] {
   return cells;
 }
 
-function tableParts(value: string): { captions: string[]; rows: TableCell[][] } {
+function tableParts(value: string): {
+  captions: string[];
+  head: TableCell[][];
+  body: TableCell[][];
+  foot: TableCell[][];
+} {
   const captions: string[] = [];
-  const rows: TableCell[][] = [];
+  const head: TableCell[][] = [];
+  const body: TableCell[][] = [];
+  const foot: TableCell[][] = [];
   let index = 0;
   while (index < value.length) {
     const element = value[index] === '<' ? readSimpleElement(value, index) : null;
@@ -241,15 +255,22 @@ function tableParts(value: string): { captions: string[]; rows: TableCell[][] } 
         captions.push(text);
       }
     } else if (element.name === 'tr') {
-      rows.push(rowCells(inner));
+      body.push(rowCells(inner));
     } else if (element.name === 'thead' || element.name === 'tbody' || element.name === 'tfoot') {
       const nested = tableParts(inner);
       captions.push(...nested.captions);
-      rows.push(...nested.rows);
+      const rows = [...nested.head, ...nested.body, ...nested.foot];
+      if (element.name === 'thead') {
+        head.push(...rows);
+      } else if (element.name === 'tfoot') {
+        foot.push(...rows);
+      } else {
+        body.push(...rows);
+      }
     }
     index = element.end;
   }
-  return { captions, rows };
+  return { captions, head, body, foot };
 }
 
 function ruleCell(align: TableAlign): string {
@@ -291,7 +312,7 @@ function renderTable(name: string, inner: string): string {
     return markdownTable([rowCells(inner)]);
   }
   const parts = tableParts(inner);
-  const table = markdownTable(parts.rows);
+  const table = markdownTable([...parts.head, ...parts.body, ...parts.foot]);
   if (parts.captions.length === 0) {
     return table;
   }
@@ -488,7 +509,7 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'ul':
       return renderList(inner, false);
     case 'ol':
-      return renderList(inner, true);
+      return renderList(inner, true, listStart(value, element.innerStart));
     case 'li':
       return blockWrap(markerBlock('- ', convertHtml(inner)));
     case 'blockquote':

@@ -503,6 +503,24 @@ describe('DocxExporter', () => {
     expect(xml).toContain('put');
   });
 
+  it('keeps an HTML ordered list start number', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<ol start="3"><li>third</li><li>fourth</li></ol>\n',
+      outputPath: '/tmp/html-start.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/numbering.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    expect(extracted.stdout.toString()).toContain('w:val="3"');
+  });
+
   it('keeps an ordered list start number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -56,6 +56,19 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('keeps an ordered list start and a footer after the body', () => {
+    expect(rewriteSimpleHtml('<ol start="3"><li>Three</li><li>Four</li></ol>').trim()).toBe(
+      '3. Three\n4. Four'
+    );
+    const table = [
+      '<table>',
+      '<tfoot><tr><td>Total</td><td>9</td></tr></tfoot>',
+      '<tbody><tr><td>A</td><td>1</td></tr></tbody>',
+      '</table>',
+    ].join('');
+    expect(rewriteSimpleHtml(table).trim()).toBe('| A | 1 |\n| --- | --- |\n| Total | 9 |');
+  });
+
   it('keeps a table caption with the table', () => {
     const html = '<table><caption>Prices</caption><tr><td>A</td></tr></table>';
     expect(rewriteSimpleHtml(html).trim()).toBe('Prices\n\n| A |\n| --- |');
