@@ -110,6 +110,53 @@ function editionLabel(edition: string | undefined): string | undefined {
   return /ed/i.test(text) ? text : `${text} ed.`;
 }
 
+const MONTH_NUMBERS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+function accessedLabel(value: string | undefined): string | undefined {
+  const text = value?.trim() ?? '';
+  if (text.length === 0) {
+    return undefined;
+  }
+  const match = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(text);
+  const month = match?.[2] === undefined ? undefined : MONTH_NUMBERS[Number(match[2]) - 1];
+  if (match?.[1] === undefined || month === undefined) {
+    return `Accessed ${text}`;
+  }
+  const day = match[3] === undefined ? '' : String(Number(match[3]));
+  const when =
+    day.length > 0 && day !== 'NaN' ? `${day} ${month} ${match[1]}` : `${month} ${match[1]}`;
+  return `Accessed ${when}`;
+}
+
+function versionLabel(value: string | undefined): string | undefined {
+  const text = value?.trim() ?? '';
+  if (text.length === 0) {
+    return undefined;
+  }
+  return /version/i.test(text) ? text : `Version ${text}`;
+}
+
+function pageCount(value: string | undefined): string | undefined {
+  const text = value?.trim() ?? '';
+  if (text.length === 0) {
+    return undefined;
+  }
+  return /^\d+$/.test(text) ? `${text} pp.` : text;
+}
+
 function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.school);
   addSentence(parts, entry.institution);
@@ -124,6 +171,12 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.isbn ? `ISBN ${entry.isbn}` : undefined);
   addSentence(parts, entry.issn ? `ISSN ${entry.issn}` : undefined);
   addSentence(parts, entry.url);
+  addSentence(parts, accessedLabel(entry.urldate));
+  addSentence(parts, entry.language);
+  addSentence(parts, versionLabel(entry.version));
+  addSentence(parts, entry.venue);
+  addSentence(parts, entry.eid);
+  addSentence(parts, pageCount(entry.pagetotal));
   addSentence(parts, entry.howpublished);
   addSentence(parts, entry.note);
 }

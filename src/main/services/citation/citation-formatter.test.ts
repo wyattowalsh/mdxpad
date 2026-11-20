@@ -114,6 +114,29 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('https://example.com/ice');
   });
 
+  it('keeps an article number, a language, an access date, a version, a venue, and a page count', () => {
+    const entry: CitationEntry = {
+      id: 'ada1843',
+      type: 'article',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      year: 1843,
+      eid: 'e12ice',
+      language: 'English',
+      urldate: '2020-01-02',
+      version: '1.2',
+      venue: 'Ice Hall',
+      pagetotal: '40',
+    };
+    const formatted = formatCitation(entry, 'chicago').formatted;
+    expect(formatted).toContain('e12ice');
+    expect(formatted).toContain('English');
+    expect(formatted).toContain('Accessed 2 January 2020');
+    expect(formatted).toContain('Version 1.2');
+    expect(formatted).toContain('Ice Hall');
+    expect(formatted).toContain('40 pp.');
+  });
+
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {
     const entry: CitationEntry = {
       id: 'ada1840',

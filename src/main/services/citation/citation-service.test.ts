@@ -203,6 +203,25 @@ describe('citation-service', () => {
       expect(result.entries[0]?.month).toBe('1843/1844');
     });
 
+    it('keeps an article number, a language, an access date, a version, a venue, and a page count', () => {
+      const result = parseBibtex(`
+@article{ada1843,
+  title = {The Engine},
+  eid = {e12ice},
+  language = {English},
+  urldate = {2020-01-02},
+  version = {1.2},
+  venue = {Ice Hall},
+  pagetotal = {40}
+}`);
+      expect(result.entries[0]?.eid).toBe('e12ice');
+      expect(result.entries[0]?.language).toBe('English');
+      expect(result.entries[0]?.urldate).toBe('2020-01-02');
+      expect(result.entries[0]?.version).toBe('1.2');
+      expect(result.entries[0]?.venue).toBe('Ice Hall');
+      expect(result.entries[0]?.pagetotal).toBe('40');
+    });
+
     it('keeps a month, a subtitle, a translator, and an ISBN', () => {
       const result = parseBibtex(`
 @book{ada1840,
