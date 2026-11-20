@@ -1183,6 +1183,33 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('breaks at an attributed HTML break and links a picture', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content:
+        'Hello<br class="soft">World\n\n<a href="https://example.com"><img alt="Cat photo" src="cat.png"></a>\n',
+      outputPath: '/tmp/html-break-link.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Hello');
+    expect(xml).toContain('World');
+    expect(xml).toContain('<w:br');
+    expect(xml).toContain('Cat photo');
+    expect(xml).toContain('https://example.com');
+    expect(xml).not.toContain('class="soft"');
+    expect(xml).not.toContain('&lt;a');
+    expect(xml).not.toContain('&lt;br');
+  });
+
   it('shows a noscript fallback and the words in a drawing', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

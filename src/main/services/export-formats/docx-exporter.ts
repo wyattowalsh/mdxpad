@@ -58,7 +58,7 @@ import {
   openingFence,
 } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
-import { preparedExportSource } from './markdown-simple-html';
+import { htmlBreakPattern, preparedExportSource } from './markdown-simple-html';
 import { renderedSegments } from './markdown-marks';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
 import { isTableRow, parseMarkdownTable, type TableAlign } from './markdown-table';
@@ -642,10 +642,8 @@ function imageNodes(
   return [docxHyperlink(source, label)];
 }
 
-const HTML_BREAK = /<br\s*\/?>/gi;
-
 function textRunsWithBreaks(segment: InlineSegment): TextRun[] {
-  const parts = segment.code ? [segment.text] : segment.text.split(HTML_BREAK);
+  const parts = segment.code ? [segment.text] : segment.text.split(htmlBreakPattern());
   if (parts.length === 1) {
     return [styledRun(segment, segment.text)];
   }
@@ -669,7 +667,7 @@ function createTextRuns(
       return imageRuns(segment);
     }
     if (segment.link) {
-      const parts = segment.text.split(HTML_BREAK);
+      const parts = segment.text.split(htmlBreakPattern());
       if (parts.length === 1) {
         const link = docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
         return titledRuns([link], segment.title);

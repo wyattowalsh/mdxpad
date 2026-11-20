@@ -156,31 +156,147 @@ function closingTag(value: string, index: number): { name: string; end: number }
   return { name, end: index + match[0].length };
 }
 
+function optionalFamily(name: string): 'li' | 'item' | 'cell' | 'row' | 'option' | null {
+  switch (name) {
+    case 'li':
+      return 'li';
+    case 'dt':
+    case 'dd':
+      return 'item';
+    case 'td':
+    case 'th':
+      return 'cell';
+    case 'tr':
+      return 'row';
+    case 'option':
+    case 'optgroup':
+      return 'option';
+    default:
+      return null;
+  }
+}
+
+function siblingOpen(name: string, openName: string): boolean {
+  const family = optionalFamily(name);
+  switch (family) {
+    case 'li':
+      return openName === 'li';
+    case 'item':
+      return openName === 'dt' || openName === 'dd';
+    case 'cell':
+      return openName === 'td' || openName === 'th';
+    case 'row':
+      return openName === 'tr';
+    case 'option':
+      return openName === name;
+    case null:
+      return false;
+    default: {
+      const unexpected: never = family;
+      return unexpected;
+    }
+  }
+}
+
+function parentClose(name: string, closeName: string): boolean {
+  const family = optionalFamily(name);
+  switch (family) {
+    case 'li':
+      return closeName === 'ul' || closeName === 'ol' || closeName === 'menu' || closeName === 'dir';
+    case 'item':
+      return closeName === 'dl';
+    case 'cell':
+      return (
+        closeName === 'tr' ||
+        closeName === 'table' ||
+        closeName === 'thead' ||
+        closeName === 'tbody' ||
+        closeName === 'tfoot'
+      );
+    case 'row':
+      return closeName === 'table' || closeName === 'thead' || closeName === 'tbody' || closeName === 'tfoot';
+    case 'option':
+      return closeName === 'select' || closeName === 'optgroup' || closeName === 'datalist';
+    case null:
+      return false;
+    default: {
+      const unexpected: never = family;
+      return unexpected;
+    }
+  }
+}
+
+function entersNest(name: string, openName: string): boolean {
+  const family = optionalFamily(name);
+  switch (family) {
+    case 'li':
+      return openName === 'ul' || openName === 'ol' || openName === 'menu' || openName === 'dir';
+    case 'cell':
+    case 'row':
+      return openName === 'table';
+    case 'item':
+      return openName === 'dl';
+    case 'option':
+      return openName === 'select';
+    case null:
+      return false;
+    default: {
+      const unexpected: never = family;
+      return unexpected;
+    }
+  }
+}
+
+function elementAt(
+  value: string,
+  name: string,
+  openEnd: number,
+  cursor: number,
+  depth: number,
+  nest: number
+): { element: HtmlElement | null; depth: number; nest: number; cursor: number } {
+  const close = closingTag(value, cursor);
+  if (close) {
+    if (nest === 0 && (close.name === name || parentClose(name, close.name)) && depth === 1) {
+      const end = close.name === name ? close.end : cursor;
+      return { element: { name, innerStart: openEnd, innerEnd: cursor, end }, depth, nest, cursor };
+    }
+    const nextNest = entersNest(name, close.name) && nest > 0 ? nest - 1 : nest;
+    const nextDepth = close.name === name && nest === 0 ? depth - 1 : depth;
+    return { element: null, depth: nextDepth, nest: nextNest, cursor: close.end };
+  }
+  const open = readAngleTag(value, cursor);
+  const openName = open && !open.closing ? open.name.toLowerCase() : '';
+  if (open && nest === 0 && siblingOpen(name, openName)) {
+    return { element: { name, innerStart: openEnd, innerEnd: cursor, end: cursor }, depth, nest, cursor };
+  }
+  const nextNest = open && !open.closing && !open.selfClosing && entersNest(name, openName) ? nest + 1 : nest;
+  const same = open && !open.closing && !open.selfClosing && openName === name && nest === 0;
+  const next = open && !open.closing ? open.end : cursor + 1;
+  return {
+    element: null,
+    depth: same ? depth + 1 : depth,
+    nest: nextNest,
+    cursor: next > cursor ? next : cursor + 1,
+  };
+}
+
 function elementBounds(value: string, name: string, openEnd: number): HtmlElement | null {
   let depth = 1;
+  let nest = 0;
   let cursor = openEnd;
   while (cursor < value.length) {
     if (value[cursor] !== '<') {
       cursor += 1;
       continue;
     }
-    const close = closingTag(value, cursor);
-    if (close) {
-      if (close.name === name) {
-        depth -= 1;
-        if (depth === 0) {
-          return { name, innerStart: openEnd, innerEnd: cursor, end: close.end };
-        }
-      }
-      cursor = close.end;
-      continue;
+    const found = elementAt(value, name, openEnd, cursor, depth, nest);
+    if (found.element) {
+      return found.element;
     }
-    const open = readAngleTag(value, cursor);
-    if (open && !open.closing && !open.selfClosing && open.name.toLowerCase() === name) {
-      depth += 1;
-    }
-    const next = open && !open.closing ? open.end : cursor + 1;
-    cursor = next > cursor ? next : cursor + 1;
+    depth = found.depth;
+    nest = found.nest;
+    cursor = found.cursor;
   }
   return null;
 }
@@ -242,14 +358,15 @@ function parsedAttribute(openTag: string, name: string): number | null {
 }
 
 function listItems(inner: string): ListedItem[] {
+  const source = `${inner}</li>`;
   const items: ListedItem[] = [];
   let index = 0;
-  while (index < inner.length) {
-    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+  while (index < source.length) {
+    const element = source[index] === '<' ? readSimpleElement(source, index) : null;
     if (element?.name === 'li') {
       items.push({
-        body: inner.slice(element.innerStart, element.innerEnd),
-        value: parsedAttribute(openTagBefore(inner, element.innerStart), 'value'),
+        body: source.slice(element.innerStart, element.innerEnd),
+        value: parsedAttribute(openTagBefore(source, element.innerStart), 'value'),
       });
       index = element.end;
       continue;
@@ -365,7 +482,7 @@ function renderList(inner: string, ordered: boolean, options?: OrderedListOption
 
 function renderHeading(level: number, inner: string): string {
   const text = convertHtml(inner)
-    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(htmlBreakPattern(), ' ')
     .replace(/[ \t]*\n[ \t]*/g, ' ')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
@@ -443,22 +560,23 @@ function cellAlign(openTag: string): TableAlign {
 
 function cellText(inner: string): string {
   return convertHtml(inner)
-    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(htmlBreakPattern(), ' ')
     .replace(/\s+/g, ' ')
     .replaceAll('|', '\\|')
     .trim();
 }
 
 function rowCells(value: string): TableCell[] {
+  const source = `${value}</tr>`;
   const cells: TableCell[] = [];
   let index = 0;
-  while (index < value.length) {
-    const element = value[index] === '<' ? readSimpleElement(value, index) : null;
+  while (index < source.length) {
+    const element = source[index] === '<' ? readSimpleElement(source, index) : null;
     if (element && (element.name === 'td' || element.name === 'th')) {
-      const openAt = value.lastIndexOf('<', Math.max(0, element.innerStart - 1));
-      const openTag = openAt === -1 ? '' : value.slice(openAt, element.innerStart);
+      const openAt = source.lastIndexOf('<', Math.max(0, element.innerStart - 1));
+      const openTag = openAt === -1 ? '' : source.slice(openAt, element.innerStart);
       cells.push({
-        text: cellText(value.slice(element.innerStart, element.innerEnd)),
+        text: cellText(source.slice(element.innerStart, element.innerEnd)),
         align: cellAlign(openTag),
         colspan: spanCount(openTag, 'colspan'),
         rowspan: spanCount(openTag, 'rowspan'),
@@ -477,18 +595,19 @@ function tableParts(value: string): {
   body: TableCell[][];
   foot: TableCell[][];
 } {
+  const source = `${value}</table>`;
   const captions: string[] = [];
   const head: TableCell[][] = [];
   const body: TableCell[][] = [];
   const foot: TableCell[][] = [];
   let index = 0;
-  while (index < value.length) {
-    const element = value[index] === '<' ? readSimpleElement(value, index) : null;
+  while (index < source.length) {
+    const element = source[index] === '<' ? readSimpleElement(source, index) : null;
     if (!element) {
       index += 1;
       continue;
     }
-    const inner = value.slice(element.innerStart, element.innerEnd);
+    const inner = source.slice(element.innerStart, element.innerEnd);
     if (element.name === 'caption') {
       const text = cellText(inner);
       if (text.length > 0) {
@@ -616,12 +735,13 @@ function renderTable(name: string, inner: string): string {
 }
 
 function renderDefinitions(inner: string): string {
+  const source = `${inner}</dl>`;
   const parts: string[] = [];
   let index = 0;
-  while (index < inner.length) {
-    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+  while (index < source.length) {
+    const element = source[index] === '<' ? readSimpleElement(source, index) : null;
     if (element?.name === 'dt') {
-      const term = cellText(inner.slice(element.innerStart, element.innerEnd));
+      const term = cellText(source.slice(element.innerStart, element.innerEnd));
       if (term.length > 0) {
         parts.push(boldLabel(term));
       }
@@ -629,14 +749,22 @@ function renderDefinitions(inner: string): string {
       continue;
     }
     if (element?.name === 'dd') {
-      const body = convertHtml(inner.slice(element.innerStart, element.innerEnd)).trim();
+      const body = convertHtml(source.slice(element.innerStart, element.innerEnd)).trim();
       if (body.length > 0) {
         parts.push(body);
       }
       index = element.end;
       continue;
     }
-    index = element ? element.end : index + 1;
+    if (element) {
+      const nested = renderDefinitions(source.slice(element.innerStart, element.innerEnd)).trim();
+      if (nested.length > 0) {
+        parts.push(nested);
+      }
+      index = element.end;
+      continue;
+    }
+    index += 1;
   }
   return blockWrap(parts.join('\n\n'));
 }
@@ -814,23 +942,24 @@ function markedChoice(label: string, selected: boolean): string {
 }
 
 function renderChoices(inner: string): string[] {
+  const source = `${inner}</select>`;
   const choices: string[] = [];
   let index = 0;
-  while (index < inner.length) {
-    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+  while (index < source.length) {
+    const element = source[index] === '<' ? readSimpleElement(source, index) : null;
     if (!element) {
       index += 1;
       continue;
     }
     if (element.name === 'option') {
-      const text = cellText(inner.slice(element.innerStart, element.innerEnd));
-      const openTag = openTagBefore(inner, element.innerStart);
+      const text = cellText(source.slice(element.innerStart, element.innerEnd));
+      const openTag = openTagBefore(source, element.innerStart);
       const label = text || attribute(openTag, 'label').trim() || attribute(openTag, 'value').trim();
       if (label.length > 0) {
         choices.push(markedChoice(label, /\bselected\b/i.test(openTag)));
       }
     } else if (element.name === 'optgroup') {
-      choices.push(...renderChoices(inner.slice(element.innerStart, element.innerEnd)));
+      choices.push(...renderChoices(source.slice(element.innerStart, element.innerEnd)));
     }
     index = element.end;
   }
@@ -1118,6 +1247,11 @@ function promoteOutsideCode(value: string): string {
     index = end;
   }
   return result;
+}
+
+/** A line break, including one that carries attributes. */
+export function htmlBreakPattern(): RegExp {
+  return /<br\b(?:\s[^<>]*?)?\/?>/gi;
 }
 
 /** Turn simple HTML into Markdown for exporters that do not render tags. */

@@ -56,6 +56,28 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('keeps a wrapped definition, an open list, and a linked picture', () => {
+    expect(
+      rewriteSimpleHtml('<dl><div><dt>Term</dt><dd>The definition</dd></div></dl>').trim()
+    ).toBe('**Term**\n\nThe definition');
+    expect(rewriteSimpleHtml('<ul><li>Alpha<li>Beta</ul>').trim()).toBe('- Alpha\n- Beta');
+    expect(rewriteSimpleHtml('<table><tr><td>Left<td>Right</tr></table>').trim()).toBe(
+      '| Left | Right |\n| --- | --- |'
+    );
+    expect(rewriteSimpleHtml('<table><tr><td>Left<td>Right<tr><td>A<td>B</table>').trim()).toBe(
+      '| Left | Right |\n| --- | --- |\n| A | B |'
+    );
+    expect(rewriteSimpleHtml('<ul><li>Outer<ul><li>Inner</li></ul></li><li>Next</li></ul>')).toContain(
+      'Inner'
+    );
+    expect(
+      rewriteSimpleHtml('<a href="https://example.com"><img alt="Cat photo" src="cat.png"></a>').trim()
+    ).toBe('[![Cat photo](cat.png)](https://example.com)');
+    expect(
+      rewriteSimpleHtml('<a href="file:///etc/passwd"><img alt="Cat" src="cat.png"></a>').trim()
+    ).toBe('![Cat](cat.png)');
+  });
+
   it('shows a noscript fallback and the words in a drawing', () => {
     expect(rewriteSimpleHtml('<noscript>Need script</noscript>')).toBe('Need script');
     expect(

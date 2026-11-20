@@ -27,7 +27,7 @@ import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown
 import { isThematicBreak } from './markdown-break';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
-import { preparedExportSource } from './markdown-simple-html';
+import { htmlBreakPattern, preparedExportSource } from './markdown-simple-html';
 import { renderedSegments } from './markdown-marks';
 import { readListContinuation, readSourceLine, type SourceLine } from './markdown-paragraph';
 import { latexVerbatimLines } from './latex-verbatim';
@@ -468,7 +468,7 @@ function latexText(value: string): string {
     return latexPhrase(value, tag);
   }
   return value
-    .split(/<br\s*\/?>/gi)
+    .split(htmlBreakPattern())
     .map((part) => escapeLatex(decodeHtmlEntities(part)).replaceAll('\\textasciitilde{}', '~'))
     .join('\\newline ');
 }

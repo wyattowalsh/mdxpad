@@ -80,6 +80,11 @@ function markdownHref(attrs: string): string | null {
   return href;
 }
 
+function linkedImages(inner: string): boolean {
+  const trimmed = inner.trim();
+  return trimmed.length > 0 && /^(?:!\[[^\]\n]*\]\([^)\n]+\)\s*)+$/.test(trimmed);
+}
+
 function promotedTag(name: string, attrs: string, inner: string): string | null {
   switch (name.toLowerCase()) {
     case 'em':
@@ -99,11 +104,14 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
     case 'sup':
       return mappedScript(inner, SUPERSCRIPT);
     case 'a': {
-      if (inner.includes('[') || inner.includes(']')) {
-        return null;
-      }
       const href = markdownHref(attrs);
-      return href === null ? inner : `[${inner}](${href})`;
+      if (href === null) {
+        return inner;
+      }
+      if (inner.includes('[') || inner.includes(']')) {
+        return linkedImages(inner) ? `[${inner.trim()}](${href})` : null;
+      }
+      return `[${inner}](${href})`;
     }
     default:
       return null;
