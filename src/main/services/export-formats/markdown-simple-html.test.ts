@@ -244,12 +244,14 @@ describe('rewriteSimpleHtml', () => {
   it('keeps each item of a list inside a table cell', () => {
     const html = '<table><tr><td><ul><li>One</li><li>Two</li></ul></td><td>B</td></tr></table>';
     expect(rewriteSimpleHtml(html).trim()).toBe('| - One<br>- Two | B |\n| --- | --- |');
+    const paragraphs = '<table><tr><td><p>Hello</p><p>World</p></td></tr></table>';
+    expect(rewriteSimpleHtml(paragraphs).trim()).toBe('| Hello<br>World |\n| --- |');
   });
 
   it('keeps the words of a table nested in a cell', () => {
     const html =
       '<table><tr><td>Out<table><tr><td>In</td></tr></table></td><td>Side</td></tr></table>';
-    expect(rewriteSimpleHtml(html).trim()).toBe('| Out In | Side |\n| --- | --- |');
+    expect(rewriteSimpleHtml(html).trim()).toBe('| Out<br>In | Side |\n| --- | --- |');
     const piped = '<table><tr><td><table><tr><td>A | B</td></tr></table></td></tr></table>';
     expect(rewriteSimpleHtml(piped).trim()).toBe('| A \\| B |\n| --- |');
   });

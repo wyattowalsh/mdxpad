@@ -630,32 +630,17 @@ function flattenNestedTables(text: string): string {
     .join('\n');
 }
 
-function listLine(line: string): boolean {
-  return /^(?:[-*+]|\d+[.)])\s+\S/.test(line.trim());
-}
-
-function listCellBreaks(text: string): string {
-  const lines = text
+function cellLines(text: string): string {
+  return text
     .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length < 2 || !lines.every(listLine)) {
-    return text;
-  }
-  return lines.join('<br>');
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length > 0)
+    .join('<br>');
 }
 
 function cellText(inner: string): string {
-  const text = listCellBreaks(
-    flattenNestedTables(convertHtml(inner)).replace(htmlBreakPattern(), ' ')
-  );
-  return text
-    .split('<br>')
-    .map((part) => part.replace(/\s+/g, ' ').trim())
-    .filter((part) => part.length > 0)
-    .join('<br>')
-    .replaceAll('|', '\\|')
-    .trim();
+  const text = flattenNestedTables(convertHtml(inner)).replace(htmlBreakPattern(), '\n');
+  return cellLines(text).replaceAll('|', '\\|').trim();
 }
 
 function rowCells(value: string): TableCell[] {
