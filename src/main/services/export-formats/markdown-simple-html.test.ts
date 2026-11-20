@@ -56,6 +56,18 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('shows a MathML formula as text', () => {
+    expect(rewriteSimpleHtml('<math><mi>x</mi><mo>+</mo><mn>2</mn></math>')).toBe('x + 2');
+    expect(rewriteSimpleHtml('<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>')).toBe('a/b');
+    expect(rewriteSimpleHtml('<math><msup><mi>x</mi><mn>2</mn></msup></math>')).toBe('x^2^');
+    expect(rewriteSimpleHtml('<math><msub><mi>H</mi><mn>2</mn></msub><mi>O</mi></math>')).toBe(
+      'H~2~ O'
+    );
+    expect(
+      rewriteSimpleHtml('<math><semantics><mi>x</mi><annotation>secret</annotation></semantics></math>')
+    ).toBe('x');
+  });
+
   it('shows the words inside an MDX component', () => {
     expect(rewriteSimpleHtml('<Callout>Remember the ice</Callout>').trim()).toBe('Remember the ice');
     expect(rewriteSimpleHtml('<Button>Save</Button> now')).toBe('Save now');

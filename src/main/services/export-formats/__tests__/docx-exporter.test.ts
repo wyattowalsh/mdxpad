@@ -1183,6 +1183,30 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('shows a MathML formula as text', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<math><mi>x</mi><mo>+</mo><mn>2</mn></math>\n\n<math><msup><mi>x</mi><mn>2</mn></msup></math>\n',
+      outputPath: '/tmp/mathml.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('x');
+    expect(xml).toContain('+');
+    expect(xml).toContain('2');
+    expect(xml).toContain('w:val="superscript"');
+    expect(xml).not.toContain('&lt;math');
+    expect(xml).not.toContain('&lt;mi');
+  });
+
   it('shows the words inside an MDX component', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

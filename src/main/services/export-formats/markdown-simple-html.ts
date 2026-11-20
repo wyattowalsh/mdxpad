@@ -85,6 +85,32 @@ const HIDDEN = new Set([
   'use',
 ]);
 const VOID_HTML = new Set(['area', 'source', 'track']);
+const MATH_TOKEN = new Set(['mi', 'mn', 'mo', 'ms', 'mtext']);
+const MATH = new Set([
+  ...MATH_TOKEN,
+  'annotation',
+  'annotation-xml',
+  'math',
+  'menclose',
+  'mfrac',
+  'mpadded',
+  'mphantom',
+  'mroot',
+  'mrow',
+  'mspace',
+  'msqrt',
+  'mstyle',
+  'msub',
+  'msubsup',
+  'msup',
+  'mtable',
+  'mtd',
+  'mtr',
+  'munder',
+  'munderover',
+  'mover',
+  'semantics',
+]);
 const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 
 const UNWRAP = new Set([
@@ -119,6 +145,7 @@ function simpleName(name: string): boolean {
     PRESENT.has(name) ||
     GRAPHIC.has(name) ||
     HIDDEN.has(name) ||
+    MATH.has(name) ||
     RUBY.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
@@ -1116,6 +1143,53 @@ function graphicText(inner: string): string {
   return result.replace(/\s+/g, ' ').trim();
 }
 
+function mathParts(inner: string): string[] {
+  const parts: string[] = [];
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (!element) {
+      index += 1;
+      continue;
+    }
+    const piece = renderElement(element, inner).trim();
+    if (piece.length > 0) {
+      parts.push(piece);
+    }
+    index = element.end;
+  }
+  return parts;
+}
+
+function renderMath(name: string, inner: string): string | null {
+  if (!MATH.has(name)) {
+    return null;
+  }
+  if (MATH_TOKEN.has(name)) {
+    return cellText(inner);
+  }
+  if (name === 'annotation' || name === 'annotation-xml' || name === 'mspace') {
+    return '';
+  }
+  const parts = mathParts(inner);
+  switch (name) {
+    case 'mfrac':
+      return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : parts.join(' ');
+    case 'msup':
+      return parts.length >= 2 ? `${parts[0]}^${parts[1]}^` : parts.join(' ');
+    case 'msub':
+      return parts.length >= 2 ? `${parts[0]}~${parts[1]}~` : parts.join(' ');
+    case 'msubsup':
+      return parts.length >= 3 ? `${parts[0]}~${parts[1]}~^${parts[2]}^` : parts.join(' ');
+    case 'msqrt':
+      return `√${parts.join(' ')}`;
+    case 'mroot':
+      return parts.length >= 2 ? `${parts[1]}√${parts[0]}` : parts.join(' ');
+    default:
+      return parts.join(' ');
+  }
+}
+
 function renderGraphic(name: string, inner: string): string | null {
   if (HIDDEN.has(name)) {
     return '';
@@ -1145,22 +1219,20 @@ function renderPresentational(element: HtmlElement, value: string, inner: string
   }
 }
 
+function firstPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  return (
+    renderMath(element.name, inner) ??
+    renderGraphic(element.name, inner) ??
+    renderPresentational(element, value, inner) ??
+    renderEmbedded(element, value, inner) ??
+    renderForm(element, value, inner)
+  );
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
-  const graphic = renderGraphic(element.name, inner);
-  if (graphic !== null) {
-    return graphic;
-  }
-  const present = renderPresentational(element, value, inner);
-  if (present !== null) {
-    return present;
-  }
-  const embedded = renderEmbedded(element, value, inner);
-  if (embedded !== null) {
-    return embedded;
-  }
-  const form = renderForm(element, value, inner);
-  if (form !== null) {
-    return form;
+  const first = firstPhrase(element, value, inner);
+  if (first !== null) {
+    return first;
   }
   switch (element.name) {
     case 'dl':
