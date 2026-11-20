@@ -83,8 +83,9 @@ const HIDDEN = new Set([
   'style',
   'template',
   'use',
+  'wbr',
 ]);
-const VOID_HTML = new Set(['area', 'source', 'track']);
+const VOID_HTML = new Set(['area', 'source', 'track', 'wbr']);
 const MATH_TOKEN = new Set(['mi', 'mn', 'mo', 'ms', 'mtext']);
 const MATH = new Set([
   ...MATH_TOKEN,
@@ -116,6 +117,7 @@ const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 const UNWRAP = new Set([
   'article',
   'aside',
+  'canvas',
   'div',
   'figcaption',
   'figure',

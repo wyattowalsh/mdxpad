@@ -38,6 +38,7 @@ const DROPPED_TAGS = new Set([
   'frameset',
   'meta',
 ]);
+const FALLBACK_TAGS = new Set(['iframe', 'object']);
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -352,15 +353,29 @@ export function htmlTagEnd(html: string, index: number): number {
   return -1;
 }
 
-/** The index after a script, frame, or other dropped element, including its body. */
-export function skippedDroppedElement(html: string, start: number, openEnd: number): number {
+/** A dropped element, keeping the fallback text of an iframe or object. */
+export function readDroppedElement(
+  html: string,
+  start: number,
+  openEnd: number
+): { text: string; next: number } | null {
   const tag = html.slice(start, openEnd);
   const name = tagName(tag);
   if (!DROPPED_TAGS.has(name) || /^<\s*\//.test(tag)) {
-    return -1;
+    return null;
   }
   const close = new RegExp(`</${name}\\s*>`, 'i').exec(html.slice(openEnd));
-  return close ? openEnd + close.index + close[0].length : openEnd;
+  if (!close) {
+    return { text: '', next: openEnd };
+  }
+  const innerEnd = openEnd + close.index;
+  const text = FALLBACK_TAGS.has(name) ? sanitizeExportedHtml(html.slice(openEnd, innerEnd)) : '';
+  return { text, next: innerEnd + close[0].length };
+}
+
+/** The index after a script, frame, or other dropped element, including its body. */
+export function skippedDroppedElement(html: string, start: number, openEnd: number): number {
+  return readDroppedElement(html, start, openEnd)?.next ?? -1;
 }
 
 /** Remove local-file addresses from an HTML fragment, including the tags that load them. */
@@ -385,9 +400,10 @@ export function sanitizeExportedHtml(html: string): string {
       index = block.next;
       continue;
     }
-    if (DROPPED_TAGS.has(name) && !/^<\s*\//.test(tag)) {
-      const close = new RegExp(`</${name}\\s*>`, 'i').exec(html.slice(end));
-      index = close ? end + close.index + close[0].length : end;
+    const dropped = readDroppedElement(html, start, end);
+    if (dropped) {
+      result += dropped.text;
+      index = dropped.next;
       continue;
     }
     result += sanitizeExportedTag(tag);

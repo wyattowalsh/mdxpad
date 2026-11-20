@@ -1183,6 +1183,37 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('shows a fallback when a frame cannot be embedded', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: [
+        '<iframe src="file:///etc/passwd">Read the page</iframe>',
+        '<canvas>Chart of sales</canvas>',
+        'super<wbr>cali',
+        '',
+      ].join('\n\n'),
+      outputPath: '/tmp/html-fallback.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Read the page');
+    expect(xml).toContain('Chart of sales');
+    expect(xml).toContain('supercali');
+    expect(xml).not.toContain('file:');
+    expect(xml).not.toContain('passwd');
+    expect(xml).not.toContain('&lt;iframe');
+    expect(xml).not.toContain('&lt;canvas');
+    expect(xml).not.toContain('&lt;wbr');
+  });
+
   it('links the words inside a block link', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

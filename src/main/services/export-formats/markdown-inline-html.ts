@@ -21,8 +21,8 @@ import {
 import {
   safeImageAddress,
   safeLinkAddress,
+  readDroppedElement,
   sanitizeExportedTag,
-  skippedDroppedElement,
   styleBlock,
 } from './markdown-export-address';
 
@@ -153,9 +153,10 @@ function protectInlineHtml(raw: string): { text: string; tags: string[] } {
     }
     const end = char === '<' ? inlineHtmlEnd(raw, index) : -1;
     if (end !== -1) {
-      const skipped = skippedDroppedElement(raw, index, end);
-      if (skipped !== -1) {
-        index = skipped;
+      const dropped = readDroppedElement(raw, index, end);
+      if (dropped) {
+        text += dropped.text;
+        index = dropped.next;
         continue;
       }
       const opening = raw.slice(index, end);

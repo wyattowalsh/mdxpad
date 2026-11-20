@@ -56,6 +56,11 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('shows a canvas fallback and joins a word break', () => {
+    expect(rewriteSimpleHtml('<canvas>Chart of sales</canvas>').trim()).toBe('Chart of sales');
+    expect(rewriteSimpleHtml('super<wbr>cali')).toBe('supercali');
+  });
+
   it('links the words inside a block link', () => {
     expect(rewriteSimpleHtml('<a href="https://example.com"><div>Docs</div></a>').trim()).toBe(
       '[Docs](https://example.com)'

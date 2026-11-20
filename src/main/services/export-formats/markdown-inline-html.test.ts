@@ -854,6 +854,12 @@ describe('renderMarkdownInline', () => {
     );
     expect(renderMarkdownInline('[secret](/etc/passwd)')).toBe('secret');
     expect(renderMarkdownInline('<iframe src="file:///etc/passwd"></iframe>')).toBe('');
+    expect(renderMarkdownInline('<iframe src="file:///etc/passwd">Read the page</iframe>')).toBe(
+      'Read the page'
+    );
+    expect(renderMarkdownInline('<object data="file:///etc/passwd">The report</object>')).toBe(
+      'The report'
+    );
     expect(renderMarkdownInline('<script>location="file:///etc/passwd"</script>')).toBe('');
   });
 
