@@ -133,6 +133,12 @@ describe('rewriteSimpleHtml', () => {
     ).toBe('https://example.com/a.pdf (The report)');
     expect(rewriteSimpleHtml('<embed title="The clip" src="file:///tmp/a.swf">')).toBe('The clip');
     expect(
+      rewriteSimpleHtml('<iframe src="file:///etc/passwd" aria-label="The report"></iframe>')
+    ).toBe('The report');
+    expect(rewriteSimpleHtml('<input type="submit" aria-label="Save the file">')).toBe(
+      'Save the file'
+    );
+    expect(
       rewriteSimpleHtml(
         '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>'
       ).trim()

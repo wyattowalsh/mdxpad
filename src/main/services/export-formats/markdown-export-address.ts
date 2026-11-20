@@ -377,7 +377,7 @@ function droppedAddress(tag: string, name: string): string {
 }
 
 function withFrameTitle(body: string, tag: string): string {
-  const title = tagAttribute(tag, 'title');
+  const title = tagAttribute(tag, 'title') || tagAttribute(tag, 'aria-label');
   if (title.length === 0 || title === body.trim()) {
     return body;
   }

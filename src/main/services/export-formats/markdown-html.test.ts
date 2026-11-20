@@ -53,6 +53,11 @@ describe('sanitizeMarkdownHtmlBlocks', () => {
     ).toBe('The report');
     expect(
       sanitizeMarkdownHtmlBlocks(
+        '<iframe src="file:///etc/passwd" aria-label="The report"></iframe>'
+      )
+    ).toBe('The report');
+    expect(
+      sanitizeMarkdownHtmlBlocks(
         '<iframe src="https://example.com/page" title="The report"></iframe>'
       )
     ).toBe('https://example.com/page (The report)');

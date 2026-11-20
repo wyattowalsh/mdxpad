@@ -301,6 +301,23 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows an accessible name on a frame and a submit button', async () => {
+    const source = [
+      '<iframe src="file:///etc/passwd" aria-label="The report"></iframe>',
+      '<input type="submit" aria-label="Save the file" />',
+    ].join('\n\n');
+    const result = await compileMdx(testId('accessible-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('The report');
+    expect(container.querySelector('input')?.getAttribute('value')).toBe('Save the file');
+    expect(container.innerHTML).not.toContain('file:');
+  });
+
   it('shows the words of a noscript block', async () => {
     const source = '<noscript><p>Enable the page</p></noscript>';
     const result = await compileMdx(testId('noscript-words'), source);

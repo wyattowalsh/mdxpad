@@ -944,7 +944,8 @@ function renderInput(value: string, element: HtmlElement): string {
   }
   if (type !== 'checkbox') {
     const entered = attribute(openTag, 'value').trim();
-    return entered.length > 0 ? entered : attribute(openTag, 'placeholder').trim();
+    const shown = entered.length > 0 ? entered : attribute(openTag, 'placeholder').trim();
+    return shown.length > 0 ? shown : attribute(openTag, 'aria-label').trim();
   }
   const box = /\bchecked\b/i.test(openTag) ? '[x]' : '[ ]';
   const follower = value[element.end] ?? '';
@@ -1172,7 +1173,7 @@ function renderFrame(value: string, element: HtmlElement, inner: string): string
   const openTag = openTagBefore(value, element.innerStart);
   const text = convertHtml(inner).trim();
   const alt = attribute(openTag, 'alt').trim();
-  const title = attribute(openTag, 'title').trim();
+  const title = attribute(openTag, 'title').trim() || attribute(openTag, 'aria-label').trim();
   const raw = element.name === 'object' ? attribute(openTag, 'data') : attribute(openTag, 'src');
   const body = text.length > 0 ? text : alt.length > 0 ? alt : visibleAddress(raw);
   if (title.length === 0 || title === body) {

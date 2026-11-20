@@ -179,6 +179,18 @@ function notedElement(
     : jsx(jsxRuntime.Fragment, fragmentProps, key);
 }
 
+function namedControl(
+  jsx: typeof jsxRuntime.jsx,
+  type: React.ElementType,
+  props: object,
+  text: string,
+  key?: React.Key
+): React.ReactElement {
+  const patch = elementName(type) === 'input' ? { value: text } : { children: text };
+  const next = confinePreviewElement(type, { ...props, ...patch });
+  return key === undefined ? jsx(type, next) : jsx(type, next, key);
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
@@ -217,8 +229,7 @@ function confinedJsx(
       : jsx(jsxRuntime.Fragment, fragmentProps, key);
   }
   if (named?.kind === 'button' && props !== null && typeof props === 'object') {
-    const next = confinePreviewElement(type, { ...props, children: named.text });
-    return key === undefined ? jsx(type, next) : jsx(type, next, key);
+    return namedControl(jsx, type, props, named.text, key);
   }
   if (named?.kind === 'note') {
     return notedElement(jsx, type, props, named.text, key);
