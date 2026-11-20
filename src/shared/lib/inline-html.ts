@@ -160,23 +160,32 @@ function usableImageAddress(destination: string | null): destination is string {
   );
 }
 
-function srcsetAddress(attrs: string): string | null {
-  const srcset = attrValue(attrs, 'srcset');
-  if (srcset === null) {
+function climbsOut(address: string): boolean {
+  return address
+    .replaceAll('\\', '/')
+    .split('/')
+    .some((part) => part === '..');
+}
+
+function listAddress(value: string | null): string | null {
+  if (value === null) {
     return null;
   }
-  for (const part of srcset.split(',')) {
+  for (const part of value.split(',')) {
     const url = part.trim().split(/\s+/)[0] ?? '';
-    if (usableImageAddress(url) && !/[\s()]/.test(url)) {
-      return url;
+    if (!usableImageAddress(url) || climbsOut(url) || url.startsWith('/') || url.startsWith('\\')) {
+      continue;
     }
+    return url;
   }
   return null;
 }
 
 function promotedImage(attrs: string, match: string): string {
   const src = attrValue(attrs, 'src');
-  const address = usableImageAddress(src) ? src : srcsetAddress(attrs);
+  const address = usableImageAddress(src)
+    ? src
+    : (listAddress(attrValue(attrs, 'srcset')) ?? listAddress(attrValue(attrs, 'imagesrcset')));
   if (address === null) {
     return match;
   }

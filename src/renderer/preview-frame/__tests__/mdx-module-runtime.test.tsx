@@ -192,9 +192,8 @@ describe('createModuleFromCode', () => {
     expect(document.body.innerHTML).not.toContain('file:');
     expect(document.head.innerHTML).not.toContain('secret');
     expect(document.head.innerHTML).not.toContain('file:');
-    expect(document.querySelector('img')?.getAttribute('imagesrcset')).toBe(
-      'https://example.com/a.png 2x'
-    );
+    expect(document.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a.png');
+    expect(document.querySelector('img')?.getAttribute('alt')).toBe('pic');
     expect(document.querySelector('a')?.getAttribute('href')).toBe('../notes/a.md');
   });
 
