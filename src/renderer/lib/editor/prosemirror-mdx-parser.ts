@@ -247,7 +247,8 @@ function imageAlt(token: MarkdownToken): string {
   return restoreTexDelimiters(restoreMathMarkup(unescapeMarkdown(raw)));
 }
 
-const LINK_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s+\S/;
+const LINK_DEFINITION =
+  /^ {0,3}\[(?!\^)[^\]]+\]:[ \t]+(?:<[^>\n]*>|\S+)(?:[ \t]+(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\([^)\n]*\)))?[ \t]*$/;
 const LABEL_ONLY = /^\s{0,3}\[(?!\^)[^\]]+\]:[ \t]*$/;
 const DESTINATION_LINE = /^ {0,3}(?:<[^>\n]*>|\S+)[ \t]*$/;
 const DEFINITION_TITLE = /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\([^)\n]*\))/;
