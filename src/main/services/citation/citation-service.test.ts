@@ -141,6 +141,23 @@ describe('citation-service', () => {
       expect(result.entries[0]?.howpublished).toBe('Presented at the Ice Symposium');
     });
 
+    it('keeps a series, a city, an edition, an organization, and a chapter', () => {
+      const result = parseBibtex(`
+@incollection{ada1842,
+  title = {The Engine},
+  series = {Lecture Notes in Computer Science},
+  address = {London},
+  edition = {Second},
+  organization = {Analytical Society},
+  chapter = {On the Engine}
+}`);
+      expect(result.entries[0]?.series).toBe('Lecture Notes in Computer Science');
+      expect(result.entries[0]?.address).toBe('London');
+      expect(result.entries[0]?.edition).toBe('Second');
+      expect(result.entries[0]?.organization).toBe('Analytical Society');
+      expect(result.entries[0]?.chapter).toBe('On the Engine');
+    });
+
     it('should handle publisher field', () => {
       const bibtex = `
 @book{test,

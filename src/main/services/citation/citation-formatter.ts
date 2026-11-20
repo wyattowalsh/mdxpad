@@ -67,10 +67,23 @@ function addSentence(parts: string[], value: string | undefined): void {
   parts.push(text.endsWith('.') ? text : `${text}.`);
 }
 
+function editionLabel(edition: string | undefined): string | undefined {
+  const text = edition?.trim() ?? '';
+  if (text.length === 0) {
+    return undefined;
+  }
+  return /ed/i.test(text) ? text : `${text} ed.`;
+}
+
 function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.school);
   addSentence(parts, entry.institution);
   addSentence(parts, entry.editor ? `Ed. ${entry.editor}` : undefined);
+  addSentence(parts, entry.series);
+  addSentence(parts, entry.address);
+  addSentence(parts, editionLabel(entry.edition));
+  addSentence(parts, entry.organization);
+  addSentence(parts, entry.chapter ? `Ch. ${entry.chapter}` : undefined);
   addSentence(parts, entry.howpublished);
   addSentence(parts, entry.note);
 }

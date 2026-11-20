@@ -175,23 +175,29 @@ function parseAuthors(
   });
 }
 
-function copyText(
-  entry: CitationEntry,
-  fields: Map<string, string>,
-  key:
-    | 'publisher'
-    | 'booktitle'
-    | 'school'
-    | 'institution'
-    | 'editor'
-    | 'howpublished'
-    | 'note'
-    | 'doi'
-    | 'url'
-): void {
-  const value = fields.get(key);
-  if (value) {
-    entry[key] = value;
+const TEXT_FIELDS = [
+  'publisher',
+  'booktitle',
+  'school',
+  'institution',
+  'editor',
+  'howpublished',
+  'series',
+  'address',
+  'edition',
+  'organization',
+  'chapter',
+  'note',
+  'doi',
+  'url',
+] as const satisfies readonly (keyof CitationEntry)[];
+
+function copyTextFields(entry: CitationEntry, fields: Map<string, string>): void {
+  for (const key of TEXT_FIELDS) {
+    const value = fields.get(key);
+    if (value) {
+      entry[key] = value;
+    }
   }
 }
 
@@ -222,15 +228,7 @@ function buildEntry(id: string, type: string, fields: Map<string, string>): Cita
   const pages = fields.get('pages');
   if (pages) entry.pages = pages.replaceAll('--', '-');
 
-  copyText(entry, fields, 'publisher');
-  copyText(entry, fields, 'booktitle');
-  copyText(entry, fields, 'school');
-  copyText(entry, fields, 'institution');
-  copyText(entry, fields, 'editor');
-  copyText(entry, fields, 'howpublished');
-  copyText(entry, fields, 'note');
-  copyText(entry, fields, 'doi');
-  copyText(entry, fields, 'url');
+  copyTextFields(entry, fields);
 
   return entry;
 }

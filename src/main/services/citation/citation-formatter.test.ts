@@ -69,6 +69,27 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('Presented at the Ice Symposium');
   });
 
+  it('keeps a series, a city, an edition, an organization, and a chapter', () => {
+    const entry: CitationEntry = {
+      id: 'ada1842',
+      type: 'incollection',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      year: 1842,
+      series: 'Lecture Notes in Computer Science',
+      address: 'London',
+      edition: 'Second',
+      organization: 'Analytical Society',
+      chapter: 'On the Engine',
+    };
+    const formatted = formatCitation(entry, 'chicago').formatted;
+    expect(formatted).toContain('Lecture Notes in Computer Science');
+    expect(formatted).toContain('London');
+    expect(formatted).toContain('Second');
+    expect(formatted).toContain('Analytical Society');
+    expect(formatted).toContain('On the Engine');
+  });
+
   describe('formatCitation', () => {
     describe('APA style', () => {
       it('should format article citation', () => {
