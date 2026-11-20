@@ -53,6 +53,19 @@ describe('remark math prices', () => {
     }
   });
 
+  it('renders a formula inside a nested quote', async () => {
+    const result = await compileMdx(
+      testId('nested-quote-formula'),
+      '> > Text $$\n> > x^2\n> > $$\n> > more\n'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('children: "x^2"');
+      expect(result.code).toContain('"more"');
+      expect(result.code).not.toContain('children: "m"');
+    }
+  });
+
   it('renders a quoted list formula', async () => {
     const result = await compileMdx(
       testId('quoted-list-formula'),

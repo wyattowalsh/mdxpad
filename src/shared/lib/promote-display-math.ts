@@ -11,7 +11,15 @@ interface PromotedBlock {
   readonly next: number;
 }
 
-const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
+const QUOTE_LINE = /^( {0,3}(?:>[ \t]?)+)(.*)$/;
+
+function quoteParts(line: string): { marker: string; body: string } | null {
+  const match = QUOTE_LINE.exec(line);
+  if (!match) {
+    return null;
+  }
+  return { marker: match[1] ?? '', body: match[2] ?? '' };
+}
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])[ \t]+(.*)$/;
 
 function fenceMarker(line: string): string | null {
@@ -84,28 +92,24 @@ function takePlain(lines: readonly string[], index: number): PromotedBlock | nul
 
 function takeQuote(lines: readonly string[], index: number): PromotedBlock | null {
   const quotedList = takeQuotedList(lines, index);
-  if (quotedList || LIST_ITEM.test(QUOTE_LINE.exec(lines[index] ?? '')?.[1] ?? '')) {
+  const opener = quoteParts(lines[index] ?? '');
+  if (quotedList || (opener !== null && LIST_ITEM.test(opener.body))) {
     return quotedList;
   }
-  const line = lines[index] ?? '';
-  const match = QUOTE_LINE.exec(line);
-  const body = match?.[1] ?? '';
-  const prefix = match && !LIST_ITEM.test(body) ? displayMathPrefix(body.trimStart()) : null;
-  if (!match || prefix === null) {
+  const prefix = opener ? displayMathPrefix(opener.body.trimStart()) : null;
+  if (!opener || prefix === null) {
     return null;
   }
-  const marker = line.slice(0, line.length - body.length);
   const bodyLines: string[] = [];
   for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
     const current = lines[cursor] ?? '';
-    const quoted = QUOTE_LINE.exec(current);
-    const inner = quoted?.[1] ?? '';
+    const quoted = quoteParts(current);
     if (!quoted) {
       return null;
     }
-    if (inner.trim() === '$$') {
+    if (quoted.body.trim() === '$$') {
       return {
-        lines: [`${marker}${prefix}`, `${marker}$$`, ...bodyLines, current],
+        lines: [`${opener.marker}${prefix}`, `${opener.marker}$$`, ...bodyLines, current],
         next: cursor + 1,
       };
     }
@@ -181,20 +185,18 @@ function takeList(lines: readonly string[], index: number): PromotedBlock | null
 }
 
 function takeQuotedList(lines: readonly string[], index: number): PromotedBlock | null {
-  const match = QUOTE_LINE.exec(lines[index] ?? '');
-  const body = match?.[1] ?? '';
-  if (!match || !LIST_ITEM.test(body)) {
+  const opener = quoteParts(lines[index] ?? '');
+  if (!opener || !LIST_ITEM.test(opener.body)) {
     return null;
   }
-  const marker = (lines[index] ?? '').slice(0, (lines[index] ?? '').length - body.length);
-  const virtual = [body];
+  const virtual = [opener.body];
   const origins = [index];
   for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-    const quoted = QUOTE_LINE.exec(lines[cursor] ?? '');
+    const quoted = quoteParts(lines[cursor] ?? '');
     if (!quoted) {
       break;
     }
-    virtual.push(quoted[1] ?? '');
+    virtual.push(quoted.body);
     origins.push(cursor);
   }
   const promoted = takeList(virtual, 0);
@@ -203,7 +205,7 @@ function takeQuotedList(lines: readonly string[], index: number): PromotedBlock 
     return null;
   }
   return {
-    lines: promoted.lines.map((item) => `${marker}${item}`),
+    lines: promoted.lines.map((item) => `${opener.marker}${item}`),
     next: origin + 1,
   };
 }
