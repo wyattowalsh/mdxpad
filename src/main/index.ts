@@ -11,7 +11,11 @@ import { initializeApplicationMenu } from './menu';
 import { registerPreviewFrameProtocol } from './preview-frame-protocol';
 import { shareUrlFromArgv } from '@shared/lib/share-url';
 import { deliverShareUrl, flushPendingShareUrl, installShareProtocol, rememberShareUrl } from './share-protocol';
-import { AutoSaveManager, readVerifiedAutosave } from './services/auto-save';
+import {
+  AutoSaveManager,
+  readVerifiedAutosave,
+  type AutoSaveEntry,
+} from './services/auto-save';
 
 /** Global AutoSaveManager instance for crash recovery and auto-saving */
 const autoSaveManager = new AutoSaveManager();
@@ -29,27 +33,60 @@ function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
 }
 
+interface VerifiedAutosave {
+  readonly fileId: AutoSaveEntry['fileId'];
+  readonly displayName: string;
+  readonly content: string;
+  readonly savedAt: number;
+}
+
+/** Keep a launch offer only when the autosave bytes match the checksum file. */
+async function verifiedAutosaves(entries: readonly AutoSaveEntry[]): Promise<VerifiedAutosave[]> {
+  const verified: VerifiedAutosave[] = [];
+  for (const entry of entries) {
+    try {
+      const content = await readVerifiedAutosave(entry.tempPath);
+      if (content === null) {
+        console.error(`Checksum mismatch for recovered file ${entry.tempPath}`);
+        continue;
+      }
+      verified.push({
+        fileId: entry.fileId,
+        displayName: entry.displayName,
+        content,
+        savedAt: entry.savedAt,
+      });
+    } catch (err) {
+      console.error(`Failed to verify recovered file ${entry.tempPath}:`, err);
+    }
+  }
+  return verified;
+}
+
 /**
  * Checks for recoverable auto-saved files from a previous session.
- * If found, prompts the user to recover or discard them.
+ * A file is offered only after its checksum matches.
  *
  * Implements FR-015: On app launch detect recoverable auto-saved files.
  *
  * @returns Promise that resolves when recovery handling is complete
  */
 async function checkCrashRecovery(): Promise<void> {
-  const entries = await autoSaveManager.findRecoverable();
+  const found = await autoSaveManager.findRecoverable();
+  if (found.length === 0) {
+    return;
+  }
+  const entries = await verifiedAutosaves(found);
 
   if (entries.length === 0) {
     return;
   }
 
   console.log(`Found ${entries.length} recoverable auto-saved file(s):`);
-  entries.forEach((e) => {
-    console.log(`  - ${e.displayName} (${formatTime(e.savedAt)})`);
+  entries.forEach((entry) => {
+    console.log(`  - ${entry.displayName} (${formatTime(entry.savedAt)})`);
   });
 
-  // Show recovery dialog to the user
   const { response } = await dialog.showMessageBox({
     type: 'question',
     buttons: ['Recover', 'Discard'],
@@ -57,32 +94,20 @@ async function checkCrashRecovery(): Promise<void> {
     cancelId: 1,
     title: 'Recover Unsaved Work',
     message: 'Found unsaved work from a previous session:',
-    detail: entries.map((e) => `\u2022 ${e.displayName} (${formatTime(e.savedAt)})`).join('\n'),
+    detail: entries
+      .map((entry) => `\u2022 ${entry.displayName} (${formatTime(entry.savedAt)})`)
+      .join('\n'),
   });
 
   if (response === 0) {
-    // User chose "Recover" - read temp files and store for window creation
-    for (const entry of entries) {
-      try {
-        const content = await readVerifiedAutosave(entry.tempPath);
-        if (content === null) {
-          console.error(`Checksum mismatch for recovered file ${entry.tempPath}`);
-          continue;
-        }
-        pendingRecoveryEntries.push({
-          displayName: entry.displayName,
-          content,
-          savedAt: entry.savedAt,
-        });
-      } catch (err) {
-        console.error(`Failed to verify recovered file ${entry.tempPath}:`, err);
-      }
-    }
-  } else {
-    // User chose "Discard" - clean up all temp files
-    for (const entry of entries) {
-      await autoSaveManager.cleanupEntry(entry.fileId);
-    }
+    pendingRecoveryEntries.push(
+      ...entries.map(({ displayName, content, savedAt }) => ({ displayName, content, savedAt }))
+    );
+    return;
+  }
+
+  for (const entry of entries) {
+    await autoSaveManager.cleanupEntry(entry.fileId);
   }
 }
 

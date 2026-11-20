@@ -45,7 +45,7 @@ const {
       return null;
     }
   });
-  const mockShowMessageBox = vi.fn(async () => ({ response: 1 }));
+  const mockShowMessageBox = vi.fn(async (_options?: { detail?: string }) => ({ response: 1 }));
   const mockAutoSaveManager = {
     findRecoverable: vi.fn(
       async (): Promise<
@@ -337,9 +337,58 @@ describe('main process second-instance behavior', () => {
       await Promise.resolve();
     }
 
+    expect(mockShowMessageBox).not.toHaveBeenCalled();
     expect(mockCreateWindow).toHaveBeenCalledTimes(1);
     expect(mainWindow.webContents.send).not.toHaveBeenCalled();
     expect(mockAutoSaveManager.cleanupEntry).not.toHaveBeenCalled();
     consoleSpy.mockRestore();
+  });
+
+  it('offers only the recovery file whose checksum matches', async () => {
+    const deferred = createDeferred();
+    setWhenReadyPromise(deferred.promise);
+    const content = 'kept';
+    mockAutoSaveManager.findRecoverable.mockResolvedValue([
+      {
+        fileId: 'good',
+        originalPath: null,
+        tempPath: '/tmp/mdxpad-autosave-good.mdx',
+        savedAt: 10,
+        displayName: 'Recovered: good',
+      },
+      {
+        fileId: 'bad',
+        originalPath: null,
+        tempPath: '/tmp/mdxpad-autosave-bad.mdx',
+        savedAt: 9,
+        displayName: 'Recovered: bad',
+      },
+    ]);
+    mockShowMessageBox.mockResolvedValue({ response: 0 });
+    mockReadFile.mockImplementation(async (filePath: string) => {
+      if (filePath.includes('bad')) {
+        throw new Error('missing checksum');
+      }
+      return filePath.endsWith('.sha256') ? computeChecksum(content) : content;
+    });
+    const mainWindow = createMockWindow();
+    mockCreateWindow.mockReturnValue(mainWindow);
+
+    await import('../index');
+    deferred.resolve();
+    for (let step = 0; step < 20; step += 1) {
+      await Promise.resolve();
+    }
+
+    const detail = String(mockShowMessageBox.mock.calls[0]?.[0]?.detail ?? '');
+    expect(detail).toContain('Recovered: good');
+    expect(detail).not.toContain('Recovered: bad');
+    const finishLoad = (mainWindow.webContents.once as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) => call[0] === 'did-finish-load'
+    )?.[1] as (() => void) | undefined;
+    finishLoad?.();
+    expect(mainWindow.webContents.send).toHaveBeenCalledWith('mdxpad:recovery:restore', [
+      { displayName: 'Recovered: good', content, savedAt: 10 },
+    ]);
   });
 });
