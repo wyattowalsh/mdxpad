@@ -222,6 +222,42 @@ describe('citation-service', () => {
       expect(result.entries[0]?.pagetotal).toBe('40');
     });
 
+    it('keeps the extra titles and the people named on an entry', () => {
+      const result = parseBibtex(`
+@incollection{ada1842,
+  title = {The Engine},
+  editor = {Charles Babbage},
+  editora = {Charles Babbage},
+  shorttitle = {Engine Short},
+  titleaddon = {Revised Copy},
+  eventtitle = {Ice Symposium},
+  booksubtitle = {A Study},
+  maintitle = {Collected Works},
+  issuetitle = {Winter Issue},
+  annotator = {Mary Somerville},
+  commentator = {George Boole},
+  holder = {Analytical Society},
+  assignee = {Patent Office}
+}`);
+      const named = parseBibtex(`
+@patent{ada1841,
+  title = {The Engine},
+  editora = {Ada Lovelace}
+}`);
+      expect(result.entries[0]?.editora).toBe('Charles Babbage');
+      expect(result.entries[0]?.shorttitle).toBe('Engine Short');
+      expect(result.entries[0]?.titleaddon).toBe('Revised Copy');
+      expect(result.entries[0]?.eventtitle).toBe('Ice Symposium');
+      expect(result.entries[0]?.booksubtitle).toBe('A Study');
+      expect(result.entries[0]?.maintitle).toBe('Collected Works');
+      expect(result.entries[0]?.issuetitle).toBe('Winter Issue');
+      expect(result.entries[0]?.annotator).toBe('Mary Somerville');
+      expect(result.entries[0]?.commentator).toBe('George Boole');
+      expect(result.entries[0]?.holder).toBe('Analytical Society');
+      expect(result.entries[0]?.assignee).toBe('Patent Office');
+      expect(named.entries[0]?.editora).toBe('Ada Lovelace');
+    });
+
     it('keeps a month, a subtitle, a translator, and an ISBN', () => {
       const result = parseBibtex(`
 @book{ada1840,

@@ -137,6 +137,49 @@ describe('citation-formatter', () => {
     expect(formatted).toContain('40 pp.');
   });
 
+  it('keeps the extra titles and the people named on an entry', () => {
+    const repeated: CitationEntry = {
+      id: 'ada1842',
+      type: 'incollection',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      editor: 'Charles Babbage',
+      editora: 'Charles Babbage',
+      annotator: 'Mary Somerville',
+      shorttitle: 'Engine Short',
+    };
+    const once = formatCitation(repeated, 'apa').formatted;
+    expect(once).toContain('Ed. Charles Babbage');
+    expect(once.match(/Charles Babbage/g)).toHaveLength(1);
+    expect(once).toContain('Mary Somerville');
+    expect(once).toContain('Engine Short');
+    const entry: CitationEntry = {
+      id: 'ada1841',
+      type: 'patent',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      editora: 'Ada Lovelace',
+      commentator: 'George Boole',
+      holder: 'Analytical Society',
+      assignee: 'Patent Office',
+      titleaddon: 'Revised Copy',
+      eventtitle: 'Ice Symposium',
+      booksubtitle: 'A Study',
+      maintitle: 'Collected Works',
+      issuetitle: 'Winter Issue',
+    };
+    const formatted = formatCitation(entry, 'chicago').formatted;
+    expect(formatted).toContain('Ed. Ada Lovelace');
+    expect(formatted).toContain('George Boole');
+    expect(formatted).toContain('Analytical Society');
+    expect(formatted).toContain('Patent Office');
+    expect(formatted).toContain('Revised Copy');
+    expect(formatted).toContain('Ice Symposium');
+    expect(formatted).toContain('A Study');
+    expect(formatted).toContain('Collected Works');
+    expect(formatted).toContain('Winter Issue');
+  });
+
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {
     const entry: CitationEntry = {
       id: 'ada1840',

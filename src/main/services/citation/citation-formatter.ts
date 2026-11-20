@@ -157,6 +157,22 @@ function pageCount(value: string | undefined): string | undefined {
   return /^\d+$/.test(text) ? `${text} pp.` : text;
 }
 
+function addParties(parts: string[], entry: CitationEntry): void {
+  if (entry.editora && entry.editora !== entry.editor) {
+    addSentence(parts, `Ed. ${entry.editora}`);
+  }
+  addSentence(parts, entry.annotator ? `Annotated by ${entry.annotator}` : undefined);
+  addSentence(parts, entry.commentator ? `Commentary by ${entry.commentator}` : undefined);
+  addSentence(parts, entry.holder);
+  addSentence(parts, entry.assignee);
+  addSentence(parts, entry.shorttitle);
+  addSentence(parts, entry.titleaddon);
+  addSentence(parts, entry.eventtitle);
+  addSentence(parts, entry.booksubtitle);
+  addSentence(parts, entry.maintitle);
+  addSentence(parts, entry.issuetitle);
+}
+
 function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.school);
   addSentence(parts, entry.institution);
@@ -177,6 +193,7 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.venue);
   addSentence(parts, entry.eid);
   addSentence(parts, pageCount(entry.pagetotal));
+  addParties(parts, entry);
   addSentence(parts, entry.howpublished);
   addSentence(parts, entry.note);
 }
