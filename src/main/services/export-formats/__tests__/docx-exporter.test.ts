@@ -1183,6 +1183,29 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('shows the words inside an MDX component', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<Callout>Remember the ice</Callout>\n\n<Button>Save</Button> now\n',
+      outputPath: '/tmp/mdx-component.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Remember the ice');
+    expect(xml).toContain('Save');
+    expect(xml).toContain('now');
+    expect(xml).not.toContain('&lt;Callout');
+    expect(xml).not.toContain('&lt;Button');
+  });
+
   it('breaks at an attributed HTML break and links a picture', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

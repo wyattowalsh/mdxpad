@@ -308,7 +308,10 @@ function readSimpleElement(value: string, index: number): HtmlElement | null {
   }
   const name = open.name.toLowerCase();
   if (!simpleName(name)) {
-    return null;
+    if (open.selfClosing || !/[A-Z.]/.test(open.name)) {
+      return null;
+    }
+    return elementBounds(value, name, open.end);
   }
   if (open.selfClosing || name === 'input' || VOID_HTML.has(name)) {
     return { name, innerStart: open.end, innerEnd: open.end, end: open.end };
@@ -1195,7 +1198,7 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'h6':
       return renderHeading(Number(element.name.slice(1)), inner);
     default:
-      return blockWrap(convertHtml(inner));
+      return simpleName(element.name) ? blockWrap(convertHtml(inner)) : convertHtml(inner);
   }
 }
 

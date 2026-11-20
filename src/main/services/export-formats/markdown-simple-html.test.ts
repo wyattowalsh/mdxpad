@@ -56,6 +56,16 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('shows the words inside an MDX component', () => {
+    expect(rewriteSimpleHtml('<Callout>Remember the ice</Callout>').trim()).toBe('Remember the ice');
+    expect(rewriteSimpleHtml('<Button>Save</Button> now')).toBe('Save now');
+    expect(rewriteSimpleHtml('<Callout><strong>Remember</strong> the ice</Callout>').trim()).toBe(
+      '**Remember** the ice'
+    );
+    expect(rewriteSimpleHtml('Hello<br class="soft">World')).toBe('Hello<br class="soft">World');
+    expect(rewriteSimpleHtml('<img alt="Cat" src="cat.png" />')).toBe('![Cat](cat.png)');
+  });
+
   it('keeps a wrapped definition, an open list, and a linked picture', () => {
     expect(
       rewriteSimpleHtml('<dl><div><dt>Term</dt><dd>The definition</dd></div></dl>').trim()
