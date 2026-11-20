@@ -1,6 +1,7 @@
 import { allocateHeadingSlug, headingSlug, headingTag, parseAtxHeading } from '@shared/lib/markdown-heading';
 import { displayMathPrefix } from '@shared/lib/math-span';
 import { isThematicBreak } from './markdown-break';
+import { paragraphOrBlockTag } from './markdown-html';
 import { setextLevel } from './markdown-setext';
 import {
   closesFence,
@@ -842,7 +843,7 @@ function renderQuotedItemHtml(
   return quoteItemPieces(body, column)
     .map((piece) => {
       if (piece.kind === 'prose' && sawBlock) {
-        return `<p>${renderListItemHtml(piece.lines, renderLine)}</p>`;
+        return paragraphOrBlockTag(renderListItemHtml(piece.lines, renderLine));
       }
       if (piece.kind !== 'prose') {
         sawBlock = true;

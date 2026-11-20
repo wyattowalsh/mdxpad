@@ -1,4 +1,5 @@
 import { isThematicBreak } from './markdown-break';
+import { paragraphOrBlockTag } from './markdown-html';
 import { setextLevel } from './markdown-setext';
 import { renderFencedCode } from './markdown-code';
 import { fenceLanguage, openingFence, closesFence } from './markdown-fence';
@@ -110,13 +111,17 @@ export function readListFenceLine(
   return 'open';
 }
 
+function looseProse(state: HtmlListItemState, render: (text: string) => string): string {
+  return paragraphOrBlockTag(renderListItemHtml(state.listLines, render));
+}
+
 function composedItemHtml(state: HtmlListItemState, render: (text: string) => string): string {
   if (state.listLines.length === 0) {
     return state.itemHtml;
   }
   const prose = renderListItemHtml(state.listLines, render);
   if (state.loose || state.itemHtml.length > 0) {
-    return `${state.itemHtml}<p>${prose}</p>`;
+    return `${state.itemHtml}${paragraphOrBlockTag(prose)}`;
   }
   return prose;
 }
@@ -217,7 +222,7 @@ export function breakListParagraph(
   render: (text: string) => string
 ): void {
   if (state.listLines.length > 0) {
-    state.itemHtml += `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.itemHtml += looseProse(state, render);
     state.listLines = [];
   }
   state.loose = true;
@@ -413,7 +418,7 @@ export function continueOpenList(
     parts.at(-1)?.startsWith('<p>')
   ) {
     state.listLines.push(readListContinuation(raw, state.listColumn ?? 2));
-    parts[parts.length - 1] = `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    parts[parts.length - 1] = looseProse(state, render);
     return true;
   }
   if (!state.listBreak) {
@@ -450,7 +455,7 @@ function continueListParagraph(
     markListLoose(parts, stack);
   }
   if (state.listLines.length > 0) {
-    state.itemHtml += `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.itemHtml += looseProse(state, render);
     state.listLines = [];
   }
   state.listColumn = frame.column;
@@ -461,14 +466,14 @@ function continueListParagraph(
     if (writeListItem(state, render)) {
       return true;
     }
-    const paragraph = `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    const paragraph = looseProse(state, render);
     state.listLines = [];
     state.parts.push(paragraph);
     state.itemHtml += paragraph;
     return true;
   }
   state.itemHtml = '';
-  parts.push(`<p>${renderListItemHtml(state.listLines, render)}</p>`);
+  parts.push(looseProse(state, render));
   return true;
 }
 
@@ -717,7 +722,7 @@ export function takeListItemMath(
     state.listLines.push({ text: lead, hardBreak: readSourceLine(line).hardBreak });
   }
   if (state.listBreak && state.listLines.length > 0) {
-    state.itemHtml += `<p>${renderListItemHtml(state.listLines, render)}</p>`;
+    state.itemHtml += looseProse(state, render);
     state.listLines = [];
   } else {
     sealProse(state, render);

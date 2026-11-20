@@ -101,6 +101,16 @@ function readUntilBlank(lines: readonly string[], index: number): HtmlBlock {
   return { html: collected.join('\n'), nextIndex: cursor };
 }
 
+/** A paragraph that is only a block tag stays a block. Other prose is wrapped. */
+export function paragraphOrBlockTag(html: string): string {
+  const trimmed = html.trim();
+  const name = /^<\/?([A-Za-z][A-Za-z0-9-]*)(?:\s[^<>]*)?>$/.exec(trimmed)?.[1]?.toLowerCase() ?? '';
+  if (BLOCK_TAGS.has(name) || name === 'script' || name === 'pre' || name === 'style' || name === 'textarea') {
+    return trimmed;
+  }
+  return `<p>${html}</p>`;
+}
+
 /** Read a CommonMark HTML block. An autolink or ordinary text returns null. */
 export function readHtmlBlock(lines: readonly string[], index: number): HtmlBlock | null {
   const line = lines[index] ?? '';

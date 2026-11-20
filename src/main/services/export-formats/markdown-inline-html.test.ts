@@ -275,7 +275,11 @@ describe('renderMarkdownInline', () => {
     expect(html.indexOf('</div>')).toBeLessThan(html.indexOf('</ul>'));
     expect(html).toContain('bar');
     const loose = markdownToPdfHtml('- <div>\n\n  bar\n\n  </div>\n');
+    expect(loose.indexOf('<div>')).toBeLessThan(loose.indexOf('<p>bar</p>'));
+    expect(loose.indexOf('<p>bar</p>')).toBeLessThan(loose.indexOf('</div>'));
     expect(loose.indexOf('</div>')).toBeLessThan(loose.indexOf('</ul>'));
+    expect(loose).not.toContain('<p><div>');
+    expect(loose).not.toContain('<p></div>');
     const after = markdownToPdfHtml('- item\n\n<div>\nbar\n</div>\n');
     expect(after.indexOf('</ul>')).toBeLessThan(after.indexOf('<div>'));
   });
