@@ -53,6 +53,15 @@ describe('renderableMathTex', () => {
       '\\text{First item}'
     );
     expect(katexMathTex('\\begin{verbatim}Code sample\\end{verbatim}')).toBe('\\text{Code sample}');
+    expect(katexMathTex('\\begin{figure}A figure about ice\\end{figure}')).toBe(
+      '\\textbf{Figure. }\\text{A figure about ice}'
+    );
+    expect(
+      renderableMathTex('\\begin{tabular}{ll} Name & Cost \\\\ Tea & 2 \\end{tabular}')
+    ).toContain('Name & Cost');
+    expect(katexMathTex('\\begin{tabular}{ll} Name & Cost \\end{tabular}')).toBe(
+      '\\begin{array}{ll} Name & Cost \\end{array}'
+    );
     expect(katexMathTex('\\mbox{a}')).toBe('\\text{a}');
     expect(renderableMathTex('\\begin{multline}a\\\\b\\end{multline}')).toBe(
       '\\begin{multline}a\\\\b\\end{multline}'

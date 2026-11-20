@@ -75,6 +75,13 @@ describe('renderMarkdownInline', () => {
     ]);
     expect(listed).not.toContain('katex-error');
     expect(listed).toContain('First item');
+    const grid = renderDisplayMathBlock(['\\begin{tabular}{ll}', 'Name & Cost \\\\ Tea & 2', '\\end{tabular}']);
+    expect(grid).not.toContain('katex-error');
+    expect(grid).toContain('Name');
+    expect(grid).toContain('Tea');
+    const figure = renderDisplayMathBlock(['\\begin{figure}', 'A figure about ice', '\\end{figure}']);
+    expect(figure).not.toContain('katex-error');
+    expect(figure).toContain('ice');
     const water = renderDisplayMathBlock(['\\ce{H2O}']);
     expect(water).not.toContain('katex-error');
     expect(water).toContain('H');
