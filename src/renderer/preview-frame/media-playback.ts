@@ -106,11 +106,28 @@ function sourceAddress(node: unknown): string | undefined {
   return mediaAddress(element.props);
 }
 
+function imageLabel(props: Record<string, unknown>): string {
+  const alt = typeof props.alt === 'string' ? props.alt.trim() : '';
+  if (alt.length > 0) {
+    return alt;
+  }
+  const aria = props['aria-label'];
+  if (typeof aria === 'string' && aria.trim().length > 0) {
+    return aria.trim();
+  }
+  const named = props.ariaLabel;
+  return typeof named === 'string' ? named.trim() : '';
+}
+
 function pictureAlt(nodes: readonly unknown[]): string {
   for (const node of nodes) {
     const element = nodeParts(node);
-    if (element && !isSourceType(element.type) && typeof element.props.alt === 'string') {
-      return element.props.alt;
+    if (!element || isSourceType(element.type)) {
+      continue;
+    }
+    const label = imageLabel(element.props);
+    if (label.length > 0) {
+      return label;
     }
   }
   return '';

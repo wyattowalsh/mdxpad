@@ -563,6 +563,23 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('passwd');
   });
 
+  it('uses an image accessible name when the alt text is empty', async () => {
+    const source = [
+      '<img src="go.png" aria-label="Photolabel" />',
+      '<img alt="Cat" aria-label="Other" src="cat.png" />',
+    ].join('\n\n');
+    const result = await compileMdx(testId('image-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    const images = container.querySelectorAll('img');
+    expect(images[0]?.getAttribute('alt')).toBe('Photolabel');
+    expect(images[1]?.getAttribute('alt')).toBe('Cat');
+  });
+
   it('shows a quotation source, an image button, a command, and an applet name', async () => {
     const source = [
       '<q cite="https://example.com/source">quoted</q>',

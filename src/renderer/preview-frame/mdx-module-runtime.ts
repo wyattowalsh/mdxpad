@@ -209,6 +209,26 @@ function namedControl(
   return key === undefined ? jsx(type, next) : jsx(type, next, key);
 }
 
+function namedImageProps(type: React.ElementType, props: unknown): unknown {
+  if (elementName(type) !== 'img' || props === null || typeof props !== 'object') {
+    return props;
+  }
+  const record = props as Record<string, unknown>;
+  const alt = typeof record.alt === 'string' ? record.alt.trim() : '';
+  if (alt.length > 0) {
+    return props;
+  }
+  const aria = record['aria-label'];
+  const named = record.ariaLabel;
+  const label =
+    (typeof aria === 'string' ? aria.trim() : '') ||
+    (typeof named === 'string' ? named.trim() : '');
+  if (label.length === 0) {
+    return props;
+  }
+  return { ...record, alt: label };
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
@@ -252,7 +272,7 @@ function confinedJsx(
   if (named?.kind === 'note') {
     return notedElement(jsx, type, props, named.text, key);
   }
-  const next = confinePreviewElement(type, props);
+  const next = confinePreviewElement(type, namedImageProps(type, props));
   if (key === undefined) {
     return jsx(type, next);
   }
