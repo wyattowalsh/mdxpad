@@ -1386,6 +1386,19 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('<ins>');
   });
 
+  it('keeps a caption with an HTML table', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<table><caption>Prices</caption><tr><td>A</td></tr></table>\n',
+      outputPath: '/tmp/caption.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('Prices');
+    expect(written).toContain('\\begin{tabular}');
+    expect(written.indexOf('Prices')).toBeLessThan(written.indexOf('\\begin{tabular}'));
+    expect(written).not.toContain('<caption>');
+  });
+
   it('formats an HTML table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

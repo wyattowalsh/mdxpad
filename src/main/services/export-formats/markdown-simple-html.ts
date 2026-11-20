@@ -224,7 +224,8 @@ function rowCells(value: string): TableCell[] {
   return cells;
 }
 
-function tableRows(value: string): TableCell[][] {
+function tableParts(value: string): { captions: string[]; rows: TableCell[][] } {
+  const captions: string[] = [];
   const rows: TableCell[][] = [];
   let index = 0;
   while (index < value.length) {
@@ -233,14 +234,22 @@ function tableRows(value: string): TableCell[][] {
       index += 1;
       continue;
     }
-    if (element.name === 'tr') {
-      rows.push(rowCells(value.slice(element.innerStart, element.innerEnd)));
+    const inner = value.slice(element.innerStart, element.innerEnd);
+    if (element.name === 'caption') {
+      const text = cellText(inner);
+      if (text.length > 0) {
+        captions.push(text);
+      }
+    } else if (element.name === 'tr') {
+      rows.push(rowCells(inner));
     } else if (element.name === 'thead' || element.name === 'tbody' || element.name === 'tfoot') {
-      rows.push(...tableRows(value.slice(element.innerStart, element.innerEnd)));
+      const nested = tableParts(inner);
+      captions.push(...nested.captions);
+      rows.push(...nested.rows);
     }
     index = element.end;
   }
-  return rows;
+  return { captions, rows };
 }
 
 function ruleCell(align: TableAlign): string {
@@ -281,7 +290,13 @@ function renderTable(name: string, inner: string): string {
   if (name === 'tr') {
     return markdownTable([rowCells(inner)]);
   }
-  return markdownTable(tableRows(inner));
+  const parts = tableParts(inner);
+  const table = markdownTable(parts.rows);
+  if (parts.captions.length === 0) {
+    return table;
+  }
+  const body = [parts.captions.join('\n\n'), table.trim()].filter((part) => part.length > 0);
+  return blockWrap(body.join('\n\n'));
 }
 
 function renderDefinitions(inner: string): string {

@@ -56,6 +56,11 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('keeps a table caption with the table', () => {
+    const html = '<table><caption>Prices</caption><tr><td>A</td></tr></table>';
+    expect(rewriteSimpleHtml(html).trim()).toBe('Prices\n\n| A |\n| --- |');
+  });
+
   it('turns an HTML table into a markdown table', () => {
     const html = [
       '<table>',
