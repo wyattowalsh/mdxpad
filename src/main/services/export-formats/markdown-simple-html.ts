@@ -114,6 +114,7 @@ const VOID_HTML = new Set([
   'bgsound',
   'isindex',
   'keygen',
+  'mglyph',
   'param',
   'source',
   'track',
@@ -126,6 +127,7 @@ const MATH = new Set([
   'annotation-xml',
   'math',
   'menclose',
+  'mglyph',
   'mfrac',
   'mpadded',
   'mphantom',
@@ -572,14 +574,16 @@ function renderHeading(level: number, inner: string): string {
   return blockWrap(`${'#'.repeat(level)} ${text}`);
 }
 
-function renderQuote(inner: string): string {
+function renderQuote(value: string, element: HtmlElement, inner: string): string {
   const text = convertHtml(inner)
     .trim()
     .replace(/\n{3,}/g, '\n\n');
-  if (text.length === 0) {
+  const cite = visibleAddress(attribute(openTagBefore(value, element.innerStart), 'cite'));
+  const body = text.length > 0 && cite.length > 0 ? `${text}\n\n${cite}` : text || cite;
+  if (body.length === 0) {
     return '';
   }
-  const quoted = text
+  const quoted = body
     .split('\n')
     .map((line) => (line.length === 0 ? '>' : `> ${line}`))
     .join('\n');
@@ -1013,8 +1017,13 @@ function renderTime(value: string, element: HtmlElement, text: string): string {
 function renderInlineRole(element: HtmlElement, value: string, inner: string): string | null {
   const text = cellText(inner);
   switch (element.name) {
-    case 'q':
-      return text.length === 0 ? '' : `“${text}”`;
+    case 'q': {
+      const cite = visibleAddress(attribute(openTagBefore(value, element.innerStart), 'cite'));
+      if (text.length === 0) {
+        return cite;
+      }
+      return cite.length === 0 ? `“${text}”` : `“${text}” (${cite})`;
+    }
     case 'cite':
     case 'dfn':
     case 'var':
@@ -1097,8 +1106,8 @@ function renderChoices(inner: string): string[] {
     if (element.name === 'option') {
       const text = cellText(source.slice(element.innerStart, element.innerEnd));
       const openTag = openTagBefore(source, element.innerStart);
-      const label =
-        text || attribute(openTag, 'label').trim() || attribute(openTag, 'value').trim();
+      const named = attribute(openTag, 'label').trim();
+      const label = named.length > 0 ? named : text || attribute(openTag, 'value').trim();
       if (label.length > 0) {
         choices.push(markedChoice(label, /\bselected\b/i.test(openTag)));
       }
@@ -1141,7 +1150,8 @@ function renderButton(value: string, element: HtmlElement, inner: string): strin
   if (text.length > 0) {
     return text;
   }
-  return attribute(openTagBefore(value, element.innerStart), 'value').trim();
+  const openTag = openTagBefore(value, element.innerStart);
+  return attribute(openTag, 'value').trim() || attribute(openTag, 'aria-label').trim();
 }
 
 function renderApplet(value: string, element: HtmlElement, inner: string): string {
@@ -1186,9 +1196,10 @@ function firstSourceAddress(inner: string): string {
 }
 
 function renderImageInput(openTag: string): string {
-  const alt = attribute(openTag, 'alt')
-    .trim()
-    .replace(/[\\[\]]/g, (char) => `\\${char}`);
+  const alt = (attribute(openTag, 'alt').trim() || attribute(openTag, 'aria-label').trim()).replace(
+    /[\\[\]]/g,
+    (char) => `\\${char}`
+  );
   const address = imageAddress(attribute(openTag, 'src'));
   if (address.length === 0) {
     return alt;
@@ -1339,7 +1350,7 @@ function graphicText(inner: string): string {
   return result.replace(/\s+/g, ' ').trim();
 }
 
-function mathParts(inner: string): string[] {
+function mathParts(inner: string, skipAnnotation = false): string[] {
   const parts: string[] = [];
   let index = 0;
   while (index < inner.length) {
@@ -1348,26 +1359,40 @@ function mathParts(inner: string): string[] {
       index += 1;
       continue;
     }
-    const piece = renderElement(element, inner).trim();
-    if (piece.length > 0) {
-      parts.push(piece);
+    const alternate = element.name === 'annotation' || element.name === 'annotation-xml';
+    if (!(skipAnnotation && alternate)) {
+      const piece = renderElement(element, inner).trim();
+      if (piece.length > 0) {
+        parts.push(piece);
+      }
     }
     index = element.end;
   }
   return parts;
 }
 
-function renderMath(name: string, inner: string): string | null {
+function renderMath(name: string, inner: string, value = '', element?: HtmlElement): string | null {
+  if (name === 'mglyph') {
+    return element ? renderImageInput(openTagBefore(value, element.innerStart)) : '';
+  }
   if (!MATH.has(name)) {
     return null;
   }
   if (MATH_TOKEN.has(name)) {
     return cellText(inner);
   }
-  if (name === 'annotation' || name === 'annotation-xml' || name === 'mspace') {
+  if (name === 'annotation') {
+    return cellText(inner);
+  }
+  if (name === 'annotation-xml') {
+    const spoken = mathParts(inner).join(' ').trim();
+    return spoken.length > 0 ? spoken : cellText(inner);
+  }
+  if (name === 'mspace') {
     return '';
   }
-  const parts = mathParts(inner);
+  const preferred = mathParts(inner, name === 'semantics');
+  const parts = preferred.length > 0 || name !== 'semantics' ? preferred : mathParts(inner);
   switch (name) {
     case 'mfrac':
       return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : parts.join(' ');
@@ -1442,7 +1467,7 @@ function firstPhrase(element: HtmlElement, value: string, inner: string): string
     return renderSvgImage(value, element, inner);
   }
   return (
-    renderMath(element.name, inner) ??
+    renderMath(element.name, inner, value, element) ??
     renderGraphic(element.name, inner) ??
     renderPresentational(element, value, inner) ??
     renderEmbedded(element, value, inner) ??
@@ -1618,7 +1643,7 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'li':
       return blockWrap(markerBlock('- ', convertHtml(inner)));
     case 'blockquote':
-      return renderQuote(inner);
+      return renderQuote(value, element, inner);
     case 'pre':
       return renderPre(inner);
     case 'picture':

@@ -96,6 +96,32 @@ describe('rewriteSimpleHtml', () => {
         '<math><semantics><mi>x</mi><annotation>secret</annotation></semantics></math>'
       )
     ).toBe('x');
+    expect(
+      rewriteSimpleHtml('<math><semantics><annotation>x^2 + 1</annotation></semantics></math>')
+    ).toBe('x^2 + 1');
+    expect(rewriteSimpleHtml('<math><mglyph alt="plus"></mglyph></math>')).toBe('plus');
+  });
+
+  it('keeps the name a reader sees', () => {
+    expect(
+      rewriteSimpleHtml('<select><option label="Shown" selected>Hidden</option></select>').trim()
+    ).toBe('**Shown**');
+    expect(rewriteSimpleHtml('<button aria-label="Save the file"></button>')).toBe('Save the file');
+    expect(
+      rewriteSimpleHtml('<input type="image" aria-label="Search" src="file:///tmp/go.png">')
+    ).toBe('Search');
+    expect(rewriteSimpleHtml('<q cite="https://example.com/source">quoted</q>')).toBe(
+      '“quoted” (https://example.com/source)'
+    );
+    expect(rewriteSimpleHtml('<q cite="file:///etc/passwd">quoted</q>')).toBe('“quoted”');
+    expect(
+      rewriteSimpleHtml(
+        '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>'
+      ).trim()
+    ).toBe('> Quote\n>\n> https://example.com/source');
+    expect(
+      rewriteSimpleHtml('<blockquote cite="file:///etc/passwd"><p>Quote</p></blockquote>').trim()
+    ).toBe('> Quote');
   });
 
   it('shows the words inside an MDX component', () => {
