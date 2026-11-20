@@ -56,6 +56,19 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('keeps letters, roman numerals, and a reversed list', () => {
+    expect(rewriteSimpleHtml('<ol type="a"><li>One</li><li>Two</li></ol>').trim()).toBe(
+      '- a. One\n- b. Two'
+    );
+    expect(rewriteSimpleHtml('<ol type="i" start="4"><li>Four</li></ol>').trim()).toBe('- iv. Four');
+    expect(
+      rewriteSimpleHtml('<ol reversed><li>One</li><li>Two</li><li>Three</li></ol>').trim()
+    ).toBe('- 3. One\n- 2. Two\n- 1. Three');
+    expect(rewriteSimpleHtml('<ol><li>One</li><li value="5">Five</li></ol>').trim()).toBe(
+      '- 1. One\n- 5. Five'
+    );
+  });
+
   it('keeps an ordered list start and a footer after the body', () => {
     expect(rewriteSimpleHtml('<ol start="3"><li>Three</li><li>Four</li></ol>').trim()).toBe(
       '3. Three\n4. Four'

@@ -503,6 +503,26 @@ describe('DocxExporter', () => {
     expect(xml).toContain('put');
   });
 
+  it('keeps HTML lettered list labels', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<ol type="a"><li>One</li><li>Two</li></ol>\n',
+      outputPath: '/tmp/html-letters.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); print(" ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", xml)))',
+      ],
+      { input: buffer }
+    );
+    const text = extracted.stdout.toString();
+    expect(text).toContain('a. One');
+    expect(text).toContain('b. Two');
+  });
+
   it('keeps an HTML ordered list start number', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

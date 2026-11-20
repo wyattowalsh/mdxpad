@@ -131,33 +131,151 @@ function markerBlock(marker: string, body: string): string {
   return tail.length > 0 ? `${head}\n${tail}` : head;
 }
 
-function listBodies(inner: string): string[] {
-  const bodies: string[] = [];
+interface ListedItem {
+  readonly body: string;
+  readonly value: number | null;
+}
+
+interface OrderedListOptions {
+  readonly type: string;
+  readonly start: number | null;
+  readonly reversed: boolean;
+}
+
+function openTagBefore(value: string, innerStart: number): string {
+  const openAt = value.lastIndexOf('<', Math.max(0, innerStart - 1));
+  return openAt === -1 ? '' : value.slice(openAt, innerStart);
+}
+
+function parsedAttribute(openTag: string, name: string): number | null {
+  const raw = attribute(openTag, name).trim();
+  if (raw.length === 0) {
+    return null;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function listItems(inner: string): ListedItem[] {
+  const items: ListedItem[] = [];
   let index = 0;
   while (index < inner.length) {
     const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
     if (element?.name === 'li') {
-      bodies.push(inner.slice(element.innerStart, element.innerEnd));
+      items.push({
+        body: inner.slice(element.innerStart, element.innerEnd),
+        value: parsedAttribute(openTagBefore(inner, element.innerStart), 'value'),
+      });
       index = element.end;
       continue;
     }
     index = element ? element.end : index + 1;
   }
-  return bodies;
+  return items;
 }
 
-function listStart(value: string, innerStart: number): number {
-  const openAt = value.lastIndexOf('<', Math.max(0, innerStart - 1));
-  const openTag = openAt === -1 ? '' : value.slice(openAt, innerStart);
-  const start = Number.parseInt(attribute(openTag, 'start'), 10);
-  return Number.isFinite(start) && start > 0 ? start : 1;
+function listOptions(value: string, innerStart: number): OrderedListOptions {
+  const openTag = openTagBefore(value, innerStart);
+  return {
+    type: attribute(openTag, 'type').trim() || '1',
+    start: parsedAttribute(openTag, 'start'),
+    reversed: /\breversed\b/i.test(openTag),
+  };
 }
 
-function renderList(inner: string, ordered: boolean, start = 1): string {
-  const items = listBodies(inner).map((body, index) =>
-    markerBlock(ordered ? `${start + index}. ` : '- ', convertHtml(body))
+function itemNumbers(items: readonly ListedItem[], options: OrderedListOptions): number[] {
+  let next = options.start ?? (options.reversed ? items.length : 1);
+  return items.map((item) => {
+    const number = item.value ?? next;
+    next = options.reversed ? number - 1 : number + 1;
+    return number;
+  });
+}
+
+function alphaLabel(number: number, upper: boolean): string {
+  let n = number;
+  let label = '';
+  while (n > 0) {
+    n -= 1;
+    label = String.fromCharCode((upper ? 65 : 97) + (n % 26)) + label;
+    n = Math.floor(n / 26);
+  }
+  return label;
+}
+
+function romanLabel(number: number, upper: boolean): string {
+  const glyphs = [
+    [1000, 'm'],
+    [900, 'cm'],
+    [500, 'd'],
+    [400, 'cd'],
+    [100, 'c'],
+    [90, 'xc'],
+    [50, 'l'],
+    [40, 'xl'],
+    [10, 'x'],
+    [9, 'ix'],
+    [5, 'v'],
+    [4, 'iv'],
+    [1, 'i'],
+  ] as const;
+  let n = number;
+  let label = '';
+  for (const [value, glyph] of glyphs) {
+    while (n >= value) {
+      label += glyph;
+      n -= value;
+    }
+  }
+  return upper ? label.toUpperCase() : label;
+}
+
+function formatListNumber(number: number, type: string): string {
+  if (number < 1) {
+    return String(number);
+  }
+  switch (type) {
+    case 'a':
+      return alphaLabel(number, false);
+    case 'A':
+      return alphaLabel(number, true);
+    case 'i':
+      return romanLabel(number, false);
+    case 'I':
+      return romanLabel(number, true);
+    default:
+      return String(number);
+  }
+}
+
+function needsExplicitLabels(items: readonly ListedItem[], options: OrderedListOptions): boolean {
+  return (
+    options.type !== '1' ||
+    options.reversed ||
+    (options.start !== null && options.start <= 0) ||
+    items.some((item) => item.value !== null)
   );
-  return blockWrap(items.join('\n'));
+}
+
+function renderExplicitList(items: readonly ListedItem[], options: OrderedListOptions): string {
+  const numbers = itemNumbers(items, options);
+  const lines = items.map((item, index) => {
+    const label = formatListNumber(numbers[index] ?? index + 1, options.type);
+    return markerBlock('- ', `${label}. ${convertHtml(item.body).trim()}`);
+  });
+  return blockWrap(lines.join('\n'));
+}
+
+function renderList(inner: string, ordered: boolean, options?: OrderedListOptions): string {
+  const items = listItems(inner);
+  if (ordered && options && needsExplicitLabels(items, options)) {
+    return renderExplicitList(items, options);
+  }
+  const start = ordered && options?.start !== null && options?.start !== undefined ? options.start : 1;
+  const lines = items.map((item, index) =>
+    markerBlock(ordered ? `${start + index}. ` : '- ', convertHtml(item.body))
+  );
+  return blockWrap(lines.join('\n'));
 }
 
 function renderHeading(level: number, inner: string): string {
@@ -509,7 +627,7 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'ul':
       return renderList(inner, false);
     case 'ol':
-      return renderList(inner, true, listStart(value, element.innerStart));
+      return renderList(inner, true, listOptions(value, element.innerStart));
     case 'li':
       return blockWrap(markerBlock('- ', convertHtml(inner)));
     case 'blockquote':
