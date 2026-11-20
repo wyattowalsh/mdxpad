@@ -270,6 +270,16 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('renders an empty heading', () => {
+    const html = markdownToPdfHtml('#\n\nbody\n');
+    expect(html).toContain('<h1 id="section"></h1>');
+    expect(html).toContain('<p>body</p>');
+    expect(html).not.toContain('<p>#</p>');
+    expect(markdownToPdfHtml('#foo\n')).toContain('<p>#foo</p>');
+    expect(markdownToPdfHtml('- #\n')).toContain('<h1 id="section"></h1>');
+    expect(markdownToPdfHtml('> #\n')).toContain('<h1 id="section"></h1>');
+  });
+
   it('keeps an html block inside the list item', () => {
     const html = markdownToPdfHtml('- <div>\n  bar\n  </div>\n');
     expect(html.indexOf('</div>')).toBeLessThan(html.indexOf('</ul>'));

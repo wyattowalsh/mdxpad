@@ -3,7 +3,7 @@ export interface AtxHeading {
   readonly text: string;
 }
 
-const ATX_HEADING = /^(#{1,6})[ \t]+(.*)$/;
+const ATX_HEADING = /^(#{1,6})(?:[ \t]+(.*))?$/;
 
 function isHeadingDepth(value: number): value is AtxHeading['depth'] {
   return value >= 1 && value <= 6;
@@ -83,8 +83,5 @@ export function parseAtxHeading(line: string): AtxHeading | null {
     return null;
   }
   const text = stripAtxClosingHashes(match[2] ?? '');
-  if (text.length === 0) {
-    return null;
-  }
   return { depth: marks.length, text };
 }

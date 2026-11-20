@@ -19,7 +19,10 @@ describe('ATX headings', () => {
     expect(parseAtxHeading('## Keep ### b')).toEqual({ depth: 2, text: 'Keep ### b' });
     expect(parseAtxHeading('# Hash#')).toEqual({ depth: 1, text: 'Hash#' });
     expect(parseAtxHeading('#foo')).toBeNull();
-    expect(parseAtxHeading('# #')).toBeNull();
+    expect(parseAtxHeading('# #')).toEqual({ depth: 1, text: '' });
+    expect(parseAtxHeading('#')).toEqual({ depth: 1, text: '' });
+    expect(parseAtxHeading('# ')).toEqual({ depth: 1, text: '' });
+    expect(parseAtxHeading('#######')).toBeNull();
   });
 
   it('gives duplicate headings distinct slugs', () => {
