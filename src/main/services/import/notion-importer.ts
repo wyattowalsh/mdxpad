@@ -29,6 +29,8 @@ interface NotionRichText {
   mention?: {
     date?: { start?: string; end?: string | null };
     user?: { name?: string };
+    page?: { id?: string };
+    database?: { id?: string };
     link_mention?: { href?: string; title?: string };
     custom_emoji?: { name?: string };
     template_mention?: {
@@ -367,6 +369,7 @@ async function blocksToMarkdown(
     if (id.length > 0) {
       seen.add(id);
     }
+    await fillMentionTitles(block, apiKey);
     let own = getBlockContent(block);
     if ((own === null || own.trim().length === 0) && block.type === 'link_to_page') {
       const target = linkedTarget(block);
@@ -387,6 +390,57 @@ async function blocksToMarkdown(
     lines.push(combined);
   }
   return lines.join('\n');
+}
+
+function richTextLists(value: unknown, found: NotionRichText[][]): void {
+  if (Array.isArray(value)) {
+    if (value.some((item) => item !== null && typeof item === 'object' && 'plain_text' in item)) {
+      found.push(value as NotionRichText[]);
+    }
+    for (const item of value) {
+      richTextLists(item, found);
+    }
+    return;
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const child of Object.values(value)) {
+      richTextLists(child, found);
+    }
+  }
+}
+
+function mentionResource(
+  rt: NotionRichText
+): { kind: 'pages' | 'databases'; id: string } | null {
+  const pageId = rt.mention?.page?.id?.trim() ?? '';
+  if (pageId.length > 0) {
+    return { kind: 'pages', id: pageId };
+  }
+  const databaseId = rt.mention?.database?.id?.trim() ?? '';
+  if (databaseId.length > 0) {
+    return { kind: 'databases', id: databaseId };
+  }
+  return null;
+}
+
+async function fillMentionTitles(block: NotionBlock, apiKey: string): Promise<void> {
+  const lists: NotionRichText[][] = [];
+  richTextLists(block[block.type], lists);
+  for (const list of lists) {
+    for (const rt of list) {
+      if (rt.plain_text.trim().length > 0) {
+        continue;
+      }
+      const target = mentionResource(rt);
+      if (!target) {
+        continue;
+      }
+      const title = await fetchResourceTitle(target.kind, target.id, apiKey);
+      if (title) {
+        rt.plain_text = title;
+      }
+    }
+  }
 }
 
 function linkedTarget(block: NotionBlock): { kind: 'pages' | 'databases'; id: string } | null {

@@ -284,6 +284,46 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: link_to_page');
   });
 
+  it('keeps the title of a mentioned page', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                type: 'paragraph',
+                paragraph: {
+                  rich_text: [
+                    {
+                      plain_text: '',
+                      mention: { page: { id: 'mentioned-page' } },
+                      annotations: {},
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (urlStr.includes('/pages/mentionedpage')) {
+        return new Response(
+          JSON.stringify({
+            properties: {
+              Topic: { type: 'title', title: [{ plain_text: 'Meeting notes', annotations: {} }] },
+            },
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('Meeting notes');
+  });
+
   it('keeps a mentioned link, emoji, and template date', async () => {
     const mockBlocks = {
       results: [
