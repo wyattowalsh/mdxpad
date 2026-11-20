@@ -172,6 +172,20 @@ describe('printed html', () => {
         ''
       )
     ).toContain('Altice');
+    const named = markdownToPdfHtml(
+      '<img src="https://example.com/a.png" aria-label="Photolabel">\n'
+    ).replace(/<[^>]+>/g, '');
+    expect(named).toContain('Photolabel');
+    const kept = markdownToPdfHtml(
+      '<img src="https://example.com/a.png" alt="Cat" aria-label="Photolabel">\n'
+    ).replace(/<[^>]+>/g, '');
+    expect(kept).toContain('Cat');
+    expect(kept).not.toContain('Photolabel');
+    expect(
+      markdownToPdfHtml(
+        '<picture aria-label="Photolabel"><source srcset="https://example.com/a.png"></picture>\n'
+      ).replace(/<[^>]+>/g, '')
+    ).toContain('Photolabel');
   });
 
   it('shows a typed value', () => {

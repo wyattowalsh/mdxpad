@@ -569,8 +569,13 @@ function revealTrack(tag: string, end: number): Revealed | null {
   return { text: escapeText(label), next: end };
 }
 
-function revealImage(html: string, tag: string, end: number): Revealed | null {
+function imageAlt(tag: string): string {
   const alt = attribute(tag, 'alt').trim();
+  return alt.length > 0 ? alt : attribute(tag, 'aria-label').trim();
+}
+
+function revealImage(html: string, tag: string, end: number): Revealed | null {
+  const alt = imageAlt(tag);
   if (alt.length === 0 || html.slice(end).includes(alt)) {
     return null;
   }
@@ -692,7 +697,14 @@ function revealPicture(html: string, end: number): Revealed | null {
   if (src.length === 0) {
     return { text: revealPrintedHtml(inner.replace(/<source\b[^>]*>/gi, '')), next: close.next };
   }
-  return { text: `<img src="${escapeText(src)}" alt="" />`, next: close.next };
+  const start = html.lastIndexOf('<', Math.max(0, end - 1));
+  const tag = start === -1 ? '' : html.slice(start, end);
+  return { text: pictureFallback(src, attribute(tag, 'aria-label').trim()), next: close.next };
+}
+
+function pictureFallback(src: string, alt: string): string {
+  const image = `<img src="${escapeText(src)}" alt="${escapeText(alt).replaceAll('"', '&quot;')}" />`;
+  return alt.length > 0 ? `${image} ${escapeText(alt)}` : image;
 }
 
 function readableCite(tag: string): string {
