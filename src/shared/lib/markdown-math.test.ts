@@ -93,6 +93,12 @@ describe('normalizeTexMath', () => {
     expect(prepareMarkdownSource('<svg><text>hello < there</text></svg>')).toContain(
       'hello < there'
     );
+    expect(prepareMarkdownSource('<pre><code>a < b</code></pre>')).toBe(
+      '<pre><code>a < b</code></pre>'
+    );
+    expect(prepareMarkdownSource('Use <code>a < b</code> now')).toBe('Use <code>a < b</code> now');
+    expect(prepareMarkdownSource('Type <kbd>a < b</kbd>')).toBe('Type <kbd>a < b</kbd>');
+    expect(prepareMarkdownSource('<textarea>a < b</textarea>')).toBe('<textarea>a < b</textarea>');
     expect(prepareMarkdownSource('I <3 this and a << b and Array<Array<T>>')).toContain(
       'I &lt;3 this'
     );

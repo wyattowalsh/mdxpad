@@ -318,7 +318,17 @@ function escapedAngle(value: string, index: number): boolean {
   return count % 2 === 1;
 }
 
-const RAW_ANGLE_REGIONS = new Set(['math', 'svg']);
+const RAW_ANGLE_REGIONS = new Set([
+  'code',
+  'kbd',
+  'listing',
+  'math',
+  'pre',
+  'samp',
+  'svg',
+  'textarea',
+  'xmp',
+]);
 
 function closingName(value: string, open: number): string | null {
   const match = /^<\/([A-Za-z][\w:-]*)\s*>/.exec(value.slice(open));
