@@ -74,7 +74,7 @@ function scanNamedTag(value: string, open: number): AngleTag | null {
   return null;
 }
 
-function readAngleTag(value: string, open: number): AngleTag | null {
+export function readAngleTag(value: string, open: number): AngleTag | null {
   const next = value[open + 1] ?? '';
   if (next === '/' || next === '>' || !isNameStart(next)) {
     return readSimpleAngle(value, open, next);

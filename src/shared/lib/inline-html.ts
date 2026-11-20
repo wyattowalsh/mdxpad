@@ -1,7 +1,8 @@
+import { readAngleTag } from './markdown-tags';
+
 const SIMPLE_TAG =
   /<(em|i|strong|b|code|del|s|strike|sub|sup|a)(\s[^<>]*)?>([^<>]*)<\/\1>/gi;
 const HEADING_TAG = /<h([1-6])\b[^<>]*>([^<>]*)<\/h\1>/gi;
-const VOID_TAG = /<(img|hr)\b([^<>]*?)\/?>/gi;
 
 const SUBSCRIPT: Record<string, string> = {
   '0': '₀',
@@ -117,22 +118,74 @@ function attrValue(attrs: string, name: string): string | null {
   return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
 }
 
-function promotedVoid(name: string, attrs: string, match: string): string {
-  if (name.toLowerCase() === 'hr') {
-    return '\n\n***\n\n';
+function markdownImageAlt(alt: string): string {
+  return alt.replace(/[\\[\]]/g, (char) => `\\${char}`);
+}
+
+function markdownImageDestination(src: string): string {
+  if (!/[\s<>()]/.test(src)) {
+    return src;
   }
+  const angled = src.replaceAll('\\', '\\\\').replaceAll('<', '%3C').replaceAll('>', '%3E');
+  return `<${angled}>`;
+}
+
+function markdownImageTitle(title: string | null): string {
+  if (title === null || title.length === 0 || /[\r\n]/.test(title)) {
+    return '';
+  }
+  return ` "${title.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+}
+
+function promotedImage(attrs: string, match: string): string {
   const src = attrValue(attrs, 'src');
-  const alt = attrValue(attrs, 'alt') ?? '';
   if (src === null || src.length === 0 || /^(?:javascript|data|file):/i.test(src)) {
     return match;
   }
-  return `![${alt}](${src})`;
+  const alt = markdownImageAlt(attrValue(attrs, 'alt') ?? '');
+  const title = markdownImageTitle(attrValue(attrs, 'title'));
+  return `![${alt}](${markdownImageDestination(src)}${title})`;
+}
+
+function promotedVoid(name: 'hr' | 'img', attrs: string, match: string): string {
+  switch (name) {
+    case 'hr':
+      return '\n\n***\n\n';
+    case 'img':
+      return promotedImage(attrs, match);
+    default: {
+      const unexpected: never = name;
+      return unexpected;
+    }
+  }
+}
+
+function voidKind(name: string): 'hr' | 'img' | null {
+  return name === 'hr' || name === 'img' ? name : null;
 }
 
 function promoteVoids(value: string): string {
-  return value.replace(VOID_TAG, (match, name: string, attrs: string | undefined) =>
-    promotedVoid(name, attrs ?? '', match)
-  );
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const start = value.indexOf('<', index);
+    if (start === -1) {
+      return result + value.slice(index);
+    }
+    result += value.slice(index, start);
+    const tag = readAngleTag(value, start);
+    const kind = tag ? voidKind(tag.name.toLowerCase()) : null;
+    if (!tag || kind === null) {
+      result += '<';
+      index = start + 1;
+      continue;
+    }
+    const raw = value.slice(start, tag.end);
+    const attrs = raw.replace(/^<[\w:-]+\b/u, '').replace(/\/?>$/, '');
+    result += promotedVoid(kind, attrs, raw);
+    index = tag.end;
+  }
+  return result;
 }
 
 function promoteHeadings(value: string): string {

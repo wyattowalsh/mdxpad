@@ -861,6 +861,25 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('> -\n>   foo\n')).not.toContain('<p>');
   });
 
+  it('keeps an image whose alt or address contains markup characters', () => {
+    const greaterBefore = markdownToPdfHtml('Before <img alt="a>b" src="pic.png"> after\n');
+    expect(greaterBefore).toContain('alt="a&gt;b"');
+    expect(greaterBefore).toContain('src="pic.png"');
+    expect(greaterBefore).not.toContain('b&quot;');
+    const greaterAfter = markdownToPdfHtml('Before <img src="pic.png" alt="a>b"> after\n');
+    expect(greaterAfter).toContain('alt="a&gt;b"');
+    expect(greaterAfter).not.toContain('b&quot;');
+    expect(markdownToPdfHtml('Before <img alt="a]b" src="pic.png"> after\n')).toContain(
+      'alt="a]b"'
+    );
+    expect(markdownToPdfHtml('Before <img src="my pic.png" alt="sun"> after\n')).toContain(
+      'src="my%20pic.png"'
+    );
+    expect(
+      markdownToPdfHtml('Before <img alt="sunset" src="pic.png" title="Evening"> after\n')
+    ).toContain('title="Evening"');
+  });
+
   it('keeps an inline HTML tag and escapes one inside code', () => {
     expect(renderMarkdownInline('Say <em>hello</em><br>')).toBe('Say <em>hello</em><br>');
     expect(renderMarkdownInline('<span title="a>b">Hi</span>')).toBe('<span title="a>b">Hi</span>');

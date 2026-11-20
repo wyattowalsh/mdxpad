@@ -11,6 +11,7 @@ import {
   escapeLooseTags,
   escapeTemplatePlaceholders,
   linkUrlsWithEscapedAngles,
+  readAngleTag,
 } from './markdown-tags';
 
 const MDX_EXPRESSION_OPTIONS: AcornOptions = {
@@ -34,18 +35,50 @@ function copyCodeSpan(value: string, index: number): { text: string; next: numbe
   return { text: value.slice(index, closer + ticks), next: closer + ticks };
 }
 
-const VOID_TAGS = 'br|hr|img|input|meta|link|source|wbr|area|base|col|embed|track';
+const VOID_TAG_NAMES = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
+]);
 
 function stripHtmlComments(value: string): string {
   return value.replace(/<!--[\s\S]*?-->/g, '');
 }
 
+function closedVoid(raw: string): string {
+  return raw.endsWith('/>') ? raw : `${raw.slice(0, -1)} />`;
+}
+
+/** Close a void tag without treating a quoted `>` as the end of the tag. */
 function closeVoidTags(value: string): string {
-  return value.replace(
-    new RegExp(`<(${VOID_TAGS})(\\s[^<>]*?)?>`, 'gi'),
-    (full, name: string, attrs: string | undefined) =>
-      full.endsWith('/>') ? full : `<${name}${attrs ?? ''} />`
-  );
+  let result = '';
+  let index = 0;
+  while (index < value.length) {
+    const start = value.indexOf('<', index);
+    if (start === -1) {
+      return result + value.slice(index);
+    }
+    result += value.slice(index, start);
+    const tag = readAngleTag(value, start);
+    if (!tag || !VOID_TAG_NAMES.has(tag.name.toLowerCase())) {
+      result += '<';
+      index = start + 1;
+      continue;
+    }
+    result += closedVoid(value.slice(start, tag.end));
+    index = tag.end;
+  }
+  return result;
 }
 
 function mapOutsideCode(prose: string, mapText: (text: string) => string): string {
