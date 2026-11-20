@@ -333,6 +333,21 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<plaintext>a < b')).toBe('a < b');
     expect(
       rewriteSimpleHtml(
+        '<svg><image href="https://example.com/a.png"><title>Cat</title></image></svg>'
+      ).trim()
+    ).toBe('![Cat](https://example.com/a.png)');
+    expect(
+      rewriteSimpleHtml(
+        '<svg><image href="file:///tmp/a.png"><title>Cat</title></image><text>Box</text></svg>'
+      ).trim()
+    ).toBe('Cat Box');
+    expect(
+      rewriteSimpleHtml(
+        prepareMarkdownSource('<math><mtext>hello < there</mtext></math>', { preserveHtml: true })
+      ).trim()
+    ).toBe('hello < there');
+    expect(
+      rewriteSimpleHtml(
         '<img alt="Cat" srcset="https://example.com/a.webp 1x, https://example.com/b.webp 2x">'
       ).trim()
     ).toBe('![Cat](https://example.com/a.webp)');

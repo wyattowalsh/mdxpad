@@ -1373,7 +1373,21 @@ function renderPresentational(element: HtmlElement, value: string, inner: string
   }
 }
 
+function renderSvgImage(value: string, element: HtmlElement, inner: string): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  const href = attribute(openTag, 'href') || attribute(openTag, 'xlink:href');
+  const address = imageAddress(href);
+  const label = graphicText(inner).replace(/[\\[\]]/g, (char) => `\\${char}`);
+  if (address.length === 0) {
+    return label;
+  }
+  return `![${label}](${address})`;
+}
+
 function firstPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  if (element.name === 'image') {
+    return renderSvgImage(value, element, inner);
+  }
   return (
     renderMath(element.name, inner) ??
     renderGraphic(element.name, inner) ??
