@@ -19,6 +19,7 @@ import {
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
 import { sanitizeExportedHtml } from './markdown-export-address';
+import { revealPrintedHtml } from './printed-html';
 import { CODE_HIGHLIGHT_CSS, renderFencedCode } from './markdown-code';
 import { advanceFence, closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
@@ -593,7 +594,9 @@ function chapterToHtml(chapter: EpubChapter, slugs: Map<string, number>): string
     htmlLines.push(renderFencedCode(state.fence.language, state.fence.lines));
   }
   return epubTaskBoxes(
-    `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlFootnoteMarkers(htmlLines.join('\n'))}`
+    revealPrintedHtml(
+      `<style>${CODE_HIGHLIGHT_CSS}${LIST_MARKER_CSS}${TABLE_CELL_CSS}</style>\n${htmlFootnoteMarkers(htmlLines.join('\n'))}`
+    )
   );
 }
 

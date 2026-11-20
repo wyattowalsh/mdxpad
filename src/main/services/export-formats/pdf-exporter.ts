@@ -17,6 +17,7 @@ import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-
 import { isThematicBreak } from './markdown-break';
 import { readHtmlBlock } from './markdown-html';
 import { sanitizeExportedHtml } from './markdown-export-address';
+import { revealPrintedHtml } from './printed-html';
 import { closesFence, fenceLanguage, openingFence } from './markdown-fence';
 import { setextLevel } from './markdown-setext';
 import { expandLinkReferences } from './markdown-reference';
@@ -491,11 +492,12 @@ export function markdownToPdfHtml(content: string): string {
   flushPdfParagraph(build);
   closePdfList(build);
   flushPdfFence(build);
-  return htmlFootnoteMarkers(build.parts.join('\n'));
+  return revealPrintedHtml(htmlFootnoteMarkers(build.parts.join('\n')));
 }
 
 const PDF_FONT_FAMILY = /^[A-Za-z0-9 ,.'"-]{1,80}$/;
-const DEFAULT_PDF_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif';
+const DEFAULT_PDF_FONT =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif';
 
 function pdfFontFamily(metadata: Record<string, unknown> | undefined): string {
   const value = metadata?.fontFamily;
