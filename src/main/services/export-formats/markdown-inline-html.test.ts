@@ -89,6 +89,15 @@ describe('renderMarkdownInline', () => {
     const broken = renderDisplayMathBlock(['\\begin{align}', '\\nope', '\\end{align}']);
     expect(broken).toContain('\\nope');
     expect(broken).toContain('#cc0000');
+    const note = renderDisplayMathBlock(['\\footnote{A note about ice}']);
+    expect(note).not.toContain('#cc0000');
+    expect(note).toContain('ice');
+    const cited = renderDisplayMathBlock(['\\cite{Knuth1984}']);
+    expect(cited).not.toContain('#cc0000');
+    expect(cited).toContain('Knuth1984');
+    const linked = renderDisplayMathBlock(['\\href{https://example.com}{The guide}']);
+    expect(linked).not.toContain('#cc0000');
+    expect(linked).toContain('guide');
     const figure = renderDisplayMathBlock(['\\begin{figure}', 'A figure about ice', '\\end{figure}']);
     expect(figure).not.toContain('katex-error');
     expect(figure).toContain('ice');
