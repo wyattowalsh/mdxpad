@@ -212,6 +212,79 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: equation');
   });
 
+  it('keeps the rows of a table and the words inside a toggle', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/table-1/')) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'row-1',
+                type: 'table_row',
+                table_row: {
+                  cells: [[{ plain_text: 'Name' }], [{ plain_text: 'Cost' }]],
+                },
+              },
+              {
+                id: 'row-2',
+                type: 'table_row',
+                table_row: {
+                  cells: [[{ plain_text: 'Tea' }], [{ plain_text: '$2' }]],
+                },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (urlStr.includes('/blocks/toggle-1/')) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'hidden-1',
+                type: 'paragraph',
+                paragraph: { rich_text: [{ plain_text: 'Hidden note', annotations: {} }] },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (urlStr.includes('/blocks/')) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'table-1',
+                type: 'table',
+                has_children: true,
+                table: { table_width: 2, has_column_header: true },
+              },
+              {
+                id: 'toggle-1',
+                type: 'toggle',
+                has_children: true,
+                toggle: { rich_text: [{ plain_text: 'More', annotations: {} }] },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 200 });
+    });
+
+    const result = await importFromNotion('page-id', 'key');
+    expect(result.content).toContain('| Name | Cost |');
+    expect(result.content).toContain('| Tea | $2 |');
+    expect(result.content).toContain('---');
+    expect(result.content).toContain('More');
+    expect(result.content).toContain('Hidden note');
+    expect(result.warnings).not.toContain('Unsupported block type: table');
+  });
+
   it('should warn about unsupported block types', async () => {
     const mockBlocks = {
       results: [{ type: 'unsupported_type', unsupported_type: {} }],

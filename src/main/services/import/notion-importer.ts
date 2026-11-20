@@ -10,7 +10,9 @@ const NOTION_API_BASE = 'https://api.notion.com/v1';
 const NOTION_API_VERSION = '2022-06-28';
 
 interface NotionBlock {
+  id?: string;
   type: string;
+  has_children?: boolean;
   [key: string]: unknown;
 }
 
@@ -89,9 +91,52 @@ function extraBlock(type: string, data: Record<string, unknown>, text: string): 
       const title = stringField(data, 'title') || text;
       return title.length > 0 ? `## ${title}\n` : null;
     }
+    case 'table_row':
+      return tableRow(data);
     default:
       return text.length > 0 ? `${text}\n` : null;
   }
+}
+
+function tableRow(data: Record<string, unknown>): string | null {
+  const cells = data.cells as NotionRichText[][] | undefined;
+  if (!cells || cells.length === 0) {
+    return null;
+  }
+  const row = cells.map((cell) => extractRichText(cell).replaceAll('|', '\\|')).join(' | ');
+  return `| ${row} |\n`;
+}
+
+function tableMarkdown(nested: string): string | null {
+  const rows = nested
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('|'));
+  if (rows.length === 0) {
+    return nested.trim().length > 0 ? `${nested.trim()}\n` : null;
+  }
+  const width = Math.max(rows[0]?.split('|').length ?? 2, 2) - 2;
+  const rule = `| ${Array.from({ length: width }, () => '---').join(' | ')} |`;
+  return `${[rows[0], rule, ...rows.slice(1)].join('\n')}\n`;
+}
+
+function combineBlock(type: string, own: string | null, nested: string): string | null {
+  if (type === 'table') {
+    return tableMarkdown(nested);
+  }
+  if (type === 'toggle' && own !== null) {
+    if (nested.trim().length === 0) {
+      return own;
+    }
+    return own.replace('</details>', `${nested.trim()}\n</details>`);
+  }
+  if (own === null) {
+    return nested.trim().length > 0 ? `${nested.trim()}\n` : null;
+  }
+  if (nested.trim().length === 0) {
+    return own;
+  }
+  return `${own}\n${nested.trim()}\n`;
 }
 
 function getBlockContent(block: NotionBlock): string | null {
@@ -137,29 +182,86 @@ function getBlockContent(block: NotionBlock): string | null {
   }
 }
 
-async function fetchNotionBlocks(pageId: string, apiKey: string): Promise<NotionBlock[]> {
-  const url = `${NOTION_API_BASE}/blocks/${pageId}/children?page_size=100`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Notion-Version': NOTION_API_VERSION,
-      'Content-Type': 'application/json',
-    },
-  });
+function notionHeaders(apiKey: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Notion-Version': NOTION_API_VERSION,
+    'Content-Type': 'application/json',
+  };
+}
 
-  if (!response.ok) {
-    const body = await response.text();
-    if (response.status === 401) {
-      throw new NotionImportError('Unauthorized: invalid Notion API key', 'UNAUTHORIZED');
-    }
-    if (response.status === 404) {
-      throw new NotionImportError('Page not found', 'NOT_FOUND');
-    }
-    throw new NotionImportError(`Notion API error (${response.status}): ${body}`, 'API_ERROR');
+function notionFailure(status: number, body: string): NotionImportError {
+  if (status === 401) {
+    return new NotionImportError('Unauthorized: invalid Notion API key', 'UNAUTHORIZED');
   }
+  if (status === 404) {
+    return new NotionImportError('Page not found', 'NOT_FOUND');
+  }
+  return new NotionImportError(`Notion API error (${status}): ${body}`, 'API_ERROR');
+}
 
-  const json = (await response.json()) as { results: NotionBlock[] };
-  return json.results;
+async function fetchBlockPage(
+  blockId: string,
+  apiKey: string,
+  cursor?: string
+): Promise<{ results: NotionBlock[]; next?: string }> {
+  const url = new URL(`${NOTION_API_BASE}/blocks/${blockId}/children`);
+  url.searchParams.set('page_size', '100');
+  if (cursor) {
+    url.searchParams.set('start_cursor', cursor);
+  }
+  const response = await fetch(url, { headers: notionHeaders(apiKey) });
+  if (!response.ok) {
+    throw notionFailure(response.status, await response.text());
+  }
+  const json = (await response.json()) as {
+    results?: NotionBlock[];
+    has_more?: boolean;
+    next_cursor?: string | null;
+  };
+  const next = json.has_more && json.next_cursor ? json.next_cursor : undefined;
+  return { results: json.results ?? [], ...(next ? { next } : {}) };
+}
+
+async function fetchNotionBlocks(blockId: string, apiKey: string): Promise<NotionBlock[]> {
+  const blocks: NotionBlock[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await fetchBlockPage(blockId, apiKey, cursor);
+    blocks.push(...page.results);
+    cursor = page.next;
+  } while (cursor);
+  return blocks;
+}
+
+async function blocksToMarkdown(
+  blocks: readonly NotionBlock[],
+  apiKey: string,
+  seen: Set<string>,
+  warnings: string[]
+): Promise<string> {
+  const lines: string[] = [];
+  for (const block of blocks) {
+    const id = typeof block.id === 'string' ? block.id : '';
+    if (id.length > 0 && seen.has(id)) {
+      continue;
+    }
+    if (id.length > 0) {
+      seen.add(id);
+    }
+    const own = getBlockContent(block);
+    const children =
+      block.has_children === true && id.length > 0 ? await fetchNotionBlocks(id, apiKey) : [];
+    const nested =
+      children.length > 0 ? await blocksToMarkdown(children, apiKey, seen, warnings) : '';
+    const combined = combineBlock(block.type, own, nested);
+    if (combined === null) {
+      warnings.push(`Unsupported block type: ${block.type}`);
+      continue;
+    }
+    lines.push(combined);
+  }
+  return lines.join('\n');
 }
 
 async function fetchPageTitle(pageId: string, apiKey: string): Promise<string | undefined> {
@@ -205,22 +307,11 @@ export async function importFromNotion(
     fetchPageTitle(cleanId, apiKey),
   ]);
 
-  const lines: string[] = [];
-  if (title) {
-    lines.push(`# ${title}\n`);
-  }
-
-  for (const block of blocks) {
-    const content = getBlockContent(block);
-    if (content !== null) {
-      lines.push(content);
-    } else {
-      warnings.push(`Unsupported block type: ${block.type}`);
-    }
-  }
+  const body = await blocksToMarkdown(blocks, apiKey, new Set<string>(), warnings);
+  const content = title ? `# ${title}\n\n${body}` : body;
 
   const result: { content: string; title?: string; warnings: string[] } = {
-    content: lines.join('\n').trim(),
+    content: content.trim(),
     warnings,
   };
   if (title !== undefined) {
