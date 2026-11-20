@@ -250,10 +250,12 @@ function inputName(props: Record<string, unknown>): VisibleName | undefined {
   if (type === 'hidden' || type === 'image') {
     return undefined;
   }
-  if (stringProp(props, 'value').length > 0 || stringProp(props, 'placeholder').length > 0) {
-    return undefined;
+  const label =
+    stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
+  const shown = stringProp(props, 'value') || stringProp(props, 'placeholder');
+  if (shown.length > 0) {
+    return label.length > 0 && label !== shown ? { kind: 'note', text: label } : undefined;
   }
-  const label = stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel');
   return label.length > 0 ? { kind: 'button', text: label } : undefined;
 }
 

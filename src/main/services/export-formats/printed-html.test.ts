@@ -78,6 +78,9 @@ describe('printed html', () => {
     expect(markdownToPdfHtml('<input type="file" aria-label="Upload the paper">\n')).toContain(
       'Upload the paper'
     );
+    expect(
+      markdownToPdfHtml('<input type="color" value="#112233" aria-label="Colorpick">\n')
+    ).toContain('#112233 (Colorpick)');
     expect(markdownToPdfHtml('<input type="checkbox" aria-label="Agreed" checked>\n')).toContain(
       'Agreed'
     );

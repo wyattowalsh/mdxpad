@@ -197,17 +197,28 @@ function unwrap(html: string, name: string, openEnd: number): Revealed | null {
 function inputCaption(html: string, tag: string, end: number): string {
   const type = attribute(tag, 'type').trim().toLowerCase();
   const label = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
+  if (type === 'hidden') {
+    return '';
+  }
   if (type === 'checkbox') {
     return label.length === 0 || html.slice(end).includes(label) ? '' : label;
   }
-  if (type !== 'file' && type !== 'radio') {
+  if (type === 'file' || type === 'radio') {
+    if (label.length > 0 || type !== 'radio') {
+      return label;
+    }
+    const choice = attribute(tag, 'value').trim();
+    return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
+  }
+  const value = attribute(tag, 'value').trim() || attribute(tag, 'placeholder').trim();
+  const name = label.length > 0 && label !== value && !html.slice(end).includes(label) ? label : '';
+  if (name.length === 0) {
     return '';
   }
-  if (label.length > 0 || type !== 'radio') {
-    return label;
+  if ((type === 'color' || type === 'range' || type === 'number') && value.length > 0) {
+    return `${value} (${name})`;
   }
-  const choice = attribute(tag, 'value').trim();
-  return /^(?:javascript|data|file):/i.test(choice) ? '' : choice;
+  return name;
 }
 
 function revealInput(html: string, tag: string, end: number): Revealed | null {

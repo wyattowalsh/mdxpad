@@ -150,6 +150,16 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<input type="checkbox" aria-label="Agreed" checked> Agreed')).toBe(
       '[x] Agreed'
     );
+    expect(rewriteSimpleHtml('<input type="color" value="#112233" aria-label="Colorpick">')).toBe(
+      '#112233 (Colorpick)'
+    );
+    expect(rewriteSimpleHtml('<input type="range" value="40" aria-label="Volumepick">')).toBe(
+      '40 (Volumepick)'
+    );
+    expect(rewriteSimpleHtml('<input type="number" value="12" aria-label="Countpick">')).toBe(
+      '12 (Countpick)'
+    );
+    expect(rewriteSimpleHtml('<input type="color" aria-label="Colorpick">')).toBe('Colorpick');
     expect(
       rewriteSimpleHtml('<table><tr><th abbr="Quantity">Qty</th></tr></table>').trim()
     ).toContain('Qty (Quantity)');

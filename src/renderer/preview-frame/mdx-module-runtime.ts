@@ -163,6 +163,18 @@ function pictureNode(
   return key === undefined ? jsx('img', next) : jsx('img', next, key);
 }
 
+function notedProps(type: React.ElementType, props: unknown): unknown {
+  if (
+    elementName(type) !== 'input' ||
+    props === null ||
+    typeof props !== 'object' ||
+    !('value' in props)
+  ) {
+    return props;
+  }
+  return { ...props, readOnly: true };
+}
+
 function notedElement(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
@@ -170,7 +182,7 @@ function notedElement(
   text: string,
   key?: React.Key
 ): React.ReactElement {
-  const next = confinePreviewElement(type, props);
+  const next = confinePreviewElement(type, notedProps(type, props));
   const player = jsx(type, next, 'player');
   const caption = jsx('span', { children: text }, 'caption');
   const fragmentProps = { children: [player, caption] };

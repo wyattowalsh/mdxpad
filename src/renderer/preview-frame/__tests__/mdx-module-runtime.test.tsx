@@ -392,6 +392,19 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('Enable the page');
   });
 
+  it('shows a control name beside its value', async () => {
+    const source = '<input type="color" value="#112233" aria-label="Colorpick" />';
+    const result = await compileMdx(testId('color-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Colorpick');
+    expect(container.querySelector('input')?.getAttribute('value')).toBe('#112233');
+  });
+
   it('shows the name of a file control and a choice', async () => {
     const source = [
       '<input type="file" aria-label="Upload the paper" />',

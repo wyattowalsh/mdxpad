@@ -992,7 +992,11 @@ function renderInput(value: string, element: HtmlElement): string {
   }
   const entered = attribute(openTag, 'value').trim();
   const shown = entered.length > 0 ? entered : attribute(openTag, 'placeholder').trim();
-  return shown.length > 0 ? shown : attribute(openTag, 'aria-label').trim();
+  const label = attribute(openTag, 'aria-label').trim() || attribute(openTag, 'title').trim();
+  if (label.length === 0 || label === shown) {
+    return shown.length > 0 ? shown : label;
+  }
+  return shown.length > 0 ? `${shown} (${label})` : label;
 }
 
 function renderKbd(inner: string): string {
