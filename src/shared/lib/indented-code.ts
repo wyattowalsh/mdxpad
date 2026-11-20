@@ -236,10 +236,15 @@ function continueCode(state: FenceState, line: string): boolean {
   }
   const code = activeCode(state, line);
   if (code !== null) {
-    state.codeLines.push(...state.pendingBlanks.splice(0), code);
+    const blanks = state.pendingBlanks.splice(0).map(() => '');
+    state.codeLines.push(...blanks, code);
     return true;
   }
-  if (line.trim().length === 0 || (state.codeKind === 'quote' && /^(?:>[ \t]?)+$/.test(line))) {
+  if (state.codeKind === 'quote' && /^(?:>[ \t]?)+$/.test(line)) {
+    state.pendingBlanks.push(line);
+    return true;
+  }
+  if (line.trim().length === 0) {
     state.pendingBlanks.push('');
     return true;
   }

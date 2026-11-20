@@ -270,6 +270,14 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps the paragraph after quoted code in the quote', () => {
+    const html = markdownToPdfHtml('> item\n>\n>     code\n>\n> after\n');
+    const quote = html.slice(html.indexOf('<blockquote>'), html.lastIndexOf('</blockquote>'));
+    expect(quote).toContain('<pre><code>code</code></pre>');
+    expect(quote).toContain('<p>after</p>');
+    expect(html.match(/<blockquote>/g)).toHaveLength(1);
+  });
+
   it('keeps a nested list inside a quoted item', () => {
     const html = markdownToPdfHtml('> - 3. three\n>   4. four\n');
     expect(html).toContain('<ol start="3">');

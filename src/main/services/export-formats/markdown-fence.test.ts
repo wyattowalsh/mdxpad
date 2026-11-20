@@ -54,5 +54,8 @@ describe('fences', () => {
       '> - item\n>\n>   ```\n>   const x = 1\n>   ```\n'
     );
     expect(fenceIndentedCode('>     const x = 1\n')).toBe('> ```\n> const x = 1\n> ```\n');
+    expect(fenceIndentedCode('> item\n>\n>     code\n>\n> after\n')).toBe(
+      '> item\n>\n> ```\n> code\n> ```\n>\n> after\n'
+    );
   });
 });
