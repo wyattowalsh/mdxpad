@@ -312,8 +312,44 @@ function revealMedia(html: string, tag: string, name: string, openEnd: number): 
         ? `${body} (${title})`
         : title
       : body;
+  const shown = named.length > 0 ? named : mediaFallback(tag, html.slice(openEnd, close.innerEnd));
   const player = `${tag}${pieces.kept}</${name}>`;
-  return { text: named.length > 0 ? `${player}${named}` : player, next: close.next };
+  return { text: shown.length > 0 ? `${player}${shown}` : player, next: close.next };
+}
+
+function readableAddress(value: string): string {
+  const address = value.trim();
+  if (address.length === 0 || /^(?:javascript|data|file):/i.test(address)) {
+    return '';
+  }
+  return address;
+}
+
+function sourceAddress(inner: string): string {
+  for (const match of inner.matchAll(/<source\b[^>]*>/gi)) {
+    const address = readableAddress(attribute(match[0], 'src'));
+    if (address.length > 0) {
+      return address;
+    }
+  }
+  return '';
+}
+
+function mediaFallback(tag: string, inner: string): string {
+  const address = readableAddress(attribute(tag, 'src')) || sourceAddress(inner);
+  if (address.length > 0) {
+    return escapeText(address);
+  }
+  const poster = readableAddress(attribute(tag, 'poster'));
+  if (
+    poster.length === 0 ||
+    poster.startsWith('/') ||
+    poster.startsWith('\\') ||
+    /[\s()]/.test(poster)
+  ) {
+    return '';
+  }
+  return `<img src="${escapeText(poster)}" alt="" />`;
 }
 
 function revealMath(html: string, start: number, openEnd: number): Revealed | null {
@@ -440,17 +476,36 @@ function revealTable(html: string, tag: string, end: number): Revealed | null {
   return { text: `${escapeText(summary)}${withoutPopover(tag)}`, next: end };
 }
 
-function revealElement(html: string, start: number, end: number): Revealed | null {
-  const tag = html.slice(start, end);
-  const name = tagName(tag);
+function revealEarly(
+  html: string,
+  tag: string,
+  name: string,
+  end: number
+): Revealed | null | undefined {
   if ((name === 'track' || name === 'source') && tag.startsWith('</')) {
     return { text: '', next: end };
   }
-  if (name === 'input' || name === 'area' || name === 'img' || name === 'menuitem') {
+  if (
+    name === 'input' ||
+    name === 'area' ||
+    name === 'img' ||
+    name === 'menuitem' ||
+    name === 'track'
+  ) {
     return revealVoid(html, tag, name, end);
   }
   if (tag.startsWith('</') || tag.endsWith('/>')) {
     return null;
+  }
+  return undefined;
+}
+
+function revealElement(html: string, start: number, end: number): Revealed | null {
+  const tag = html.slice(start, end);
+  const name = tagName(tag);
+  const early = revealEarly(html, tag, name, end);
+  if (early !== undefined) {
+    return early;
   }
   switch (name) {
     case 'details':
@@ -500,7 +555,18 @@ function revealVoid(html: string, tag: string, name: string, end: number): Revea
   if (name === 'menuitem') {
     return revealMenuItem(html, tag, end);
   }
+  if (name === 'track') {
+    return revealTrack(tag, end);
+  }
   return revealImage(html, tag, end);
+}
+
+function revealTrack(tag: string, end: number): Revealed | null {
+  const label = attribute(tag, 'label').trim();
+  if (label.length === 0 || tag.startsWith('</')) {
+    return null;
+  }
+  return { text: escapeText(label), next: end };
 }
 
 function revealImage(html: string, tag: string, end: number): Revealed | null {

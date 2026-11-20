@@ -48,6 +48,22 @@ describe('printed html', () => {
     );
     expect(lyrics).toContain('Lyrics');
     expect(lyrics).not.toContain('</track>');
+    expect(markdownToPdfHtml('<video src="clip.mp4"></video>\n')).toContain('clip.mp4');
+    expect(markdownToPdfHtml('<audio src="song.mp3"></audio>\n')).toContain('song.mp3');
+    const blockedClip = markdownToPdfHtml('<video src="file:///tmp/clip.mp4"></video>\n');
+    expect(blockedClip).not.toContain('file:');
+    expect(
+      markdownToPdfHtml('<video><source src="https://example.com/a.mp4"></video>\n')
+    ).toContain('https://example.com/a.mp4');
+    expect(markdownToPdfHtml('<video poster="https://example.com/a.png"></video>\n')).toContain(
+      '<img src="https://example.com/a.png"'
+    );
+    expect(markdownToPdfHtml('<video poster="/etc/passwd.png"></video>\n')).not.toContain(
+      '/etc/passwd.png'
+    );
+    expect(markdownToPdfHtml('<track label="Captionlabel" src="c.vtt" />\n')).toContain(
+      'Captionlabel'
+    );
     expect(
       markdownToPdfHtml('<math><semantics><annotation>x^2 + 1</annotation></semantics></math>\n')
     ).toContain('x^2 + 1');
