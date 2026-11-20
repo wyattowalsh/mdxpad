@@ -66,6 +66,9 @@ describe('printed html', () => {
     expect(
       markdownToPdfHtml('<select><option>Red</option><option>Blue</option></select>\n')
     ).toContain('Red, Blue');
+    expect(
+      markdownToPdfHtml('<select aria-label="Colorname"><option>Red</option></select>\n')
+    ).toContain('Colorname: Red');
     expect(markdownToPdfHtml('<time datetime="2020-01-01"></time>\n')).toContain('(2020-01-01)');
     expect(markdownToPdfHtml('<abbr title="Hypertext Markup"></abbr>\n')).toContain(
       '(Hypertext Markup)'

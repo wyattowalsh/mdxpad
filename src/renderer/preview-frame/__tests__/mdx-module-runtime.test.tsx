@@ -364,6 +364,20 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('(Hypertext Markup)');
   });
 
+  it('shows the name of a choice list', async () => {
+    const source = '<select aria-label="Colorname"><option>Red</option></select>';
+    const result = await compileMdx(testId('select-name'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('Colorname');
+    expect(container.textContent).toContain('Red');
+    expect(container.querySelector('select')).not.toBeNull();
+  });
+
   it('shows a meter name beside its value', async () => {
     const source = '<meter value="4" max="10" title="Halfway"></meter>';
     const result = await compileMdx(testId('meter-name'), source);

@@ -229,6 +229,15 @@ function gaugeName(
   return { kind: 'replace', text: label };
 }
 
+function selectName(props: Record<string, unknown>): VisibleName | undefined {
+  const label =
+    stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
+  if (label.length === 0 || textOf(props.children).includes(label)) {
+    return undefined;
+  }
+  return { kind: 'note', text: label };
+}
+
 function choiceName(props: Record<string, unknown>, type: string): VisibleName | undefined {
   const label =
     stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
@@ -297,6 +306,8 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
       return headerName(record);
     case 'option':
       return optionName(record);
+    case 'select':
+      return selectName(record);
     case 'summary':
       return summaryName(record);
     case 'time':

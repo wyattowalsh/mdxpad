@@ -1414,6 +1414,13 @@ function renderEmbedded(element: HtmlElement, value: string, inner: string): str
   }
 }
 
+function namedChoices(choices: string, name: string): string {
+  if (name.length === 0 || choices.includes(name)) {
+    return choices;
+  }
+  return choices.length > 0 ? `${name}: ${choices}` : name;
+}
+
 function renderForm(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'textarea':
@@ -1426,6 +1433,11 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
     case 'isindex':
       return attribute(openTagBefore(value, element.innerStart), 'prompt').trim();
     case 'select':
+      return namedChoices(
+        renderChoices(inner).join(', '),
+        attribute(openTagBefore(value, element.innerStart), 'aria-label').trim() ||
+          attribute(openTagBefore(value, element.innerStart), 'title').trim()
+      );
     case 'optgroup':
       return renderChoices(inner).join(', ');
     case 'option':

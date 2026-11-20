@@ -165,6 +165,9 @@ describe('rewriteSimpleHtml', () => {
     );
     expect(rewriteSimpleHtml('<input type="time" value="09:30">')).toBe('09:30');
     expect(
+      rewriteSimpleHtml('<select aria-label="Colorname"><option>Red</option></select>').trim()
+    ).toBe('Colorname: Red');
+    expect(
       rewriteSimpleHtml('<table summary="Sales table"><tr><td>Cellword</td></tr></table>').trim()
     ).toContain('Sales table');
     expect(

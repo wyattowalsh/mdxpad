@@ -351,15 +351,20 @@ function revealEmpty(
   return { text: escapeText(format(label)), next: close.next };
 }
 
-function revealSelect(html: string, openEnd: number): Revealed | null {
+function revealSelect(html: string, openEnd: number, tag: string): Revealed | null {
   const close = matchingClose(html, 'select', openEnd);
   if (!close) {
     return null;
   }
-  return {
-    text: escapeText(optionLabels(html.slice(openEnd, close.innerEnd)).join(', ')),
-    next: close.next,
-  };
+  const choices = optionLabels(html.slice(openEnd, close.innerEnd)).join(', ');
+  const name = attribute(tag, 'aria-label').trim() || attribute(tag, 'title').trim();
+  const shown =
+    name.length === 0 || choices.includes(name)
+      ? choices
+      : choices.length > 0
+        ? `${name}: ${choices}`
+        : name;
+  return { text: escapeText(shown), next: close.next };
 }
 
 function revealHeader(html: string, openEnd: number, tag: string): Revealed | null {
@@ -410,7 +415,7 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
     case 'datalist':
       return revealList(html, end);
     case 'select':
-      return revealSelect(html, end);
+      return revealSelect(html, end, tag);
     case 'time':
       return revealEmpty(html, end, tag, 'time', 'datetime', (value) => `(${value})`);
     case 'abbr':
