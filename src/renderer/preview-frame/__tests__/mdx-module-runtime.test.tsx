@@ -198,6 +198,7 @@ describe('createModuleFromCode', () => {
     const source = [
       '<iframe src="file:///etc/passwd">Read the page</iframe>',
       '<object data="file:///etc/passwd">The report</object>',
+      '<canvas>Chart of sales</canvas>',
     ].join('\n\n');
     const result = await compileMdx(testId('frame-fallback'), source);
     expect(result.ok).toBe(true);
@@ -208,8 +209,10 @@ describe('createModuleFromCode', () => {
     const { container } = render(<module.default />);
     expect(container.querySelector('iframe')).toBeNull();
     expect(container.querySelector('object')).toBeNull();
+    expect(container.querySelector('canvas')).toBeNull();
     expect(container.textContent).toContain('Read the page');
     expect(container.textContent).toContain('The report');
+    expect(container.textContent).toContain('Chart of sales');
     expect(container.innerHTML).not.toContain('file:');
     expect(container.innerHTML).not.toContain('passwd');
   });

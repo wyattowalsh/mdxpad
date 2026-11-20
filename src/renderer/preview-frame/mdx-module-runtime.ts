@@ -102,7 +102,7 @@ function fallbackChildren(type: React.ElementType, props: unknown): React.ReactN
     return undefined;
   }
   const name = type.toLowerCase();
-  if (name !== 'iframe' && name !== 'object') {
+  if (name !== 'iframe' && name !== 'object' && name !== 'canvas') {
     return undefined;
   }
   if (!props || typeof props !== 'object' || !('children' in props)) {
@@ -117,7 +117,7 @@ function confinedJsx(
   props: unknown,
   key?: React.Key
 ): React.ReactElement {
-  if (droppedPreviewTag(type)) {
+  if (droppedPreviewTag(type) || (typeof type === 'string' && type.toLowerCase() === 'canvas')) {
     const children = fallbackChildren(type, props);
     const fragmentProps = children === undefined ? {} : { children };
     return key === undefined
