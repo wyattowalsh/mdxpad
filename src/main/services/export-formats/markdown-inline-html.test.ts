@@ -799,6 +799,15 @@ describe('renderMarkdownInline', () => {
     expect(renderMarkdownInline('<script>location="file:///etc/passwd"</script>')).toBe('');
   });
 
+  it('measures a tab from the quote marker column', () => {
+    expect(markdownToPdfHtml('>\tfoo\n')).toContain('<p>foo</p>');
+    expect(markdownToPdfHtml('>\tfoo\n')).not.toContain('<pre>');
+    expect(markdownToPdfHtml('>\t\tfoo\n')).toContain('<code>  foo</code>');
+    expect(markdownToPdfHtml('> text\n>\t\tmore\n')).toContain('text more');
+    expect(markdownToPdfHtml('-\t\tfoo\n')).toContain('<code>  foo</code>');
+    expect(markdownToPdfHtml('1.\t\tfoo\n')).toContain('<code> foo</code>');
+  });
+
   it('keeps an inline HTML tag and escapes one inside code', () => {
     expect(renderMarkdownInline('Say <em>hello</em><br>')).toBe('Say <em>hello</em><br>');
     expect(renderMarkdownInline('<span title="a>b">Hi</span>')).toBe('<span title="a>b">Hi</span>');

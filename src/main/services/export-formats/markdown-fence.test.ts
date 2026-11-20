@@ -57,5 +57,10 @@ describe('fences', () => {
     expect(fenceIndentedCode('> item\n>\n>     code\n>\n> after\n')).toBe(
       '> item\n>\n> ```\n> code\n> ```\n>\n> after\n'
     );
+    expect(fenceIndentedCode('>\tfoo\n')).toBe('> foo\n');
+    expect(fenceIndentedCode('>\t\tfoo\n')).toBe('> ```\n>   foo\n> ```\n');
+    expect(fenceIndentedCode('> text\n>\t\tfoo\n')).toBe('> text\n> foo\n');
+    expect(fenceIndentedCode('-\t\tfoo\n')).toBe('-\n  ```\n    foo\n  ```\n');
+    expect(fenceIndentedCode('1.\t\tfoo\n')).toBe('1.\n   ```\n    foo\n   ```\n');
   });
 });
