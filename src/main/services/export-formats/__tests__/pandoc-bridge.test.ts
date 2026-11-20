@@ -174,6 +174,42 @@ describe('PandocBridge', () => {
     expect(sent).toContain('Disk');
   });
 
+  it('sends the words of an HTML block', async () => {
+    const { detectPandoc } = await import('../pandoc-detector');
+    (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      available: true,
+      path: '/usr/local/bin/pandoc',
+      version: '3.1.0',
+    });
+    const { execFile } = await import('node:child_process');
+    const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+    const mockStdin = { write: vi.fn(), end: vi.fn() };
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        callback(null, '', '');
+        return { stdin: mockStdin };
+      }
+    );
+
+    const result = await bridge.export({
+      content: '<div>Hello <b>there</b></div>\n\n<a href="file:///etc/passwd">Disk</a>\n',
+      outputPath: '/tmp/html.md',
+    });
+
+    expect(result.ok).toBe(true);
+    const sent = mockStdin.write.mock.calls[0]?.[0] as string;
+    expect(sent).toContain('Hello **there**');
+    expect(sent).toContain('Disk');
+    expect(sent).not.toContain('<div');
+    expect(sent).not.toContain('<b>');
+    expect(sent).not.toContain('file:');
+  });
+
   it('includes pandoc stderr as warnings', async () => {
     const { detectPandoc } = await import('../pandoc-detector');
     (detectPandoc as ReturnType<typeof vi.fn>).mockResolvedValue({
