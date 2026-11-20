@@ -1355,10 +1355,14 @@ function withNote(body: string, note: string): string {
   return body.length === 0 ? note : `${body} (${note})`;
 }
 
+function mediaLabel(openTag: string): string {
+  return attribute(openTag, 'title').trim() || attribute(openTag, 'aria-label').trim();
+}
+
 function renderMediaFallback(value: string, element: HtmlElement, inner: string): string {
   const text = convertHtml(withoutTag(inner, 'track')).trim();
   const openTag = openTagBefore(value, element.innerStart);
-  const note = [trackLabels(inner).join(', '), attribute(openTag, 'title').trim()]
+  const note = [trackLabels(inner).join(', '), mediaLabel(openTag)]
     .filter((part) => part.length > 0)
     .join(', ');
   if (text.length > 0) {

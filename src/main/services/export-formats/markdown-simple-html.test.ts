@@ -122,6 +122,12 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<video src="clip.mp4" title="The lecture"></video>').trim()).toBe(
       'clip.mp4 (The lecture)'
     );
+    expect(rewriteSimpleHtml('<audio src="song.mp3" aria-label="Songname"></audio>').trim()).toBe(
+      'song.mp3 (Songname)'
+    );
+    expect(
+      rewriteSimpleHtml('<audio src="song.mp3" aria-label="Songname">Hear the song</audio>').trim()
+    ).toBe('Hear the song (Songname)');
     expect(
       rewriteSimpleHtml('<iframe src="https://example.com/page" title="The report"></iframe>')
     ).toBe('https://example.com/page (The report)');
