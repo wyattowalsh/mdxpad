@@ -58,6 +58,26 @@ describe('parseListItem', () => {
       delimiter: '.',
     });
     expect(parseListItem('not a list')).toBeNull();
+    expect(parseListItem('-')).toEqual({
+      level: 0,
+      ordered: false,
+      start: 1,
+      text: '',
+      delimiter: '-',
+    });
+    expect(parseListItem('1.')).toEqual({
+      level: 0,
+      ordered: true,
+      start: 1,
+      text: '',
+      delimiter: '.',
+    });
+    expect(parseListItem('---')).toBeNull();
+    expect(parseListItem('***')).toBeNull();
+    expect(listContentColumn('-')).toBe(2);
+    expect(listContentColumn('1.')).toBe(3);
+    expect(listContentColumn('10.')).toBe(4);
+    expect(listContentColumn('- item')).toBe(2);
     const third = parseListItem('14. doors');
     expect(third && shouldOpenListItem(third, [], false, true)).toBe(false);
     const first = parseListItem('1. doors');

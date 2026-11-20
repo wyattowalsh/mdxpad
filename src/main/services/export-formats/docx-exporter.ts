@@ -1768,7 +1768,10 @@ function takeDocxList(
     parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
     return true;
   }
-  const lazy = !parse.listBreak && plainLazyListLine(line);
+  const lazy =
+    !parse.listBreak &&
+    (parse.openListItem?.text.trim().length ?? 0) > 0 &&
+    plainLazyListLine(line);
   const spaces = /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
   const heldMarker =
     item !== null && !openItem && openListItem !== null && spaces >= (parse.listColumn ?? 2);

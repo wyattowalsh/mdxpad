@@ -12,7 +12,7 @@ export interface MarkdownListItem {
   readonly delimiter?: ListDelimiter;
 }
 
-const LIST_ITEM = /^( *)([-*+]|\d+[.)])[ \t]+(.*)$/;
+const LIST_ITEM = /^( *)([-*+]|\d+[.)])(?:[ \t]+(.*))?$/;
 
 /** Column where the item text starts, so a later line can continue it. */
 export function listContentColumn(line: string): number | null {
@@ -20,11 +20,12 @@ export function listContentColumn(line: string): number | null {
     return null;
   }
   const expanded = line.replaceAll('\t', '    ');
-  const match = /^( *)([-*+]|\d+[.)])[ \t]+/.exec(expanded);
-  if (!match) {
-    return null;
+  const spaced = /^( *)([-*+]|\d+[.)])[ \t]+/.exec(expanded);
+  if (spaced) {
+    return spaced[0].length;
   }
-  return match[0].length;
+  const bare = /^( *)([-*+]|\d+[.)])/.exec(expanded);
+  return bare ? bare[0].length + 1 : null;
 }
 
 /** An indented line that continues the open list item, such as a wrapped sentence. */

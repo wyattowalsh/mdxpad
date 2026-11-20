@@ -270,6 +270,28 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps an empty list marker as a list', () => {
+    const paired = markdownToPdfHtml('-\n-\n');
+    expect(paired).toContain('<ul>');
+    expect(paired.match(/<li>/g)).toHaveLength(2);
+    expect(paired).not.toContain('<h2');
+    const followed = markdownToPdfHtml('-\nfoo\n');
+    expect(followed.indexOf('</ul>')).toBeLessThan(followed.indexOf('foo'));
+    expect(followed).toContain('<p>foo</p>');
+    const filled = markdownToPdfHtml('-\n  foo\n');
+    expect(filled).toContain('<li>foo</li>');
+    expect(filled).not.toContain('<p>- foo</p>');
+    const ordered = markdownToPdfHtml('1.\n2.\n');
+    expect(ordered).toContain('<ol');
+    expect(ordered.match(/<li>/g)).toHaveLength(2);
+    const quoted = markdownToPdfHtml('> -\n> -\n');
+    expect(quoted).toContain('<ul>');
+    expect(quoted).not.toContain('<h2');
+    const heading = markdownToPdfHtml('> Title\n> -\n');
+    expect(heading).toContain('<h2 id="title">Title</h2>');
+    expect(heading).not.toContain('<ul');
+  });
+
   it('renders a spaced rule inside a quote', () => {
     const html = markdownToPdfHtml('> * * *\n');
     expect(html).toContain('<hr />');

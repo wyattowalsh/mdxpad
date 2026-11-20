@@ -308,6 +308,10 @@ export function openListItem(
   if (marker !== null) {
     return marker;
   }
+  if (itemText.length === 0) {
+    state.listLines = [];
+    return '';
+  }
   state.listLines = [{ text: itemText, hardBreak }];
   return renderListItemHtml(state.listLines, render);
 }
@@ -337,6 +341,10 @@ export function continueListItem(
   return replaced;
 }
 
+function itemHasText(state: HtmlListItemState): boolean {
+  return state.itemHtml.length > 0 || state.listLines.some((line) => line.text.trim().length > 0);
+}
+
 function leadingSpaces(line: string): number {
   return /^ */.exec(line.replaceAll('\t', '    '))?.[0].length ?? 0;
 }
@@ -356,13 +364,18 @@ export function continueOpenList(
   if (marker && shouldOpenListItem(marker, stack, state.listBreak, false)) {
     return false;
   }
-  if (!state.listBreak && state.listLines.length > 0 && parts.at(-1)?.startsWith('<p>')) {
+  if (
+    !state.listBreak &&
+    itemHasText(state) &&
+    state.listLines.length > 0 &&
+    parts.at(-1)?.startsWith('<p>')
+  ) {
     state.listLines.push(readSourceLine(raw));
     parts[parts.length - 1] = `<p>${renderListItemHtml(state.listLines, render)}</p>`;
     return true;
   }
   if (!state.listBreak) {
-    return continueListItem(state, raw, render, true);
+    return continueListItem(state, raw, render, itemHasText(state));
   }
   const spaces = leadingSpaces(raw);
   let depth = stack.length - 1;

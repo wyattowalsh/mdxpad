@@ -118,9 +118,17 @@ export function quoteSetextLine(lines: readonly string[], line: string): boolean
 }
 
 /** Keep a wrapped line inside the current nested quote instead of the outer one. */
+function quoteSetextBody(lines: readonly string[], body: string): string {
+  const previous = lines.at(-1);
+  if (!previous || previous.trim().length === 0 || setextLevel(plainQuoteLine(previous)) !== null) {
+    return body;
+  }
+  return setextLevel(body) === null ? body : quoteMarkerLine(body);
+}
+
 export function storedQuoteLine(lines: readonly string[], line: string): string {
   const marked = quoteBody(line);
-  const stored = marked === null ? line : quoteMarkerLine(marked);
+  const stored = marked === null ? line : quoteSetextBody(lines, marked);
   const last = lastQuoteContent(lines);
   if (!last || stored.trim().length === 0 || quoteBody(last) === null || quoteBody(stored) !== null) {
     return stored;
@@ -242,7 +250,10 @@ function listMarkerFenceOpen(lines: readonly string[]): boolean {
 
 function listLazyLine(lines: readonly string[], line: string): boolean {
   const last = lines[lines.length - 1] ?? '';
-  return last.trim().length > 0 && isLazyQuoteLine(line);
+  if (last.trim().length === 0 || parseListItem(last)?.text.length === 0) {
+    return false;
+  }
+  return isLazyQuoteLine(line);
 }
 
 function indentedUnderList(line: string, current: QuoteChunk | null): boolean {
