@@ -270,6 +270,17 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('returns to the outer quote after a blank line', () => {
+    const html = markdownToPdfHtml('> > one\n>\n> two\n');
+    const innerEnd = html.indexOf('</blockquote>');
+    expect(html.indexOf('<p>one</p>')).toBeLessThan(innerEnd);
+    expect(html.indexOf('<p>two</p>')).toBeGreaterThan(innerEnd);
+    expect(html.lastIndexOf('</blockquote>')).toBeGreaterThan(html.indexOf('<p>two</p>'));
+    const joined = markdownToPdfHtml('> > one\n> two\n');
+    expect(joined).toContain('one two');
+    expect(joined.match(/<blockquote>/g)).toHaveLength(2);
+  });
+
   it('keeps a blank line inside a quoted list item', () => {
     const html = markdownToPdfHtml('> - item\n>\n>   more\n');
     expect(html).toContain('<p>item</p>');

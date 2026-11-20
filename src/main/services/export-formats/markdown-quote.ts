@@ -131,6 +131,10 @@ function quoteSetextBody(lines: readonly string[], body: string): string {
 export function storedQuoteLine(lines: readonly string[], line: string): string {
   const marked = quoteBody(line);
   const stored = marked === null ? line : quoteSetextBody(lines, marked);
+  const previous = lines.at(-1);
+  if (previous?.trim().length === 0) {
+    return stored;
+  }
   const last = lastQuoteContent(lines);
   if (!last || stored.trim().length === 0 || quoteBody(last) === null || quoteBody(stored) !== null) {
     return stored;
@@ -854,9 +858,10 @@ function renderQuotedPieceHtml(
 function renderQuotedItemHtml(
   body: readonly SourceLine[],
   column: number,
-  renderLine: (line: string) => string
+  renderLine: (line: string) => string,
+  looseList = false
 ): string {
-  const loose = body.some((line) => line.text.trim().length === 0);
+  const loose = looseList || body.some((line) => line.text.trim().length === 0);
   let sawBlock = false;
   return quoteItemPieces(body, column)
     .map((piece) => {
@@ -874,12 +879,14 @@ function renderQuotedItemHtml(
 function quoteListHtml(lines: readonly string[], renderLine: (line: string) => string): string {
   const parts: string[] = [];
   const stack: HtmlListFrame[] = [];
-  for (const group of groupQuoteItems(lines)) {
+  const groups = groupQuoteItems(lines);
+  const loose = groups.some((group) => group.body.some((line) => line.text.trim().length === 0));
+  for (const group of groups) {
     pushHtmlListItem(
       parts,
       stack,
       group.item,
-      renderQuotedItemHtml(group.body, group.column, renderLine)
+      renderQuotedItemHtml(group.body, group.column, renderLine, loose)
     );
   }
   closeHtmlLists(parts, stack);
