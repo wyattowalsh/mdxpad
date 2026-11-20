@@ -122,6 +122,28 @@ describe('mathComponents', () => {
     expect(runText(mathComponents('\\sin{x}'))).toBe('sinx');
   });
 
+  it('keeps a list, a label, and a theorem in a Word formula', () => {
+    const list = runText(
+      mathComponents('\\begin{itemize}\\item First item\\item Second item\\end{itemize}')
+    );
+    expect(list).toContain('First item');
+    expect(list).toContain('Second item');
+    expect(list).not.toContain('item First');
+    expect(list).not.toContain('itemitem');
+    const described = runText(
+      mathComponents('\\begin{description}\\item[Ice] Cream\\end{description}')
+    );
+    expect(described).toContain('Ice');
+    expect(described).toContain('Cream');
+    expect(described).not.toContain('item');
+    expect(runText(mathComponents('\\begin{theorem}Ice cream\\end{theorem}'))).toBe(
+      'Theorem. Ice cream'
+    );
+    expect(runText(mathComponents('\\begin{proof}See the ice\\end{proof}'))).toBe(
+      'Proof. See the ice'
+    );
+  });
+
   it('keeps the words of a colored Word expression', () => {
     expect(runText(mathComponents('\\textcolor{red}{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\colorbox{blue}{sky}'))).toBe('sky');

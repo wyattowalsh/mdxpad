@@ -41,6 +41,40 @@ export function endsMatrix(cursor: MathSource, name: string): boolean {
   return false;
 }
 
+const LABELED_ENVIRONMENT = new Set([
+  'abstract',
+  'center',
+  'claim',
+  'conjecture',
+  'corollary',
+  'definition',
+  'example',
+  'exercise',
+  'figure',
+  'flushleft',
+  'flushright',
+  'lemma',
+  'minipage',
+  'note',
+  'proof',
+  'proposition',
+  'quote',
+  'remark',
+  'solution',
+  'table',
+  'theorem',
+  'titlepage',
+  'warning',
+]);
+
+function environmentLabel(name: string): string {
+  const plain = name.endsWith('*') ? name.slice(0, -1) : name;
+  if (!LABELED_ENVIRONMENT.has(plain)) {
+    return '';
+  }
+  return `${plain.charAt(0).toUpperCase()}${plain.slice(1)}. `;
+}
+
 function wrapMatrix(name: string, body: MathComponent[]): MathComponent[] {
   if (name === 'pmatrix') return [new MathRoundBrackets({ children: body })];
   if (name === 'bmatrix') return [new MathSquareBrackets({ children: body })];
@@ -49,7 +83,8 @@ function wrapMatrix(name: string, body: MathComponent[]): MathComponent[] {
     const bar = name === 'Vmatrix' ? '‖' : '|';
     return [new MathRun(bar), ...body, new MathRun(bar)];
   }
-  return body;
+  const label = environmentLabel(name);
+  return label.length === 0 ? body : [new MathRun(label), ...body];
 }
 
 export function readMatrix(

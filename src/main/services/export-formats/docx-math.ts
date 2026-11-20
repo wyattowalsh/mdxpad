@@ -247,7 +247,15 @@ function readProseArgument(cursor: Cursor): MathComponent[] | null {
   return notedParts(readGroup(cursor), notes);
 }
 
+function readItem(cursor: Cursor): MathComponent[] {
+  const notes = proseNotes(cursor);
+  return [new MathRun(notes.length > 0 ? `\n${notes} ` : '\n')];
+}
+
 function unknownCommand(cursor: Cursor, name: string): MathComponent[] {
+  if (name === 'item') {
+    return readItem(cursor);
+  }
   const symbol = SYMBOLS[name];
   if (symbol !== undefined) {
     return [new MathRun(symbol)];
