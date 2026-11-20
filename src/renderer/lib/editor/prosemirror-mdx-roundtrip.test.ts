@@ -264,6 +264,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps the paragraph after a footnote', () => {
+    const saved = roundTrip('[^1]: note\ncontinued\n');
+    expect(saved).toContain('[^1]: note');
+    expect(saved).toContain('\n\ncontinued');
+    expect(saved).not.toContain('    continued');
+    const indented = roundTrip('[^1]: note\n    continued\n');
+    expect(indented).toContain('    continued');
+  });
+
   it('keeps a link title that starts on the next line', () => {
     const saved = roundTrip('[id]: https://example.com\n  "Title"\n');
     expect(saved).toContain('[id]: https://example.com');

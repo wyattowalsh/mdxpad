@@ -26,6 +26,11 @@ function indented(line: string): boolean {
   return line.startsWith('    ') || line.startsWith('\t');
 }
 
+function looseFollower(lines: readonly string[], index: number): boolean {
+  const line = lines[index] ?? '';
+  return line.trim().length > 0 && !indented(line) && !DEFINITION.test(line);
+}
+
 function continuesFootnote(lines: readonly string[], index: number): boolean {
   const line = lines[index] ?? '';
   if (indented(line)) {
@@ -161,6 +166,9 @@ export function protectFootnoteBlocks(value: string): string {
     }
     if (!DEFINITION.test(line) || !needsBlock(lines, index)) {
       output.push(line);
+      if (!fence && DEFINITION.test(line) && looseFollower(lines, index + 1)) {
+        output.push('');
+      }
       continue;
     }
     const block = [line];
