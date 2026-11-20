@@ -1292,6 +1292,22 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('[x]');
   });
 
+  it('formats a definition list and a key', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<dl><dt>Term</dt><dd>definition</dd></dl>\n\nPress <kbd>Cmd</kbd> and <ins>added</ins>\n',
+      outputPath: '/tmp/html-definition.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\textbf{Term}');
+    expect(written).toContain('definition');
+    expect(written).toContain('\\texttt{Cmd}');
+    expect(written).toContain('\\uline{added}');
+    expect(written).not.toContain('<dl>');
+    expect(written).not.toContain('<kbd>');
+    expect(written).not.toContain('<ins>');
+  });
+
   it('formats an HTML table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

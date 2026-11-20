@@ -1031,6 +1031,30 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('[x]');
   });
 
+  it('formats a definition list and a key', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<dl><dt>Term</dt><dd>definition</dd></dl>\n\nPress <kbd>Cmd</kbd> now\n',
+      outputPath: '/tmp/html-definition.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); print(xml)',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Term');
+    expect(xml).toContain('definition');
+    expect(xml).toContain('Cmd');
+    expect(xml).toContain('<w:b');
+    expect(xml).not.toContain('&lt;dl');
+    expect(xml).not.toContain('&lt;kbd');
+  });
+
   it('formats an HTML table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

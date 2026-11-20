@@ -45,6 +45,14 @@ function simpleName(name: string): boolean {
     name === 'tr' ||
     name === 'th' ||
     name === 'td' ||
+    name === 'dl' ||
+    name === 'dt' ||
+    name === 'dd' ||
+    name === 'details' ||
+    name === 'summary' ||
+    name === 'kbd' ||
+    name === 'ins' ||
+    name === 'abbr' ||
     /^h[1-6]$/.test(name)
   );
 }
@@ -271,8 +279,107 @@ function renderTable(name: string, inner: string): string {
   return markdownTable(tableRows(inner));
 }
 
+function renderDefinitions(inner: string): string {
+  const parts: string[] = [];
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (element?.name === 'dt') {
+      const term = cellText(inner.slice(element.innerStart, element.innerEnd));
+      if (term.length > 0) {
+        parts.push(`**${term}**`);
+      }
+      index = element.end;
+      continue;
+    }
+    if (element?.name === 'dd') {
+      const body = convertHtml(inner.slice(element.innerStart, element.innerEnd)).trim();
+      if (body.length > 0) {
+        parts.push(body);
+      }
+      index = element.end;
+      continue;
+    }
+    index = element ? element.end : index + 1;
+  }
+  return blockWrap(parts.join('\n\n'));
+}
+
+function extractElement(value: string, name: string): { inner: string; rest: string } | null {
+  let index = 0;
+  while (index < value.length) {
+    const element = value[index] === '<' ? readSimpleElement(value, index) : null;
+    if (element?.name === name) {
+      const inner = value.slice(element.innerStart, element.innerEnd);
+      const rest = value.slice(0, index) + value.slice(element.end);
+      return { inner, rest };
+    }
+    index = element ? element.end : index + 1;
+  }
+  return null;
+}
+
+function renderDetails(inner: string): string {
+  const summary = extractElement(inner, 'summary');
+  const label = summary ? cellText(summary.inner) : '';
+  const body = convertHtml(summary ? summary.rest : inner).trim();
+  const heading = label.length > 0 ? `**${label}**` : '';
+  const parts = [heading, body].filter((part) => part.length > 0);
+  return blockWrap(parts.join('\n\n'));
+}
+
+function renderKbd(inner: string): string {
+  const text = cellText(inner);
+  if (text.length === 0 || text.includes('`')) {
+    return text;
+  }
+  return `\`${text}\``;
+}
+
+function attribute(openTag: string, name: string): string {
+  const match = new RegExp(
+    `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`,
+    'i'
+  ).exec(openTag);
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
+}
+
+function renderAbbr(value: string, element: HtmlElement): string {
+  const openAt = value.lastIndexOf('<', Math.max(0, element.innerStart - 1));
+  const openTag = openAt === -1 ? '' : value.slice(openAt, element.innerStart);
+  const text = cellText(value.slice(element.innerStart, element.innerEnd));
+  const title = attribute(openTag, 'title').trim();
+  return title.length > 0 ? `${text} (${title})` : text;
+}
+
+function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  switch (element.name) {
+    case 'dl':
+      return renderDefinitions(inner);
+    case 'dt':
+      return blockWrap(`**${cellText(inner)}**`);
+    case 'dd':
+    case 'summary':
+      return blockWrap(convertHtml(inner));
+    case 'details':
+      return renderDetails(inner);
+    case 'kbd':
+      return renderKbd(inner);
+    case 'ins':
+      return `<u>${inner}</u>`;
+    case 'abbr':
+      return renderAbbr(value, element);
+    default:
+      return null;
+  }
+}
+
 function renderElement(element: HtmlElement, value: string): string {
   const inner = value.slice(element.innerStart, element.innerEnd);
+  const phrase = renderPhrase(element, value, inner);
+  if (phrase !== null) {
+    return phrase;
+  }
   switch (element.name) {
     case 'ul':
       return renderList(inner, false);

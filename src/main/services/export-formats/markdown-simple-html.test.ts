@@ -26,6 +26,18 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<blockquote>Quote</blockquote>').trim()).toBe('> Quote');
   });
 
+  it('turns a definition list, a disclosure, a key, and an abbreviation into text', () => {
+    expect(rewriteSimpleHtml('<dl><dt>Term</dt><dd>definition</dd></dl>').trim()).toBe(
+      '**Term**\n\ndefinition'
+    );
+    expect(rewriteSimpleHtml('<details><summary>More</summary>\nHidden\n</details>').trim()).toBe(
+      '**More**\n\nHidden'
+    );
+    expect(rewriteSimpleHtml('Press <kbd>Cmd</kbd> now')).toBe('Press `Cmd` now');
+    expect(rewriteSimpleHtml('See <ins>added</ins> now')).toBe('See <u>added</u> now');
+    expect(rewriteSimpleHtml('<abbr title="Hypertext">HTML</abbr>')).toBe('HTML (Hypertext)');
+  });
+
   it('turns an HTML table into a markdown table', () => {
     const html = [
       '<table>',
