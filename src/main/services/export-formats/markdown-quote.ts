@@ -492,10 +492,12 @@ function groupQuoteItems(lines: readonly string[]): {
       continue;
     }
     if (item) {
+      const text = item.text;
       groups.push({
         item,
         column: listContentColumn(line) ?? 2,
-        body: [{ text: item.text, hardBreak: readSourceLine(line).hardBreak }],
+        body:
+          text.length > 0 ? [{ text, hardBreak: readSourceLine(line).hardBreak }] : [],
       });
       continue;
     }
@@ -761,9 +763,6 @@ function quoteItemPieces(body: readonly SourceLine[], column: number): QuoteItem
   if (marker) {
     pieces.push(marker.piece);
     index = marker.next;
-  } else if (body.length > 0) {
-    prose.push(body[0] ?? { text: '', hardBreak: false });
-    index = 1;
   }
   while (index < body.length) {
     const next = readQuotedItemLine(pieces, prose, body, index, column);

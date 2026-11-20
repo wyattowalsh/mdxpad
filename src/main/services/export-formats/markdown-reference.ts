@@ -198,10 +198,12 @@ function collectReferences(lines: readonly string[]): {
     }
     const definition = splitDefinition(lines, index);
     const label = definition ? referenceLabel(definition.label) : '';
-    if (!definition || references.has(label)) {
+    if (!definition) {
       continue;
     }
-    references.set(label, referenceDestination(definition.destination));
+    if (!references.has(label)) {
+      references.set(label, referenceDestination(definition.destination));
+    }
     for (let offset = 0; offset < definition.consumed; offset += 1) {
       consumed.add(index + offset);
     }

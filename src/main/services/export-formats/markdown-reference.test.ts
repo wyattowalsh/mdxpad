@@ -69,6 +69,14 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[https://example.com/a(b)]');
   });
 
+  it('hides a repeated reference definition', () => {
+    const html = markdownToPdfHtml(
+      'first\n\n[x]: https://first.example\n\n[x]\n\n[x]: https://second.example\n'
+    );
+    expect(html).toContain('href="https://first.example"');
+    expect(html).not.toContain('second.example');
+  });
+
   it('turns a reference into an inline link and drops the definition', () => {
     const expanded = expandLinkReferences(
       'See [the docs][guide].\n\n[guide]: https://example.com\n'
