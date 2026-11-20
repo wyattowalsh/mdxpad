@@ -69,6 +69,25 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[https://example.com/a(b)]');
   });
 
+  it('keeps a definition line that continues a paragraph', () => {
+    const plain = markdownToPdfHtml('para\n[a]: https://example.com\n');
+    expect(plain).toContain('para');
+    expect(plain).toContain('[a]:');
+    expect(plain).toContain('https://example.com');
+    const quoted = markdownToPdfHtml('> [a]\n> [a]: https://example.com\n> more\n');
+    expect(quoted).toContain('[a]:');
+    expect(quoted).toContain('more');
+    expect(quoted.match(/<blockquote>/g)).toHaveLength(1);
+    const linked = markdownToPdfHtml('# Title\n[a]: https://example.com\n\n[a]\n');
+    expect(linked).toContain('href="https://example.com"');
+    const underlined = markdownToPdfHtml('Title\n=====\n[a]: https://example.com\n\n[a]\n');
+    expect(underlined).toContain('href="https://example.com"');
+    const item = markdownToPdfHtml('- [x]\n\n  [x]: https://first.example\n');
+    expect(item).toContain('href="https://first.example"');
+    expect(item).not.toContain('checkbox');
+    expect(markdownToPdfHtml('- [x] done\n')).toContain('checkbox');
+  });
+
   it('hides a repeated reference definition', () => {
     const html = markdownToPdfHtml(
       'first\n\n[x]: https://first.example\n\n[x]\n\n[x]: https://second.example\n'

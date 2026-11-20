@@ -1,10 +1,13 @@
+import { parseAtxHeading } from '@shared/lib/markdown-heading';
 import { mathDelimiterAt, mathSpanEnd } from '@shared/lib/math-span';
 
+import { isThematicBreak } from './markdown-break';
 import { applyFootnotes } from './markdown-footnote';
 import { advanceFence, fenceIndentedCode, openingFence } from './markdown-fence';
 import { readMarkdownTarget } from './markdown-link';
 import { listContentColumn } from './markdown-list';
 import { quoteBody } from './markdown-quote';
+import { setextLevel } from './markdown-setext';
 import { closeOpenTableRows } from './markdown-table';
 
 const LINK_LABEL = /^ {0,3}\[([^\]]+)\]:[ \t]*/;
@@ -56,10 +59,68 @@ function titleContinuation(lines: readonly string[], index: number): string | nu
   return TITLE_LINE.test(title) ? title : null;
 }
 
+function structurallyBlank(line: string): boolean {
+  return line.trim().length === 0 || (quoteDepth(line) > 0 && definitionSource(line).trim().length === 0);
+}
+
+function setextClosed(lines: readonly string[], index: number): boolean {
+  const source = definitionSource(lines[index] ?? '');
+  if (setextLevel(source) === null || index < 1) {
+    return false;
+  }
+  const before = definitionSource(lines[index - 1] ?? '');
+  return before.trim().length > 0 && setextLevel(before) === null && !isThematicBreak(before);
+}
+
+function definitionLine(line: string): boolean {
+  const source = definitionSource(line).trim();
+  if (linkDefinition(line) || LABEL_ONLY.test(source)) {
+    return true;
+  }
+  return false;
+}
+
+function continuesDefinition(lines: readonly string[], index: number): boolean {
+  if (!definitionLine(lines[index] ?? '') && index > 0) {
+    const source = definitionSource(lines[index] ?? '').trim();
+    const previous = lines[index - 1] ?? '';
+    const titled = TITLE_LINE.test(source) && definitionLine(previous);
+    const addressed = LABEL_ONLY.test(definitionSource(previous).trim()) && DESTINATION_LINE.test(source);
+    return titled || addressed;
+  }
+  return definitionLine(lines[index] ?? '');
+}
+
+/** A definition cannot continue a paragraph, so it starts only after a finished block. */
+function definitionStartsBlock(lines: readonly string[], index: number): boolean {
+  let cursor = index;
+  while (cursor > 0) {
+    const previous = lines[cursor - 1] ?? '';
+    if (structurallyBlank(previous)) {
+      return true;
+    }
+    const source = definitionSource(previous);
+    if (parseAtxHeading(source) || isThematicBreak(source) || setextClosed(lines, cursor - 1)) {
+      return true;
+    }
+    if (openingFence(source.trim()) !== null) {
+      return true;
+    }
+    if (!continuesDefinition(lines, cursor - 1)) {
+      return false;
+    }
+    cursor -= 1;
+  }
+  return true;
+}
+
 function splitDefinition(
   lines: readonly string[],
   index: number
 ): { label: string; destination: string; consumed: number } | null {
+  if (!definitionStartsBlock(lines, index)) {
+    return null;
+  }
   const sameLine = linkDefinition(lines[index] ?? '');
   if (sameLine) {
     const title = sameLine.titled ? null : titleContinuation(lines, index);
