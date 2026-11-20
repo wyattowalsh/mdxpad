@@ -41,6 +41,19 @@ describe('sanitizeMarkdownHtmlBlocks', () => {
       sanitizeMarkdownHtmlBlocks('<embed src="https://example.com/a.swf">Watch the clip</embed>')
     ).toBe('Watch the clip');
     expect(sanitizeMarkdownHtmlBlocks('<embed src="file:///tmp/a.swf"></embed>')).toBe('');
+    expect(sanitizeMarkdownHtmlBlocks('<embed src="https://example.com/a.swf">')).toBe(
+      'https://example.com/a.swf'
+    );
+    expect(sanitizeMarkdownHtmlBlocks('<iframe src="https://example.com/page"></iframe>')).toBe(
+      'https://example.com/page'
+    );
+    expect(sanitizeMarkdownHtmlBlocks('<iframe src="file:///etc/passwd"></iframe>')).toBe('');
+    expect(sanitizeMarkdownHtmlBlocks('<object data="https://example.com/a.pdf"></object>')).toBe(
+      'https://example.com/a.pdf'
+    );
+    expect(
+      sanitizeMarkdownHtmlBlocks('<object data="file:///etc/passwd">The report</object>')
+    ).toBe('The report');
     expect(sanitizeMarkdownHtmlBlocks('```\n<img src="file:///etc/passwd">\n```')).toContain(
       'file:///etc/passwd'
     );

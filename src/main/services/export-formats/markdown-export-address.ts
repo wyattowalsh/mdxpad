@@ -357,9 +357,23 @@ export function htmlTagEnd(html: string, index: number): number {
   return -1;
 }
 
-function embedAlt(tag: string): string {
-  const match = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i.exec(tag);
+function tagAttribute(tag: string, name: string): string {
+  const match = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>\`]+))`, 'i').exec(
+    tag
+  );
   return (match?.[1] ?? match?.[2] ?? match?.[3] ?? '').trim();
+}
+
+function droppedAddress(tag: string, name: string): string {
+  switch (name) {
+    case 'embed':
+    case 'iframe':
+      return safeImageAddress(tagAttribute(tag, 'src')) ?? '';
+    case 'object':
+      return safeImageAddress(tagAttribute(tag, 'data')) ?? '';
+    default:
+      return '';
+  }
 }
 
 function droppedFallback(tag: string, name: string, inner: string): string {
@@ -367,7 +381,8 @@ function droppedFallback(tag: string, name: string, inner: string): string {
   if (text.trim().length > 0) {
     return text;
   }
-  return name === 'embed' ? embedAlt(tag) : '';
+  const alt = name === 'embed' ? tagAttribute(tag, 'alt') : '';
+  return alt.length > 0 ? alt : droppedAddress(tag, name);
 }
 
 /** A dropped element, keeping the fallback text of a frame or embed. */
