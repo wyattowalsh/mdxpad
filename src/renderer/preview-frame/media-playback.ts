@@ -71,6 +71,20 @@ function visibleFallback(node: unknown, sourceType: unknown, trackType: unknown)
   return !hiddenChild(node, sourceType, trackType);
 }
 
+/** Words to show when an embed cannot load. Undefined keeps the embed element. */
+export function embedReplacement(src: unknown, children: unknown, alt: unknown): unknown {
+  if (playableAddress(src)) {
+    return undefined;
+  }
+  if (showMediaFallback(src, children)) {
+    return children;
+  }
+  if (typeof alt === 'string' && alt.trim().length > 0) {
+    return alt;
+  }
+  return undefined;
+}
+
 /** True when the player cannot load a clip and the words inside it should be shown. */
 export function showMediaFallback(
   src: unknown,

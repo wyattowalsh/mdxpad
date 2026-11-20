@@ -13,7 +13,7 @@ import type {
   VideoHTMLAttributes,
 } from 'react';
 
-import { showMediaFallback } from '../media-playback';
+import { embedReplacement, showMediaFallback } from '../media-playback';
 import { isBlockedPreviewResource, safePreviewSrcSet } from '../preview-href';
 
 function safeMediaUrl(value: unknown): string | undefined {
@@ -119,18 +119,31 @@ export function ObjectFrame({
   );
 }
 
+type EmbedProps = EmbedHTMLAttributes<HTMLEmbedElement> & {
+  readonly alt?: string;
+};
+
 export function Embed({
   src,
+  alt,
   className = '',
+  children,
   ...props
-}: EmbedHTMLAttributes<HTMLEmbedElement>): JSX.Element {
+}: EmbedProps): JSX.Element {
+  const replacement = embedReplacement(src, children, alt);
+  if (replacement !== undefined) {
+    return <>{replacement}</>;
+  }
   const safeSrc = safeMediaUrl(src);
   return (
     <embed
       {...props}
       {...(safeSrc ? { src: safeSrc } : {})}
+      {...(typeof alt === 'string' ? { alt } : {})}
       className={`mdx-embed ${className}`.trim()}
-    />
+    >
+      {children}
+    </embed>
   );
 }
 

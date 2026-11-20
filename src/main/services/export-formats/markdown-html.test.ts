@@ -34,6 +34,13 @@ describe('sanitizeMarkdownHtmlBlocks', () => {
     expect(sanitizeMarkdownHtmlBlocks('<video poster="/etc/passwd.png"></video>')).toBe(
       '<video></video>'
     );
+    expect(sanitizeMarkdownHtmlBlocks('<embed src="file:///tmp/a.swf" alt="Watch the clip">')).toBe(
+      'Watch the clip'
+    );
+    expect(
+      sanitizeMarkdownHtmlBlocks('<embed src="https://example.com/a.swf">Watch the clip</embed>')
+    ).toBe('Watch the clip');
+    expect(sanitizeMarkdownHtmlBlocks('<embed src="file:///tmp/a.swf"></embed>')).toBe('');
     expect(sanitizeMarkdownHtmlBlocks('```\n<img src="file:///etc/passwd">\n```')).toContain(
       'file:///etc/passwd'
     );

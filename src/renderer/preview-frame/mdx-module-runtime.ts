@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { BuiltInComponents } from './components';
-import { showMediaFallback } from './media-playback';
+import { embedReplacement, showMediaFallback } from './media-playback';
 import { confinePreviewElement } from './preview-href';
 
 interface MDXComponentProps {
@@ -85,7 +85,7 @@ function createModuleFromCodeWithFunction(code: string): MDXModule {
   return moduleFactory(previewJsxRuntime, BuiltInComponents) as MDXModule;
 }
 
-const DROPPED_PREVIEW_TAGS = new Set(['script', 'iframe', 'object', 'embed', 'frame', 'frameset']);
+const DROPPED_PREVIEW_TAGS = new Set(['script', 'iframe', 'object', 'frame', 'frameset']);
 
 function droppedPreviewTag(type: React.ElementType): boolean {
   return typeof type === 'string' && DROPPED_PREVIEW_TAGS.has(type.toLowerCase());
@@ -125,14 +125,33 @@ function fallbackChildren(type: React.ElementType, props: unknown): React.ReactN
   return (props as { children?: React.ReactNode }).children;
 }
 
+function embedNode(type: React.ElementType, props: unknown): React.ReactNode | undefined {
+  if (elementName(type) !== 'embed' || props === null || typeof props !== 'object') {
+    return undefined;
+  }
+  const record = props as {
+    readonly src?: unknown;
+    readonly children?: unknown;
+    readonly alt?: unknown;
+  };
+  const replacement = embedReplacement(record.src, record.children, record.alt);
+  return replacement === undefined ? undefined : (replacement as React.ReactNode);
+}
+
 function confinedJsx(
   jsx: typeof jsxRuntime.jsx,
   type: React.ElementType,
   props: unknown,
   key?: React.Key
 ): React.ReactElement {
-  if (droppedPreviewTag(type) || elementName(type) === 'canvas' || blockedMedia(type, props)) {
-    const children = fallbackChildren(type, props);
+  const embed = embedNode(type, props);
+  const replaced =
+    embed !== undefined ||
+    droppedPreviewTag(type) ||
+    elementName(type) === 'canvas' ||
+    blockedMedia(type, props);
+  if (replaced) {
+    const children = embed !== undefined ? embed : fallbackChildren(type, props);
     const fragmentProps = children === undefined ? {} : { children };
     return key === undefined
       ? jsx(jsxRuntime.Fragment, fragmentProps)

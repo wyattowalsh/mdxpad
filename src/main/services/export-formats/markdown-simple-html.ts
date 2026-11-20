@@ -1065,6 +1065,10 @@ function renderChoices(inner: string): string[] {
         choices.push(markedChoice(label, /\bselected\b/i.test(openTag)));
       }
     } else if (element.name === 'optgroup') {
+      const label = attribute(openTagBefore(source, element.innerStart), 'label').trim();
+      if (label.length > 0) {
+        choices.push(label);
+      }
       choices.push(...renderChoices(source.slice(element.innerStart, element.innerEnd)));
     }
     index = element.end;
@@ -1084,6 +1088,14 @@ function renderGauge(value: string, element: HtmlElement, inner: string): string
     return '';
   }
   return element.name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+}
+
+function renderTextarea(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner);
+  if (text.length > 0) {
+    return text;
+  }
+  return attribute(openTagBefore(value, element.innerStart), 'placeholder').trim();
 }
 
 function renderButton(value: string, element: HtmlElement, inner: string): string {
@@ -1163,6 +1175,7 @@ function renderEmbedded(element: HtmlElement, value: string, inner: string): str
 function renderForm(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
     case 'textarea':
+      return renderTextarea(value, element, inner);
     case 'output':
     case 'label':
       return convertHtml(inner);

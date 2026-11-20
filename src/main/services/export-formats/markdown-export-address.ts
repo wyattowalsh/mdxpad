@@ -38,7 +38,7 @@ const DROPPED_TAGS = new Set([
   'frameset',
   'meta',
 ]);
-const FALLBACK_TAGS = new Set(['iframe', 'object']);
+const FALLBACK_TAGS = new Set(['iframe', 'object', 'embed']);
 
 function withoutHiddenBreaks(value: string): string {
   let result = '';
@@ -228,7 +228,11 @@ function sanitizeStyleSheet(css: string): string {
   return sanitizeStyleValue(withoutImport);
 }
 
-export function styleBlock(html: string, start: number, end: number): { text: string; next: number } {
+export function styleBlock(
+  html: string,
+  start: number,
+  end: number
+): { text: string; next: number } {
   const open = sanitizeExportedTag(html.slice(start, end));
   const close = /<\/style\s*>/i.exec(html.slice(end));
   if (!close) {
@@ -353,7 +357,20 @@ export function htmlTagEnd(html: string, index: number): number {
   return -1;
 }
 
-/** A dropped element, keeping the fallback text of an iframe or object. */
+function embedAlt(tag: string): string {
+  const match = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i.exec(tag);
+  return (match?.[1] ?? match?.[2] ?? match?.[3] ?? '').trim();
+}
+
+function droppedFallback(tag: string, name: string, inner: string): string {
+  const text = FALLBACK_TAGS.has(name) ? sanitizeExportedHtml(inner) : '';
+  if (text.trim().length > 0) {
+    return text;
+  }
+  return name === 'embed' ? embedAlt(tag) : '';
+}
+
+/** A dropped element, keeping the fallback text of a frame or embed. */
 export function readDroppedElement(
   html: string,
   start: number,
@@ -366,11 +383,13 @@ export function readDroppedElement(
   }
   const close = new RegExp(`</${name}\\s*>`, 'i').exec(html.slice(openEnd));
   if (!close) {
-    return { text: '', next: openEnd };
+    return { text: droppedFallback(tag, name, ''), next: openEnd };
   }
   const innerEnd = openEnd + close.index;
-  const text = FALLBACK_TAGS.has(name) ? sanitizeExportedHtml(html.slice(openEnd, innerEnd)) : '';
-  return { text, next: innerEnd + close[0].length };
+  return {
+    text: droppedFallback(tag, name, html.slice(openEnd, innerEnd)),
+    next: innerEnd + close[0].length,
+  };
 }
 
 /** The index after a script, frame, or other dropped element, including its body. */

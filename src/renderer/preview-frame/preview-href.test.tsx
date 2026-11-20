@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { Audio, Source, Video } from './components/preview-media';
+import { Audio, Embed, Source, Video } from './components/preview-media';
 import { Area, Base, Form, Link } from './components/preview-navigation';
 import { A, Img } from './components/typography';
 import { confinePreviewElement, confinePreviewProps, isBlockedPreviewHref } from './preview-href';
@@ -401,6 +401,18 @@ describe('preview video', () => {
     const audio = render(<Audio src="file:///etc/passwd">Hear the clip</Audio>);
     expect(audio.container.querySelector('audio')).toBeNull();
     expect(audio.container.textContent).toContain('Hear the clip');
+    audio.unmount();
+
+    const embed = render(<Embed src="file:///tmp/a.swf" alt="Watch the clip" />);
+    expect(embed.container.querySelector('embed')).toBeNull();
+    expect(embed.container.textContent).toContain('Watch the clip');
+    expect(embed.container.innerHTML).not.toContain('file:');
+    embed.unmount();
+
+    const playableEmbed = render(<Embed src="https://example.com/a.swf" />);
+    expect(playableEmbed.container.querySelector('embed')?.getAttribute('src')).toBe(
+      'https://example.com/a.swf'
+    );
   });
 });
 

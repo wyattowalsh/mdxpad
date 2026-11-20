@@ -220,6 +220,12 @@ describe('rewriteSimpleHtml', () => {
   it('shows text typed into a form control', () => {
     expect(rewriteSimpleHtml('Name <input type="text" value="Ada">')).toBe('Name Ada');
     expect(rewriteSimpleHtml('<textarea>Hello</textarea>').trim()).toBe('Hello');
+    expect(rewriteSimpleHtml('<textarea placeholder="Notes"></textarea>').trim()).toBe('Notes');
+    expect(
+      rewriteSimpleHtml(
+        '<select><optgroup label="Warm"><option>Red</option></optgroup></select>'
+      ).trim()
+    ).toBe('Warm, Red');
     expect(
       rewriteSimpleHtml(
         '<select><option>Red</option><option selected>Blue</option></select>'
