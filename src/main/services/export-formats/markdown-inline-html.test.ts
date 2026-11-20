@@ -205,6 +205,16 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('$x');
   });
 
+  it('keeps a quoted formula inside its list item', () => {
+    const html = markdownToPdfHtml('- item\n\n  > quote $$\n  > x^2\n  > $$\n  > more\n');
+    const item = html.slice(html.indexOf('<li>'), html.lastIndexOf('</li>'));
+    expect(item).toContain('<blockquote>');
+    expect(item).toContain('quote');
+    expect(item).toContain('annotation encoding="application/x-tex">x^2</annotation>');
+    expect(item).toContain('more');
+    expect(item).not.toContain('&gt; x');
+  });
+
   it('keeps a later formula inside its list item', () => {
     const html = markdownToPdfHtml('- item\n\n  Text $$\n  x^2\n  $$\n  more\n');
     const item = html.slice(html.indexOf('<li>'), html.lastIndexOf('</li>'));

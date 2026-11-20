@@ -1292,6 +1292,26 @@ function takeDocxItemCode(parse: DocxParse, line: string): boolean {
   return true;
 }
 
+function writeDocxFormulaLead(parse: DocxParse, lead: string): void {
+  const item = parse.openListItem;
+  if (!item) {
+    return;
+  }
+  if (parse.listBreak) {
+    parse.blocks.push(
+      new Paragraph({
+        indent: { left: 720 * (item.level + 1) },
+        children: createParagraphChildren(lead),
+      })
+    );
+    return;
+  }
+  const shown = { ...item, text: `${item.text} ${lead}`.trim() };
+  parse.openListItem = shown;
+  parse.blocks.pop();
+  parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
+}
+
 function takeDocxItemMath(parse: DocxParse, line: string): boolean {
   if (parse.itemFence || parse.itemQuote || parse.itemTable) {
     return false;
@@ -1316,25 +1336,15 @@ function takeDocxItemMath(parse: DocxParse, line: string): boolean {
     return false;
   }
   const opened = dedentToColumn(line, column);
+  if (quoteBody(opened) !== null) {
+    return false;
+  }
   const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
   if (lead === null) {
     return false;
   }
   if (lead.length > 0) {
-    const item = parse.openListItem;
-    if (parse.listBreak) {
-      parse.blocks.push(
-        new Paragraph({
-          indent: { left: 720 * (item.level + 1) },
-          children: createParagraphChildren(lead),
-        })
-      );
-    } else {
-      const shown = { ...item, text: `${item.text} ${lead}`.trim() };
-      parse.openListItem = shown;
-      parse.blocks.pop();
-      parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
-    }
+    writeDocxFormulaLead(parse, lead);
   }
   parse.itemMath = [];
   parse.listBreak = false;
@@ -1420,8 +1430,8 @@ function takeDisplayLine(
   displayLines: string[] | null
 ): string[] | null | false {
   const trimmed = line.trim();
-  const prefix =
-    quoteBody(line) === null && parseListItem(line) === null ? displayMathPrefix(line) : null;
+  const quoted = quoteBody(line) !== null || quoteBody(line.trimStart()) !== null;
+  const prefix = !quoted && parseListItem(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && displayLines === null) {
     paragraphs.push(new Paragraph({ children: createParagraphChildren(prefix) }));
     return [];

@@ -589,6 +589,9 @@ export function takeListItemMath(
     return false;
   }
   const opened = dedentToColumn(line, column);
+  if (quoteBody(opened) !== null) {
+    return false;
+  }
   const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
   if (lead === null) {
     return false;

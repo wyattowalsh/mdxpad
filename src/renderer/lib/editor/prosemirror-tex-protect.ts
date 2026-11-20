@@ -139,6 +139,9 @@ function columnWidth(value: string): number {
 function continuationWidth(value: string, index: number): number {
   const start = value.lastIndexOf('\n', index - 1) + 1;
   const prefix = value.slice(start, index);
+  if (/^[ \t]{0,3}>/.test(prefix)) {
+    return 0;
+  }
   const marker = /^(?:[ \t]*)(?:[-+*]|\d{1,9}[.)])[ \t]+/.exec(prefix);
   if (marker?.[0]) {
     return columnWidth(marker[0]);
@@ -192,7 +195,10 @@ function shieldMathBreaks(value: string, indent: number): string {
     return value.replaceAll('\n', `\n${MATH_LINE}`);
   }
   const space = indent > 0 ? `(?: {${indent}})?` : '';
-  return value.replaceAll(new RegExp(`\\n(?:>[ \\t]?)*${space}`, 'g'), (match) => `${match}${MATH_LINE}`);
+  return value.replaceAll(
+    new RegExp(`\\n[ \\t]*(?:>[ \\t]?)*${space}`, 'g'),
+    (match) => `${match}${MATH_LINE}`
+  );
 }
 
 function shieldMathPiece(value: string, shieldLines: boolean, indent: number): string {

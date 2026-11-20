@@ -1196,6 +1196,9 @@ function takeLatexItemMath(build: LatexBuild, line: string): boolean {
     return false;
   }
   const opened = dedentToColumn(line, column);
+  if (quoteBody(opened) !== null) {
+    return false;
+  }
   const lead = opened.trim() === '$$' ? '' : displayMathPrefix(opened);
   if (lead === null) {
     return false;
@@ -1418,8 +1421,8 @@ function takeLatexDisplay(build: LatexBuild, line: string): boolean {
   if (takeOpenedDisplay(build, line)) {
     return true;
   }
-  const prefix =
-    quoteBody(line) === null && parseListItem(line) === null ? displayMathPrefix(line) : null;
+  const quoted = quoteBody(line) !== null || quoteBody(line.trimStart()) !== null;
+  const prefix = !quoted && parseListItem(line) === null ? displayMathPrefix(line) : null;
   if (prefix !== null && !build.inDisplayMath) {
     build.prose.push(readSourceLine(prefix));
     openDisplayMath(build);
