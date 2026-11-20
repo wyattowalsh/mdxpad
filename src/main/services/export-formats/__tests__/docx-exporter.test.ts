@@ -1487,6 +1487,30 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;kbd');
   });
 
+  it('keeps each item of a list inside a table cell', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<table><tr><td><ul><li>One</li><li>Two</li></ul></td><td>B</td></tr></table>\n',
+      outputPath: '/tmp/html-cell-list.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    const cells = xml.split('<w:tc');
+    const listCell = cells.find((cell) => cell.includes('One') && cell.includes('Two'));
+    expect(listCell).toContain('<w:br');
+    expect(xml).toContain('>B<');
+    expect(xml).not.toContain('&lt;ul');
+    expect(xml).not.toContain('&lt;li');
+  });
+
   it('keeps the words of a table nested in a cell', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

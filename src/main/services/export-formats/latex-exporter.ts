@@ -239,6 +239,15 @@ function convertInlineFormatting(raw: string): string {
   return restoreMath(formatInline(protectedMath.text), protectedMath.slots);
 }
 
+function latexTableCell(raw: string): string {
+  const parts = raw.split(htmlBreakPattern());
+  if (parts.length < 2) {
+    return convertInlineFormatting(raw);
+  }
+  const lines = parts.map((part) => convertInlineFormatting(part));
+  return `\\shortstack[l]{${lines.join('\\\\ ')}}`;
+}
+
 function latexFilename(src: string): string {
   let value = src;
   try {
@@ -1192,7 +1201,7 @@ function flushLatexTable(output: string[], tableLines: string[]): void {
     }
     return;
   }
-  output.push(markdownTableToLatex(table, convertInlineFormatting));
+  output.push(markdownTableToLatex(table, latexTableCell));
 }
 
 function flushLatexQuote(
@@ -1353,7 +1362,7 @@ function takeLatexItemTable(build: LatexBuild, line: string): boolean {
     list.itemTable = null;
     const table = parseMarkdownTable(rows);
     build.output.push(
-      table ? markdownTableToLatex(table, convertInlineFormatting) : rows.join('\n')
+      table ? markdownTableToLatex(table, latexTableCell) : rows.join('\n')
     );
     list.sealed = true;
     return false;
@@ -1738,7 +1747,7 @@ function contentToLatex(content: string): string {
     const table = parseMarkdownTable(build.listState.itemTable);
     build.output.push(
       table
-        ? markdownTableToLatex(table, convertInlineFormatting)
+        ? markdownTableToLatex(table, latexTableCell)
         : build.listState.itemTable.join('\n')
     );
   }

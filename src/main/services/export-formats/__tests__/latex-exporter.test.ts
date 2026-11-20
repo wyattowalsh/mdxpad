@@ -1399,6 +1399,19 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('<caption>');
   });
 
+  it('keeps each item of a list inside a table cell', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<table><tr><td><ul><li>One</li><li>Two</li></ul></td><td>B</td></tr></table>\n',
+      outputPath: '/tmp/html-cell-list.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\shortstack[l]{- One\\\\ - Two}');
+    expect(written).toContain('& B');
+    expect(written).not.toContain('<ul>');
+    expect(written).not.toContain('<li>');
+  });
+
   it('formats an HTML table', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

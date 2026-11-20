@@ -241,6 +241,11 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml(html).trim()).toBe('Prices\n\n| A |\n| --- |');
   });
 
+  it('keeps each item of a list inside a table cell', () => {
+    const html = '<table><tr><td><ul><li>One</li><li>Two</li></ul></td><td>B</td></tr></table>';
+    expect(rewriteSimpleHtml(html).trim()).toBe('| - One<br>- Two | B |\n| --- | --- |');
+  });
+
   it('keeps the words of a table nested in a cell', () => {
     const html =
       '<table><tr><td>Out<table><tr><td>In</td></tr></table></td><td>Side</td></tr></table>';

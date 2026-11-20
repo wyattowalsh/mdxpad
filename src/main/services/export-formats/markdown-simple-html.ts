@@ -630,10 +630,30 @@ function flattenNestedTables(text: string): string {
     .join('\n');
 }
 
+function listLine(line: string): boolean {
+  return /^(?:[-*+]|\d+[.)])\s+\S/.test(line.trim());
+}
+
+function listCellBreaks(text: string): string {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length < 2 || !lines.every(listLine)) {
+    return text;
+  }
+  return lines.join('<br>');
+}
+
 function cellText(inner: string): string {
-  return flattenNestedTables(convertHtml(inner))
-    .replace(htmlBreakPattern(), ' ')
-    .replace(/\s+/g, ' ')
+  const text = listCellBreaks(
+    flattenNestedTables(convertHtml(inner)).replace(htmlBreakPattern(), ' ')
+  );
+  return text
+    .split('<br>')
+    .map((part) => part.replace(/\s+/g, ' ').trim())
+    .filter((part) => part.length > 0)
+    .join('<br>')
     .replaceAll('|', '\\|')
     .trim();
 }
