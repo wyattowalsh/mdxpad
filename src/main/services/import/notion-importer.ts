@@ -304,6 +304,19 @@ async function fetchNotionBlocks(blockId: string, apiKey: string): Promise<Notio
   return blocks;
 }
 
+function syncedSourceId(block: NotionBlock): string {
+  const synced = block.synced_block as { synced_from?: { block_id?: unknown } } | undefined;
+  const source = synced?.synced_from?.block_id;
+  return typeof source === 'string' ? source : '';
+}
+
+function childSourceId(block: NotionBlock, id: string): string {
+  if (block.has_children === true && id.length > 0) {
+    return id;
+  }
+  return block.type === 'synced_block' ? syncedSourceId(block) : '';
+}
+
 async function blocksToMarkdown(
   blocks: readonly NotionBlock[],
   apiKey: string,
@@ -327,8 +340,8 @@ async function blocksToMarkdown(
         own = `${title}\n`;
       }
     }
-    const children =
-      block.has_children === true && id.length > 0 ? await fetchNotionBlocks(id, apiKey) : [];
+    const childId = childSourceId(block, id);
+    const children = childId.length > 0 ? await fetchNotionBlocks(childId, apiKey) : [];
     const nested =
       children.length > 0 ? await blocksToMarkdown(children, apiKey, seen, warnings) : '';
     const combined = combineBlock(block.type, own, nested);

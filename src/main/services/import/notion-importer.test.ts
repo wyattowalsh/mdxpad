@@ -212,6 +212,45 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: equation');
   });
 
+  it('keeps the note inside a synced block', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/source1/')) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'shared-1',
+                type: 'paragraph',
+                paragraph: { rich_text: [{ plain_text: 'Shared note', annotations: {} }] },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (urlStr.includes('/blocks/')) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'copy-1',
+                type: 'synced_block',
+                has_children: false,
+                synced_block: { synced_from: { type: 'block_id', block_id: 'source1' } },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('Shared note');
+    expect(result.warnings).not.toContain('Unsupported block type: synced_block');
+  });
+
   it('keeps the title of a linked page', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const urlStr = url instanceof Request ? url.url : url.toString();
