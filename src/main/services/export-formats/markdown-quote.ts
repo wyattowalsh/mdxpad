@@ -280,6 +280,11 @@ function listKeepsThematic(line: string, current: QuoteChunk | null): boolean {
   return spaces >= listIndent(current.lines);
 }
 
+function emptyListMarker(line: string): boolean {
+  const item = parseListItem(line);
+  return item !== null && item.text.length === 0;
+}
+
 function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['kind'] | null {
   if (indentedUnderList(line, current)) {
     return 'list';
@@ -294,6 +299,9 @@ function quoteLineKind(line: string, current: QuoteChunk | null): QuoteChunk['ki
     return 'paragraph';
   }
   if (parseListItem(line) !== null) {
+    if (emptyListMarker(line) && current?.kind === 'paragraph') {
+      return 'paragraph';
+    }
     return 'list';
   }
   if (current?.kind === 'list') {
@@ -470,6 +478,23 @@ export function quoteChunks(lines: readonly string[]): QuoteChunk[] {
   return mergeOpenQuoteMath(chunks);
 }
 
+function keepEmptyMarker(
+  groups: { body: SourceLine[] }[],
+  line: string
+): boolean {
+  if (!emptyListMarker(line)) {
+    return false;
+  }
+  const previous = groups[groups.length - 1];
+  const last = previous?.body[previous.body.length - 1];
+  if (!previous || !last || last.text.trim().length === 0) {
+    return false;
+  }
+  const source = readSourceLine(line);
+  previous.body.push({ text: line, hardBreak: source.hardBreak });
+  return true;
+}
+
 function groupQuoteItems(lines: readonly string[]): {
   item: MarkdownListItem;
   column: number;
@@ -489,6 +514,9 @@ function groupQuoteItems(lines: readonly string[]): {
       const column = listContentColumn(line) ?? 2;
       groups.push({ item: { ...item, text: '' }, column, body: [] });
       pending.unshift(`${' '.repeat(column)}${item.text}`);
+      continue;
+    }
+    if (keepEmptyMarker(groups, line)) {
       continue;
     }
     if (item) {

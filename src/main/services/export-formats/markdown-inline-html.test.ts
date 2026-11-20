@@ -771,6 +771,11 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('- one\n  *\n')).toContain('one *');
     expect(markdownToPdfHtml('- one\n  *\n')).not.toContain('<ul class="star">');
     expect(markdownToPdfHtml('- one\n  * nested\n')).toContain('<ul class="star">');
+    expect(markdownToPdfHtml('> quote\n> *\n')).toContain('quote *');
+    expect(markdownToPdfHtml('> quote\n> *\n')).not.toContain('<ul class="star">');
+    expect(markdownToPdfHtml('> - one\n>   *\n')).toContain('one *');
+    expect(markdownToPdfHtml('> - one\n>   *\n')).not.toContain('<ul class="star">');
+    expect(markdownToPdfHtml('> - one\n>   * nested\n')).toContain('<ul class="star">');
     expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(
       '<p><a href="https://example.com">https://example.com</a></p>'
     );
