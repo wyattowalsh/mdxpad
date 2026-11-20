@@ -270,6 +270,29 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('renders a thematic break inside a quote', () => {
+    const tight = markdownToPdfHtml('> quote\n> ***\n> after\n');
+    const quote = tight.slice(tight.indexOf('<blockquote>'), tight.lastIndexOf('</blockquote>'));
+    expect(quote).toContain('<p>quote</p>');
+    expect(quote).toContain('<hr />');
+    expect(quote).toContain('<p>after</p>');
+    expect(quote).not.toContain('***');
+    const alone = markdownToPdfHtml('> ***\n');
+    expect(alone).toContain('<hr />');
+    expect(alone).not.toContain('***');
+    const spaced = markdownToPdfHtml('> quote\n>\n> ---\n>\n> after\n');
+    expect(spaced).toContain('<hr />');
+    expect(spaced).not.toContain('---');
+    expect(spaced.indexOf('<p>quote</p>')).toBeLessThan(spaced.indexOf('<hr />'));
+    const heading = markdownToPdfHtml('> quote\n> ---\n> after\n');
+    expect(heading).toContain('<h2 id="quote">quote</h2>');
+    expect(heading).not.toContain('<hr />');
+    const listed = markdownToPdfHtml('> - item\n>   ***\n>   after\n');
+    expect(listed.indexOf('<hr />')).toBeLessThan(listed.indexOf('</ul>'));
+    expect(listed).toContain('after');
+    expect(listed).not.toContain('***');
+  });
+
   it('keeps a heading inside the list item', () => {
     const html = markdownToPdfHtml('- item\n\n  # Title\n\n  body\n');
     expect(html).toContain('<h1');

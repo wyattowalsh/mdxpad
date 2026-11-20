@@ -72,6 +72,7 @@ import {
   quoteFenceOpen,
   quoteHoldsDelimiter,
   quoteChunks,
+  plainQuoteLine,
   quoteMarkerLine,
   quoteParagraphPieces,
   quotedUnderlineLevel,
@@ -777,7 +778,12 @@ function continueDocxQuoteItem(
   hard: boolean
 ): MarkdownListItem {
   const source = readSourceLine(line);
-  const text = hard ? `${current.text}\n${source.text}` : `${current.text} ${source.text}`;
+  let text = `${current.text} ${source.text}`;
+  if (current.text.length === 0) {
+    text = source.text.trim();
+  } else if (hard) {
+    text = `${current.text}\n${source.text}`;
+  }
   return { level: current.level, ordered: current.ordered, start: current.start, text };
 }
 
@@ -942,6 +948,11 @@ function takeDocxQuotedContinuation(
     blocks.push(bookmarkedHeading(underline, current.text, new Map()));
     return { current: null, index };
   }
+  if (listThematicBreak(plainQuoteLine(line), column)) {
+    blocks.push(listParagraph(current, depth, reference));
+    blocks.push(docxRuleParagraph());
+    return { current: { ...current, text: '' }, index };
+  }
   return null;
 }
 
@@ -1064,6 +1075,10 @@ function appendDocxQuoteParagraph(
   for (const piece of quoteParagraphPieces(lines)) {
     if (piece.kind === 'math') {
       pushDisplayMath(blocks, piece.lines);
+      continue;
+    }
+    if (piece.kind === 'rule') {
+      blocks.push(docxRuleParagraph());
       continue;
     }
     if (piece.kind === 'heading') {

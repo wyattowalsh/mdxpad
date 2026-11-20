@@ -37,6 +37,11 @@ import { splitTaskItem, taskItemLatex } from './markdown-task';
 const QUOTE_LINE = /^\s{0,3}>\s?(.*)$/;
 const QUOTED_SETEXT = '\uE019';
 
+/** Drop the marker that keeps a setext underline distinct while a quote is collected. */
+export function plainQuoteLine(line: string): string {
+  return line.startsWith(QUOTED_SETEXT) ? line.slice(QUOTED_SETEXT.length) : line;
+}
+
 /** Keep a quoted setext underline distinct from a lazy paragraph line. */
 export function quoteMarkerLine(body: string): string {
   return setextLevel(body) === null ? body : `${QUOTED_SETEXT}${body}`;
@@ -660,9 +665,13 @@ function readQuotedItemLine(
       pieces.push(heading);
       return { prose: [], next: index + 1 };
     }
+    const rule = takeQuotedItemRule(pieces, prose, line, column, index);
+    if (rule) {
+      return rule;
+    }
     const source = body[index] ?? { text: line, hardBreak: false };
     return {
-      prose: [...prose, { text: source.text.trim(), hardBreak: source.hardBreak }],
+      prose: [...prose, { text: plainQuoteLine(source.text).trim(), hardBreak: source.hardBreak }],
       next: index + 1,
     };
   }
@@ -885,7 +894,31 @@ type QuoteHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 type QuoteParagraphPiece =
   | { readonly kind: 'heading'; readonly level: QuoteHeadingLevel; readonly text: string }
   | { readonly kind: 'paragraph'; readonly lines: string[] }
-  | { readonly kind: 'math'; readonly lines: string[] };
+  | { readonly kind: 'math'; readonly lines: string[] }
+  | { readonly kind: 'rule' };
+
+function quotedListRule(line: string, column: number): boolean {
+  const plain = plainQuoteLine(line).replaceAll('\t', '    ');
+  const spaces = /^ */.exec(plain)?.[0].length ?? 0;
+  return spaces >= column && spaces <= column + 3 && isThematicBreak(plain);
+}
+
+function takeQuotedItemRule(
+  pieces: QuoteItemPiece[],
+  prose: SourceLine[],
+  line: string,
+  column: number,
+  index: number
+): { prose: SourceLine[]; next: number } | null {
+  if (!quotedListRule(line, column)) {
+    return null;
+  }
+  if (prose.length > 0) {
+    pieces.push({ kind: 'prose', lines: prose });
+  }
+  pieces.push({ kind: 'rule' });
+  return { prose: [], next: index + 1 };
+}
 
 const QUOTE_HEADING_COMMANDS = [
   'section',
@@ -944,18 +977,34 @@ function readQuoteParagraphLine(
     pieces.push({ kind: 'heading', level: atx.depth, text: atx.text });
     return { paragraph: [], math: null };
   }
+  return appendQuoteParagraphText(pieces, paragraph, line);
+}
+
+function appendQuoteParagraphText(
+  pieces: QuoteParagraphPiece[],
+  paragraph: string[],
+  line: string
+): { paragraph: string[]; math: null } {
   const level = paragraph.length > 0 ? quotedSetextLevel(line) : null;
-  if (level === null) {
-    return { paragraph: [...paragraph, line], math: null };
+  if (level !== null) {
+    const text = paragraph
+      .map((item) => readSourceLine(item).text)
+      .filter((item) => item.length > 0)
+      .join(' ');
+    if (text.length > 0) {
+      pieces.push({ kind: 'heading', level, text });
+    }
+    return { paragraph: [], math: null };
   }
-  const text = paragraph
-    .map((item) => readSourceLine(item).text)
-    .filter((item) => item.length > 0)
-    .join(' ');
-  if (text.length > 0) {
-    pieces.push({ kind: 'heading', level, text });
+  if (quotedSetextLevel(line) !== 1 && isThematicBreak(plainQuoteLine(line))) {
+    const kept = paragraph.filter((item) => item.trim().length > 0);
+    if (kept.length > 0) {
+      pieces.push({ kind: 'paragraph', lines: kept });
+    }
+    pieces.push({ kind: 'rule' });
+    return { paragraph: [], math: null };
   }
-  return { paragraph: [], math: null };
+  return { paragraph: [...paragraph, plainQuoteLine(line)], math: null };
 }
 
 export function quoteParagraphPieces(lines: readonly string[]): QuoteParagraphPiece[] {
@@ -991,6 +1040,9 @@ function quoteParagraphHtml(
       if (piece.kind === 'heading') {
         return headingTag(piece.level, renderLine(piece.text), quoteHeadingSlug(piece.text, slugs));
       }
+      if (piece.kind === 'rule') {
+        return '<hr />';
+      }
       if (piece.kind === 'math') {
         return renderDisplayMathBlock(piece.lines);
       }
@@ -1011,6 +1063,9 @@ function quoteParagraphLatex(
     .map((piece) => {
       if (piece.kind === 'paragraph') {
         return joinQuoteLatex(piece.lines, renderLine);
+      }
+      if (piece.kind === 'rule') {
+        return '\\noindent\\rule{\\textwidth}{0.4pt}';
       }
       if (piece.kind === 'math') {
         return ['$$', disarmLatexFileRead(piece.lines.join('\n')), '$$'].join('\n');
