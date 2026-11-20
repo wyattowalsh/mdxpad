@@ -27,6 +27,31 @@ describe('DocxExporter', () => {
     vi.clearAllMocks();
   });
 
+  it('highlights and underlines HTML phrases', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <mark>hi</mark> and <u>there</u>.\n',
+      outputPath: '/tmp/phrase.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('w:highlight');
+    expect(xml).toContain('w:val="yellow"');
+    expect(xml).toContain('w:u ');
+    expect(xml).toContain('hi');
+    expect(xml).toContain('there');
+    expect(xml).not.toContain('&lt;mark');
+    expect(xml).not.toContain('&lt;u');
+  });
+
   it('does not insert an empty paragraph between quoted list items', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
@@ -458,6 +483,15 @@ describe('DocxExporter', () => {
   it('keeps snake_case as plain text and still emphasizes _words_', () => {
     expect(parseInlineFormatting('use snake_case_name here')).toEqual([
       { text: 'use snake_case_name here' },
+    ]);
+    expect(parseInlineFormatting('See <mark>hi</mark> now')).toEqual([
+      { text: 'See ' },
+      { text: 'hi', highlight: true },
+      { text: ' now' },
+    ]);
+    expect(parseInlineFormatting('<u>hi</u>')).toEqual([{ text: 'hi', underline: true }]);
+    expect(parseInlineFormatting('`<mark>hi</mark>`')).toEqual([
+      { text: '<mark>hi</mark>', code: true },
     ]);
     expect(parseInlineFormatting('~~gone~~')).toEqual([{ text: 'gone', strike: true }]);
     expect(parseInlineFormatting('~~`code`~~')).toEqual([

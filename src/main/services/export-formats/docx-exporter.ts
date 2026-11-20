@@ -80,6 +80,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, readCodeSpan, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
+import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
 import { findMarkdownTarget, linkDestination, linkTitle, readMarkdownTarget } from './markdown-link';
@@ -172,6 +173,8 @@ interface InlineSegment {
   image?: string;
   title?: string;
   strike?: boolean;
+  underline?: boolean;
+  highlight?: boolean;
   mathTex?: string;
 }
 
@@ -263,7 +266,43 @@ function parseCodeAndPlain(text: string): InlineSegment[] {
   return segments;
 }
 
+function phraseFlags(kind: PhraseTag['kind']): Pick<InlineSegment, 'highlight' | 'underline'> {
+  switch (kind) {
+    case 'mark':
+      return { highlight: true };
+    case 'underline':
+      return { underline: true };
+    default: {
+      const unexpected: never = kind;
+      return unexpected;
+    }
+  }
+}
+
+function parsePhraseTagged(text: string): InlineSegment[] | null {
+  const tag = nextPhraseTag(text, 0);
+  if (!tag) {
+    return null;
+  }
+  const segments: InlineSegment[] = [];
+  if (tag.start > 0) {
+    segments.push(...parseInlineFormatting(text.slice(0, tag.start)));
+  }
+  if (tag.inner.length > 0) {
+    const flags = phraseFlags(tag.kind);
+    segments.push(...parseInlineFormatting(tag.inner).map((segment) => ({ ...segment, ...flags })));
+  }
+  if (tag.end < text.length) {
+    segments.push(...parseInlineFormatting(text.slice(tag.end)));
+  }
+  return segments.length > 0 ? segments : [{ text: '' }];
+}
+
 export function parseInlineFormatting(text: string): InlineSegment[] {
+  const tagged = parsePhraseTagged(text);
+  if (tagged) {
+    return tagged;
+  }
   const struck = closeStrike(parseEmphasisText(text, {}));
   if (struck.length === 0) {
     return [{ text }];
@@ -455,6 +494,8 @@ function styledRun(segment: InlineSegment, text: string, style?: string): TextRu
     ...(segment.bold ? { bold: true } : {}),
     ...(segment.italic ? { italics: true } : {}),
     ...(segment.strike ? { strike: true } : {}),
+    ...(segment.underline ? { underline: {} } : {}),
+    ...(segment.highlight ? { highlight: 'yellow' } : {}),
     ...(segment.code ? { font: { name: 'Courier New' } } : {}),
   });
 }

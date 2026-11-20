@@ -20,6 +20,7 @@ import { renderableMathTex } from '@shared/lib/renderable-math';
 
 import { inlineLocalImages } from './export-image';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
+import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
 import { isThematicBreak } from './markdown-break';
@@ -412,7 +413,31 @@ function latexTarget(prefix: string, target: MarkdownTarget): string {
   return before + latexHref(target.label, target.destination);
 }
 
+function latexPhraseWrap(kind: PhraseTag['kind'], inner: string): string {
+  switch (kind) {
+    case 'underline':
+      return `\\uline{${inner}}`;
+    case 'mark':
+      return `\\colorbox{yellow}{${inner}}`;
+    default: {
+      const unexpected: never = kind;
+      return unexpected;
+    }
+  }
+}
+
+function latexPhrase(value: string, tag: PhraseTag): string {
+  const before = tag.start > 0 ? latexText(value.slice(0, tag.start)) : '';
+  const inner = latexText(tag.inner);
+  const after = tag.end < value.length ? latexText(value.slice(tag.end)) : '';
+  return `${before}${latexPhraseWrap(tag.kind, inner)}${after}`;
+}
+
 function latexText(value: string): string {
+  const tag = nextPhraseTag(value, 0);
+  if (tag) {
+    return latexPhrase(value, tag);
+  }
   return value
     .split(/<br\s*\/?>/gi)
     .map((part) => escapeLatex(decodeHtmlEntities(part)).replaceAll('\\textasciitilde{}', '~'))
@@ -1737,6 +1762,7 @@ function buildLatexDocument(content: string, options: ExportOptions): string {
     `\\documentclass[${fontSize}]{${documentClass}}`,
     '\\usepackage[utf8]{inputenc}',
     '\\usepackage[T1]{fontenc}',
+    '\\usepackage{xcolor}',
     '\\usepackage{hyperref}',
     '\\usepackage{amsmath}',
     '\\usepackage{amssymb}',

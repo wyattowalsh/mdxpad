@@ -780,6 +780,8 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('A\\\r\nB\r\n')).toContain('<br />');
     expect(markdownToPdfHtml('> quote\r\n> next\r\n')).toContain('<blockquote>');
     expect(markdownToPdfHtml('- [x] done\r\n')).toContain('checked');
+    expect(markdownToPdfHtml('See <mark>hi</mark> now\n')).toContain('<mark>hi</mark>');
+    expect(markdownToPdfHtml('See <u>there</u> now\n')).toContain('<u>there</u>');
     expect(markdownToPdfHtml('Say <em>hello</em> now\n')).toContain('<em>hello</em>');
     expect(markdownToPdfHtml('Say <strong>hello</strong> now\n')).toContain('<strong>hello</strong>');
     expect(markdownToPdfHtml('H<sub>2</sub>O\n')).toContain('H₂O');

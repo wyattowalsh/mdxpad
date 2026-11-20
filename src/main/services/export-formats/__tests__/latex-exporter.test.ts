@@ -964,6 +964,20 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\sout{world}');
   });
 
+  it('highlights and underlines HTML phrases', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <mark>hi</mark> and <u>there</u>.\n',
+      outputPath: '/tmp/phrase.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\usepackage{xcolor}');
+    expect(written).toContain('\\colorbox{yellow}{hi}');
+    expect(written).toContain('\\uline{there}');
+    expect(written).not.toContain('<mark>');
+    expect(written).not.toContain('<u>');
+  });
+
   it('strikes through deleted text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
