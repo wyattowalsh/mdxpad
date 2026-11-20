@@ -1183,6 +1183,28 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('hides an HTML comment and keeps the words around it', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See <!-- secret note --> this\n',
+      outputPath: '/tmp/html-comment.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('See');
+    expect(xml).toContain('this');
+    expect(xml).not.toContain('secret');
+    expect(xml).not.toContain('&lt;!--');
+  });
+
   it('shows a fallback when a frame cannot be embedded', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

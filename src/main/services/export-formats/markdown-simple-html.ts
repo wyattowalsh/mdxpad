@@ -1316,6 +1316,14 @@ function renderElement(element: HtmlElement, value: string): string {
   }
 }
 
+function htmlCommentEnd(value: string, index: number): number | null {
+  if (!value.startsWith('<!--', index)) {
+    return null;
+  }
+  const end = value.indexOf('-->', index + 4);
+  return end === -1 ? null : end + 3;
+}
+
 function convertHtml(value: string): string {
   let result = '';
   let index = 0;
@@ -1329,6 +1337,14 @@ function convertHtml(value: string): string {
       }
       result += '`';
       index += 1;
+      continue;
+    }
+    const commentEnd = value[index] === '<' ? htmlCommentEnd(value, index) : null;
+    if (commentEnd !== null) {
+      index = commentEnd;
+      if (result.endsWith(' ') && value[index] === ' ') {
+        index += 1;
+      }
       continue;
     }
     const element = value[index] === '<' ? readSimpleElement(value, index) : null;

@@ -56,6 +56,13 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('hides an HTML comment and keeps the words around it', () => {
+    expect(rewriteSimpleHtml('See <!-- secret note --> this')).toBe('See this');
+    expect(rewriteSimpleHtml('See <!-- forever this')).toBe('See <!-- forever this');
+    expect(rewriteSimpleHtml('`<!-- keep -->`')).toBe('`<!-- keep -->`');
+    expect(rewriteSimpleHtml('```\n<!-- keep -->\n```')).toBe('```\n<!-- keep -->\n```');
+  });
+
   it('shows a canvas fallback and joins a word break', () => {
     expect(rewriteSimpleHtml('<canvas>Chart of sales</canvas>').trim()).toBe('Chart of sales');
     expect(rewriteSimpleHtml('super<wbr>cali')).toBe('supercali');
