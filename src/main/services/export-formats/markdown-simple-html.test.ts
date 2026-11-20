@@ -205,6 +205,14 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml(html).trim()).toBe('Prices\n\n| A |\n| --- |');
   });
 
+  it('keeps the words of a table nested in a cell', () => {
+    const html =
+      '<table><tr><td>Out<table><tr><td>In</td></tr></table></td><td>Side</td></tr></table>';
+    expect(rewriteSimpleHtml(html).trim()).toBe('| Out In | Side |\n| --- | --- |');
+    const piped = '<table><tr><td><table><tr><td>A | B</td></tr></table></td></tr></table>';
+    expect(rewriteSimpleHtml(piped).trim()).toBe('| A \\| B |\n| --- |');
+  });
+
   it('keeps a cell beside a cell that spans rows', () => {
     const rowspan =
       '<table><tr><td rowspan="2">Tall</td><td>A</td></tr><tr><td>B</td></tr></table>';

@@ -561,8 +561,48 @@ function cellAlign(openTag: string): TableAlign {
   }
 }
 
+function splitUnescapedPipes(row: string): string[] {
+  const cells: string[] = [];
+  let current = '';
+  for (let index = 0; index < row.length; index += 1) {
+    const char = row[index] ?? '';
+    if (char === '\\' && row[index + 1] === '|') {
+      current += '|';
+      index += 1;
+      continue;
+    }
+    if (char === '|') {
+      cells.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function plainTableLine(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|') || !trimmed.endsWith('|') || trimmed.length < 2) {
+    return null;
+  }
+  const cells = splitUnescapedPipes(trimmed.slice(1, -1));
+  if (cells.every((cell) => /^:?-{3,}:?$/.test(cell))) {
+    return '';
+  }
+  return cells.filter((cell) => cell.length > 0 && !/^:?-{3,}:?$/.test(cell)).join(' ');
+}
+
+function flattenNestedTables(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => plainTableLine(line) ?? line)
+    .join('\n');
+}
+
 function cellText(inner: string): string {
-  return convertHtml(inner)
+  return flattenNestedTables(convertHtml(inner))
     .replace(htmlBreakPattern(), ' ')
     .replace(/\s+/g, ' ')
     .replaceAll('|', '\\|')

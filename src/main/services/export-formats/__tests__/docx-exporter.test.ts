@@ -1387,6 +1387,31 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;kbd');
   });
 
+  it('keeps the words of a table nested in a cell', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content:
+        '<table><tr><td>Out<table><tr><td>In</td></tr></table></td><td>Side</td></tr></table>\n',
+      outputPath: '/tmp/html-nested-table.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Out');
+    expect(xml).toContain('In');
+    expect(xml).toContain('Side');
+    expect(xml).not.toContain('\\|');
+    expect(xml).not.toContain('---');
+    expect(xml).not.toContain('&lt;table');
+  });
+
   it('keeps a cell beside a cell that spans rows', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
