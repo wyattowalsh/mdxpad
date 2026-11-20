@@ -294,12 +294,44 @@ function restoreFootnoteMarkers(node: ProseMirrorNode): ProseMirrorNode {
 }
 const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
 
+function unwrapDefinitionLine(line: string): string {
+  let rest = line;
+  while (/^ {0,3}> ?/.test(rest)) {
+    rest = rest.replace(/^ {0,3}> ?/, '');
+  }
+  const listed = /^(?:[*+-]|\d+[.)])[ \t]+(.*)$/.exec(rest);
+  return listed ? (listed[1] ?? '') : rest;
+}
+
+function appendOpenTitle(parts: string[], lines: readonly string[], cursor: number): number {
+  const line = unwrapDefinitionLine(lines[cursor] ?? '');
+  const opener = /^ {0,3}(["'])/.exec(line)?.[1];
+  if (!opener || lines[cursor] === undefined || TITLE_LINE.test(line)) {
+    return cursor;
+  }
+  const taken = [line.trimEnd()];
+  let index = cursor + 1;
+  while (index < lines.length && index < cursor + 6) {
+    const next = unwrapDefinitionLine(lines[index] ?? '').trimEnd();
+    taken.push(next);
+    index += 1;
+    if (next.endsWith(opener)) {
+      parts.push(...taken);
+      return index;
+    }
+  }
+  return cursor;
+}
+
 function appendTitle(parts: string[], lines: readonly string[], cursor: number): number {
   const current = parts[parts.length - 1] ?? '';
-  const title = lines[cursor];
-  if (title !== undefined && !DEFINITION_HAS_TITLE.test(current) && TITLE_LINE.test(title)) {
+  const title = unwrapDefinitionLine(lines[cursor] ?? '');
+  if (lines[cursor] !== undefined && !DEFINITION_HAS_TITLE.test(current) && TITLE_LINE.test(title)) {
     parts.push(title.trimEnd());
     return cursor + 1;
+  }
+  if (!DEFINITION_HAS_TITLE.test(current)) {
+    return appendOpenTitle(parts, lines, cursor);
   }
   return cursor;
 }
@@ -308,7 +340,7 @@ function continuedDefinition(
   lines: readonly string[],
   index: number
 ): { text: string; next: number } | null {
-  const line = lines[index] ?? '';
+  const line = unwrapDefinitionLine(lines[index] ?? '');
   const labelOnly = LABEL_ONLY.test(line);
   if (!labelOnly && !LINK_DEFINITION.test(line)) {
     return null;
@@ -316,8 +348,8 @@ function continuedDefinition(
   const parts = [line.trimEnd()];
   let cursor = index + 1;
   if (labelOnly) {
-    const destination = lines[cursor];
-    if (destination === undefined || FENCE_LINE.test(destination) || !DESTINATION_LINE.test(destination)) {
+    const destination = unwrapDefinitionLine(lines[cursor] ?? '');
+    if (lines[cursor] === undefined || FENCE_LINE.test(destination) || !DESTINATION_LINE.test(destination)) {
       return null;
     }
     parts.push(destination.trimEnd());

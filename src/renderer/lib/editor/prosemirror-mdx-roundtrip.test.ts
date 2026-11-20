@@ -273,6 +273,17 @@ describe('WYSIWYG markdown round trip', () => {
     expect(indented).toContain('    continued');
   });
 
+  it('keeps a link definition inside a quote or a list', () => {
+    const quoted = roundTrip('> [id]: https://example.com\n> note\n');
+    expect(quoted).toContain('[id]: https://example.com');
+    expect(quoted).toContain('note');
+    const listed = roundTrip('- [id]: https://example.com\n');
+    expect(listed).toContain('[id]: https://example.com');
+    const broken = roundTrip('[id]: https://example.com\n  "one\n  two"\n');
+    expect(broken).toContain('"one');
+    expect(broken).toContain('two"');
+  });
+
   it('keeps a link address that starts on the next line', () => {
     const saved = roundTrip('[id]:\nhttps://example.com\n');
     expect(saved).toContain('[id]:');
