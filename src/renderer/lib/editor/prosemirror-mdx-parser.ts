@@ -172,14 +172,14 @@ const MDX_TOKENS: Record<
   link: {
     mark: 'link',
     getAttrs: (tok: MarkdownToken) => ({
-      href: tok.attrGet('href') ?? '',
+      href: restoredAddress(tok.attrGet('href')),
       title: restoredTitle(tok.attrGet('title')),
     }),
   },
   image: {
     node: 'image',
     getAttrs: (tok: MarkdownToken) => ({
-      src: tok.attrGet('src') ?? '',
+      src: restoredAddress(tok.attrGet('src')),
       alt: imageAlt(tok),
       title: restoredTitle(tok.attrGet('title')),
     }),
@@ -219,6 +219,18 @@ function unescapeMarkdown(value: string): string {
 
 function restoredTitle(value: string | null): string | null {
   return value === null ? null : restoreTexDelimiters(restoreMathMarkup(value));
+}
+
+function restoredAddress(value: string | null): string {
+  if (value === null || value.length === 0) {
+    return '';
+  }
+  const decoded = value
+    .replaceAll(/%EE%80%93/gi, TEX_INLINE_OPEN)
+    .replaceAll(/%EE%80%94/gi, TEX_INLINE_CLOSE)
+    .replaceAll(/%EE%80%95/gi, TEX_DISPLAY_OPEN)
+    .replaceAll(/%EE%80%96/gi, TEX_DISPLAY_CLOSE);
+  return unescapeMarkdown(restoreTexDelimiters(restoreMathMarkup(decoded)));
 }
 
 function imageAlt(token: MarkdownToken): string {

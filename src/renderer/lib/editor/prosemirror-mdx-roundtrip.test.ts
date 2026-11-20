@@ -397,6 +397,10 @@ describe('WYSIWYG markdown round trip', () => {
     const reference = roundTrip('[link][id]\n\n[id]: https://example.com "see \\(x\\)"\n');
     expect(reference).toContain('\\(x\\)');
     expect(reference).not.toContain('\uE013');
+    const destination = roundTrip('See [a][id].\n\n[id]: https://example.com/a\\(b\\)\n');
+    expect(destination).toContain('https://example.com/a(b)');
+    expect(destination).not.toContain('\uE013');
+    expect(destination).not.toContain('\uE014');
     const priced = roundTrip('Price $5 and \\(x\\).\n');
     expect(priced).toContain('Price $5 and \\(x\\).');
     expect(priced).not.toContain('Price Price');
