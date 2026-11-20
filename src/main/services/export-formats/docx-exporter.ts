@@ -79,6 +79,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, readCodeSpan, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
+import { findHighlight } from './markdown-highlight';
 import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
@@ -305,7 +306,31 @@ function parsePhraseTagged(text: string): InlineSegment[] | null {
   return segments.length > 0 ? segments : [{ text: '' }];
 }
 
+function parseHighlighted(text: string): InlineSegment[] | null {
+  const found = findHighlight(text, 0);
+  if (!found) {
+    return null;
+  }
+  const segments: InlineSegment[] = [];
+  if (found.start > 0) {
+    segments.push(...parseInlineFormatting(text.slice(0, found.start)));
+  }
+  if (found.inner.length > 0) {
+    segments.push(
+      ...parseInlineFormatting(found.inner).map((segment) => ({ ...segment, highlight: true }))
+    );
+  }
+  if (found.end < text.length) {
+    segments.push(...parseInlineFormatting(text.slice(found.end)));
+  }
+  return segments.length > 0 ? segments : [{ text: '' }];
+}
+
 export function parseInlineFormatting(text: string): InlineSegment[] {
+  const highlighted = parseHighlighted(text);
+  if (highlighted) {
+    return highlighted;
+  }
   const tagged = parsePhraseTagged(text);
   if (tagged) {
     return tagged;

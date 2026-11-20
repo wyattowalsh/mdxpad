@@ -78,6 +78,27 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;time');
   });
 
+  it('highlights text wrapped in equals', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See ==hi== and a == b.\n',
+      outputPath: '/tmp/highlight.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('w:val="yellow"');
+    expect(xml).toContain('a == b');
+    expect(xml).not.toContain('==hi==');
+  });
+
   it('raises and lowers HTML scripts', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
@@ -559,6 +580,9 @@ describe('DocxExporter', () => {
     expect(parseInlineFormatting('use snake_case_name here')).toEqual([
       { text: 'use snake_case_name here' },
     ]);
+    expect(parseInlineFormatting('==hi==')).toEqual([{ text: 'hi', highlight: true }]);
+    expect(parseInlineFormatting('a == b')).toEqual([{ text: 'a == b' }]);
+    expect(parseInlineFormatting('`==hi==`')).toEqual([{ text: '==hi==', code: true }]);
     expect(parseInlineFormatting('See <mark>hi</mark> now')).toEqual([
       { text: 'See ' },
       { text: 'hi', highlight: true },

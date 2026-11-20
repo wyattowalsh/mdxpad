@@ -9,6 +9,7 @@ import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { renderEmphasis } from './markdown-emphasis';
+import { findHighlight } from './markdown-highlight';
 import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
 import {
   findMarkdownTarget,
@@ -368,8 +369,19 @@ function applyStrike(html: string): string {
   return result;
 }
 
+function applyHighlight(html: string): string {
+  const found = findHighlight(html, 0);
+  if (!found) {
+    return html;
+  }
+  const before = html.slice(0, found.start);
+  const inner = applyHighlight(found.inner);
+  const after = applyHighlight(html.slice(found.end));
+  return `${before}<mark>${inner}</mark>${after}`;
+}
+
 function renderRich(raw: string): string {
-  return applyStrike(renderEmphasis(raw, renderPlain));
+  return applyHighlight(applyStrike(renderEmphasis(raw, renderPlain)));
 }
 
 /** Escape text, then apply emphasis, code, and links. Underscores inside words stay plain. */
