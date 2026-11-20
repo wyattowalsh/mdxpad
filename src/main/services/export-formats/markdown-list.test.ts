@@ -82,6 +82,9 @@ describe('parseListItem', () => {
     expect(third && shouldOpenListItem(third, [], false, true)).toBe(false);
     const first = parseListItem('1. doors');
     expect(first && shouldOpenListItem(first, [], false, true)).toBe(true);
+    const empty = parseListItem('* ');
+    expect(empty && shouldOpenListItem(empty, [], false, true)).toBe(false);
+    expect(empty && shouldOpenListItem(empty, [], true, false)).toBe(true);
     const nested = parseListItem('  2. bar');
     expect(
       nested && shouldOpenListItem(nested, [{ level: 0, kind: 'ul', delimiter: '' }], false, false)

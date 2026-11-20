@@ -134,6 +134,9 @@ export function shouldOpenListItem(
   if (sameList) {
     return true;
   }
+  if (paragraphOpen && !separated && item.text.length === 0) {
+    return false;
+  }
   if (current && item.level > current.level) {
     return separated || !item.ordered || item.start === 1;
   }
