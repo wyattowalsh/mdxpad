@@ -18,7 +18,7 @@ import type {
 } from '@shared/types/preview-worker';
 import type { CompileError } from '@shared/types/preview';
 import { prepareMarkdownSource } from '@shared/lib/markdown-math';
-import { escapeNonMathDollars } from '@shared/lib/math-span';
+import { preparePreviewDollars } from '@shared/lib/preview-math-dollars';
 import type { OutlineAST } from '@shared/types/outline';
 import {
   createDefaultMdxPluginRegistry,
@@ -151,7 +151,7 @@ async function performCompilation(
 ): Promise<CompileResponse> {
   const vfile = new VFile({ value: source });
   matter(vfile, { strip: true });
-  vfile.value = escapeNonMathDollars(prepareMarkdownSource(String(vfile.value)));
+  vfile.value = preparePreviewDollars(prepareMarkdownSource(String(vfile.value)));
 
   const rawFrontmatter = (vfile.data.matter ?? {}) as Record<string, unknown>;
   const frontmatter = sanitizeFrontmatter(rawFrontmatter);

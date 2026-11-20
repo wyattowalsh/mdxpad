@@ -20,6 +20,69 @@ describe('remark math prices', () => {
     }
   });
 
+  it('renders the formula after a dollar sign in an email', async () => {
+    const result = await compileMdx(testId('email-formula'), 'Mail ada$b@example.com and $x^2$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('mailto:ada$b@example.com');
+      expect(result.code).toContain('application/x-tex",\n              children: "x^2"');
+      expect(result.code).not.toContain('mailto:b@example.com');
+    }
+  });
+
+  it('renders the formula after a dollar sign glued to a word', async () => {
+    const result = await compileMdx(testId('glued-formula'), 'Path C:$foo and $x^2$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('C:$foo');
+      expect(result.code).toContain('children: "x^2"');
+    }
+  });
+
+  it('renders the formula after a dollar sign inside parentheses', async () => {
+    const result = await compileMdx(testId('paren-formula'), 'See (notes $a) and $x^2$.');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('(notes $a)');
+      expect(result.code).toContain('children: "x^2"');
+    }
+  });
+
+  it('renders the formula after a dollar sign in a reference label', async () => {
+    const result = await compileMdx(
+      testId('ref-formula'),
+      'See [a$b] and $x^2$.\n\n[a$b]: https://example.com/guide\n'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('https://example.com/guide');
+      expect(result.code).toContain('a$b');
+      expect(result.code).toContain('children: "x^2"');
+    }
+  });
+
+  it('renders a formula inside a link label', async () => {
+    const result = await compileMdx(testId('label-formula'), '[size $n^2$](https://example.com)');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('href: "https://example.com"');
+      expect(result.code).toContain('children: "n^2"');
+    }
+  });
+
+  it('renders the formula after a dollar sign in a link', async () => {
+    const result = await compileMdx(
+      testId('url-formula'),
+      'Price $5 and [link](https://example.com/$10) more $x$.'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('https://example.com/$10');
+      expect(result.code).toContain('children: "x"');
+      expect(result.code).toContain('$5');
+    }
+  });
+
   it('leaves a price out of KaTeX', async () => {
     const result = await compileMdx(testId('price'), 'It costs $5 and $10 today.');
     expect(result.ok).toBe(true);

@@ -36,15 +36,16 @@ function bracketClose(raw: string, open: number): number {
   return -1;
 }
 
-function dollarInBrackets(raw: string, index: number): boolean {
+/** Index of the `]` that encloses a `$`, or -1 when the dollar is outside brackets. */
+export function enclosingBracketEnd(raw: string, index: number): number {
   if (raw[index] !== '$') {
-    return false;
+    return -1;
   }
   let depth = 0;
   for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
     const char = raw[cursor] ?? '';
     if (char === '\n') {
-      return false;
+      return -1;
     }
     if (char === ']') {
       if (!escapedAt(raw, cursor)) {
@@ -59,9 +60,13 @@ function dollarInBrackets(raw: string, index: number): boolean {
       depth -= 1;
       continue;
     }
-    return bracketClose(raw, cursor) > index;
+    return bracketClose(raw, cursor);
   }
-  return false;
+  return -1;
+}
+
+function dollarInBrackets(raw: string, index: number): boolean {
+  return enclosingBracketEnd(raw, index) > index;
 }
 
 function dollarInUrl(raw: string, index: number): boolean {
@@ -81,23 +86,32 @@ function dollarInUrl(raw: string, index: number): boolean {
   return index >= from && index < end;
 }
 
-function dollarInEmail(raw: string, index: number): boolean {
+const EMAIL_AT_DOLLAR =
+  /^[A-Za-z0-9+._$]+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/;
+
+/** The address surrounding a `$`, when that dollar sits inside an email. */
+export function emailBoundsAt(
+  raw: string,
+  index: number
+): { start: number; end: number } | null {
   if (raw[index] !== '$') {
-    return false;
+    return null;
   }
   let start = index;
   while (start > 0 && /[A-Za-z0-9+._$]/.test(raw[start - 1] ?? '')) {
     start -= 1;
   }
-  const match =
-    /^[A-Za-z0-9+._$]+@[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?)+/.exec(
-      raw.slice(start)
-    );
-  if (!match) {
-    return false;
+  const match = EMAIL_AT_DOLLAR.exec(raw.slice(start));
+  const address = match?.[0];
+  if (!address) {
+    return null;
   }
-  const end = start + match[0].length;
-  return index >= start && index < end;
+  const end = start + address.length;
+  return index >= start && index < end ? { start, end } : null;
+}
+
+function dollarInEmail(raw: string, index: number): boolean {
+  return emailBoundsAt(raw, index) !== null;
 }
 
 function escapedDelimiter(raw: string, index: number): boolean {
@@ -315,43 +329,6 @@ export function displayMathPrefix(line: string): string | null {
     return null;
   }
   return match[1] ?? '';
-}
-
-/** Escape the opening `$` of a price so a later compiler does not steal the next formula. */
-export function escapeNonMathDollars(value: string): string {
-  let result = '';
-  let index = 0;
-  while (index < value.length) {
-    if (value[index] === '\\') {
-      result += value.slice(index, index + 2);
-      index += 2;
-      continue;
-    }
-    const codeEnd = codeSpanEnd(value, index);
-    if (codeEnd !== -1) {
-      result += value.slice(index, codeEnd);
-      index = codeEnd;
-      continue;
-    }
-    if (value.startsWith('$$', index)) {
-      const displayEnd = mathSpanEnd(value, index, '$$');
-      const end = displayEnd === -1 ? index + 2 : displayEnd;
-      result += value.slice(index, end);
-      index = end;
-      continue;
-    }
-    const delimiter = value[index] === '$' ? mathDelimiterAt(value, index) : null;
-    const closer = delimiter === '$' ? mathCloserIndex(value, index + 1, '$') : -1;
-    const interior = closer === -1 ? '' : value.slice(index + 1, closer);
-    if (delimiter === '$' && closer !== -1 && isCurrencySpan(interior)) {
-      result += '\\$';
-      index += 1;
-      continue;
-    }
-    result += value[index] ?? '';
-    index += 1;
-  }
-  return result;
 }
 
 export function nextMathDelimiter(
