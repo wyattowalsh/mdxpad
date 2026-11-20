@@ -1286,7 +1286,7 @@ function takeDocxItemCode(parse: DocxParse, line: string): boolean {
     return false;
   }
   const opened = listIndentedCode(line, column);
-  if (opened === null) {
+  if (opened === null || !parse.listBreak) {
     return false;
   }
   parse.itemCode = [opened];

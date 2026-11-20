@@ -566,7 +566,7 @@ export function takeListItemCode(
     return false;
   }
   const opened = listIndentedCode(line, column);
-  if (opened === null) {
+  if (opened === null || !state.listBreak) {
     return false;
   }
   sealProse(state, render);

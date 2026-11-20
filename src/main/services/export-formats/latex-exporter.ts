@@ -1170,7 +1170,7 @@ function takeLatexItemCode(build: LatexBuild, line: string): boolean {
     return false;
   }
   const opened = listIndentedCode(line, column);
-  if (opened === null) {
+  if (opened === null || !list.break) {
     return false;
   }
   list.itemCode = [opened];

@@ -270,6 +270,15 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps a tight indented line inside the list paragraph', () => {
+    const html = markdownToPdfHtml('- item\n      code\n');
+    expect(html).toContain('item');
+    expect(html).toContain('code');
+    expect(html).not.toContain('<pre>');
+    const loose = markdownToPdfHtml('- item\n\n      code\n');
+    expect(loose).toContain('<pre><code>code</code></pre>');
+  });
+
   it('keeps a nested quote marker inside a quoted formula', () => {
     const html = markdownToPdfHtml('> $$\n> > nested\n> $$\n');
     expect(html).toContain('&gt; nested');
