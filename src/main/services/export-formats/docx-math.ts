@@ -173,6 +173,8 @@ const PROSE_COMMANDS = new Set([
   'paragraph',
   'part',
   'pu',
+  'includegraphics',
+  'ref',
   'section',
   'subparagraph',
   'subsection',
@@ -252,9 +254,58 @@ function readItem(cursor: Cursor): MathComponent[] {
   return [new MathRun(notes.length > 0 ? `\n${notes} ` : '\n')];
 }
 
+function readVerb(cursor: Cursor): MathComponent[] {
+  let index = cursor.index;
+  if (cursor.source[index] === '*') {
+    const after = cursor.source[index + 1] ?? '';
+    if (after.length > 0 && after !== ' ' && after !== '\n' && !/[A-Za-z]/.test(after)) {
+      index += 1;
+    }
+  }
+  const delimiter = cursor.source[index] ?? '';
+  if (delimiter.length === 0 || delimiter === ' ' || delimiter === '\n' || /[A-Za-z]/.test(delimiter)) {
+    return [new MathRun('verb')];
+  }
+  cursor.index = index + 1;
+  let text = '';
+  while (cursor.index < cursor.source.length && cursor.source[cursor.index] !== delimiter) {
+    text += cursor.source[cursor.index] ?? '';
+    cursor.index += 1;
+  }
+  if (cursor.source[cursor.index] === delimiter) {
+    cursor.index += 1;
+  }
+  return [new MathRun(text)];
+}
+
+function dropLabel(cursor: Cursor): void {
+  skipArgumentSpace(cursor);
+  if (cursor.source[cursor.index] === '{') {
+    readGroup(cursor);
+  }
+}
+
+function readEquationReference(cursor: Cursor): MathComponent[] {
+  const prose = readProseArgument(cursor);
+  if (prose === null) {
+    return [new MathRun('eqref')];
+  }
+  return [new MathRun('('), ...prose, new MathRun(')')];
+}
+
 function unknownCommand(cursor: Cursor, name: string): MathComponent[] {
   if (name === 'item') {
     return readItem(cursor);
+  }
+  if (name === 'verb') {
+    return readVerb(cursor);
+  }
+  if (name === 'label') {
+    dropLabel(cursor);
+    return [];
+  }
+  if (name === 'eqref') {
+    return readEquationReference(cursor);
   }
   const symbol = SYMBOLS[name];
   if (symbol !== undefined) {

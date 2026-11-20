@@ -144,6 +144,18 @@ describe('mathComponents', () => {
     );
   });
 
+  it('keeps verbatim words, a reference, and a picture name in a Word formula', () => {
+    expect(runText(mathComponents('\\verb|Keep this|'))).toBe('Keep this');
+    expect(runText(mathComponents('\\verb+a|b+'))).toBe('a|b');
+    expect(runText(mathComponents('a=b\\label{eq:a}'))).toBe('a=b');
+    expect(runText(mathComponents('\\ref{intro}'))).toBe('intro');
+    expect(runText(mathComponents('\\eqref{intro}'))).toBe('(intro)');
+    expect(runText(mathComponents('\\includegraphics{photo.png}'))).toBe('photo.png');
+    expect(runText(mathComponents('\\includegraphics[width]{photo.png}'))).toBe(
+      'photo.png (width)'
+    );
+  });
+
   it('keeps the words of a colored Word expression', () => {
     expect(runText(mathComponents('\\textcolor{red}{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\colorbox{blue}{sky}'))).toBe('sky');
