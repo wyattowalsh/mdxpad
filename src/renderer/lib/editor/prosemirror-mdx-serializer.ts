@@ -403,7 +403,10 @@ function localHref(href: string): string {
 }
 
 function markdownDestination(href: string): string {
-  const value = localHref(href).replaceAll('<', '%3C').replaceAll('>', '%3E');
+  const value = localHref(href)
+    .replaceAll('\\', '%5C')
+    .replaceAll('<', '%3C')
+    .replaceAll('>', '%3E');
   const needsAngles = /[()\s]/.test(value);
   return needsAngles ? `<${value}>` : value;
 }

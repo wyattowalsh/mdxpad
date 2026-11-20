@@ -102,13 +102,27 @@ function rawLine(line: SourceLine): string {
   return `${line.leading ?? ''}${line.text}${line.codeSuffix ?? ''}`;
 }
 
+function finishTerminalBackslash(lines: readonly SourceLine[]): readonly SourceLine[] {
+  const last = lines[lines.length - 1];
+  if (!last?.hardBreak || last.codeSuffix !== '\\') {
+    return lines;
+  }
+  const closed: SourceLine = {
+    text: `${last.text}\\`,
+    hardBreak: false,
+    ...(last.leading !== undefined && last.leading.length > 0 ? { leading: last.leading } : {}),
+  };
+  return [...lines.slice(0, -1), closed];
+}
+
 /** Soft-wrapped lines stay one phrase. A hard break starts the next phrase. */
 export function paragraphSegments(lines: readonly SourceLine[]): string[] {
-  const raw = lines.map((line) => rawLine(line)).join('\n');
+  const finished = finishTerminalBackslash(lines);
+  const raw = finished.map((line) => rawLine(line)).join('\n');
   const segments: string[][] = [];
   let current: string[] = [];
   let offset = 0;
-  for (const line of lines) {
+  for (const line of finished) {
     const end = offset + rawLine(line).length;
     const covered = line.hardBreak && (codeSpanCovers(raw, end) || mathCovers(raw, end));
     const continued = offset > 0 && codeSpanCovers(raw, offset - 1);

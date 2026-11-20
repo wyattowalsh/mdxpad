@@ -763,6 +763,9 @@ describe('renderMarkdownInline', () => {
   it('decodes a character reference and leaves one inside code', () => {
     expect(renderMarkdownInline('AT&amp;T and &lt;tag&gt;')).toBe('AT&amp;T and &lt;tag&gt;');
     expect(markdownToPdfHtml('a\\<b\n')).toBe('<p>a&lt;b</p>');
+    expect(markdownToPdfHtml('foo\\\n\nbar\n')).toContain('<p>foo\\</p>');
+    expect(markdownToPdfHtml('foo\\\nbar\n')).toContain('<br />');
+    expect(markdownToPdfHtml('foo\\\nbar\n')).not.toContain('foo\\');
     expect(markdownToPdfHtml('&lt;https://example.com&gt;\n')).toBe(
       '<p><a href="https://example.com">https://example.com</a></p>'
     );

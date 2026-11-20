@@ -7,6 +7,10 @@ describe('readSourceLine', () => {
   it('keeps a hard break and leaves a soft wrap plain', () => {
     expect(readSourceLine('Hello  ')).toEqual({ text: 'Hello', hardBreak: true, codeSuffix: '  ' });
     expect(readSourceLine('Hello\\')).toEqual({ text: 'Hello', hardBreak: true, codeSuffix: '\\' });
+    expect(joinParagraphHtml([readSourceLine('foo\\')], (text) => text)).toBe('foo\\');
+    expect(joinParagraphHtml([readSourceLine('foo\\'), readSourceLine('bar')], (text) => text)).toBe(
+      'foo<br />bar'
+    );
     expect(readSourceLine('Hello\\\\')).toEqual({ text: 'Hello\\\\', hardBreak: false });
     expect(readSourceLine('Hello')).toEqual({ text: 'Hello', hardBreak: false });
   });

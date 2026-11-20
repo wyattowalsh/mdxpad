@@ -264,6 +264,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 
+  it('keeps a backslash at the end of a web address', () => {
+    const source = 'www.example.com/a\\ b\n';
+    const once = roundTrip(source);
+    expect(once).toContain('http://www.example.com/a%5C');
+    expect(once).not.toContain('a\\)');
+    const again = roundTrip(once.endsWith('\n') ? once : `${once}\n`);
+    expect(again).toContain('http://www.example.com/a%5C');
+  });
+
   it('keeps a hard break after a backslash and two spaces', () => {
     const source = 'a\\  \nb\n';
     const once = roundTrip(source);
