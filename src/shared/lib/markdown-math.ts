@@ -3,6 +3,7 @@ import { Parser, type Options as AcornOptions } from 'acorn';
 import { isCurrencySpan } from './currency-span';
 import { stripLeadingFrontmatter } from './frontmatter';
 import { fenceIndentedCode, nextProseColumns, nextProseFence } from './indented-code';
+import { promoteInlineHtml } from './inline-html';
 import { mathDelimiterAt, mathSpanEnd } from './math-span';
 import { renderableMathTex, repairedMathSpan } from './renderable-math';
 import {
@@ -449,7 +450,7 @@ function preparePlainProse(prose: string): string {
     )
   );
   const escaped = mapOutsideCode(cleaned, (text) =>
-    linkUrlsWithEscapedAngles(escapeLooseTags(text, cleaned))
+    linkUrlsWithEscapedAngles(escapeLooseTags(promoteInlineHtml(text), cleaned))
   );
   return replaceTexMath(restoreMath(escaped, shielded.math));
 }

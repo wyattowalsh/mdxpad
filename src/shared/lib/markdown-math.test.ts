@@ -93,7 +93,7 @@ describe('normalizeTexMath', () => {
       '\\{1 +\\}'
     );
     expect(prepareMarkdownSource('<b>Hi</b> and <Note {...props} />')).toBe(
-      '<b>Hi</b> and <Note {...props} />'
+      '**Hi** and <Note {...props} />'
     );
     expect(prepareMarkdownSource('Hello {{name}} and `{{name}}`')).toBe(
       'Hello \\{\\{name\\}\\} and `{{name}}`'

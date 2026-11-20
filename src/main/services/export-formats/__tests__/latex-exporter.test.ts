@@ -669,6 +669,17 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\texttt{a`b}');
   });
 
+  it('formats an HTML emphasis tag', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Say <em>hello</em> now',
+      outputPath: '/tmp/html-em.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\textit{hello}');
+    expect(written).not.toContain('<em>');
+  });
+
   it('breaks a line at an HTML break', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
