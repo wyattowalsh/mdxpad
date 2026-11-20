@@ -26,7 +26,24 @@ interface NotionRichText {
   };
   href?: string | null;
   equation?: { expression?: string };
-  mention?: { date?: { start?: string }; user?: { name?: string } };
+  mention?: { date?: { start?: string; end?: string | null }; user?: { name?: string } };
+}
+
+function mentionedDate(rt: NotionRichText): string {
+  const start = rt.mention?.date?.start?.trim() ?? '';
+  const end = rt.mention?.date?.end?.trim() ?? '';
+  if (start.length === 0) {
+    return '';
+  }
+  return end.length > 0 ? `${start} to ${end}` : start;
+}
+
+function safeHref(href: string | null | undefined): string {
+  const text = href?.trim() ?? '';
+  if (text.length === 0 || /^(?:javascript|data|file):/i.test(text)) {
+    return '';
+  }
+  return text;
 }
 
 function richSource(rt: NotionRichText): string {
@@ -38,11 +55,15 @@ function richSource(rt: NotionRichText): string {
   if (expression.length > 0) {
     return expression;
   }
-  const start = rt.mention?.date?.start?.trim() ?? '';
-  if (start.length > 0) {
-    return start;
+  const dated = mentionedDate(rt);
+  if (dated.length > 0) {
+    return dated;
   }
-  return rt.mention?.user?.name?.trim() ?? '';
+  const name = rt.mention?.user?.name?.trim() ?? '';
+  if (name.length > 0) {
+    return name;
+  }
+  return safeHref(rt.href);
 }
 
 function extractRichText(richTexts: NotionRichText[]): string {
@@ -53,7 +74,10 @@ function extractRichText(richTexts: NotionRichText[]): string {
       if (rt.annotations?.bold) text = `**${text}**`;
       if (rt.annotations?.italic) text = `_${text}_`;
       if (rt.annotations?.strikethrough) text = `~~${text}~~`;
-      if (rt.href) text = `[${text}](${rt.href})`;
+      const href = safeHref(rt.href);
+      if (href.length > 0 && text.length > 0 && text !== href) {
+        text = `[${text}](${href})`;
+      }
       return text;
     })
     .join('');

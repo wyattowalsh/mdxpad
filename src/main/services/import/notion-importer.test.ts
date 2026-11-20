@@ -212,6 +212,43 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: equation');
   });
 
+  it('keeps both days of a mentioned date', async () => {
+    const mockBlocks = {
+      results: [
+        {
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              {
+                plain_text: '',
+                mention: { date: { start: '2020-01-02', end: '2020-01-05' } },
+                annotations: {},
+              },
+              { plain_text: ' with ', annotations: {} },
+              {
+                plain_text: '',
+                mention: { user: { name: 'Ada Lovelace' } },
+                annotations: {},
+              },
+              { plain_text: '', href: 'file:///etc/passwd', annotations: {} },
+            ],
+          },
+        },
+      ],
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(JSON.stringify(mockBlocks), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('2020-01-02 to 2020-01-05');
+    expect(result.content).toContain('Ada Lovelace');
+    expect(result.content).not.toContain('file:');
+  });
+
   it('keeps an inline formula and a mentioned date', async () => {
     const mockBlocks = {
       results: [
