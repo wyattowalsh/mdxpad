@@ -782,6 +782,9 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('- [x] done\r\n')).toContain('checked');
     expect(renderMarkdownInline('==hi==')).toBe('<mark>hi</mark>');
     expect(renderMarkdownInline('++hi++')).toBe('<u>hi</u>');
+    expect(renderMarkdownInline('H~2~O and x^2^')).toBe('H<sub>2</sub>O and x<sup>2</sup>');
+    expect(renderMarkdownInline('a ~ b and c ^ d')).toBe('a ~ b and c ^ d');
+    expect(renderMarkdownInline('~~gone~~')).toBe('<del>gone</del>');
     expect(renderMarkdownInline('a == b')).toBe('a == b');
     expect(renderMarkdownInline('a ++ b')).toBe('a ++ b');
     expect(renderMarkdownInline('`==hi==`')).toBe('<code>==hi==</code>');

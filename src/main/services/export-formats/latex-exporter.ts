@@ -20,7 +20,7 @@ import { renderableMathTex } from '@shared/lib/renderable-math';
 
 import { inlineLocalImages } from './export-image';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
-import { findPairedMark } from './markdown-highlight';
+import { findPairedMark, type PairedMark } from './markdown-highlight';
 import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
@@ -437,13 +437,30 @@ function latexPhrase(value: string, tag: PhraseTag): string {
   return `${before}${latexPhraseWrap(tag.kind, inner)}${after}`;
 }
 
+function latexPairedWrap(kind: PairedMark['kind'], inner: string): string {
+  switch (kind) {
+    case 'highlight':
+      return `\\colorbox{yellow}{${inner}}`;
+    case 'underline':
+      return `\\uline{${inner}}`;
+    case 'superscript':
+      return `\\textsuperscript{${inner}}`;
+    case 'subscript':
+      return `\\textsubscript{${inner}}`;
+    default: {
+      const unexpected: never = kind;
+      return unexpected;
+    }
+  }
+}
+
 function latexText(value: string): string {
   const paired = findPairedMark(value, 0);
   if (paired) {
     const before = paired.start > 0 ? latexText(value.slice(0, paired.start)) : '';
     const inner = latexText(paired.inner);
     const after = paired.end < value.length ? latexText(value.slice(paired.end)) : '';
-    const wrapped = paired.kind === 'highlight' ? `\\colorbox{yellow}{${inner}}` : `\\uline{${inner}}`;
+    const wrapped = latexPairedWrap(paired.kind, inner);
     return `${before}${wrapped}${after}`;
   }
   const tag = nextPhraseTag(value, 0);

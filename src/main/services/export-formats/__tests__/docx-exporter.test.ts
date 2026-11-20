@@ -603,6 +603,16 @@ describe('DocxExporter', () => {
     ]);
     expect(parseInlineFormatting('==hi==')).toEqual([{ text: 'hi', highlight: true }]);
     expect(parseInlineFormatting('++hi++')).toEqual([{ text: 'hi', underline: true }]);
+    expect(parseInlineFormatting('H~2~O')).toEqual([
+      { text: 'H' },
+      { text: '2', subScript: true },
+      { text: 'O' },
+    ]);
+    expect(parseInlineFormatting('x^2^')).toEqual([
+      { text: 'x' },
+      { text: '2', superScript: true },
+    ]);
+    expect(parseInlineFormatting('~~gone~~')).toEqual([{ text: 'gone', strike: true }]);
     expect(parseInlineFormatting('a == b')).toEqual([{ text: 'a == b' }]);
     expect(parseInlineFormatting('a ++ b')).toEqual([{ text: 'a ++ b' }]);
     expect(parseInlineFormatting('`==hi==`')).toEqual([{ text: '==hi==', code: true }]);

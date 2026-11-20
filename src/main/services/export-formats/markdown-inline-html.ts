@@ -9,7 +9,7 @@ import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { renderEmphasis } from './markdown-emphasis';
-import { findPairedMark } from './markdown-highlight';
+import { findPairedMark, type PairedMark } from './markdown-highlight';
 import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
 import {
   findMarkdownTarget,
@@ -369,6 +369,23 @@ function applyStrike(html: string): string {
   return result;
 }
 
+function wrapPairedMark(kind: PairedMark['kind'], inner: string): string {
+  switch (kind) {
+    case 'highlight':
+      return `<mark>${inner}</mark>`;
+    case 'underline':
+      return `<u>${inner}</u>`;
+    case 'superscript':
+      return `<sup>${inner}</sup>`;
+    case 'subscript':
+      return `<sub>${inner}</sub>`;
+    default: {
+      const unexpected: never = kind;
+      return unexpected;
+    }
+  }
+}
+
 function applyPairedMarks(html: string): string {
   const found = findPairedMark(html, 0);
   if (!found) {
@@ -377,7 +394,7 @@ function applyPairedMarks(html: string): string {
   const before = html.slice(0, found.start);
   const inner = applyPairedMarks(found.inner);
   const after = applyPairedMarks(html.slice(found.end));
-  const wrapped = found.kind === 'highlight' ? `<mark>${inner}</mark>` : `<u>${inner}</u>`;
+  const wrapped = wrapPairedMark(found.kind, inner);
   return `${before}${wrapped}${after}`;
 }
 

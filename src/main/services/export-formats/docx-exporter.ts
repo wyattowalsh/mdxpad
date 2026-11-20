@@ -79,7 +79,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, readCodeSpan, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { findPairedMark } from './markdown-highlight';
+import { findPairedMark, type PairedMark } from './markdown-highlight';
 import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
@@ -306,12 +306,31 @@ function parsePhraseTagged(text: string): InlineSegment[] | null {
   return segments.length > 0 ? segments : [{ text: '' }];
 }
 
+function pairedFlags(
+  kind: PairedMark['kind']
+): Pick<InlineSegment, 'highlight' | 'underline' | 'superScript' | 'subScript'> {
+  switch (kind) {
+    case 'highlight':
+      return { highlight: true };
+    case 'underline':
+      return { underline: true };
+    case 'superscript':
+      return { superScript: true };
+    case 'subscript':
+      return { subScript: true };
+    default: {
+      const unexpected: never = kind;
+      return unexpected;
+    }
+  }
+}
+
 function parseHighlighted(text: string): InlineSegment[] | null {
   const found = findPairedMark(text, 0);
   if (!found) {
     return null;
   }
-  const flags = found.kind === 'highlight' ? { highlight: true } : { underline: true };
+  const flags = pairedFlags(found.kind);
   const segments: InlineSegment[] = [];
   if (found.start > 0) {
     segments.push(...parseInlineFormatting(text.slice(0, found.start)));

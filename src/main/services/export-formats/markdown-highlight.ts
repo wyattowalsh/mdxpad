@@ -1,15 +1,17 @@
 import { readCodeSpan } from './markdown-escape';
 
 export interface PairedMark {
-  readonly kind: 'highlight' | 'underline';
+  readonly kind: 'highlight' | 'underline' | 'superscript' | 'subscript';
   readonly start: number;
   readonly end: number;
   readonly inner: string;
 }
 
 const MARKERS = [
-  { char: '=', kind: 'highlight' },
-  { char: '+', kind: 'underline' },
+  { char: '=', kind: 'highlight', width: 2 },
+  { char: '+', kind: 'underline', width: 2 },
+  { char: '^', kind: 'superscript', width: 1 },
+  { char: '~', kind: 'subscript', width: 1 },
 ] as const;
 
 function skipHtmlTag(value: string, index: number): number {
@@ -20,25 +22,25 @@ function skipHtmlTag(value: string, index: number): number {
   return match ? index + match[0].length : index;
 }
 
-function isMarkOpen(value: string, index: number, char: string): boolean {
-  const token = char.repeat(2);
+function isMarkOpen(value: string, index: number, char: string, width: number): boolean {
+  const token = char.repeat(width);
   if (!value.startsWith(token, index)) {
     return false;
   }
   if (index > 0 && value[index - 1] === char) {
     return false;
   }
-  const next = value[index + 2];
+  const next = value[index + width];
   return next !== undefined && next !== char && !/\s/.test(next);
 }
 
-function markClose(value: string, from: number, char: string): number {
-  const token = char.repeat(2);
+function markClose(value: string, from: number, char: string, width: number): number {
+  const token = char.repeat(width);
   for (let index = from; index < value.length; index += 1) {
     if (value[index] === '\n') {
       return -1;
     }
-    const next = value[index + 2];
+    const next = value[index + width];
     const previous = value[index - 1];
     if (
       value.startsWith(token, index) &&
@@ -53,7 +55,7 @@ function markClose(value: string, from: number, char: string): number {
   return -1;
 }
 
-/** The next `==highlight==` or `++underline++` pair outside code. */
+/** The next paired `==`, `++`, `^`, or `~` mark outside code. */
 export function findPairedMark(value: string, from: number): PairedMark | null {
   let index = from;
   while (index < value.length) {
@@ -75,18 +77,18 @@ export function findPairedMark(value: string, from: number): PairedMark | null {
       continue;
     }
     for (const marker of MARKERS) {
-      if (!isMarkOpen(value, index, marker.char)) {
+      if (!isMarkOpen(value, index, marker.char, marker.width)) {
         continue;
       }
-      const close = markClose(value, index + 2, marker.char);
+      const close = markClose(value, index + marker.width, marker.char, marker.width);
       if (close === -1) {
         continue;
       }
       return {
         kind: marker.kind,
         start: index,
-        end: close + 2,
-        inner: value.slice(index + 2, close),
+        end: close + marker.width,
+        inner: value.slice(index + marker.width, close),
       };
     }
     index += 1;
