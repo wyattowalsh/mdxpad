@@ -463,6 +463,24 @@ function rewriteLine(line: string, references: ReadonlyMap<string, string>): str
   return result;
 }
 
+function removedDefinitionLine(line: string): string {
+  let rest = line;
+  let prefix = '';
+  while (quoteDepth(rest) > 0) {
+    const match = /^( {0,3}>)( ?)/.exec(rest);
+    if (!match) {
+      break;
+    }
+    prefix += match[0];
+    rest = rest.slice(match[0].length);
+  }
+  const indent = /^ */.exec(rest)?.[0] ?? '';
+  if (prefix.length === 0) {
+    return indent;
+  }
+  return indent.length > 0 ? `${prefix}${indent}` : prefix.trimEnd();
+}
+
 function withoutDefinitions(lines: readonly string[], consumed: ReadonlySet<number>): string[] {
   let fence: string | null = null;
   return lines.map((line, index) => {
@@ -472,7 +490,7 @@ function withoutDefinitions(lines: readonly string[], consumed: ReadonlySet<numb
     if (fence || boundary) {
       return line;
     }
-    return consumed.has(index) ? '' : line;
+    return consumed.has(index) ? removedDefinitionLine(line) : line;
   });
 }
 
@@ -701,7 +719,7 @@ export function dropUnreferencedDefinitions(content: string): string {
   if (drop.size === 0) {
     return content;
   }
-  return lines.map((line, index) => (drop.has(index) ? '' : line)).join('\n');
+  return lines.map((line, index) => (drop.has(index) ? removedDefinitionLine(line) : line)).join('\n');
 }
 
 /** Remove reference definitions whose address cannot be opened from an export. */
@@ -714,7 +732,7 @@ export function dropUnsafeLinkDefinitions(
   if (drop.size === 0) {
     return content;
   }
-  return lines.map((line, index) => (drop.has(index) ? '' : line)).join('\n');
+  return lines.map((line, index) => (drop.has(index) ? removedDefinitionLine(line) : line)).join('\n');
 }
 
 /** Turn reference links into inline links and drop their definition lines. */

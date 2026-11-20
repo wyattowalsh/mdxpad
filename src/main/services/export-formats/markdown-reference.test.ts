@@ -69,6 +69,13 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[https://example.com/a(b)]');
   });
 
+  it('keeps one quote when a definition inside it is removed', () => {
+    const html = markdownToPdfHtml('> quote\n>\n> [a]: https://example.com\n>\n> [a]\n');
+    expect(html.match(/<blockquote>/g)).toHaveLength(1);
+    expect(html).toContain('quote');
+    expect(html).toContain('href="https://example.com"');
+  });
+
   it('joins a label that breaks across lines', () => {
     const html = markdownToPdfHtml('[foo bar]\n\n[foo\nbar]: https://example.com "Title"\n');
     expect(html).toContain('href="https://example.com"');
