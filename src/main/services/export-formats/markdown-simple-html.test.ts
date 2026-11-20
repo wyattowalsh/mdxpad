@@ -125,6 +125,8 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml('<audio src="song.mp3" aria-label="Songname"></audio>').trim()).toBe(
       'song.mp3 (Songname)'
     );
+    expect(rewriteSimpleHtml('<math alttext="spokenice"></math>').trim()).toBe('spokenice');
+    expect(rewriteSimpleHtml('<math alttext="spokenice"><mi>x</mi></math>').trim()).toBe('x');
     expect(
       rewriteSimpleHtml('<audio src="song.mp3" aria-label="Songname">Hear the song</audio>').trim()
     ).toBe('Hear the song (Songname)');

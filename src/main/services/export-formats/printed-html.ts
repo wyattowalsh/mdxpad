@@ -359,10 +359,12 @@ function revealMath(html: string, start: number, openEnd: number): Revealed | nu
   }
   const inner = html.slice(openEnd, close.innerEnd);
   const source = hiddenMath(inner);
-  if (presented(inner) || source.length === 0) {
+  const spoken =
+    source.length > 0 ? source : attribute(html.slice(start, openEnd), 'alttext').trim();
+  if (presented(inner) || spoken.length === 0) {
     return { text: html.slice(start, close.next), next: close.next };
   }
-  return { text: escapeText(source), next: close.next };
+  return { text: escapeText(spoken), next: close.next };
 }
 
 function revealList(html: string, openEnd: number): Revealed | null {

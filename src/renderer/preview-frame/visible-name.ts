@@ -145,10 +145,14 @@ function mathName(props: Record<string, unknown>): VisibleName | undefined {
   const found = nodes(props.children).map((node) => mathSource(node, false));
   const presented = found.some((item) => item.presented);
   const text = found.flatMap((item) => item.text);
-  if (presented || text.length === 0) {
+  if (presented) {
     return undefined;
   }
-  return { kind: 'replace', text: text.join(' ') };
+  if (text.length > 0) {
+    return { kind: 'replace', text: text.join(' ') };
+  }
+  const spoken = stringProp(props, 'alttext') || stringProp(props, 'altText');
+  return spoken.length > 0 ? { kind: 'replace', text: spoken } : undefined;
 }
 
 function trackLabels(node: unknown): string[] {

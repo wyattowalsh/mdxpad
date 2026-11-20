@@ -68,6 +68,8 @@ describe('printed html', () => {
       markdownToPdfHtml('<math><semantics><annotation>x^2 + 1</annotation></semantics></math>\n')
     ).toContain('x^2 + 1');
     expect(markdownToPdfHtml('<math><mglyph alt="plus"></mglyph></math>\n')).toContain('plus');
+    expect(markdownToPdfHtml('<math alttext="spokenice"></math>\n')).toContain('spokenice');
+    expect(markdownToPdfHtml('<math alttext="spokenice"><mi>x</mi></math>\n')).toContain('<mi>x</mi>');
     const shown = markdownToPdfHtml(
       '<math><semantics><mi>x</mi><annotation>secret</annotation></semantics></math>\n'
     );

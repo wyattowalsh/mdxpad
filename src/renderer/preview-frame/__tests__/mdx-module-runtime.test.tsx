@@ -532,6 +532,22 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows spoken math when the formula has no tokens', async () => {
+    const source = [
+      '<math alttext="spokenice"></math>',
+      '<math alttext="spokenice"><mi>x</mi></math>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('spoken-math'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('spokenice');
+    expect(container.querySelector('mi')?.textContent).toBe('x');
+  });
+
   it('shows a button name, a suggestion, a formula source, and a caption', async () => {
     const source = [
       '<button aria-label="Save the file"></button>',

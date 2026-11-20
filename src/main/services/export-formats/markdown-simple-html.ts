@@ -1533,6 +1533,12 @@ function renderMath(name: string, inner: string, value = '', element?: HtmlEleme
   }
   const preferred = mathParts(inner, name === 'semantics');
   const parts = preferred.length > 0 || name !== 'semantics' ? preferred : mathParts(inner);
+  if (parts.length === 0 && name === 'math' && element !== undefined) {
+    const spoken = attribute(openTagBefore(value, element.innerStart), 'alttext').trim();
+    if (spoken.length > 0) {
+      return spoken;
+    }
+  }
   switch (name) {
     case 'mfrac':
       return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : parts.join(' ');
