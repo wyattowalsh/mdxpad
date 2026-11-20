@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { renderDisplayMathBlock, renderMarkdownInline } from './markdown-inline-html';
 import { markdownToPdfHtml } from './pdf-exporter';
 
+function mathWords(html: string): string {
+  const shown = html.replace(/<annotation[\s\S]*?<\/annotation>/g, '');
+  return [...shown.matchAll(/<mtext[^>]*>([^<]*)<\/mtext>/g)]
+    .map((match) => match[1] ?? '')
+    .join('')
+    .replaceAll('\u00A0', ' ');
+}
+
 describe('renderMarkdownInline', () => {
   it('drops a file hidden by a tab inside a css url', () => {
     const html = renderMarkdownInline(
@@ -112,6 +120,23 @@ describe('renderMarkdownInline', () => {
     expect(water).not.toContain('katex-error');
     expect(water).toContain('H');
     expect(water).toContain('O');
+  });
+
+  it('keeps the words around a nested math command', () => {
+    const note = renderDisplayMathBlock(['\\footnote{See \\cite{Knuth1984} for ice}']);
+    const words = mathWords(note);
+    expect(note).not.toContain('#cc0000');
+    expect(words).toContain('See');
+    expect(words).toContain('Knuth1984');
+    expect(words).toContain('for ice');
+    const linked = renderDisplayMathBlock(['\\href{https://example.com/a}{The \\emph{guide}}']);
+    const linkWords = mathWords(linked);
+    expect(linked).not.toContain('#cc0000');
+    expect(linkWords).toContain('The');
+    expect(linkWords).toContain('guide');
+    const heading = renderDisplayMathBlock(['\\section{The \\emph{title}}']);
+    expect(mathWords(heading)).toContain('The');
+    expect(mathWords(heading)).toContain('title');
   });
 
   it('renders an escaped dollar inside a formula', () => {

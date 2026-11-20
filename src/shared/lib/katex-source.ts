@@ -24,10 +24,91 @@ function escapeText(value: string): string {
     .replaceAll('~', '\\textasciitilde{}');
 }
 
+function groupEnd(source: string, open: number): number | null {
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '\\') {
+      index += 1;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+      continue;
+    }
+    if (char !== '}') {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return index;
+    }
+  }
+  return null;
+}
+
+function keptCommandEnd(value: string, index: number): number | null {
+  const command = /^\\[A-Za-z]+/.exec(value.slice(index));
+  if (command?.[0] === undefined) {
+    return null;
+  }
+  let end = index + command[0].length;
+  if (value[end] === '*') {
+    end += 1;
+  }
+  while (value[end] === '[') {
+    const close = value.indexOf(']', end + 1);
+    if (close === -1) {
+      return end;
+    }
+    end = close + 1;
+  }
+  while (value[end] === '{') {
+    const close = groupEnd(value, end);
+    if (close === null) {
+      return end;
+    }
+    end = close + 1;
+  }
+  return end;
+}
+
+function textChunk(value: string): string {
+  return value.length === 0 ? '' : `\\text{${escapeText(value)}}`;
+}
+
+function keepWords(value: string): string {
+  let result = '';
+  let text = '';
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== '\\') {
+      text += value[index] ?? '';
+      continue;
+    }
+    const commandEnd = keptCommandEnd(value, index);
+    result += textChunk(text);
+    text = '';
+    if (commandEnd === null) {
+      const symbol = value[index + 1] ?? '';
+      result += symbol === '' ? '\\' : `\\${symbol}`;
+      if (symbol !== '') {
+        index += 1;
+      }
+      continue;
+    }
+    result += value.slice(index, commandEnd);
+    index = commandEnd - 1;
+  }
+  return result + textChunk(text);
+}
+
 function asText(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     return '';
+  }
+  if (/\\[A-Za-z]/.test(trimmed)) {
+    return keepWords(trimmed);
   }
   return trimmed.includes('\\') ? trimmed : `\\text{${escapeText(trimmed)}}`;
 }
@@ -60,19 +141,31 @@ function withNotes(body: string, prefix: string): string {
   return text.length > 0 ? `${text} (${notes})` : notes;
 }
 
-function stripCommand(source: string, name: string): string {
-  const head = commandHead(name);
-  const two = new RegExp(`${head}\\{([^{}]*)\\}\\{([^{}]*)\\}`).exec(source);
-  if (two?.[0] !== undefined) {
-    const first = two[2] ?? '';
-    const second = two[3] ?? '';
-    const body = isMeasure(first) || second.trim().length === 0 ? second || first : `${second} (${first})`;
-    return source.replace(two[0], asText(withNotes(body, two[1] ?? '')));
+function bracedGroup(
+  source: string,
+  index: number
+): { readonly body: string; readonly end: number } | null {
+  if (source[index] !== '{') {
+    return null;
   }
-  const one = new RegExp(`${head}\\{([^{}]*)\\}`).exec(source);
-  if (one?.[0] !== undefined) {
-    return source.replace(one[0], asText(withNotes(one[2] ?? '', one[1] ?? '')));
+  const close = groupEnd(source, index);
+  if (close === null) {
+    return null;
   }
+  return { body: source.slice(index + 1, close), end: close + 1 };
+}
+
+function commandBody(first: string, second: string | null): string {
+  if (second === null) {
+    return first;
+  }
+  if (isMeasure(first) || second.trim().length === 0) {
+    return second || first;
+  }
+  return `${second} (${first})`;
+}
+
+function stripBare(source: string, name: string): string {
   const bare = new RegExp(`\\\\${commandPattern(name)}\\*?(?![A-Za-z])`).exec(source);
   if (bare?.[0] === undefined) {
     return source;
@@ -82,6 +175,23 @@ function stripCommand(source: string, name: string): string {
     return source;
   }
   return `${source.slice(0, bare.index)}${source.slice(bare.index + bare[0].length)}`;
+}
+
+function stripCommand(source: string, name: string): string {
+  const found = new RegExp(commandHead(name)).exec(source);
+  if (found?.[0] === undefined) {
+    return source;
+  }
+  const start = found.index;
+  const first = bracedGroup(source, start + found[0].length);
+  if (first === null) {
+    return stripBare(source, name);
+  }
+  const second = bracedGroup(source, first.end);
+  const body = commandBody(first.body, second === null ? null : second.body);
+  const shown = asText(withNotes(body, found[1] ?? ''));
+  const end = second === null ? first.end : second.end;
+  return `${source.slice(0, start)}${shown}${source.slice(end)}`;
 }
 
 function recover(source: string, message: string): string | null {
