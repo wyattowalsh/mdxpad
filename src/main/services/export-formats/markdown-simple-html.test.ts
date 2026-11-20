@@ -348,6 +348,12 @@ describe('rewriteSimpleHtml', () => {
       'English captions'
     );
     expect(rewriteSimpleHtml('<progress value="3" max="10">3/10</progress>').trim()).toBe('3/10');
+    expect(rewriteSimpleHtml('<meter value="4" max="10" title="Halfway"></meter>').trim()).toBe(
+      '4 (Halfway)'
+    );
+    expect(
+      rewriteSimpleHtml('<progress value="3" max="10" title="Loading"></progress>').trim()
+    ).toBe('3/10 (Loading)');
   });
 
   it('turns HTML checkboxes into task markers', () => {

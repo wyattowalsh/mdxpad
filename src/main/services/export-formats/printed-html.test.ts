@@ -75,6 +75,12 @@ describe('printed html', () => {
     expect(markdownToPdfHtml('<meter value="4" max="10"></meter>\n')).toContain('4');
     expect(markdownToPdfHtml('<progress value="3" max="10"></progress>\n')).toContain('3/10');
     expect(markdownToPdfHtml('<meter value="4" max="10">half</meter>\n')).toContain('half');
+    expect(markdownToPdfHtml('<meter value="4" max="10" title="Halfway"></meter>\n')).toContain(
+      '4 (Halfway)'
+    );
+    expect(
+      markdownToPdfHtml('<progress value="3" max="10" title="Loading"></progress>\n')
+    ).toContain('3/10 (Loading)');
     expect(markdownToPdfHtml('<input type="file" aria-label="Upload the paper">\n')).toContain(
       'Upload the paper'
     );

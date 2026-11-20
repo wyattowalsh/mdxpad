@@ -218,11 +218,14 @@ function gaugeName(
     return undefined;
   }
   const current = stringProp(props, 'value');
+  const title =
+    stringProp(props, 'title') || stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel');
   if (current.length === 0) {
-    return undefined;
+    return title.length > 0 ? { kind: 'replace', text: title } : undefined;
   }
   const max = stringProp(props, 'max');
-  const label = name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  const reading = name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  const label = title.length > 0 && !reading.includes(title) ? `${reading} (${title})` : reading;
   return { kind: 'replace', text: label };
 }
 

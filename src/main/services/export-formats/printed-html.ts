@@ -291,16 +291,21 @@ function revealGauge(html: string, openEnd: number, tag: string, name: string): 
     .slice(openEnd, close.innerEnd)
     .replace(/<[^>]+>/g, '')
     .trim();
+  const title = attribute(tag, 'title').trim() || attribute(tag, 'aria-label').trim();
   if (inner.length > 0) {
-    return null;
+    if (title.length === 0 || inner.includes(title)) {
+      return null;
+    }
+    return { text: escapeText(`${inner} (${title})`), next: close.next };
   }
   const current = attribute(tag, 'value').trim();
   if (current.length === 0) {
-    return null;
+    return title.length > 0 ? { text: escapeText(title), next: close.next } : null;
   }
   const max = attribute(tag, 'max').trim();
-  const label = name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
-  return { text: escapeText(label), next: close.next };
+  const reading = name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  const shown = title.length > 0 && !reading.includes(title) ? `${reading} (${title})` : reading;
+  return { text: escapeText(shown), next: close.next };
 }
 
 function revealEmpty(

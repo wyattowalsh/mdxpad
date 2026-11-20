@@ -1185,18 +1185,31 @@ function renderChoices(inner: string): string[] {
   return choices;
 }
 
+function gaugeTitle(openTag: string): string {
+  return attribute(openTag, 'title').trim() || attribute(openTag, 'aria-label').trim();
+}
+
+function withGaugeTitle(reading: string, title: string): string {
+  if (title.length === 0 || reading.includes(title)) {
+    return reading;
+  }
+  return reading.length > 0 ? `${reading} (${title})` : title;
+}
+
 function renderGauge(value: string, element: HtmlElement, inner: string): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  const title = gaugeTitle(openTag);
   const text = convertHtml(inner).trim();
   if (text.length > 0) {
-    return text;
+    return withGaugeTitle(text, title);
   }
-  const openTag = openTagBefore(value, element.innerStart);
   const current = attribute(openTag, 'value').trim();
   const max = attribute(openTag, 'max').trim();
   if (current.length === 0) {
-    return '';
+    return title;
   }
-  return element.name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  const reading = element.name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  return withGaugeTitle(reading, title);
 }
 
 function renderTextarea(value: string, element: HtmlElement, inner: string): string {
