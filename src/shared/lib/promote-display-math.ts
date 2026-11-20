@@ -4,6 +4,7 @@
  */
 
 import { displayMathPrefix } from './math-span';
+import { PREVIEW_DOLLAR } from './preview-math-dollars';
 
 interface PromotedBlock {
   readonly lines: readonly string[];
@@ -199,6 +200,11 @@ export function promoteTrailingDisplayMath(value: string): string {
       continue;
     }
     if (line.trim() === '$$') {
+      if (!mathFence && !displayFenceCloses(lines, index + 1)) {
+        out.push(line.replaceAll('$', PREVIEW_DOLLAR));
+        index += 1;
+        continue;
+      }
       mathFence = !mathFence;
       out.push(line);
       index += 1;

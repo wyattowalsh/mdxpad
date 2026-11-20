@@ -10,6 +10,21 @@ import { compileMdx } from './compile';
 const testId = (id: string): RequestId => id as RequestId;
 
 describe('remark math prices', () => {
+  it('leaves an unmatched display fence as text', async () => {
+    const result = await compileMdx(testId('lone-fence'), 'Text $$\n\n> inside\n\n$$\n');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('"inside"');
+      expect(result.code).toContain('$$');
+      expect(result.code).not.toContain('katex-display');
+    }
+    const closed = await compileMdx(testId('closed-fence'), '$$\nx^2\n$$\n');
+    expect(closed.ok).toBe(true);
+    if (closed.ok) {
+      expect(closed.code).toContain('children: "x^2"');
+    }
+  });
+
   it('renders a formula that opens at the end of a line', async () => {
     const result = await compileMdx(testId('display-prefix'), 'Text $$\nx^2\n$$\nmore\n');
     expect(result.ok).toBe(true);
