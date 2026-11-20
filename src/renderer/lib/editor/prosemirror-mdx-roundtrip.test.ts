@@ -259,8 +259,15 @@ describe('WYSIWYG markdown round trip', () => {
   it('keeps a backslash and a space before a line break', () => {
     const source = 'a\\ \nb\n';
     const once = roundTrip(source);
-    expect(once).toContain('&#32;');
-    expect(parseMdxContent(once.endsWith('\n') ? once : `${once}\n`)?.textContent).toBe('a\\ b');
+    expect(once).toBe('a\\\\\nb');
+    expect(once).not.toContain('&#32;');
+    expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
+  });
+
+  it('keeps a hard break after a backslash and two spaces', () => {
+    const source = 'a\\  \nb\n';
+    const once = roundTrip(source);
+    expect(once).toBe('a\\\\\\\nb');
     expect(roundTrip(once.endsWith('\n') ? once : `${once}\n`)).toBe(once);
   });
 

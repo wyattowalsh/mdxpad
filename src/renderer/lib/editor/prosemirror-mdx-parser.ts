@@ -23,6 +23,7 @@ import { restoreMathMarkupNode } from './prosemirror-math-restore';
 import { indentListMarkerFences } from './indent-list-fence';
 import { liftTaskItems } from './prosemirror-task-item';
 import { enableStrikethrough } from './prosemirror-strikethrough';
+import { keepBackslashSpaces } from './prosemirror-backslash-space';
 import { retainNestedEmphasis } from './prosemirror-nested-marks';
 import { tableCellAttrs } from './prosemirror-mdx-table';
 import {
@@ -346,6 +347,7 @@ function restoreJsxFences(doc: ProseMirrorNode): ProseMirrorNode {
 
 const markdownTokenizer = new MarkdownIt('commonmark', { html: false });
 markdownTokenizer.enable('table');
+keepBackslashSpaces(markdownTokenizer);
 enableStrikethrough(markdownTokenizer);
 
 retainNestedEmphasis(markdownTokenizer);
