@@ -242,6 +242,32 @@ describe('citation-formatter', () => {
     expect(formatCitation({ ...numbered, month: 'jan' }, 'apa').formatted).toContain('January');
   });
 
+  it('keeps a preprint identifier, its archive, and its classes', () => {
+    const entry: CitationEntry = {
+      id: 'ada1843',
+      type: 'article',
+      title: 'The Engine',
+      author: [{ family: 'Lovelace' }],
+      year: 1843,
+      eprint: '1843.00001',
+      archiveprefix: 'arXiv',
+      eprinttype: 'arxiv',
+      primaryclass: 'math.NA',
+      eprintclass: 'cs.CL',
+    };
+    const formatted = formatCitation(entry, 'apa').formatted;
+    expect(formatted).toContain('arXiv:1843.00001');
+    expect(formatted).toContain('math.NA');
+    expect(formatted).toContain('cs.CL');
+    const lone: CitationEntry = {
+      id: 'only',
+      type: 'article',
+      title: 'The Engine',
+      eprint: '1843.00001',
+    };
+    expect(formatCitation(lone, 'ieee').formatted).toContain('1843.00001');
+  });
+
   it('keeps a subtitle, a month, a translator, and an ISBN', () => {
     const entry: CitationEntry = {
       id: 'ada1840',

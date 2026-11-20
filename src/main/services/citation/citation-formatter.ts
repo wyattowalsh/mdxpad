@@ -218,6 +218,32 @@ function addParties(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.issuetitle);
 }
 
+function distinctText(values: readonly (string | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const value of values) {
+    const text = value?.trim() ?? '';
+    const key = text.toLowerCase();
+    if (text.length === 0 || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    names.push(text);
+  }
+  return names;
+}
+
+function preprintLabel(entry: CitationEntry): string | undefined {
+  const id = entry.eprint?.trim() ?? '';
+  const archive = distinctText([entry.archiveprefix, entry.eprinttype]).join(' ');
+  const klass = distinctText([entry.primaryclass, entry.eprintclass]).join(', ');
+  const head = id.length === 0 ? archive : archive.length > 0 ? `${archive}:${id}` : id;
+  if (head.length === 0) {
+    return klass.length > 0 ? klass : undefined;
+  }
+  return klass.length > 0 ? `${head} [${klass}]` : head;
+}
+
 function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.school);
   addSentence(parts, entry.institution);
@@ -235,6 +261,7 @@ function addContext(parts: string[], entry: CitationEntry): void {
   addSentence(parts, entry.isbn ? `ISBN ${entry.isbn}` : undefined);
   addSentence(parts, entry.issn ? `ISSN ${entry.issn}` : undefined);
   addSentence(parts, entry.url);
+  addSentence(parts, preprintLabel(entry));
   addSentence(parts, accessedLabel(entry.urldate));
   addSentence(parts, entry.language);
   addSentence(parts, versionLabel(entry.version));

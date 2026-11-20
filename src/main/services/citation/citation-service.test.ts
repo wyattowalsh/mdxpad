@@ -314,6 +314,23 @@ describe('citation-service', () => {
       expect(numbered.entries[0]?.month).toBe('1');
     });
 
+    it('keeps a preprint identifier, its archive, and its classes', () => {
+      const result = parseBibtex(`
+@article{ada1843,
+  title = {The Engine},
+  eprint = {1843.00001},
+  archiveprefix = {arXiv},
+  eprinttype = {arxiv},
+  primaryclass = {math.NA},
+  eprintclass = {cs.CL}
+}`);
+      expect(result.entries[0]?.eprint).toBe('1843.00001');
+      expect(result.entries[0]?.archiveprefix).toBe('arXiv');
+      expect(result.entries[0]?.eprinttype).toBe('arxiv');
+      expect(result.entries[0]?.primaryclass).toBe('math.NA');
+      expect(result.entries[0]?.eprintclass).toBe('cs.CL');
+    });
+
     it('keeps a month, a subtitle, a translator, and an ISBN', () => {
       const result = parseBibtex(`
 @book{ada1840,
