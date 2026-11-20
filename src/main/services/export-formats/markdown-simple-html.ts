@@ -8,6 +8,17 @@ import { expandLinkReferences } from './markdown-reference';
 import type { TableAlign } from './markdown-table';
 
 const PHRASE = new Set(['cite', 'dfn', 'q', 'samp', 'small', 'time', 'var']);
+const FORM = new Set([
+  'button',
+  'label',
+  'meter',
+  'optgroup',
+  'option',
+  'output',
+  'progress',
+  'select',
+  'textarea',
+]);
 const RUBY = new Set(['rb', 'rp', 'rt', 'ruby']);
 
 const UNWRAP = new Set([
@@ -35,6 +46,7 @@ function simpleName(name: string): boolean {
   return (
     UNWRAP.has(name) ||
     PHRASE.has(name) ||
+    FORM.has(name) ||
     RUBY.has(name) ||
     name === 'ul' ||
     name === 'ol' ||
@@ -490,8 +502,13 @@ function renderDetails(inner: string): string {
 
 function renderInput(value: string, element: HtmlElement): string {
   const openTag = openTagBefore(value, element.innerStart);
-  if (attribute(openTag, 'type').trim().toLowerCase() !== 'checkbox') {
-    return openTag;
+  const type = attribute(openTag, 'type').trim().toLowerCase();
+  if (type === 'hidden' || type === 'file' || type === 'image' || type === 'radio') {
+    return '';
+  }
+  if (type !== 'checkbox') {
+    const entered = attribute(openTag, 'value').trim();
+    return entered.length > 0 ? entered : attribute(openTag, 'placeholder').trim();
   }
   const box = /\bchecked\b/i.test(openTag) ? '[x]' : '[ ]';
   const follower = value[element.end] ?? '';
@@ -598,7 +615,85 @@ function renderRuby(inner: string): string {
   return result.trim();
 }
 
+function markedChoice(label: string, selected: boolean): string {
+  if (!selected || label.includes('*') || label.includes('_')) {
+    return label;
+  }
+  return `**${label}**`;
+}
+
+function renderChoices(inner: string): string[] {
+  const choices: string[] = [];
+  let index = 0;
+  while (index < inner.length) {
+    const element = inner[index] === '<' ? readSimpleElement(inner, index) : null;
+    if (!element) {
+      index += 1;
+      continue;
+    }
+    if (element.name === 'option') {
+      const text = cellText(inner.slice(element.innerStart, element.innerEnd));
+      const openTag = openTagBefore(inner, element.innerStart);
+      const label = text || attribute(openTag, 'label').trim() || attribute(openTag, 'value').trim();
+      if (label.length > 0) {
+        choices.push(markedChoice(label, /\bselected\b/i.test(openTag)));
+      }
+    } else if (element.name === 'optgroup') {
+      choices.push(...renderChoices(inner.slice(element.innerStart, element.innerEnd)));
+    }
+    index = element.end;
+  }
+  return choices;
+}
+
+function renderGauge(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner).trim();
+  if (text.length > 0) {
+    return text;
+  }
+  const openTag = openTagBefore(value, element.innerStart);
+  const current = attribute(openTag, 'value').trim();
+  const max = attribute(openTag, 'max').trim();
+  if (current.length === 0) {
+    return '';
+  }
+  return element.name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+}
+
+function renderButton(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner).trim();
+  if (text.length > 0) {
+    return text;
+  }
+  return attribute(openTagBefore(value, element.innerStart), 'value').trim();
+}
+
+function renderForm(element: HtmlElement, value: string, inner: string): string | null {
+  switch (element.name) {
+    case 'textarea':
+    case 'output':
+    case 'label':
+      return convertHtml(inner);
+    case 'button':
+      return renderButton(value, element, inner);
+    case 'select':
+    case 'optgroup':
+      return renderChoices(inner).join(', ');
+    case 'option':
+      return cellText(inner);
+    case 'progress':
+    case 'meter':
+      return renderGauge(value, element, inner);
+    default:
+      return null;
+  }
+}
+
 function renderPhrase(element: HtmlElement, value: string, inner: string): string | null {
+  const form = renderForm(element, value, inner);
+  if (form !== null) {
+    return form;
+  }
   switch (element.name) {
     case 'dl':
       return renderDefinitions(inner);

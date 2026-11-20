@@ -1159,6 +1159,30 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&gt; Keep this');
   });
 
+  it('shows text typed into an HTML form', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'Name <input type="text" value="Ada">\n\n<select><option>Red</option><option selected>Blue</option></select>\n',
+      outputPath: '/tmp/html-form.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Ada');
+    expect(xml).toContain('Red');
+    expect(xml).toContain('Blue');
+    expect(xml).toContain('<w:b');
+    expect(xml).not.toContain('&lt;input');
+    expect(xml).not.toContain('&lt;select');
+  });
+
   it('writes an HTML checkbox as a task', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

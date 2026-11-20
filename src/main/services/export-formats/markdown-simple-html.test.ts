@@ -56,6 +56,17 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('shows text typed into a form control', () => {
+    expect(rewriteSimpleHtml('Name <input type="text" value="Ada">')).toBe('Name Ada');
+    expect(rewriteSimpleHtml('<textarea>Hello</textarea>').trim()).toBe('Hello');
+    expect(
+      rewriteSimpleHtml('<select><option>Red</option><option selected>Blue</option></select>').trim()
+    ).toBe('Red, **Blue**');
+    expect(rewriteSimpleHtml('<button>Save</button>').trim()).toBe('Save');
+    expect(rewriteSimpleHtml('<input type="hidden" value="secret">')).toBe('');
+    expect(rewriteSimpleHtml('<progress value="3" max="10">3/10</progress>').trim()).toBe('3/10');
+  });
+
   it('turns HTML checkboxes into task markers', () => {
     const html = [
       '<ul>',
