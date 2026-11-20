@@ -1161,6 +1161,28 @@ describe('DocxExporter', () => {
     expect(xml).toContain('w:val="1"');
   });
 
+  it('breaks a line at an HTML break', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See this.<br>Next',
+      outputPath: '/tmp/html-break.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; print(zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('<w:br');
+    expect(xml).toContain('this.');
+    expect(xml).toContain('Next');
+    expect(xml).not.toContain('&lt;br');
+  });
+
   it('keeps an escaped asterisk literal', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -669,6 +669,19 @@ describe('LatexExporter', () => {
     expect(written).toContain('\\texttt{a`b}');
   });
 
+  it('breaks a line at an HTML break', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See this.<br>Next',
+      outputPath: '/tmp/html-break.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('this.');
+    expect(written).toContain('\\newline');
+    expect(written).toContain('Next');
+    expect(written).not.toContain('<br');
+  });
+
   it('keeps a nested empty marker in the item', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -413,7 +413,10 @@ function latexTarget(prefix: string, target: MarkdownTarget): string {
 }
 
 function latexText(value: string): string {
-  return escapeLatex(decodeHtmlEntities(value)).replaceAll('\\textasciitilde{}', '~');
+  return value
+    .split(/<br\s*\/?>/gi)
+    .map((part) => escapeLatex(decodeHtmlEntities(part)).replaceAll('\\textasciitilde{}', '~'))
+    .join('\\newline ');
 }
 
 function formatLatexPlain(raw: string): string {

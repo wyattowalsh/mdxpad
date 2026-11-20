@@ -549,6 +549,25 @@ function imageNodes(
   return [docxHyperlink(source, label)];
 }
 
+const HTML_BREAK = /<br\s*\/?>/gi;
+
+function textRunsWithBreaks(segment: InlineSegment): TextRun[] {
+  const parts = segment.code ? [segment.text] : segment.text.split(HTML_BREAK);
+  if (parts.length === 1) {
+    return [styledRun(segment, segment.text)];
+  }
+  const runs: TextRun[] = [];
+  parts.forEach((part, index) => {
+    if (index > 0) {
+      runs.push(new TextRun({ break: 1 }));
+    }
+    if (part.length > 0) {
+      runs.push(styledRun(segment, part));
+    }
+  });
+  return runs;
+}
+
 function createTextRuns(
   segments: InlineSegment[]
 ): (TextRun | ExternalHyperlink | InternalHyperlink | ImageRun)[] {
@@ -557,10 +576,22 @@ function createTextRuns(
       return imageRuns(segment);
     }
     if (segment.link) {
-      const link = docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
-      return titledRuns([link], segment.title);
+      const parts = segment.text.split(HTML_BREAK);
+      if (parts.length === 1) {
+        const link = docxHyperlink(segment.link, styledRun(segment, segment.text, 'Hyperlink'));
+        return titledRuns([link], segment.title);
+      }
+      const runs = parts.flatMap((part, index) => {
+        const broken: (TextRun | ExternalHyperlink | InternalHyperlink)[] =
+          index > 0 ? [new TextRun({ break: 1 })] : [];
+        if (part.length > 0) {
+          broken.push(docxHyperlink(segment.link ?? '', styledRun(segment, part, 'Hyperlink')));
+        }
+        return broken;
+      });
+      return titledRuns(runs, segment.title);
     }
-    return [styledRun(segment, segment.text)];
+    return textRunsWithBreaks(segment);
   });
 }
 
