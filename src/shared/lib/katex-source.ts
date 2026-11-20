@@ -40,22 +40,40 @@ function commandPattern(name: string): string {
   return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function commandHead(name: string): string {
+  return `\\\\${commandPattern(name)}(\\*?(?:\\[[^\\]]*\\])*)`;
+}
+
+function optionalNotes(prefix: string): string {
+  return [...prefix.matchAll(/\[([^\]]*)\]/g)]
+    .map((match) => match[1]?.trim() ?? '')
+    .filter((note) => note.length > 0)
+    .join(', ');
+}
+
+function withNotes(body: string, prefix: string): string {
+  const notes = optionalNotes(prefix);
+  const text = body.trim();
+  if (notes.length === 0) {
+    return text;
+  }
+  return text.length > 0 ? `${text} (${notes})` : notes;
+}
+
 function stripCommand(source: string, name: string): string {
-  const escaped = commandPattern(name);
-  const two = new RegExp(
-    `\\\\${escaped}(?:\\[[^\\]]*\\])?\\{([^{}]*)\\}\\{([^{}]*)\\}`
-  ).exec(source);
+  const head = commandHead(name);
+  const two = new RegExp(`${head}\\{([^{}]*)\\}\\{([^{}]*)\\}`).exec(source);
   if (two?.[0] !== undefined) {
-    const first = two[1] ?? '';
-    const second = two[2] ?? '';
-    const shown = isMeasure(first) || second.trim().length === 0 ? second || first : `${second} (${first})`;
-    return source.replace(two[0], asText(shown));
+    const first = two[2] ?? '';
+    const second = two[3] ?? '';
+    const body = isMeasure(first) || second.trim().length === 0 ? second || first : `${second} (${first})`;
+    return source.replace(two[0], asText(withNotes(body, two[1] ?? '')));
   }
-  const one = new RegExp(`\\\\${escaped}(?:\\[[^\\]]*\\])?\\{([^{}]*)\\}`).exec(source);
+  const one = new RegExp(`${head}\\{([^{}]*)\\}`).exec(source);
   if (one?.[0] !== undefined) {
-    return source.replace(one[0], asText(one[1] ?? ''));
+    return source.replace(one[0], asText(withNotes(one[2] ?? '', one[1] ?? '')));
   }
-  const bare = new RegExp(`\\\\${escaped}(?![A-Za-z])`).exec(source);
+  const bare = new RegExp(`\\\\${commandPattern(name)}\\*?(?![A-Za-z])`).exec(source);
   if (bare?.[0] === undefined) {
     return source;
   }
