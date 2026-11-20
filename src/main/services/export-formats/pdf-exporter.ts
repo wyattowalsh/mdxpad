@@ -253,6 +253,14 @@ function consumePdfHtml(build: PdfBuild, lines: readonly string[], index: number
   if (build.fence || build.displayMath) {
     return null;
   }
+  const line = lines[index] ?? '';
+  if (
+    build.lists.length > 0 &&
+    build.listColumn !== null &&
+    isListContinuation(line, build.listColumn)
+  ) {
+    return null;
+  }
   const block = readHtmlBlock(lines, index);
   if (!block) {
     return null;

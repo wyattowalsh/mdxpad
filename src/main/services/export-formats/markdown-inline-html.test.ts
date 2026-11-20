@@ -270,6 +270,16 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps an html block inside the list item', () => {
+    const html = markdownToPdfHtml('- <div>\n  bar\n  </div>\n');
+    expect(html.indexOf('</div>')).toBeLessThan(html.indexOf('</ul>'));
+    expect(html).toContain('bar');
+    const loose = markdownToPdfHtml('- <div>\n\n  bar\n\n  </div>\n');
+    expect(loose.indexOf('</div>')).toBeLessThan(loose.indexOf('</ul>'));
+    const after = markdownToPdfHtml('- item\n\n<div>\nbar\n</div>\n');
+    expect(after.indexOf('</ul>')).toBeLessThan(after.indexOf('<div>'));
+  });
+
   it('drops the list indent inside a wrapped code span', () => {
     expect(markdownToPdfHtml('- `a\n  b`\n')).toContain('<code>a b</code>');
     expect(markdownToPdfHtml('- `a\n    b`\n')).toContain('<code>a   b</code>');

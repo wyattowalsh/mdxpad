@@ -301,6 +301,14 @@ function consumeEpubHtml(
   if (state.fence || state.displayMath) {
     return null;
   }
+  const line = lines[index] ?? '';
+  if (
+    state.lists.length > 0 &&
+    state.listColumn !== null &&
+    isListContinuation(line, state.listColumn)
+  ) {
+    return null;
+  }
   const block = readHtmlBlock(lines, index);
   if (!block) {
     return null;
