@@ -210,6 +210,63 @@ function takeQuotedList(lines: readonly string[], index: number): PromotedBlock 
   };
 }
 
+function continuesList(lines: readonly string[], index: number, indent: string): boolean {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const line = (lines[cursor] ?? '').replaceAll('\t', '    ');
+    if (line.trim().length === 0) {
+      continue;
+    }
+    const parsed = listParts(line);
+    if (parsed?.indent === indent) {
+      return true;
+    }
+    const lineIndent = /^( *)/.exec(line)?.[1] ?? '';
+    if (lineIndent.length >= indent.length) {
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
+function takeIndented(lines: readonly string[], index: number): PromotedBlock | null {
+  const line = (lines[index] ?? '').replaceAll('\t', '    ');
+  const match = /^( +)(\S.*)$/.exec(line);
+  const indent = match?.[1] ?? '';
+  const text = match?.[2] ?? '';
+  const prefix = match && !LIST_ITEM.test(line) ? displayMathPrefix(text) : null;
+  if (!match || prefix === null || !continuesList(lines, index, indent)) {
+    return null;
+  }
+  const body: string[] = [];
+  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+    const current = (lines[cursor] ?? '').replaceAll('\t', '    ');
+    if (current.trim().length === 0) {
+      body.push(lines[cursor] ?? '');
+      continue;
+    }
+    if (!current.startsWith(indent)) {
+      return null;
+    }
+    const rest = current.slice(indent.length);
+    if (rest.trim() === '$$') {
+      return {
+        lines: [`${indent}${prefix}`, `${indent}$$`, ...body, lines[cursor] ?? ''],
+        next: cursor + 1,
+      };
+    }
+    const lead = displayMathPrefix(rest.trim());
+    if (lead !== null) {
+      return {
+        lines: [`${indent}${prefix}`, `${indent}$$`, ...body, `${indent}${lead}`, `${indent}$$`],
+        next: cursor + 1,
+      };
+    }
+    body.push(lines[cursor] ?? '');
+  }
+  return null;
+}
+
 function promotedBlock(lines: readonly string[], index: number): PromotedBlock | null {
   const line = lines[index] ?? '';
   if (/^\s{0,3}>/.test(line)) {
@@ -218,7 +275,7 @@ function promotedBlock(lines: readonly string[], index: number): PromotedBlock |
   if (LIST_ITEM.test(line.replaceAll('\t', '    '))) {
     return takeList(lines, index);
   }
-  return takePlain(lines, index);
+  return takeIndented(lines, index) ?? takePlain(lines, index);
 }
 
 /** Rewrite `Text $$` ... `$$` into a paragraph plus a display fence. */
