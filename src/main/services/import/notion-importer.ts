@@ -139,6 +139,24 @@ function combineBlock(type: string, own: string | null, nested: string): string 
   return `${own}\n${nested.trim()}\n`;
 }
 
+function richCaption(data: Record<string, unknown>): string {
+  const caption = data.caption;
+  if (!Array.isArray(caption)) {
+    return '';
+  }
+  return extractRichText(caption as NotionRichText[]).trim();
+}
+
+function codeBlock(data: Record<string, unknown>, text: string): string {
+  const language = stringField(data, 'language');
+  const caption = richCaption(data);
+  const fence = `\`\`\`${language}\n${text}\n\`\`\`\n`;
+  if (caption.length === 0 || caption === text.trim()) {
+    return fence;
+  }
+  return `${fence}${caption}\n`;
+}
+
 function calloutEmoji(data: Record<string, unknown>): string {
   const icon = data.icon;
   if (icon === null || typeof icon !== 'object') {
@@ -172,10 +190,8 @@ function getBlockContent(block: NotionBlock): string | null {
       const checked = data.checked as boolean;
       return `- [${checked ? 'x' : ' '}] ${text}\n`;
     }
-    case 'code': {
-      const language = (data.language as string) || '';
-      return `\`\`\`${language}\n${text}\n\`\`\`\n`;
-    }
+    case 'code':
+      return codeBlock(data, text);
     case 'quote':
       return `> ${text}\n`;
     case 'callout': {

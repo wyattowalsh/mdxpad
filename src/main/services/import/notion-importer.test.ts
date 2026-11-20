@@ -212,6 +212,32 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: equation');
   });
 
+  it('keeps the caption on a code block', async () => {
+    const mockBlocks = {
+      results: [
+        {
+          type: 'code',
+          code: {
+            rich_text: [{ plain_text: 'const x = 1;', annotations: {} }],
+            caption: [{ plain_text: 'The setup', annotations: {} }],
+            language: 'typescript',
+          },
+        },
+      ],
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(JSON.stringify(mockBlocks), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('```typescript');
+    expect(result.content).toContain('const x = 1;');
+    expect(result.content).toContain('The setup');
+  });
+
   it('keeps the emoji on a callout', async () => {
     const mockBlocks = {
       results: [
