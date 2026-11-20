@@ -1183,6 +1183,29 @@ describe('DocxExporter', () => {
     expect(xml).not.toContain('&lt;select');
   });
 
+  it('links the words inside a block link', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '<a href="https://example.com"><div>Docs</div></a>\n',
+      outputPath: '/tmp/html-block-link.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); print(z.read("word/document.xml").decode()); print(z.read("word/_rels/document.xml.rels").decode())',
+      ],
+      { input: buffer }
+    );
+    const xml = extracted.stdout.toString();
+    expect(xml).toContain('Docs');
+    expect(xml).toContain('https://example.com');
+    expect(xml).toContain('<w:hyperlink');
+    expect(xml).not.toContain('&lt;a');
+    expect(xml).not.toContain('&lt;div');
+  });
+
   it('shows a MathML formula as text', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

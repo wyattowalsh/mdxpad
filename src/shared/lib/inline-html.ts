@@ -85,6 +85,14 @@ function linkedImages(inner: string): boolean {
   return trimmed.length > 0 && /^(?:!\[[^\]\n]*\]\([^)\n]+\)\s*)+$/.test(trimmed);
 }
 
+function linkLabel(inner: string): string | null {
+  const label = inner.replace(/\s+/g, ' ').trim();
+  if (label.length === 0 || label.includes('[') || label.includes(']')) {
+    return null;
+  }
+  return label;
+}
+
 function promotedTag(name: string, attrs: string, inner: string): string | null {
   switch (name.toLowerCase()) {
     case 'em':
@@ -108,10 +116,11 @@ function promotedTag(name: string, attrs: string, inner: string): string | null 
       if (href === null) {
         return inner;
       }
-      if (inner.includes('[') || inner.includes(']')) {
-        return linkedImages(inner) ? `[${inner.trim()}](${href})` : null;
+      if (linkedImages(inner)) {
+        return `[${inner.trim()}](${href})`;
       }
-      return `[${inner}](${href})`;
+      const label = linkLabel(inner);
+      return label === null ? null : `[${label}](${href})`;
     }
     default:
       return null;

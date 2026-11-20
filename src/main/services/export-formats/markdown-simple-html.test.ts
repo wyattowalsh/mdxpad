@@ -56,6 +56,18 @@ describe('rewriteSimpleHtml', () => {
     );
   });
 
+  it('links the words inside a block link', () => {
+    expect(rewriteSimpleHtml('<a href="https://example.com"><div>Docs</div></a>').trim()).toBe(
+      '[Docs](https://example.com)'
+    );
+    expect(rewriteSimpleHtml('<a href="https://example.com"><p>Read the guide</p></a>').trim()).toBe(
+      '[Read the guide](https://example.com)'
+    );
+    expect(rewriteSimpleHtml('<a href="file:///etc/passwd"><div>Docs</div></a>')).not.toContain(
+      '](file:'
+    );
+  });
+
   it('shows a MathML formula as text', () => {
     expect(rewriteSimpleHtml('<math><mi>x</mi><mo>+</mo><mn>2</mn></math>')).toBe('x + 2');
     expect(rewriteSimpleHtml('<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>')).toBe('a/b');
