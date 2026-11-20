@@ -65,6 +65,9 @@ describe('renderMarkdownInline', () => {
     expect(words).toContain('hello_world');
     const lines = renderDisplayMathBlock(['\\begin{multline}', 'a \\\\ b', '\\end{multline}']);
     expect(lines).not.toContain('katex-error');
+    const stated = renderDisplayMathBlock(['\\begin{theorem}', 'The ice melts.', '\\end{theorem}']);
+    expect(stated).not.toContain('katex-error');
+    expect(stated).toContain('ice');
     const water = renderDisplayMathBlock(['\\ce{H2O}']);
     expect(water).not.toContain('katex-error');
     expect(water).toContain('H');

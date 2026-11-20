@@ -204,9 +204,48 @@ const KATEX_ENVIRONMENT_ALIAS: Readonly<Record<string, string>> = {
 
 const STRIPPED_ENVIRONMENT = new Set(['math', 'subequations']);
 
+const PROSE_ENVIRONMENT = [
+  'abstract',
+  'corollary',
+  'definition',
+  'example',
+  'lemma',
+  'note',
+  'proof',
+  'proposition',
+  'remark',
+  'theorem',
+].join('|');
+
+function escapeProse(body: string): string {
+  return body
+    .replaceAll('\\', '\\textbackslash{}')
+    .replaceAll('{', '\\{')
+    .replaceAll('}', '\\}')
+    .replaceAll('%', '\\%')
+    .replaceAll('&', '\\&')
+    .replaceAll('_', '\\_')
+    .replaceAll('#', '\\#')
+    .replaceAll('^', '\\textasciicircum{}')
+    .replaceAll('~', '\\textasciitilde{}');
+}
+
+function replaceProseEnvironments(source: string): string {
+  return source.replace(
+    new RegExp(`\\\\begin\\{(${PROSE_ENVIRONMENT})\\}([\\s\\S]*?)\\\\end\\{\\1\\}`, 'g'),
+    (_match, name: string, body: string) => {
+      const label = name.charAt(0).toUpperCase() + name.slice(1);
+      if (body.includes('\\')) {
+        return `\\textbf{${label}. }${body}`;
+      }
+      return `\\textbf{${label}. }\\text{${escapeProse(body)}}`;
+    }
+  );
+}
+
 /** KaTeX names for environments and text commands it does not implement. */
 export function katexMathTex(source: string): string {
-  const aliased = source.replace(
+  const aliased = replaceProseEnvironments(source).replace(
     /\\(begin|end)\{([A-Za-z*]+)\}/g,
     (match: string, edge: string, name: string) => {
       if (STRIPPED_ENVIRONMENT.has(name)) {

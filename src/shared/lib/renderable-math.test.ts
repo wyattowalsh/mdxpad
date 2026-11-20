@@ -40,6 +40,12 @@ describe('renderableMathTex', () => {
     );
     expect(katexMathTex('a=b\\label{eq:a}')).toBe('a=b');
     expect(katexMathTex('\\eqref{eq:a}')).toBe('\\text{(eq:a)}');
+    expect(katexMathTex('\\begin{theorem}The ice melts.\\end{theorem}')).toBe(
+      '\\textbf{Theorem. }\\text{The ice melts.}'
+    );
+    expect(katexMathTex('\\begin{proof}\\frac{1}{2}\\end{proof}')).toBe(
+      '\\textbf{Proof. }\\frac{1}{2}'
+    );
     expect(katexMathTex('\\mbox{a}')).toBe('\\text{a}');
     expect(renderableMathTex('\\begin{multline}a\\\\b\\end{multline}')).toBe(
       '\\begin{multline}a\\\\b\\end{multline}'
