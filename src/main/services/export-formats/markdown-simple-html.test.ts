@@ -328,6 +328,16 @@ describe('rewriteSimpleHtml', () => {
     ).toBe('![](https://example.com/a.webp)');
     expect(
       rewriteSimpleHtml(
+        '<picture aria-label="Photolabel"><source srcset="https://example.com/a.webp"></picture>'
+      ).trim()
+    ).toBe('![Photolabel](https://example.com/a.webp)');
+    expect(
+      rewriteSimpleHtml(
+        '<picture><source srcset="https://example.com/a.webp"><img aria-label="Photolabel" src="file:///tmp/a.png"></picture>'
+      ).trim()
+    ).toBe('![Photolabel](https://example.com/a.webp)');
+    expect(
+      rewriteSimpleHtml(
         '<picture><source srcset="file:///tmp/a.webp 1x, https://example.com/a.webp 2x"><img alt="Cat" src="file:///tmp/a.png"></picture>'
       ).trim()
     ).toBe('![Cat](https://example.com/a.webp)');

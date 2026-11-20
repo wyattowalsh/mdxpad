@@ -1774,15 +1774,20 @@ function pictureImageTag(inner: string): string {
   return '';
 }
 
-function renderPicture(inner: string): string {
+function pictureAlt(image: string, label: string): string {
+  const alt = attribute(image, 'alt').trim();
+  const named = alt.length > 0 ? alt : attribute(image, 'aria-label').trim() || label.trim();
+  return named.replace(/[\\[\]]/g, (char) => `\\${char}`);
+}
+
+function renderPicture(inner: string, label = ''): string {
   const image = pictureImageTag(inner);
   if (imageAddress(attribute(image, 'src')).length > 0) {
     return blockWrap(convertHtml(inner));
   }
   const address = firstPictureSource(inner);
   if (address.length > 0) {
-    const alt = attribute(image, 'alt').replace(/[\\[\]]/g, (char) => `\\${char}`);
-    return blockWrap(`![${alt}](${address})`);
+    return blockWrap(`![${pictureAlt(image, label)}](${address})`);
   }
   const rendered = convertHtml(inner).trim();
   return rendered.length > 0 ? blockWrap(rendered) : '';
@@ -1811,7 +1816,7 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'pre':
       return renderPre(inner);
     case 'picture':
-      return renderPicture(inner);
+      return renderPicture(inner, attribute(openTagBefore(value, element.innerStart), 'aria-label'));
     case 'table':
       return renderDescribedTable(value, element, inner);
     case 'thead':
