@@ -195,6 +195,7 @@ function unwrap(html: string, name: string, openEnd: number): Revealed | null {
 }
 
 const WRITTEN_VALUE = new Set([
+  'text',
   'color',
   'range',
   'number',
@@ -214,7 +215,8 @@ const WRITTEN_VALUE = new Set([
 ]);
 
 function writtenValue(type: string, value: string, rest: string): string {
-  if (!WRITTEN_VALUE.has(type) || value.length === 0 || rest.includes(value)) {
+  const kind = type.length === 0 ? 'text' : type;
+  if (!WRITTEN_VALUE.has(kind) || value.length === 0 || rest.includes(value)) {
     return '';
   }
   return value;

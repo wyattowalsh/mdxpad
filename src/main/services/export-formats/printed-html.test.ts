@@ -118,6 +118,21 @@ describe('printed html', () => {
     expect(image).not.toContain('file:');
   });
 
+  it('shows a typed value', () => {
+    expect(
+      markdownToPdfHtml('Name <input type="text" value="Ada">\n').replace(/<[^>]+>/g, '')
+    ).toContain('Ada');
+    expect(
+      markdownToPdfHtml('<label>Citylabel<input value="Boston"></label>\n').replace(/<[^>]+>/g, '')
+    ).toContain('Boston');
+    expect(
+      markdownToPdfHtml('<input type="text" value="Ada" aria-label="Givenname">\n').replace(
+        /<[^>]+>/g,
+        ''
+      )
+    ).toContain('Ada (Givenname)');
+  });
+
   it('shows a masked value, a placeholder, and an expansion', () => {
     expect(markdownToPdfHtml('<input type="password" value="Secretword">\n')).toContain(
       'Secretword'
