@@ -198,7 +198,13 @@ function confinedJsx(
     blockedMedia(type, props);
   if (replaced) {
     const children = embed !== undefined ? embed : fallbackChildren(type, props);
-    const shown = named?.kind === 'note' ? [children, named.text] : children;
+    const namedText = named?.kind === 'replace' ? named.text : undefined;
+    const shown =
+      (children === undefined || children === '') && namedText !== undefined
+        ? namedText
+        : named?.kind === 'note'
+          ? [children, named.text]
+          : children;
     const fragmentProps = shown === undefined ? {} : { children: shown };
     return key === undefined
       ? jsx(jsxRuntime.Fragment, fragmentProps)

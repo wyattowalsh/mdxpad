@@ -48,6 +48,14 @@ describe('sanitizeMarkdownHtmlBlocks', () => {
       'https://example.com/page'
     );
     expect(sanitizeMarkdownHtmlBlocks('<iframe src="file:///etc/passwd"></iframe>')).toBe('');
+    expect(
+      sanitizeMarkdownHtmlBlocks('<iframe src="file:///etc/passwd" title="The report"></iframe>')
+    ).toBe('The report');
+    expect(
+      sanitizeMarkdownHtmlBlocks(
+        '<iframe src="https://example.com/page" title="The report"></iframe>'
+      )
+    ).toBe('https://example.com/page (The report)');
     expect(sanitizeMarkdownHtmlBlocks('<object data="https://example.com/a.pdf"></object>')).toBe(
       'https://example.com/a.pdf'
     );

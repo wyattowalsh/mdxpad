@@ -151,6 +151,14 @@ function trackLabels(node: unknown): string[] {
   return nodes(element.props.children).flatMap((child) => trackLabels(child));
 }
 
+function frameName(props: Record<string, unknown>): VisibleName | undefined {
+  if (textOf(props.children).length > 0 || nodes(props.children).some((node) => parts(node))) {
+    return undefined;
+  }
+  const label = stringProp(props, 'title') || stringProp(props, 'alt');
+  return label.length > 0 ? { kind: 'replace', text: label } : undefined;
+}
+
 function mediaNote(props: Record<string, unknown>): VisibleName | undefined {
   const labels = nodes(props.children).flatMap((node) => trackLabels(node));
   return labels.length > 0 ? { kind: 'note', text: labels.join(', ') } : undefined;
@@ -173,6 +181,10 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
     case 'video':
     case 'audio':
       return mediaNote(record);
+    case 'iframe':
+    case 'object':
+    case 'embed':
+      return frameName(record);
     default:
       return undefined;
   }

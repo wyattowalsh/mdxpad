@@ -39,7 +39,10 @@ const EMBEDDED = new Set([
   'data',
   'datalist',
   'applet',
+  'embed',
+  'iframe',
   'legend',
+  'object',
   'slot',
   'source',
   'track',
@@ -112,6 +115,7 @@ const HIDDEN = new Set([
 const VOID_HTML = new Set([
   'area',
   'bgsound',
+  'embed',
   'isindex',
   'keygen',
   'mglyph',
@@ -1164,6 +1168,19 @@ function renderButton(value: string, element: HtmlElement, inner: string): strin
   return attribute(openTag, 'value').trim() || attribute(openTag, 'aria-label').trim();
 }
 
+function renderFrame(value: string, element: HtmlElement, inner: string): string {
+  const openTag = openTagBefore(value, element.innerStart);
+  const text = convertHtml(inner).trim();
+  const alt = attribute(openTag, 'alt').trim();
+  const title = attribute(openTag, 'title').trim();
+  const raw = element.name === 'object' ? attribute(openTag, 'data') : attribute(openTag, 'src');
+  const body = text.length > 0 ? text : alt.length > 0 ? alt : visibleAddress(raw);
+  if (title.length === 0 || title === body) {
+    return body;
+  }
+  return body.length === 0 ? title : `${body} (${title})`;
+}
+
 function renderApplet(value: string, element: HtmlElement, inner: string): string {
   const text = convertHtml(inner).trim();
   if (text.length > 0) {
@@ -1293,6 +1310,10 @@ function renderEmbedded(element: HtmlElement, value: string, inner: string): str
       return blockWrap(renderChoices(inner).join(', '));
     case 'applet':
       return renderApplet(value, element, inner);
+    case 'iframe':
+    case 'object':
+    case 'embed':
+      return renderFrame(value, element, inner);
     case 'area':
       return renderArea(value, element);
     case 'video':

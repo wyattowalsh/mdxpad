@@ -123,6 +123,16 @@ describe('rewriteSimpleHtml', () => {
       'clip.mp4 (The lecture)'
     );
     expect(
+      rewriteSimpleHtml('<iframe src="https://example.com/page" title="The report"></iframe>')
+    ).toBe('https://example.com/page (The report)');
+    expect(rewriteSimpleHtml('<iframe src="file:///etc/passwd" title="The report"></iframe>')).toBe(
+      'The report'
+    );
+    expect(
+      rewriteSimpleHtml('<object data="https://example.com/a.pdf" title="The report"></object>')
+    ).toBe('https://example.com/a.pdf (The report)');
+    expect(rewriteSimpleHtml('<embed title="The clip" src="file:///tmp/a.swf">')).toBe('The clip');
+    expect(
       rewriteSimpleHtml(
         '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>'
       ).trim()

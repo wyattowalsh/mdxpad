@@ -376,13 +376,20 @@ function droppedAddress(tag: string, name: string): string {
   }
 }
 
+function withFrameTitle(body: string, tag: string): string {
+  const title = tagAttribute(tag, 'title');
+  if (title.length === 0 || title === body.trim()) {
+    return body;
+  }
+  const trimmed = body.trim();
+  return trimmed.length === 0 ? title : `${trimmed} (${title})`;
+}
+
 function droppedFallback(tag: string, name: string, inner: string): string {
   const text = FALLBACK_TAGS.has(name) ? sanitizeExportedHtml(inner) : '';
-  if (text.trim().length > 0) {
-    return text;
-  }
   const alt = name === 'embed' ? tagAttribute(tag, 'alt') : '';
-  return alt.length > 0 ? alt : droppedAddress(tag, name);
+  const body = text.trim().length > 0 ? text : alt.length > 0 ? alt : droppedAddress(tag, name);
+  return withFrameTitle(body, tag);
 }
 
 /** A dropped element, keeping the fallback text of a frame or embed. */

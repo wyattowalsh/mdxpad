@@ -287,6 +287,20 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows the name of a frame that has no fallback', async () => {
+    const source = '<iframe src="file:///etc/passwd" title="The report"></iframe>';
+    const result = await compileMdx(testId('frame-title'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.querySelector('iframe')).toBeNull();
+    expect(container.textContent).toContain('The report');
+    expect(container.innerHTML).not.toContain('file:');
+  });
+
   it('shows the words of a noscript block', async () => {
     const source = '<noscript><p>Enable the page</p></noscript>';
     const result = await compileMdx(testId('noscript-words'), source);
