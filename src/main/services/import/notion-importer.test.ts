@@ -174,6 +174,44 @@ describe('notion-importer', () => {
     await expect(importFromNotion('bad-id', 'key')).rejects.toThrow(NotionImportError);
   });
 
+  it('keeps an equation, a bookmark, and a file', async () => {
+    const mockBlocks = {
+      results: [
+        { type: 'equation', equation: { expression: 'x^2 + 1' } },
+        {
+          type: 'bookmark',
+          bookmark: {
+            url: 'https://example.com/guide',
+            rich_text: [{ plain_text: 'Guide', annotations: {} }],
+          },
+        },
+        {
+          type: 'file',
+          file: {
+            external: { url: 'https://example.com/notes.pdf' },
+            caption: [{ plain_text: 'Notes', annotations: {} }],
+          },
+        },
+        { type: 'child_page', child_page: { title: 'Nested page' } },
+      ],
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(JSON.stringify(mockBlocks), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+
+    const result = await importFromNotion('page-id', 'key');
+    expect(result.content).toContain('x^2 + 1');
+    expect(result.content).toContain('[Guide](https://example.com/guide)');
+    expect(result.content).toContain('[Notes](https://example.com/notes.pdf)');
+    expect(result.content).toContain('Nested page');
+    expect(result.warnings).not.toContain('Unsupported block type: equation');
+  });
+
   it('should warn about unsupported block types', async () => {
     const mockBlocks = {
       results: [{ type: 'unsupported_type', unsupported_type: {} }],

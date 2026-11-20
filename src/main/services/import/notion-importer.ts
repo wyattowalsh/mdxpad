@@ -39,11 +39,66 @@ function extractRichText(richTexts: NotionRichText[]): string {
     .join('');
 }
 
+function stringField(data: Record<string, unknown>, key: string): string {
+  const value = data[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function mediaUrl(data: Record<string, unknown>): string {
+  const file = data.file as { url?: unknown } | undefined;
+  const external = data.external as { url?: unknown } | undefined;
+  if (typeof file?.url === 'string' && file.url.length > 0) {
+    return file.url;
+  }
+  if (typeof external?.url === 'string' && external.url.length > 0) {
+    return external.url;
+  }
+  return stringField(data, 'url');
+}
+
+function linkedLine(label: string, url: string): string | null {
+  if (url.length === 0 && label.length === 0) {
+    return null;
+  }
+  if (url.length === 0) {
+    return `${label}\n`;
+  }
+  if (label.length === 0) {
+    return `${url}\n`;
+  }
+  return `[${label}](${url})\n`;
+}
+
+function extraBlock(type: string, data: Record<string, unknown>, text: string): string | null {
+  switch (type) {
+    case 'equation': {
+      const expression = stringField(data, 'expression');
+      return expression.length > 0 ? `$$\n${expression}\n$$\n` : null;
+    }
+    case 'bookmark':
+    case 'embed':
+    case 'link_preview':
+      return linkedLine(text, stringField(data, 'url') || mediaUrl(data));
+    case 'video':
+    case 'audio':
+    case 'file':
+    case 'pdf':
+      return linkedLine(text, mediaUrl(data));
+    case 'child_page':
+    case 'child_database': {
+      const title = stringField(data, 'title') || text;
+      return title.length > 0 ? `## ${title}\n` : null;
+    }
+    default:
+      return text.length > 0 ? `${text}\n` : null;
+  }
+}
+
 function getBlockContent(block: NotionBlock): string | null {
   const data = block[block.type] as Record<string, unknown> | undefined;
   if (!data) return null;
 
-  const richText = data.rich_text as NotionRichText[] | undefined;
+  const richText = (data.rich_text ?? data.caption) as NotionRichText[] | undefined;
   const text = richText ? extractRichText(richText) : '';
 
   switch (block.type) {
@@ -73,19 +128,12 @@ function getBlockContent(block: NotionBlock): string | null {
       return `> ${text}\n`;
     case 'divider':
       return '---\n';
-    case 'image': {
-      const imageData = data;
-      const url =
-        (imageData.file as Record<string, string> | undefined)?.url ??
-        (imageData.external as Record<string, string> | undefined)?.url ??
-        '';
-      const caption = richText ? extractRichText(richText) : '';
-      return `![${caption}](${url})\n`;
-    }
+    case 'image':
+      return `![${text}](${mediaUrl(data)})\n`;
     case 'toggle':
       return `<details>\n<summary>${text}</summary>\n</details>\n`;
     default:
-      return text ? text + '\n' : null;
+      return extraBlock(block.type, data, text);
   }
 }
 
