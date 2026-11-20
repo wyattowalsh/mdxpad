@@ -20,7 +20,7 @@ import { renderableMathTex } from '@shared/lib/renderable-math';
 
 import { inlineLocalImages } from './export-image';
 import { sanitizeMarkdownHtmlBlocks } from './markdown-html';
-import { findHighlight } from './markdown-highlight';
+import { findPairedMark } from './markdown-highlight';
 import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 
 import { isTableRow, markdownTableToLatex, parseMarkdownTable } from './markdown-table';
@@ -438,12 +438,13 @@ function latexPhrase(value: string, tag: PhraseTag): string {
 }
 
 function latexText(value: string): string {
-  const highlight = findHighlight(value, 0);
-  if (highlight) {
-    const before = highlight.start > 0 ? latexText(value.slice(0, highlight.start)) : '';
-    const inner = latexText(highlight.inner);
-    const after = highlight.end < value.length ? latexText(value.slice(highlight.end)) : '';
-    return `${before}\\colorbox{yellow}{${inner}}${after}`;
+  const paired = findPairedMark(value, 0);
+  if (paired) {
+    const before = paired.start > 0 ? latexText(value.slice(0, paired.start)) : '';
+    const inner = latexText(paired.inner);
+    const after = paired.end < value.length ? latexText(value.slice(paired.end)) : '';
+    const wrapped = paired.kind === 'highlight' ? `\\colorbox{yellow}{${inner}}` : `\\uline{${inner}}`;
+    return `${before}${wrapped}${after}`;
   }
   const tag = nextPhraseTag(value, 0);
   if (tag) {

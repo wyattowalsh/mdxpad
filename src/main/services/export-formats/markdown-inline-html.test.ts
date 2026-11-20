@@ -781,7 +781,9 @@ describe('renderMarkdownInline', () => {
     expect(markdownToPdfHtml('> quote\r\n> next\r\n')).toContain('<blockquote>');
     expect(markdownToPdfHtml('- [x] done\r\n')).toContain('checked');
     expect(renderMarkdownInline('==hi==')).toBe('<mark>hi</mark>');
+    expect(renderMarkdownInline('++hi++')).toBe('<u>hi</u>');
     expect(renderMarkdownInline('a == b')).toBe('a == b');
+    expect(renderMarkdownInline('a ++ b')).toBe('a ++ b');
     expect(renderMarkdownInline('`==hi==`')).toBe('<code>==hi==</code>');
     expect(markdownToPdfHtml('See <mark>hi</mark> now\n')).toContain('<mark>hi</mark>');
     expect(markdownToPdfHtml('See <u>there</u> now\n')).toContain('<u>there</u>');

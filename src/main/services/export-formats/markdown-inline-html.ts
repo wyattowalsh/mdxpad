@@ -9,7 +9,7 @@ import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
 import { protectAutolinks, replaceAutolinks, type Autolink } from './markdown-autolink';
 import { decodeHtmlEntities } from './markdown-entity';
 import { renderEmphasis } from './markdown-emphasis';
-import { findHighlight } from './markdown-highlight';
+import { findPairedMark } from './markdown-highlight';
 import { findCodeSpan, protectEscapes, readCodeSpan, restoreEscapes } from './markdown-escape';
 import {
   findMarkdownTarget,
@@ -369,19 +369,20 @@ function applyStrike(html: string): string {
   return result;
 }
 
-function applyHighlight(html: string): string {
-  const found = findHighlight(html, 0);
+function applyPairedMarks(html: string): string {
+  const found = findPairedMark(html, 0);
   if (!found) {
     return html;
   }
   const before = html.slice(0, found.start);
-  const inner = applyHighlight(found.inner);
-  const after = applyHighlight(html.slice(found.end));
-  return `${before}<mark>${inner}</mark>${after}`;
+  const inner = applyPairedMarks(found.inner);
+  const after = applyPairedMarks(html.slice(found.end));
+  const wrapped = found.kind === 'highlight' ? `<mark>${inner}</mark>` : `<u>${inner}</u>`;
+  return `${before}${wrapped}${after}`;
 }
 
 function renderRich(raw: string): string {
-  return applyHighlight(applyStrike(renderEmphasis(raw, renderPlain)));
+  return applyPairedMarks(applyStrike(renderEmphasis(raw, renderPlain)));
 }
 
 /** Escape text, then apply emphasis, code, and links. Underscores inside words stay plain. */

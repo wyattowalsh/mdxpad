@@ -1,10 +1,16 @@
 import { readCodeSpan } from './markdown-escape';
 
-export interface HighlightSpan {
+export interface PairedMark {
+  readonly kind: 'highlight' | 'underline';
   readonly start: number;
   readonly end: number;
   readonly inner: string;
 }
+
+const MARKERS = [
+  { char: '=', kind: 'highlight' },
+  { char: '+', kind: 'underline' },
+] as const;
 
 function skipHtmlTag(value: string, index: number): number {
   if (value[index] !== '<') {
@@ -14,18 +20,20 @@ function skipHtmlTag(value: string, index: number): number {
   return match ? index + match[0].length : index;
 }
 
-function isHighlightOpen(value: string, index: number): boolean {
-  if (!value.startsWith('==', index)) {
+function isMarkOpen(value: string, index: number, char: string): boolean {
+  const token = char.repeat(2);
+  if (!value.startsWith(token, index)) {
     return false;
   }
-  if (index > 0 && value[index - 1] === '=') {
+  if (index > 0 && value[index - 1] === char) {
     return false;
   }
   const next = value[index + 2];
-  return next !== undefined && next !== '=' && !/\s/.test(next);
+  return next !== undefined && next !== char && !/\s/.test(next);
 }
 
-function highlightClose(value: string, from: number): number {
+function markClose(value: string, from: number, char: string): number {
+  const token = char.repeat(2);
   for (let index = from; index < value.length; index += 1) {
     if (value[index] === '\n') {
       return -1;
@@ -33,9 +41,9 @@ function highlightClose(value: string, from: number): number {
     const next = value[index + 2];
     const previous = value[index - 1];
     if (
-      value.startsWith('==', index) &&
-      previous !== '=' &&
-      next !== '=' &&
+      value.startsWith(token, index) &&
+      previous !== char &&
+      next !== char &&
       previous !== undefined &&
       !/\s/.test(previous)
     ) {
@@ -45,8 +53,8 @@ function highlightClose(value: string, from: number): number {
   return -1;
 }
 
-/** The next `==highlight==` pair outside code, with no spaces against the markers. */
-export function findHighlight(value: string, from: number): HighlightSpan | null {
+/** The next `==highlight==` or `++underline++` pair outside code. */
+export function findPairedMark(value: string, from: number): PairedMark | null {
   let index = from;
   while (index < value.length) {
     if (value[index] === '`') {
@@ -66,11 +74,20 @@ export function findHighlight(value: string, from: number): HighlightSpan | null
       index = tagEnd;
       continue;
     }
-    if (isHighlightOpen(value, index)) {
-      const close = highlightClose(value, index + 2);
-      if (close !== -1) {
-        return { start: index, end: close + 2, inner: value.slice(index + 2, close) };
+    for (const marker of MARKERS) {
+      if (!isMarkOpen(value, index, marker.char)) {
+        continue;
       }
+      const close = markClose(value, index + 2, marker.char);
+      if (close === -1) {
+        continue;
+      }
+      return {
+        kind: marker.kind,
+        start: index,
+        end: close + 2,
+        inner: value.slice(index + 2, close),
+      };
     }
     index += 1;
   }

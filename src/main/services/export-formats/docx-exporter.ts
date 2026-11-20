@@ -79,7 +79,7 @@ import {
 import { expandAutolinkText, protectAutolinks } from './markdown-autolink';
 import { protectEscapes, readCodeSpan, restoreEscapes, splitCodeSpans } from './markdown-escape';
 import { decodeHtmlEntities } from './markdown-entity';
-import { findHighlight } from './markdown-highlight';
+import { findPairedMark } from './markdown-highlight';
 import { nextPhraseTag, type PhraseTag } from './markdown-phrase-tags';
 import { safeImageAddress, safeLinkAddress } from './markdown-export-address';
 import { collectEmphasis, outerEmphasisMatches } from './markdown-emphasis';
@@ -307,18 +307,17 @@ function parsePhraseTagged(text: string): InlineSegment[] | null {
 }
 
 function parseHighlighted(text: string): InlineSegment[] | null {
-  const found = findHighlight(text, 0);
+  const found = findPairedMark(text, 0);
   if (!found) {
     return null;
   }
+  const flags = found.kind === 'highlight' ? { highlight: true } : { underline: true };
   const segments: InlineSegment[] = [];
   if (found.start > 0) {
     segments.push(...parseInlineFormatting(text.slice(0, found.start)));
   }
   if (found.inner.length > 0) {
-    segments.push(
-      ...parseInlineFormatting(found.inner).map((segment) => ({ ...segment, highlight: true }))
-    );
+    segments.push(...parseInlineFormatting(found.inner).map((segment) => ({ ...segment, ...flags })));
   }
   if (found.end < text.length) {
     segments.push(...parseInlineFormatting(text.slice(found.end)));

@@ -981,6 +981,18 @@ describe('LatexExporter', () => {
     expect(written).not.toContain('<h1');
   });
 
+  it('underlines text wrapped in plus signs', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: 'See ++hi++ and a ++ b.\n',
+      outputPath: '/tmp/underline.tex',
+    });
+    const written = (writeFile as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1] as string;
+    expect(written).toContain('\\uline{hi}');
+    expect(written).toContain('a ++ b');
+    expect(written).not.toContain('++hi++');
+  });
+
   it('highlights text wrapped in equals', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({
