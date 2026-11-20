@@ -401,6 +401,9 @@ describe('WYSIWYG markdown round trip', () => {
     expect(destination).toContain('https://example.com/a(b)');
     expect(destination).not.toContain('\uE013');
     expect(destination).not.toContain('\uE014');
+    const brackets = roundTrip('See [a][id].\n\n[id]: https://example.com/a\\[b\\]\n');
+    expect(brackets).toContain('https://example.com/a%5Bb%5D');
+    expect(roundTrip(brackets.endsWith('\n') ? brackets : `${brackets}\n`)).toBe(brackets);
     const priced = roundTrip('Price $5 and \\(x\\).\n');
     expect(priced).toContain('Price $5 and \\(x\\).');
     expect(priced).not.toContain('Price Price');

@@ -230,7 +230,9 @@ function restoredAddress(value: string | null): string {
     .replaceAll(/%EE%80%94/gi, TEX_INLINE_CLOSE)
     .replaceAll(/%EE%80%95/gi, TEX_DISPLAY_OPEN)
     .replaceAll(/%EE%80%96/gi, TEX_DISPLAY_CLOSE);
-  return unescapeMarkdown(restoreTexDelimiters(restoreMathMarkup(decoded)));
+  return unescapeMarkdown(restoreTexDelimiters(restoreMathMarkup(decoded)))
+    .replaceAll('[', '%5B')
+    .replaceAll(']', '%5D');
 }
 
 function imageAlt(token: MarkdownToken): string {
