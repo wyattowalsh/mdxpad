@@ -53,6 +53,20 @@ function formatAuthors(authors: AuthorRef[], style: CitationStyle): string {
   return `${allButLast.join(', ')}${separator}${last}`;
 }
 
+function addBooktitle(parts: string[], entry: CitationEntry, rendered: string): void {
+  if (entry.booktitle) {
+    parts.push(rendered);
+  }
+}
+
+function addNote(parts: string[], entry: CitationEntry): void {
+  const note = entry.note?.trim() ?? '';
+  if (note.length === 0) {
+    return;
+  }
+  parts.push(note.endsWith('.') ? note : `${note}.`);
+}
+
 function formatApa(entry: CitationEntry): string {
   const parts: string[] = [];
   const authors = entry.author ? formatAuthors(entry.author, 'apa') : 'Unknown Author';
@@ -68,7 +82,9 @@ function formatApa(entry: CitationEntry): string {
   } else if (entry.publisher) {
     parts.push(`${entry.publisher}.`);
   }
+  addBooktitle(parts, entry, `In ${entry.booktitle}.`);
   if (entry.doi) parts.push(`https://doi.org/${entry.doi}`);
+  addNote(parts, entry);
   return parts.join(' ');
 }
 
@@ -88,6 +104,8 @@ function formatMla(entry: CitationEntry): string {
     if (entry.publisher) parts.push(`${entry.publisher},`);
     if (entry.year) parts.push(`${entry.year}.`);
   }
+  addBooktitle(parts, entry, `_${entry.booktitle}_.`);
+  addNote(parts, entry);
   return parts.join(' ');
 }
 
@@ -113,6 +131,8 @@ function formatChicago(entry: CitationEntry): string {
     if (entry.publisher) parts.push(`${entry.publisher},`);
     if (entry.year) parts.push(`${entry.year}.`);
   }
+  addBooktitle(parts, entry, `_${entry.booktitle}_.`);
+  addNote(parts, entry);
   return parts.join(' ');
 }
 
@@ -132,6 +152,8 @@ function formatIeee(entry: CitationEntry): string {
     if (entry.publisher) parts.push(`${entry.publisher},`);
     if (entry.year) parts.push(`${entry.year}.`);
   }
+  addBooktitle(parts, entry, `in _${entry.booktitle}_.`);
+  addNote(parts, entry);
   return parts.join(' ');
 }
 

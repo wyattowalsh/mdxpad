@@ -121,8 +121,12 @@ function readFieldValue(body: string, start: number): FieldValue | null {
   if (char === '{') return readBraced(body, start);
   if (char === '"') return readQuoted(body, start);
   const number = /^\d+/.exec(body.slice(start));
-  if (number?.[0] === undefined) return null;
-  return { text: number[0], next: start + number[0].length };
+  if (number?.[0] !== undefined) {
+    return { text: number[0], next: start + number[0].length };
+  }
+  const bare = /^[A-Za-z][A-Za-z0-9_:-]*/.exec(body.slice(start));
+  if (bare?.[0] === undefined) return null;
+  return { text: bare[0], next: start + bare[0].length };
 }
 
 function parseFields(body: string): Map<string, string> {
@@ -200,6 +204,12 @@ function buildEntry(id: string, type: string, fields: Map<string, string>): Cita
 
   const publisher = fields.get('publisher');
   if (publisher) entry.publisher = publisher;
+
+  const booktitle = fields.get('booktitle');
+  if (booktitle) entry.booktitle = booktitle;
+
+  const note = fields.get('note');
+  if (note) entry.note = note;
 
   const doi = fields.get('doi');
   if (doi) entry.doi = doi;

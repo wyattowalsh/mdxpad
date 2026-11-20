@@ -33,6 +33,23 @@ const sampleBook: CitationEntry = {
 };
 
 describe('citation-formatter', () => {
+  it('keeps a proceedings title and a note', () => {
+    const entry: CitationEntry = {
+      id: 'ada2020',
+      type: 'inproceedings',
+      title: 'Widgets',
+      author: [{ given: 'Ada', family: 'Lovelace' }],
+      year: 2020,
+      booktitle: 'Proceedings of the Ice Conference',
+      note: 'See the appendix',
+    };
+    for (const style of ['apa', 'mla', 'chicago', 'ieee'] as const) {
+      const formatted = formatCitation(entry, style).formatted;
+      expect(formatted).toContain('Proceedings of the Ice Conference');
+      expect(formatted).toContain('See the appendix');
+    }
+  });
+
   describe('formatCitation', () => {
     describe('APA style', () => {
       it('should format article citation', () => {

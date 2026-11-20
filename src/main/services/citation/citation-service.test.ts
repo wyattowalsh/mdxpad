@@ -109,6 +109,21 @@ describe('citation-service', () => {
       expect(result.entries[0]?.url).toBe('https://example.com/paper');
     });
 
+    it('keeps a proceedings title, a note, and an unbraced name', () => {
+      const result = parseBibtex(`
+@inproceedings{ada2020,
+  title = {Widgets},
+  author = {Ada Lovelace},
+  booktitle = {Proceedings of the Ice Conference},
+  publisher = MIT,
+  year = {2020},
+  note = {See the appendix}
+}`);
+      expect(result.entries[0]?.booktitle).toBe('Proceedings of the Ice Conference');
+      expect(result.entries[0]?.note).toBe('See the appendix');
+      expect(result.entries[0]?.publisher).toBe('MIT');
+    });
+
     it('should handle publisher field', () => {
       const bibtex = `
 @book{test,

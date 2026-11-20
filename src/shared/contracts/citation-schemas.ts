@@ -41,6 +41,8 @@ export const CitationEntrySchema = z.object({
   issue: z.string().optional(),
   pages: z.string().optional(),
   publisher: z.string().optional(),
+  booktitle: z.string().optional(),
+  note: z.string().optional(),
   doi: z.string().optional(),
   url: z.string().optional(),
 });
