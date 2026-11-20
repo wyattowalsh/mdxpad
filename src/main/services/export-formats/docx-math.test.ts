@@ -156,6 +156,19 @@ describe('mathComponents', () => {
     );
   });
 
+  it('keeps a side note, a citation, and a boxed paragraph in a Word formula', () => {
+    expect(runText(mathComponents('\\marginpar{A side note}'))).toBe('A side note');
+    expect(runText(mathComponents('\\footnotetext{The note}'))).toBe('The note');
+    expect(runText(mathComponents('\\todo{Fix the ice}'))).toBe('Fix the ice');
+    expect(runText(mathComponents('\\citeauthor{Knuth1984}'))).toBe('Knuth1984');
+    expect(runText(mathComponents('See \\fbox{boxed ice}'))).toBe('See boxed ice');
+    expect(runText(mathComponents('\\parbox{3cm}{A short paragraph}'))).toBe('A short paragraph');
+    expect(runText(mathComponents('\\resizebox{1cm}{2cm}{sized ice}'))).toBe('sized ice');
+    const broken = runText(mathComponents('\\newline next line'));
+    expect(broken).toContain('next line');
+    expect(broken).not.toContain('newline');
+  });
+
   it('keeps the words of a colored Word expression', () => {
     expect(runText(mathComponents('\\textcolor{red}{hello}'))).toBe('hello');
     expect(runText(mathComponents('\\colorbox{blue}{sky}'))).toBe('sky');

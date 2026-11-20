@@ -163,16 +163,33 @@ function readMarked(cursor: Cursor, mark: string): MathComponent[] {
 }
 const PROSE_COMMANDS = new Set([
   'author',
+  'bibliography',
   'caption',
   'ce',
   'chapter',
   'cite',
+  'citeauthor',
+  'citep',
+  'citet',
   'emph',
+  'fbox',
   'footnote',
+  'footnotetext',
+  'framebox',
+  'hl',
+  'marginpar',
   'mbox',
   'paragraph',
+  'parbox',
   'part',
   'pu',
+  'raisebox',
+  'reflectbox',
+  'resizebox',
+  'rotatebox',
+  'scalebox',
+  'sout',
+  'todo',
   'includegraphics',
   'ref',
   'section',
@@ -234,6 +251,48 @@ function notedParts(parts: MathComponent[], notes: string): MathComponent[] {
   return [...parts, new MathRun(suffix)];
 }
 
+function componentText(components: readonly MathComponent[]): string {
+  const parts: string[] = [];
+  const visit = (value: object): void => {
+    if (value instanceof MathRun) {
+      parts.push(mathRunText(value));
+      return;
+    }
+    const children = nestedRoot(value);
+    if (children === null) {
+      return;
+    }
+    for (const child of children) {
+      if (typeof child === 'object' && child !== null) {
+        visit(child);
+      }
+    }
+  };
+  for (const component of components) {
+    visit(component);
+  }
+  return parts.join('');
+}
+
+function isMeasureText(value: string): boolean {
+  return /^[\d.]+\s*(?:cm|mm|em|ex|pt|in|px|mu)?$/.test(value.trim());
+}
+
+function proseGroups(cursor: Cursor): MathComponent[][] {
+  const groups: MathComponent[][] = [];
+  skipArgumentSpace(cursor);
+  while (cursor.source[cursor.index] === '{') {
+    groups.push(readGroup(cursor));
+    const saved = cursor.index;
+    skipArgumentSpace(cursor);
+    if (cursor.source[cursor.index] !== '{') {
+      cursor.index = saved;
+      break;
+    }
+  }
+  return groups;
+}
+
 function readProseArgument(cursor: Cursor): MathComponent[] | null {
   if (!argumentReady(cursor.source, cursor.index)) {
     return null;
@@ -242,11 +301,20 @@ function readProseArgument(cursor: Cursor): MathComponent[] | null {
     cursor.index += 1;
   }
   const notes = proseNotes(cursor);
-  skipArgumentSpace(cursor);
-  if (cursor.source[cursor.index] !== '{') {
+  const groups = proseGroups(cursor);
+  if (groups.length === 0) {
     return notes.length > 0 ? [new MathRun(notes)] : null;
   }
-  return notedParts(readGroup(cursor), notes);
+  if (groups.length === 1) {
+    return notedParts(groups[0] ?? [], notes);
+  }
+  const last = groups[groups.length - 1] ?? [];
+  const earlier = groups
+    .slice(0, -1)
+    .map((group) => componentText(group).trim())
+    .filter((text) => text.length > 0 && !isMeasureText(text));
+  const note = [notes, ...earlier].filter((part) => part.length > 0).join(', ');
+  return notedParts(last, note);
 }
 
 function readItem(cursor: Cursor): MathComponent[] {
@@ -306,6 +374,13 @@ function unknownCommand(cursor: Cursor, name: string): MathComponent[] {
   }
   if (name === 'eqref') {
     return readEquationReference(cursor);
+  }
+  if (name === 'newline' || name === 'linebreak') {
+    return [new MathRun('\n')];
+  }
+  if (name === 'footnotemark') {
+    proseNotes(cursor);
+    return [];
   }
   const symbol = SYMBOLS[name];
   if (symbol !== undefined) {
