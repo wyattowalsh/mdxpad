@@ -319,7 +319,14 @@ async function blocksToMarkdown(
     if (id.length > 0) {
       seen.add(id);
     }
-    const own = getBlockContent(block);
+    let own = getBlockContent(block);
+    if ((own === null || own.trim().length === 0) && block.type === 'link_to_page') {
+      const target = linkedTarget(block);
+      const title = target ? await fetchResourceTitle(target.kind, target.id, apiKey) : undefined;
+      if (title) {
+        own = `${title}\n`;
+      }
+    }
     const children =
       block.has_children === true && id.length > 0 ? await fetchNotionBlocks(id, apiKey) : [];
     const nested =
@@ -334,26 +341,70 @@ async function blocksToMarkdown(
   return lines.join('\n');
 }
 
-async function fetchPageTitle(pageId: string, apiKey: string): Promise<string | undefined> {
+function linkedTarget(block: NotionBlock): { kind: 'pages' | 'databases'; id: string } | null {
+  const link = block.link_to_page as { page_id?: unknown; database_id?: unknown } | undefined;
+  if (link === undefined) {
+    return null;
+  }
+  if (typeof link.page_id === 'string' && link.page_id.length > 0) {
+    return { kind: 'pages', id: link.page_id };
+  }
+  if (typeof link.database_id === 'string' && link.database_id.length > 0) {
+    return { kind: 'databases', id: link.database_id };
+  }
+  return null;
+}
+
+function resourceTitle(json: unknown): string | undefined {
+  if (json === null || typeof json !== 'object') {
+    return undefined;
+  }
+  const record = json as { title?: unknown; properties?: Record<string, unknown> };
+  if (Array.isArray(record.title)) {
+    const text = extractRichText(record.title as NotionRichText[]).trim();
+    if (text.length > 0) {
+      return text;
+    }
+  }
+  const properties = record.properties;
+  if (!properties) {
+    return undefined;
+  }
+  for (const value of Object.values(properties)) {
+    if (value === null || typeof value !== 'object') {
+      continue;
+    }
+    const prop = value as { type?: string; title?: NotionRichText[] };
+    if (prop.type === 'title' && Array.isArray(prop.title)) {
+      const text = extractRichText(prop.title).trim();
+      if (text.length > 0) {
+        return text;
+      }
+    }
+  }
+  return undefined;
+}
+
+async function fetchResourceTitle(
+  kind: 'pages' | 'databases',
+  id: string,
+  apiKey: string
+): Promise<string | undefined> {
   try {
-    const url = `${NOTION_API_BASE}/pages/${pageId}`;
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Notion-Version': NOTION_API_VERSION,
-      },
+    const response = await fetch(`${NOTION_API_BASE}/${kind}/${id.replace(/-/g, '')}`, {
+      headers: notionHeaders(apiKey),
     });
-    if (!response.ok) return undefined;
-    const json = (await response.json()) as Record<string, unknown>;
-    const properties = json.properties as Record<string, unknown> | undefined;
-    if (!properties) return undefined;
-    const titleProp = properties.title ?? properties.Name;
-    if (!titleProp) return undefined;
-    const titleData = titleProp as { title?: NotionRichText[] };
-    return titleData.title ? extractRichText(titleData.title) : undefined;
+    if (!response.ok) {
+      return undefined;
+    }
+    return resourceTitle(await response.json());
   } catch {
     return undefined;
   }
+}
+
+async function fetchPageTitle(pageId: string, apiKey: string): Promise<string | undefined> {
+  return fetchResourceTitle('pages', pageId, apiKey);
 }
 
 export class NotionImportError extends Error {
