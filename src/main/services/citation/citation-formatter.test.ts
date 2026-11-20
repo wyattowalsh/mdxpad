@@ -50,6 +50,25 @@ describe('citation-formatter', () => {
     }
   });
 
+  it('keeps a school, an institution, an editor, and where it was presented', () => {
+    const entry: CitationEntry = {
+      id: 'ada1843',
+      type: 'phdthesis',
+      title: 'The Ice',
+      author: [{ given: 'Ada', family: 'Lovelace' }],
+      year: 1843,
+      school: 'University of the North',
+      institution: 'Analytical Engines',
+      editor: 'Charles Babbage',
+      howpublished: 'Presented at the Ice Symposium',
+    };
+    const formatted = formatCitation(entry, 'apa').formatted;
+    expect(formatted).toContain('University of the North');
+    expect(formatted).toContain('Analytical Engines');
+    expect(formatted).toContain('Charles Babbage');
+    expect(formatted).toContain('Presented at the Ice Symposium');
+  });
+
   describe('formatCitation', () => {
     describe('APA style', () => {
       it('should format article citation', () => {

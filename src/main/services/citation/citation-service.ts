@@ -175,6 +175,26 @@ function parseAuthors(
   });
 }
 
+function copyText(
+  entry: CitationEntry,
+  fields: Map<string, string>,
+  key:
+    | 'publisher'
+    | 'booktitle'
+    | 'school'
+    | 'institution'
+    | 'editor'
+    | 'howpublished'
+    | 'note'
+    | 'doi'
+    | 'url'
+): void {
+  const value = fields.get(key);
+  if (value) {
+    entry[key] = value;
+  }
+}
+
 function buildEntry(id: string, type: string, fields: Map<string, string>): CitationEntry {
   const entry: CitationEntry = { id, type };
 
@@ -202,20 +222,15 @@ function buildEntry(id: string, type: string, fields: Map<string, string>): Cita
   const pages = fields.get('pages');
   if (pages) entry.pages = pages.replaceAll('--', '-');
 
-  const publisher = fields.get('publisher');
-  if (publisher) entry.publisher = publisher;
-
-  const booktitle = fields.get('booktitle');
-  if (booktitle) entry.booktitle = booktitle;
-
-  const note = fields.get('note');
-  if (note) entry.note = note;
-
-  const doi = fields.get('doi');
-  if (doi) entry.doi = doi;
-
-  const url = fields.get('url');
-  if (url) entry.url = url;
+  copyText(entry, fields, 'publisher');
+  copyText(entry, fields, 'booktitle');
+  copyText(entry, fields, 'school');
+  copyText(entry, fields, 'institution');
+  copyText(entry, fields, 'editor');
+  copyText(entry, fields, 'howpublished');
+  copyText(entry, fields, 'note');
+  copyText(entry, fields, 'doi');
+  copyText(entry, fields, 'url');
 
   return entry;
 }

@@ -59,12 +59,20 @@ function addBooktitle(parts: string[], entry: CitationEntry, rendered: string): 
   }
 }
 
-function addNote(parts: string[], entry: CitationEntry): void {
-  const note = entry.note?.trim() ?? '';
-  if (note.length === 0) {
+function addSentence(parts: string[], value: string | undefined): void {
+  const text = value?.trim() ?? '';
+  if (text.length === 0) {
     return;
   }
-  parts.push(note.endsWith('.') ? note : `${note}.`);
+  parts.push(text.endsWith('.') ? text : `${text}.`);
+}
+
+function addContext(parts: string[], entry: CitationEntry): void {
+  addSentence(parts, entry.school);
+  addSentence(parts, entry.institution);
+  addSentence(parts, entry.editor ? `Ed. ${entry.editor}` : undefined);
+  addSentence(parts, entry.howpublished);
+  addSentence(parts, entry.note);
 }
 
 function formatApa(entry: CitationEntry): string {
@@ -84,7 +92,7 @@ function formatApa(entry: CitationEntry): string {
   }
   addBooktitle(parts, entry, `In ${entry.booktitle}.`);
   if (entry.doi) parts.push(`https://doi.org/${entry.doi}`);
-  addNote(parts, entry);
+  addContext(parts, entry);
   return parts.join(' ');
 }
 
@@ -105,7 +113,7 @@ function formatMla(entry: CitationEntry): string {
     if (entry.year) parts.push(`${entry.year}.`);
   }
   addBooktitle(parts, entry, `_${entry.booktitle}_.`);
-  addNote(parts, entry);
+  addContext(parts, entry);
   return parts.join(' ');
 }
 
@@ -132,7 +140,7 @@ function formatChicago(entry: CitationEntry): string {
     if (entry.year) parts.push(`${entry.year}.`);
   }
   addBooktitle(parts, entry, `_${entry.booktitle}_.`);
-  addNote(parts, entry);
+  addContext(parts, entry);
   return parts.join(' ');
 }
 
@@ -153,7 +161,7 @@ function formatIeee(entry: CitationEntry): string {
     if (entry.year) parts.push(`${entry.year}.`);
   }
   addBooktitle(parts, entry, `in _${entry.booktitle}_.`);
-  addNote(parts, entry);
+  addContext(parts, entry);
   return parts.join(' ');
 }
 

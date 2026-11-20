@@ -124,6 +124,23 @@ describe('citation-service', () => {
       expect(result.entries[0]?.publisher).toBe('MIT');
     });
 
+    it('keeps a school, an institution, an editor, and where it was presented', () => {
+      const result = parseBibtex(`
+@phdthesis{ada1843,
+  title = {The Ice},
+  author = {Ada Lovelace},
+  school = {University of the North},
+  institution = {Analytical Engines},
+  editor = {Charles Babbage},
+  howpublished = {Presented at the Ice Symposium},
+  year = {1843}
+}`);
+      expect(result.entries[0]?.school).toBe('University of the North');
+      expect(result.entries[0]?.institution).toBe('Analytical Engines');
+      expect(result.entries[0]?.editor).toBe('Charles Babbage');
+      expect(result.entries[0]?.howpublished).toBe('Presented at the Ice Symposium');
+    });
+
     it('should handle publisher field', () => {
       const bibtex = `
 @book{test,
