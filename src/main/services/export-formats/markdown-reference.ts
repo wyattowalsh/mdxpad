@@ -72,12 +72,18 @@ function setextClosed(lines: readonly string[], index: number): boolean {
   return before.trim().length > 0 && setextLevel(before) === null && !isThematicBreak(before);
 }
 
+function openLabelLine(line: string): boolean {
+  return /^ {0,3}\[[^\]]*$/.test(definitionSource(line));
+}
+
+function closedLabelTail(line: string): boolean {
+  const trimmed = definitionSource(line).trim();
+  return trimmed.includes(']:') && !trimmed.startsWith('[');
+}
+
 function definitionLine(line: string): boolean {
   const source = definitionSource(line).trim();
-  if (linkDefinition(line) || LABEL_ONLY.test(source)) {
-    return true;
-  }
-  return false;
+  return Boolean(linkDefinition(line)) || LABEL_ONLY.test(source) || openLabelLine(line) || closedLabelTail(line);
 }
 
 function continuesDefinition(lines: readonly string[], index: number): boolean {
@@ -114,6 +120,80 @@ function definitionStartsBlock(lines: readonly string[], index: number): boolean
   return true;
 }
 
+function wrappedRemainder(
+  lines: readonly string[],
+  rawLabel: string,
+  rest: string,
+  closeIndex: number,
+  start: number
+): { label: string; destination: string; consumed: number } | null {
+  const label = rawLabel.replace(/\s+/g, ' ').trim();
+  if (label.length === 0 || label.startsWith('^')) {
+    return null;
+  }
+  const throughClose = closeIndex - start + 1;
+  const trimmed = rest.trim();
+  if (trimmed.length === 0) {
+    const next = lines[closeIndex + 1];
+    if (next === undefined || quoteDepth(next) !== quoteDepth(lines[start] ?? '')) {
+      return null;
+    }
+    const destinationLine = definitionSource(next).trim();
+    if (!DESTINATION_LINE.test(destinationLine)) {
+      return null;
+    }
+    const title = titleContinuation(lines, closeIndex + 1);
+    return {
+      label,
+      destination: title ? `${destinationLine} ${title}` : destinationLine,
+      consumed: throughClose + (title ? 2 : 1),
+    };
+  }
+  const offset = rest.length - rest.trimStart().length;
+  const destination = readDestinationToken(rest, offset);
+  if (!destination) {
+    return null;
+  }
+  const after = skipSpaces(rest, destination.end);
+  const title = readTitleToken(rest, after);
+  if (title === null && after < rest.trimEnd().length) {
+    return null;
+  }
+  const following = title ? null : titleContinuation(lines, closeIndex);
+  const inlineTitle = title ? ` ${title.raw}` : '';
+  return {
+    label,
+    destination: following ? `${destination.value} ${following}` : `${destination.value}${inlineTitle}`,
+    consumed: throughClose + (following ? 1 : 0),
+  };
+}
+
+function wrappedDefinition(
+  lines: readonly string[],
+  index: number
+): { label: string; destination: string; consumed: number } | null {
+  const depth = quoteDepth(lines[index] ?? '');
+  const first = definitionSource(lines[index] ?? '');
+  if (!openLabelLine(lines[index] ?? '') || /^ {0,3}\[[^\]]*\]:/.test(first)) {
+    return null;
+  }
+  let text = '';
+  for (let cursor = index; cursor < lines.length && cursor - index < 8; cursor += 1) {
+    const line = lines[cursor] ?? '';
+    if (quoteDepth(line) !== depth || (cursor > index && structurallyBlank(line))) {
+      return null;
+    }
+    const source = definitionSource(line);
+    text = text.length === 0 ? source : `${text} ${source.trim()}`;
+    const matched = /^ {0,3}\[([^[\]]+)\]:[ \t]*([\s\S]*)$/.exec(text);
+    if (!matched) {
+      continue;
+    }
+    return wrappedRemainder(lines, matched[1] ?? '', matched[2] ?? '', cursor, index);
+  }
+  return null;
+}
+
 function splitDefinition(
   lines: readonly string[],
   index: number
@@ -129,6 +209,10 @@ function splitDefinition(
       destination: title ? `${sameLine.destination} ${title}` : sameLine.destination,
       consumed: title ? 2 : 1,
     };
+  }
+  const wrapped = wrappedDefinition(lines, index);
+  if (wrapped) {
+    return wrapped;
   }
   const labelMatch = LABEL_ONLY.exec(definitionSource(lines[index] ?? ''));
   const label = labelMatch?.[1];

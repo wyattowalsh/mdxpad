@@ -69,6 +69,17 @@ describe('expandLinkReferences', () => {
     expect(expanded).not.toContain('[https://example.com/a(b)]');
   });
 
+  it('joins a label that breaks across lines', () => {
+    const html = markdownToPdfHtml('[foo bar]\n\n[foo\nbar]: https://example.com "Title"\n');
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('title="Title"');
+    expect(html).toContain('foo bar');
+    expect(html).not.toContain('bar]:');
+    const kept = markdownToPdfHtml('See\n[foo\nbar]: https://example.com\n');
+    expect(kept).toContain('[foo');
+    expect(kept).toContain('bar]:');
+  });
+
   it('keeps a definition line that continues a paragraph', () => {
     const plain = markdownToPdfHtml('para\n[a]: https://example.com\n');
     expect(plain).toContain('para');
