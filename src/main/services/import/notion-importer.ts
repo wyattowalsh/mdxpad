@@ -26,7 +26,16 @@ interface NotionRichText {
   };
   href?: string | null;
   equation?: { expression?: string };
-  mention?: { date?: { start?: string; end?: string | null }; user?: { name?: string } };
+  mention?: {
+    date?: { start?: string; end?: string | null };
+    user?: { name?: string };
+    link_mention?: { href?: string; title?: string };
+    custom_emoji?: { name?: string };
+    template_mention?: {
+      template_mention_date?: string;
+      template_mention_user?: { name?: string };
+    };
+  };
 }
 
 function mentionedDate(rt: NotionRichText): string {
@@ -46,6 +55,28 @@ function safeHref(href: string | null | undefined): string {
   return text;
 }
 
+function mentionText(rt: NotionRichText): string {
+  const link = rt.mention?.link_mention;
+  const title = link?.title?.trim() ?? '';
+  if (title.length > 0) {
+    return title;
+  }
+  const emoji = rt.mention?.custom_emoji?.name?.trim() ?? '';
+  if (emoji.length > 0) {
+    return emoji;
+  }
+  const template = rt.mention?.template_mention;
+  const today = template?.template_mention_date?.trim() ?? '';
+  if (today.length > 0) {
+    return today;
+  }
+  const named = template?.template_mention_user?.name?.trim() ?? '';
+  if (named.length > 0) {
+    return named;
+  }
+  return safeHref(link?.href);
+}
+
 function richSource(rt: NotionRichText): string {
   const plain = rt.plain_text.trim();
   if (plain.length > 0) {
@@ -62,6 +93,10 @@ function richSource(rt: NotionRichText): string {
   const name = rt.mention?.user?.name?.trim() ?? '';
   if (name.length > 0) {
     return name;
+  }
+  const mentioned = mentionText(rt);
+  if (mentioned.length > 0) {
+    return mentioned;
   }
   return safeHref(rt.href);
 }

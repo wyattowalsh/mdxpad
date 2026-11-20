@@ -284,6 +284,57 @@ describe('notion-importer', () => {
     expect(result.warnings).not.toContain('Unsupported block type: link_to_page');
   });
 
+  it('keeps a mentioned link, emoji, and template date', async () => {
+    const mockBlocks = {
+      results: [
+        {
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              {
+                plain_text: '',
+                href: 'https://example.com/guide',
+                mention: {
+                  link_mention: { href: 'https://example.com/guide', title: 'The guide' },
+                },
+                annotations: {},
+              },
+              { plain_text: ' ', annotations: {} },
+              {
+                plain_text: '',
+                mention: { custom_emoji: { name: 'bufo' } },
+                annotations: {},
+              },
+              { plain_text: ' ', annotations: {} },
+              {
+                plain_text: '',
+                mention: { template_mention: { template_mention_date: 'today' } },
+                annotations: {},
+              },
+              {
+                plain_text: '',
+                mention: { link_mention: { href: 'file:///etc/passwd', title: '' } },
+                annotations: {},
+              },
+            ],
+          },
+        },
+      ],
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      if (urlStr.includes('/blocks/')) {
+        return new Response(JSON.stringify(mockBlocks), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const result = await importFromNotion('page-id', 'ntn_test_key');
+    expect(result.content).toContain('[The guide](https://example.com/guide)');
+    expect(result.content).toContain('bufo');
+    expect(result.content).toContain('today');
+    expect(result.content).not.toContain('file:');
+  });
+
   it('keeps both days of a mentioned date', async () => {
     const mockBlocks = {
       results: [
