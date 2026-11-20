@@ -535,13 +535,39 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('passwd');
   });
 
+  it('shows a quotation source, an image button, a command, and an applet name', async () => {
+    const source = [
+      '<q cite="https://example.com/source">quoted</q>',
+      '<q cite="file:///etc/passwd">secret quote</q>',
+      '<blockquote cite="https://example.com/source"><p>Quote</p></blockquote>',
+      '<input type="image" alt="Searchgo" src="file:///tmp/go.png" />',
+      '<menu><menuitem>Cut</menuitem><menuitem label="Copy"></menuitem></menu>',
+      '<applet alt="Gameword" code="Game.class"></applet>',
+    ].join('\n\n');
+    const result = await compileMdx(testId('quoted-names'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('quoted');
+    expect(container.textContent).toContain('https://example.com/source');
+    expect(container.textContent).toContain('secret quote');
+    expect(container.textContent).toContain('Quote');
+    expect(container.textContent).toContain('Searchgo');
+    expect(container.textContent).toContain('Cut');
+    expect(container.textContent).toContain('Copy');
+    expect(container.textContent).toContain('Gameword');
+    expect(container.innerHTML).not.toContain('file:');
+  });
+
   it('shows the name of a canvas that has no picture', async () => {
-    const source =
-      [
-        '<canvas aria-label="Sketchname"></canvas>',
-        '<canvas title="Sketchtitle"></canvas>',
-        '<canvas aria-label="Sketchname">Drawnwords</canvas>',
-      ].join('\n\n');
+    const source = [
+      '<canvas aria-label="Sketchname"></canvas>',
+      '<canvas title="Sketchtitle"></canvas>',
+      '<canvas aria-label="Sketchname">Drawnwords</canvas>',
+    ].join('\n\n');
     const result = await compileMdx(testId('canvas-name'), source);
     expect(result.ok).toBe(true);
     if (!result.ok) {

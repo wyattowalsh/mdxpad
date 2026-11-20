@@ -274,8 +274,11 @@ function inputName(props: Record<string, unknown>): VisibleName | undefined {
   if (type === 'file' || type === 'radio' || type === 'checkbox') {
     return choiceName(props, type);
   }
-  if (type === 'hidden' || type === 'image') {
+  if (type === 'hidden') {
     return undefined;
+  }
+  if (type === 'image') {
+    return imageButtonName(props);
   }
   const label =
     stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel') || stringProp(props, 'title');
@@ -296,6 +299,55 @@ function frameName(props: Record<string, unknown>): VisibleName | undefined {
     stringProp(props, 'aria-label') ||
     stringProp(props, 'ariaLabel');
   return label.length > 0 ? { kind: 'replace', text: label } : undefined;
+}
+
+function imageButtonName(props: Record<string, unknown>): VisibleName | undefined {
+  const label =
+    stringProp(props, 'alt') || stringProp(props, 'aria-label') || stringProp(props, 'ariaLabel');
+  return label.length > 0 ? { kind: 'note', text: label } : undefined;
+}
+
+function readableCite(props: Record<string, unknown>): string {
+  const cite = stringProp(props, 'cite');
+  if (cite.length === 0 || /^(?:javascript|data|file):/i.test(cite)) {
+    return '';
+  }
+  return cite;
+}
+
+function hasNestedElement(value: unknown): boolean {
+  return nodes(value).some((node) => parts(node) !== null);
+}
+
+function citedName(props: Record<string, unknown>): VisibleName | undefined {
+  const cite = readableCite(props);
+  const text = textOf(props.children);
+  if (cite.length === 0 || text.includes(cite)) {
+    return undefined;
+  }
+  if (text.length === 0 && !hasNestedElement(props.children)) {
+    return { kind: 'replace', text: cite };
+  }
+  return { kind: 'note', text: ` (${cite})` };
+}
+
+function commandName(props: Record<string, unknown>): VisibleName | undefined {
+  const text = textOf(props.children);
+  const label = stringProp(props, 'label');
+  const shown = text.length > 0 ? text : label;
+  return shown.length > 0 ? { kind: 'replace', text: shown } : undefined;
+}
+
+function appletName(props: Record<string, unknown>): VisibleName | undefined {
+  const alt = stringProp(props, 'alt');
+  const text = textOf(props.children);
+  if (alt.length === 0 || text.includes(alt)) {
+    return undefined;
+  }
+  if (text.length === 0 && !hasNestedElement(props.children)) {
+    return { kind: 'replace', text: alt };
+  }
+  return { kind: 'note', text: alt };
 }
 
 function canvasName(props: Record<string, unknown>): VisibleName | undefined {
@@ -361,6 +413,20 @@ function namedElement(name: string, record: Record<string, unknown>): VisibleNam
       return frameName(record);
     case 'canvas':
       return canvasName(record);
+    default:
+      return namedExtra(name, record);
+  }
+}
+
+function namedExtra(name: string, record: Record<string, unknown>): VisibleName | undefined {
+  switch (name) {
+    case 'q':
+    case 'blockquote':
+      return citedName(record);
+    case 'menuitem':
+      return commandName(record);
+    case 'applet':
+      return appletName(record);
     default:
       return undefined;
   }
