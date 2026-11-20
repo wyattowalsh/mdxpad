@@ -45,6 +45,27 @@ describe('remark math prices', () => {
     }
   });
 
+  it('renders a list fence that starts on the marker', async () => {
+    const result = await compileMdx(testId('list-fence'), '- $$\n  x^2\n  $$\n');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('children: "x^2"');
+    }
+  });
+
+  it('renders a quoted list formula', async () => {
+    const result = await compileMdx(
+      testId('quoted-list-formula'),
+      '> - Text $$\n>   x^2\n>   $$\n>   more\n'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.code).toContain('children: "x^2"');
+      expect(result.code).toContain('"more"');
+      expect(result.code).not.toContain('children: "m"');
+    }
+  });
+
   it('renders a list formula that opens at the end of a line', async () => {
     const result = await compileMdx(testId('list-display'), '- Text $$\n  x^2\n  $$\n  more\n');
     expect(result.ok).toBe(true);

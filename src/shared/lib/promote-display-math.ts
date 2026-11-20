@@ -83,6 +83,10 @@ function takePlain(lines: readonly string[], index: number): PromotedBlock | nul
 }
 
 function takeQuote(lines: readonly string[], index: number): PromotedBlock | null {
+  const quotedList = takeQuotedList(lines, index);
+  if (quotedList || LIST_ITEM.test(QUOTE_LINE.exec(lines[index] ?? '')?.[1] ?? '')) {
+    return quotedList;
+  }
   const line = lines[index] ?? '';
   const match = QUOTE_LINE.exec(line);
   const body = match?.[1] ?? '';
@@ -124,9 +128,30 @@ function listParts(line: string): { indent: string; opener: string; text: string
   };
 }
 
+function fencedList(
+  parsed: { opener: string; indent: string },
+  prefix: string,
+  body: readonly string[],
+  tail: readonly string[]
+): string[] {
+  const head = prefix.length > 0 ? `${parsed.opener}${prefix}` : parsed.opener.trimEnd();
+  const open = prefix.length > 0 ? [head] : [head, ''];
+  return [...open, `${parsed.indent}$$`, ...body, ...tail];
+}
+
+function listPrefix(text: string): string | null {
+  if (/^\[[ xX]\](?:\s|$)/.test(text)) {
+    return null;
+  }
+  if (text.trim() === '$$') {
+    return '';
+  }
+  return displayMathPrefix(text);
+}
+
 function takeList(lines: readonly string[], index: number): PromotedBlock | null {
   const parsed = listParts(lines[index] ?? '');
-  const prefix = parsed && !/^\[[ xX]\](?:\s|$)/.test(parsed.text) ? displayMathPrefix(parsed.text) : null;
+  const prefix = parsed ? listPrefix(parsed.text) : null;
   if (!parsed || prefix === null) {
     return null;
   }
@@ -141,27 +166,46 @@ function takeList(lines: readonly string[], index: number): PromotedBlock | null
       return null;
     }
     if (line.trim() === '$$') {
-      return {
-        lines: [`${parsed.opener}${prefix}`, `${parsed.indent}$$`, ...body, line],
-        next: cursor + 1,
-      };
+      return { lines: fencedList(parsed, prefix, body, [line]), next: cursor + 1 };
     }
     const lead = displayMathPrefix(line.trim());
     if (lead !== null) {
       return {
-        lines: [
-          `${parsed.opener}${prefix}`,
-          `${parsed.indent}$$`,
-          ...body,
-          `${parsed.indent}${lead}`,
-          `${parsed.indent}$$`,
-        ],
+        lines: fencedList(parsed, prefix, body, [`${parsed.indent}${lead}`, `${parsed.indent}$$`]),
         next: cursor + 1,
       };
     }
     body.push(line);
   }
   return null;
+}
+
+function takeQuotedList(lines: readonly string[], index: number): PromotedBlock | null {
+  const match = QUOTE_LINE.exec(lines[index] ?? '');
+  const body = match?.[1] ?? '';
+  if (!match || !LIST_ITEM.test(body)) {
+    return null;
+  }
+  const marker = (lines[index] ?? '').slice(0, (lines[index] ?? '').length - body.length);
+  const virtual = [body];
+  const origins = [index];
+  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+    const quoted = QUOTE_LINE.exec(lines[cursor] ?? '');
+    if (!quoted) {
+      break;
+    }
+    virtual.push(quoted[1] ?? '');
+    origins.push(cursor);
+  }
+  const promoted = takeList(virtual, 0);
+  const origin = promoted ? origins[promoted.next - 1] : undefined;
+  if (!promoted || origin === undefined) {
+    return null;
+  }
+  return {
+    lines: promoted.lines.map((item) => `${marker}${item}`),
+    next: origin + 1,
+  };
 }
 
 function promotedBlock(lines: readonly string[], index: number): PromotedBlock | null {
