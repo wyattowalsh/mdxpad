@@ -86,6 +86,7 @@ import { findMarkdownTarget, linkDestination, linkTitle, readMarkdownTarget } fr
 import {
   isListContinuation,
   listContentColumn,
+  nestedListText,
   parseListItem,
   shouldOpenListItem,
   type MarkdownListItem,
@@ -1732,6 +1733,59 @@ function takeDocxMarkerBlock(
   return true;
 }
 
+function takeDocxNestedMarker(
+  parse: DocxParse,
+  item: MarkdownListItem,
+  column: number
+): boolean {
+  if (isThematicBreak(item.text) || !nestedListText(item.text)) {
+    return false;
+  }
+  const shown = { ...item, text: '' };
+  parse.openListItem = shown;
+  parse.listColumn = column;
+  parse.listBreak = false;
+  rememberDocxListItem(parse, shown, column);
+  parse.listHardBreak = false;
+  parse.listSealed = false;
+  resetDocxItem(parse, null);
+  parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
+  takeDocxList(parse, `${' '.repeat(column)}${item.text}`, shown);
+  parse.listColumn = column;
+  const top = parse.listStack[parse.listStack.length - 1];
+  if (top) {
+    top.column = column;
+  }
+  return true;
+}
+
+function openDocxListItem(
+  parse: DocxParse,
+  line: string,
+  item: MarkdownListItem,
+  hardBreak: boolean
+): void {
+  flushPendingParagraph(parse);
+  const column = listContentColumn(line) ?? 2;
+  if (takeDocxAtxItem(parse, item, column) || takeDocxNestedMarker(parse, item, column)) {
+    return;
+  }
+  const fence = listFenceOnMarker(line, column);
+  const block = fence ? null : listMarkerBlock(item.text);
+  if (block && takeDocxMarkerBlock(parse, item, column, hardBreak, block)) {
+    return;
+  }
+  const shown = fence ? { ...item, text: '' } : item;
+  parse.openListItem = shown;
+  parse.listColumn = column;
+  parse.listBreak = false;
+  rememberDocxListItem(parse, shown, column);
+  parse.listHardBreak = hardBreak;
+  parse.listSealed = fence !== null;
+  resetDocxItem(parse, fence);
+  parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
+}
+
 function takeDocxList(
   parse: DocxParse,
   line: string,
@@ -1747,25 +1801,7 @@ function takeDocxList(
   const openItem =
     item !== null && shouldOpenListItem(item, frames, parse.listBreak, parse.pending.length > 0);
   if (item && openItem) {
-    flushPendingParagraph(parse);
-    const column = listContentColumn(line) ?? 2;
-    if (takeDocxAtxItem(parse, item, column)) {
-      return true;
-    }
-    const fence = listFenceOnMarker(line, column);
-    const block = fence ? null : listMarkerBlock(item.text);
-    if (block && takeDocxMarkerBlock(parse, item, column, source.hardBreak, block)) {
-      return true;
-    }
-    const shown = fence ? { ...item, text: '' } : item;
-    parse.openListItem = shown;
-    parse.listColumn = column;
-    parse.listBreak = false;
-    rememberDocxListItem(parse, shown, column);
-    parse.listHardBreak = source.hardBreak;
-    parse.listSealed = fence !== null;
-    resetDocxItem(parse, fence);
-    parse.blocks.push(listParagraph(shown, 0, activeOrderedReference(parse)));
+    openDocxListItem(parse, line, item, source.hardBreak);
     return true;
   }
   const lazy =

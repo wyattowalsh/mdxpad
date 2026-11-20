@@ -51,6 +51,7 @@ import {
   continueOpenList,
   finishListItemFence,
   openListItem,
+  openWithNestedMarkers,
   resetListItem,
   takeListItemCode,
   takeListItemFence,
@@ -424,6 +425,9 @@ function startEpubListItem(
   raw: string,
   item: MarkdownListItem
 ): void {
+  if (openWithNestedMarkers(htmlLines, state.lists, state, raw, item, renderMarkdownInline)) {
+    return;
+  }
   const heading = parseAtxHeading(item.text);
   const column = listContentColumn(raw) ?? 2;
   if (heading) {

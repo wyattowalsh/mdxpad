@@ -270,6 +270,22 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps a list marker inside an item as a nested list', () => {
+    const ordered = markdownToPdfHtml('- 3. three\n  4. four\n');
+    expect(ordered).toContain('<ol start="3">');
+    expect(ordered).toContain('<li>three</li>');
+    expect(ordered).toContain('<li>four</li>');
+    expect(ordered).not.toContain('3. three');
+    expect(ordered.indexOf('<ol')).toBeLessThan(ordered.indexOf('</ul>'));
+    const bullets = markdownToPdfHtml('- - nested\n');
+    expect(bullets.match(/<ul>/g)).toHaveLength(2);
+    expect(bullets).toContain('<li>nested</li>');
+    expect(bullets).not.toContain('- nested');
+    const continued = markdownToPdfHtml('- 3. three\n  more\n');
+    expect(continued).toContain('three more');
+    expect(continued).not.toContain('3. three');
+  });
+
   it('keeps an empty list marker as a list', () => {
     const paired = markdownToPdfHtml('-\n-\n');
     expect(paired).toContain('<ul>');

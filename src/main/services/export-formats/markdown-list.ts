@@ -100,6 +100,15 @@ export function parseListItem(line: string): MarkdownListItem | null {
   };
 }
 
+/** A list marker that begins the text of another item, such as `- 1. inner`. */
+export function nestedListText(text: string): MarkdownListItem | null {
+  const item = parseListItem(text);
+  if (item?.level !== 0 || item.text === text) {
+    return null;
+  }
+  return item;
+}
+
 export interface HtmlListFrame {
   readonly kind: 'ul' | 'ol';
   readonly level: number;

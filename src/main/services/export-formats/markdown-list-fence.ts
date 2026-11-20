@@ -6,11 +6,15 @@ import {
   closeHtmlListFrame,
   isListContinuation,
   markListLoose,
+  listContentColumn,
+  nestedListText,
   parseListItem,
+  pushHtmlListItem,
   renderListItemHtml,
   replaceHtmlListItem,
   shouldOpenListItem,
   type HtmlListFrame,
+  type MarkdownListItem,
 } from './markdown-list';
 import { isTableRow, markdownTableToHtml, parseMarkdownTable } from './markdown-table';
 import { readSourceLine, type SourceLine } from './markdown-paragraph';
@@ -280,6 +284,44 @@ function openMarkerBlock(state: HtmlListItemState, text: string): string | null 
   }
   state.itemQuote = [quoteMarkerLine(block.text)];
   return '';
+}
+
+/** Open a list whose marker text is itself a list, such as `- 1. inner`. */
+export function openWithNestedMarkers(
+  parts: string[],
+  stack: HtmlListFrame[],
+  state: HtmlListItemState,
+  raw: string,
+  item: MarkdownListItem,
+  render: (text: string) => string,
+  columnOverride?: number
+): boolean {
+  if (isThematicBreak(item.text)) {
+    return false;
+  }
+  const nested = nestedListText(item.text);
+  if (!nested) {
+    return false;
+  }
+  const column = columnOverride ?? listContentColumn(raw) ?? 2;
+  const html = openListItem(state, raw, '', false, column, render);
+  pushHtmlListItem(parts, stack, item, html, column, state.listBreak);
+  const childRaw = `${' '.repeat(column)}${item.text}`;
+  const child = parseListItem(childRaw);
+  if (child && !openWithNestedMarkers(parts, stack, state, childRaw, child, render, column)) {
+    const childHtml = openListItem(
+      state,
+      childRaw,
+      child.text,
+      readSourceLine(childRaw).hardBreak,
+      column,
+      render
+    );
+    pushHtmlListItem(parts, stack, child, childHtml, column, false);
+  }
+  state.listColumn = column;
+  state.loose = stack[stack.length - 1]?.loose === true;
+  return true;
 }
 
 /** Start a list item, holding a marker-line fence instead of rendering its backticks. */

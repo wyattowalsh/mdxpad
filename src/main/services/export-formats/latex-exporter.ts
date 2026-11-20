@@ -62,6 +62,7 @@ import {
 import {
   isListContinuation,
   listContentColumn,
+  nestedListText,
   parseListItem,
   shouldOpenListItem,
   type ListDelimiter,
@@ -702,15 +703,45 @@ function takeLatexMarkerMath(
   return true;
 }
 
+function takeLatexNestedMarker(
+  raw: string,
+  output: string[],
+  listState: ListState,
+  counts: Map<string, number>,
+  columnOverride?: number
+): boolean {
+  const item = parseListItem(raw);
+  if (!item || isThematicBreak(item.text) || !nestedListText(item.text)) {
+    return false;
+  }
+  const column = columnOverride ?? listContentColumn(raw) ?? 2;
+  openLatexListItem(output, listState.stack, item, '', column);
+  listState.itemLines = [];
+  listState.column = column;
+  listState.paragraphBreak = false;
+  listState.tailLines = null;
+  listState.sealed = false;
+  const child = `${' '.repeat(column)}${item.text}`;
+  if (!takeLatexNestedMarker(child, output, listState, counts, column)) {
+    processListItem(child, output, listState, counts, column);
+  }
+  listState.column = column;
+  return true;
+}
+
 function processListItem(
   raw: string,
   output: string[],
   listState: ListState,
-  counts: Map<string, number>
+  counts: Map<string, number>,
+  columnOverride?: number
 ): boolean {
   const item = parseListItem(raw);
   if (!item) {
     return false;
+  }
+  if (columnOverride === undefined && takeLatexNestedMarker(raw, output, listState, counts)) {
+    return true;
   }
   if (takeLatexMarkerMath(raw, item, output, listState)) {
     return true;
@@ -730,7 +761,7 @@ function processListItem(
         counts
       )
     : renderLatexItem(listState.itemLines);
-  const column = listContentColumn(raw) ?? 2;
+  const column = columnOverride ?? listContentColumn(raw) ?? 2;
   openLatexListItem(output, listState.stack, item, formatted, column);
   listState.column = column;
   return true;

@@ -48,6 +48,7 @@ import {
   continueOpenList,
   finishListItemFence,
   openListItem,
+  openWithNestedMarkers,
   resetListItem,
   takeListItemCode,
   takeListItemFence,
@@ -369,6 +370,9 @@ function pdfHeading(build: PdfBuild, depth: number, text: string): string {
 }
 
 function startPdfListItem(build: PdfBuild, raw: string, item: MarkdownListItem): void {
+  if (openWithNestedMarkers(build.parts, build.lists, build, raw, item, renderMarkdownInline)) {
+    return;
+  }
   const heading = parseAtxHeading(item.text);
   const column = listContentColumn(raw) ?? 2;
   if (heading) {
