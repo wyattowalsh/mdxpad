@@ -304,6 +304,32 @@ describe('rewriteSimpleHtml', () => {
     expect(rewriteSimpleHtml(colspan).trim()).toBe('| Wide |  |\n| --- | --- |\n| A | B |');
   });
 
+  it('shows the words of older HTML and a video poster', () => {
+    expect(rewriteSimpleHtml('<blink>Look here</blink>')).toBe('Look here');
+    expect(rewriteSimpleHtml('<noframes>Read the frames</noframes>').trim()).toBe(
+      'Read the frames'
+    );
+    expect(rewriteSimpleHtml('A<spacer>B</spacer>C')).toBe('ABC');
+    expect(rewriteSimpleHtml('<xmp>Raw words</xmp>').trim()).toBe('Raw words');
+    expect(rewriteSimpleHtml('<plaintext>Kept words')).toBe('Kept words');
+    expect(
+      rewriteSimpleHtml(
+        '<menu><menuitem>Cut</menuitem><menuitem label="Copy"></menuitem></menu>'
+      ).trim()
+    ).toBe('- Cut\n- Copy');
+    expect(rewriteSimpleHtml('<applet alt="Run the applet"></applet>')).toBe('Run the applet');
+    expect(rewriteSimpleHtml('<isindex prompt="Search the notes">')).toBe('Search the notes');
+    expect(rewriteSimpleHtml('<bgsound src="file:///tmp/a.mp3">')).toBe('');
+    expect(rewriteSimpleHtml('<param name="autoplay" value="true">The report')).toBe('The report');
+    expect(rewriteSimpleHtml('<video poster="https://example.com/a.png"></video>').trim()).toBe(
+      '![](https://example.com/a.png)'
+    );
+    expect(rewriteSimpleHtml('<video poster="/etc/passwd.png"></video>').trim()).toBe('');
+    expect(
+      rewriteSimpleHtml('<svg><metadata>secret meta</metadata><text>Box</text></svg>').trim()
+    ).toBe('Box');
+  });
+
   it('turns an HTML table into a markdown table', () => {
     const html = [
       '<table>',

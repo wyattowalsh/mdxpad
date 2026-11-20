@@ -10,6 +10,7 @@ import type { TableAlign } from './markdown-table';
 const PHRASE = new Set(['cite', 'dfn', 'q', 'samp', 'small', 'time', 'var']);
 const FORM = new Set([
   'button',
+  'isindex',
   'label',
   'meter',
   'optgroup',
@@ -37,14 +38,32 @@ const EMBEDDED = new Set([
   'bdo',
   'data',
   'datalist',
+  'applet',
   'legend',
   'slot',
   'source',
   'track',
   'video',
 ]);
-const COMMAND = new Set(['dir', 'menu']);
-const PRESENT = new Set(['acronym', 'big', 'font', 'marquee', 'nobr', 'tt']);
+const COMMAND = new Set(['dir', 'menu', 'menuitem']);
+const PRESENT = new Set([
+  'acronym',
+  'basefont',
+  'big',
+  'blink',
+  'font',
+  'listing',
+  'marquee',
+  'multicol',
+  'nextid',
+  'nobr',
+  'noframes',
+  'plaintext',
+  'portal',
+  'spacer',
+  'tt',
+  'xmp',
+]);
 const GRAPHIC = new Set([
   'clippath',
   'defs',
@@ -54,7 +73,6 @@ const GRAPHIC = new Set([
   'lineargradient',
   'marker',
   'mask',
-  'metadata',
   'noscript',
   'pattern',
   'radialgradient',
@@ -73,8 +91,12 @@ const HIDDEN = new Set([
   'ellipse',
   'feimage',
   'image',
+  'bgsound',
+  'keygen',
   'line',
+  'metadata',
   'mpath',
+  'param',
   'path',
   'polygon',
   'polyline',
@@ -87,7 +109,16 @@ const HIDDEN = new Set([
   'use',
   'wbr',
 ]);
-const VOID_HTML = new Set(['area', 'source', 'track', 'wbr']);
+const VOID_HTML = new Set([
+  'area',
+  'bgsound',
+  'isindex',
+  'keygen',
+  'param',
+  'source',
+  'track',
+  'wbr',
+]);
 const MATH_TOKEN = new Set(['mi', 'mn', 'mo', 'ms', 'mtext']);
 const MATH = new Set([
   ...MATH_TOKEN,
@@ -360,7 +391,11 @@ function readSimpleElement(value: string, index: number): HtmlElement | null {
   if (open.selfClosing || name === 'input' || VOID_HTML.has(name)) {
     return { name, innerStart: open.end, innerEnd: open.end, end: open.end };
   }
-  return elementBounds(value, name, open.end);
+  const closed = elementBounds(value, name, open.end);
+  if (closed !== null || name !== 'plaintext') {
+    return closed;
+  }
+  return { name, innerStart: open.end, innerEnd: open.end, end: open.end };
 }
 
 function blockWrap(text: string): string {
@@ -1106,6 +1141,14 @@ function renderButton(value: string, element: HtmlElement, inner: string): strin
   return attribute(openTagBefore(value, element.innerStart), 'value').trim();
 }
 
+function renderApplet(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner).trim();
+  if (text.length > 0) {
+    return text;
+  }
+  return attribute(openTagBefore(value, element.innerStart), 'alt').trim();
+}
+
 function renderArea(value: string, element: HtmlElement): string {
   const openTag = openTagBefore(value, element.innerStart);
   return linkedText(attribute(openTag, 'alt'), attribute(openTag, 'href'));
@@ -1144,8 +1187,26 @@ function renderMediaFallback(value: string, element: HtmlElement, inner: string)
   if (text.length > 0) {
     return text;
   }
-  const own = visibleAddress(attribute(openTagBefore(value, element.innerStart), 'src'));
-  return own.length > 0 ? own : firstSourceAddress(inner);
+  const openTag = openTagBefore(value, element.innerStart);
+  const own = visibleAddress(attribute(openTag, 'src'));
+  if (own.length > 0) {
+    return own;
+  }
+  const source = firstSourceAddress(inner);
+  return source.length > 0 ? source : posterImage(openTag);
+}
+
+function posterImage(openTag: string): string {
+  const destination = visibleAddress(attribute(openTag, 'poster'));
+  if (
+    destination.length === 0 ||
+    destination.startsWith('/') ||
+    destination.startsWith('\\') ||
+    /[\s()]/.test(destination)
+  ) {
+    return '';
+  }
+  return `![](${destination})`;
 }
 
 function renderEmbedded(element: HtmlElement, value: string, inner: string): string | null {
@@ -1154,6 +1215,8 @@ function renderEmbedded(element: HtmlElement, value: string, inner: string): str
     case 'track':
     case 'datalist':
       return '';
+    case 'applet':
+      return renderApplet(value, element, inner);
     case 'area':
       return renderArea(value, element);
     case 'video':
@@ -1181,6 +1244,8 @@ function renderForm(element: HtmlElement, value: string, inner: string): string 
       return convertHtml(inner);
     case 'button':
       return renderButton(value, element, inner);
+    case 'isindex':
+      return attribute(openTagBefore(value, element.innerStart), 'prompt').trim();
     case 'select':
     case 'optgroup':
       return renderChoices(inner).join(', ');
@@ -1283,10 +1348,20 @@ function renderGraphic(name: string, inner: string): string | null {
 
 function renderPresentational(element: HtmlElement, value: string, inner: string): string | null {
   switch (element.name) {
-    case 'font':
+    case 'basefont':
     case 'big':
+    case 'blink':
+    case 'font':
+    case 'listing':
     case 'marquee':
+    case 'multicol':
+    case 'nextid':
     case 'nobr':
+    case 'noframes':
+    case 'plaintext':
+    case 'portal':
+    case 'spacer':
+    case 'xmp':
       return convertHtml(inner);
     case 'tt':
       return renderKbd(inner);
@@ -1343,9 +1418,46 @@ function renderPhrase(element: HtmlElement, value: string, inner: string): strin
   }
 }
 
+function commandItems(inner: string): ListedItem[] {
+  const source = `${inner}</menuitem>`;
+  const items: ListedItem[] = [];
+  let index = 0;
+  while (index < source.length) {
+    const element = source[index] === '<' ? readSimpleElement(source, index) : null;
+    if (element?.name === 'menuitem') {
+      const openTag = openTagBefore(source, element.innerStart);
+      const body = source.slice(element.innerStart, element.innerEnd).trim();
+      const label = body.length > 0 ? body : attribute(openTag, 'label').trim();
+      if (label.length > 0) {
+        items.push({ body: label, value: null });
+      }
+      index = element.end;
+      continue;
+    }
+    index = element ? element.end : index + 1;
+  }
+  return items;
+}
+
 function renderCommandList(inner: string): string {
   const listed = renderList(inner, false);
-  return listed.trim().length > 0 ? listed : blockWrap(convertHtml(inner));
+  if (listed.trim().length > 0) {
+    return listed;
+  }
+  const commands = commandItems(inner);
+  if (commands.length === 0) {
+    return blockWrap(convertHtml(inner));
+  }
+  const lines = commands.map((item) => markerBlock('- ', convertHtml(item.body)));
+  return blockWrap(lines.join('\n'));
+}
+
+function renderMenuItem(value: string, element: HtmlElement, inner: string): string {
+  const text = convertHtml(inner).trim();
+  if (text.length > 0) {
+    return text;
+  }
+  return attribute(openTagBefore(value, element.innerStart), 'label').trim();
 }
 
 function renderElement(element: HtmlElement, value: string): string {
@@ -1360,6 +1472,8 @@ function renderElement(element: HtmlElement, value: string): string {
     case 'menu':
     case 'dir':
       return renderCommandList(inner);
+    case 'menuitem':
+      return renderMenuItem(value, element, inner);
     case 'ol':
       return renderList(inner, true, listOptions(value, element.innerStart));
     case 'li':
