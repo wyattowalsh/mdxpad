@@ -72,6 +72,9 @@ describe('printed html', () => {
     );
     expect(markdownToPdfHtml('<data value="forty-two"></data>\n')).toContain('forty-two');
     expect(markdownToPdfHtml('<time datetime="2020-01-01">then</time>\n')).toContain('then');
+    expect(markdownToPdfHtml('<meter value="4" max="10"></meter>\n')).toContain('4');
+    expect(markdownToPdfHtml('<progress value="3" max="10"></progress>\n')).toContain('3/10');
+    expect(markdownToPdfHtml('<meter value="4" max="10">half</meter>\n')).toContain('half');
   });
 
   it('leaves a formula inside a code sample alone', () => {

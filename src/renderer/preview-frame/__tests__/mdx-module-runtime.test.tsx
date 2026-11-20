@@ -364,6 +364,21 @@ describe('createModuleFromCode', () => {
     expect(container.textContent).toContain('(Hypertext Markup)');
   });
 
+  it('shows a meter and a progress value', async () => {
+    const source = '<meter value="4" max="10"></meter>\n\n<progress value="3" max="10"></progress>';
+    const result = await compileMdx(testId('gauge'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.textContent).toContain('4');
+    expect(container.textContent).toContain('3/10');
+    expect(container.querySelector('meter')).toBeNull();
+    expect(container.querySelector('progress')).toBeNull();
+  });
+
   it('shows the words of a noscript block', async () => {
     const source = '<noscript><p>Enable the page</p></noscript>';
     const result = await compileMdx(testId('noscript-words'), source);

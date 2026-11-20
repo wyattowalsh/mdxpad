@@ -207,6 +207,25 @@ function emptyName(
   return value.length > 0 ? { kind: 'replace', text: format(value) } : undefined;
 }
 
+function gaugeName(
+  props: Record<string, unknown>,
+  name: 'meter' | 'progress'
+): VisibleName | undefined {
+  if (
+    textOf(props.children).length > 0 ||
+    nodes(props.children).some((node) => parts(node) !== null)
+  ) {
+    return undefined;
+  }
+  const current = stringProp(props, 'value');
+  if (current.length === 0) {
+    return undefined;
+  }
+  const max = stringProp(props, 'max');
+  const label = name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  return { kind: 'replace', text: label };
+}
+
 function inputName(props: Record<string, unknown>): VisibleName | undefined {
   const type = stringProp(props, 'type').toLowerCase();
   if (
@@ -270,6 +289,10 @@ export function visibleName(type: unknown, props: unknown): VisibleName | undefi
       return emptyName(record, ['title'], (value) => value);
     case 'data':
       return emptyName(record, ['value'], (value) => value);
+    case 'meter':
+      return gaugeName(record, 'meter');
+    case 'progress':
+      return gaugeName(record, 'progress');
     case 'datalist':
       return listName(record);
     case 'math':

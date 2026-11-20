@@ -247,6 +247,27 @@ function revealList(html: string, openEnd: number): Revealed | null {
   };
 }
 
+function revealGauge(html: string, openEnd: number, tag: string, name: string): Revealed | null {
+  const close = matchingClose(html, name, openEnd);
+  if (!close) {
+    return null;
+  }
+  const inner = html
+    .slice(openEnd, close.innerEnd)
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  if (inner.length > 0) {
+    return null;
+  }
+  const current = attribute(tag, 'value').trim();
+  if (current.length === 0) {
+    return null;
+  }
+  const max = attribute(tag, 'max').trim();
+  const label = name === 'progress' && max.length > 0 ? `${current}/${max}` : current;
+  return { text: escapeText(label), next: close.next };
+}
+
 function revealEmpty(
   html: string,
   openEnd: number,
@@ -330,6 +351,9 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
       return revealEmpty(html, end, tag, 'dfn', 'title', (value) => value);
     case 'data':
       return revealEmpty(html, end, tag, 'data', 'value', (value) => value);
+    case 'meter':
+    case 'progress':
+      return revealGauge(html, end, tag, name);
     case 'button':
       return revealButton(html, tag, end);
     case 'video':
