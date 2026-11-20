@@ -50,6 +50,26 @@ describe('DocxExporter', () => {
     expect(texts).toEqual(['one', 'two']);
   });
 
+  it('writes escaped brackets in a link as characters', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    await exporter.export({
+      content: '[a\\[b\\]](https://example.com)\n',
+      outputPath: '/tmp/escaped-brackets.docx',
+    });
+    const buffer = (writeFile as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as Buffer;
+    const extracted = spawnSync(
+      'python3',
+      [
+        '-c',
+        'import sys,zipfile,io,re; xml=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).read("word/document.xml").decode(); print("".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", xml)))',
+      ],
+      { input: buffer }
+    );
+    const text = extracted.stdout.toString();
+    expect(text).toContain('a[b]');
+    expect(text).not.toContain('\uE011');
+  });
+
   it('keeps a nested list that starts on the marker line', async () => {
     const { writeFile } = await import('node:fs/promises');
     await exporter.export({

@@ -431,8 +431,14 @@ function createParagraphChildren(
   const escaped = protectEscapes(text);
   const protectedLinks = protectAutolinks(escaped.text);
   const segments = parseInlineFormatting(protectedLinks.text).flatMap((segment) => {
-    if (segment.code || segment.link || segment.image) {
-      return [segment];
+    if (segment.link) {
+      return docxMathSegments(segment, segment.text, segment.link, escaped.chars);
+    }
+    if (segment.code || segment.image) {
+      const text = segment.image
+        ? restoreEscapes(segment.text, escaped.chars, (char) => char)
+        : segment.text;
+      return [{ ...segment, text }];
     }
     return expandAutolinkText(segment.text, protectedLinks.links).flatMap((part) =>
       docxMathSegments(segment, part.text, part.href, escaped.chars)
