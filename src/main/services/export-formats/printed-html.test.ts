@@ -47,6 +47,21 @@ describe('printed html', () => {
     expect(shown).not.toContain('</math>secret');
   });
 
+  it('shows a popover and the words of a noscript block', () => {
+    expect(markdownToPdfHtml('<div popover>Popover words</div>\n')).toBe(
+      '<div>Popover words</div>'
+    );
+    expect(markdownToPdfHtml('<div popover="auto">More words</div>\n')).not.toContain('popover');
+    expect(markdownToPdfHtml('<noscript>Need script</noscript>\n')).toBe('<p>Need script</p>');
+    expect(markdownToPdfHtml('<noscript><p>Enable the page</p></noscript>\n')).toContain(
+      'Enable the page'
+    );
+    expect(markdownToPdfHtml('<noscript><p>Enable the page</p></noscript>\n')).not.toContain(
+      '<noscript'
+    );
+    expect(markdownToPdfHtml('<p hidden>Hidden words</p>\n')).toContain('hidden');
+  });
+
   it('leaves a formula inside a code sample alone', () => {
     const code = markdownToPdfHtml('```\n<canvas>Chart of sales</canvas>\n```\n');
     expect(code).toContain('&lt;canvas&gt;Chart of sales&lt;/canvas&gt;');

@@ -102,6 +102,7 @@ function showsFallback(name: string): boolean {
     name === 'object' ||
     name === 'canvas' ||
     name === 'dialog' ||
+    name === 'noscript' ||
     name === 'video' ||
     name === 'audio'
   );
@@ -109,7 +110,7 @@ function showsFallback(name: string): boolean {
 
 function inlineFallback(type: React.ElementType): boolean {
   const name = elementName(type);
-  return name === 'canvas' || name === 'dialog';
+  return name === 'canvas' || name === 'dialog' || name === 'noscript';
 }
 
 function blockedMedia(type: React.ElementType, props: unknown): boolean {

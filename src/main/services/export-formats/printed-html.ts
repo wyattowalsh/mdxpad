@@ -54,6 +54,12 @@ function matchingClose(html: string, name: string, openEnd: number): ElementSpan
   return null;
 }
 
+function withoutPopover(tag: string): string {
+  return tag
+    .replace(/\s+popover\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+)/gi, '')
+    .replace(/\s+popover(?=[\s/>])/gi, '');
+}
+
 function openDetails(tag: string): string {
   if (/\sopen(?:\s|=|>)/i.test(tag)) {
     return tag;
@@ -252,9 +258,10 @@ function revealElement(html: string, start: number, end: number): Revealed | nul
   }
   switch (name) {
     case 'details':
-      return { text: openDetails(tag), next: end };
+      return { text: withoutPopover(openDetails(tag)), next: end };
     case 'canvas':
     case 'dialog':
+    case 'noscript':
       return unwrap(html, name, end);
     case 'datalist':
       return revealList(html, end);
@@ -296,7 +303,7 @@ export function revealPrintedHtml(html: string): string {
       index = revealed.next;
       continue;
     }
-    result += html.slice(start, end);
+    result += withoutPopover(html.slice(start, end));
     index = end;
   }
   return result;

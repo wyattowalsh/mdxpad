@@ -287,6 +287,19 @@ describe('createModuleFromCode', () => {
     expect(container.innerHTML).not.toContain('file:');
   });
 
+  it('shows the words of a noscript block', async () => {
+    const source = '<noscript><p>Enable the page</p></noscript>';
+    const result = await compileMdx(testId('noscript-words'), source);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    const module = await createModuleFromCode(result.code);
+    const { container } = render(<module.default />);
+    expect(container.querySelector('noscript')).toBeNull();
+    expect(container.textContent).toContain('Enable the page');
+  });
+
   it('shows a button name, a suggestion, a formula source, and a caption', async () => {
     const source = [
       '<button aria-label="Save the file"></button>',
