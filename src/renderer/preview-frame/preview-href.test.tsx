@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { Video } from './components/preview-media';
+import { Audio, Source, Video } from './components/preview-media';
 import { Area, Base, Form, Link } from './components/preview-navigation';
 import { A, Img } from './components/typography';
 import { confinePreviewElement, confinePreviewProps, isBlockedPreviewHref } from './preview-href';
@@ -63,7 +63,9 @@ describe('isBlockedPreviewHref', () => {
     expect(mask.href).toBeUndefined();
     const clip = confinePreviewElement('clipPath', { href: '../secret.svg' }) as { href?: string };
     expect(clip.href).toBeUndefined();
-    const animate = confinePreviewElement('animate', { href: '../secret.svg' }) as { href?: string };
+    const animate = confinePreviewElement('animate', { href: '../secret.svg' }) as {
+      href?: string;
+    };
     expect(animate.href).toBeUndefined();
     const upperSet = confinePreviewProps({
       style: { backgroundImage: 'IMAGE-SET("file:///etc/passwd" 1x)', color: 'red' },
@@ -114,7 +116,13 @@ describe('isBlockedPreviewHref', () => {
       clipPath: 'url(file:///etc/passwd)',
       markerStart: 'url(../secret.svg#m)',
       stroke: 'red',
-    }) as { filter?: string; fill: string; clipPath?: string; markerStart?: string; stroke: string };
+    }) as {
+      filter?: string;
+      fill: string;
+      clipPath?: string;
+      markerStart?: string;
+      stroke: string;
+    };
     expect(painted.filter).toBeUndefined();
     expect(painted.clipPath).toBeUndefined();
     expect(painted.markerStart).toBeUndefined();
@@ -299,7 +307,6 @@ describe('preview image', () => {
     expect(raw.alt).toBe('Pixel');
   });
 
-
   it('shows a png data image and drops an svg data image that points at a file', () => {
     const png = render(<Img src="data:image/png;base64,aaaa" alt="Pixel" />);
     expect(png.getByRole('img').getAttribute('src')).toBe('data:image/png;base64,aaaa');
@@ -318,7 +325,6 @@ describe('preview image', () => {
     const page = render(<Img src="data:text/html,hi" alt="Page" />);
     expect(page.getByRole('img').getAttribute('src')).toBeNull();
   });
-
 
   it('keeps a picture beside the document and drops a file image', () => {
     const local = render(<Img src="./pixel.png" alt="Pixel" />);
@@ -362,6 +368,39 @@ describe('preview video', () => {
 
     const poster = render(<Video poster="file:///etc/passwd.png" />);
     expect(poster.container.querySelector('video')?.getAttribute('poster')).toBeNull();
+    poster.unmount();
+
+    const words = render(<Video src="file:///etc/passwd">Watch the clip</Video>);
+    expect(words.container.querySelector('video')).toBeNull();
+    expect(words.container.textContent).toContain('Watch the clip');
+    expect(words.container.innerHTML).not.toContain('passwd');
+    words.unmount();
+
+    const sourced = render(
+      <Video>
+        <Source src="https://example.com/a.mp4" />
+        Watch
+      </Video>
+    );
+    expect(sourced.container.querySelector('source')?.getAttribute('src')).toBe(
+      'https://example.com/a.mp4'
+    );
+    sourced.unmount();
+
+    const blockedSource = render(
+      <Video>
+        <Source src="file:///tmp/a.mp4" />
+        Hear the clip
+      </Video>
+    );
+    expect(blockedSource.container.querySelector('video')).toBeNull();
+    expect(blockedSource.container.textContent).toContain('Hear the clip');
+    expect(blockedSource.container.innerHTML).not.toContain('file:');
+    blockedSource.unmount();
+
+    const audio = render(<Audio src="file:///etc/passwd">Hear the clip</Audio>);
+    expect(audio.container.querySelector('audio')).toBeNull();
+    expect(audio.container.textContent).toContain('Hear the clip');
   });
 });
 

@@ -13,6 +13,7 @@ import type {
   VideoHTMLAttributes,
 } from 'react';
 
+import { showMediaFallback } from '../media-playback';
 import { isBlockedPreviewResource, safePreviewSrcSet } from '../preview-href';
 
 function safeMediaUrl(value: unknown): string | undefined {
@@ -25,8 +26,12 @@ export function Video({
   src,
   poster,
   className = '',
+  children,
   ...props
 }: VideoHTMLAttributes<HTMLVideoElement>): JSX.Element {
+  if (showMediaFallback(src, children, Source, Track)) {
+    return <>{children}</>;
+  }
   const safeSrc = safeMediaUrl(src);
   const safePoster = safeMediaUrl(poster);
   return (
@@ -35,22 +40,30 @@ export function Video({
       {...(safeSrc ? { src: safeSrc } : {})}
       {...(safePoster ? { poster: safePoster } : {})}
       className={`mdx-video ${className}`.trim()}
-    />
+    >
+      {children}
+    </video>
   );
 }
 
 export function Audio({
   src,
   className = '',
+  children,
   ...props
 }: AudioHTMLAttributes<HTMLAudioElement>): JSX.Element {
+  if (showMediaFallback(src, children, Source, Track)) {
+    return <>{children}</>;
+  }
   const safeSrc = safeMediaUrl(src);
   return (
     <audio
       {...props}
       {...(safeSrc ? { src: safeSrc } : {})}
       className={`mdx-audio ${className}`.trim()}
-    />
+    >
+      {children}
+    </audio>
   );
 }
 

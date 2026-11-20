@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { BuiltInComponents } from './components';
+import { showMediaFallback } from './media-playback';
 import { confinePreviewElement } from './preview-href';
 
 interface MDXComponentProps {
@@ -84,25 +85,38 @@ function createModuleFromCodeWithFunction(code: string): MDXModule {
   return moduleFactory(previewJsxRuntime, BuiltInComponents) as MDXModule;
 }
 
-const DROPPED_PREVIEW_TAGS = new Set([
-  'script',
-  'iframe',
-  'object',
-  'embed',
-  'frame',
-  'frameset',
-]);
+const DROPPED_PREVIEW_TAGS = new Set(['script', 'iframe', 'object', 'embed', 'frame', 'frameset']);
 
 function droppedPreviewTag(type: React.ElementType): boolean {
   return typeof type === 'string' && DROPPED_PREVIEW_TAGS.has(type.toLowerCase());
 }
 
-function fallbackChildren(type: React.ElementType, props: unknown): React.ReactNode {
-  if (typeof type !== 'string') {
-    return undefined;
+function elementName(type: React.ElementType): string | null {
+  return typeof type === 'string' ? type.toLowerCase() : null;
+}
+
+function showsFallback(name: string): boolean {
+  return (
+    name === 'iframe' ||
+    name === 'object' ||
+    name === 'canvas' ||
+    name === 'video' ||
+    name === 'audio'
+  );
+}
+
+function blockedMedia(type: React.ElementType, props: unknown): boolean {
+  const name = elementName(type);
+  if ((name !== 'video' && name !== 'audio') || props === null || typeof props !== 'object') {
+    return false;
   }
-  const name = type.toLowerCase();
-  if (name !== 'iframe' && name !== 'object' && name !== 'canvas') {
+  const record = props as { readonly src?: unknown; readonly children?: unknown };
+  return showMediaFallback(record.src, record.children);
+}
+
+function fallbackChildren(type: React.ElementType, props: unknown): React.ReactNode {
+  const name = elementName(type);
+  if (name === null || !showsFallback(name)) {
     return undefined;
   }
   if (!props || typeof props !== 'object' || !('children' in props)) {
@@ -117,7 +131,7 @@ function confinedJsx(
   props: unknown,
   key?: React.Key
 ): React.ReactElement {
-  if (droppedPreviewTag(type) || (typeof type === 'string' && type.toLowerCase() === 'canvas')) {
+  if (droppedPreviewTag(type) || elementName(type) === 'canvas' || blockedMedia(type, props)) {
     const children = fallbackChildren(type, props);
     const fragmentProps = children === undefined ? {} : { children };
     return key === undefined

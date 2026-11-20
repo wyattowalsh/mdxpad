@@ -3,7 +3,11 @@ import { render } from '@testing-library/react';
 import type { RequestId } from '@shared/types/preview-worker';
 import { compileMdx } from '@renderer/lib/mdx/compile';
 import { BuiltInComponents } from '../components';
-import { createModuleFromCode, previewComponents, type MDXContentProps } from '../mdx-module-runtime';
+import {
+  createModuleFromCode,
+  previewComponents,
+  type MDXContentProps,
+} from '../mdx-module-runtime';
 
 const testId = (id: string): RequestId => id as RequestId;
 
@@ -181,7 +185,9 @@ describe('createModuleFromCode', () => {
     render(<module.default />);
     expect(document.querySelector('base')?.getAttribute('href')).toBeNull();
     expect(document.querySelector('link[rel="stylesheet"]')?.getAttribute('href')).toBeNull();
-    expect(document.querySelector('link[rel="alternate"]')?.getAttribute('href')).toBe('./local.css');
+    expect(document.querySelector('link[rel="alternate"]')?.getAttribute('href')).toBe(
+      './local.css'
+    );
     expect(document.querySelector('meta')?.getAttribute('content')).toBeNull();
     expect(document.querySelector('area')?.getAttribute('href')).toBeNull();
     expect(document.body.innerHTML).not.toContain('secret');
@@ -192,6 +198,51 @@ describe('createModuleFromCode', () => {
       'https://example.com/a.png 2x'
     );
     expect(document.querySelector('a')?.getAttribute('href')).toBe('../notes/a.md');
+  });
+
+  it('shows the words of a video that cannot be played', async () => {
+    const blocked = await compileMdx(
+      testId('video-blocked'),
+      '<video src="file:///etc/passwd">Watch the clip</video>'
+    );
+    const sourced = await compileMdx(
+      testId('video-sourced'),
+      '<video><source src="file:///tmp/a.mp4" />Watch the clip</video>\n\n<video><source src="https://example.com/a.mp4" />Watch</video>'
+    );
+    const playable = await compileMdx(
+      testId('video-playable'),
+      '<video src="https://example.com/a.mp4">Watch</video>'
+    );
+    expect(blocked.ok).toBe(true);
+    expect(sourced.ok).toBe(true);
+    expect(playable.ok).toBe(true);
+    if (!blocked.ok || !sourced.ok || !playable.ok) {
+      return;
+    }
+    const components = previewComponents as unknown as NonNullable<MDXContentProps['components']>;
+    const blockedModule = await createModuleFromCode(blocked.code);
+    const blockedView = render(<blockedModule.default components={components} />);
+    expect(blockedView.container.querySelector('video')).toBeNull();
+    expect(blockedView.container.textContent).toContain('Watch the clip');
+    expect(blockedView.container.innerHTML).not.toContain('passwd');
+    blockedView.unmount();
+
+    const sourcedModule = await createModuleFromCode(sourced.code);
+    const sourcedView = render(<sourcedModule.default components={components} />);
+    const players = sourcedView.container.querySelectorAll('video');
+    expect(players).toHaveLength(1);
+    expect(players[0]?.querySelector('source')?.getAttribute('src')).toBe(
+      'https://example.com/a.mp4'
+    );
+    expect(sourcedView.container.textContent).toContain('Watch the clip');
+    expect(sourcedView.container.innerHTML).not.toContain('file:');
+    sourcedView.unmount();
+
+    const playableModule = await createModuleFromCode(playable.code);
+    const playableView = render(<playableModule.default components={components} />);
+    expect(playableView.container.querySelector('video')?.getAttribute('src')).toBe(
+      'https://example.com/a.mp4'
+    );
   });
 
   it('shows the words of an unknown component', async () => {
