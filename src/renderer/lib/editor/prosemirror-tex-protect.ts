@@ -79,10 +79,10 @@ function takeTexMath(value: string, index: number): number {
   return end + close.length;
 }
 
-function openedInsideQuote(value: string, index: number): boolean {
+function quoteDepthBefore(value: string, index: number): number {
   const start = value.lastIndexOf('\n', index - 1) + 1;
   const prefix = value.slice(start, index);
-  return prefix.includes('>') && /^(?:>[ \t]*)+$/.test(prefix);
+  return prefix.match(/>/g)?.length ?? 0;
 }
 
 interface MathWrap {
@@ -190,22 +190,22 @@ function openerListIndent(value: string, index: number): number {
   return marker?.[0].length ?? 0;
 }
 
-function shieldMathBreaks(value: string, indent: number): string {
-  if (indent < 0) {
+function shieldMathBreaks(value: string, indent: number, quotes: number): string {
+  if (quotes <= 0) {
     return value.replaceAll('\n', `\n${MATH_LINE}`);
   }
   const space = indent > 0 ? `(?: {${indent}})?` : '';
   return value.replaceAll(
-    new RegExp(`\\n[ \\t]*(?:>[ \\t]?)*${space}`, 'g'),
+    new RegExp(`\\n[ \\t]*(?:>[ \\t]?){0,${quotes}}${space}`, 'g'),
     (match) => `${match}${MATH_LINE}`
   );
 }
 
-function shieldMathPiece(value: string, shieldLines: boolean, indent: number): string {
+function shieldMathPiece(value: string, indent: number, quotes: number): string {
   const wrapped = mathWrap(value);
   let shielded = shieldMathBody(wrapped.body);
-  if (shieldLines && shielded.includes('\n')) {
-    shielded = shieldMathBreaks(shielded, indent);
+  if (shielded.includes('\n')) {
+    shielded = shieldMathBreaks(shielded, indent, quotes);
   }
   return `${wrapped.open}${shielded}${wrapped.close}`;
 }
@@ -232,10 +232,11 @@ export function shieldMathMarkup(value: string): string {
     const end = mathEnd === -1 ? texEnd : mathEnd;
     if (end !== -1) {
       const span = dedentMathSpan(value.slice(index, end), continuationWidth(value, index));
+      const quoted = lineStartsWithQuote(value, index);
       result += shieldMathPiece(
         span,
-        !openedInsideQuote(value, index),
-        lineStartsWithQuote(value, index) ? openerListIndent(value, index) : -1
+        quoted ? openerListIndent(value, index) : -1,
+        quoted ? quoteDepthBefore(value, index) : 0
       );
       index = end;
       continue;

@@ -270,6 +270,13 @@ describe('renderMarkdownInline', () => {
     expect(html).not.toContain('&gt; x');
   });
 
+  it('keeps a nested quote marker inside a quoted formula', () => {
+    const html = markdownToPdfHtml('> $$\n> > nested\n> $$\n');
+    expect(html).toContain('&gt; nested');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('<blockquote>\n<blockquote>');
+  });
+
   it('leaves the next lines in place when a list formula never closes', () => {
     const html = markdownToPdfHtml('- Text $$\n  more\n\nafter\n');
     expect(html).toContain('Text $$');

@@ -223,6 +223,15 @@ describe('WYSIWYG markdown round trip', () => {
     expect(doc?.textContent).toContain('> quote');
   });
 
+  it('keeps a nested quote marker inside a quoted formula', () => {
+    const source = '> $$\n> > nested\n> $$\n';
+    const serialized = roundTrip(source);
+    expect(serialized).toContain('> > nested');
+    expect(serialized).not.toContain('\n> > $$');
+    const doc = parseMdxContent(source);
+    expect(doc?.textContent).toContain('> nested');
+  });
+
   it('keeps a quote marker inside display math', () => {
     const serialized = roundTrip('$$\n> quote inside math\n$$\n');
     expect(serialized).toContain('> quote inside math');

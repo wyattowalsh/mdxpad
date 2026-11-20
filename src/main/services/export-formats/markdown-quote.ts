@@ -347,6 +347,14 @@ function takeQuoteLine(
     takeChunk(chunks, current);
     return { kind: 'code', lines: [line] };
   }
+  if (
+    current?.kind === 'paragraph' &&
+    quoteMathRemainsOpen(current.lines) &&
+    quoteBody(line) !== null
+  ) {
+    current.lines.push(line);
+    return current;
+  }
   const kind = quoteLineKind(line, current);
   if (kind === null) {
     if (current?.kind === 'list') {
