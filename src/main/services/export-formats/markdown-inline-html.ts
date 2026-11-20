@@ -2,7 +2,7 @@ import katex from 'katex';
 
 import '@shared/lib/katex-mhchem';
 import { normalizedHeadingFragment } from '@shared/lib/markdown-heading';
-import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
+import { prepareKatexSource } from '@shared/lib/katex-source';
 
 import { linkedDisplaySpan, linkedDollarSpan, type LinkedDollarPart } from './markdown-linked-math';
 import { mathDelimiterAt, mathSpanEnd } from './markdown-math-span';
@@ -37,7 +37,7 @@ function escapeHtml(value: string): string {
 
 function renderKatex(interior: string, display: boolean): string {
   try {
-    return katex.renderToString(katexMathTex(renderableMathTex(interior)), {
+    return katex.renderToString(prepareKatexSource(interior), {
       throwOnError: false,
       displayMode: display,
       output: 'mathml',

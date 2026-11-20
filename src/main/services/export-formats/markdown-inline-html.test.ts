@@ -79,6 +79,16 @@ describe('renderMarkdownInline', () => {
     expect(grid).not.toContain('katex-error');
     expect(grid).toContain('Name');
     expect(grid).toContain('Tea');
+    const drawing = renderDisplayMathBlock([
+      '\\begin{tikzpicture}',
+      'Words about ice',
+      '\\end{tikzpicture}',
+    ]);
+    expect(drawing).not.toContain('katex-error');
+    expect(drawing).toContain('ice');
+    const broken = renderDisplayMathBlock(['\\begin{align}', '\\nope', '\\end{align}']);
+    expect(broken).toContain('\\nope');
+    expect(broken).toContain('#cc0000');
     const figure = renderDisplayMathBlock(['\\begin{figure}', 'A figure about ice', '\\end{figure}']);
     expect(figure).not.toContain('katex-error');
     expect(figure).toContain('ice');

@@ -12,7 +12,7 @@ import type { Plugin } from 'unified';
 
 import { isCurrencySpan } from '@shared/lib/currency-span';
 import { PREVIEW_DOLLAR } from '@shared/lib/preview-math-dollars';
-import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
+import { prepareKatexSource } from '@shared/lib/katex-source';
 
 import type { MdxPluginDefinition, MdxPipelinePlugin } from './plugin-pipeline';
 
@@ -63,7 +63,7 @@ function unwrapCurrencyMath(tree: TreeNode): void {
       (child.type === 'inlineMath' || child.type === 'math') &&
       typeof child.value === 'string'
     ) {
-      child.value = katexMathTex(renderableMathTex(child.value));
+      child.value = prepareKatexSource(child.value);
     }
     unwrapCurrencyMath(child);
   }

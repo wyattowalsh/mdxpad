@@ -6,7 +6,7 @@ import { Plugin, TextSelection, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 
 import { isCurrencySpan } from '@shared/lib/currency-span';
-import { katexMathTex, renderableMathTex } from '@shared/lib/renderable-math';
+import { prepareKatexSource } from '@shared/lib/katex-source';
 
 const MATH_PATTERN =
   /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<=(?<!\\)(?:\\\\)*)\$(?![\s$])((?:\\[\s\S]|[^$\n])+?)(?<![\s\\$])\$/g;
@@ -35,7 +35,7 @@ function formulaWidget(
   host.setAttribute('contenteditable', 'false');
   host.setAttribute('aria-label', tex);
   host.addEventListener('mousedown', edit);
-  host.innerHTML = katex.renderToString(katexMathTex(renderableMathTex(tex)), {
+  host.innerHTML = katex.renderToString(prepareKatexSource(tex), {
     throwOnError: false,
     displayMode: display,
     output: 'html',
